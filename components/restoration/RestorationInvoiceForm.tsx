@@ -358,6 +358,7 @@ export default function RestorationInvoiceForm({
   return (
     <div className="space-y-6 print:space-y-4">
       {/* Print styles: show only invoice (same pattern as inspection report) */}
+      {/* SAFE: static CSS template literal — no user data interpolated */}
       <style
         dangerouslySetInnerHTML={{
           __html: `

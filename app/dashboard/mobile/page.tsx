@@ -853,6 +853,7 @@ export default function MobileDashboardPage() {
                 <span className="text-neutral-500 dark:text-slate-400 shrink-0">
                   {row.key}
                 </span>
+                {/* SAFE: row.value is a hardcoded string literal from a static inline array — no user data */}
                 <span
                   className="text-neutral-900 dark:text-slate-100 text-right"
                   dangerouslySetInnerHTML={{ __html: row.value }}

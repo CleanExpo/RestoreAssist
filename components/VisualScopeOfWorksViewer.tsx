@@ -130,6 +130,7 @@ export default function VisualScopeOfWorksViewer({
   return (
     <>
       {/* Print Styles */}
+      {/* SAFE: static CSS template literal — no user data interpolated */}
       <style
         dangerouslySetInnerHTML={{
           __html: `@media print {

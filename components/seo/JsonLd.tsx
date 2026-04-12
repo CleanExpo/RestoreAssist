@@ -9,6 +9,7 @@ interface JsonLdProps {
 
 export function JsonLd({ data }: JsonLdProps) {
   return (
+    // SAFE: JSON-LD structured data — JSON.stringify of server-controlled schema object; no user input reaches this
     <script
       type="application/ld+json"
       dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
