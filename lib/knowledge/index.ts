@@ -556,29 +556,36 @@ export async function findTransitivelyRelated(
   const rows = await prisma.$queryRaw<TransitiveRow[]>`
     WITH RECURSIVE evidence_graph AS (
       -- Base: evidence classes for the seed inspection
+      -- Join Inspection to capture workspaceId for tenant isolation
       SELECT
         e.id,
         e."inspectionId" AS inspection_id,
         e."evidenceClass"::text AS evidence_class,
-        1 AS hop
+        0 AS hop,
+        i."workspaceId" AS workspace_id
       FROM "EvidenceItem" e
+      INNER JOIN "Inspection" i ON i.id = e."inspectionId"
       WHERE e."inspectionId" = ${inspectionId}
         AND e.status = 'ACTIVE'
 
       UNION
 
       -- Recursive: other inspections sharing any evidence class found so far
+      -- Scoped to same workspace as seed to prevent cross-tenant data leaks
       SELECT
         e2.id,
         e2."inspectionId",
         e2."evidenceClass"::text,
-        eg.hop + 1
+        eg.hop + 1,
+        eg.workspace_id
       FROM "EvidenceItem" e2
+      INNER JOIN "Inspection" i2 ON i2.id = e2."inspectionId"
       INNER JOIN evidence_graph eg
         ON eg.evidence_class = e2."evidenceClass"::text
         AND e2."inspectionId" != ${inspectionId}
       WHERE eg.hop < ${maxHops}
         AND e2.status = 'ACTIVE'
+        AND i2."workspaceId" IS NOT DISTINCT FROM eg.workspace_id
     )
     SELECT DISTINCT
       inspection_id,
