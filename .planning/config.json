@@ -1,0 +1,11 @@
+{
+  "project": "RestoreAssist",
+  "mode": "yolo",
+  "phases": [
+    {
+      "id": "04-build-test",
+      "name": "Build & Test Verification",
+      "description": "Production build verification, type-checking, and test runs"
+    }
+  ]
+}
