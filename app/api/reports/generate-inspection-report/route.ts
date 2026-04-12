@@ -11,6 +11,7 @@ import {
 } from "@/lib/reports/extract-report-data";
 import { buildInspectionReportPrompt } from "@/lib/reports/generate-report-ai";
 import { buildStructuredBasicReport } from "@/lib/reports/build-structured-report";
+import { expandContext } from "@/lib/knowledge";
 
 // POST - Generate complete professional inspection report with all 13 sections
 export async function POST(request: NextRequest) {
@@ -266,27 +267,69 @@ export async function POST(request: NextRequest) {
     }
 
     // For optimised reports, use AI generation
-    const prompt = buildInspectionReportPrompt({
-      report,
-      analysis,
-      tier1,
-      tier2,
-      tier3,
-      stateInfo,
-      reportType,
-      standardsContext,
-      psychrometricAssessment,
-      scopeAreas,
-      equipmentSelection,
-      businessInfo: {
-        businessName: user.businessName,
-        businessAddress: user.businessAddress,
-        businessLogo: user.businessLogo,
-        businessABN: user.businessABN,
-        businessPhone: user.businessPhone,
-        businessEmail: user.businessEmail,
-      },
-    });
+    // Expand knowledge-graph context from linked Inspection (RA-624)
+    let knowledgeContext = "";
+    try {
+      const linkedInspection = await prisma.inspection.findUnique({
+        where: { reportId },
+        select: { id: true },
+      });
+      if (linkedInspection) {
+        const kgContext = await expandContext({
+          inspectionId: linkedInspection.id,
+          k: 3,
+          includeInactive: false,
+        });
+        const evidenceCount = kgContext.nodes.filter(
+          (n) => n.type === "EvidenceItem",
+        ).length;
+        const iicrcChunks = kgContext.nodes.filter(
+          (n) => n.type === "IicrcChunk",
+        );
+        if (evidenceCount > 0 || iicrcChunks.length > 0) {
+          const byClass = Object.entries(kgContext.summary.evidenceByClass)
+            .map(([cls, count]) => `${cls}(${count})`)
+            .join(", ");
+          knowledgeContext = [
+            `\n\n--- KNOWLEDGE GRAPH CONTEXT (${evidenceCount} evidence items, ${kgContext.edges.length} relationships) ---`,
+            byClass ? `Evidence classes: ${byClass}` : "",
+            kgContext.summary.workflowStepCount > 0
+              ? `Workflow: ${kgContext.summary.workflowStepCount} steps (submission score: ${kgContext.summary.workflowSubmissionScore ?? "n/a"}%)`
+              : "",
+            iicrcChunks.length > 0
+              ? `Relevant IICRC sections: ${iicrcChunks.map((n) => n.label).join(", ")}`
+              : "",
+          ]
+            .filter(Boolean)
+            .join("\n");
+        }
+      }
+    } catch {
+      // Knowledge graph enrichment is best-effort; never block report generation
+    }
+
+    const prompt =
+      buildInspectionReportPrompt({
+        report,
+        analysis,
+        tier1,
+        tier2,
+        tier3,
+        stateInfo,
+        reportType,
+        standardsContext,
+        psychrometricAssessment,
+        scopeAreas,
+        equipmentSelection,
+        businessInfo: {
+          businessName: user.businessName,
+          businessAddress: user.businessAddress,
+          businessLogo: user.businessLogo,
+          businessABN: user.businessABN,
+          businessPhone: user.businessPhone,
+          businessEmail: user.businessEmail,
+        },
+      }) + knowledgeContext;
 
     const systemPrompt = `You are RestoreAssist, an expert water damage restoration documentation system built for Australian restoration company administration teams. Generate comprehensive, professional inspection reports that strictly adhere to ALL relevant Australian standards, laws, regulations, and best practices. You MUST explicitly reference specific standards, codes, and regulations throughout the report.
 
