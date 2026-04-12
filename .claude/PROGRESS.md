@@ -9,19 +9,23 @@ All 447 Linear issues are Done. The full RestoreAssist platform is implemented a
 
 ## Current Session (2026-04-12) — ALL COMPLETE
 
-| Task                                           | Status | Notes                                                                          |
-| ---------------------------------------------- | ------ | ------------------------------------------------------------------------------ |
-| RA-613: Manual onboarding playbook (20 pilots) | Done   | PR #171, branch feat/ra-613-onboarding-playbook, Linear In Review              |
-| RA-611: BYOE year-two vision document          | Done   | PR #172, branch feat/ra-611-byoe-vision, Linear In Review                      |
-| DR-534: Alfred event page (BUILD-008)          | Done   | PR #38, branch feat/dr-534-event-pages in D:/Disaster Recovery/                |
-| DR-534: Cyclone Alfred canonical redirect      | Done   | /cyclone-alfred-queensland-2026 → /events/cyclone-alfred-fnq-2026              |
-| DR-534: GAP-073 claim page trust header        | Done   | "We work for you, not your insurer." on /claim                                 |
-| DR-533: NSW/QLD storms event page              | Done   | Covered by PR #38 (ours) and PR #35 (previous session). DR-533 → In Review     |
-| DR-534: Maila ACL pivot (BUILD-006)            | Done   | Covered by PR #35 (previous session, open) — Maila pages updated to evergreen  |
-| DR-534/DR-533: Linear → In Review              | Done   | Both issues moved to In Review state                                           |
-| DR-536: AML/CTF Tranche 2 + privacy policy     | Done   | PR #39 (Disaster Recovery repo), DR-536 In Review                              |
-| RA-625: Sprint G graph-readiness audit         | Done   | PR #173, SPRINT-G-GRAPH-READINESS-AUDIT.md, Linear In Review                   |
-| RA-624: lib/knowledge/index.ts                 | Done   | PR #173, expandContext wired into generate-inspection-report, Linear In Review |
+| Task                                           | Status | Notes                                                                                            |
+| ---------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------ |
+| RA-613: Manual onboarding playbook (20 pilots) | Done   | PR #171, branch feat/ra-613-onboarding-playbook, Linear In Review                                |
+| RA-611: BYOE year-two vision document          | Done   | PR #172, branch feat/ra-611-byoe-vision, Linear In Review                                        |
+| DR-534: Alfred event page (BUILD-008)          | Done   | PR #38, branch feat/dr-534-event-pages in D:/Disaster Recovery/                                  |
+| DR-534: Cyclone Alfred canonical redirect      | Done   | /cyclone-alfred-queensland-2026 → /events/cyclone-alfred-fnq-2026                                |
+| DR-534: GAP-073 claim page trust header        | Done   | "We work for you, not your insurer." on /claim                                                   |
+| DR-533: NSW/QLD storms event page              | Done   | Covered by PR #38 (ours) and PR #35 (previous session). DR-533 → In Review                       |
+| DR-534: Maila ACL pivot (BUILD-006)            | Done   | Covered by PR #35 (previous session, open) — Maila pages updated to evergreen                    |
+| DR-534/DR-533: Linear → In Review              | Done   | Both issues moved to In Review state                                                             |
+| DR-536: AML/CTF Tranche 2 + privacy policy     | Done   | PR #39 (Disaster Recovery repo), DR-536 In Review                                                |
+| RA-625: Sprint G graph-readiness audit         | Done   | PR #173, SPRINT-G-GRAPH-READINESS-AUDIT.md, Linear In Review                                     |
+| RA-624: lib/knowledge/index.ts                 | Done   | PR #173, expandContext wired into generate-inspection-report, Linear In Review                   |
+| RA-601: DR-NRPG XSS + SQL injection            | Done   | PR #70 (DR-NRPG), $executeRawUnsafe → $executeRaw, SafeHtml component, DOMPurify on module       |
+| DR-561: DR-NRPG 6 critical CVEs                | Done   | lockfile updated: axios@1.15.0, jspdf@4.2.1, basic-ftp@5.2.2, fast-xml-parser@5.5.11, hbs@4.7.9  |
+| F13: jsPDF CVE (RestoreAssist)                 | Done   | jspdf@4.2.1 already in RestoreAssist pnpm-lock.yaml — no action needed                           |
+| F15: Nonce-based CSP                           | Done   | middleware.ts: 'nonce-${nonce}' + 'strict-dynamic' + 'unsafe-inline' (progressive nonce pattern) |
 
 ## Prior Session Verification (2026-04-12)
 
@@ -414,3 +418,31 @@ Audited production: `restoreassist-okzjr4l3g-unite-group.vercel.app` (latest Pro
 ## 2026-04-12 11:56 — Session End
 
 ## 2026-04-12 11:56 — Session End
+
+## 2026-04-12 11:58 — Session End
+
+## 2026-04-12 11:59 — Session End
+
+## 2026-04-12 11:59 — Session End
+
+## 2026-04-12 12:00 — Session End
+
+## 2026-04-12 12:00 — Session End
+
+## 2026-04-12 12:01 — Session End
+
+## 2026-04-12 12:02 — Session End
+
+## 2026-04-12 12:02 — Session End
+
+## 2026-04-12 12:02 — Session End
+
+## 2026-04-12 12:32 — Session End
+
+## 2026-04-12 12:48 — Session End
+
+## 2026-04-12 13:01 — Session End
+
+## 2026-04-12 13:02 — Session End
+
+## 2026-04-12 13:02 — Session End
