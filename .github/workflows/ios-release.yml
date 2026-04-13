@@ -4,25 +4,34 @@ on:
   push:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+"
+  workflow_dispatch: # Manual trigger from GitHub Actions UI
 
 jobs:
   release-ios:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
+          cache: "pnpm"
+
       - name: Install dependencies
-        run: npm install -g pnpm && pnpm install --frozen-lockfile
-      - name: Build Next.js app
-        run: pnpm build
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
-          NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL }}
-      - name: Sync Capacitor
-        run: npx cap sync ios
+        run: pnpm install --no-frozen-lockfile
+
+      # Server-hosted WebView — no Next.js build needed.
+      # The iOS app loads https://restoreassist.com.au directly.
+      # We only need cap sync to copy native plugins.
+      - name: Sync Capacitor iOS
+        run: |
+          mkdir -p ios/App/App/public
+          npx cap sync ios
       - name: Install Fastlane
         run: gem install fastlane
       - name: Decode certificate

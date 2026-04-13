@@ -64,3 +64,6 @@ v2-signin.png
 store-assets/
 
 .vercel
+
+# Local Claude skills (may contain API keys)
+.claude/skills/
