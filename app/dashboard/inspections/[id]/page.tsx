@@ -20,6 +20,13 @@ const ActivityTimeline = dynamic(
   () => import("@/components/inspection/ActivityTimeline"),
   { ssr: false },
 );
+const SketchEditor = dynamic(
+  () =>
+    import("@/components/sketch/SketchEditor").then((m) => ({
+      default: m.SketchEditor,
+    })),
+  { ssr: false },
+);
 import {
   ArrowLeft,
   Loader2,
@@ -81,6 +88,7 @@ type Tab =
   | "scope"
   | "costs"
   | "photos"
+  | "sketch"
   | "activity"
   | "insurer";
 
@@ -754,6 +762,7 @@ export default function InspectionDetailPage({
       icon: Camera,
       count: inspection.photos.length,
     },
+    { key: "sketch", label: "Floor Plan", icon: Pencil },
     { key: "activity", label: "Activity", icon: History },
     { key: "insurer", label: "Insurer Profile", icon: Building2 },
   ];
@@ -2341,6 +2350,15 @@ export default function InspectionDetailPage({
               </div>
             )}
           </div>
+        )}
+
+        {/* Floor Plan / Sketch Tab */}
+        {activeTab === "sketch" && (
+          <SketchEditor
+            inspectionId={inspection.id}
+            propertyAddress={inspection.propertyAddress}
+            propertyPostcode={inspection.propertyPostcode}
+          />
         )}
 
         {/* Activity Tab */}

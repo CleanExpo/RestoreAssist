@@ -88,6 +88,11 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
     const historyRef = useRef<string[]>([]);
     const historyIdxRef = useRef(-1);
     const isLoadingRef = useRef(false);
+    // Keep a ref so the pan handler closure always sees the current toolMode
+    const toolModeRef = useRef(toolMode);
+    useEffect(() => {
+      toolModeRef.current = toolMode;
+    }, [toolMode]);
     const [historyState, setHistoryState] = useState({
       canUndo: false,
       canRedo: false,
@@ -255,7 +260,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
 
         canvas.on("mouse:down", (opt: unknown) => {
           const e = (opt as { e: MouseEvent }).e;
-          if (e.altKey || toolMode === "pan") {
+          if (e.altKey || toolModeRef.current === "pan") {
             isPanning = true;
             lastPos = { x: e.clientX, y: e.clientY };
           }

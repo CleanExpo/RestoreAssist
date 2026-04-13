@@ -395,6 +395,126 @@ export function SketchEditor({
           canvasRef?.current?.saveState();
           scheduleSave();
         }
+      } else if (toolMode === "line") {
+        const state = roomDrawRef.current.get(floorId)!;
+        if (state.points.length === 0) {
+          // First click — record start and show a guide dot
+          const fabric = await import("fabric");
+          const { Circle } = fabric as unknown as {
+            Circle: new (opts: object) => unknown;
+          };
+          const id = `dot-line-${Date.now()}`;
+          const dot = new Circle({
+            id,
+            left: x - 4,
+            top: y - 4,
+            radius: 4,
+            fill: "#6366f1",
+            selectable: false,
+            evented: false,
+          });
+          canvas.add(dot);
+          state.tempObjIds.push(id);
+          state.points.push({ x, y });
+          canvas.renderAll();
+        } else {
+          // Second click — draw the wall/line segment
+          const start = state.points[0];
+          const fabric = await import("fabric");
+          const { Line: FLine } = fabric as unknown as {
+            Line: new (pts: number[], opts: object) => unknown;
+          };
+          const line = new FLine([start.x, start.y, x, y], {
+            stroke: "#374151",
+            strokeWidth: 3,
+            selectable: !readonly,
+          });
+          canvas.add(line);
+          const objs = canvas.getObjects();
+          state.tempObjIds.forEach((oid) => {
+            const obj = objs.find(
+              (o: unknown) => (o as { id?: string }).id === oid,
+            );
+            if (obj) canvas.remove(obj);
+          });
+          state.points = [];
+          state.tempObjIds = [];
+          canvas.renderAll();
+          canvasRef?.current?.saveState();
+          scheduleSave();
+        }
+      } else if (toolMode === "arrow") {
+        const state = roomDrawRef.current.get(floorId)!;
+        if (state.points.length === 0) {
+          // First click — record start and show a guide dot
+          const fabric = await import("fabric");
+          const { Circle } = fabric as unknown as {
+            Circle: new (opts: object) => unknown;
+          };
+          const id = `dot-arrow-${Date.now()}`;
+          const dot = new Circle({
+            id,
+            left: x - 4,
+            top: y - 4,
+            radius: 4,
+            fill: "#f97316",
+            selectable: false,
+            evented: false,
+          });
+          canvas.add(dot);
+          state.tempObjIds.push(id);
+          state.points.push({ x, y });
+          canvas.renderAll();
+        } else {
+          // Second click — draw arrow (line + arrowhead triangle)
+          const start = state.points[0];
+          const fabric = await import("fabric");
+          const {
+            Line: FLine,
+            Triangle,
+            Group,
+          } = fabric as unknown as {
+            Line: new (pts: number[], opts: object) => unknown;
+            Triangle: new (opts: object) => unknown;
+            Group: new (objs: unknown[], opts: object) => unknown;
+          };
+
+          const angle = Math.atan2(y - start.y, x - start.x) * (180 / Math.PI);
+
+          const line = new FLine([start.x, start.y, x, y], {
+            stroke: "#f97316",
+            strokeWidth: 3,
+            selectable: false,
+            evented: false,
+          });
+          const arrowHead = new Triangle({
+            left: x - 8,
+            top: y - 8,
+            width: 16,
+            height: 16,
+            fill: "#f97316",
+            angle: angle + 90,
+            selectable: false,
+            evented: false,
+          });
+          const group = new Group([line, arrowHead], {
+            selectable: !readonly,
+          });
+          canvas.add(group);
+
+          const objs = canvas.getObjects();
+          state.tempObjIds.forEach((oid) => {
+            const obj = objs.find(
+              (o: unknown) => (o as { id?: string }).id === oid,
+            );
+            if (obj) canvas.remove(obj);
+          });
+          state.points = [];
+          state.tempObjIds = [];
+          canvas.renderAll();
+          canvasRef?.current?.saveState();
+          scheduleSave();
+        }
       } else if (toolMode === "photo") {
         const fabric = await import("fabric");
         const { Circle: FCircle, IText: FIText } = fabric as unknown as {
