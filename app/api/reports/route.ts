@@ -126,45 +126,35 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check and use credits directly
+    // Check subscription status (RA-896: atomic credit deduction — no read-then-write)
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
-      select: {
-        subscriptionStatus: true,
-        creditsRemaining: true,
-        totalCreditsUsed: true,
-      },
+      select: { subscriptionStatus: true },
     });
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Check if user has enough credits (only for trial users)
-    if (
-      user.subscriptionStatus === "TRIAL" &&
-      (user.creditsRemaining ?? 0) < 1
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "Insufficient credits. Please upgrade your plan to create more reports.",
-          upgradeRequired: true,
-          creditsRemaining: user.creditsRemaining,
-        },
-        { status: 402 },
-      );
-    }
-
-    // Update credits (only for trial users)
+    // Atomic credit deduction for TRIAL users — prevents double-spend race condition
     if (user.subscriptionStatus === "TRIAL") {
-      await prisma.user.update({
-        where: { id: session.user.id },
+      const deductResult = await prisma.user.updateMany({
+        where: { id: session.user.id, creditsRemaining: { gte: 1 } },
         data: {
-          creditsRemaining: Math.max(0, (user.creditsRemaining ?? 0) - 1),
-          totalCreditsUsed: (user.totalCreditsUsed ?? 0) + 1,
+          creditsRemaining: { decrement: 1 },
+          totalCreditsUsed: { increment: 1 },
         },
       });
+      if (deductResult.count === 0) {
+        return NextResponse.json(
+          {
+            error:
+              "Insufficient credits. Please upgrade your plan to create more reports.",
+            upgradeRequired: true,
+          },
+          { status: 402 },
+        );
+      }
     }
 
     // Generate report number if not provided

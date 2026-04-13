@@ -56,15 +56,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if estimate already exists (by reportId or scopeId)
+    // Check if estimate already exists (by reportId or scopeId) — RA-897: scope to user
     const existingEstimate = await prisma.estimate.findFirst({
       where: {
+        userId: session.user.id, // RA-897: prevent cross-user estimate access
         OR: [{ reportId }, ...(scopeId ? [{ scopeId }] : [])],
       },
       include: {
         lineItems: true,
       },
     });
+
+    // RA-894: Recalculate financial totals server-side — never trust client-supplied amounts
+    const calculatedSubtotal = (lineItems || []).reduce(
+      (sum: number, item: any) =>
+        sum + (item.subtotal ?? (item.qty ?? 0) * (item.rate ?? 0)),
+      0,
+    );
+    const calculatedGst = Math.round(calculatedSubtotal * 0.1 * 100) / 100; // AU GST 10%
+    const calculatedTotal =
+      Math.round((calculatedSubtotal + calculatedGst) * 100) / 100;
 
     const estimateData = {
       reportId,
@@ -85,9 +96,9 @@ export async function POST(request: NextRequest) {
       profit: body.profit || 0,
       contingency: body.contingency || 0,
       escalation: body.escalation || 0,
-      subtotalExGST: body.subtotalExGST || 0,
-      gst: body.gst || 0,
-      totalIncGST: body.totalIncGST || 0,
+      subtotalExGST: calculatedSubtotal,
+      gst: calculatedGst,
+      totalIncGST: calculatedTotal,
       assumptions: assumptions ? sanitizeString(assumptions, 5000) : null,
       inclusions: inclusions ? sanitizeString(inclusions, 5000) : null,
       exclusions: exclusions ? sanitizeString(exclusions, 5000) : null,

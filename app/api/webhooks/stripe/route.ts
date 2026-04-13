@@ -30,36 +30,73 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // RA-913: Idempotency — skip events already successfully processed
+    const existingEvent = await prisma.stripeWebhookEvent.findUnique({
+      where: { stripeEventId: event.id },
+      select: { status: true },
+    });
+    if (existingEvent?.status === "COMPLETED") {
+      return NextResponse.json({ received: true });
+    }
+
+    // Record the event before processing (upsert handles Stripe retries)
+    await prisma.stripeWebhookEvent.upsert({
+      where: { stripeEventId: event.id },
+      create: {
+        stripeEventId: event.id,
+        eventType: event.type,
+        eventData: JSON.stringify(event.data.object),
+        status: "PROCESSING",
+      },
+      update: {
+        status: "PROCESSING",
+        retryCount: { increment: 1 },
+      },
+    });
+
     switch (event.type) {
-      case "checkout.session.completed":
+      case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
 
         if (session.mode === "subscription" && session.customer_email) {
-          // Update user subscription status
-          const checkoutResult = await prisma.user.updateMany({
+          // RA-907: Use actual subscription period end instead of hardcoded +30 days
+          let periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+          if (session.subscription) {
+            try {
+              const sub = await stripe.subscriptions.retrieve(
+                session.subscription as string,
+              );
+              const periodEndTs = (sub as any).current_period_end as
+                | number
+                | undefined;
+              if (periodEndTs) {
+                periodEnd = new Date(periodEndTs * 1000);
+              }
+            } catch {
+              // Fall through to +30 day default if retrieval fails
+            }
+          }
+
+          await prisma.user.updateMany({
             where: { email: session.customer_email },
             data: {
               subscriptionStatus: "ACTIVE",
               stripeCustomerId: session.customer as string,
               subscriptionId: session.subscription as string,
-              subscriptionEndsAt: new Date(
-                Date.now() + 30 * 24 * 60 * 60 * 1000,
-              ),
-              nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+              subscriptionEndsAt: periodEnd,
+              nextBillingDate: periodEnd,
               creditsRemaining: 999999, // Unlimited for paid plans
             },
           });
-
-          void checkoutResult;
         }
         break;
+      }
 
-      case "customer.subscription.created":
+      case "customer.subscription.created": {
         const subscription = event.data.object as Stripe.Subscription;
 
-        // Update user subscription
         if (subscription.customer) {
-          const subscriptionResult = await prisma.user.updateMany({
+          await prisma.user.updateMany({
             where: { stripeCustomerId: subscription.customer as string },
             data: {
               subscriptionStatus: "ACTIVE",
@@ -75,15 +112,14 @@ export async function POST(request: NextRequest) {
               creditsRemaining: 999999,
             },
           });
-
-          void subscriptionResult;
         }
         break;
+      }
 
-      case "customer.subscription.updated":
+      case "customer.subscription.updated": {
         const updatedSubscription = event.data.object as Stripe.Subscription;
 
-        const updateResult = await prisma.user.updateMany({
+        await prisma.user.updateMany({
           where: { subscriptionId: updatedSubscription.id },
           data: {
             subscriptionStatus:
@@ -98,14 +134,13 @@ export async function POST(request: NextRequest) {
             ),
           },
         });
-
-        void updateResult;
         break;
+      }
 
-      case "customer.subscription.deleted":
+      case "customer.subscription.deleted": {
         const deletedSubscription = event.data.object as Stripe.Subscription;
 
-        const deletionResult = await prisma.user.updateMany({
+        await prisma.user.updateMany({
           where: { subscriptionId: deletedSubscription.id },
           data: {
             subscriptionStatus: "EXPIRED",
@@ -113,11 +148,10 @@ export async function POST(request: NextRequest) {
             creditsRemaining: 0,
           },
         });
-
-        void deletionResult;
         break;
+      }
 
-      case "invoice.payment_succeeded":
+      case "invoice.payment_succeeded": {
         const invoice = event.data.object as Stripe.Invoice;
 
         if ((invoice as any).subscription) {
@@ -131,8 +165,9 @@ export async function POST(request: NextRequest) {
           });
         }
         break;
+      }
 
-      case "invoice.payment_failed":
+      case "invoice.payment_failed": {
         const failedInvoice = event.data.object as Stripe.Invoice;
 
         if ((failedInvoice as any).subscription) {
@@ -146,14 +181,58 @@ export async function POST(request: NextRequest) {
           });
         }
         break;
+      }
+
+      case "payment_intent.succeeded": {
+        // RA-893: Mark Invoice as PAID when a one-off payment intent succeeds
+        const pi = event.data.object as Stripe.PaymentIntent;
+        if (pi.id) {
+          const payment = await prisma.invoicePayment.findUnique({
+            where: { stripePaymentIntentId: pi.id },
+            select: { invoiceId: true },
+          });
+          if (payment?.invoiceId) {
+            await prisma.invoice.update({
+              where: { id: payment.invoiceId },
+              data: {
+                status: "PAID",
+                paidDate: new Date(),
+                amountPaid: pi.amount_received,
+                amountDue: 0,
+              },
+            });
+          }
+        }
+        break;
+      }
 
       default:
         // Unhandled event types are silently ignored
         break;
     }
 
+    // RA-913: Mark event as successfully completed
+    await prisma.stripeWebhookEvent.update({
+      where: { stripeEventId: event.id },
+      data: { status: "COMPLETED", processedAt: new Date() },
+    });
+
     return NextResponse.json({ received: true });
   } catch (error) {
+    // RA-913: Record failure for retry tracking and alerting
+    try {
+      await prisma.stripeWebhookEvent.update({
+        where: { stripeEventId: event.id },
+        data: {
+          status: "FAILED",
+          errorMessage:
+            error instanceof Error ? error.message : "Unknown error",
+        },
+      });
+    } catch {
+      // Ignore secondary failure — primary error response takes precedence
+    }
+    console.error("[stripe-webhook] Processing error:", error);
     return NextResponse.json(
       { error: "Webhook processing failed" },
       { status: 500 },
