@@ -131,7 +131,7 @@ export async function POST(
   } catch (error: any) {
     console.error("[Send Completed] Error:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to send completed form emails" },
+      { error: "Failed to send completed form emails" },
       { status: 500 },
     );
   }

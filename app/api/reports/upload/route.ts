@@ -193,7 +193,7 @@ export async function POST(request: NextRequest) {
     } catch (error: any) {
       return NextResponse.json(
         {
-          error: error.message || "Failed to get Anthropic API key",
+          error: "Failed to get Anthropic API key",
           details:
             "Please connect an Anthropic API key in the Integrations page or ensure ANTHROPIC_API_KEY is set in environment variables.",
         },

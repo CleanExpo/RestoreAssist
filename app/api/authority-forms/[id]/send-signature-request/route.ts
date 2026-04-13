@@ -157,7 +157,7 @@ export async function POST(
   } catch (error: any) {
     console.error("[Send Signature Request] Error:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to send signature request" },
+      { error: "Failed to send signature request" },
       { status: 500 },
     );
   }

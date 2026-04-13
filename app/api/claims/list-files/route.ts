@@ -70,11 +70,7 @@ export async function POST(request: NextRequest) {
       // Return detailed error for debugging
       return NextResponse.json(
         {
-          error: error.message || "Failed to list files",
-          details:
-            error.response?.data?.error?.message ||
-            error.code ||
-            "Unknown error",
+          error: "Failed to list files",
           folderId,
         },
         { status: 500 },
@@ -106,10 +102,8 @@ export async function POST(request: NextRequest) {
     console.error("Error listing files:", error);
     return NextResponse.json(
       {
-        error: error.message || "Failed to list files from Google Drive",
-        details:
-          error.details ||
-          "Please check your Google Drive credentials and folder permissions.",
+        error: "Failed to list files from Google Drive",
+        details: "Please check your Google Drive credentials and folder permissions.",
       },
       { status: 500 },
     );

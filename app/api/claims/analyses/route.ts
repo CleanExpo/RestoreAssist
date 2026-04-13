@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error("Error fetching analyses:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to fetch analyses" },
+      { error: "Failed to fetch analyses" },
       { status: 500 },
     );
   }

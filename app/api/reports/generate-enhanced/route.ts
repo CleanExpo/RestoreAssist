@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
       anthropicApiKey = await getAnthropicApiKey(session.user.id);
     } catch (error: any) {
       return NextResponse.json(
-        { error: error.message || "Failed to get Anthropic API key" },
+        { error: "Failed to get Anthropic API key" },
         { status: 400 },
       );
     }
@@ -450,7 +450,7 @@ Format the response as a well-structured professional report with clear sections
   } catch (error: any) {
     console.error("Error generating enhanced report:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to generate enhanced report" },
+      { error: "Failed to generate enhanced report" },
       { status: 500 },
     );
   }

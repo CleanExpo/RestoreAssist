@@ -164,7 +164,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (overallRating < 1 || overallRating > 5) {
+    const subRatings = [qualityRating, timelinessRating, communicationRating, valueRating];
+    const allRatings = [overallRating, ...subRatings.filter((r) => r !== undefined)];
+    if (allRatings.some((r) => r < 1 || r > 5)) {
       return NextResponse.json(
         { error: "Rating must be between 1 and 5" },
         { status: 400 },
