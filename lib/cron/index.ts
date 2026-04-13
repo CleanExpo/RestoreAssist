@@ -5,3 +5,5 @@ export { processScheduledEmails } from "./process-emails";
 export { advanceWorkflows } from "./advance-workflows";
 export { reviewDeadLetterTasks } from "./dead-letter-review";
 export { cleanupOldData } from "./cleanup";
+export { generateBrandAmbassadorDrafts } from "./brand-ambassador";
+export { checkDesignSystemOnboarding } from "./design-system-onboarding";
