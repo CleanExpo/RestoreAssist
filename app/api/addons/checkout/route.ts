@@ -162,7 +162,7 @@ export async function POST(request: NextRequest) {
       console.error("Error creating add-on checkout session:", error);
       return NextResponse.json(
         {
-          error: error.message || "Failed to create checkout session",
+          error: "Failed to create checkout session",
         },
         { status: 500 },
       );

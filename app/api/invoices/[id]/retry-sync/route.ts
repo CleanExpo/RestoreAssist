@@ -104,7 +104,7 @@ export async function POST(
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Failed to retry sync",
+        error: "Failed to retry sync",
       },
       { status: 500 },
     );

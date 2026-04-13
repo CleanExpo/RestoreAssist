@@ -184,7 +184,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         status: "unhealthy",
-        error: error.message || "Failed to perform health check",
+        error: "Failed to perform health check",
       },
       { status: 500 },
     );

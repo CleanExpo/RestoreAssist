@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
     console.error("Chatbot GET error:", error);
     return NextResponse.json(
       {
-        error: error.message || "Failed to fetch chat history",
+        error: "Failed to fetch chat history",
       },
       { status: 500 },
     );
@@ -315,7 +315,7 @@ Remember: You are a Restore Assist expert, not a generic restoration advisor. Al
     console.error("Chatbot error:", error);
     return NextResponse.json(
       {
-        error: error.message || "Failed to process chat message",
+        error: "Failed to process chat message",
         details: "Please try again or contact support if the issue persists.",
       },
       { status: 500 },

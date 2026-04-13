@@ -43,7 +43,7 @@ export async function GET(
   } catch (error: any) {
     console.error("Error serving document:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to serve document" },
+      { error: "Failed to serve document" },
       { status: 500 },
     );
   }
