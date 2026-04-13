@@ -10,3 +10,5 @@ export { distributeContent } from "./distribute-content";
 export { collectAnalytics } from "./collect-analytics";
 export { runScoutAgent } from "./scout-agent";
 export type { ScoutAgentResult } from "./scout-agent";
+export { runBoardMeeting } from "./board-meeting";
+export type { BoardMeetingResult } from "./board-meeting";
