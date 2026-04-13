@@ -1,9 +1,45 @@
 # Progress — RestoreAssist
 
-**Phase:** Managed Agents v4 Setup + Linear Work
-**Last updated:** 2026-04-10
+**Phase:** Audit Remediation — Production Build
+**Last updated:** 2026-04-14
 
-## Project Status: 447/448 Linear Issues Done
+## Next Task: Track 3 — Architectural Sprint
+
+### Track 3 targets
+
+- **RA-902** — Real sync queue implementation (replace stub in `lib/integrations/sync-queue.ts`) — design-first
+- **RA-914** — `useFetch` hook in `lib/hooks/useFetch.ts` to replace ~108 bare `fetch()` useEffects
+
+### Completed tracks
+
+- **Track 1** ✅ — RA-892, RA-905, RA-908, RA-915, RA-916, RA-918, RA-921 (commits 512bb008, 6f1a3f19, c0954a95)
+- **Track 2** ✅ — RA-893, RA-894, RA-896, RA-897, RA-907, RA-913 (commit acb78e22)
+- All 13 issues marked Done in Linear
+- PR #180 open on GitHub (sandbox → main)
+
+### Board-approved build sequence (2026-04-14)
+
+| Track                        | Issues                                                                                                                                                                                                        | When                                      |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| **Track 1 — Same-day**       | RA-892 (SQL injection), RA-908 (LIFETIME integration fix), RA-905 (demo auth bypass), RA-915 (alert→toast), RA-916 (batch download stub), RA-918 (invoices overflow), RA-921 (hide unbuilt integration tiles) | Ship immediately                          |
+| **Track 2 — Billing sprint** | RA-893, RA-894, RA-896, RA-897, RA-907 + RA-913 (batch into single Stripe webhook PR)                                                                                                                         | Before GA                                 |
+| **Track 3 — Architectural**  | RA-902 (real sync queue — design first), RA-914 (useFetch hook)                                                                                                                                               | Planned sprint                            |
+| **Track 4 — Triage**         | RA-910, RA-911, RA-912, RA-919, RA-922 + remaining Mediums                                                                                                                                                    | Runtime-verify before sprint allocation   |
+| **Xero Sprint**              | RA-870, RA-920, RA-868–RA-871                                                                                                                                                                                 | Bundle before EOFY (June 30 ATO deadline) |
+
+RA-921 restructured: hide tiles = Track 1 (5-min fix), Simpro/IMS builds = Billing Platform v2 milestone.
+
+### Full audit issue list (RA-892 – RA-922)
+
+Created 2026-04-14 from 6-agent deep audit. All in Linear "RestoreAssist Compliance Platform" project.
+
+- **Critical (8):** RA-892 to RA-899
+- **High (14):** RA-900 to RA-913
+- **Medium (9):** RA-914 to RA-922
+
+---
+
+## Project Status: 447/448 Linear Issues Done (pre-audit)
 
 All 447 Linear issues are Done. The full RestoreAssist platform is implemented and deployed to production at restoreassist.com.au. Only RA-287 remains (blocked on DO_TOKEN GitHub secret).
 
@@ -612,3 +648,35 @@ Audited production: `restoreassist-okzjr4l3g-unite-group.vercel.app` (latest Pro
 ## 2026-04-13 17:44 — Session End
 
 ## 2026-04-13 17:46 — Session End
+
+## 2026-04-14 07:57 — Session End
+
+## 2026-04-14 07:57 — Session End
+
+## 2026-04-14 07:58 — Session End
+
+## 2026-04-14 08:16 — Session End
+
+## 2026-04-14 08:21 — Session End
+
+## 2026-04-14 08:34 — Session End
+
+## 2026-04-14 08:39 — Session End
+
+## 2026-04-14 08:44 — Session End
+
+## 2026-04-14 08:45 — Session End
+
+## 2026-04-14 08:46 — Session End
+
+## 2026-04-14 08:47 — Session End
+
+## 2026-04-14 08:47 — Session End
+
+## 2026-04-14 08:48 — Session End
+
+## 2026-04-14 08:58 — Session End
+
+## 2026-04-14 09:04 — Session End
+
+## 2026-04-14 09:14 — Session End
