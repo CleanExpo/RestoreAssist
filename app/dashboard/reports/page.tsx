@@ -334,12 +334,9 @@ export default function ReportsPage() {
           <Filter size={20} />
         </button>
         <button
-          onClick={() => {
-            // Download all reports as a batch (you can implement this later)
-            console.log("Batch download not implemented yet");
-          }}
-          className="p-2 border border-slate-700 rounded-lg hover:bg-slate-800 transition-colors"
-          title="Download All Reports"
+          disabled
+          className="p-2 border border-slate-700 rounded-lg opacity-40 cursor-not-allowed"
+          title="Batch download — coming soon"
         >
           <Download size={20} />
         </button>

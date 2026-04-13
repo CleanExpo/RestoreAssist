@@ -54,9 +54,8 @@ export async function checkIntegrationAccess(
     };
   }
 
-  // Only allow ACTIVE subscribers
-  // TRIAL users cannot access external integrations
-  const allowedStatuses = ["ACTIVE"];
+  // Allow ACTIVE and LIFETIME subscribers; TRIAL users cannot access external integrations
+  const allowedStatuses = ["ACTIVE", "LIFETIME"];
   const isAllowed = allowedStatuses.includes(user.subscriptionStatus || "");
 
   // Also check if subscription hasn't expired

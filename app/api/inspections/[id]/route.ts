@@ -265,14 +265,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
 
-    // Demo inspection — no auth required, static data
-    if (id === "demo-inspection-001") {
-      return NextResponse.json({ inspection: DEMO_INSPECTION });
-    }
-
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Demo inspection — authenticated users only (RA-905: auth must precede demo bypass)
+    if (id === "demo-inspection-001") {
+      return NextResponse.json({ inspection: DEMO_INSPECTION });
     }
 
     const inspection = await prisma.inspection.findFirst({

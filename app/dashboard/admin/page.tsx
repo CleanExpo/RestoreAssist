@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 import {
   Users,
   Building2,
@@ -58,13 +59,13 @@ export default function AdminDashboardPage() {
       const res = await fetch("/api/admin/seed-demo", { method: "POST" });
       const data = await res.json();
       if (res.ok) {
-        alert(data.message);
+        toast.success(data.message);
         if (data.seeded) fetchStats();
       } else {
-        alert(data.error || "Failed to seed demo data");
+        toast.error(data.error || "Failed to seed demo data");
       }
     } catch {
-      alert("Network error — seed not run");
+      toast.error("Network error — seed not run");
     } finally {
       setSeeding(false);
     }

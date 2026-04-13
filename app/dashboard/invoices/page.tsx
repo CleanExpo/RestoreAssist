@@ -359,8 +359,8 @@ export default function InvoicesPage() {
           </Link>
         </div>
       ) : (
-        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
-          <table className="w-full">
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg overflow-x-auto">
+          <table className="w-full min-w-[640px]">
             <thead className="bg-slate-50 dark:bg-slate-700/50">
               <tr>
                 <th className="px-4 py-3 text-left w-10">
