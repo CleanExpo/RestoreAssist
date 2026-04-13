@@ -1,18 +1,24 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useSession } from "next-auth/react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Loader2, Send, CheckCircle } from "lucide-react"
+import { useState } from "react";
+import { useSession } from "next-auth/react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Loader2, Send, CheckCircle } from "lucide-react";
 import {
   inspectionSubmittedEmail,
   scopeReadyEmail,
   invoiceGeneratedEmail,
   dryingGoalAchievedEmail,
   reportReadyEmail,
-} from "@/lib/email-templates"
+} from "@/lib/email-templates";
 
 // ── Sample data for previews ──────────────────────────────────────────────
 
@@ -25,7 +31,7 @@ const SAMPLE = {
   totalIncGST: 8450.0,
   dueDate: "15 Apr 2026",
   completionDate: "31 Mar 2026",
-}
+};
 
 const TEMPLATES = [
   {
@@ -72,26 +78,27 @@ const TEMPLATES = [
     html: reportReadyEmail({
       inspectionNumber: SAMPLE.inspectionNumber,
       address: SAMPLE.address,
-      reportUrl: "https://restoreassist.com.au/dashboard/inspections/preview/report",
+      reportUrl:
+        "https://restoreassist.com.au/dashboard/inspections/preview/report",
     }),
   },
-] as const
+] as const;
 
-type TemplateId = (typeof TEMPLATES)[number]["id"]
+type TemplateId = (typeof TEMPLATES)[number]["id"];
 
 // ── Page component ────────────────────────────────────────────────────────
 
 export default function EmailTemplatesPage() {
-  const { data: session } = useSession()
-  const [sending, setSending] = useState<TemplateId | null>(null)
-  const [sent, setSent] = useState<TemplateId | null>(null)
+  const { data: session } = useSession();
+  const [sending, setSending] = useState<TemplateId | null>(null);
+  const [sent, setSent] = useState<TemplateId | null>(null);
 
   async function handleTestSend(eventId: TemplateId) {
-    const email = session?.user?.email
-    if (!email) return
+    const email = session?.user?.email;
+    if (!email) return;
 
-    setSending(eventId)
-    setSent(null)
+    setSending(eventId);
+    setSent(null);
 
     try {
       const res = await fetch("/api/notifications/email", {
@@ -104,16 +111,16 @@ export default function EmailTemplatesPage() {
           inspectionId: "preview",
           invoiceId: "preview",
         }),
-      })
-      const data = (await res.json()) as { sent?: boolean; reason?: string }
+      });
+      const data = (await res.json()) as { sent?: boolean; reason?: string };
       if (data.sent) {
-        setSent(eventId)
-        setTimeout(() => setSent(null), 3000)
+        setSent(eventId);
+        setTimeout(() => setSent(null), 3000);
       }
     } catch {
       // Silently ignore — this is a preview tool
     } finally {
-      setSending(null)
+      setSending(null);
     }
   }
 
@@ -122,9 +129,13 @@ export default function EmailTemplatesPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-900">Email Templates</h1>
         <p className="text-sm text-slate-500 mt-1">
-          Preview the 5 transactional email templates sent during the restoration lifecycle.
-          Use &ldquo;Send test&rdquo; to deliver a live preview to{" "}
-          <span className="font-medium text-slate-700">{session?.user?.email ?? "your account email"}</span>.
+          Preview the 5 transactional email templates sent during the
+          restoration lifecycle. Use &ldquo;Send test&rdquo; to deliver a live
+          preview to{" "}
+          <span className="font-medium text-slate-700">
+            {session?.user?.email ?? "your account email"}
+          </span>
+          .
         </p>
       </div>
 
@@ -144,7 +155,10 @@ export default function EmailTemplatesPage() {
                 <div>
                   <CardTitle className="text-base">{t.label}</CardTitle>
                   <CardDescription className="text-xs mt-1">
-                    Event: <code className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-700">{t.id}</code>
+                    Event:{" "}
+                    <code className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-700">
+                      {t.id}
+                    </code>
                   </CardDescription>
                 </div>
                 <Button
@@ -155,11 +169,20 @@ export default function EmailTemplatesPage() {
                   className="shrink-0"
                 >
                   {sending === t.id ? (
-                    <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Sending…</>
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                      Sending…
+                    </>
                   ) : sent === t.id ? (
-                    <><CheckCircle className="h-3.5 w-3.5 mr-1.5 text-green-600" />Sent!</>
+                    <>
+                      <CheckCircle className="h-3.5 w-3.5 mr-1.5 text-green-600" />
+                      Sent!
+                    </>
                   ) : (
-                    <><Send className="h-3.5 w-3.5 mr-1.5" />Send test</>
+                    <>
+                      <Send className="h-3.5 w-3.5 mr-1.5" />
+                      Send test
+                    </>
                   )}
                 </Button>
               </CardHeader>
@@ -177,5 +200,5 @@ export default function EmailTemplatesPage() {
         ))}
       </Tabs>
     </div>
-  )
+  );
 }

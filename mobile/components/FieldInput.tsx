@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet } from 'react-native';
-import { colors, spacing, input } from '@/constants/theme';
+import React, { useState } from "react";
+import { View, Text, TextInput, StyleSheet } from "react-native";
+import { colors, spacing, input } from "@/constants/theme";
 
 interface FieldInputProps {
   label: string;
   value: string;
   onChangeText: (text: string) => void;
   placeholder?: string;
-  keyboardType?: 'default' | 'numeric' | 'decimal-pad';
+  keyboardType?: "default" | "numeric" | "decimal-pad";
   error?: string;
   editable?: boolean;
   multiline?: boolean;
@@ -18,7 +18,7 @@ export default function FieldInput({
   value,
   onChangeText,
   placeholder,
-  keyboardType = 'default',
+  keyboardType = "default",
   error,
   editable = true,
   multiline = false,
@@ -54,7 +54,7 @@ export default function FieldInput({
         keyboardType={keyboardType}
         editable={editable}
         multiline={multiline}
-        textAlignVertical={multiline ? 'top' : 'center'}
+        textAlignVertical={multiline ? "top" : "center"}
       />
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
     </View>
@@ -69,9 +69,9 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.label,
     marginBottom: 6,
-    fontWeight: '700',
+    fontWeight: "700",
     letterSpacing: 0.8,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
   },
   labelFocused: {
     color: colors.accent,
@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.errorDim,
   },
   inputReadOnly: {
-    borderStyle: 'dashed',
+    borderStyle: "dashed",
     borderColor: colors.border,
     opacity: 0.6,
   },
@@ -113,6 +113,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.error,
     marginTop: 5,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });

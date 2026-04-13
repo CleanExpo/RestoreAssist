@@ -14,6 +14,57 @@ import { prisma } from "@/lib/prisma";
 import { getStorageProvider } from "@/lib/storage";
 import { extractAndSaveMediaAsset } from "@/lib/media/exif-extract";
 import { scheduleCatalog } from "@/lib/media/catalog";
+import { applyRateLimit } from "@/lib/rate-limiter";
+
+// GET - List photos for inspection
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = await params;
+
+    const inspection = await prisma.inspection.findFirst({
+      where: { id, userId: session.user.id },
+      select: { id: true },
+    });
+
+    if (!inspection) {
+      return NextResponse.json(
+        { error: "Inspection not found" },
+        { status: 404 },
+      );
+    }
+
+    const photos = await prisma.inspectionPhoto.findMany({
+      where: { inspectionId: id },
+      orderBy: { timestamp: "desc" },
+      select: {
+        id: true,
+        url: true,
+        thumbnailUrl: true,
+        location: true,
+        description: true,
+        timestamp: true,
+        fileSize: true,
+        mimeType: true,
+      },
+    });
+
+    return NextResponse.json({ photos });
+  } catch (error) {
+    console.error("Error fetching photos:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
+  }
+}
 
 // POST - Upload photo
 export async function POST(
@@ -26,6 +77,14 @@ export async function POST(
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Rate limit: 20 photo uploads per minute per user
+    const rateLimited = await applyRateLimit(request, {
+      maxRequests: 20,
+      prefix: "photo-upload",
+      key: session.user.id,
+    });
+    if (rateLimited) return rateLimited;
 
     const { id } = await params;
 
@@ -49,8 +108,58 @@ export async function POST(
     const file = formData.get("file") as File;
     const location = formData.get("location") as string | null;
 
+    // RA-447: Optional label fields at upload time (multipart form fields)
+    const labelFields = {
+      damageCategory: formData.get("damageCategory") as string | null,
+      damageClass: formData.get("damageClass") as string | null,
+      s500SectionRef: formData.get("s500SectionRef") as string | null,
+      roomType: formData.get("roomType") as string | null,
+      moistureSource: formData.get("moistureSource") as string | null,
+      affectedMaterial: formData.get("affectedMaterial")
+        ? (formData.get("affectedMaterial") as string)
+            .split(",")
+            .filter(Boolean)
+        : undefined,
+      surfaceOrientation: formData.get("surfaceOrientation") as string | null,
+      damageExtentEstimate: formData.get("damageExtentEstimate") as
+        | string
+        | null,
+      equipmentVisible:
+        formData.get("equipmentVisible") === "true"
+          ? true
+          : formData.get("equipmentVisible") === "false"
+            ? false
+            : undefined,
+      secondaryDamageIndicators: formData.get("secondaryDamageIndicators")
+        ? (formData.get("secondaryDamageIndicators") as string)
+            .split(",")
+            .filter(Boolean)
+        : undefined,
+      photoStage: formData.get("photoStage") as string | null,
+      captureAngle: formData.get("captureAngle") as string | null,
+      labelledBy: formData.get("labelledBy") as string | null,
+      technicianNotes: formData.get("technicianNotes") as string | null,
+      moistureReadingLink: formData.get("moistureReadingLink") as string | null,
+    };
+    // Strip undefined/null so Prisma only sets provided fields
+    const labelData = Object.fromEntries(
+      Object.entries(labelFields).filter(
+        ([, v]) => v !== null && v !== undefined,
+      ),
+    );
+
     if (!file) {
       return NextResponse.json({ error: "File is required" }, { status: 400 });
+    }
+
+    // Guard before arrayBuffer() — multipart/form-data bypasses Next.js body size
+    // limits, so an attacker can send a 2GB TIFF that loads into the function heap.
+    const MAX_PHOTO_BYTES = 20 * 1024 * 1024; // 20 MB
+    if (file.size > MAX_PHOTO_BYTES) {
+      return NextResponse.json(
+        { error: "File too large — maximum 20 MB per photo" },
+        { status: 413 },
+      );
     }
 
     // Get user's org for storage provider resolution
@@ -61,6 +170,35 @@ export async function POST(
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+
+    // Magic-byte validation — prevents Content-Type spoofing
+    const isJpeg =
+      buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+    const isPng =
+      buffer[0] === 0x89 &&
+      buffer[1] === 0x50 &&
+      buffer[2] === 0x4e &&
+      buffer[3] === 0x47;
+    const isGif =
+      buffer[0] === 0x47 &&
+      buffer[1] === 0x49 &&
+      buffer[2] === 0x46 &&
+      buffer[3] === 0x38;
+    const isWebp =
+      buffer[0] === 0x52 &&
+      buffer[1] === 0x49 &&
+      buffer[2] === 0x46 &&
+      buffer[3] === 0x46 &&
+      buffer[8] === 0x57 &&
+      buffer[9] === 0x45 &&
+      buffer[10] === 0x42 &&
+      buffer[11] === 0x50;
+    if (!isJpeg && !isPng && !isGif && !isWebp) {
+      return NextResponse.json(
+        { error: "Invalid file type. Only images are allowed." },
+        { status: 400 },
+      );
+    }
 
     const storageProvider = await getStorageProvider(user?.organizationId);
 
@@ -75,6 +213,7 @@ export async function POST(
 
     // Create photo record — store compressed URL for dashboard viewing
     // originalUrl (signed) is stored in structuredData for download-original flows
+    // RA-447: label fields are spread in if provided at upload time
     const photo = await prisma.inspectionPhoto.create({
       data: {
         inspectionId: id,
@@ -84,6 +223,7 @@ export async function POST(
         fileSize: file.size,
         mimeType: file.type,
         timestamp: new Date(),
+        ...labelData,
       },
     });
 

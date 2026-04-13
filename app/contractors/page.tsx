@@ -1,86 +1,94 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { Search, MapPin, Star, Shield, Users, Award, Filter } from 'lucide-react'
-import Link from 'next/link'
-import Image from 'next/image'
+import { useState, useEffect } from "react";
+import {
+  Search,
+  MapPin,
+  Star,
+  Shield,
+  Users,
+  Award,
+  Filter,
+} from "lucide-react";
+import Link from "next/link";
+import Image from "next/image";
 
 interface Contractor {
-  id: string
-  slug: string
-  businessName: string
-  businessLogo: string | null
-  businessAddress: string | null
-  publicDescription: string | null
-  yearsInBusiness: number | null
-  teamSize: number | null
-  isVerified: boolean
-  averageRating: number
-  totalReviews: number
-  completedJobs: number
-  specializations: string[]
+  id: string;
+  slug: string;
+  businessName: string;
+  businessLogo: string | null;
+  businessAddress: string | null;
+  publicDescription: string | null;
+  yearsInBusiness: number | null;
+  teamSize: number | null;
+  isVerified: boolean;
+  averageRating: number;
+  totalReviews: number;
+  completedJobs: number;
+  specializations: string[];
   certifications: Array<{
-    certificationType: string
-    certificationName: string
-  }>
+    certificationType: string;
+    certificationName: string;
+  }>;
   serviceAreas: Array<{
-    postcode: string
-    suburb: string | null
-    state: string
-  }>
+    postcode: string;
+    suburb: string | null;
+    state: string;
+  }>;
 }
 
 interface Pagination {
-  page: number
-  limit: number
-  total: number
-  pages: number
+  page: number;
+  limit: number;
+  total: number;
+  pages: number;
 }
 
 export default function ContractorDirectoryPage() {
-  const [contractors, setContractors] = useState<Contractor[]>([])
-  const [pagination, setPagination] = useState<Pagination | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [contractors, setContractors] = useState<Contractor[]>([]);
+  const [pagination, setPagination] = useState<Pagination | null>(null);
+  const [loading, setLoading] = useState(true);
 
   // Filters
-  const [search, setSearch] = useState('')
-  const [postcode, setPostcode] = useState('')
-  const [state, setState] = useState('')
-  const [minRating, setMinRating] = useState('')
-  const [showFilters, setShowFilters] = useState(false)
-  const [page, setPage] = useState(1)
+  const [search, setSearch] = useState("");
+  const [postcode, setPostcode] = useState("");
+  const [state, setState] = useState("");
+  const [minRating, setMinRating] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
-    fetchContractors()
-  }, [search, postcode, state, minRating, page])
+    fetchContractors();
+  }, [search, postcode, state, minRating, page]);
 
   const fetchContractors = async () => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const params = new URLSearchParams()
-      if (search) params.append('search', search)
-      if (postcode) params.append('postcode', postcode)
-      if (state) params.append('state', state)
-      if (minRating) params.append('minRating', minRating)
-      params.append('page', page.toString())
+      const params = new URLSearchParams();
+      if (search) params.append("search", search);
+      if (postcode) params.append("postcode", postcode);
+      if (state) params.append("state", state);
+      if (minRating) params.append("minRating", minRating);
+      params.append("page", page.toString());
 
-      const res = await fetch(`/api/contractors?${params}`)
-      const data = await res.json()
+      const res = await fetch(`/api/contractors?${params}`);
+      const data = await res.json();
 
-      setContractors(data.contractors || [])
-      setPagination(data.pagination)
+      setContractors(data.contractors || []);
+      setPagination(data.pagination);
     } catch (error) {
-      console.error('Failed to fetch contractors:', error)
+      console.error("Failed to fetch contractors:", error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setPage(1)
-    fetchContractors()
-  }
+    e.preventDefault();
+    setPage(1);
+    fetchContractors();
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -190,7 +198,9 @@ export default function ContractorDirectoryPage() {
         ) : contractors.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-slate-400 text-lg">No contractors found</p>
-            <p className="text-slate-500 mt-2">Try adjusting your search filters</p>
+            <p className="text-slate-500 mt-2">
+              Try adjusting your search filters
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -254,7 +264,9 @@ export default function ContractorDirectoryPage() {
                     {/* Metadata */}
                     <div className="flex flex-wrap items-center gap-4 text-sm text-slate-400 mb-3">
                       {contractor.yearsInBusiness && (
-                        <span>{contractor.yearsInBusiness} years experience</span>
+                        <span>
+                          {contractor.yearsInBusiness} years experience
+                        </span>
                       )}
                       {contractor.teamSize && (
                         <span>{contractor.teamSize} team members</span>
@@ -267,15 +279,17 @@ export default function ContractorDirectoryPage() {
                     {/* Certifications */}
                     {contractor.certifications.length > 0 && (
                       <div className="flex flex-wrap gap-2 mb-3">
-                        {contractor.certifications.slice(0, 3).map((cert, idx) => (
-                          <span
-                            key={idx}
-                            className="inline-flex items-center gap-1 px-2 py-1 bg-cyan-500/10 border border-cyan-500/30 rounded text-xs text-cyan-400"
-                          >
-                            <Award className="h-3 w-3" />
-                            {cert.certificationName}
-                          </span>
-                        ))}
+                        {contractor.certifications
+                          .slice(0, 3)
+                          .map((cert, idx) => (
+                            <span
+                              key={idx}
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-cyan-500/10 border border-cyan-500/30 rounded text-xs text-cyan-400"
+                            >
+                              <Award className="h-3 w-3" />
+                              {cert.certificationName}
+                            </span>
+                          ))}
                         {contractor.certifications.length > 3 && (
                           <span className="text-xs text-slate-400">
                             +{contractor.certifications.length - 3} more
@@ -289,7 +303,10 @@ export default function ContractorDirectoryPage() {
                       <div className="flex items-center gap-2 text-sm text-slate-400">
                         <MapPin className="h-4 w-4" />
                         <span>
-                          Services: {contractor.serviceAreas.map(a => a.state).join(', ')}
+                          Services:{" "}
+                          {contractor.serviceAreas
+                            .map((a) => a.state)
+                            .join(", ")}
                         </span>
                       </div>
                     )}
@@ -324,5 +341,5 @@ export default function ContractorDirectoryPage() {
         )}
       </div>
     </div>
-  )
+  );
 }

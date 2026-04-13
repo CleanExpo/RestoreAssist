@@ -3,27 +3,33 @@
  * Interactive calculator for equipment rental costs based on IICRC classification
  */
 
-'use client'
+"use client";
 
-import React, { useState, useMemo } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Badge } from '@/components/ui/badge'
-import { EquipmentCostCalculator } from '@/lib/forms/calculations'
-import { TrendingUp, DollarSign, Calendar, Users } from 'lucide-react'
+import React, { useState, useMemo } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { EquipmentCostCalculator } from "@/lib/forms/calculations";
+import { TrendingUp, DollarSign, Calendar, Users } from "lucide-react";
 
 interface EquipmentCostCalculatorProps {
-  iicrcClass: number
-  iicrcCategory: number
-  initialSquareFootage?: number
-  initialCeilingHeight?: number
-  initialDurationDays?: number
-  initialLaborCostPerDay?: number
-  showSummaryOnly?: boolean
+  iicrcClass: number;
+  iicrcCategory: number;
+  initialSquareFootage?: number;
+  initialCeilingHeight?: number;
+  initialDurationDays?: number;
+  initialLaborCostPerDay?: number;
+  showSummaryOnly?: boolean;
 }
 
 export function EquipmentCostCalculatorComponent({
@@ -35,10 +41,12 @@ export function EquipmentCostCalculatorComponent({
   initialLaborCostPerDay = 200,
   showSummaryOnly = false,
 }: EquipmentCostCalculatorProps) {
-  const [squareFootage, setSquareFootage] = useState(initialSquareFootage)
-  const [ceilingHeight, setCeilingHeight] = useState(initialCeilingHeight)
-  const [durationDays, setDurationDays] = useState(initialDurationDays)
-  const [laborCostPerDay, setLaborCostPerDay] = useState(initialLaborCostPerDay)
+  const [squareFootage, setSquareFootage] = useState(initialSquareFootage);
+  const [ceilingHeight, setCeilingHeight] = useState(initialCeilingHeight);
+  const [durationDays, setDurationDays] = useState(initialDurationDays);
+  const [laborCostPerDay, setLaborCostPerDay] = useState(
+    initialLaborCostPerDay,
+  );
 
   // Calculate costs
   const estimate = useMemo(
@@ -49,10 +57,17 @@ export function EquipmentCostCalculatorComponent({
         squareFootage,
         ceilingHeight,
         durationDays,
-        laborCostPerDay
+        laborCostPerDay,
       ),
-    [iicrcClass, iicrcCategory, squareFootage, ceilingHeight, durationDays, laborCostPerDay]
-  )
+    [
+      iicrcClass,
+      iicrcCategory,
+      squareFootage,
+      ceilingHeight,
+      durationDays,
+      laborCostPerDay,
+    ],
+  );
 
   const costRange = useMemo(
     () =>
@@ -61,10 +76,10 @@ export function EquipmentCostCalculatorComponent({
         iicrcCategory,
         squareFootage,
         ceilingHeight,
-        laborCostPerDay
+        laborCostPerDay,
       ),
-    [iicrcClass, iicrcCategory, squareFootage, ceilingHeight, laborCostPerDay]
-  )
+    [iicrcClass, iicrcCategory, squareFootage, ceilingHeight, laborCostPerDay],
+  );
 
   if (showSummaryOnly) {
     return (
@@ -77,12 +92,15 @@ export function EquipmentCostCalculatorComponent({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="bg-green-50 rounded-lg p-6 text-center">
-            <p className="text-sm font-medium text-gray-600 mb-2">Total Estimated Cost</p>
+            <p className="text-sm font-medium text-gray-600 mb-2">
+              Total Estimated Cost
+            </p>
             <p className="text-4xl font-bold text-green-600">
               {EquipmentCostCalculator.formatCost(estimate.total)}
             </p>
             <p className="text-sm text-gray-500 mt-2">
-              {estimate.durationDays} days | {estimate.equipment.length} equipment types
+              {estimate.durationDays} days | {estimate.equipment.length}{" "}
+              equipment types
             </p>
           </div>
 
@@ -90,13 +108,17 @@ export function EquipmentCostCalculatorComponent({
             <div className="bg-gray-50 rounded-lg p-3">
               <p className="text-xs text-gray-600">Equipment</p>
               <p className="text-lg font-bold text-gray-900">
-                {EquipmentCostCalculator.formatCost(estimate.breakdown.equipmentCost)}
+                {EquipmentCostCalculator.formatCost(
+                  estimate.breakdown.equipmentCost,
+                )}
               </p>
             </div>
             <div className="bg-gray-50 rounded-lg p-3">
               <p className="text-xs text-gray-600">Labor</p>
               <p className="text-lg font-bold text-gray-900">
-                {EquipmentCostCalculator.formatCost(estimate.breakdown.laborCost)}
+                {EquipmentCostCalculator.formatCost(
+                  estimate.breakdown.laborCost,
+                )}
               </p>
             </div>
           </div>
@@ -104,14 +126,16 @@ export function EquipmentCostCalculatorComponent({
           <div className="text-xs text-gray-500 bg-blue-50 p-3 rounded-lg">
             <p className="font-medium mb-1">Cost Range</p>
             <p>
-              {EquipmentCostCalculator.formatCost(costRange.minCost)} -{' '}
+              {EquipmentCostCalculator.formatCost(costRange.minCost)} -{" "}
               {EquipmentCostCalculator.formatCost(costRange.maxCost)}
             </p>
-            <p className="text-xs">{costRange.minDays}-{costRange.maxDays} day project</p>
+            <p className="text-xs">
+              {costRange.minDays}-{costRange.maxDays} day project
+            </p>
           </div>
         </CardContent>
       </Card>
-    )
+    );
   }
 
   return (
@@ -130,7 +154,8 @@ export function EquipmentCostCalculatorComponent({
               Equipment Cost Calculator
             </CardTitle>
             <CardDescription>
-              Adjust parameters to get accurate cost estimates for this water damage project
+              Adjust parameters to get accurate cost estimates for this water
+              damage project
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -143,7 +168,9 @@ export function EquipmentCostCalculatorComponent({
                   type="number"
                   min="1"
                   value={squareFootage}
-                  onChange={(e) => setSquareFootage(Math.max(1, parseInt(e.target.value) || 1))}
+                  onChange={(e) =>
+                    setSquareFootage(Math.max(1, parseInt(e.target.value) || 1))
+                  }
                   className="flex-1"
                 />
                 <span className="flex items-center px-3 bg-gray-100 rounded-md text-sm text-gray-600">
@@ -165,7 +192,11 @@ export function EquipmentCostCalculatorComponent({
                   min="0.1"
                   step="0.1"
                   value={ceilingHeight}
-                  onChange={(e) => setCeilingHeight(Math.max(0.1, parseFloat(e.target.value) || 2.7))}
+                  onChange={(e) =>
+                    setCeilingHeight(
+                      Math.max(0.1, parseFloat(e.target.value) || 2.7),
+                    )
+                  }
                   className="flex-1"
                 />
                 <span className="flex items-center px-3 bg-gray-100 rounded-md text-sm text-gray-600">
@@ -183,7 +214,9 @@ export function EquipmentCostCalculatorComponent({
                   type="number"
                   min="1"
                   value={durationDays}
-                  onChange={(e) => setDurationDays(Math.max(1, parseInt(e.target.value) || 1))}
+                  onChange={(e) =>
+                    setDurationDays(Math.max(1, parseInt(e.target.value) || 1))
+                  }
                   className="flex-1"
                 />
                 <span className="flex items-center px-3 bg-gray-100 rounded-md text-sm text-gray-600">
@@ -191,7 +224,8 @@ export function EquipmentCostCalculatorComponent({
                 </span>
               </div>
               <p className="text-xs text-gray-500">
-                Range: {costRange.minDays}-{costRange.maxDays} days (typical for Class {iicrcClass})
+                Range: {costRange.minDays}-{costRange.maxDays} days (typical for
+                Class {iicrcClass})
               </p>
             </div>
 
@@ -207,7 +241,11 @@ export function EquipmentCostCalculatorComponent({
                   type="number"
                   min="0"
                   value={laborCostPerDay}
-                  onChange={(e) => setLaborCostPerDay(Math.max(0, parseInt(e.target.value) || 0))}
+                  onChange={(e) =>
+                    setLaborCostPerDay(
+                      Math.max(0, parseInt(e.target.value) || 0),
+                    )
+                  }
                   className="flex-1"
                 />
                 <span className="flex items-center px-3 bg-gray-100 rounded-md text-sm text-gray-600">
@@ -220,7 +258,9 @@ export function EquipmentCostCalculatorComponent({
             <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-6 border border-green-200">
               <div className="flex justify-between items-start mb-4">
                 <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1">Total Estimated Cost</p>
+                  <p className="text-sm font-medium text-gray-600 mb-1">
+                    Total Estimated Cost
+                  </p>
                   <p className="text-3xl font-bold text-green-600">
                     {EquipmentCostCalculator.formatCost(estimate.total)}
                   </p>
@@ -234,13 +274,17 @@ export function EquipmentCostCalculatorComponent({
                 <div>
                   <p className="text-xs text-gray-600 mb-1">Equipment</p>
                   <p className="font-semibold text-gray-900">
-                    {EquipmentCostCalculator.formatCost(estimate.breakdown.equipmentCost)}
+                    {EquipmentCostCalculator.formatCost(
+                      estimate.breakdown.equipmentCost,
+                    )}
                   </p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-600 mb-1">Labor</p>
                   <p className="font-semibold text-gray-900">
-                    {EquipmentCostCalculator.formatCost(estimate.breakdown.laborCost)}
+                    {EquipmentCostCalculator.formatCost(
+                      estimate.breakdown.laborCost,
+                    )}
                   </p>
                 </div>
                 <div>
@@ -256,9 +300,10 @@ export function EquipmentCostCalculatorComponent({
             <Alert>
               <Calendar className="h-4 w-4" />
               <AlertDescription>
-                <strong>Typical Cost Range:</strong> {EquipmentCostCalculator.formatCost(costRange.minCost)} -{' '}
-                {EquipmentCostCalculator.formatCost(costRange.maxCost)}{' '}
-                ({costRange.minDays}-{costRange.maxDays} days)
+                <strong>Typical Cost Range:</strong>{" "}
+                {EquipmentCostCalculator.formatCost(costRange.minCost)} -{" "}
+                {EquipmentCostCalculator.formatCost(costRange.maxCost)} (
+                {costRange.minDays}-{costRange.maxDays} days)
               </AlertDescription>
             </Alert>
           </CardContent>
@@ -277,14 +322,22 @@ export function EquipmentCostCalculatorComponent({
           <CardContent className="space-y-4">
             {/* Equipment Line Items */}
             <div>
-              <h3 className="font-semibold mb-3">Equipment Rental ({durationDays} days)</h3>
+              <h3 className="font-semibold mb-3">
+                Equipment Rental ({durationDays} days)
+              </h3>
               <div className="space-y-2">
                 {estimate.equipment.map((item, index) => (
-                  <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                  <div
+                    key={index}
+                    className="flex justify-between items-center p-3 bg-gray-50 rounded-lg"
+                  >
                     <div>
-                      <p className="text-sm font-medium text-gray-900">{item.name}</p>
+                      <p className="text-sm font-medium text-gray-900">
+                        {item.name}
+                      </p>
                       <p className="text-xs text-gray-600">
-                        {EquipmentCostCalculator.formatCost(item.dailyRate)}/day × {durationDays} days
+                        {EquipmentCostCalculator.formatCost(item.dailyRate)}/day
+                        × {durationDays} days
                       </p>
                     </div>
                     <div className="text-right">
@@ -298,27 +351,36 @@ export function EquipmentCostCalculatorComponent({
 
               {/* Equipment Subtotal */}
               <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg mt-3 border border-blue-200">
-                <p className="font-semibold text-gray-900">Equipment Subtotal</p>
+                <p className="font-semibold text-gray-900">
+                  Equipment Subtotal
+                </p>
                 <p className="font-bold text-blue-600">
-                  {EquipmentCostCalculator.formatCost(estimate.breakdown.equipmentCost)}
+                  {EquipmentCostCalculator.formatCost(
+                    estimate.breakdown.equipmentCost,
+                  )}
                 </p>
               </div>
             </div>
 
             {/* Labor */}
-            {estimate.laborCost > 0 && (
+            {(estimate.laborCost ?? 0) > 0 && (
               <div>
                 <h3 className="font-semibold mb-3 mt-4">Labor</h3>
                 <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                   <div>
-                    <p className="text-sm font-medium text-gray-900">Technician Labor</p>
+                    <p className="text-sm font-medium text-gray-900">
+                      Technician Labor
+                    </p>
                     <p className="text-xs text-gray-600">
-                      {EquipmentCostCalculator.formatCost(laborCostPerDay)}/day × {durationDays} days
+                      {EquipmentCostCalculator.formatCost(laborCostPerDay)}/day
+                      × {durationDays} days
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="font-semibold text-gray-900">
-                      {EquipmentCostCalculator.formatCost(estimate.laborCost)}
+                      {EquipmentCostCalculator.formatCost(
+                        estimate.laborCost ?? 0,
+                      )}
                     </p>
                   </div>
                 </div>
@@ -353,13 +415,14 @@ export function EquipmentCostCalculatorComponent({
             <Alert>
               <Users className="h-4 w-4" />
               <AlertDescription>
-                Costs are estimates based on IICRC S500 standards. Actual costs may vary based on
-                vendor rates, equipment availability, and project complexity.
+                Costs are estimates based on IICRC S500 standards. Actual costs
+                may vary based on vendor rates, equipment availability, and
+                project complexity.
               </AlertDescription>
             </Alert>
           </CardContent>
         </Card>
       </TabsContent>
     </Tabs>
-  )
+  );
 }

@@ -1,0 +1,26 @@
+# BasicBrief — 3 fields, ~30 seconds to complete (RA-681 / KARPATHY-8)
+#
+# Use this template for straightforward feature requests and quick fixes.
+# The pipeline will auto-promote to DetailedBrief using PITER context injection.
+#
+# Usage:
+#   Fill in the three required fields below, then submit via:
+#   POST /api/harness/brief-templates  { "tier": "basic", "data": { ... } }
+#
+# Or paste directly into the Pi-CEO brief form.
+
+tier: basic
+
+# REQUIRED — what you want built (1 sentence)
+title: ""
+
+# REQUIRED — why it's needed and what problem it solves (2-3 sentences)
+description: ""
+
+# REQUIRED — target repository (GitHub URL or short name e.g. "CleanExpo/ccw-crm")
+repo: ""
+
+# --- Auto-filled by PITER ---
+# intent_type: (feature | bugfix | chore | hotfix | spike)
+# acceptance_criteria: (inferred from description)
+# do_not_break: (inferred from repo context)

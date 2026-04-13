@@ -1,20 +1,23 @@
-import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { validateCsrf } from "@/lib/csrf"
-import { prisma } from "@/lib/prisma"
-import { stripe } from "@/lib/stripe"
-import { getUserReportLimits } from "@/lib/report-limits"
-import { getEffectiveSubscription } from "@/lib/organization-credits"
-import { getTrialStatus, checkAndUpdateTrialStatus } from "@/lib/trial-handling"
-import { sanitizeString } from "@/lib/sanitize"
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { validateCsrf } from "@/lib/csrf";
+import { prisma } from "@/lib/prisma";
+import { stripe } from "@/lib/stripe";
+import { getUserReportLimits } from "@/lib/report-limits";
+import { getEffectiveSubscription } from "@/lib/organization-credits";
+import {
+  getTrialStatus,
+  checkAndUpdateTrialStatus,
+} from "@/lib/trial-handling";
+import { sanitizeString, isValidABN } from "@/lib/sanitize";
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    
+    const session = await getServerSession(authOptions);
+
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
@@ -46,12 +49,12 @@ export async function GET(request: NextRequest) {
         monthlyResetDate: true,
         organizationId: true,
         lifetimeAccess: true,
-      }
-    })
+      },
+    });
 
     if (!user) {
       // Create Stripe customer for new user
-      let stripeCustomerId = null
+      let stripeCustomerId = null;
       try {
         const stripeCustomer = await stripe.customers.create({
           email: session.user.email!,
@@ -59,10 +62,10 @@ export async function GET(request: NextRequest) {
           metadata: {
             userId: session.user.id,
           },
-        })
-        stripeCustomerId = stripeCustomer.id
+        });
+        stripeCustomerId = stripeCustomer.id;
       } catch (stripeError) {
-        console.error('Error creating Stripe customer:', stripeError)
+        console.error("Error creating Stripe customer:", stripeError);
         // Continue without Stripe customer ID - user can still use the app
       }
 
@@ -73,7 +76,7 @@ export async function GET(request: NextRequest) {
           name: session.user.name,
           email: session.user.email!,
           image: session.user.image,
-          subscriptionStatus: 'TRIAL',
+          subscriptionStatus: "TRIAL",
           creditsRemaining: 30,
           totalCreditsUsed: 0,
           trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30-day free trial
@@ -105,12 +108,14 @@ export async function GET(request: NextRequest) {
           businessABN: true,
           businessPhone: true,
           businessEmail: true,
-        }
-      })
+        },
+      });
 
-      const newTrialEndsAt = newUser.trialEndsAt ? new Date(newUser.trialEndsAt) : null
-      const newIsUnlimited = !newTrialEndsAt || new Date() <= newTrialEndsAt
-      return NextResponse.json({ 
+      const newTrialEndsAt = newUser.trialEndsAt
+        ? new Date(newUser.trialEndsAt)
+        : null;
+      const newIsUnlimited = !newTrialEndsAt || new Date() <= newTrialEndsAt;
+      return NextResponse.json({
         profile: {
           ...newUser,
           creditsRemaining: newIsUnlimited ? null : newUser.creditsRemaining,
@@ -119,18 +124,26 @@ export async function GET(request: NextRequest) {
           subscriptionEndsAt: newUser.subscriptionEndsAt?.toISOString(),
           lastBillingDate: newUser.lastBillingDate?.toISOString(),
           nextBillingDate: newUser.nextBillingDate?.toISOString(),
-          trialStatus: newIsUnlimited ? { isTrialActive: true, daysRemaining: 30, hasTrialExpired: false, creditsRemaining: null, hasUnlimitedTrial: true } : null,
-        }
-      })
+          trialStatus: newIsUnlimited
+            ? {
+                isTrialActive: true,
+                daysRemaining: 30,
+                hasTrialExpired: false,
+                creditsRemaining: null,
+                hasUnlimitedTrial: true,
+              }
+            : null,
+        },
+      });
     }
 
     // Get effective subscription (Admin's for Managers/Technicians, own for Admins)
-    const effectiveSub = await getEffectiveSubscription(user.id)
-    
+    const effectiveSub = await getEffectiveSubscription(user.id);
+
     // Get organization owner (Admin) for business information
-    const { getOrganizationOwner } = await import("@/lib/organization-credits")
-    const ownerId = await getOrganizationOwner(user.id)
-    
+    const { getOrganizationOwner } = await import("@/lib/organization-credits");
+    const ownerId = await getOrganizationOwner(user.id);
+
     // For Managers/Technicians, get Admin's business information
     let businessInfo = {
       businessName: user.businessName,
@@ -139,8 +152,8 @@ export async function GET(request: NextRequest) {
       businessABN: user.businessABN,
       businessPhone: user.businessPhone,
       businessEmail: user.businessEmail,
-    }
-    
+    };
+
     if (ownerId && ownerId !== user.id) {
       // User is a Manager/Technician - get Admin's business info
       const owner = await prisma.user.findUnique({
@@ -152,9 +165,9 @@ export async function GET(request: NextRequest) {
           businessABN: true,
           businessPhone: true,
           businessEmail: true,
-        }
-      })
-      
+        },
+      });
+
       if (owner) {
         businessInfo = {
           businessName: owner.businessName,
@@ -163,48 +176,58 @@ export async function GET(request: NextRequest) {
           businessABN: owner.businessABN,
           businessPhone: owner.businessPhone,
           businessEmail: owner.businessEmail,
-        }
+        };
       }
     }
-    
-    const subscriptionStatus = effectiveSub?.subscriptionStatus || user.subscriptionStatus
-    const subscriptionPlan = effectiveSub?.subscriptionPlan || user.subscriptionPlan
-    const trialEndsAtRaw = effectiveSub?.trialEndsAt ?? user.trialEndsAt
-    const trialEndsAt = trialEndsAtRaw ? new Date(trialEndsAtRaw) : null
-    const isTrialUnlimited = subscriptionStatus === 'TRIAL' && (!trialEndsAt || new Date() <= trialEndsAt)
-    const creditsRemaining = isTrialUnlimited ? null : (effectiveSub?.creditsRemaining ?? user.creditsRemaining)
+
+    const subscriptionStatus =
+      effectiveSub?.subscriptionStatus || user.subscriptionStatus;
+    const subscriptionPlan =
+      effectiveSub?.subscriptionPlan || user.subscriptionPlan;
+    const trialEndsAtRaw = effectiveSub?.trialEndsAt ?? user.trialEndsAt;
+    const trialEndsAt = trialEndsAtRaw ? new Date(trialEndsAtRaw) : null;
+    const isTrialUnlimited =
+      subscriptionStatus === "TRIAL" &&
+      (!trialEndsAt || new Date() <= trialEndsAt);
+    const creditsRemaining = isTrialUnlimited
+      ? null
+      : (effectiveSub?.creditsRemaining ?? user.creditsRemaining);
 
     // Get report limits for active subscribers (use owner's account for team members)
-    let reportLimits = null
-    if (subscriptionStatus === 'ACTIVE') {
+    let reportLimits = null;
+    if (subscriptionStatus === "ACTIVE") {
       try {
         // For team members, get limits from owner's account
-        const targetUserId = ownerId || user.id
-        reportLimits = await getUserReportLimits(targetUserId)
+        const targetUserId = ownerId || user.id;
+        reportLimits = await getUserReportLimits(targetUserId);
       } catch (error: any) {
         // Error fetching report limits
       }
     }
 
     // Get trial status for trial users
-    let trialStatus = null
-    if (subscriptionStatus === 'TRIAL') {
+    let trialStatus = null;
+    if (subscriptionStatus === "TRIAL") {
       // Check and update trial status if expired
-      await checkAndUpdateTrialStatus(user.id)
-      trialStatus = await getTrialStatus(user.id)
+      await checkAndUpdateTrialStatus(user.id);
+      trialStatus = await getTrialStatus(user.id);
     }
 
-    const isLifetime = subscriptionPlan === 'Lifetime'
+    const isLifetime = subscriptionPlan === "Lifetime";
     return NextResponse.json({
       profile: {
         ...user,
         // Override with effective subscription for team members
-        subscriptionStatus: trialStatus?.hasTrialExpired ? 'EXPIRED' : subscriptionStatus,
+        subscriptionStatus: trialStatus?.hasTrialExpired
+          ? "EXPIRED"
+          : subscriptionStatus,
         subscriptionPlan: subscriptionPlan,
         creditsRemaining: creditsRemaining,
         // Lifetime: no trial or billing dates
         trialEndsAt: isLifetime ? null : user.trialEndsAt?.toISOString(),
-        nextBillingDate: isLifetime ? null : user.nextBillingDate?.toISOString(),
+        nextBillingDate: isLifetime
+          ? null
+          : user.nextBillingDate?.toISOString(),
         // Override with Admin's business info for team members
         businessName: businessInfo.businessName,
         businessAddress: businessInfo.businessAddress,
@@ -219,89 +242,122 @@ export async function GET(request: NextRequest) {
         lastBillingDate: user.lastBillingDate?.toISOString(),
         monthlyResetDate: user.monthlyResetDate?.toISOString(),
         reportLimits: reportLimits,
-        trialStatus: isLifetime ? null : (trialStatus ? {
-          isTrialActive: trialStatus.isTrialActive,
-          daysRemaining: trialStatus.daysRemaining,
-          hasTrialExpired: trialStatus.hasTrialExpired,
-          creditsRemaining: isTrialUnlimited ? null : trialStatus.creditsRemaining,
-          hasUnlimitedTrial: isTrialUnlimited,
-        } : null),
-      }
-    })
+        trialStatus: isLifetime
+          ? null
+          : trialStatus
+            ? {
+                isTrialActive: trialStatus.isTrialActive,
+                daysRemaining: trialStatus.daysRemaining,
+                hasTrialExpired: trialStatus.hasTrialExpired,
+                creditsRemaining: isTrialUnlimited
+                  ? null
+                  : trialStatus.creditsRemaining,
+                hasUnlimitedTrial: isTrialUnlimited,
+              }
+            : null,
+      },
+    });
   } catch (error) {
-    console.error("Error fetching user profile:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error("Error fetching user profile:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
 export async function PUT(request: NextRequest) {
   try {
-    const csrfError = validateCsrf(request)
-    if (csrfError) return csrfError
+    const csrfError = validateCsrf(request);
+    if (csrfError) return csrfError;
 
-    const session = await getServerSession(authOptions)
-    
+    const session = await getServerSession(authOptions);
+
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Get user's role to check permissions
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { role: true }
-    })
+      select: { role: true },
+    });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const isAdmin = user.role === "ADMIN"
+    const isAdmin = user.role === "ADMIN";
 
-    const body = await request.json()
-    const name = sanitizeString(body.name, 200)
-    const email = body.email ? sanitizeString(body.email, 320).toLowerCase() : undefined
-    const businessName = sanitizeString(body.businessName, 200)
-    const businessAddress = sanitizeString(body.businessAddress, 500)
-    const businessLogo = sanitizeString(body.businessLogo, 2000)
-    const businessABN = sanitizeString(body.businessABN, 20)
-    const businessPhone = sanitizeString(body.businessPhone, 50)
-    const businessEmail = sanitizeString(body.businessEmail, 320)
+    const body = await request.json();
+    const name = sanitizeString(body.name, 200);
+    const email = body.email
+      ? sanitizeString(body.email, 320).toLowerCase()
+      : undefined;
+    const businessName = sanitizeString(body.businessName, 200);
+    const businessAddress = sanitizeString(body.businessAddress, 500);
+    const businessLogo = sanitizeString(body.businessLogo, 2000);
+    const businessABNRaw = sanitizeString(body.businessABN, 20);
+    // Validate ABN using ATO weighted-sum checksum — invalid ABNs on tax invoices
+    // require recipients to withhold 47% PAYG (GST Act compliance).
+    if (businessABNRaw && !isValidABN(businessABNRaw)) {
+      return NextResponse.json(
+        {
+          error:
+            "Invalid ABN — please enter a valid 11-digit Australian Business Number",
+        },
+        { status: 400 },
+      );
+    }
+    const businessABN = businessABNRaw || "";
+    const businessPhone = sanitizeString(body.businessPhone, 50);
+    const businessEmail = sanitizeString(body.businessEmail, 320);
 
     // Build update data object
-    const updateData: any = {}
-    
+    const updateData: any = {};
+
     // All users can update their name
-    if (name !== undefined) updateData.name = name
-    
+    if (name !== undefined) updateData.name = name;
+
     // Email updates (if needed in future)
     if (email !== undefined) {
       // Check if email is already taken by another user
       const existingUser = await prisma.user.findFirst({
         where: {
           email: email,
-          id: { not: session.user.id }
-        }
-      })
+          id: { not: session.user.id },
+        },
+      });
 
       if (existingUser) {
-        return NextResponse.json({ error: "Email already in use" }, { status: 400 })
+        return NextResponse.json(
+          { error: "Email already in use" },
+          { status: 400 },
+        );
       }
-      updateData.email = email
+      updateData.email = email;
     }
-    
+
     // Business information fields - only Admins can update
     if (isAdmin) {
-      if (businessName !== undefined) updateData.businessName = businessName
-      if (businessAddress !== undefined) updateData.businessAddress = businessAddress
-      if (businessLogo !== undefined) updateData.businessLogo = businessLogo
-      if (businessABN !== undefined) updateData.businessABN = businessABN
-      if (businessPhone !== undefined) updateData.businessPhone = businessPhone
-      if (businessEmail !== undefined) updateData.businessEmail = businessEmail
+      if (businessName !== undefined) updateData.businessName = businessName;
+      if (businessAddress !== undefined)
+        updateData.businessAddress = businessAddress;
+      if (businessLogo !== undefined) updateData.businessLogo = businessLogo;
+      if (businessABN !== undefined) updateData.businessABN = businessABN;
+      if (businessPhone !== undefined) updateData.businessPhone = businessPhone;
+      if (businessEmail !== undefined) updateData.businessEmail = businessEmail;
     } else {
       // Managers/Technicians cannot update business info
       // If they try, ignore those fields (they're read-only)
-      if (businessName !== undefined || businessAddress !== undefined || businessLogo !== undefined || 
-          businessABN !== undefined || businessPhone !== undefined || businessEmail !== undefined) {
+      if (
+        businessName !== undefined ||
+        businessAddress !== undefined ||
+        businessLogo !== undefined ||
+        businessABN !== undefined ||
+        businessPhone !== undefined ||
+        businessEmail !== undefined
+      ) {
       }
     }
 
@@ -332,8 +388,8 @@ export async function PUT(request: NextRequest) {
         businessEmail: true,
         role: true,
         organizationId: true,
-      }
-    })
+      },
+    });
 
     // For Managers/Technicians, get Admin's business info
     let businessInfo = {
@@ -343,12 +399,13 @@ export async function PUT(request: NextRequest) {
       businessABN: updatedUser.businessABN,
       businessPhone: updatedUser.businessPhone,
       businessEmail: updatedUser.businessEmail,
-    }
-    
+    };
+
     if (!isAdmin && updatedUser.organizationId) {
-      const { getOrganizationOwner } = await import("@/lib/organization-credits")
-      const ownerId = await getOrganizationOwner(updatedUser.id)
-      
+      const { getOrganizationOwner } =
+        await import("@/lib/organization-credits");
+      const ownerId = await getOrganizationOwner(updatedUser.id);
+
       if (ownerId && ownerId !== updatedUser.id) {
         const owner = await prisma.user.findUnique({
           where: { id: ownerId },
@@ -359,9 +416,9 @@ export async function PUT(request: NextRequest) {
             businessABN: true,
             businessPhone: true,
             businessEmail: true,
-          }
-        })
-        
+          },
+        });
+
         if (owner) {
           businessInfo = {
             businessName: owner.businessName,
@@ -370,12 +427,12 @@ export async function PUT(request: NextRequest) {
             businessABN: owner.businessABN,
             businessPhone: owner.businessPhone,
             businessEmail: owner.businessEmail,
-          }
+          };
         }
       }
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       profile: {
         ...updatedUser,
         // Override with Admin's business info for Managers/Technicians
@@ -390,10 +447,13 @@ export async function PUT(request: NextRequest) {
         subscriptionEndsAt: updatedUser.subscriptionEndsAt?.toISOString(),
         lastBillingDate: updatedUser.lastBillingDate?.toISOString(),
         nextBillingDate: updatedUser.nextBillingDate?.toISOString(),
-      }
-    })
+      },
+    });
   } catch (error) {
-    console.error("Error updating user profile:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error("Error updating user profile:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

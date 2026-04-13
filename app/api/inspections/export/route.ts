@@ -1,16 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
+  if (!session?.user?.id)
+    return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
 
   const { searchParams } = new URL(request.url);
-  const from = searchParams.get('from');
-  const to = searchParams.get('to');
-  const status = searchParams.get('status');
+  const from = searchParams.get("from");
+  const to = searchParams.get("to");
+  const status = searchParams.get("status");
 
   const where: Record<string, unknown> = { userId: session.user.id };
   if (from || to) {
@@ -24,11 +25,13 @@ export async function GET(request: NextRequest) {
     }
     where.createdAt = createdAt;
   }
-  if (status && status !== 'ALL') where.status = status;
+  if (status && status !== "ALL") where.status = status;
 
+  const EXPORT_LIMIT = 5000;
   const inspections = await prisma.inspection.findMany({
     where,
-    orderBy: { createdAt: 'desc' },
+    orderBy: { createdAt: "desc" },
+    take: EXPORT_LIMIT,
     select: {
       id: true,
       inspectionNumber: true,
@@ -43,37 +46,44 @@ export async function GET(request: NextRequest) {
 
   // Build CSV
   const headers = [
-    'ID',
-    'Inspection Number',
-    'Address',
-    'Postcode',
-    'Status',
-    'Technician',
-    'Moisture Readings',
-    'Photos',
-    'Created At',
+    "ID",
+    "Inspection Number",
+    "Address",
+    "Postcode",
+    "Status",
+    "Technician",
+    "Moisture Readings",
+    "Photos",
+    "Created At",
   ];
 
   const rows = inspections.map((i) =>
     [
       i.id,
-      i.inspectionNumber ?? '',
-      `"${(i.propertyAddress ?? '').replace(/"/g, '""')}"`,
-      i.propertyPostcode ?? '',
+      i.inspectionNumber ?? "",
+      `"${(i.propertyAddress ?? "").replace(/"/g, '""')}"`,
+      i.propertyPostcode ?? "",
       i.status,
-      `"${(i.technicianName ?? '').replace(/"/g, '""')}"`,
+      `"${(i.technicianName ?? "").replace(/"/g, '""')}"`,
       i._count?.moistureReadings ?? 0,
       i._count?.photos ?? 0,
       new Date(i.createdAt).toISOString(),
-    ].join(',')
+    ].join(","),
   );
 
-  const csv = [headers.join(','), ...rows].join('\n');
+  const csv = [headers.join(","), ...rows].join("\n");
+  const truncated = inspections.length === EXPORT_LIMIT;
 
   return new NextResponse(csv, {
     headers: {
-      'Content-Type': 'text/csv',
-      'Content-Disposition': `attachment; filename="inspections-export-${new Date().toISOString().slice(0, 10)}.csv"`,
+      "Content-Type": "text/csv",
+      "Content-Disposition": `attachment; filename="inspections-export-${new Date().toISOString().slice(0, 10)}.csv"`,
+      ...(truncated
+        ? {
+            "X-Export-Truncated": "true",
+            "X-Export-Limit": String(EXPORT_LIMIT),
+          }
+        : {}),
     },
   });
 }

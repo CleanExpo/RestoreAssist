@@ -11,102 +11,121 @@
  *   Removes the record (idempotent).
  */
 
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import { z } from 'zod'
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { z } from "zod";
 
 // ─── Validation ────────────────────────────────────────────────────────────────
 
 const carpetSchema = z.object({
   fiberType: z
-    .enum(['WOOL', 'NYLON', 'POLYESTER', 'POLYPROPYLENE', 'OTHER'])
+    .enum(["WOOL", "NYLON", "POLYESTER", "POLYPROPYLENE", "OTHER"])
     .nullable()
     .optional(),
-  pileType: z.enum(['CUT', 'LOOP', 'CUT_LOOP', 'FRIEZE']).nullable().optional(),
+  pileType: z.enum(["CUT", "LOOP", "CUT_LOOP", "FRIEZE"]).nullable().optional(),
   backingType: z.string().nullable().optional(),
   standingWaterHours: z.number().nonnegative().nullable().optional(),
   extractionRateLitresPerHour: z.number().positive().nullable().optional(),
   extractionPasses: z.number().int().positive().nullable().optional(),
-  residualMoisturePostExtraction: z.number().min(0).max(100).nullable().optional(),
+  residualMoisturePostExtraction: z
+    .number()
+    .min(0)
+    .max(100)
+    .nullable()
+    .optional(),
   delaminationTestResult: z.string().nullable().optional(),
   finalMoisturePercent: z.number().min(0).max(100).nullable().optional(),
   stainType: z.string().nullable().optional(),
   stainPH: z.number().min(0).max(14).nullable().optional(),
   stainTreatmentProduct: z.string().nullable().optional(),
   stainRemovalResult: z
-    .enum(['COMPLETE', 'PARTIAL', 'UNSUCCESSFUL'])
+    .enum(["COMPLETE", "PARTIAL", "UNSUCCESSFUL"])
     .nullable()
     .optional(),
   restorationDecision: z.string().nullable().optional(),
-})
+});
 
 // ─── GET ──────────────────────────────────────────────────────────────────────
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const inspection = await prisma.inspection.findUnique({
-    where: { id: params.id, userId: session.user.id },
+  const { id } = await params;
+
+  const inspection = await (prisma as any).inspection.findUnique({
+    where: { id, userId: session.user.id },
     select: { id: true, carpetRestorationAssessment: true },
-  })
+  });
 
   if (!inspection) {
-    return NextResponse.json({ error: 'Inspection not found' }, { status: 404 })
+    return NextResponse.json(
+      { error: "Inspection not found" },
+      { status: 404 },
+    );
   }
 
-  return NextResponse.json(inspection.carpetRestorationAssessment ?? null)
+  return NextResponse.json(
+    (inspection as any).carpetRestorationAssessment ?? null,
+  );
 }
 
 // ─── POST ─────────────────────────────────────────────────────────────────────
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const { id } = await params;
 
   const inspection = await prisma.inspection.findUnique({
-    where: { id: params.id, userId: session.user.id },
+    where: { id, userId: session.user.id },
     select: { id: true },
-  })
+  });
 
   if (!inspection) {
-    return NextResponse.json({ error: 'Inspection not found' }, { status: 404 })
+    return NextResponse.json(
+      { error: "Inspection not found" },
+      { status: 404 },
+    );
   }
 
-  const body = await req.json()
-  const parsed = carpetSchema.safeParse(body)
+  const body = await req.json();
+  const parsed = carpetSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Invalid data', details: parsed.error.flatten() },
+      { error: "Invalid data", details: parsed.error.flatten() },
       { status: 400 },
-    )
+    );
   }
 
-  const data = parsed.data
+  const data = parsed.data;
 
-  const record = await prisma.carpetRestorationAssessment.upsert({
-    where: { inspectionId: params.id },
+  const record = await (prisma as any).carpetRestorationAssessment.upsert({
+    where: { inspectionId: id },
     create: {
-      inspectionId: params.id,
+      inspectionId: id,
       fiberType: data.fiberType ?? undefined,
       pileType: data.pileType ?? undefined,
       backingType: data.backingType ?? undefined,
       standingWaterHours: data.standingWaterHours ?? undefined,
-      extractionRateLitresPerHour: data.extractionRateLitresPerHour ?? undefined,
+      extractionRateLitresPerHour:
+        data.extractionRateLitresPerHour ?? undefined,
       extractionPasses: data.extractionPasses ?? undefined,
-      residualMoisturePostExtraction: data.residualMoisturePostExtraction ?? undefined,
+      residualMoisturePostExtraction:
+        data.residualMoisturePostExtraction ?? undefined,
       delaminationTestResult: data.delaminationTestResult ?? undefined,
       finalMoisturePercent: data.finalMoisturePercent ?? undefined,
       stainType: data.stainType ?? undefined,
@@ -119,11 +138,15 @@ export async function POST(
       ...(data.fiberType !== undefined && { fiberType: data.fiberType }),
       ...(data.pileType !== undefined && { pileType: data.pileType }),
       ...(data.backingType !== undefined && { backingType: data.backingType }),
-      ...(data.standingWaterHours !== undefined && { standingWaterHours: data.standingWaterHours }),
+      ...(data.standingWaterHours !== undefined && {
+        standingWaterHours: data.standingWaterHours,
+      }),
       ...(data.extractionRateLitresPerHour !== undefined && {
         extractionRateLitresPerHour: data.extractionRateLitresPerHour,
       }),
-      ...(data.extractionPasses !== undefined && { extractionPasses: data.extractionPasses }),
+      ...(data.extractionPasses !== undefined && {
+        extractionPasses: data.extractionPasses,
+      }),
       ...(data.residualMoisturePostExtraction !== undefined && {
         residualMoisturePostExtraction: data.residualMoisturePostExtraction,
       }),
@@ -138,47 +161,56 @@ export async function POST(
       ...(data.stainTreatmentProduct !== undefined && {
         stainTreatmentProduct: data.stainTreatmentProduct,
       }),
-      ...(data.stainRemovalResult !== undefined && { stainRemovalResult: data.stainRemovalResult }),
-      ...(data.restorationDecision !== undefined && { restorationDecision: data.restorationDecision }),
+      ...(data.stainRemovalResult !== undefined && {
+        stainRemovalResult: data.stainRemovalResult,
+      }),
+      ...(data.restorationDecision !== undefined && {
+        restorationDecision: data.restorationDecision,
+      }),
     },
-  })
+  });
 
   await prisma.inspection.update({
-    where: { id: params.id },
-    data: { claimType: 'CARPET' },
-  })
+    where: { id },
+    data: { claimType: "CARPET" } as any,
+  });
 
-  return NextResponse.json(record)
+  return NextResponse.json(record);
 }
 
 // ─── DELETE ───────────────────────────────────────────────────────────────────
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const { id } = await params;
 
   const inspection = await prisma.inspection.findUnique({
-    where: { id: params.id, userId: session.user.id },
+    where: { id, userId: session.user.id },
     select: { id: true },
-  })
+  });
 
   if (!inspection) {
-    return NextResponse.json({ error: 'Inspection not found' }, { status: 404 })
+    return NextResponse.json(
+      { error: "Inspection not found" },
+      { status: 404 },
+    );
   }
 
-  await prisma.carpetRestorationAssessment
-    .delete({ where: { inspectionId: params.id } })
-    .catch(() => {})
+  await (prisma as any).carpetRestorationAssessment
+    .delete({ where: { inspectionId: id } })
+    .catch(() => {});
 
   await prisma.inspection.update({
-    where: { id: params.id },
-    data: { claimType: null },
-  })
+    where: { id },
+    data: { claimType: null } as any,
+  });
 
-  return NextResponse.json({ deleted: true })
+  return NextResponse.json({ deleted: true });
 }

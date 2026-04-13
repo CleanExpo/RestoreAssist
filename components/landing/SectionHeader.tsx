@@ -1,14 +1,18 @@
-"use client"
+"use client";
 
-import { motion } from "framer-motion"
+import { motion } from "framer-motion";
 
 interface SectionHeaderProps {
-  title: string
-  subtitle?: string
-  className?: string
+  title: string;
+  subtitle?: string;
+  className?: string;
 }
 
-export default function SectionHeader({ title, subtitle, className = "" }: SectionHeaderProps) {
+export default function SectionHeader({
+  title,
+  subtitle,
+  className = "",
+}: SectionHeaderProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 30 }}
@@ -17,9 +21,9 @@ export default function SectionHeader({ title, subtitle, className = "" }: Secti
       viewport={{ once: true }}
       className={`text-center mb-20 ${className}`}
     >
-      <h2 
+      <h2
         className="text-5xl md:text-6xl font-medium mb-6"
-        style={{ fontFamily: 'Titillium Web, sans-serif' }}
+        style={{ fontFamily: "Titillium Web, sans-serif" }}
       >
         {title}
       </h2>
@@ -29,5 +33,5 @@ export default function SectionHeader({ title, subtitle, className = "" }: Secti
         </p>
       )}
     </motion.div>
-  )
+  );
 }

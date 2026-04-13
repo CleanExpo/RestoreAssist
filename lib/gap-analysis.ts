@@ -1,65 +1,73 @@
 /**
  * Enhanced Gap Analysis Engine
- * 
+ *
  * Analyzes completed claim PDFs against IICRC standards, Australian standards,
  * OH&S policies, and billing requirements to identify missing elements
  * Uses connected integrations and retrieves standards from Google Drive
  */
 
-import Anthropic from '@anthropic-ai/sdk'
-import { extractTextFromPDF } from './file-extraction'
-import { retrieveRelevantStandards, buildStandardsContextPrompt, RetrievalQuery } from './standards-retrieval'
-import { performRevolutionaryGapAnalysis } from './revolutionary-gap-analysis'
-import { createCachedSystemPrompt, extractCacheMetrics, logCacheMetrics } from './anthropic/features/prompt-cache'
+import Anthropic from "@anthropic-ai/sdk";
+import { extractTextFromPDF } from "./file-extraction";
+import {
+  retrieveRelevantStandards,
+  buildStandardsContextPrompt,
+  RetrievalQuery,
+} from "./standards-retrieval";
+import { performRevolutionaryGapAnalysis } from "./revolutionary-gap-analysis";
+import {
+  createCachedSystemPrompt,
+  extractCacheMetrics,
+  logCacheMetrics,
+} from "./anthropic/features/prompt-cache";
 
 export interface GapAnalysisResult {
-  fileName: string
-  fileId: string
+  fileName: string;
+  fileId: string;
   issues: Array<{
-    category: string
-    elementName: string
-    description: string
-    severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
-    standardReference?: string
-    isBillable?: boolean
-    estimatedCost?: number
-    estimatedHours?: number
-    suggestedLineItem?: string
-  }>
+    category: string;
+    elementName: string;
+    description: string;
+    severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
+    standardReference?: string;
+    isBillable?: boolean;
+    estimatedCost?: number;
+    estimatedHours?: number;
+    suggestedLineItem?: string;
+  }>;
   missingElements: {
-    iicrc: number
-    australianStandards: number
-    ohs: number
-    whs: number
-    scopeOfWorks: number
-    billing: number
-    documentation: number
-    equipment: number
-    monitoring: number
-  }
+    iicrc: number;
+    australianStandards: number;
+    ohs: number;
+    whs: number;
+    scopeOfWorks: number;
+    billing: number;
+    documentation: number;
+    equipment: number;
+    monitoring: number;
+  };
   scores: {
-    completeness: number
-    compliance: number
-    standardization: number
-    scopeAccuracy: number
-    billingAccuracy: number
-  }
-  estimatedMissingRevenue?: number
-  standardsReferenced?: string[]
-  complianceGaps?: string[]
+    completeness: number;
+    compliance: number;
+    standardization: number;
+    scopeAccuracy: number;
+    billingAccuracy: number;
+  };
+  estimatedMissingRevenue?: number;
+  standardsReferenced?: string[];
+  complianceGaps?: string[];
   reportStructure?: {
-    sections: string[]
-    missingSections: string[]
-    sectionOrder: string[]
-    flowIssues: string[]
-  }
+    sections: string[];
+    missingSections: string[];
+    sectionOrder: string[];
+    flowIssues: string[];
+  };
   technicianPattern?: {
-    reportingStyle: string
-    commonOmissions: string[]
-    strengths: string[]
-    standardizationLevel: 'LOW' | 'MEDIUM' | 'HIGH'
-  }
-  revolutionaryAnalysis?: unknown
+    reportingStyle: string;
+    commonOmissions: string[];
+    strengths: string[];
+    standardizationLevel: "LOW" | "MEDIUM" | "HIGH";
+  };
+  revolutionaryAnalysis?: unknown;
 }
 
 /**
@@ -69,10 +77,10 @@ export interface GapAnalysisResult {
 async function analyzeSinglePDF(
   file: { id: string; name: string; buffer: Buffer },
   anthropicApiKey: string,
-  standardsContext?: string
+  standardsContext?: string,
 ): Promise<GapAnalysisResult> {
-  const anthropic = new Anthropic({ apiKey: anthropicApiKey })
-  const base64Data = file.buffer.toString('base64')
+  const anthropic = new Anthropic({ apiKey: anthropicApiKey });
+  const base64Data = file.buffer.toString("base64");
 
   const systemPrompt = `You are a senior IICRC-certified water damage restoration consultant and compliance expert with 30+ years of experience in Australia. You are performing comprehensive gap analysis on completed claim reports to identify ALL missing elements, compliance gaps, and billable items.
 
@@ -86,7 +94,7 @@ Your analysis must be thorough and identify:
 7. Missing equipment justification and specifications
 8. Missing monitoring and verification procedures
 
-${standardsContext ? `\n**RELEVANT STANDARDS FROM IICRC GOOGLE DRIVE:**\n${standardsContext}\n` : ''}
+${standardsContext ? `\n**RELEVANT STANDARDS FROM IICRC GOOGLE DRIVE:**\n${standardsContext}\n` : ""}
 
 **IICRC S500 Compliance Requirements (AS-IICRC S500:2025):**
 - Water category classification (Category 1, 2, or 3) with source identification
@@ -189,7 +197,7 @@ ${standardsContext ? `\n**RELEVANT STANDARDS FROM IICRC GOOGLE DRIVE:**\n${stand
 - Evidence preservation requirements
 - Loss assessment procedures
 
-Return ONLY a valid JSON object with comprehensive analysis.`
+Return ONLY a valid JSON object with comprehensive analysis.`;
 
   const userPrompt = `Perform comprehensive gap analysis on this completed claim report PDF: ${file.name}
 
@@ -278,66 +286,68 @@ Return JSON with this exact structure:
     "strengths": ["What this technician does well"],
     "standardizationLevel": "LOW|MEDIUM|HIGH"
   }
-}`
+}`;
 
   try {
     // Use prompt caching for cost optimization (90% savings on cache hits)
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: "claude-sonnet-4-20250514",
       max_tokens: 4096,
       system: [createCachedSystemPrompt(systemPrompt)],
       messages: [
         {
-          role: 'user',
+          role: "user",
           content: [
             {
-              type: 'document',
+              type: "document",
               source: {
-                type: 'base64',
-                media_type: 'application/pdf',
-                data: base64Data
-              }
+                type: "base64",
+                media_type: "application/pdf",
+                data: base64Data,
+              },
             },
             {
-              type: 'text',
-              text: userPrompt
-            }
-          ]
-        }
-      ]
-    })
+              type: "text",
+              text: userPrompt,
+            },
+          ],
+        },
+      ],
+    });
 
     // Log cache metrics
-    const metrics = extractCacheMetrics(response)
-    logCacheMetrics('GapAnalyzer', metrics, response.id)
+    const metrics = extractCacheMetrics(response);
+    logCacheMetrics("GapAnalyzer", metrics, response.id);
 
     if (!response.content || response.content.length === 0) {
-      throw new Error('Claude returned empty response')
+      throw new Error("Claude returned empty response");
     }
 
-    const content = response.content[0]
-    if (content.type !== 'text') {
-      throw new Error('Unexpected response format from Claude')
+    const content = response.content[0];
+    if (content.type !== "text") {
+      throw new Error("Unexpected response format from Claude");
     }
 
     // Parse JSON from response
-    let jsonText = content.text.trim()
-    jsonText = jsonText.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '')
-    
-    const jsonMatch = jsonText.match(/\{[\s\S]*\}/)
+    let jsonText = content.text.trim();
+    jsonText = jsonText
+      .replace(/^```json\s*/i, "")
+      .replace(/^```\s*/, "")
+      .replace(/```\s*$/, "");
+
+    const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      throw new Error('No JSON found in Claude response')
+      throw new Error("No JSON found in Claude response");
     }
 
-    const result: GapAnalysisResult = JSON.parse(jsonMatch[0])
+    const result: GapAnalysisResult = JSON.parse(jsonMatch[0]);
     return {
       ...result,
       fileId: file.id,
-      fileName: file.name
-    }
-
+      fileName: file.name,
+    };
   } catch (error: any) {
-    throw new Error(`Failed to analyze ${file.name}: ${error.message}`)
+    throw new Error(`Failed to analyze ${file.name}: ${error.message}`);
   }
 }
 
@@ -349,22 +359,24 @@ Return JSON with this exact structure:
 export async function performGapAnalysis(
   pdfFiles: Array<{ id: string; name: string; buffer: Buffer }>,
   anthropicApiKey: string,
-  standardsContext?: string
+  standardsContext?: string,
 ): Promise<GapAnalysisResult[]> {
   // Use revolutionary gap analysis for comprehensive minute-level analysis
   const results = await Promise.allSettled(
-    pdfFiles.map(file => performRevolutionaryGapAnalysis(file, anthropicApiKey, standardsContext))
-  )
+    pdfFiles.map((file) =>
+      performRevolutionaryGapAnalysis(file, anthropicApiKey, standardsContext),
+    ),
+  );
 
   // Map revolutionary results to standard format for backward compatibility
   return results.map((result, index) => {
-    if (result.status === 'fulfilled') {
-      const revResult = result.value
+    if (result.status === "fulfilled") {
+      const revResult = result.value;
       // Convert revolutionary format to standard format
       return {
         fileName: revResult.fileName,
         fileId: revResult.fileId,
-        issues: revResult.issues.map(issue => ({
+        issues: revResult.issues.map((issue) => ({
           category: issue.category,
           elementName: issue.elementName,
           description: issue.description,
@@ -373,7 +385,7 @@ export async function performGapAnalysis(
           isBillable: issue.isBillable,
           estimatedCost: issue.estimatedCost,
           estimatedHours: issue.estimatedHours,
-          suggestedLineItem: issue.suggestedLineItem
+          suggestedLineItem: issue.suggestedLineItem,
         })),
         missingElements: revResult.missingElements,
         scores: {
@@ -381,7 +393,7 @@ export async function performGapAnalysis(
           compliance: revResult.scores.compliance,
           standardization: revResult.scores.standardization,
           scopeAccuracy: revResult.scores.scopeAccuracy,
-          billingAccuracy: revResult.scores.billingAccuracy
+          billingAccuracy: revResult.scores.billingAccuracy,
         },
         estimatedMissingRevenue: revResult.estimatedMissingRevenue,
         standardsReferenced: revResult.standardsReferenced,
@@ -389,8 +401,8 @@ export async function performGapAnalysis(
         reportStructure: revResult.reportStructure,
         technicianPattern: revResult.technicianPattern,
         // Add revolutionary data as additional fields
-        revolutionaryAnalysis: revResult
-      }
+        revolutionaryAnalysis: revResult,
+      };
     } else {
       // Return error result
       return {
@@ -406,20 +418,19 @@ export async function performGapAnalysis(
           billing: 0,
           documentation: 0,
           equipment: 0,
-          monitoring: 0
+          monitoring: 0,
         },
         scores: {
           completeness: 0,
           compliance: 0,
           standardization: 0,
           scopeAccuracy: 0,
-          billingAccuracy: 0
+          billingAccuracy: 0,
         },
         estimatedMissingRevenue: 0,
         standardsReferenced: [],
-        complianceGaps: []
-      }
+        complianceGaps: [],
+      };
     }
-  })
+  });
 }
-

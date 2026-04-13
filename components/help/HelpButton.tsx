@@ -1,25 +1,25 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { HelpCircle, X, ExternalLink } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { useState } from "react";
+import { HelpCircle, X, ExternalLink } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '@/components/ui/dialog'
-import { cn } from '@/lib/utils'
+} from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 
 interface HelpButtonProps {
-  title: string
-  description: string
-  steps?: string[]
-  tips?: string[]
-  learnMoreUrl?: string
-  className?: string
-  variant?: 'icon' | 'button' | 'inline'
+  title: string;
+  description: string;
+  steps?: string[];
+  tips?: string[];
+  learnMoreUrl?: string;
+  className?: string;
+  variant?: "icon" | "button" | "inline";
 }
 
 /**
@@ -33,28 +33,28 @@ export function HelpButton({
   tips,
   learnMoreUrl,
   className,
-  variant = 'icon',
+  variant = "icon",
 }: HelpButtonProps) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(false);
 
   const trigger =
-    variant === 'icon' ? (
+    variant === "icon" ? (
       <button
         onClick={() => setOpen(true)}
         className={cn(
-          'inline-flex items-center justify-center rounded-full p-1 text-neutral-500 hover:text-cyan-500 hover:bg-cyan-500/10 transition-colors',
-          className
+          "inline-flex items-center justify-center rounded-full p-1 text-neutral-500 hover:text-cyan-500 hover:bg-cyan-500/10 transition-colors",
+          className,
         )}
         aria-label={`Help: ${title}`}
       >
         <HelpCircle className="h-4 w-4" />
       </button>
-    ) : variant === 'button' ? (
+    ) : variant === "button" ? (
       <Button
         variant="outline"
         size="sm"
         onClick={() => setOpen(true)}
-        className={cn('gap-2', className)}
+        className={cn("gap-2", className)}
       >
         <HelpCircle className="h-4 w-4" />
         Help
@@ -63,14 +63,14 @@ export function HelpButton({
       <button
         onClick={() => setOpen(true)}
         className={cn(
-          'inline-flex items-center gap-1 text-sm text-cyan-500 hover:text-cyan-400 hover:underline',
-          className
+          "inline-flex items-center gap-1 text-sm text-cyan-500 hover:text-cyan-400 hover:underline",
+          className,
         )}
       >
         <HelpCircle className="h-3 w-3" />
         Learn more
       </button>
-    )
+    );
 
   return (
     <>
@@ -143,5 +143,5 @@ export function HelpButton({
         </DialogContent>
       </Dialog>
     </>
-  )
+  );
 }

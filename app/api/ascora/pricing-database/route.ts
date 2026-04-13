@@ -13,49 +13,49 @@
  * Increments acceptedCount or rejectedCount and recomputes acceptanceRate.
  */
 
-import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url)
-    const q = searchParams.get("q")?.trim()
-    const claimType = searchParams.get("claimType")?.trim()
+    const { searchParams } = new URL(request.url);
+    const q = searchParams.get("q")?.trim();
+    const claimType = searchParams.get("claimType")?.trim();
     const minAcceptance = searchParams.get("minAcceptance")
       ? parseFloat(searchParams.get("minAcceptance")!)
-      : undefined
-    const limit = Math.min(parseInt(searchParams.get("limit") ?? "50", 10), 200)
+      : undefined;
+    const limit = Math.min(
+      parseInt(searchParams.get("limit") ?? "50", 10),
+      200,
+    );
 
-    const where: Record<string, unknown> = { isActive: true }
+    const where: Record<string, unknown> = { isActive: true };
 
     if (q) {
       where.OR = [
         { partNumber: { contains: q, mode: "insensitive" } },
         { description: { contains: q, mode: "insensitive" } },
-      ]
+      ];
     }
 
     if (claimType) {
-      where.claimTypes = { has: claimType }
+      where.claimTypes = { has: claimType };
     }
 
     if (minAcceptance !== undefined) {
-      where.acceptanceRate = { gte: minAcceptance }
+      where.acceptanceRate = { gte: minAcceptance };
     }
 
-    const items = await prisma.scopePricingDatabase.findMany({
+    const items = await (prisma as any).scopePricingDatabase.findMany({
       where,
-      orderBy: [
-        { usageCount: "desc" },
-        { acceptanceRate: "desc" },
-      ],
+      orderBy: [{ usageCount: "desc" }, { acceptanceRate: "desc" }],
       take: limit,
       select: {
         id: true,
@@ -74,14 +74,17 @@ export async function GET(request: NextRequest) {
         source: true,
         lastUpdated: true,
       },
-    })
+    });
 
-    const total = await prisma.scopePricingDatabase.count({ where })
+    const total = await (prisma as any).scopePricingDatabase.count({ where });
 
-    return NextResponse.json({ items, total, limit })
+    return NextResponse.json({ items, total, limit });
   } catch (error) {
-    console.error("[ascora/pricing-database GET]", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error("[ascora/pricing-database GET]", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -96,35 +99,47 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json()
-    const { partNumber, accepted } = body as { partNumber: string; accepted: boolean }
+    const body = await request.json();
+    const { partNumber, accepted } = body as {
+      partNumber: string;
+      accepted: boolean;
+    };
 
     if (!partNumber) {
-      return NextResponse.json({ error: "partNumber is required" }, { status: 400 })
+      return NextResponse.json(
+        { error: "partNumber is required" },
+        { status: 400 },
+      );
     }
     if (typeof accepted !== "boolean") {
-      return NextResponse.json({ error: "accepted must be a boolean" }, { status: 400 })
+      return NextResponse.json(
+        { error: "accepted must be a boolean" },
+        { status: 400 },
+      );
     }
 
-    const existing = await prisma.scopePricingDatabase.findUnique({
+    const existing = await (prisma as any).scopePricingDatabase.findUnique({
       where: { partNumber },
-    })
+    });
 
     if (!existing) {
-      return NextResponse.json({ error: "partNumber not found in pricing database" }, { status: 404 })
+      return NextResponse.json(
+        { error: "partNumber not found in pricing database" },
+        { status: 404 },
+      );
     }
 
-    const newAccepted = existing.acceptedCount + (accepted ? 1 : 0)
-    const newRejected = existing.rejectedCount + (accepted ? 0 : 1)
-    const newTotal = newAccepted + newRejected
-    const newRate = newTotal > 0 ? newAccepted / newTotal : null
+    const newAccepted = existing.acceptedCount + (accepted ? 1 : 0);
+    const newRejected = existing.rejectedCount + (accepted ? 0 : 1);
+    const newTotal = newAccepted + newRejected;
+    const newRate = newTotal > 0 ? newAccepted / newTotal : null;
 
-    const updated = await prisma.scopePricingDatabase.update({
+    const updated = await (prisma as any).scopePricingDatabase.update({
       where: { partNumber },
       data: {
         acceptedCount: newAccepted,
@@ -139,11 +154,14 @@ export async function POST(request: NextRequest) {
         usageCount: true,
         acceptanceRate: true,
       },
-    })
+    });
 
-    return NextResponse.json({ success: true, item: updated })
+    return NextResponse.json({ success: true, item: updated });
   } catch (error) {
-    console.error("[ascora/pricing-database POST]", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error("[ascora/pricing-database POST]", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

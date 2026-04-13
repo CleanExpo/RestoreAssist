@@ -12,32 +12,35 @@
  * No body required — user is identified from session.
  */
 
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export async function GET(_request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const count = await prisma.pilotObservation.count({
       where: {
-        claimId:          'CLAIM-005',
-        observationType:  'technician_survey',
+        claimId: "CLAIM-005",
+        observationType: "technician_survey",
         recordedByUserId: session.user.id,
       },
-    })
+    });
 
     return NextResponse.json({
-      hasResponded:  count > 0,
+      hasResponded: count > 0,
       responseCount: count,
-    })
+    });
   } catch (error) {
-    console.error('Error checking survey status:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error("Error checking survey status:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

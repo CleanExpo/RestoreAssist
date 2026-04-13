@@ -13,28 +13,29 @@
  * }
  */
 
-import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import {
   calculateEquipment,
   type DamageCategory,
   type DamageClass,
-} from "@/lib/equipment-calculator"
+} from "@/lib/equipment-calculator";
 
 interface RouteParams {
-  params: { id: string }
+  params: Promise<{ id: string }>;
 }
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id: inspectionId } = params
+    // Next.js 15: params is a Promise — awaiting prevents undefined id on cold start
+    const { id: inspectionId } = await params;
 
     // Verify ownership + get classification from inspection record
     const inspection = await prisma.inspection.findFirst({
@@ -47,13 +48,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           select: { category: true, class: true },
         },
       },
-    })
+    });
 
     if (!inspection) {
-      return NextResponse.json({ error: "Inspection not found" }, { status: 404 })
+      return NextResponse.json(
+        { error: "Inspection not found" },
+        { status: 404 },
+      );
     }
 
-    const body = await request.json()
+    const body = await request.json();
     const {
       affectedAreaM2,
       damageClass: bodyClass,
@@ -61,23 +65,30 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       floorCount = 1,
       saveScopeItems = true,
     } = body as {
-      affectedAreaM2: number
-      damageClass?: DamageClass
-      damageCategory?: DamageCategory
-      floorCount?: number
-      saveScopeItems?: boolean
-    }
+      affectedAreaM2: number;
+      damageClass?: DamageClass;
+      damageCategory?: DamageCategory;
+      floorCount?: number;
+      saveScopeItems?: boolean;
+    };
 
     if (!affectedAreaM2 || affectedAreaM2 <= 0) {
-      return NextResponse.json({ error: "affectedAreaM2 must be a positive number" }, { status: 400 })
+      return NextResponse.json(
+        { error: "affectedAreaM2 must be a positive number" },
+        { status: 400 },
+      );
     }
 
     // Resolve category/class: body overrides → inspection classification record → error
-    const latestClassification = inspection.classifications[0]
+    const latestClassification = inspection.classifications[0];
     const resolvedCategory = (bodyCategory ??
-      (latestClassification?.category ? `CAT_${latestClassification.category}` : undefined)) as DamageCategory | undefined
+      (latestClassification?.category
+        ? `CAT_${latestClassification.category}`
+        : undefined)) as DamageCategory | undefined;
     const resolvedClass = (bodyClass ??
-      (latestClassification?.class ? `CLASS_${latestClassification.class}` : undefined)) as DamageClass | undefined
+      (latestClassification?.class
+        ? `CLASS_${latestClassification.class}`
+        : undefined)) as DamageClass | undefined;
 
     if (!resolvedCategory || !resolvedClass) {
       return NextResponse.json(
@@ -85,8 +96,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           error:
             "damageCategory and damageClass are required. Either pass them in the request body, or ensure the inspection has a Classification record.",
         },
-        { status: 400 }
-      )
+        { status: 400 },
+      );
     }
 
     // Run the calculator
@@ -95,10 +106,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       damageClass: resolvedClass,
       damageCategory: resolvedCategory,
       floorCount,
-    })
+    });
 
     // Persist as ScopeItem records (autoDetermined)
-    let savedScopeItems: string[] = []
+    let savedScopeItems: string[] = [];
     if (saveScopeItems) {
       // Remove any previous auto-determined equipment scope items
       await prisma.scopeItem.deleteMany({
@@ -106,28 +117,32 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           inspectionId,
           autoDetermined: true,
           itemType: {
-            in: ["air_mover", "lgr_dehumidifier", "air_scrubber", "negative_air_machine"],
+            in: [
+              "air_mover",
+              "lgr_dehumidifier",
+              "air_scrubber",
+              "negative_air_machine",
+            ],
           },
         },
-      })
+      });
 
-      for (const item of result.equipmentList) {
-        const scopeItem = await prisma.scopeItem.create({
-          data: {
-            inspectionId,
-            itemType: item.type,
-            description: `${item.label} — ${item.suggestedModel}`,
-            quantity: item.quantity,
-            unit: "unit/day",
-            specification: `Estimated amps: ${item.estimatedAmpsEach}A each (${item.estimatedAmpsTotal}A total)`,
-            autoDetermined: true,
-            justification: `${item.justification} — ${item.iicrcReference}`,
-            isRequired: true,
-            isSelected: true,
-          },
-        })
-        savedScopeItems.push(scopeItem.id)
-      }
+      const { randomUUID } = await import("crypto");
+      const equipmentPayloads = result.equipmentList.map((item) => ({
+        id: randomUUID(),
+        inspectionId,
+        itemType: item.type,
+        description: `${item.label} — ${item.suggestedModel}`,
+        quantity: item.quantity,
+        unit: "unit/day",
+        specification: `Estimated amps: ${item.estimatedAmpsEach}A each (${item.estimatedAmpsTotal}A total)`,
+        autoDetermined: true,
+        justification: `${item.justification} — ${item.iicrcReference}`,
+        isRequired: true,
+        isSelected: true,
+      }));
+      await prisma.scopeItem.createMany({ data: equipmentPayloads });
+      savedScopeItems.push(...equipmentPayloads.map((p) => p.id));
     }
 
     return NextResponse.json({
@@ -141,9 +156,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       message: saveScopeItems
         ? `Equipment calculated and saved as ${savedScopeItems.length} ScopeItem records.`
         : "Equipment calculated (not saved — pass saveScopeItems: true to persist).",
-    })
+    });
   } catch (error) {
-    console.error("[equipment-calculator POST]", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error("[equipment-calculator POST]", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

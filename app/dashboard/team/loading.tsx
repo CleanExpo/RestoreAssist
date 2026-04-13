@@ -1,4 +1,4 @@
-import { Skeleton } from "@/components/ui/skeleton"
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function TeamLoading() {
   return (
@@ -14,9 +14,12 @@ export default function TeamLoading() {
       <div className="rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden">
         <Skeleton className="h-12 w-full" />
         {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-16 w-full border-t border-gray-100 dark:border-slate-800" />
+          <Skeleton
+            key={i}
+            className="h-16 w-full border-t border-gray-100 dark:border-slate-800"
+          />
         ))}
       </div>
     </div>
-  )
+  );
 }

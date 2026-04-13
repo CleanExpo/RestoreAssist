@@ -1,0 +1,78 @@
+# Build artifacts
+.next/
+out/
+build/
+dist/
+storybook-static/
+
+# Dependencies
+node_modules/
+
+# Lock files (pnpm-lock.yaml = ~18K lines)
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# Generated code
+lib/generated/
+prisma/migrations/
+
+# Test artifacts
+playwright-report/
+test-results/
+.playwright/
+coverage/
+__snapshots__/
+
+# Media assets (binary files Claude can't read)
+public/videos/
+public/*.mp4
+public/*.jpg
+public/*.png
+public/*.gif
+public/*.svg
+public/*.ico
+public/*.webp
+store-assets/
+*.woff*
+*.ttf
+*.eot
+
+# Environment files
+.env
+.env.*
+
+# Logs
+*.log
+npm-debug.log*
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Android/iOS native (binary heavy)
+android/.gradle/
+android/app/build/
+ios/Pods/
+ios/build/
+
+# Vercel
+.vercel/
+
+# Claude worktrees (avoid recursive scanning)
+.claude/worktrees/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Source maps
+*.js.map
+*.css.map
+
+# Minified bundles
+*.min.js
+*.min.css
+*.bundle.js

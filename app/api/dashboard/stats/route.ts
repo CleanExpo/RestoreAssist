@@ -15,32 +15,40 @@
  * delta: percentage change vs equivalent prior period (or null if no prior data)
  */
 
-import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
-export const revalidate = 60 // Cache for 60 seconds at the route segment level
+export const revalidate = 60; // Cache for 60 seconds at the route segment level
 
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userId = session.user.id
-    const now = new Date()
+    const userId = session.user.id;
+    const now = new Date();
 
     // ── Time boundaries ──────────────────────────────────────────
-    const sevenDaysAgo   = new Date(now.getTime() - 7  * 24 * 60 * 60 * 1000)
-    const fourteenDaysAgo= new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000)
-    const oneDayAgo      = new Date(now.getTime() - 24 * 60 * 60 * 1000)
-    const twoDaysAgo     = new Date(now.getTime() - 48 * 60 * 60 * 1000)
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const twoDaysAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000);
 
-    const startOfMonth   = new Date(now.getFullYear(), now.getMonth(), 1)
-    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-    const endOfLastMonth   = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999)
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const endOfLastMonth = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      0,
+      23,
+      59,
+      59,
+      999,
+    );
 
     // ── Parallel queries ─────────────────────────────────────────
     const [
@@ -129,13 +137,13 @@ export async function GET() {
           createdAt: { gte: twoDaysAgo, lt: oneDayAgo },
         },
       }),
-    ])
+    ]);
 
     // ── Delta calculation ─────────────────────────────────────────
     function calcDelta(current: number, prior: number): string | null {
-      if (prior === 0) return current > 0 ? "+100%" : null
-      const pct = Math.round(((current - prior) / prior) * 100)
-      return pct >= 0 ? `+${pct}%` : `${pct}%`
+      if (prior === 0) return current > 0 ? "+100%" : null;
+      const pct = Math.round(((current - prior) / prior) * 100);
+      return pct >= 0 ? `+${pct}%` : `${pct}%`;
     }
 
     return NextResponse.json({
@@ -174,9 +182,12 @@ export async function GET() {
         sublabel: "Inspections created",
         href: "/dashboard/inspections",
       },
-    })
+    });
   } catch (error) {
-    console.error("[dashboard/stats GET]", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error("[dashboard/stats GET]", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

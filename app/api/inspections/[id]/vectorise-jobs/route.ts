@@ -35,85 +35,95 @@
  *   with no API key — useful for testing the full pipeline end-to-end.
  */
 
-import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import {
   buildJobEmbeddingText,
   embedText,
   type EmbeddingProvider,
-} from "@/lib/ai/embeddings"
+} from "@/lib/ai/embeddings";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface RouteParams {
-  params: Promise<{ id: string }>
+  params: Promise<{ id: string }>;
 }
 
 interface VectoriseBody {
-  provider?: EmbeddingProvider
-  openaiApiKey?: string
-  batchSize?: number
-  tenantId?: string
+  provider?: EmbeddingProvider;
+  openaiApiKey?: string;
+  batchSize?: number;
+  tenantId?: string;
 }
 
 interface HistoricalJobRow {
-  id: string
-  tenantId: string
-  claimType: string
-  waterCategory: number | null
-  waterClass: number | null
-  suburb: string
-  state: string
-  description: string
-  jobName: string
-  customerName: string | null
-  totalExTax: number
-  itemCount: number
-  equipmentCount: number
-  customFields: unknown
-  embeddedAt: Date | null
+  id: string;
+  tenantId: string;
+  claimType: string;
+  waterCategory: number | null;
+  waterClass: number | null;
+  suburb: string;
+  state: string;
+  description: string;
+  jobName: string;
+  customerName: string | null;
+  totalExTax: number;
+  itemCount: number;
+  equipmentCount: number;
+  customFields: unknown;
+  embeddedAt: Date | null;
 }
 
 // ─── Route handler ────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
-  const startTime = Date.now()
+  const startTime = Date.now();
 
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body: VectoriseBody = await request.json().catch(() => ({}))
+    const body: VectoriseBody = await request.json().catch(() => ({}));
 
     // Resolve embedding provider
-    const openaiApiKey = body.openaiApiKey ?? process.env.OPENAI_API_KEY
+    const openaiApiKey = body.openaiApiKey ?? process.env.OPENAI_API_KEY;
     const provider: EmbeddingProvider =
-      body.provider ?? (openaiApiKey ? "openai" : "hash-fallback")
+      body.provider ?? (openaiApiKey ? "openai" : "hash-fallback");
 
     // Validate provider/key combo
     if (provider === "openai" && !openaiApiKey) {
       return NextResponse.json(
-        { error: "provider=openai requires OPENAI_API_KEY env var or openaiApiKey in body" },
-        { status: 400 }
-      )
+        {
+          error:
+            "provider=openai requires OPENAI_API_KEY env var or openaiApiKey in body",
+        },
+        { status: 400 },
+      );
     }
 
-    const batchSize = Math.min(body.batchSize ?? 50, 200)
+    const batchSize = Math.min(body.batchSize ?? 50, 200);
 
-    // Resolve tenantId — look up from the authenticated user's organisation
-    let tenantId = body.tenantId
-    if (!tenantId) {
-      // HistoricalJob.tenantId is the userId of the account that owns the data
-      // (matches the pattern set in the Ascora sync route)
-      tenantId = session.user.id
-    }
+    // tenantId is always the authenticated user's own ID.
+    // Admin override via body.tenantId was removed — it allowed any user to read
+    // and overwrite another user's HistoricalJob embeddings by supplying a foreign userId.
+    const tenantId = session.user.id;
 
-    // ── Fetch all un-embedded jobs for this tenant ───────────────────────────
-    const allJobs = await prisma.$queryRawUnsafe<HistoricalJobRow[]>(
+    // ── Count total jobs (cheap) and fetch only un-embedded rows ─────────────
+    const [{ count: totalCount }] = await prisma.$queryRawUnsafe<
+      [{ count: bigint }]
+    >(
+      `SELECT COUNT(*) AS count FROM "HistoricalJob" WHERE "tenantId" = $1`,
+      tenantId,
+    );
+    const total = Number(totalCount);
+
+    // MAX_EMBED_PER_RUN caps one invocation to 1 000 rows — prevents Vercel timeout
+    const MAX_EMBED_PER_RUN = 1000;
+    const unembedded = await prisma.$queryRawUnsafe<HistoricalJobRow[]>(
       `
       SELECT
         id, "tenantId", "claimType", "waterCategory", "waterClass",
@@ -122,18 +132,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         "embeddedAt"
       FROM "HistoricalJob"
       WHERE "tenantId" = $1
+        AND "embeddedAt" IS NULL
       ORDER BY "createdAt" ASC
+      LIMIT $2
       `,
-      tenantId
-    )
+      tenantId,
+      MAX_EMBED_PER_RUN,
+    );
 
-    const total = allJobs.length
-    const unembedded = allJobs.filter((j) => j.embeddedAt === null)
-    const skipped = total - unembedded.length
-
-    console.log(
-      `[vectorise-jobs] tenant=${tenantId} total=${total} to-embed=${unembedded.length} provider=${provider}`
-    )
+    const skipped = total - unembedded.length;
 
     if (unembedded.length === 0) {
       return NextResponse.json({
@@ -144,15 +151,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         provider,
         durationMs: Date.now() - startTime,
         message: "All jobs already embedded — nothing to do.",
-      })
+      });
     }
 
     // ── Process in batches ───────────────────────────────────────────────────
-    let embedded = 0
-    const errors: string[] = []
+    let embedded = 0;
+    const errors: string[] = [];
 
     for (let i = 0; i < unembedded.length; i += batchSize) {
-      const batch = unembedded.slice(i, i + batchSize)
+      const batch = unembedded.slice(i, i + batchSize);
 
       await Promise.allSettled(
         batch.map(async (job) => {
@@ -171,15 +178,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
               itemCount: job.itemCount ?? 0,
               equipmentCount: job.equipmentCount ?? 0,
               customFields: job.customFields,
-            })
+            });
 
             // 2. Generate vector
-            const vector = await embedText(text, provider, openaiApiKey ?? "")
+            const vector = await embedText(text, provider, openaiApiKey ?? "");
 
             // 3. Persist via raw SQL — Prisma doesn't natively support vector(1536)
-            const vectorStr = `[${vector.join(",")}]`
+            const vectorStr = `[${vector.join(",")}]`;
             const modelName =
-              provider === "openai" ? "text-embedding-3-small" : "hash-fallback-v1"
+              provider === "openai"
+                ? "text-embedding-3-small"
+                : "hash-fallback-v1";
 
             await prisma.$executeRawUnsafe(
               `
@@ -192,28 +201,20 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
               `,
               vectorStr,
               modelName,
-              job.id
-            )
+              job.id,
+            );
 
-            embedded++
+            embedded++;
           } catch (err) {
-            const msg = `Job ${job.id} (${job.jobName ?? "unnamed"}): ${(err as Error).message}`
-            console.error(`[vectorise-jobs] ${msg}`)
-            errors.push(msg)
+            const msg = `Job ${job.id} (${job.jobName ?? "unnamed"}): ${(err as Error).message}`;
+            console.error(`[vectorise-jobs] ${msg}`);
+            errors.push(msg);
           }
-        })
-      )
-
-      console.log(
-        `[vectorise-jobs] batch ${Math.floor(i / batchSize) + 1} done — ` +
-          `embedded so far: ${embedded}/${unembedded.length}`
-      )
+        }),
+      );
     }
 
-    const durationMs = Date.now() - startTime
-    console.log(
-      `[vectorise-jobs] complete — embedded=${embedded} skipped=${skipped} errors=${errors.length} duration=${durationMs}ms`
-    )
+    const durationMs = Date.now() - startTime;
 
     return NextResponse.json({
       embedded,
@@ -222,12 +223,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       errors,
       provider,
       durationMs,
-    })
+    });
   } catch (err) {
-    console.error("[vectorise-jobs] Unexpected error:", err)
+    console.error("[vectorise-jobs] Unexpected error:", err);
     return NextResponse.json(
       { error: (err as Error).message ?? "Internal server error" },
-      { status: 500 }
-    )
+      { status: 500 },
+    );
   }
 }

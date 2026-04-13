@@ -14,90 +14,96 @@
  * Returns: { signedAt, signedByName, signatureUrl }
  */
 
-import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 interface RouteParams {
-  params: Promise<{ id: string }>
+  params: Promise<{ id: string }>;
 }
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id: inspectionId } = await params
+    const { id: inspectionId } = await params;
 
-    const inspection = await prisma.inspection.findFirst({
-      where: { id: inspectionId, userId: session.user.id },
-      select: { id: true, signedAt: true },
-    })
-
-    if (!inspection) {
-      return NextResponse.json({ error: "Inspection not found" }, { status: 404 })
-    }
-
-    if (inspection.signedAt) {
-      return NextResponse.json(
-        { error: "Inspection has already been signed. Contact admin to reset." },
-        { status: 409 }
-      )
-    }
-
-    const body = await request.json()
+    // Validate body before attempting atomic write
+    const body = await request.json();
     const { signatoryName, signatureUrl, role } = body as {
-      signatoryName?: string
-      signatureUrl?: string
-      role?: string
-    }
+      signatoryName?: string;
+      signatureUrl?: string;
+      role?: string;
+    };
 
     if (!signatoryName?.trim()) {
       return NextResponse.json(
         { error: "signatoryName is required" },
-        { status: 400 }
-      )
+        { status: 400 },
+      );
     }
 
     const displayName = role
       ? `${signatoryName.trim()} (${role.trim()})`
-      : signatoryName.trim()
+      : signatoryName.trim();
 
-    const updated = await prisma.inspection.update({
-      where: { id: inspectionId },
+    const signedAt = new Date();
+
+    // Atomic CAS — updateMany with signedAt: null prevents double-signature TOCTOU race
+    const result = await prisma.inspection.updateMany({
+      where: {
+        id: inspectionId,
+        userId: session.user.id,
+        ...({ signedAt: null } as any),
+      },
       data: {
-        signedAt: new Date(),
-        signedByName: displayName,
-        signatureUrl: signatureUrl?.trim() || null,
-        // Advance status to SUBMITTED if still in DRAFT
-        status: "SUBMITTED",
-        submittedAt: new Date(),
+        ...({
+          signedAt,
+          signedByName: displayName,
+          signatureUrl: signatureUrl?.trim() || null,
+          status: "SUBMITTED",
+          submittedAt: signedAt,
+        } as any),
       },
-      select: {
-        id: true,
-        signedAt: true,
-        signedByName: true,
-        signatureUrl: true,
-        status: true,
-      },
-    })
+    });
+
+    if (result.count === 0) {
+      // Distinguish "not found" from "already signed" for correct HTTP status
+      const exists = await prisma.inspection.findFirst({
+        where: { id: inspectionId, userId: session.user.id },
+        select: { id: true },
+      });
+      if (!exists) {
+        return NextResponse.json(
+          { error: "Inspection not found" },
+          { status: 404 },
+        );
+      }
+      return NextResponse.json(
+        {
+          error: "Inspection has already been signed. Contact admin to reset.",
+        },
+        { status: 409 },
+      );
+    }
 
     return NextResponse.json({
       success: true,
-      signedAt: updated.signedAt,
-      signedByName: updated.signedByName,
-      signatureUrl: updated.signatureUrl,
-      status: updated.status,
-    })
+      signedAt,
+      signedByName: displayName,
+      signatureUrl: signatureUrl?.trim() || null,
+      status: "SUBMITTED",
+    });
   } catch (error) {
-    console.error("[inspections/sign POST]", error)
+    console.error("[inspections/sign POST]", error);
     return NextResponse.json(
       { error: "Failed to save signature" },
-      { status: 500 }
-    )
+      { status: 500 },
+    );
   }
 }
 
@@ -108,35 +114,31 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
  */
 export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     if (session.user.role !== "ADMIN") {
       return NextResponse.json(
         { error: "Forbidden: Admin access required to reset a signature" },
-        { status: 403 }
-      )
+        { status: 403 },
+      );
     }
 
-    const { id: inspectionId } = await params
+    const { id: inspectionId } = await params;
 
     await prisma.inspection.updateMany({
       where: { id: inspectionId },
-      data: {
-        signedAt: null,
-        signedByName: null,
-        signatureUrl: null,
-      },
-    })
+      data: { signedAt: null, signedByName: null, signatureUrl: null } as any,
+    });
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("[inspections/sign DELETE]", error)
+    console.error("[inspections/sign DELETE]", error);
     return NextResponse.json(
       { error: "Failed to reset signature" },
-      { status: 500 }
-    )
+      { status: 500 },
+    );
   }
 }

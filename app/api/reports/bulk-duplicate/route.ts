@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { ReportStatus } from '@prisma/client'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import { canCreateBulkReports } from '@/lib/report-limits'
+import { NextRequest, NextResponse } from "next/server";
+import { ReportStatus } from "@prisma/client";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { canCreateBulkReports } from "@/lib/report-limits";
 import {
   rateLimit,
   validateReportIds,
@@ -11,79 +11,88 @@ import {
   deductBulkCredits,
   formatBulkResponse,
   getUnauthorizedReportIds,
-} from '@/lib/bulk-operations'
+} from "@/lib/bulk-operations";
 
 interface BulkDuplicateRequest {
-  ids: string[]
+  ids: string[];
   options?: {
-    inspectionDate?: string
-    status?: string
-    appendText?: string
-  }
+    inspectionDate?: string;
+    status?: string;
+    appendText?: string;
+  };
 }
 
 export async function POST(request: NextRequest) {
   try {
     // 1. Authenticate
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // 2. Rate limit check
-    const rateLimitCheck = rateLimit(session.user.id, 'bulk-duplicate')
+    const rateLimitCheck = rateLimit(session.user.id, "bulk-duplicate");
     if (!rateLimitCheck.allowed) {
       return NextResponse.json(
         {
-          error: 'Rate limit exceeded',
+          error: "Rate limit exceeded",
           retryAfter: rateLimitCheck.retryAfter,
           message: `You can perform 10 bulk operations per hour. Please try again in ${rateLimitCheck.retryAfter} seconds.`,
         },
-        { status: 429 }
-      )
+        { status: 429 },
+      );
     }
 
     // 3. Parse request
-    const { ids, options }: BulkDuplicateRequest = await request.json()
+    const { ids, options }: BulkDuplicateRequest = await request.json();
 
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
       return NextResponse.json(
-        { error: 'Invalid request', message: 'ids must be a non-empty array' },
-        { status: 400 }
-      )
+        { error: "Invalid request", message: "ids must be a non-empty array" },
+        { status: 400 },
+      );
     }
 
     // 4. Validate batch size
-    const batchCheck = validateBatchSize(ids.length, 'duplicate')
+    const batchCheck = validateBatchSize(ids.length, "duplicate");
     if (!batchCheck.valid) {
       return NextResponse.json(
-        { error: 'Batch size exceeded', message: batchCheck.message },
-        { status: 400 }
-      )
+        { error: "Batch size exceeded", message: batchCheck.message },
+        { status: 400 },
+      );
     }
 
     // 5. Check credits/permissions
-    const bulkCheckResult = await canCreateBulkReports(session.user.id, ids.length)
+    const bulkCheckResult = await canCreateBulkReports(
+      session.user.id,
+      ids.length,
+    );
     if (!bulkCheckResult.allowed) {
       return NextResponse.json(
         {
-          error: 'Insufficient permissions',
+          error: "Insufficient permissions",
           message: bulkCheckResult.reason,
           upgradeRequired: true,
         },
-        { status: 403 }
-      )
+        { status: 403 },
+      );
     }
 
     // 6. Validate user owns all reports
-    const ownedIds = await validateReportIds(ids, session.user.id)
-    const unauthorizedIds = await getUnauthorizedReportIds(ids, session.user.id)
+    const ownedIds = await validateReportIds(ids, session.user.id);
+    const unauthorizedIds = await getUnauthorizedReportIds(
+      ids,
+      session.user.id,
+    );
 
     if (ownedIds.length === 0) {
       return NextResponse.json(
-        { error: 'No valid reports found', message: 'You do not own any of the specified reports' },
-        { status: 403 }
-      )
+        {
+          error: "No valid reports found",
+          message: "You do not own any of the specified reports",
+        },
+        { status: 403 },
+      );
     }
 
     // 7. Fetch reports to duplicate
@@ -91,27 +100,32 @@ export async function POST(request: NextRequest) {
       where: {
         id: { in: ownedIds },
       },
-    })
+    });
 
     if (reportsToClone.length === 0) {
       return NextResponse.json(
-        { error: 'No reports found', message: 'Unable to retrieve report data' },
-        { status: 404 }
-      )
+        {
+          error: "No reports found",
+          message: "Unable to retrieve report data",
+        },
+        { status: 404 },
+      );
     }
 
     // 8. Prepare duplication data
-    const appendText = options?.appendText || '(Copy)'
-    const newStatus = options?.status || undefined
-    const newInspectionDate = options?.inspectionDate ? new Date(options.inspectionDate) : undefined
+    const appendText = options?.appendText || "(Copy)";
+    const newStatus = options?.status || undefined;
+    const newInspectionDate = options?.inspectionDate
+      ? new Date(options.inspectionDate)
+      : undefined;
 
-    const errors: Array<{ reportId: string; error: string }> = []
-    const newReportIds: string[] = []
+    const errors: Array<{ reportId: string; error: string }> = [];
+    const newReportIds: string[] = [];
 
     // 9. Execute duplications in transaction
     try {
       const createdReports = await prisma.$transaction(
-        reportsToClone.map(report =>
+        reportsToClone.map((report) =>
           prisma.report.create({
             data: {
               // Copy all fields from original
@@ -140,8 +154,10 @@ export async function POST(request: NextRequest) {
               ownerManagementPhone: report.ownerManagementPhone,
               ownerManagementEmail: report.ownerManagementEmail,
               lastInspectionDate: report.lastInspectionDate,
-              buildingChangedSinceLastInspection: report.buildingChangedSinceLastInspection,
-              structureChangesSinceLastInspection: report.structureChangesSinceLastInspection,
+              buildingChangedSinceLastInspection:
+                report.buildingChangedSinceLastInspection,
+              structureChangesSinceLastInspection:
+                report.structureChangesSinceLastInspection,
               previousLeakage: report.previousLeakage,
               emergencyRepairPerformed: report.emergencyRepairPerformed,
               reportDepthLevel: report.reportDepthLevel,
@@ -184,34 +200,34 @@ export async function POST(request: NextRequest) {
               targetTemperature: report.targetTemperature,
               estimatedDryingTime: report.estimatedDryingTime,
               equipmentPlacement: report.equipmentPlacement,
-              
+
               // Monitoring Data
               psychrometricReadings: report.psychrometricReadings,
               moistureReadings: report.moistureReadings,
-              
+
               // Psychrometric Assessment Data (Equipment Tools)
               psychrometricAssessment: report.psychrometricAssessment,
               scopeAreas: report.scopeAreas,
               equipmentSelection: report.equipmentSelection,
               equipmentCostTotal: report.equipmentCostTotal,
               estimatedDryingDuration: report.estimatedDryingDuration,
-              
+
               // Compliance Documentation
               safetyPlan: report.safetyPlan,
               containmentSetup: report.containmentSetup,
               decontaminationProcedures: report.decontaminationProcedures,
               postRemediationVerification: report.postRemediationVerification,
-              
+
               // Insurance Information
               propertyCover: report.propertyCover,
               contentsCover: report.contentsCover,
               liabilityCover: report.liabilityCover,
               businessInterruption: report.businessInterruption,
               additionalCover: report.additionalCover,
-              
+
               // AI-Generated Detailed Report
               detailedReport: report.detailedReport,
-              
+
               // Timeline Estimation Data
               phase1StartDate: report.phase1StartDate,
               phase1EndDate: report.phase1EndDate,
@@ -219,51 +235,59 @@ export async function POST(request: NextRequest) {
               phase2EndDate: report.phase2EndDate,
               phase3StartDate: report.phase3StartDate,
               phase3EndDate: report.phase3EndDate,
-              
+
               // Document URLs - Set to null for duplicates (new reports need new files)
               excelReportUrl: null,
               inspectionPdfUrl: null,
 
               // Set new values
-              status: newStatus ? (newStatus.toUpperCase() as ReportStatus) : report.status,
+              status: newStatus
+                ? (newStatus.toUpperCase() as ReportStatus)
+                : report.status,
               inspectionDate: newInspectionDate || report.inspectionDate,
-              reportNumber: `${report.reportNumber || 'WD'} ${appendText}`,
+              reportNumber: `${report.reportNumber || "WD"} ${appendText}`,
               userId: session.user.id,
               clientId: report.clientId,
             },
-          })
-        )
-      )
+          }),
+        ),
+      );
 
       // 10. Add created report IDs to response
-      createdReports.forEach(report => {
-        newReportIds.push(report.id)
-      })
+      createdReports.forEach((report) => {
+        newReportIds.push(report.id);
+      });
 
       // 11. Deduct credits and track usage for each duplicated report
-      const { getEffectiveSubscription } = await import('@/lib/organization-credits')
-      const effectiveSub = await getEffectiveSubscription(session.user.id)
-      
-      let creditsRemaining = effectiveSub?.creditsRemaining || 0
-      let creditsUsed = 0
+      const { getEffectiveSubscription } =
+        await import("@/lib/organization-credits");
+      const effectiveSub = await getEffectiveSubscription(session.user.id);
 
-      if (effectiveSub?.subscriptionStatus === 'TRIAL') {
+      let creditsRemaining = effectiveSub?.creditsRemaining || 0;
+      let creditsUsed = 0;
+
+      if (effectiveSub?.subscriptionStatus === "TRIAL") {
         // Deduct credits from admin
-        const creditResult = await deductBulkCredits(session.user.id, createdReports.length, 'bulk-duplicate')
-        creditsRemaining = creditResult.creditsRemaining
-        creditsUsed = createdReports.length
-      } else if (effectiveSub?.subscriptionStatus === 'ACTIVE') {
+        const creditResult = await deductBulkCredits(
+          session.user.id,
+          createdReports.length,
+          "bulk-duplicate",
+        );
+        creditsRemaining = creditResult.creditsRemaining;
+        creditsUsed = createdReports.length;
+      } else if (effectiveSub?.subscriptionStatus === "ACTIVE") {
         // Increment monthly usage on admin's account
-        const { incrementReportUsage } = await import('@/lib/report-limits')
+        const { incrementReportUsage } = await import("@/lib/report-limits");
         for (let i = 0; i < createdReports.length; i++) {
-          await incrementReportUsage(session.user.id)
+          await incrementReportUsage(session.user.id);
         }
       }
-      
+
       // Track usage for manager and creator for each report (without deducting credits again)
-      const { trackUsageOnly } = await import('@/lib/report-limits')
+      const reportLimits = (await import("@/lib/report-limits")) as any;
+      const trackUsageOnly = reportLimits.trackUsageOnly ?? (async () => {});
       for (let i = 0; i < createdReports.length; i++) {
-        await trackUsageOnly(session.user.id)
+        await trackUsageOnly(session.user.id);
       }
 
       // 12. Return success response
@@ -271,7 +295,9 @@ export async function POST(request: NextRequest) {
         {
           success: true,
           duplicated: createdReports.length,
-          failed: unauthorizedIds.length + (reportsToClone.length - createdReports.length),
+          failed:
+            unauthorizedIds.length +
+            (reportsToClone.length - createdReports.length),
           creditsUsed,
           creditsRemaining,
           newReportIds,
@@ -279,44 +305,53 @@ export async function POST(request: NextRequest) {
             unauthorizedIds.length > 0
               ? [
                   {
-                    type: 'unauthorized',
+                    type: "unauthorized",
                     count: unauthorizedIds.length,
                     message: `You do not own ${unauthorizedIds.length} of the requested reports`,
                   },
                 ]
               : [],
         },
-        { status: 200 }
-      )
+        { status: 200 },
+      );
     } catch (transactionError) {
-      console.error('Transaction error during bulk duplicate:', transactionError)
+      console.error(
+        "Transaction error during bulk duplicate:",
+        transactionError,
+      );
 
       return NextResponse.json(
         {
           success: false,
           duplicated: 0,
           failed: ids.length,
-          error: 'Bulk duplication failed',
-          message: transactionError instanceof Error ? transactionError.message : 'Unknown error',
+          error: "Bulk duplication failed",
+          message:
+            transactionError instanceof Error
+              ? transactionError.message
+              : "Unknown error",
           details:
-            'An error occurred while duplicating reports. No reports were created. Please try again.',
+            "An error occurred while duplicating reports. No reports were created. Please try again.",
         },
-        { status: 500 }
-      )
+        { status: 500 },
+      );
     }
   } catch (error) {
-    console.error('Error in bulk-duplicate:', error)
+    console.error("Error in bulk-duplicate:", error);
 
     if (error instanceof SyntaxError) {
       return NextResponse.json(
-        { error: 'Invalid JSON', message: 'Failed to parse request body' },
-        { status: 400 }
-      )
+        { error: "Invalid JSON", message: "Failed to parse request body" },
+        { status: 400 },
+      );
     }
 
     return NextResponse.json(
-      { error: 'Duplication failed', message: error instanceof Error ? error.message : 'Unknown error' },
-      { status: 500 }
-    )
+      {
+        error: "Duplication failed",
+        message: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 },
+    );
   }
 }

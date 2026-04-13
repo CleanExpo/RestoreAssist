@@ -1,7 +1,7 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   FileText,
@@ -19,374 +19,380 @@ import {
   RefreshCw,
   ExternalLink,
   AlertTriangle,
-  X
-} from 'lucide-react'
-import toast from 'react-hot-toast'
+  X,
+} from "lucide-react";
+import toast from "react-hot-toast";
 import {
   getEffectiveStatus,
   getStatusConfig,
   isDraft,
   isCancelled,
   type InvoiceStatus,
-} from '@/lib/invoice-status'
+} from "@/lib/invoice-status";
 
 interface LineItem {
-  id: string
-  description: string
-  category?: string
-  quantity: number
-  unitPrice: number
-  subtotal: number
-  gstRate: number
-  gstAmount: number
-  total: number
+  id: string;
+  description: string;
+  category?: string;
+  quantity: number;
+  unitPrice: number;
+  subtotal: number;
+  gstRate: number;
+  gstAmount: number;
+  total: number;
 }
 
 interface Payment {
-  id: string
-  amount: number
-  paymentMethod: string
-  paymentDate: string
-  reference?: string
-  notes?: string
+  id: string;
+  amount: number;
+  paymentMethod: string;
+  paymentDate: string;
+  reference?: string;
+  notes?: string;
 }
 
 interface AuditLog {
-  id: string
-  action: string
-  description: string
-  createdAt: string
+  id: string;
+  action: string;
+  description: string;
+  createdAt: string;
   user?: {
-    name: string
-    email: string
-  }
+    name: string;
+    email: string;
+  };
 }
 
 interface VariationInvoice {
-  id: string
-  invoiceNumber: string
-  status: string
-  invoiceDate: string
-  dueDate: string
-  totalIncGST: number
-  amountDue: number
+  id: string;
+  invoiceNumber: string;
+  status: string;
+  invoiceDate: string;
+  dueDate: string;
+  totalIncGST: number;
+  amountDue: number;
 }
 
 interface Invoice {
-  id: string
-  invoiceNumber: string
-  status: string
-  invoiceDate: string
-  dueDate: string
-  paidDate?: string
-  sentDate?: string
+  id: string;
+  invoiceNumber: string;
+  status: string;
+  invoiceDate: string;
+  dueDate: string;
+  paidDate?: string;
+  sentDate?: string;
 
-  customerName: string
-  customerEmail: string
-  customerPhone?: string
-  customerAddress?: string
-  customerABN?: string
+  customerName: string;
+  customerEmail: string;
+  customerPhone?: string;
+  customerAddress?: string;
+  customerABN?: string;
 
-  subtotalExGST: number
-  gstAmount: number
-  totalIncGST: number
-  amountPaid: number
-  amountDue: number
+  subtotalExGST: number;
+  gstAmount: number;
+  totalIncGST: number;
+  amountPaid: number;
+  amountDue: number;
 
-  discountAmount?: number
-  discountPercentage?: number
-  shippingAmount?: number
+  discountAmount?: number;
+  discountPercentage?: number;
+  shippingAmount?: number;
 
-  notes?: string
-  terms?: string
-  footer?: string
+  notes?: string;
+  terms?: string;
+  footer?: string;
 
   // External sync fields
-  externalInvoiceId?: string
-  externalSyncProvider?: string
-  externalSyncStatus?: string
-  externalSyncedAt?: string
-  externalSyncError?: string
+  externalInvoiceId?: string;
+  externalSyncProvider?: string;
+  externalSyncStatus?: string;
+  externalSyncedAt?: string;
+  externalSyncError?: string;
 
-  lineItems: LineItem[]
-  payments: Payment[]
-  auditLogs: AuditLog[]
+  lineItems: LineItem[];
+  payments: Payment[];
+  auditLogs: AuditLog[];
 
   contact?: {
-    id: string
-    fullName: string
-  }
+    id: string;
+    fullName: string;
+  };
   company?: {
-    id: string
-    name: string
-  }
+    id: string;
+    name: string;
+  };
   report?: {
-    id: string
-    title: string
-  }
+    id: string;
+    title: string;
+  };
 }
 
-export default function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const router = useRouter()
-  const [invoice, setInvoice] = useState<Invoice | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [invoiceId, setInvoiceId] = useState<string | null>(null)
-  const [showRecordPayment, setShowRecordPayment] = useState(false)
-  const [paymentAmount, setPaymentAmount] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState('BANK_TRANSFER')
-  const [paymentReference, setPaymentReference] = useState('')
-  const [paymentNotes, setPaymentNotes] = useState('')
-  const [recordingPayment, setRecordingPayment] = useState(false)
-  const [creatingCheckout, setCreatingCheckout] = useState(false)
-  const [syncing, setSyncing] = useState(false)
-  const [showSyncMenu, setShowSyncMenu] = useState(false)
-  const [generatingPdf, setGeneratingPdf] = useState(false)
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-  const [deleting, setDeleting] = useState(false)
-  const [variations, setVariations] = useState<VariationInvoice[]>([])
-  const [loadingVariations, setLoadingVariations] = useState(false)
+export default function InvoiceDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const router = useRouter();
+  const [invoice, setInvoice] = useState<Invoice | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [invoiceId, setInvoiceId] = useState<string | null>(null);
+  const [showRecordPayment, setShowRecordPayment] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("BANK_TRANSFER");
+  const [paymentReference, setPaymentReference] = useState("");
+  const [paymentNotes, setPaymentNotes] = useState("");
+  const [recordingPayment, setRecordingPayment] = useState(false);
+  const [creatingCheckout, setCreatingCheckout] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [showSyncMenu, setShowSyncMenu] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [variations, setVariations] = useState<VariationInvoice[]>([]);
+  const [loadingVariations, setLoadingVariations] = useState(false);
 
   useEffect(() => {
     const getParams = async () => {
-      const resolvedParams = await params
-      setInvoiceId(resolvedParams.id)
-    }
-    getParams()
-  }, [params])
+      const resolvedParams = await params;
+      setInvoiceId(resolvedParams.id);
+    };
+    getParams();
+  }, [params]);
 
   useEffect(() => {
-    if (!invoiceId) return
-    fetchInvoice()
-  }, [invoiceId])
+    if (!invoiceId) return;
+    fetchInvoice();
+  }, [invoiceId]);
 
   useEffect(() => {
-    if (!invoiceId) return
+    if (!invoiceId) return;
     const fetchVariations = async () => {
-      setLoadingVariations(true)
+      setLoadingVariations(true);
       try {
-        const response = await fetch(`/api/invoices/${invoiceId}/variations`)
+        const response = await fetch(`/api/invoices/${invoiceId}/variations`);
         if (response.ok) {
-          const data = await response.json()
-          setVariations(data.variations ?? [])
+          const data = await response.json();
+          setVariations(data.variations ?? []);
         }
       } catch (error) {
-        console.error('Failed to fetch variations:', error)
+        console.error("Failed to fetch variations:", error);
       } finally {
-        setLoadingVariations(false)
+        setLoadingVariations(false);
       }
-    }
-    fetchVariations()
-  }, [invoiceId])
+    };
+    fetchVariations();
+  }, [invoiceId]);
 
   const fetchInvoice = async () => {
-    if (!invoiceId) return
+    if (!invoiceId) return;
 
     try {
-      setLoading(true)
-      const response = await fetch(`/api/invoices/${invoiceId}`)
+      setLoading(true);
+      const response = await fetch(`/api/invoices/${invoiceId}`);
       if (response.ok) {
-        const data = await response.json()
-        setInvoice(data.invoice)
+        const data = await response.json();
+        setInvoice(data.invoice);
       } else {
-        toast.error('Invoice not found')
-        router.push('/dashboard/invoices')
+        toast.error("Invoice not found");
+        router.push("/dashboard/invoices");
       }
     } catch (error) {
-      console.error('Failed to fetch invoice:', error)
-      toast.error('Failed to load invoice')
+      console.error("Failed to fetch invoice:", error);
+      toast.error("Failed to load invoice");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleSendInvoice = async () => {
-    if (!invoiceId) return
+    if (!invoiceId) return;
 
     try {
       const response = await fetch(`/api/invoices/${invoiceId}/send`, {
-        method: 'POST'
-      })
+        method: "POST",
+      });
 
       if (response.ok) {
-        toast.success('Invoice sent successfully')
-        fetchInvoice()
+        toast.success("Invoice sent successfully");
+        fetchInvoice();
       } else {
-        const error = await response.json()
-        toast.error(error.message || 'Failed to send invoice')
+        const error = await response.json();
+        toast.error(error.message || "Failed to send invoice");
       }
     } catch (error) {
-      console.error('Failed to send invoice:', error)
-      toast.error('An error occurred while sending the invoice')
+      console.error("Failed to send invoice:", error);
+      toast.error("An error occurred while sending the invoice");
     }
-  }
+  };
 
   const handlePayOnline = async () => {
-    if (!invoiceId) return
+    if (!invoiceId) return;
 
     try {
-      setCreatingCheckout(true)
+      setCreatingCheckout(true);
       const response = await fetch(`/api/invoices/${invoiceId}/checkout`, {
-        method: 'POST'
-      })
+        method: "POST",
+      });
 
       if (response.ok) {
-        const data = await response.json()
+        const data = await response.json();
         // Redirect to Stripe Checkout
-        window.location.href = data.url
+        window.location.href = data.url;
       } else {
-        const error = await response.json()
-        toast.error(error.message || 'Failed to create checkout session')
-        setCreatingCheckout(false)
+        const error = await response.json();
+        toast.error(error.message || "Failed to create checkout session");
+        setCreatingCheckout(false);
       }
     } catch (error) {
-      console.error('Failed to create checkout:', error)
-      toast.error('An error occurred while creating the checkout session')
-      setCreatingCheckout(false)
+      console.error("Failed to create checkout:", error);
+      toast.error("An error occurred while creating the checkout session");
+      setCreatingCheckout(false);
     }
-  }
+  };
 
   const handleRecordPayment = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!invoiceId || !invoice) return
+    e.preventDefault();
+    if (!invoiceId || !invoice) return;
 
-    const amount = parseFloat(paymentAmount)
+    const amount = parseFloat(paymentAmount);
     if (isNaN(amount) || amount <= 0) {
-      toast.error('Please enter a valid amount')
-      return
+      toast.error("Please enter a valid amount");
+      return;
     }
 
     if (amount > invoice.amountDue / 100) {
-      toast.error('Payment amount exceeds amount due')
-      return
+      toast.error("Payment amount exceeds amount due");
+      return;
     }
 
     try {
-      setRecordingPayment(true)
+      setRecordingPayment(true);
 
       const response = await fetch(`/api/invoices/${invoiceId}/payments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount: Math.round(amount * 100), // Convert to cents
           paymentMethod,
           reference: paymentReference || null,
-          notes: paymentNotes || null
-        })
-      })
+          notes: paymentNotes || null,
+        }),
+      });
 
       if (response.ok) {
-        toast.success('Payment recorded successfully')
-        setShowRecordPayment(false)
-        setPaymentAmount('')
-        setPaymentReference('')
-        setPaymentNotes('')
-        fetchInvoice()
+        toast.success("Payment recorded successfully");
+        setShowRecordPayment(false);
+        setPaymentAmount("");
+        setPaymentReference("");
+        setPaymentNotes("");
+        fetchInvoice();
       } else {
-        const error = await response.json()
-        toast.error(error.message || 'Failed to record payment')
+        const error = await response.json();
+        toast.error(error.message || "Failed to record payment");
       }
     } catch (error) {
-      console.error('Failed to record payment:', error)
-      toast.error('An error occurred while recording the payment')
+      console.error("Failed to record payment:", error);
+      toast.error("An error occurred while recording the payment");
     } finally {
-      setRecordingPayment(false)
+      setRecordingPayment(false);
     }
-  }
+  };
 
   const handleSyncToAccounting = async (provider: string) => {
-    if (!invoiceId) return
+    if (!invoiceId) return;
 
     try {
-      setSyncing(true)
-      setShowSyncMenu(false)
+      setSyncing(true);
+      setShowSyncMenu(false);
 
       const response = await fetch(`/api/invoices/${invoiceId}/sync`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider: provider.toLowerCase() })
-      })
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: provider.toLowerCase() }),
+      });
 
       if (response.ok) {
-        const data = await response.json()
-        toast.success(`Invoice synced successfully to ${provider}`)
-        fetchInvoice()
+        const data = await response.json();
+        toast.success(`Invoice synced successfully to ${provider}`);
+        fetchInvoice();
       } else {
-        const error = await response.json()
-        toast.error(error.error || `Failed to sync to ${provider}`)
+        const error = await response.json();
+        toast.error(error.error || `Failed to sync to ${provider}`);
       }
     } catch (error) {
-      console.error('Failed to sync invoice:', error)
-      toast.error('An error occurred while syncing the invoice')
+      console.error("Failed to sync invoice:", error);
+      toast.error("An error occurred while syncing the invoice");
     } finally {
-      setSyncing(false)
+      setSyncing(false);
     }
-  }
+  };
 
   const handleDelete = async () => {
-    if (!invoiceId || !invoice) return
+    if (!invoiceId || !invoice) return;
 
-    setDeleting(true)
+    setDeleting(true);
     try {
       const response = await fetch(`/api/invoices/${invoiceId}`, {
-        method: 'DELETE'
-      })
+        method: "DELETE",
+      });
 
       if (response.ok) {
-        setShowDeleteDialog(false)
-        toast.success('Invoice deleted successfully')
-        router.push('/dashboard/invoices')
+        setShowDeleteDialog(false);
+        toast.success("Invoice deleted successfully");
+        router.push("/dashboard/invoices");
       } else {
-        const error = await response.json()
-        toast.error(error.message || 'Failed to delete invoice')
+        const error = await response.json();
+        toast.error(error.message || "Failed to delete invoice");
       }
     } catch (error) {
-      console.error('Failed to delete invoice:', error)
-      toast.error('An error occurred while deleting the invoice')
+      console.error("Failed to delete invoice:", error);
+      toast.error("An error occurred while deleting the invoice");
     } finally {
-      setDeleting(false)
+      setDeleting(false);
     }
-  }
+  };
 
   const downloadPDF = async () => {
-    if (!invoiceId) return
-    setGeneratingPdf(true)
+    if (!invoiceId) return;
+    setGeneratingPdf(true);
     try {
-      const res = await fetch(`/api/invoices/${invoiceId}/pdf`)
+      const res = await fetch(`/api/invoices/${invoiceId}/pdf`);
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || `Failed to generate PDF (${res.status})`)
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Failed to generate PDF (${res.status})`);
       }
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const win = window.open(url, '_blank', 'noopener,noreferrer')
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const win = window.open(url, "_blank", "noopener,noreferrer");
       if (win) {
-        win.focus()
-        toast.success('PDF opened in new tab. Use Ctrl+P (or Cmd+P) to print.')
+        win.focus();
+        toast.success("PDF opened in new tab. Use Ctrl+P (or Cmd+P) to print.");
         // Revoke URL after a delay so the new window can load the PDF
-        setTimeout(() => URL.revokeObjectURL(url), 60000)
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
       } else {
         // Popup blocked: trigger download instead
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `invoice-${invoice?.invoiceNumber ?? invoiceId}.pdf`
-        a.click()
-        URL.revokeObjectURL(url)
-        toast.success('PDF downloaded. Open the file to view or print (Ctrl+P).')
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `invoice-${invoice?.invoiceNumber ?? invoiceId}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast.success(
+          "PDF downloaded. Open the file to view or print (Ctrl+P).",
+        );
       }
     } catch (e: any) {
-      console.error('PDF generation error:', e)
-      toast.error(e?.message || 'Failed to generate PDF. Please try again.')
+      console.error("PDF generation error:", e);
+      toast.error(e?.message || "Failed to generate PDF. Please try again.");
     } finally {
-      setGeneratingPdf(false)
+      setGeneratingPdf(false);
     }
-  }
+  };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
       </div>
-    )
+    );
   }
 
   if (!invoice) {
@@ -395,26 +401,31 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         <div className="text-center">
           <AlertCircle className="mx-auto h-12 w-12 text-red-400 mb-4" />
           <h2 className="text-xl font-semibold mb-2">Invoice Not Found</h2>
-          <p className="text-slate-400 mb-4">The requested invoice could not be found.</p>
+          <p className="text-slate-400 mb-4">
+            The requested invoice could not be found.
+          </p>
           <button
-            onClick={() => router.push('/dashboard/invoices')}
+            onClick={() => router.push("/dashboard/invoices")}
             className="px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
           >
             Back to Invoices
           </button>
         </div>
       </div>
-    )
+    );
   }
 
   const effectiveStatus = getEffectiveStatus({
     status: invoice.status,
     dueDate: invoice.dueDate,
     amountDue: invoice.amountDue,
-  })
-  const statusConfig = getStatusConfig(effectiveStatus)
+  });
+  const statusConfig = getStatusConfig(effectiveStatus);
 
-  const statusIcons: Record<InvoiceStatus, React.ComponentType<{ className?: string }>> = {
+  const statusIcons: Record<
+    InvoiceStatus,
+    React.ComponentType<{ className?: string }>
+  > = {
     DRAFT: Clock,
     SENT: Mail,
     VIEWED: FileText,
@@ -424,8 +435,8 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
     CANCELLED: Clock,
     WRITTEN_OFF: AlertTriangle,
     REFUNDED: RefreshCw,
-  }
-  const StatusIcon = statusIcons[effectiveStatus] ?? FileText
+  };
+  const StatusIcon = statusIcons[effectiveStatus] ?? FileText;
 
   const getStatusBadge = () => (
     <div
@@ -435,14 +446,14 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
       <StatusIcon className="h-4 w-4" />
       <span className="text-sm font-medium">{statusConfig.label}</span>
     </div>
-  )
+  );
 
-  const draft = isDraft(invoice.status)
-  const cancelled = isCancelled(invoice.status)
-  const canEdit = draft
-  const canDelete = draft || cancelled
-  const canSend = draft
-  const canRecordPayment = !draft && !cancelled && invoice.amountDue > 0
+  const draft = isDraft(invoice.status);
+  const cancelled = isCancelled(invoice.status);
+  const canEdit = draft;
+  const canDelete = draft || cancelled;
+  const canSend = draft;
+  const canRecordPayment = !draft && !cancelled && invoice.amountDue > 0;
 
   return (
     <div className="space-y-6 pb-12">
@@ -450,7 +461,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => router.push('/dashboard/invoices')}
+            onClick={() => router.push("/dashboard/invoices")}
             className="p-2 hover:bg-slate-800 dark:hover:bg-slate-700 rounded-lg transition-colors"
           >
             <ArrowLeft className="h-5 w-5" />
@@ -482,7 +493,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                 className="flex items-center gap-2 px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-colors disabled:opacity-50"
               >
                 <CreditCard className="h-4 w-4" />
-                <span>{creatingCheckout ? 'Loading...' : 'Pay Online'}</span>
+                <span>{creatingCheckout ? "Loading..." : "Pay Online"}</span>
               </button>
               <button
                 onClick={() => setShowRecordPayment(true)}
@@ -500,26 +511,28 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                 disabled={syncing}
                 className="flex items-center gap-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors disabled:opacity-50"
               >
-                <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
-                <span>{syncing ? 'Syncing...' : 'Sync to Accounting'}</span>
+                <RefreshCw
+                  className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`}
+                />
+                <span>{syncing ? "Syncing..." : "Sync to Accounting"}</span>
               </button>
               {showSyncMenu && !syncing && (
                 <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-10">
                   <div className="py-1">
                     <button
-                      onClick={() => handleSyncToAccounting('xero')}
+                      onClick={() => handleSyncToAccounting("xero")}
                       className="w-full px-4 py-2 text-left text-sm text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                     >
                       Sync to Xero
                     </button>
                     <button
-                      onClick={() => handleSyncToAccounting('quickbooks')}
+                      onClick={() => handleSyncToAccounting("quickbooks")}
                       className="w-full px-4 py-2 text-left text-sm text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                     >
                       Sync to QuickBooks
                     </button>
                     <button
-                      onClick={() => handleSyncToAccounting('myob')}
+                      onClick={() => handleSyncToAccounting("myob")}
                       className="w-full px-4 py-2 text-left text-sm text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                     >
                       Sync to MYOB
@@ -539,11 +552,13 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             ) : (
               <Download className="h-4 w-4" />
             )}
-            <span>{generatingPdf ? 'Generating PDF...' : 'Download PDF'}</span>
+            <span>{generatingPdf ? "Generating PDF..." : "Download PDF"}</span>
           </button>
           {canEdit && (
             <button
-              onClick={() => router.push(`/dashboard/invoices/${invoice.id}/edit`)}
+              onClick={() =>
+                router.push(`/dashboard/invoices/${invoice.id}/edit`)
+              }
               className="flex items-center gap-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors"
             >
               <Edit className="h-4 w-4" />
@@ -578,24 +593,27 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           </div>
         )}
         {/* External Sync Status */}
-        {invoice.externalSyncStatus === 'SYNCED' && invoice.externalSyncProvider && (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
-            <CheckCircle className="h-4 w-4" />
-            <span className="text-sm font-medium">
-              Synced to {invoice.externalSyncProvider.charAt(0).toUpperCase() + invoice.externalSyncProvider.slice(1)}
-            </span>
-            {invoice.externalInvoiceId && (
-              <ExternalLink className="h-3 w-3" />
-            )}
-          </div>
-        )}
-        {invoice.externalSyncStatus === 'PENDING' && (
+        {invoice.externalSyncStatus === "SYNCED" &&
+          invoice.externalSyncProvider && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+              <CheckCircle className="h-4 w-4" />
+              <span className="text-sm font-medium">
+                Synced to{" "}
+                {invoice.externalSyncProvider.charAt(0).toUpperCase() +
+                  invoice.externalSyncProvider.slice(1)}
+              </span>
+              {invoice.externalInvoiceId && (
+                <ExternalLink className="h-3 w-3" />
+              )}
+            </div>
+          )}
+        {invoice.externalSyncStatus === "PENDING" && (
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
             <RefreshCw className="h-4 w-4 animate-spin" />
             <span className="text-sm font-medium">Syncing...</span>
           </div>
         )}
-        {invoice.externalSyncStatus === 'FAILED' && (
+        {invoice.externalSyncStatus === "FAILED" && (
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-500/10 text-red-600 dark:text-red-400">
             <AlertTriangle className="h-4 w-4" />
             <span className="text-sm font-medium">Sync Failed</span>
@@ -604,7 +622,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
       </div>
 
       {/* Sync Error Display */}
-      {invoice.externalSyncStatus === 'FAILED' && invoice.externalSyncError && (
+      {invoice.externalSyncStatus === "FAILED" && invoice.externalSyncError && (
         <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
           <div className="flex items-start gap-3">
             <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
@@ -649,7 +667,9 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
               {invoice.customerPhone && (
                 <div className="flex items-center gap-3">
                   <FileText className="h-5 w-5 text-slate-600 dark:text-slate-400" />
-                  <span className="text-slate-900 dark:text-white">{invoice.customerPhone}</span>
+                  <span className="text-slate-900 dark:text-white">
+                    {invoice.customerPhone}
+                  </span>
                 </div>
               )}
               {invoice.customerAddress && (
@@ -728,7 +748,9 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             <div className="p-6 bg-slate-50 dark:bg-slate-700/30 border-t border-slate-200 dark:border-slate-700">
               <div className="max-w-sm ml-auto space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-600 dark:text-slate-400">Subtotal (Ex GST)</span>
+                  <span className="text-slate-600 dark:text-slate-400">
+                    Subtotal (Ex GST)
+                  </span>
                   <span className="font-medium text-slate-900 dark:text-white">
                     ${(invoice.subtotalExGST / 100).toFixed(2)}
                   </span>
@@ -741,14 +763,18 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                 )}
                 {invoice.shippingAmount && invoice.shippingAmount > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-slate-600 dark:text-slate-400">Shipping</span>
+                    <span className="text-slate-600 dark:text-slate-400">
+                      Shipping
+                    </span>
                     <span className="font-medium text-slate-900 dark:text-white">
                       ${(invoice.shippingAmount / 100).toFixed(2)}
                     </span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-600 dark:text-slate-400">GST (10%)</span>
+                  <span className="text-slate-600 dark:text-slate-400">
+                    GST (10%)
+                  </span>
                   <span className="font-medium text-slate-900 dark:text-white">
                     ${(invoice.gstAmount / 100).toFixed(2)}
                   </span>
@@ -796,7 +822,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                           ${(payment.amount / 100).toFixed(2)}
                         </div>
                         <div className="text-sm text-slate-600 dark:text-slate-400">
-                          {payment.paymentMethod.replace(/_/g, ' ')}
+                          {payment.paymentMethod.replace(/_/g, " ")}
                           {payment.reference && ` • ${payment.reference}`}
                         </div>
                       </div>
@@ -825,7 +851,10 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             {loadingVariations ? (
               <div className="space-y-3">
                 {[1, 2].map((n) => (
-                  <div key={n} className="h-14 bg-slate-100 dark:bg-slate-700/50 rounded-lg animate-pulse" />
+                  <div
+                    key={n}
+                    className="h-14 bg-slate-100 dark:bg-slate-700/50 rounded-lg animate-pulse"
+                  />
                 ))}
               </div>
             ) : variations.length === 0 ? (
@@ -839,8 +868,8 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                     status: v.status,
                     dueDate: v.dueDate,
                     amountDue: v.amountDue,
-                  })
-                  const vStatusConfig = getStatusConfig(vEffectiveStatus)
+                  });
+                  const vStatusConfig = getStatusConfig(vEffectiveStatus);
                   return (
                     <div
                       key={v.id}
@@ -866,7 +895,11 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                       </div>
                       <div className="flex items-center gap-4 flex-shrink-0">
                         <span className="text-sm font-semibold text-slate-900 dark:text-white">
-                          ${(v.totalIncGST / 100).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          $
+                          {(v.totalIncGST / 100).toLocaleString("en-AU", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
                         </span>
                         <a
                           href={`/dashboard/invoices/${v.id}`}
@@ -877,7 +910,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                         </a>
                       </div>
                     </div>
-                  )
+                  );
                 })}
               </div>
             )}
@@ -923,7 +956,9 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             <div className="flex items-center gap-3 mb-4">
               <Calendar className="h-5 w-5 text-slate-600 dark:text-slate-400" />
               <div>
-                <div className="text-sm text-slate-600 dark:text-slate-400">Due Date</div>
+                <div className="text-sm text-slate-600 dark:text-slate-400">
+                  Due Date
+                </div>
                 <div className="font-medium text-slate-900 dark:text-white">
                   {new Date(invoice.dueDate).toLocaleDateString()}
                 </div>
@@ -935,7 +970,9 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                   Related Report
                 </div>
                 <button
-                  onClick={() => router.push(`/dashboard/reports/${invoice.report?.id}`)}
+                  onClick={() =>
+                    router.push(`/dashboard/reports/${invoice.report?.id}`)
+                  }
                   className="text-sm text-cyan-500 hover:text-cyan-600 transition-colors"
                 >
                   {invoice.report.title}
@@ -953,7 +990,9 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
               <div className="space-y-3">
                 {invoice.auditLogs.slice(0, 10).map((log) => (
                   <div key={log.id} className="text-sm">
-                    <div className="text-slate-900 dark:text-white">{log.description}</div>
+                    <div className="text-slate-900 dark:text-white">
+                      {log.description}
+                    </div>
                     <div className="text-xs text-slate-500 dark:text-slate-400">
                       {new Date(log.createdAt).toLocaleString()}
                       {log.user && ` • ${log.user.name}`}
@@ -1047,7 +1086,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                   disabled={recordingPayment}
                   className="flex-1 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-colors disabled:opacity-50"
                 >
-                  {recordingPayment ? 'Recording...' : 'Record Payment'}
+                  {recordingPayment ? "Recording..." : "Record Payment"}
                 </button>
               </div>
             </form>
@@ -1069,7 +1108,12 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
-              <h2 id="delete-dialog-title" className="text-xl font-semibold text-red-600 dark:text-red-400">Delete invoice</h2>
+              <h2
+                id="delete-dialog-title"
+                className="text-xl font-semibold text-red-600 dark:text-red-400"
+              >
+                Delete invoice
+              </h2>
               <button
                 onClick={() => !deleting && setShowDeleteDialog(false)}
                 disabled={deleting}
@@ -1080,8 +1124,11 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
               </button>
             </div>
             <p className="text-slate-600 dark:text-slate-300 mb-6">
-              Are you sure you want to delete invoice <strong className="text-slate-900 dark:text-white">{invoice.invoiceNumber}</strong>?
-              This action cannot be undone.
+              Are you sure you want to delete invoice{" "}
+              <strong className="text-slate-900 dark:text-white">
+                {invoice.invoiceNumber}
+              </strong>
+              ? This action cannot be undone.
             </p>
             <div className="flex gap-3">
               <button
@@ -1103,12 +1150,12 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                 ) : (
                   <Trash2 className="h-4 w-4" />
                 )}
-                {deleting ? 'Deleting...' : 'Delete'}
+                {deleting ? "Deleting..." : "Delete"}
               </button>
             </div>
           </div>
         </div>
       )}
     </div>
-  )
+  );
 }

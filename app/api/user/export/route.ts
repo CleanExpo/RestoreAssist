@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import { applyRateLimit } from '@/lib/rate-limiter'
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { applyRateLimit } from "@/lib/rate-limiter";
 
 /**
  * Export user data as JSON
@@ -10,15 +10,18 @@ import { applyRateLimit } from '@/lib/rate-limiter'
  */
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Rate limit: 3 data exports per 15 minutes per IP
-    const rateLimited = applyRateLimit(request, { maxRequests: 3, prefix: 'user-export' })
-    if (rateLimited) return rateLimited
+    const rateLimited = await applyRateLimit(request, {
+      maxRequests: 3,
+      prefix: "user-export",
+    });
+    if (rateLimited) return rateLimited;
 
     // Fetch all user data in parallel
     const [user, reports, clients, inspections, estimates] = await Promise.all([
@@ -71,7 +74,7 @@ export async function GET(request: NextRequest) {
           createdAt: true,
         },
       }),
-      prisma.inspection.findMany({
+      (prisma.inspection as any).findMany({
         where: { userId: session.user.id },
         include: {
           affectedAreas: true,
@@ -86,11 +89,11 @@ export async function GET(request: NextRequest) {
           lineItems: true,
         },
       }),
-    ])
+    ]);
 
     const exportData = {
       exportedAt: new Date().toISOString(),
-      exportVersion: '1.0',
+      exportVersion: "1.0",
       user: {
         ...user,
         // Remove password and sensitive data
@@ -108,22 +111,22 @@ export async function GET(request: NextRequest) {
         totalInspections: inspections.length,
         totalEstimates: estimates.length,
       },
-    }
+    };
 
     // Return as downloadable JSON
-    const filename = `restoreassist-export-${new Date().toISOString().split('T')[0]}.json`
+    const filename = `restoreassist-export-${new Date().toISOString().split("T")[0]}.json`;
 
     return new NextResponse(JSON.stringify(exportData, null, 2), {
       headers: {
-        'Content-Type': 'application/json',
-        'Content-Disposition': `attachment; filename="${filename}"`,
+        "Content-Type": "application/json",
+        "Content-Disposition": `attachment; filename="${filename}"`,
       },
-    })
+    });
   } catch (error) {
-    console.error('Error exporting user data:', error)
+    console.error("Error exporting user data:", error);
     return NextResponse.json(
-      { error: 'Failed to export data' },
-      { status: 500 }
-    )
+      { error: "Failed to export data" },
+      { status: 500 },
+    );
   }
 }

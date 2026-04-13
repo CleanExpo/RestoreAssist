@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 /**
  * NIR Pilot Survey — CLAIM-005: Technician Ease-of-Use
@@ -13,16 +13,16 @@
  *   - Once submitted, shows a thank-you state and disappears after 4 s
  */
 
-import { useState, useEffect, useCallback } from "react"
-import { Star, X, ChevronRight, Loader2 } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { useState, useEffect, useCallback } from "react";
+import { Star, X, ChevronRight, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface NirPilotSurveyProps {
-  inspectionId: string
-  inspectionStatus: string
+  inspectionId: string;
+  inspectionStatus: string;
 }
 
-type SurveyState = "checking" | "hidden" | "visible" | "submitting" | "done"
+type SurveyState = "checking" | "hidden" | "visible" | "submitting" | "done";
 
 const RATING_LABELS: Record<number, string> = {
   1: "Very difficult",
@@ -30,91 +30,102 @@ const RATING_LABELS: Record<number, string> = {
   3: "Neutral",
   4: "Easy to use",
   5: "Very easy to use",
-}
+};
 
-export function NirPilotSurvey({ inspectionId, inspectionStatus }: NirPilotSurveyProps) {
-  const [state, setState]     = useState<SurveyState>("checking")
-  const [rating, setRating]   = useState<number>(0)
-  const [hovered, setHovered] = useState<number>(0)
-  const [notes, setNotes]     = useState("")
-  const [error, setError]     = useState<string | null>(null)
+export function NirPilotSurvey({
+  inspectionId,
+  inspectionStatus,
+}: NirPilotSurveyProps) {
+  const [state, setState] = useState<SurveyState>("checking");
+  const [rating, setRating] = useState<number>(0);
+  const [hovered, setHovered] = useState<number>(0);
+  const [notes, setNotes] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   // Only show for completed inspections
-  const isCompleted = inspectionStatus === "COMPLETED"
+  const isCompleted = inspectionStatus === "COMPLETED";
 
   const checkSurveyStatus = useCallback(async () => {
-    if (!isCompleted) { setState("hidden"); return }
-    try {
-      const res = await fetch("/api/pilot/survey-status")
-      if (!res.ok) { setState("hidden"); return }
-      const data = await res.json() as { hasResponded: boolean }
-      setState(data.hasResponded ? "hidden" : "visible")
-    } catch {
-      setState("hidden")
+    if (!isCompleted) {
+      setState("hidden");
+      return;
     }
-  }, [isCompleted])
+    try {
+      const res = await fetch("/api/pilot/survey-status");
+      if (!res.ok) {
+        setState("hidden");
+        return;
+      }
+      const data = (await res.json()) as { hasResponded: boolean };
+      setState(data.hasResponded ? "hidden" : "visible");
+    } catch {
+      setState("hidden");
+    }
+  }, [isCompleted]);
 
   useEffect(() => {
-    checkSurveyStatus()
-  }, [checkSurveyStatus])
+    checkSurveyStatus();
+  }, [checkSurveyStatus]);
 
   const handleDismiss = async () => {
     // Record a dismissal so we don't ask again — value 0 = dismissed
-    setState("hidden")
+    setState("hidden");
     try {
       await fetch("/api/pilot/observations", {
-        method:  "POST",
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          claimId:        "CLAIM-005",
+          claimId: "CLAIM-005",
           observationType: "technician_survey",
-          value:          0,
-          group:          "nir",
+          value: 0,
+          group: "nir",
           inspectionId,
-          notes:          "Dismissed without rating",
+          notes: "Dismissed without rating",
         }),
-      })
+      });
     } catch {
       // Silent — dismissal recording failure shouldn't surface to the user
     }
-  }
+  };
 
   const handleSubmit = async () => {
-    if (rating === 0) { setError("Please select a rating before submitting."); return }
-    setError(null)
-    setState("submitting")
+    if (rating === 0) {
+      setError("Please select a rating before submitting.");
+      return;
+    }
+    setError(null);
+    setState("submitting");
 
     try {
       const res = await fetch("/api/pilot/observations", {
-        method:  "POST",
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          claimId:         "CLAIM-005",
+          claimId: "CLAIM-005",
           observationType: "technician_survey",
-          value:           rating,
-          group:           "nir",
+          value: rating,
+          group: "nir",
           inspectionId,
-          notes:           notes.trim() || undefined,
+          notes: notes.trim() || undefined,
         }),
-      })
+      });
 
       if (!res.ok) {
-        setState("visible")
-        setError("Could not save your response. Please try again.")
-        return
+        setState("visible");
+        setError("Could not save your response. Please try again.");
+        return;
       }
 
-      setState("done")
+      setState("done");
       // Auto-dismiss after 4 s
-      setTimeout(() => setState("hidden"), 4000)
-
+      setTimeout(() => setState("hidden"), 4000);
     } catch {
-      setState("visible")
-      setError("Network error. Please try again.")
+      setState("visible");
+      setError("Network error. Please try again.");
     }
-  }
+  };
 
-  if (state === "checking" || state === "hidden") return null
+  if (state === "checking" || state === "hidden") return null;
 
   // ── Thank-you state ─────────────────────────────────────────────────────────
   if (state === "done") {
@@ -132,7 +143,7 @@ export function NirPilotSurvey({ inspectionId, inspectionStatus }: NirPilotSurve
           </p>
         </div>
       </div>
-    )
+    );
   }
 
   // ── Survey card ─────────────────────────────────────────────────────────────
@@ -168,12 +179,15 @@ export function NirPilotSurvey({ inspectionId, inspectionStatus }: NirPilotSurve
 
         {/* Star rating */}
         <div className="flex items-center gap-1.5">
-          {[1, 2, 3, 4, 5].map(n => (
+          {[1, 2, 3, 4, 5].map((n) => (
             <button
               key={n}
               onMouseEnter={() => setHovered(n)}
               onMouseLeave={() => setHovered(0)}
-              onClick={() => { setRating(n); setError(null) }}
+              onClick={() => {
+                setRating(n);
+                setError(null);
+              }}
               className="transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 rounded"
               aria-label={`Rate ${n} — ${RATING_LABELS[n]}`}
             >
@@ -183,7 +197,7 @@ export function NirPilotSurvey({ inspectionId, inspectionStatus }: NirPilotSurve
                   "transition-colors",
                   (hovered > 0 ? n <= hovered : n <= rating)
                     ? "text-amber-400 fill-amber-400"
-                    : "text-neutral-300 dark:text-slate-600"
+                    : "text-neutral-300 dark:text-slate-600",
                 )}
               />
             </button>
@@ -203,7 +217,7 @@ export function NirPilotSurvey({ inspectionId, inspectionStatus }: NirPilotSurve
             </label>
             <textarea
               value={notes}
-              onChange={e => setNotes(e.target.value)}
+              onChange={(e) => setNotes(e.target.value)}
               placeholder="What worked well, or what was difficult?"
               rows={2}
               className="w-full text-xs rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 resize-none"
@@ -231,16 +245,20 @@ export function NirPilotSurvey({ inspectionId, inspectionStatus }: NirPilotSurve
             "flex items-center gap-1.5 text-xs font-medium px-3.5 py-1.5 rounded-lg transition-all",
             rating > 0
               ? "bg-cyan-500 hover:bg-cyan-600 text-white shadow-sm"
-              : "bg-neutral-100 dark:bg-slate-800 text-neutral-400 cursor-not-allowed"
+              : "bg-neutral-100 dark:bg-slate-800 text-neutral-400 cursor-not-allowed",
           )}
         >
           {state === "submitting" ? (
-            <><Loader2 size={12} className="animate-spin" /> Saving…</>
+            <>
+              <Loader2 size={12} className="animate-spin" /> Saving…
+            </>
           ) : (
-            <>Submit rating <ChevronRight size={12} /></>
+            <>
+              Submit rating <ChevronRight size={12} />
+            </>
           )}
         </button>
       </div>
     </div>
-  )
+  );
 }

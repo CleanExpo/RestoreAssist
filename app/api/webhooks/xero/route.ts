@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createHmac } from 'crypto'
-import { prisma } from '@/lib/prisma'
+import { NextRequest, NextResponse } from "next/server";
+import { createHmac, timingSafeEqual } from "crypto";
+import { prisma } from "@/lib/prisma";
 
 /**
  * POST /api/webhooks/xero - Receive webhook events from Xero
@@ -15,149 +15,158 @@ import { prisma } from '@/lib/prisma'
 export async function POST(request: NextRequest) {
   try {
     // Get webhook signature from header
-    const signature = request.headers.get('x-xero-signature')
+    const signature = request.headers.get("x-xero-signature");
 
     if (!signature) {
-      console.error('[Xero Webhook] Missing signature header')
-      return NextResponse.json(
-        { error: 'Missing signature' },
-        { status: 401 }
-      )
+      // Missing signature;
+      return NextResponse.json({ error: "Missing signature" }, { status: 401 });
     }
 
     // Read raw body for signature verification
-    const rawBody = await request.text()
+    const rawBody = await request.text();
 
     // Verify webhook signature
-    const webhookKey = process.env.XERO_WEBHOOK_KEY
+    const webhookKey = process.env.XERO_WEBHOOK_KEY;
     if (!webhookKey) {
-      console.error('[Xero Webhook] XERO_WEBHOOK_KEY not configured')
+      // XERO_WEBHOOK_KEY env var not set;
       return NextResponse.json(
-        { error: 'Webhook key not configured' },
-        { status: 500 }
-      )
+        { error: "Webhook key not configured" },
+        { status: 500 },
+      );
     }
 
     // Compute expected signature using HMAC-SHA256
-    const expectedSignature = createHmac('sha256', webhookKey)
+    const expectedSignature = createHmac("sha256", webhookKey)
       .update(rawBody)
-      .digest('base64')
+      .digest("base64");
 
-    if (signature !== expectedSignature) {
-      console.error('[Xero Webhook] Invalid signature')
-      return NextResponse.json(
-        { error: 'Invalid signature' },
-        { status: 401 }
-      )
+    const sigBuf = Buffer.from(signature, "base64");
+    const expBuf = Buffer.from(expectedSignature, "base64");
+    if (sigBuf.length !== expBuf.length || !timingSafeEqual(sigBuf, expBuf)) {
+      // Signature mismatch;
+      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
 
     // Parse webhook payload
-    const payload = JSON.parse(rawBody)
+    const payload = JSON.parse(rawBody);
 
     // Xero sends array of events
-    const events = payload.events || []
+    const events = payload.events || [];
 
-    if (events.length === 0) {
-      console.log('[Xero Webhook] No events in payload')
-      return NextResponse.json({ success: true, processed: 0 })
+    // Timestamp freshness check — reject replayed webhooks older than 5 minutes.
+    // Xero includes eventDateUtc on every event; check the newest event in the batch.
+    const WEBHOOK_MAX_AGE_MS = 5 * 60 * 1000;
+    const now = Date.now();
+    for (const evt of events) {
+      if (evt.eventDateUtc) {
+        const eventAge = now - new Date(evt.eventDateUtc).getTime();
+        if (eventAge > WEBHOOK_MAX_AGE_MS) {
+          console.warn(
+            `[Xero Webhook] Stale event rejected (age: ${Math.round(eventAge / 1000)}s)`,
+          );
+          return NextResponse.json(
+            { error: "Webhook event too old" },
+            { status: 400 },
+          );
+        }
+      }
     }
 
-    console.log(`[Xero Webhook] Received ${events.length} events`)
+    if (events.length === 0) {
+      return NextResponse.json({ success: true, processed: 0 });
+    }
 
     // Find integration by tenantId (Xero's organization ID)
-    const firstEvent = events[0]
-    const tenantId = firstEvent.tenantId
+    const firstEvent = events[0];
+    const tenantId = firstEvent.tenantId;
 
     if (!tenantId) {
-      console.error('[Xero Webhook] Missing tenantId in event')
-      return NextResponse.json(
-        { error: 'Missing tenantId' },
-        { status: 400 }
-      )
+      console.error("[Xero Webhook] Missing tenantId in event");
+      return NextResponse.json({ error: "Missing tenantId" }, { status: 400 });
     }
 
     // Find the integration for this tenant
     const integration = await prisma.integration.findFirst({
       where: {
-        provider: 'XERO',
+        provider: "XERO",
         tenantId: tenantId,
-        status: 'CONNECTED'
-      }
-    })
+        status: "CONNECTED",
+      },
+    });
 
     if (!integration) {
-      console.warn(`[Xero Webhook] No active integration found for tenant ${tenantId}`)
+      console.warn(
+        `[Xero Webhook] No active integration found for tenant ${tenantId}`,
+      );
       // Return 200 to prevent Xero from retrying
-      return NextResponse.json({ success: true, processed: 0 })
+      return NextResponse.json({ success: true, processed: 0 });
     }
 
     // Queue webhook events for async processing
-    const queuedEvents = []
+    const queuedEvents = [];
 
     for (const event of events) {
       try {
         // Map Xero event types to our standard event types
-        let eventType = event.eventType
-        const resourceType = event.resourceType // INVOICE, CONTACT, PAYMENT
+        let eventType = event.eventType;
+        const resourceType = event.resourceType; // INVOICE, CONTACT, PAYMENT
 
         // Normalize event types
-        if (resourceType === 'INVOICE') {
-          if (eventType === 'CREATE') {
-            eventType = 'invoice.created'
-          } else if (eventType === 'UPDATE') {
-            eventType = 'invoice.updated'
-          } else if (eventType === 'DELETE') {
-            eventType = 'invoice.deleted'
+        if (resourceType === "INVOICE") {
+          if (eventType === "CREATE") {
+            eventType = "invoice.created";
+          } else if (eventType === "UPDATE") {
+            eventType = "invoice.updated";
+          } else if (eventType === "DELETE") {
+            eventType = "invoice.deleted";
           }
-        } else if (resourceType === 'PAYMENT') {
-          if (eventType === 'CREATE') {
-            eventType = 'payment.created'
-          } else if (eventType === 'UPDATE') {
-            eventType = 'payment.updated'
+        } else if (resourceType === "PAYMENT") {
+          if (eventType === "CREATE") {
+            eventType = "payment.created";
+          } else if (eventType === "UPDATE") {
+            eventType = "payment.updated";
           }
-        } else if (resourceType === 'CONTACT') {
-          if (eventType === 'CREATE') {
-            eventType = 'contact.created'
-          } else if (eventType === 'UPDATE') {
-            eventType = 'contact.updated'
+        } else if (resourceType === "CONTACT") {
+          if (eventType === "CREATE") {
+            eventType = "contact.created";
+          } else if (eventType === "UPDATE") {
+            eventType = "contact.updated";
           }
         }
 
         // Check for duplicate events (Xero may send duplicates)
         const existingEvent = await prisma.webhookEvent.findFirst({
           where: {
-            provider: 'XERO',
+            provider: "XERO",
             integrationId: integration.id,
             payload: {
-              equals: event
+              equals: event,
             },
             createdAt: {
-              gte: new Date(Date.now() - 60 * 60 * 1000) // Last hour
-            }
-          }
-        })
+              gte: new Date(Date.now() - 60 * 60 * 1000), // Last hour
+            },
+          },
+        });
 
         if (existingEvent) {
-          console.log(`[Xero Webhook] Duplicate event detected: ${eventType} for ${event.resourceId}`)
-          continue
+          continue;
         }
 
         // Create webhook event record
         const webhookEvent = await prisma.webhookEvent.create({
           data: {
-            provider: 'XERO',
+            provider: "XERO",
             integrationId: integration.id,
             eventType,
             payload: event,
             signature,
-            status: 'PENDING'
-          }
-        })
+            status: "PENDING",
+          },
+        });
 
-        queuedEvents.push(webhookEvent.id)
-        console.log(`[Xero Webhook] Queued event ${webhookEvent.id}: ${eventType}`)
+        queuedEvents.push(webhookEvent.id);
       } catch (error) {
-        console.error(`[Xero Webhook] Failed to queue event:`, error)
+        console.error(`[Xero Webhook] Failed to queue event:`, error);
         // Continue processing other events
       }
     }
@@ -166,17 +175,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       processed: queuedEvents.length,
-      eventIds: queuedEvents
-    })
-
+      eventIds: queuedEvents,
+    });
   } catch (error) {
-    console.error('[Xero Webhook] Error processing webhook:', error)
+    console.error("[Xero Webhook] Error processing webhook:", error);
 
     // Return 200 to prevent Xero from retrying on our errors
     // Log the error for manual investigation
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 200 }
-    )
+      { success: false, error: "Internal server error" },
+      { status: 200 },
+    );
   }
 }

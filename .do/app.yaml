@@ -31,30 +31,21 @@ services:
       - key: ANTHROPIC_API_KEY
         scope: RUN_TIME
         type: SECRET
-      - key: ELEVENLABS_API_KEY
+      - key: STRIPE_SECRET_KEY
         scope: RUN_TIME
         type: SECRET
-      - key: ELEVENLABS_VOICE_ID
-        scope: RUN_TIME
-        type: GENERAL
-      - key: HEYGEN_API_KEY
+      - key: STRIPE_WEBHOOK_SECRET
         scope: RUN_TIME
         type: SECRET
-      - key: HEYGEN_AVATAR_ID
-        scope: RUN_TIME
-        type: GENERAL
-      - key: HEYGEN_WEBHOOK_SECRET
-        scope: RUN_TIME
-        type: SECRET
-      - key: YOUTUBE_API_KEY
-        scope: RUN_TIME
-        type: SECRET
-      - key: YOUTUBE_CHANNEL_ID
-        scope: RUN_TIME
-        type: GENERAL
-      - key: CONTENT_SYSTEM_USER_ID
-        scope: RUN_TIME
-        type: GENERAL
       - key: CRON_SECRET
         scope: RUN_TIME
         type: SECRET
+      - key: GOOGLE_PLAY_SERVICE_ACCOUNT_JSON
+        scope: RUN_TIME
+        type: SECRET
+      - key: ASC_API_KEY_ID
+        scope: RUN_TIME
+        type: GENERAL
+      - key: ASC_ISSUER_ID
+        scope: RUN_TIME
+        type: GENERAL

@@ -1,45 +1,45 @@
-import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
-import { canCreateReport } from "@/lib/report-limits"
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { canCreateReport } from "@/lib/report-limits";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    
+    const session = await getServerSession(authOptions);
+
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await params
+    const { id } = await params;
 
     // Check if user can create a report
-    const canCreate = await canCreateReport(session.user.id)
-    
+    const canCreate = await canCreateReport(session.user.id);
+
     if (!canCreate.allowed) {
       return NextResponse.json(
-        { 
+        {
           error: canCreate.reason || "Cannot create report",
           upgradeRequired: true,
         },
-        { status: 402 }
-      )
+        { status: 402 },
+      );
     }
 
     // Find the original report
     const originalReport = await prisma.report.findFirst({
       where: {
         id: id,
-        userId: session.user.id
-      }
-    })
+        userId: session.user.id,
+      },
+    });
 
     if (!originalReport) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 })
+      return NextResponse.json({ error: "Report not found" }, { status: 404 });
     }
 
     // For trial users, deduct credits
@@ -49,19 +49,19 @@ export async function POST(
         subscriptionStatus: true,
         creditsRemaining: true,
         totalCreditsUsed: true,
-      }
-    })
+      },
+    });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     // Deduct credits and track usage for team hierarchy
-    const { deductCreditsAndTrackUsage } = await import('@/lib/report-limits')
-    await deductCreditsAndTrackUsage(session.user.id)
+    const { deductCreditsAndTrackUsage } = await import("@/lib/report-limits");
+    await deductCreditsAndTrackUsage(session.user.id);
 
     // Generate new report number
-    const newReportNumber = `WD-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`
+    const newReportNumber = `WD-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
 
     // Create duplicate report with updated fields
     const duplicatedReport = await prisma.report.create({
@@ -75,7 +75,7 @@ export async function POST(
         reportNumber: newReportNumber,
         userId: session.user.id,
         clientId: originalReport.clientId,
-        
+
         // IICRC Assessment fields
         inspectionDate: new Date(),
         waterCategory: originalReport.waterCategory,
@@ -83,14 +83,14 @@ export async function POST(
         sourceOfWater: originalReport.sourceOfWater,
         affectedArea: originalReport.affectedArea,
         safetyHazards: originalReport.safetyHazards,
-        
+
         // Damage assessment fields
         structuralDamage: originalReport.structuralDamage,
         contentsDamage: originalReport.contentsDamage,
         hvacAffected: originalReport.hvacAffected,
         electricalHazards: originalReport.electricalHazards,
         microbialGrowth: originalReport.microbialGrowth,
-        
+
         // Equipment and drying fields
         dehumidificationCapacity: originalReport.dehumidificationCapacity,
         airmoversCount: originalReport.airmoversCount,
@@ -98,56 +98,56 @@ export async function POST(
         targetTemperature: originalReport.targetTemperature,
         estimatedDryingTime: originalReport.estimatedDryingTime,
         equipmentPlacement: originalReport.equipmentPlacement,
-        
+
         // Monitoring data (copy JSON strings)
         psychrometricReadings: originalReport.psychrometricReadings,
         moistureReadings: originalReport.moistureReadings,
-        
+
         // Remediation data
         safetyPlan: originalReport.safetyPlan,
         containmentSetup: originalReport.containmentSetup,
         decontaminationProcedures: originalReport.decontaminationProcedures,
         postRemediationVerification: originalReport.postRemediationVerification,
-        
+
         // Insurance data (copy JSON strings)
         propertyCover: originalReport.propertyCover,
         contentsCover: originalReport.contentsCover,
         liabilityCover: originalReport.liabilityCover,
         businessInterruption: originalReport.businessInterruption,
         additionalCover: originalReport.additionalCover,
-        
+
         // Set as draft
         status: "DRAFT",
-        
+
         // Optional fields
         totalCost: null, // Reset cost for new report
         description: originalReport.description,
-        completionDate: null // Reset completion date
+        completionDate: null, // Reset completion date
       },
       include: {
         user: {
           select: {
             name: true,
-            email: true
-          }
+            email: true,
+          },
         },
         client: {
           select: {
             name: true,
             email: true,
             phone: true,
-            company: true
-          }
-        }
-      }
-    })
+            company: true,
+          },
+        },
+      },
+    });
 
-    return NextResponse.json(duplicatedReport, { status: 201 })
+    return NextResponse.json(duplicatedReport, { status: 201 });
   } catch (error) {
-    console.error("Error duplicating report:", error)
+    console.error("Error duplicating report:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
-    )
+      { status: 500 },
+    );
   }
 }

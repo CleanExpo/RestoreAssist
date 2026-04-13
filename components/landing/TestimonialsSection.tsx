@@ -1,46 +1,49 @@
-"use client"
+"use client";
 
-import { motion } from "framer-motion"
-import { Star } from "lucide-react"
-import SectionWrapper from "./SectionWrapper"
-import SectionHeader from "./SectionHeader"
-import TestimonialCard from "./TestimonialCard"
+import { motion } from "framer-motion";
+import { Star } from "lucide-react";
+import SectionWrapper from "./SectionWrapper";
+import SectionHeader from "./SectionHeader";
+import TestimonialCard from "./TestimonialCard";
 
 const testimonials = [
   {
-    quote: "Restore Assist has cut our report generation time from hours to minutes. The NCC compliance checks are invaluable.",
+    quote:
+      "Restore Assist has cut our report generation time from hours to minutes. The NCC compliance checks are invaluable.",
     author: "Sarah Mitchell",
     title: "Restoration Manager",
     company: "Sydney",
     stat: "75% time saved",
-    color: "from-blue-500 to-cyan-500"
+    color: "from-blue-500 to-cyan-500",
   },
   {
-    quote: "The accuracy of cost estimates is impressive. Reports are professional and always accepted by insurers.",
+    quote:
+      "The accuracy of cost estimates is impressive. Reports are professional and always accepted by insurers.",
     author: "James Chen",
     title: "Insurance Assessor",
     company: "Melbourne",
     stat: "200+ reports completed",
-    color: "from-emerald-500 to-teal-500"
+    color: "from-emerald-500 to-teal-500",
   },
   {
-    quote: "Finally, a tool that understands Australian building standards. The state-specific compliance notes save us so much time.",
+    quote:
+      "Finally, a tool that understands Australian building standards. The state-specific compliance notes save us so much time.",
     author: "Lisa Anderson",
     title: "Property Manager",
     company: "Brisbane",
     stat: "40% admin reduction",
-    color: "from-purple-500 to-pink-500"
-  }
-]
+    color: "from-purple-500 to-pink-500",
+  },
+];
 
 export default function TestimonialsSection() {
   return (
     <SectionWrapper id="testimonials" background="dark">
-      <SectionHeader 
+      <SectionHeader
         title="Trusted by Restoration Professionals"
         subtitle="See what Australian restoration experts are saying about Restore Assist"
       />
-      
+
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
         {testimonials.map((testimonial, index) => (
           <TestimonialCard
@@ -57,7 +60,7 @@ export default function TestimonialsSection() {
       </div>
 
       {/* Trust Indicators */}
-      <motion.div 
+      <motion.div
         className="mt-16 text-center"
         initial={{ opacity: 0, y: 30 }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -78,5 +81,5 @@ export default function TestimonialsSection() {
         </div>
       </motion.div>
     </SectionWrapper>
-  )
+  );
 }

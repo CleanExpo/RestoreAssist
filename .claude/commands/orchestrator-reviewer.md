@@ -15,6 +15,7 @@ You are the **deep reviewer** in the PR review pipeline. You receive a triage re
 ## Input
 
 You receive:
+
 1. A PR number (from the triage report or `$ARGUMENTS`)
 2. The triage report from the PR Manager (risk level, activated dimensions)
 
@@ -42,6 +43,7 @@ gh pr checks $ARGUMENTS --repo CleanExpo/RestoreAssist
 For **each activated dimension**, review the diff against the criteria defined in `.claude/rules/review-dimensions.md`.
 
 For each finding, assign:
+
 - **Severity**: Critical / Important / Suggestion
 - **Confidence**: 0–100 (only report findings ≥ 75%)
 - **File + Line**: Exact location in the diff
@@ -56,11 +58,11 @@ If multiple dimensions flag the same code location, keep only the highest-severi
 
 Apply the verdict thresholds from `.claude/rules/review-dimensions.md`:
 
-| Verdict | Criteria |
-|---|---|
-| **✅ APPROVED** | 0 Critical findings, ≤ 2 Important findings |
-| **⚠️ CHANGES REQUESTED** | Any Critical finding OR ≥ 3 Important findings |
-| **💬 NEEDS DISCUSSION** | Architecture-level concerns requiring human judgement |
+| Verdict                  | Criteria                                              |
+| ------------------------ | ----------------------------------------------------- |
+| **✅ APPROVED**          | 0 Critical findings, ≤ 2 Important findings           |
+| **⚠️ CHANGES REQUESTED** | Any Critical finding OR ≥ 3 Important findings        |
+| **💬 NEEDS DISCUSSION**  | Architecture-level concerns requiring human judgement |
 
 ### Step 6: Post Review to GitHub
 
@@ -71,11 +73,13 @@ gh pr review $ARGUMENTS --repo CleanExpo/RestoreAssist --comment --body "REVIEW_
 ```
 
 For CHANGES REQUESTED:
+
 ```bash
 gh pr review $ARGUMENTS --repo CleanExpo/RestoreAssist --request-changes --body "REVIEW_BODY"
 ```
 
 For APPROVED:
+
 ```bash
 gh pr review $ARGUMENTS --repo CleanExpo/RestoreAssist --approve --body "REVIEW_BODY"
 ```
@@ -92,34 +96,43 @@ gh pr review $ARGUMENTS --repo CleanExpo/RestoreAssist --approve --body "REVIEW_
 ---
 
 ### Critical Issues (must fix before merge)
+
 <!-- If none: "No critical issues found." -->
+
 1. **[Dimension]** Description
    📍 `file/path.ts:line` — Recommendation
 
 ### Important Issues (should fix)
+
 <!-- If none: "No important issues found." -->
+
 1. **[Dimension]** Description
    📍 `file/path.ts:line` — Recommendation
 
 ### Suggestions (optional improvements)
+
 <!-- If none: omit this section -->
+
 1. **[Dimension]** Description
    📍 `file/path.ts:line` — Recommendation
 
 ---
 
 ### Automated Checks
+
 - TypeScript: ✅ 0 errors | ⚠️ X errors | ❌ Failed
 - ESLint: ✅ Clean | ⚠️ X warnings | ❌ X errors
 - Build: ✅ Success | ❌ Failed
 - CI Status: ✅ Passing | ⚠️ Pending | ❌ Failing
 
 ### Dimensions Reviewed
+
 [List each dimension with ✅ pass, ⚠️ warning, or ❌ fail]
 Architecture ✅ | Security ✅ | Performance ⚠️ | Error Handling ✅ | ...
 
 ---
-*Reviewed by Principal Engineer Agent — RestoreAssist PR Review System*
+
+_Reviewed by Principal Engineer Agent — RestoreAssist PR Review System_
 ```
 
 ## Review Principles

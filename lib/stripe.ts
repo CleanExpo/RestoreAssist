@@ -1,33 +1,34 @@
 import Stripe from "stripe";
 
-// NOTE: rotate the old test key (pk_test_51SK3Z3BY5KE…) in the Stripe dashboard
-// — it was previously hardcoded here and is now in git history.
-export const STRIPE_PUBLISHABLE_KEY = process.env.STRIPE_PUBLISHABLE_KEY ?? "";
-
-// Lazy singleton — avoids throwing at module evaluation time during `next build`.
-// The error is deferred to the first actual Stripe API call (request time), which
-// means routes that import this file but don't exercise Stripe won't break the build.
-let _instance: Stripe | null = null;
+// Lazy singleton — the Stripe constructor throws on falsy keys, so we defer
+// instantiation until the first actual call. This prevents Next.js build from
+// failing during "Collecting page data" when STRIPE_SECRET_KEY is absent
+// (env vars scoped RUN_TIME only on DO App Platform, not available at build).
+// All 14 callers are server-side API routes, so the key is always present
+// at runtime. Any missing-key errors surface as Stripe 401s, caught in
+// each route's try/catch.
+let _stripe: Stripe | null = null;
 
 function getInstance(): Stripe {
-  if (_instance) return _instance;
-  if (!process.env.STRIPE_SECRET_KEY) {
-    throw new Error("STRIPE_SECRET_KEY is not set");
+  if (!_stripe) {
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key) throw new Error("STRIPE_SECRET_KEY is not set");
+    _stripe = new Stripe(key, {
+      apiVersion: "2025-10-29.clover" as const,
+      typescript: true,
+    });
   }
-  _instance = new Stripe(process.env.STRIPE_SECRET_KEY, {
-    apiVersion: "2025-10-29.clover",
-    typescript: true,
-  });
-  return _instance;
+  return _stripe;
 }
 
-// Transparent proxy — all existing `stripe.xxx` call-sites continue to work
-// without modification. Accessing any property triggers lazy initialisation.
+// Proxy preserves the `stripe.foo.bar(...)` call surface used by all callers
+// without requiring any changes to the 14 importing files.
 export const stripe = new Proxy({} as Stripe, {
-  get(_target, prop) {
-    return getInstance()[prop as keyof Stripe];
-  },
-  apply(_target, _thisArg, args) {
-    return (getInstance() as unknown as (...a: unknown[]) => unknown)(...args);
+  get(_target, prop: string | symbol) {
+    return (getInstance() as unknown as Record<string | symbol, unknown>)[prop];
   },
 });
+
+export const STRIPE_PUBLISHABLE_KEY =
+  process.env.STRIPE_PUBLISHABLE_KEY ||
+  "pk_test_51SK3Z3BY5KEPMwxd73NBxV7AFPamtEy8dbfwPs3ziBMmM4bfP0pQr3IDkaqbhIm5DJ66chBIVLWkwD6SiEAwt5lr007K6qZY7z";

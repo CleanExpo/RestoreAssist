@@ -1,17 +1,20 @@
-import type React from "react"
-import type { Metadata } from "next"
-import { Inter } from "next/font/google"
-import { BRAND } from '@/lib/brand'
-import SessionProvider from "@/components/providers/SessionProvider"
-import { CapacitorProvider } from "@/components/providers/CapacitorProvider"
-import { ThemeProvider } from "@/components/theme-provider"
-import { Toaster } from "react-hot-toast"
-import { OrganizationSchema, SoftwareApplicationSchema } from "@/components/seo/JsonLd"
-import { NirOfflineProvider } from "@/components/nir-offline-provider"
-import "@/lib/env-check"
-import "./globals.css"
+import type React from "react";
+import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
+import { BRAND } from "@/lib/brand";
+import SessionProvider from "@/components/providers/SessionProvider";
+import { CapacitorProvider } from "@/components/providers/CapacitorProvider";
+import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "react-hot-toast";
+import {
+  OrganizationSchema,
+  SoftwareApplicationSchema,
+} from "@/components/seo/JsonLd";
+import { NirOfflineProvider } from "@/components/nir-offline-provider";
+import "@/lib/env-check";
+import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] })
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: {
@@ -36,7 +39,9 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_AU",
     siteName: "Restore Assist",
-    images: [{ url: "/logo.png", width: 512, height: 512, alt: "Restore Assist" }],
+    images: [
+      { url: "/logo.png", width: 512, height: 512, alt: "Restore Assist" },
+    ],
   },
   alternates: { canonical: "/" },
   twitter: {
@@ -48,13 +53,24 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
-  metadataBase: new URL(process.env.NEXTAUTH_URL || "https://restoreassist.com.au"),
-}
+  metadataBase: new URL(
+    process.env.NEXTAUTH_URL || "https://restoreassist.com.au",
+  ),
+};
+
+// viewport-fit=cover is required for iPhone notch (iPhone 13+) in Capacitor WebView
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+};
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
@@ -72,11 +88,11 @@ export default function RootLayout({
               <CapacitorProvider>{children}</CapacitorProvider>
             </SessionProvider>
           </NirOfflineProvider>
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            duration: 4000,
-            style: {
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              duration: 4000,
+              style: {
                 background: "#1e293b",
                 color: "#f1f5f9",
                 border: "1px solid #334155",
@@ -84,23 +100,23 @@ export default function RootLayout({
                 padding: "16px",
                 fontSize: "14px",
                 fontWeight: "500",
-            },
-            success: {
-              iconTheme: {
+              },
+              success: {
+                iconTheme: {
                   primary: "#10b981",
                   secondary: "#f1f5f9",
+                },
               },
-            },
-            error: {
-              iconTheme: {
+              error: {
+                iconTheme: {
                   primary: "#ef4444",
                   secondary: "#f1f5f9",
+                },
               },
-            },
-          }}
-        />
+            }}
+          />
         </ThemeProvider>
       </body>
     </html>
-  )
+  );
 }

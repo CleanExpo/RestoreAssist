@@ -1,5 +1,8 @@
-import { processPendingWebhookEvents, processWebhookEvent } from '@/lib/integrations/webhook-processor'
-import { prisma } from '@/lib/prisma'
+import {
+  processPendingWebhookEvents,
+  processWebhookEvent,
+} from "@/lib/integrations/webhook-processor";
+import { prisma } from "@/lib/prisma";
 
 /**
  * Webhook Queue System
@@ -9,11 +12,11 @@ import { prisma } from '@/lib/prisma'
  */
 
 interface QueueStats {
-  pending: number
-  processing: number
-  completed: number
-  failed: number
-  total: number
+  pending: number;
+  processing: number;
+  completed: number;
+  failed: number;
+  total: number;
 }
 
 /**
@@ -21,178 +24,189 @@ interface QueueStats {
  */
 export async function getQueueStats(): Promise<QueueStats> {
   const [pending, processing, completed, failed, total] = await Promise.all([
-    prisma.webhookEvent.count({ where: { status: 'PENDING' } }),
-    prisma.webhookEvent.count({ where: { status: 'PROCESSING' } }),
-    prisma.webhookEvent.count({ where: { status: 'COMPLETED' } }),
-    prisma.webhookEvent.count({ where: { status: 'FAILED' } }),
-    prisma.webhookEvent.count()
-  ])
+    prisma.webhookEvent.count({ where: { status: "PENDING" } }),
+    prisma.webhookEvent.count({ where: { status: "PROCESSING" } }),
+    prisma.webhookEvent.count({ where: { status: "COMPLETED" } }),
+    prisma.webhookEvent.count({ where: { status: "FAILED" } }),
+    prisma.webhookEvent.count(),
+  ]);
 
   return {
     pending,
     processing,
     completed,
     failed,
-    total
-  }
+    total,
+  };
 }
 
 /**
  * Process webhook queue
  * Polls for pending events and processes them
  */
-export async function processWebhookQueue(options: {
-  batchSize?: number
-  maxConcurrent?: number
-} = {}): Promise<{
-  processed: number
-  failed: number
-  errors: string[]
+export async function processWebhookQueue(
+  options: {
+    batchSize?: number;
+    maxConcurrent?: number;
+  } = {},
+): Promise<{
+  processed: number;
+  failed: number;
+  errors: string[];
 }> {
-  const {
-    batchSize = 10,
-    maxConcurrent = 3
-  } = options
+  const { batchSize = 10, maxConcurrent = 3 } = options;
 
-  console.log(`[Webhook Queue] Starting processing (batch: ${batchSize}, concurrent: ${maxConcurrent})`)
+  console.log(
+    `[Webhook Queue] Starting processing (batch: ${batchSize}, concurrent: ${maxConcurrent})`,
+  );
+
+  // Recover events stuck in PROCESSING for > 10 minutes (server crash / Vercel timeout)
+  const staleThreshold = new Date(Date.now() - 10 * 60 * 1000);
+  const recovered = await prisma.webhookEvent.updateMany({
+    where: { status: "PROCESSING", updatedAt: { lt: staleThreshold } },
+    data: { status: "PENDING" },
+  });
+  if (recovered.count > 0) {
+    console.log(
+      `[Webhook Queue] Recovered ${recovered.count} stale PROCESSING events → PENDING`,
+    );
+  }
 
   // Get pending events
   const pendingEvents = await prisma.webhookEvent.findMany({
     where: {
-      status: 'PENDING',
+      status: "PENDING",
       retryCount: {
-        lt: 5 // Max 5 retries
-      }
+        lt: 5, // Max 5 retries
+      },
     },
     orderBy: {
-      createdAt: 'asc'
+      createdAt: "asc",
     },
-    take: batchSize
-  })
+    take: batchSize,
+  });
 
   if (pendingEvents.length === 0) {
-    console.log('[Webhook Queue] No pending events to process')
-    return { processed: 0, failed: 0, errors: [] }
+    console.log("[Webhook Queue] No pending events to process");
+    return { processed: 0, failed: 0, errors: [] };
   }
 
-  console.log(`[Webhook Queue] Found ${pendingEvents.length} pending events`)
+  console.log(`[Webhook Queue] Found ${pendingEvents.length} pending events`);
 
-  let processed = 0
-  let failed = 0
-  const errors: string[] = []
+  let processed = 0;
+  let failed = 0;
+  const errors: string[] = [];
 
   // Process events in chunks to respect maxConcurrent limit
   for (let i = 0; i < pendingEvents.length; i += maxConcurrent) {
-    const chunk = pendingEvents.slice(i, i + maxConcurrent)
+    const chunk = pendingEvents.slice(i, i + maxConcurrent);
 
     const results = await Promise.allSettled(
-      chunk.map(event => processWebhookEvent(event.id))
-    )
+      chunk.map((event) => processWebhookEvent(event.id)),
+    );
 
     results.forEach((result, index) => {
-      if (result.status === 'fulfilled') {
-        processed++
+      if (result.status === "fulfilled") {
+        processed++;
       } else {
-        failed++
-        const error = `Event ${chunk[index].id}: ${result.reason}`
-        errors.push(error)
-        console.error(`[Webhook Queue] ${error}`)
+        failed++;
+        const error = `Event ${chunk[index].id}: ${result.reason}`;
+        errors.push(error);
+        console.error(`[Webhook Queue] ${error}`);
       }
-    })
+    });
   }
 
-  console.log(`[Webhook Queue] Completed: ${processed} processed, ${failed} failed`)
+  console.log(
+    `[Webhook Queue] Completed: ${processed} processed, ${failed} failed`,
+  );
 
-  return { processed, failed, errors }
+  return { processed, failed, errors };
 }
 
 /**
  * Retry failed webhook events
  * Resets status to PENDING for manual retry
  */
-export async function retryFailedEvents(options: {
-  eventIds?: string[]
-  olderThan?: Date
-  limit?: number
-} = {}): Promise<number> {
-  const {
-    eventIds,
-    olderThan,
-    limit = 100
-  } = options
+export async function retryFailedEvents(
+  options: {
+    eventIds?: string[];
+    olderThan?: Date;
+    limit?: number;
+  } = {},
+): Promise<number> {
+  const { eventIds, olderThan, limit = 100 } = options;
 
   const where: any = {
-    status: 'FAILED'
-  }
+    status: "FAILED",
+  };
 
   if (eventIds && eventIds.length > 0) {
-    where.id = { in: eventIds }
+    where.id = { in: eventIds };
   }
 
   if (olderThan) {
-    where.createdAt = { lt: olderThan }
+    where.createdAt = { lt: olderThan };
   }
 
   // Reset status to PENDING and increment retry count
   const result = await prisma.webhookEvent.updateMany({
     where,
     data: {
-      status: 'PENDING',
-      errorMessage: null
+      status: "PENDING",
+      errorMessage: null,
     },
-    take: limit
-  })
+  });
 
-  console.log(`[Webhook Queue] Reset ${result.count} failed events to PENDING`)
+  console.log(`[Webhook Queue] Reset ${result.count} failed events to PENDING`);
 
-  return result.count
+  return result.count;
 }
 
 /**
  * Clean up old webhook events
  * Removes events older than specified days
  */
-export async function cleanupOldEvents(options: {
-  olderThanDays?: number
-  keepFailed?: boolean
-} = {}): Promise<number> {
-  const {
-    olderThanDays = 30,
-    keepFailed = true
-  } = options
+export async function cleanupOldEvents(
+  options: {
+    olderThanDays?: number;
+    keepFailed?: boolean;
+  } = {},
+): Promise<number> {
+  const { olderThanDays = 30, keepFailed = true } = options;
 
-  const cutoffDate = new Date()
-  cutoffDate.setDate(cutoffDate.getDate() - olderThanDays)
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
 
   const where: any = {
     createdAt: { lt: cutoffDate },
-    status: { in: ['COMPLETED', 'SKIPPED'] }
-  }
+    status: { in: ["COMPLETED", "SKIPPED"] },
+  };
 
   if (!keepFailed) {
-    where.status.in.push('FAILED')
+    where.status.in.push("FAILED");
   }
 
   const result = await prisma.webhookEvent.deleteMany({
-    where
-  })
+    where,
+  });
 
-  console.log(`[Webhook Queue] Deleted ${result.count} old events`)
+  console.log(`[Webhook Queue] Deleted ${result.count} old events`);
 
-  return result.count
+  return result.count;
 }
 
 /**
  * Get events by status
  */
 export async function getEventsByStatus(
-  status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'SKIPPED',
+  status: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | "SKIPPED",
   options: {
-    limit?: number
-    offset?: number
-  } = {}
+    limit?: number;
+    offset?: number;
+  } = {},
 ): Promise<any[]> {
-  const { limit = 50, offset = 0 } = options
+  const { limit = 50, offset = 0 } = options;
 
   const events = await prisma.webhookEvent.findMany({
     where: { status },
@@ -202,16 +216,16 @@ export async function getEventsByStatus(
           id: true,
           provider: true,
           name: true,
-          userId: true
-        }
-      }
+          userId: true,
+        },
+      },
     },
-    orderBy: { createdAt: 'desc' },
+    orderBy: { createdAt: "desc" },
     take: limit,
-    skip: offset
-  })
+    skip: offset,
+  });
 
-  return events
+  return events;
 }
 
 /**
@@ -227,13 +241,13 @@ export async function getEventDetails(eventId: string): Promise<any> {
           provider: true,
           name: true,
           userId: true,
-          status: true
-        }
-      }
-    }
-  })
+          status: true,
+        },
+      },
+    },
+  });
 
-  return event
+  return event;
 }
 
 /**
@@ -241,40 +255,42 @@ export async function getEventDetails(eventId: string): Promise<any> {
  * Continuously processes webhook queue
  * NOT RECOMMENDED: Use external cron job instead
  */
-let workerRunning = false
-let workerIntervalId: NodeJS.Timeout | null = null
+let workerRunning = false;
+let workerIntervalId: NodeJS.Timeout | null = null;
 
 export function startWorker(intervalMs: number = 30000): void {
   if (workerRunning) {
-    console.warn('[Webhook Queue] Worker already running')
-    return
+    console.warn("[Webhook Queue] Worker already running");
+    return;
   }
 
-  console.log(`[Webhook Queue] Starting background worker (interval: ${intervalMs}ms)`)
+  console.log(
+    `[Webhook Queue] Starting background worker (interval: ${intervalMs}ms)`,
+  );
 
-  workerRunning = true
+  workerRunning = true;
 
   workerIntervalId = setInterval(async () => {
     try {
-      await processWebhookQueue({ batchSize: 10, maxConcurrent: 3 })
+      await processWebhookQueue({ batchSize: 10, maxConcurrent: 3 });
     } catch (error) {
-      console.error('[Webhook Queue] Worker error:', error)
+      console.error("[Webhook Queue] Worker error:", error);
     }
-  }, intervalMs)
+  }, intervalMs);
 }
 
 export function stopWorker(): void {
   if (!workerRunning) {
-    console.warn('[Webhook Queue] Worker not running')
-    return
+    console.warn("[Webhook Queue] Worker not running");
+    return;
   }
 
-  console.log('[Webhook Queue] Stopping background worker')
+  console.log("[Webhook Queue] Stopping background worker");
 
   if (workerIntervalId) {
-    clearInterval(workerIntervalId)
-    workerIntervalId = null
+    clearInterval(workerIntervalId);
+    workerIntervalId = null;
   }
 
-  workerRunning = false
+  workerRunning = false;
 }

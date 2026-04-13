@@ -2,12 +2,14 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgvector(map: "vector")]
 }
 
 model Account {
@@ -167,9 +169,6 @@ model User {
   // Scope templates
   scopeTemplates ScopeTemplate[]
 
-  // Content automation pipeline (RA-158)
-  contentJobs ContentJob[]
-
   // Support tickets (RA-163)
   supportTickets SupportTicket[]
 
@@ -179,6 +178,11 @@ model User {
   // RA-412: Multi-tenant workspace memberships
   ownedWorkspaces  Workspace[]       @relation("WorkspaceOwner")
   workspaceMemberships WorkspaceMember[] @relation("WorkspaceMemberships")
+
+  // V2: Ascora + DR-NRPG integrations
+  ascoraIntegration AscoraIntegration?
+  drNrpgIntegration DrNrpgIntegration?
+  historicalJobs    HistoricalJob[]
 }
 
 model Feedback {
@@ -271,7 +275,7 @@ model Client {
 
   @@index([search_vector], type: Gin)
   @@index([userId, name])
-  @@index([userId, email])
+  @@unique([userId, email])
   @@index([userId, createdAt])
   @@index([workspaceId])
 }
@@ -329,7 +333,7 @@ model ReportApproval {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
-  @@index([reportId, approvalType])
+  @@unique([reportId, approvalType])
   @@index([status])
 }
 
@@ -859,6 +863,7 @@ model Integration {
   @@index([provider])
   @@index([status])
   @@index([workspaceId])
+  @@index([userId, status]) // health/metrics: WHERE userId=? AND status='CONNECTED'
 }
 
 model CostLibrary {
@@ -996,6 +1001,7 @@ model WebhookEvent {
   @@index([provider, eventType])
   @@index([status, createdAt])
   @@index([integrationId, status])
+  @@index([provider, integrationId])
 }
 
 enum SubscriptionStatus {
@@ -1570,6 +1576,9 @@ model Inspection {
   evidenceItems       EvidenceItem[]
   inspectionWorkflow  InspectionWorkflow?
 
+  // Sprint H: Contents manifest AI draft (RA-405)
+  contentsManifestDraft String? @db.Text // JSON: ContentsManifestDraft
+
   // RA-416: media assets with EXIF metadata
   mediaAssets MediaAsset[] @relation("InspectionMediaAssets")
 
@@ -1583,12 +1592,19 @@ model Inspection {
   workspaceId String?
   workspace   Workspace? @relation("InspectionWorkspace", fields: [workspaceId], references: [id], onDelete: SetNull)
 
+  // V2: Sketch tool, DR-NRPG sync, drying goals
+  claimSketches    ClaimSketch[]
+  drNrpgJobSync    DrNrpgJobSync?
+  dryingGoalRecord DryingGoalRecord?
+
   @@index([userId])
   @@index([status])
   @@index([inspectionDate])
   @@index([propertyPostcode])
   @@index([search_vector], type: Gin)
   @@index([workspaceId])
+  @@index([userId, createdAt])
+  @@index([userId, status])
 }
 
 enum InspectionStatus {
@@ -1645,6 +1661,7 @@ model MoistureReading {
 
   @@index([inspectionId])
   @@index([surfaceType])
+  @@index([inspectionId, recordedAt])
 }
 
 // Affected Areas (Room/Zone with Category/Class)
@@ -1799,6 +1816,7 @@ model AuditLog {
   @@index([userId])
   @@index([action])
   @@index([timestamp])
+  @@index([inspectionId, timestamp]) // ordered audit trail: WHERE inspectionId=? ORDER BY timestamp DESC
 }
 
 // Building Code Database (State-specific requirements)
@@ -1807,7 +1825,7 @@ model BuildingCode {
 
   // Regulatory Document Link (NEW)
   regulatoryDocumentId String? // FK to RegulatoryDocument
-  regulatoryDocument   RegulatoryDocument? @relation(fields: [regulatoryDocumentId], references: [id])
+  regulatoryDocument   RegulatoryDocument? @relation(fields: [regulatoryDocumentId], references: [id], onDelete: SetNull)
 
   // Location
   state    String // QLD, NSW, VIC, etc.
@@ -2000,11 +2018,35 @@ model InspectionPhoto {
   gpsLatitude  Float?
   gpsLongitude Float?
 
+  // --- RA-446: IICRC S500:2025 Label Schema Fields ---
+  // Spec: PROJECTS/RestoreAssist/INSPECTION-IMAGE-SCHEMA.md §6
+  // Types: types/inspection-photo-labels.ts
+  damageCategory            String?   // Enum: CAT_1 | CAT_2 | CAT_3
+  damageClass               String?   // Enum: CLASS_1 | CLASS_2 | CLASS_3 | CLASS_4
+  s500SectionRef            String?   // Pattern: §XX.X — IICRC S500:2025 section reference
+  roomType                  String?   // Enum: KITCHEN | BATHROOM | LAUNDRY | ...
+  moistureSource            String?   // Enum: FLEXI_HOSE | PIPE_BURST | ...
+  affectedMaterial          String[]  // Multi-select AU building materials (min 1 when labelled)
+  surfaceOrientation        String?   // Enum: FLOOR | WALL_LOWER | CEILING | ...
+  damageExtentEstimate      String?   // Enum: SPOT | PARTIAL | MAJORITY | FULL | UNCERTAIN
+  equipmentVisible          Boolean   @default(false)
+  secondaryDamageIndicators String[]  // Multi-select; ASBESTOS_SUSPECT triggers stop-work modal
+  photoStage                String?   // Enum: PRE_WORK | DURING_WORK | MONITORING | POST_WORK | REINSTATEMENT
+  captureAngle              String?   // Enum: STRAIGHT_ON | OBLIQUE | OVERHEAD | MACRO | WIDE
+  labelledBy                String    @default("HUMAN_TECH")
+  technicianNotes           String?   @db.Text
+  moistureReadingLink       String?   // Soft FK to MoistureReading.id (no enforced constraint)
+  // --- End RA-446 Label Schema Fields ---
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([inspectionId])
   @@index([timestamp])
+  @@index([inspectionId, timestamp])  // photo gallery: WHERE inspectionId=? ORDER BY timestamp DESC
+  @@index([roomType])                 // RA-448 evidence screen filter
+  @@index([damageCategory])           // RA-448 evidence screen filter
+  @@index([photoStage])               // RA-448 evidence screen filter
 }
 
 model ChatMessage {
@@ -2067,6 +2109,7 @@ model UsageEvent {
   @@index([voiceNoteId])
   @@index([billingStatus])
   @@index([eventType])
+  @@index([timestamp]) // admin billing query: WHERE timestamp BETWEEN ? AND ? (no userId filter)
 }
 
 // Email Delivery System Models
@@ -2647,9 +2690,10 @@ model InterviewSession {
   report   Report?   @relation(fields: [reportId], references: [id], onDelete: SetNull)
 
   // Relations
-  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  formTemplate FormTemplate        @relation(fields: [formTemplateId], references: [id], onDelete: Cascade)
-  responses    InterviewResponse[]
+  user              User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  formTemplate      FormTemplate               @relation(fields: [formTemplateId], references: [id], onDelete: Cascade)
+  responses         InterviewResponse[]
+  standardsMappings InterviewStandardsMapping[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2700,6 +2744,9 @@ model InterviewStandardsMapping {
   usageCount  Int      @default(1)
 
   createdAt DateTime @default(now())
+
+  // FK relation — ensures orphan rows are removed when the session is deleted
+  interviewSession InterviewSession @relation(fields: [interviewSessionId], references: [id], onDelete: Cascade)
 
   @@index([interviewSessionId])
   @@index([standardCode])
@@ -3051,7 +3098,7 @@ model AgentTask {
   workflowId       String
   workflow         AgentWorkflow    @relation(fields: [workflowId], references: [id], onDelete: Cascade)
   agentSlug        String
-  agentDefinition  AgentDefinition? @relation(fields: [agentSlug], references: [slug])
+  agentDefinition  AgentDefinition? @relation(fields: [agentSlug], references: [slug], onDelete: SetNull)
   taskType         String
   displayName      String
   sequenceOrder    Int              @default(0)
@@ -3112,6 +3159,33 @@ model CronJobRun {
 
   @@index([jobName, startedAt])
   @@index([status])
+}
+
+// ============================================
+// HARNESS — CONFIDENCE-WEIGHTED GATE CHECKS (RA-674)
+// ============================================
+
+/// Records each gate-check evaluation for confidence-weighted autonomy decisions
+model GateCheck {
+  id          String   @id @default(cuid())
+  projectKey  String // e.g., "restoreassist", "scope-quality", "report-builder"
+  taskId      String? // Linear issue ID if applicable
+  /// Overall quality score 0–100
+  qualityScore Int
+  /// Confidence in the quality assessment 0–100
+  confidence   Int
+  /// Three-tier decision: AUTO_SHIP | FLAG | RETRY
+  decision     String
+  /// Dimensions evaluated — JSON array of { dimension, score, confidence, reason }
+  dimensions   String   @db.Text
+  retryCount   Int      @default(0)
+  telegramSent Boolean  @default(false)
+  /// Raw model response for debugging
+  rawResponse  String?  @db.Text
+  createdAt    DateTime @default(now())
+
+  @@index([projectKey, createdAt])
+  @@index([decision, createdAt])
 }
 
 // ============================================
@@ -3818,97 +3892,6 @@ model ScopeTemplate {
   @@index([claimType])
 }
 
-// ─── Content Automation Pipeline (RA-158) ─────────────────────────────────────
-
-model ContentJob {
-  id              String   @id @default(cuid())
-  userId          String
-  user            User     @relation(fields: [userId], references: [id])
-  product         String
-  angle           String
-  platform        String   // 'tiktok' | 'instagram' | 'facebook' | 'pinterest'
-  duration        Int      // seconds (15/30/60)
-  status          String   @default("PENDING") // PENDING|SCRIPT_READY|VOICE_READY|VIDEO_READY|SCHEDULED|POSTED|FAILED
-  hook            String?
-  agitation       String?
-  solution        String?
-  cta             String?
-  voiceoverText   String?
-  caption         String?
-  hashtags        String?  // JSON array stored as string
-  audioUrl        String?  // Supabase Storage URL
-  videoUrl        String?  // HeyGen output URL
-  heygenRenderJobId String?
-  errorMessage    String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  posts           ContentPost[]
-
-  @@index([userId])
-  @@index([status])
-  @@index([platform])
-  @@index([createdAt])
-}
-
-model ContentPost {
-  id              String      @id @default(cuid())
-  jobId           String
-  job             ContentJob  @relation(fields: [jobId], references: [id])
-  platform        String
-  externalPostId  String?
-  postUrl         String?
-  scheduledAt     DateTime?
-  postedAt        DateTime?
-  status          String      @default("DRAFT") // DRAFT|SCHEDULED|POSTED|FAILED
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  analytics       ContentAnalytics[]
-
-  @@index([jobId])
-  @@index([platform])
-  @@index([status])
-  @@index([scheduledAt])
-}
-
-model ContentAnalytics {
-  id              String      @id @default(cuid())
-  postId          String
-  post            ContentPost @relation(fields: [postId], references: [id])
-  views           Int         @default(0)
-  likes           Int         @default(0)
-  shares          Int         @default(0)
-  comments        Int         @default(0)
-  reach           Int         @default(0)
-  recordedAt      DateTime    @default(now())
-  createdAt       DateTime    @default(now())
-
-  @@index([postId])
-  @@index([recordedAt])
-}
-
-// ============================================
-// Content Topic Bank — Weighted rotation for automated video generation
-// ============================================
-
-model ContentTopic {
-  id          String    @id @default(cuid())
-  product     String    // "RestoreAssist", "Scope Generation", "IICRC Compliance", etc.
-  angle       String    // "problem/solution", "social proof", "how-to", "industry insight"
-  platform    String    // "youtube" | "tiktok" | "instagram" | "facebook"
-  duration    Int       // 60 | 90 | 120 | 150
-  category    String    // "feature-spotlight" | "industry-insight" | "compliance-tip" | "problem-solution" | "how-to" | "social-proof"
-  weight      Int       @default(10) // Higher = more likely to be selected
-  enabled     Boolean   @default(true)
-  lastUsedAt  DateTime?
-  useCount    Int       @default(0)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  @@index([enabled, lastUsedAt])
-  @@index([category])
-  @@index([platform])
-}
-
 // ============================================
 // RA-163: Customer Support Ticket Model
 // ============================================
@@ -3996,6 +3979,14 @@ enum EvidenceClass {
   VOICE_MEMO              // Transcribed voice notes from field
   THIRD_PARTY_REPORT      // External specialist reports (structural, electrical)
   COMPLIANCE_CERTIFICATE  // IICRC/regulatory compliance certificates
+  AFFECTED_CONTENTS       // Photos of household/commercial contents for insurance claims (RA-405)
+}
+
+// Evidence item review status — for submission gate filtering
+enum EvidenceItemStatus {
+  ACTIVE    // Normal — counts toward submission requirements
+  FLAGGED   // Flagged for review — still counts but needs attention
+  REJECTED  // Rejected — does NOT count toward submission requirements
 }
 
 // Workflow step status for guided capture state machine
@@ -4029,9 +4020,13 @@ model EvidenceItem {
 
   // Storage
   fileUrl        String?       // Supabase Storage URL for file-based evidence
+  fileName       String?       // Original filename for file-based evidence (e.g. "kitchen-damage.jpg")
   fileMimeType   String?       // MIME type of the stored file
   fileSizeBytes  Int?          // File size for storage tracking
   thumbnailUrl   String?       // Auto-generated thumbnail for photos/videos
+
+  // Location context
+  roomName       String?       // Room/area name where evidence was captured (e.g. "Kitchen")
 
   // Structured data (JSON) — for readings, measurements, structured results
   structuredData String?       @db.Text // JSON: { value: 42, unit: "%WME", material: "drywall" }
@@ -4049,6 +4044,9 @@ model EvidenceItem {
   verifiedById   String?       // Who verified it
   verifiedAt     DateTime?     // When it was verified
 
+  // Review status — controls submission gate filtering
+  status          EvidenceItemStatus @default(ACTIVE) // RA-401: submission gate filter
+
   // Exception handling — if this evidence replaces a required but unobtainable item
   exceptionReason ExceptionReason?
 
@@ -4061,6 +4059,7 @@ model EvidenceItem {
   @@index([capturedAt])
   @@index([workflowStepId])
   @@index([inspectionId, evidenceClass])
+  @@index([inspectionId, status])
 }
 
 // Inspection workflow — state machine for guided capture
@@ -4499,4 +4498,270 @@ model AiUsageLog {
   @@index([taskType])
   @@index([success])
   @@index([createdAt])
+}
+
+// ─── IICRC RAG Knowledge Base (RA-434) ───────────────────────────────────────
+// Stores pre-indexed IICRC standard PDF chunks with pgvector embeddings.
+// Populated once by scripts/ingest-iicrc.ts — fast vector similarity search
+// replaces per-request Google Drive downloads.
+
+model IicrcChunk {
+  id          String   @id @default(cuid())
+  standard    String   // e.g. "S500", "S520", "S700"
+  edition     String   // e.g. "2025"
+  section     String   // e.g. "§7.1", "§12.3"
+  heading     String   // e.g. "Damage Classification Class 1"
+  content     String   @db.Text
+  contentHash String   @unique
+  pageNumber  Int?
+  embedding   Unsupported("vector(1536)")?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([standard, edition])
+  @@index([section])
+}
+
+// ─── V2: Sketch Tool (RA-89) ──────────────────────────────────────────────────
+
+model ClaimSketch {
+  id                 String             @id @default(cuid())
+  inspectionId       String
+  inspection         Inspection         @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  floorNumber        Int                @default(0)
+  floorLabel         String             @default("Ground Floor")
+  sketchType         String             @default("structural")
+  sketchData         Json?
+  backgroundImageUrl String?
+  moisturePoints     Json?
+  equipmentPoints    Json?
+  annotations        SketchAnnotation[]
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  @@index([inspectionId])
+  @@index([inspectionId, floorNumber])
+}
+
+model SketchAnnotation {
+  id        String     @id @default(cuid())
+  sketchId  String
+  sketch    ClaimSketch @relation(fields: [sketchId], references: [id], onDelete: Cascade)
+  type      String
+  data      Json
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([sketchId])
+}
+
+// ─── V2: Ascora Integration (RA-262) ─────────────────────────────────────────
+
+model AscoraIntegration {
+  id                String      @id @default(cuid())
+  userId            String      @unique
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apiKey            String
+  baseUrl           String      @default("https://api.ascora.com.au")
+  isActive          Boolean     @default(true)
+  lastSyncAt        DateTime?
+  totalJobsImported Int         @default(0)
+  jobs              AscoraJob[]
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+}
+
+model AscoraJob {
+  id              String            @id @default(cuid())
+  integrationId   String
+  integration     AscoraIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  ascoraJobId     String            @unique
+  ascoraJobNumber String?
+  jobType         String?
+  claimType       String?
+  suburb          String?
+  state           String?
+  postcode        String?
+  completedAt     DateTime?
+  sentToMyob      Boolean           @default(false)
+  totalExTax      Float?
+  lineItems       AscoraLineItem[]
+  notes           AscoraNote[]
+  importedAt      DateTime          @default(now())
+  createdAt       DateTime          @default(now())
+
+  @@index([integrationId])
+  @@index([claimType])
+  @@index([completedAt])
+  @@index([sentToMyob])
+  @@index([totalExTax])
+}
+
+model AscoraLineItem {
+  id             String    @id @default(cuid())
+  ascoraJobId    String
+  ascoraJob      AscoraJob @relation(fields: [ascoraJobId], references: [id], onDelete: Cascade)
+  partNumber     String
+  description    String
+  quantity       Float
+  unitPriceExTax Float
+  amountExTax    Float
+  invoiceDate    DateTime?
+  importedAt     DateTime  @default(now())
+
+  @@index([ascoraJobId])
+  @@index([partNumber])
+}
+
+model AscoraNote {
+  id          String    @id @default(cuid())
+  ascoraJobId String
+  ascoraJob   AscoraJob @relation(fields: [ascoraJobId], references: [id], onDelete: Cascade)
+  noteText    String
+  importedAt  DateTime  @default(now())
+
+  @@index([ascoraJobId])
+}
+
+// ─── V2: AU Scope Pricing Database (RA-260) ──────────────────────────────────
+
+model ScopePricingDatabase {
+  id                 String   @id @default(cuid())
+  partNumber         String   @unique
+  description        String
+  claimTypes         String[]
+  usageCount         Int      @default(0)
+  averageUnitPriceAU Float
+  medianUnitPriceAU  Float?
+  minPriceAU         Float?
+  maxPriceAU         Float?
+  averageQuantity    Float?
+  acceptanceRate     Float?
+  acceptedCount      Int      @default(0)
+  rejectedCount      Int      @default(0)
+  priceHistory       Json?
+  source             String   @default("ascora")
+  isActive           Boolean  @default(true)
+  lastUpdated        DateTime @default(now())
+  createdAt          DateTime @default(now())
+
+  @@index([acceptanceRate])
+  @@index([isActive])
+  @@index([source])
+}
+
+// ─── V2: DR-NRPG Integration (RA-27) ─────────────────────────────────────────
+
+model DrNrpgIntegration {
+  id            String          @id @default(cuid())
+  userId        String          @unique
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  drNrpgApiKey  String
+  drNrpgBaseUrl String          @default("https://api.dr-nrpg.com.au")
+  webhookSecret String
+  isActive      Boolean         @default(true)
+  lastSyncAt    DateTime?
+  jobSyncs      DrNrpgJobSync[]
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+model DrNrpgJobSync {
+  id              String            @id @default(cuid())
+  integrationId   String
+  integration     DrNrpgIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  inspectionId    String?           @unique
+  inspection      Inspection?       @relation(fields: [inspectionId], references: [id], onDelete: SetNull)
+  drNrpgJobId     String            @unique
+  claimNumber     String
+  insurer         String?
+  policyHolder    String?
+  propertyAddress String?
+  lossType        String?
+  status          String            @default("dispatched")
+  lastEventAt     DateTime          @default(now())
+  lastEventType   String?
+  syncErrors      Json?
+  webhookLogs     DrNrpgWebhookLog[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([integrationId])
+  @@index([status])
+  @@index([lastEventAt])
+}
+
+model DrNrpgWebhookLog {
+  id             String        @id @default(cuid())
+  jobSyncId      String
+  jobSync        DrNrpgJobSync @relation(fields: [jobSyncId], references: [id], onDelete: Cascade)
+  direction      String
+  eventType      String
+  payload        Json
+  responseStatus Int?
+  responseBody   String?
+  deliveredAt    DateTime      @default(now())
+  retryCount     Int           @default(0)
+
+  @@index([jobSyncId])
+  @@index([eventType])
+  @@index([direction])
+}
+
+// ─── V2: Drying Goal Validation (RA-260 Phase 5) ─────────────────────────────
+
+model DryingGoalRecord {
+  id                    String     @id @default(cuid())
+  inspectionId          String     @unique
+  inspection            Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  targetCategory        String
+  targetClass           String
+  startedAt             DateTime   @default(now())
+  materialTargets       Json
+  goalAchieved          Boolean    @default(false)
+  goalAchievedAt        DateTime?
+  totalDryingDays       Int?
+  finalReadingsSnapshot Json?
+  iicrcReference        String     @default("IICRC S500:2025 §11.4")
+  signedOffBy           String?
+  signedOffAt           DateTime?
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+
+  @@index([goalAchieved])
+  @@index([goalAchievedAt])
+}
+
+// ─── V2: Historical Jobs for Vector Similarity Search ────────────────────────
+
+model HistoricalJob {
+  id            String    @id @default(cuid())
+  tenantId      String
+  user          User      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  source        String    // "ascora", "manual"
+  externalId    String
+  jobNumber     String
+  jobName       String
+  description   String    @db.Text
+  claimType     String
+  waterCategory String?
+  waterClass    String?
+  address       String?
+  suburb        String
+  state         String
+  postcode      String
+  customerName  String?
+  totalExTax    Float     @default(0)
+  totalIncTax   Float     @default(0)
+  completedDate DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([source, externalId], name: "source_externalId")
+  @@index([tenantId])
+  @@index([source])
+  @@index([claimType])
+  @@index([state])
+  @@index([completedDate])
 }

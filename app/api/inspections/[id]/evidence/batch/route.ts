@@ -116,22 +116,74 @@ export async function POST(
     );
   }
 
+  // Per-file size guard before any arrayBuffer() call. Without this, a batch of
+  // 20 × 500MB files = 10GB buffered into the serverless function heap.
+  const MAX_EVIDENCE_BYTES = 50 * 1024 * 1024; // 50 MB per file
+  const oversized = files.find((f) => f.size > MAX_EVIDENCE_BYTES);
+  if (oversized) {
+    return NextResponse.json(
+      { error: `File "${oversized.name}" exceeds the 50 MB per-file limit` },
+      { status: 413 },
+    );
+  }
+
   const storageProvider = await getStorageProvider(user?.organizationId);
 
-  // Build upload inputs
-  const uploadInputs: UploadInput[] = await Promise.all(
-    files.map(async (file) => {
-      const arrayBuffer = await file.arrayBuffer();
-      return {
-        buffer: Buffer.from(arrayBuffer),
-        filename: file.name,
-        mimeType: file.type || "application/octet-stream",
-        folder: "evidence",
-        orgId: user?.organizationId ?? "no-org",
-        inspectionId,
-      };
-    }),
-  );
+  // Build upload inputs — includes magic-byte validation per file.
+  // Reading each file into a Buffer once so the same buffer is reused for
+  // validation and upload (avoids a second arrayBuffer() call).
+  const uploadInputs: UploadInput[] = [];
+  for (const file of files) {
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Magic-byte validation — prevents spoofed Content-Type header bypass.
+    const isJpeg =
+      buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+    const isPng =
+      buffer[0] === 0x89 &&
+      buffer[1] === 0x50 &&
+      buffer[2] === 0x4e &&
+      buffer[3] === 0x47;
+    const isGif =
+      buffer[0] === 0x47 &&
+      buffer[1] === 0x49 &&
+      buffer[2] === 0x46 &&
+      buffer[3] === 0x38;
+    const isWebp =
+      buffer[0] === 0x52 &&
+      buffer[1] === 0x49 &&
+      buffer[2] === 0x46 &&
+      buffer[3] === 0x46 &&
+      buffer[8] === 0x57 &&
+      buffer[9] === 0x45 &&
+      buffer[10] === 0x42 &&
+      buffer[11] === 0x50;
+    // Allow PDF documents in addition to images.
+    const isPdf =
+      buffer[0] === 0x25 &&
+      buffer[1] === 0x50 &&
+      buffer[2] === 0x44 &&
+      buffer[3] === 0x46;
+
+    if (!isJpeg && !isPng && !isGif && !isWebp && !isPdf) {
+      return NextResponse.json(
+        {
+          error: `File "${file.name}" has an unsupported type. Only images and PDFs are allowed.`,
+        },
+        { status: 400 },
+      );
+    }
+
+    uploadInputs.push({
+      buffer,
+      filename: file.name,
+      mimeType: file.type || "application/octet-stream",
+      folder: "evidence",
+      orgId: user?.organizationId ?? "no-org",
+      inspectionId,
+    });
+  }
 
   // Batch upload with concurrency limit
   const batchResult = await storageProvider.uploadBatch(

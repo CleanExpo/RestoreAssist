@@ -1,15 +1,15 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useCallback, useRef, use } from "react"
-import { useRouter } from "next/navigation"
-import toast from "react-hot-toast"
-import { cn } from "@/lib/utils"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Input } from "@/components/ui/input"
-import { Separator } from "@/components/ui/separator"
-import { Skeleton } from "@/components/ui/skeleton"
+import { useState, useEffect, useCallback, useRef, use } from "react";
+import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   ArrowLeft,
   Loader2,
@@ -18,29 +18,29 @@ import {
   Sparkles,
   MapPin,
   CheckCircle2,
-} from "lucide-react"
+} from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface ScopeItem {
-  id: string
-  itemType: string
-  description: string
-  quantity: number | null
-  unit: string | null
-  specification: string | null
-  justification: string | null
-  isRequired: boolean
-  isSelected: boolean
-  autoDetermined: boolean
-  areaId: string | null
+  id: string;
+  itemType: string;
+  description: string;
+  quantity: number | null;
+  unit: string | null;
+  specification: string | null;
+  justification: string | null;
+  isRequired: boolean;
+  isSelected: boolean;
+  autoDetermined: boolean;
+  areaId: string | null;
 }
 
 interface InspectionMeta {
-  inspectionNumber: string
-  propertyAddress: string
-  propertyPostcode: string
-  status: string
+  inspectionNumber: string;
+  propertyAddress: string;
+  propertyPostcode: string;
+  status: string;
 }
 
 // Category labels derived from itemType prefix conventions
@@ -64,18 +64,25 @@ const CATEGORY_MAP: Record<string, string> = {
   reinstat: "Repairs",
   paint: "Repairs",
   plaster: "Repairs",
-}
+};
 
 function deriveCategory(itemType: string): string {
-  const lower = itemType.toLowerCase()
+  const lower = itemType.toLowerCase();
   for (const [prefix, cat] of Object.entries(CATEGORY_MAP)) {
-    if (lower.startsWith(prefix) || lower.includes(prefix)) return cat
+    if (lower.startsWith(prefix) || lower.includes(prefix)) return cat;
   }
-  return "Other"
+  return "Other";
 }
 
-const CATEGORY_TABS = ["All", "Drying", "Cleaning", "Removal", "Repairs", "Other"] as const
-type CategoryTab = (typeof CATEGORY_TABS)[number]
+const CATEGORY_TABS = [
+  "All",
+  "Drying",
+  "Cleaning",
+  "Removal",
+  "Repairs",
+  "Other",
+] as const;
+type CategoryTab = (typeof CATEGORY_TABS)[number];
 
 // ─── Skeleton loader ──────────────────────────────────────────────────────────
 
@@ -102,76 +109,80 @@ function ScopeTableSkeleton() {
         </div>
       ))}
     </div>
-  )
+  );
 }
 
 // ─── Per-row saving indicator ─────────────────────────────────────────────────
 
 function RowSaveIndicator({ saving }: { saving: boolean }) {
-  if (!saving) return null
-  return <Loader2 size={12} className="animate-spin text-cyan-500 shrink-0" />
+  if (!saving) return null;
+  return <Loader2 size={12} className="animate-spin text-cyan-500 shrink-0" />;
 }
 
 // ─── Editable scope row ───────────────────────────────────────────────────────
 
 interface ScopeRowProps {
-  item: ScopeItem
-  onToggleSelected: (id: string, value: boolean) => Promise<void>
-  onPatchField: (id: string, field: "quantity" | "specification", value: string | number | null) => Promise<void>
+  item: ScopeItem;
+  onToggleSelected: (id: string, value: boolean) => Promise<void>;
+  onPatchField: (
+    id: string,
+    field: "quantity" | "specification",
+    value: string | number | null,
+  ) => Promise<void>;
 }
 
 function ScopeRow({ item, onToggleSelected, onPatchField }: ScopeRowProps) {
-  const [savingSelected, setSavingSelected] = useState(false)
-  const [savingQty, setSavingQty] = useState(false)
-  const [savingNotes, setSavingNotes] = useState(false)
-  const [localQty, setLocalQty] = useState(item.quantity?.toString() ?? "")
-  const [localNotes, setLocalNotes] = useState(item.specification ?? "")
+  const [savingSelected, setSavingSelected] = useState(false);
+  const [savingQty, setSavingQty] = useState(false);
+  const [savingNotes, setSavingNotes] = useState(false);
+  const [localQty, setLocalQty] = useState(item.quantity?.toString() ?? "");
+  const [localNotes, setLocalNotes] = useState(item.specification ?? "");
 
   // debounce refs
-  const qtyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const notesTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const qtyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const notesTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleSelectedChange = async (checked: boolean) => {
-    setSavingSelected(true)
+    setSavingSelected(true);
     try {
-      await onToggleSelected(item.id, checked)
+      await onToggleSelected(item.id, checked);
     } finally {
-      setSavingSelected(false)
+      setSavingSelected(false);
     }
-  }
+  };
 
   const handleQtyChange = (val: string) => {
-    setLocalQty(val)
-    if (qtyTimer.current) clearTimeout(qtyTimer.current)
+    setLocalQty(val);
+    if (qtyTimer.current) clearTimeout(qtyTimer.current);
     qtyTimer.current = setTimeout(async () => {
-      setSavingQty(true)
-      const parsed = val === "" ? null : parseFloat(val)
+      setSavingQty(true);
+      const parsed = val === "" ? null : parseFloat(val);
       try {
-        await onPatchField(item.id, "quantity", parsed)
+        await onPatchField(item.id, "quantity", parsed);
       } finally {
-        setSavingQty(false)
+        setSavingQty(false);
       }
-    }, 500)
-  }
+    }, 500);
+  };
 
   const handleNotesChange = (val: string) => {
-    setLocalNotes(val)
-    if (notesTimer.current) clearTimeout(notesTimer.current)
+    setLocalNotes(val);
+    if (notesTimer.current) clearTimeout(notesTimer.current);
     notesTimer.current = setTimeout(async () => {
-      setSavingNotes(true)
+      setSavingNotes(true);
       try {
-        await onPatchField(item.id, "specification", val || null)
+        await onPatchField(item.id, "specification", val || null);
       } finally {
-        setSavingNotes(false)
+        setSavingNotes(false);
       }
-    }, 500)
-  }
+    }, 500);
+  };
 
   return (
     <tr
       className={cn(
         "group border-b last:border-0 border-neutral-100 dark:border-slate-800 transition-opacity",
-        !item.isSelected && "opacity-40"
+        !item.isSelected && "opacity-40",
       )}
     >
       {/* Checkbox */}
@@ -195,12 +206,18 @@ function ScopeRow({ item, onToggleSelected, onPatchField }: ScopeRowProps) {
               {item.description}
             </span>
             {item.autoDetermined && (
-              <Badge variant="secondary" className="text-xs px-1.5 py-0 bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 border-0">
+              <Badge
+                variant="secondary"
+                className="text-xs px-1.5 py-0 bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 border-0"
+              >
                 Auto
               </Badge>
             )}
             {item.isRequired && (
-              <Badge variant="secondary" className="text-xs px-1.5 py-0 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 border-0">
+              <Badge
+                variant="secondary"
+                className="text-xs px-1.5 py-0 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 border-0"
+              >
                 Required
               </Badge>
             )}
@@ -249,7 +266,7 @@ function ScopeRow({ item, onToggleSelected, onPatchField }: ScopeRowProps) {
         </div>
       </td>
     </tr>
-  )
+  );
 }
 
 // ─── Main page ────────────────────────────────────────────────────────────────
@@ -257,140 +274,165 @@ function ScopeRow({ item, onToggleSelected, onPatchField }: ScopeRowProps) {
 export default function ScopeItemsPage({
   params,
 }: {
-  params: Promise<{ id: string }>
+  params: Promise<{ id: string }>;
 }) {
-  const { id } = use(params)
-  const router = useRouter()
+  const { id } = use(params);
+  const router = useRouter();
 
-  const [items, setItems] = useState<ScopeItem[]>([])
-  const [meta, setMeta] = useState<InspectionMeta | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [activeCategory, setActiveCategory] = useState<CategoryTab>("All")
-  const [generating, setGenerating] = useState(false)
+  const [items, setItems] = useState<ScopeItem[]>([]);
+  const [meta, setMeta] = useState<InspectionMeta | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [activeCategory, setActiveCategory] = useState<CategoryTab>("All");
+  const [generating, setGenerating] = useState(false);
 
   // ── Fetch ─────────────────────────────────────────────────────────────────
 
   const fetchData = useCallback(async () => {
     try {
-      setLoading(true)
-      const res = await fetch(`/api/inspections/${id}`)
+      setLoading(true);
+      const res = await fetch(`/api/inspections/${id}`);
       if (!res.ok) {
-        toast.error("Inspection not found")
-        router.push("/dashboard/inspections")
-        return
+        toast.error("Inspection not found");
+        router.push("/dashboard/inspections");
+        return;
       }
-      const data = await res.json()
-      const insp = data.inspection
-      setItems(insp.scopeItems ?? [])
+      const data = await res.json();
+      const insp = data.inspection;
+      setItems(insp.scopeItems ?? []);
       setMeta({
         inspectionNumber: insp.inspectionNumber,
         propertyAddress: insp.propertyAddress,
         propertyPostcode: insp.propertyPostcode,
         status: insp.status,
-      })
+      });
     } catch {
-      toast.error("Failed to load scope items")
+      toast.error("Failed to load scope items");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [id, router])
+  }, [id, router]);
 
   useEffect(() => {
-    fetchData()
-  }, [fetchData])
+    fetchData();
+  }, [fetchData]);
 
   // ── Generate scope ────────────────────────────────────────────────────────
 
   const handleGenerateScope = async () => {
-    setGenerating(true)
+    setGenerating(true);
     try {
       const res = await fetch("/api/reports/generate-scope-of-works", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ inspectionId: id }),
-      })
+      });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error ?? "Generation failed")
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Generation failed");
       }
-      toast.success("Scope generated successfully")
-      await fetchData()
+      toast.success("Scope generated successfully");
+      await fetchData();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Failed to generate scope")
+      toast.error(
+        err instanceof Error ? err.message : "Failed to generate scope",
+      );
     } finally {
-      setGenerating(false)
+      setGenerating(false);
     }
-  }
+  };
 
   // ── Patch helpers ─────────────────────────────────────────────────────────
 
   const patchItem = useCallback(
-    async (itemId: string, payload: Partial<Pick<ScopeItem, "isSelected" | "quantity" | "specification">>) => {
+    async (
+      itemId: string,
+      payload: Partial<
+        Pick<ScopeItem, "isSelected" | "quantity" | "specification">
+      >,
+    ) => {
       const res = await fetch(`/api/inspections/${id}/scope-items/${itemId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      })
+      });
       if (!res.ok) {
         // Fallback: silently log — don't block the UI, optimistic update already applied
-        console.error("[ScopeItems] PATCH failed", await res.text().catch(() => ""))
+        console.error(
+          "[ScopeItems] PATCH failed",
+          await res.text().catch(() => ""),
+        );
       }
     },
-    [id]
-  )
+    [id],
+  );
 
   const handleToggleSelected = useCallback(
     async (itemId: string, value: boolean) => {
       // Optimistic update
       setItems((prev) =>
-        prev.map((it) => (it.id === itemId ? { ...it, isSelected: value } : it))
-      )
-      await patchItem(itemId, { isSelected: value })
+        prev.map((it) =>
+          it.id === itemId ? { ...it, isSelected: value } : it,
+        ),
+      );
+      await patchItem(itemId, { isSelected: value });
     },
-    [patchItem]
-  )
+    [patchItem],
+  );
 
   const handlePatchField = useCallback(
-    async (itemId: string, field: "quantity" | "specification", value: string | number | null) => {
+    async (
+      itemId: string,
+      field: "quantity" | "specification",
+      value: string | number | null,
+    ) => {
       setItems((prev) =>
         prev.map((it) =>
           it.id === itemId
-            ? { ...it, [field]: field === "quantity" ? (value as number | null) : (value as string | null) }
-            : it
-        )
-      )
-      await patchItem(itemId, { [field]: value })
+            ? {
+                ...it,
+                [field]:
+                  field === "quantity"
+                    ? (value as number | null)
+                    : (value as string | null),
+              }
+            : it,
+        ),
+      );
+      await patchItem(itemId, { [field]: value });
     },
-    [patchItem]
-  )
+    [patchItem],
+  );
 
   // ── Derived data ──────────────────────────────────────────────────────────
 
   const enrichedItems = items.map((it) => ({
     ...it,
     _category: deriveCategory(it.itemType),
-  }))
+  }));
 
   const filteredItems =
     activeCategory === "All"
       ? enrichedItems
-      : enrichedItems.filter((it) => it._category === activeCategory)
+      : enrichedItems.filter((it) => it._category === activeCategory);
 
   // Group by category for display
-  const grouped: Record<string, typeof enrichedItems> = {}
+  const grouped: Record<string, typeof enrichedItems> = {};
   for (const item of filteredItems) {
-    const cat = item._category
-    if (!grouped[cat]) grouped[cat] = []
-    grouped[cat].push(item)
+    const cat = item._category;
+    if (!grouped[cat]) grouped[cat] = [];
+    grouped[cat].push(item);
   }
 
   // Tab counts (always from full items, not filtered)
-  const categoryCounts = enrichedItems.reduce<Record<string, number>>((acc, it) => {
-    acc[it._category] = (acc[it._category] ?? 0) + 1
-    return acc
-  }, {})
-  const totalCount = items.length
-  const selectedCount = items.filter((it) => it.isSelected).length
+  const categoryCounts = enrichedItems.reduce<Record<string, number>>(
+    (acc, it) => {
+      acc[it._category] = (acc[it._category] ?? 0) + 1;
+      return acc;
+    },
+    {},
+  );
+  const totalCount = items.length;
+  const selectedCount = items.filter((it) => it.isSelected).length;
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -449,8 +491,8 @@ export default function ScopeItemsPage({
       {/* Category filter tabs */}
       <div className="flex gap-1 overflow-x-auto pb-1 border-b border-neutral-200 dark:border-slate-700">
         {CATEGORY_TABS.map((cat) => {
-          const count = cat === "All" ? totalCount : (categoryCounts[cat] ?? 0)
-          const isActive = activeCategory === cat
+          const count = cat === "All" ? totalCount : (categoryCounts[cat] ?? 0);
+          const isActive = activeCategory === cat;
           return (
             <button
               key={cat}
@@ -459,7 +501,7 @@ export default function ScopeItemsPage({
                 "flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-t-lg whitespace-nowrap transition-all border-b-2",
                 isActive
                   ? "border-indigo-500 text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/10"
-                  : "border-transparent text-neutral-500 dark:text-slate-400 hover:text-neutral-700 dark:hover:text-slate-300 hover:bg-neutral-50 dark:hover:bg-slate-800/50"
+                  : "border-transparent text-neutral-500 dark:text-slate-400 hover:text-neutral-700 dark:hover:text-slate-300 hover:bg-neutral-50 dark:hover:bg-slate-800/50",
               )}
             >
               {cat}
@@ -469,14 +511,14 @@ export default function ScopeItemsPage({
                     "px-1.5 py-0.5 rounded-full text-xs",
                     isActive
                       ? "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600"
-                      : "bg-neutral-100 dark:bg-slate-800 text-neutral-500"
+                      : "bg-neutral-100 dark:bg-slate-800 text-neutral-500",
                   )}
                 >
                   {count}
                 </span>
               )}
             </button>
-          )
+          );
         })}
       </div>
 
@@ -486,11 +528,15 @@ export default function ScopeItemsPage({
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
           <div className="w-14 h-14 rounded-2xl bg-neutral-100 dark:bg-slate-800 flex items-center justify-center">
-            <FileText size={28} className="text-neutral-400 dark:text-slate-500" />
+            <FileText
+              size={28}
+              className="text-neutral-400 dark:text-slate-500"
+            />
           </div>
           <p className="text-neutral-500 dark:text-slate-400 max-w-sm">
-            No scope items added yet. Use the inspection classification to generate scope items,
-            or click <strong>Generate Scope</strong> above.
+            No scope items added yet. Use the inspection classification to
+            generate scope items, or click <strong>Generate Scope</strong>{" "}
+            above.
           </p>
         </div>
       ) : filteredItems.length === 0 ? (
@@ -510,7 +556,8 @@ export default function ScopeItemsPage({
                   variant="secondary"
                   className="text-xs px-1.5 py-0 bg-neutral-100 dark:bg-slate-800 text-neutral-500 dark:text-slate-400 border-0"
                 >
-                  {categoryItems.length} item{categoryItems.length !== 1 ? "s" : ""}
+                  {categoryItems.length} item
+                  {categoryItems.length !== 1 ? "s" : ""}
                 </Badge>
               </div>
 
@@ -559,10 +606,14 @@ export default function ScopeItemsPage({
             <div className="flex items-center gap-1.5">
               <CheckCircle2 size={15} className="text-emerald-500" />
               <span>
-                <strong className="text-neutral-900 dark:text-white">{selectedCount}</strong>
-                {" "}of{" "}
-                <strong className="text-neutral-900 dark:text-white">{totalCount}</strong>
-                {" "}items selected
+                <strong className="text-neutral-900 dark:text-white">
+                  {selectedCount}
+                </strong>{" "}
+                of{" "}
+                <strong className="text-neutral-900 dark:text-white">
+                  {totalCount}
+                </strong>{" "}
+                items selected
               </span>
             </div>
             {totalCount - selectedCount > 0 && (
@@ -574,5 +625,5 @@ export default function ScopeItemsPage({
         </>
       )}
     </div>
-  )
+  );
 }

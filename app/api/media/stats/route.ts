@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { checkPaymentGate } from "@/lib/workspace/payment-gate";
 
 export async function GET(_request: NextRequest) {
   try {
@@ -21,6 +22,10 @@ export async function GET(_request: NextRequest) {
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // RA-426: Workspace payment gate
+    const gate = await checkPaymentGate(session.user.id);
+    if (!gate.allowed) return gate.response;
 
     // Resolve workspaceId
     const member = await prisma.workspaceMember.findFirst({
@@ -102,7 +107,10 @@ export async function GET(_request: NextRequest) {
     });
   } catch (error) {
     console.error("[GET /api/media/stats] Error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 

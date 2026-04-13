@@ -13,64 +13,55 @@
  * Returns: EvaluationReport JSON
  */
 
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { verifyAdminFromDb } from "@/lib/admin-auth";
 import {
   runEvaluationSuite,
   type EvaluationOptions,
-} from '@/lib/ai/evaluation-harness'
+} from "@/lib/ai/evaluation-harness";
 
 export async function POST(request: NextRequest) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-  if (session.user.role !== 'ADMIN') {
-    return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 })
-  }
+  const session = await getServerSession(authOptions);
+  const auth = await verifyAdminFromDb(session);
+  if (auth.response) return auth.response;
 
   try {
-    const body = await request.json().catch(() => ({})) as {
-      claimTypes?: string[]
-      sampleSize?: number
-      promptOverride?: string
-    }
+    const body = (await request.json().catch(() => ({}))) as {
+      claimTypes?: string[];
+      sampleSize?: number;
+      promptOverride?: string;
+    };
 
-    const options: EvaluationOptions = {}
+    const options: EvaluationOptions = {};
 
     if (Array.isArray(body.claimTypes) && body.claimTypes.length > 0) {
-      options.claimTypes = body.claimTypes
+      options.claimTypes = body.claimTypes;
     }
 
-    if (typeof body.sampleSize === 'number' && body.sampleSize > 0) {
-      options.sampleSize = body.sampleSize
+    if (typeof body.sampleSize === "number" && body.sampleSize > 0) {
+      options.sampleSize = body.sampleSize;
     }
 
-    if (typeof body.promptOverride === 'string' && body.promptOverride.trim()) {
-      options.promptOverride = body.promptOverride.trim()
+    if (typeof body.promptOverride === "string" && body.promptOverride.trim()) {
+      options.promptOverride = body.promptOverride.trim();
     }
 
-    const report = await runEvaluationSuite(options)
+    const report = await runEvaluationSuite(options);
 
-    return NextResponse.json(report)
+    return NextResponse.json(report);
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Evaluation failed'
-    console.error('[admin/evaluation POST]', err)
+    const message = err instanceof Error ? err.message : "Evaluation failed";
+    console.error("[admin/evaluation POST]", err);
 
     if (
-      message.includes('ANTHROPIC_API_KEY') ||
-      message.includes('Anthropic SDK')
+      message.includes("ANTHROPIC_API_KEY") ||
+      message.includes("Anthropic SDK")
     ) {
-      return NextResponse.json(
-        { error: message },
-        { status: 503 }
-      )
+      return NextResponse.json({ error: message }, { status: 503 });
     }
 
-    return NextResponse.json(
-      { error: message },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

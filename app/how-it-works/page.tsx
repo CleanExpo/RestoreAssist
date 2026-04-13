@@ -1,66 +1,74 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { motion } from "framer-motion"
-import Header from "@/components/landing/Header"
-import Footer from "@/components/landing/Footer"
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import Header from "@/components/landing/Header";
+import Footer from "@/components/landing/Footer";
 
 export default function HowItWorksPage() {
-  const [darkMode, setDarkMode] = useState(true)
+  const [darkMode, setDarkMode] = useState(true);
 
   useEffect(() => {
-    if (!document.getElementById('google-fonts-preconnect')) {
-      const link1 = document.createElement('link')
-      link1.id = 'google-fonts-preconnect'
-      link1.rel = 'preconnect'
-      link1.href = 'https://fonts.googleapis.com'
-      document.head.appendChild(link1)
+    if (!document.getElementById("google-fonts-preconnect")) {
+      const link1 = document.createElement("link");
+      link1.id = "google-fonts-preconnect";
+      link1.rel = "preconnect";
+      link1.href = "https://fonts.googleapis.com";
+      document.head.appendChild(link1);
 
-      const link2 = document.createElement('link')
-      link2.rel = 'preconnect'
-      link2.href = 'https://fonts.gstatic.com'
-      link2.crossOrigin = 'anonymous'
-      document.head.appendChild(link2)
+      const link2 = document.createElement("link");
+      link2.rel = "preconnect";
+      link2.href = "https://fonts.gstatic.com";
+      link2.crossOrigin = "anonymous";
+      document.head.appendChild(link2);
 
-      const link3 = document.createElement('link')
-      link3.href = 'https://fonts.googleapis.com/css2?family=Open+Sauce+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap'
-      link3.rel = 'stylesheet'
-      document.head.appendChild(link3)
+      const link3 = document.createElement("link");
+      link3.href =
+        "https://fonts.googleapis.com/css2?family=Open+Sauce+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap";
+      link3.rel = "stylesheet";
+      document.head.appendChild(link3);
     }
-  }, [])
+  }, []);
 
   const steps = [
     {
       number: "01",
       title: "Inspection",
-      description: "Capture site data including photos, measurements, and damage details using our mobile-friendly interface."
+      description:
+        "Capture site data including photos, measurements, and damage details using our mobile-friendly interface.",
     },
     {
       number: "02",
       title: "AI Analysis",
-      description: "Our AI-powered system analyzes the captured data and identifies damage patterns, compliance requirements, and scope of work."
+      description:
+        "Our AI-powered system analyzes the captured data and identifies damage patterns, compliance requirements, and scope of work.",
     },
     {
       number: "03",
       title: "Scoping",
-      description: "Generate detailed scope of work documents with compliance auto-insertion and real-time cost calculations."
+      description:
+        "Generate detailed scope of work documents with compliance auto-insertion and real-time cost calculations.",
     },
     {
       number: "04",
       title: "Estimating",
-      description: "Create accurate cost estimates with regional pricing libraries, equipment rates, and labour calculations."
+      description:
+        "Create accurate cost estimates with regional pricing libraries, equipment rates, and labour calculations.",
     },
     {
       number: "05",
       title: "Reporting",
-      description: "Export professional reports in PDF or Excel format, ready for submission to insurers and clients."
-    }
-  ]
+      description:
+        "Export professional reports in PDF or Excel format, ready for submission to insurers and clients.",
+    },
+  ];
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-[#1C2E47]' : 'bg-[#F4F5F6]'}`}>
+    <div
+      className={`min-h-screen transition-colors duration-300 ${darkMode ? "bg-[#1C2E47]" : "bg-[#F4F5F6]"}`}
+    >
       <Header darkMode={darkMode} setDarkMode={setDarkMode} />
-      
+
       {/* Hero Section */}
       <section className="pt-48 pb-20 px-6 relative z-10 min-h-[60vh] flex items-center bg-[#C4C8CA]/30 overflow-hidden">
         {/* Golden Decorative Shapes */}
@@ -73,8 +81,11 @@ export default function HowItWorksPage() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className={`text-5xl md:text-6xl font-bold mb-6 leading-tight ${darkMode ? 'text-[#F4F5F6]' : 'text-[#1C2E47]'}`}
-            style={{ fontFamily: '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
+            className={`text-5xl md:text-6xl font-bold mb-6 leading-tight ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+            style={{
+              fontFamily:
+                '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            }}
           >
             How It Works
           </motion.h1>
@@ -82,8 +93,11 @@ export default function HowItWorksPage() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className={`text-xl md:text-2xl ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`}
-            style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
+            className={`text-xl md:text-2xl ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+            style={{
+              fontFamily:
+                '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            }}
           >
             A simple, streamlined process from inspection to final report.
           </motion.p>
@@ -105,18 +119,40 @@ export default function HowItWorksPage() {
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: index * 0.1 }}
-                className={`flex flex-col md:flex-row gap-8 items-center ${index % 2 === 0 ? 'md:flex-row' : 'md:flex-row-reverse'}`}
+                className={`flex flex-col md:flex-row gap-8 items-center ${index % 2 === 0 ? "md:flex-row" : "md:flex-row-reverse"}`}
               >
-                <div className={`flex-shrink-0 w-32 h-32 rounded-full flex items-center justify-center ${darkMode ? 'bg-[#8A6B4E]/20 border-2 border-[#8A6B4E]' : 'bg-[#8A6B4E]/10 border-2 border-[#8A6B4E]'}`}>
-                  <span className={`text-4xl font-bold ${darkMode ? 'text-[#F4F5F6]' : 'text-[#1C2E47]'}`} style={{ fontFamily: '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+                <div
+                  className={`flex-shrink-0 w-32 h-32 rounded-full flex items-center justify-center ${darkMode ? "bg-[#8A6B4E]/20 border-2 border-[#8A6B4E]" : "bg-[#8A6B4E]/10 border-2 border-[#8A6B4E]"}`}
+                >
+                  <span
+                    className={`text-4xl font-bold ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+                    style={{
+                      fontFamily:
+                        '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                    }}
+                  >
                     {step.number}
                   </span>
                 </div>
-                <div className={`flex-1 p-8 rounded-lg ${darkMode ? 'bg-[#1C2E47]/50' : 'bg-[#F4F5F6]/50'} backdrop-blur-sm border ${darkMode ? 'border-[#5A6A7B]/30' : 'border-[#5A6A7B]/20'}`}>
-                  <h3 className={`text-2xl font-bold mb-4 ${darkMode ? 'text-[#F4F5F6]' : 'text-[#1C2E47]'}`} style={{ fontFamily: '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+                <div
+                  className={`flex-1 p-8 rounded-lg ${darkMode ? "bg-[#1C2E47]/50" : "bg-[#F4F5F6]/50"} backdrop-blur-sm border ${darkMode ? "border-[#5A6A7B]/30" : "border-[#5A6A7B]/20"}`}
+                >
+                  <h3
+                    className={`text-2xl font-bold mb-4 ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+                    style={{
+                      fontFamily:
+                        '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                    }}
+                  >
                     {step.title}
                   </h3>
-                  <p className={`text-base leading-relaxed ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`} style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+                  <p
+                    className={`text-base leading-relaxed ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                    style={{
+                      fontFamily:
+                        '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                    }}
+                  >
                     {step.description}
                   </p>
                 </div>
@@ -128,6 +164,5 @@ export default function HowItWorksPage() {
 
       <Footer darkMode={darkMode} />
     </div>
-  )
+  );
 }
-

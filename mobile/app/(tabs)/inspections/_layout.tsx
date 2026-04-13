@@ -1,5 +1,5 @@
-import { Stack } from 'expo-router';
-import { colors } from '@/constants/theme';
+import { Stack } from "expo-router";
+import { colors } from "@/constants/theme";
 
 export default function InspectionsLayout() {
   return (
@@ -10,9 +10,9 @@ export default function InspectionsLayout() {
         contentStyle: { backgroundColor: colors.bg },
       }}
     >
-      <Stack.Screen name="index" options={{ title: 'Inspections' }} />
-      <Stack.Screen name="new" options={{ title: 'New Inspection' }} />
-      <Stack.Screen name="[id]" options={{ title: 'Inspection' }} />
+      <Stack.Screen name="index" options={{ title: "Inspections" }} />
+      <Stack.Screen name="new" options={{ title: "New Inspection" }} />
+      <Stack.Screen name="[id]" options={{ title: "Inspection" }} />
     </Stack>
   );
 }

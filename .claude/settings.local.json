@@ -89,10 +89,6 @@
       {
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "Check if the user's original request was fully addressed. If there are incomplete tasks in the todo list or the verification gate hasn't been satisfied, respond with {\"ok\": false, \"reason\": \"describe what remains\"}. If everything appears complete, respond with {\"ok\": true}."
-          },
-          {
             "type": "command",
             "command": "printf '\\n## %s — Session End\\n' \"$(date '+%Y-%m-%d %H:%M')\" >> \"$CLAUDE_PROJECT_DIR\"/.claude/PROGRESS.md 2>/dev/null || true"
           }

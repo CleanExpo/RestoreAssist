@@ -1,50 +1,54 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { History } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
+import { useEffect, useState } from "react";
+import { History } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 interface ActivityEntry {
-  id: string
-  action: string
-  entityType: string | null
-  entityId: string | null
-  device: string | null
-  createdAt: string
-  userName: string | null
+  id: string;
+  action: string;
+  entityType: string | null;
+  entityId: string | null;
+  device: string | null;
+  createdAt: string;
+  userName: string | null;
 }
 
 function relativeTime(dateStr: string): string {
-  const ms = Date.now() - new Date(dateStr).getTime()
-  const min = Math.floor(ms / 60000)
-  if (min < 1) return "just now"
-  if (min < 60) return `${min}m ago`
-  const hr = Math.floor(min / 60)
-  if (hr < 24) return `${hr}h ago`
-  const days = Math.floor(hr / 24)
-  return `${days}d ago`
+  const ms = Date.now() - new Date(dateStr).getTime();
+  const min = Math.floor(ms / 60000);
+  if (min < 1) return "just now";
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const days = Math.floor(hr / 24);
+  return `${days}d ago`;
 }
 
-export default function ActivityTimeline({ inspectionId }: { inspectionId: string }) {
-  const [activity, setActivity] = useState<ActivityEntry[]>([])
-  const [loading, setLoading] = useState(true)
+export default function ActivityTimeline({
+  inspectionId,
+}: {
+  inspectionId: string;
+}) {
+  const [activity, setActivity] = useState<ActivityEntry[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchActivity() {
       try {
-        const res = await fetch(`/api/inspections/${inspectionId}/activity`)
+        const res = await fetch(`/api/inspections/${inspectionId}/activity`);
         if (res.ok) {
-          const data = await res.json()
-          setActivity(data.activity ?? [])
+          const data = await res.json();
+          setActivity(data.activity ?? []);
         }
       } catch (err) {
-        console.error("Failed to load activity:", err)
+        console.error("Failed to load activity:", err);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
-    fetchActivity()
-  }, [inspectionId])
+    fetchActivity();
+  }, [inspectionId]);
 
   if (loading) {
     return (
@@ -53,7 +57,9 @@ export default function ActivityTimeline({ inspectionId }: { inspectionId: strin
           <div key={i} className="flex gap-4">
             <div className="flex flex-col items-center">
               <div className="w-3 h-3 rounded-full bg-gray-100 animate-pulse" />
-              {i < 4 && <div className="w-0.5 flex-1 mt-1 bg-gray-100 animate-pulse min-h-[32px]" />}
+              {i < 4 && (
+                <div className="w-0.5 flex-1 mt-1 bg-gray-100 animate-pulse min-h-[32px]" />
+              )}
             </div>
             <div className="flex-1 pb-4 space-y-2">
               <div className="w-3/4 h-4 bg-gray-100 rounded animate-pulse" />
@@ -62,7 +68,7 @@ export default function ActivityTimeline({ inspectionId }: { inspectionId: strin
           </div>
         ))}
       </div>
-    )
+    );
   }
 
   if (activity.length === 0) {
@@ -71,7 +77,7 @@ export default function ActivityTimeline({ inspectionId }: { inspectionId: strin
         <History size={32} className="opacity-40" />
         <p className="text-sm">No activity recorded yet</p>
       </div>
-    )
+    );
   }
 
   return (
@@ -127,5 +133,5 @@ export default function ActivityTimeline({ inspectionId }: { inspectionId: strin
         ))}
       </div>
     </div>
-  )
+  );
 }

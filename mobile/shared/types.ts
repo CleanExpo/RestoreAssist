@@ -4,14 +4,14 @@
  */
 
 export type InspectionStatus =
-  | 'DRAFT'
-  | 'SUBMITTED'
-  | 'PROCESSING'
-  | 'CLASSIFIED'
-  | 'SCOPED'
-  | 'ESTIMATED'
-  | 'COMPLETED'
-  | 'REJECTED';
+  | "DRAFT"
+  | "SUBMITTED"
+  | "PROCESSING"
+  | "CLASSIFIED"
+  | "SCOPED"
+  | "ESTIMATED"
+  | "COMPLETED"
+  | "REJECTED";
 
 export interface User {
   id: string;
@@ -117,11 +117,11 @@ export interface Inspection {
 }
 
 export type ReportStatus =
-  | 'DRAFT'
-  | 'IN_PROGRESS'
-  | 'REVIEW'
-  | 'COMPLETED'
-  | 'ARCHIVED';
+  | "DRAFT"
+  | "IN_PROGRESS"
+  | "REVIEW"
+  | "COMPLETED"
+  | "ARCHIVED";
 
 export interface Report {
   id: string;

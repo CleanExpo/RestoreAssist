@@ -1,4 +1,4 @@
-import { Skeleton } from "@/components/ui/skeleton"
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function AnalyticsLoading() {
   return (
@@ -21,5 +21,5 @@ export default function AnalyticsLoading() {
         <Skeleton className="h-64 rounded-xl" />
       </div>
     </div>
-  )
+  );
 }

@@ -7,8 +7,7 @@ agents iterate within them.
 ## Immutable Structure
 
 - The 7-section scope format is fixed and cannot be changed
-- Section order: 1) Water Source, 2) Emergency Services, 3) Affected Materials,
-  4) Psychrometric Conditions, 5) Equipment Setup, 6) Monitoring Protocol, 7) Validation
+- Section order: 1) Water Source, 2) Emergency Services, 3) Affected Materials, 4) Psychrometric Conditions, 5) Equipment Setup, 6) Monitoring Protocol, 7) Validation
 - Each section must have a numbered heading (## 1. through ## 7.)
 
 ## Citation Requirements

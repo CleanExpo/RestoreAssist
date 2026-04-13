@@ -1,52 +1,91 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Droplets, Flame, Wind, Bug, FlaskConical, Calculator, Printer, RotateCcw } from "lucide-react"
-import toast from "react-hot-toast"
+import { useState } from "react";
+import {
+  Droplets,
+  Flame,
+  Wind,
+  Bug,
+  FlaskConical,
+  Calculator,
+  Printer,
+  RotateCcw,
+} from "lucide-react";
+import toast from "react-hot-toast";
 
 /* ─── Types ─── */
 
 interface QuoteLineItem {
-  description: string
-  qty: number
-  unit: string
-  rate: number
-  subtotal: number
+  description: string;
+  qty: number;
+  unit: string;
+  rate: number;
+  subtotal: number;
 }
 
 interface QuoteResponse {
-  quoteNumber: string
-  quoteDate: string
-  jobType: string
-  standardApplied: string
-  applicableStandards: string[]
+  quoteNumber: string;
+  quoteDate: string;
+  jobType: string;
+  standardApplied: string;
+  applicableStandards: string[];
   contractor: {
-    businessName: string
-    abn: string
-    address: string
-    phone: string
-    email: string
-    logo: string
-  }
-  client: { name: string; address: string; phone: string; email: string }
-  lineItems: QuoteLineItem[]
-  subtotalExGST: number
-  gst: number
-  totalIncGST: number
-  minimumApplied: boolean
-  minimumChargeAmount: number
-  jobDescription: string
+    businessName: string;
+    abn: string;
+    address: string;
+    phone: string;
+    email: string;
+    logo: string;
+  };
+  client: { name: string; address: string; phone: string; email: string };
+  lineItems: QuoteLineItem[];
+  subtotalExGST: number;
+  gst: number;
+  totalIncGST: number;
+  minimumApplied: boolean;
+  minimumChargeAmount: number;
+  jobDescription: string;
 }
 
 /* ─── Job Type Definitions ─── */
 
 const JOB_TYPES = [
-  { id: "water",    label: "Water Damage",       icon: Droplets,     standard: "AS-IICRC S500:2025",                color: "text-blue-500" },
-  { id: "mould",    label: "Mould Remediation",  icon: FlaskConical, standard: "IICRC S520",                        color: "text-green-500" },
-  { id: "fire",     label: "Fire & Smoke",       icon: Flame,        standard: "BSR/IICRC S700",                    color: "text-orange-500" },
-  { id: "storm",    label: "Storm Damage",       icon: Wind,         standard: "AS-IICRC S500:2025",                color: "text-cyan-500" },
-  { id: "bioclean", label: "Biohazard",          icon: Bug,          standard: "IICRC S540",                        color: "text-red-500" },
-] as const
+  {
+    id: "water",
+    label: "Water Damage",
+    icon: Droplets,
+    standard: "AS-IICRC S500:2025",
+    color: "text-blue-500",
+  },
+  {
+    id: "mould",
+    label: "Mould Remediation",
+    icon: FlaskConical,
+    standard: "IICRC S520",
+    color: "text-green-500",
+  },
+  {
+    id: "fire",
+    label: "Fire & Smoke",
+    icon: Flame,
+    standard: "BSR/IICRC S700",
+    color: "text-orange-500",
+  },
+  {
+    id: "storm",
+    label: "Storm Damage",
+    icon: Wind,
+    standard: "AS-IICRC S500:2025",
+    color: "text-cyan-500",
+  },
+  {
+    id: "bioclean",
+    label: "Biohazard",
+    icon: Bug,
+    standard: "IICRC S540",
+    color: "text-red-500",
+  },
+] as const;
 
 /* ─── Default Form State ─── */
 
@@ -73,57 +112,57 @@ const DEFAULT_FORM = {
   clientPhone: "",
   clientEmail: "",
   jobDescription: "",
-}
+};
 
 /* ─── Component ─── */
 
 export default function QuotePage() {
-  const [selectedJobType, setSelectedJobType] = useState<string | null>(null)
-  const [form, setForm] = useState(DEFAULT_FORM)
-  const [quoteResult, setQuoteResult] = useState<QuoteResponse | null>(null)
-  const [calculating, setCalculating] = useState(false)
+  const [selectedJobType, setSelectedJobType] = useState<string | null>(null);
+  const [form, setForm] = useState(DEFAULT_FORM);
+  const [quoteResult, setQuoteResult] = useState<QuoteResponse | null>(null);
+  const [calculating, setCalculating] = useState(false);
 
   const updateField = (field: string, value: string | number | boolean) => {
-    setForm((prev) => ({ ...prev, [field]: value }))
-  }
+    setForm((prev) => ({ ...prev, [field]: value }));
+  };
 
   const handleCalculate = async () => {
-    if (!selectedJobType) return
-    setCalculating(true)
-    setQuoteResult(null)
+    if (!selectedJobType) return;
+    setCalculating(true);
+    setQuoteResult(null);
     try {
       const res = await fetch("/api/calculate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ jobType: selectedJobType, ...form }),
-      })
+      });
       if (!res.ok) {
-        const err = await res.json()
-        toast.error(err.error || "Calculation failed")
-        return
+        const err = await res.json();
+        toast.error(err.error || "Calculation failed");
+        return;
       }
-      const data: QuoteResponse = await res.json()
-      setQuoteResult(data)
-      toast.success("Quote calculated successfully")
+      const data: QuoteResponse = await res.json();
+      setQuoteResult(data);
+      toast.success("Quote calculated successfully");
     } catch {
-      toast.error("Network error — please try again")
+      toast.error("Network error — please try again");
     } finally {
-      setCalculating(false)
+      setCalculating(false);
     }
-  }
+  };
 
   const handleReset = () => {
-    setSelectedJobType(null)
-    setForm(DEFAULT_FORM)
-    setQuoteResult(null)
-  }
+    setSelectedJobType(null);
+    setForm(DEFAULT_FORM);
+    setQuoteResult(null);
+  };
 
   const handlePrint = () => {
-    window.print()
-  }
+    window.print();
+  };
 
   const fmt = (n: number) =>
-    n.toLocaleString("en-AU", { style: "currency", currency: "AUD" })
+    n.toLocaleString("en-AU", { style: "currency", currency: "AUD" });
 
   /* ─── Render ─── */
   return (
@@ -131,7 +170,9 @@ export default function QuotePage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-semibold text-slate-900 dark:text-white">Quote Generator</h1>
+          <h1 className="text-3xl font-semibold text-slate-900 dark:text-white">
+            Quote Generator
+          </h1>
           <p className="text-slate-500 dark:text-slate-400 mt-1">
             Generate NRPG-rated quotes using your saved pricing configuration
           </p>
@@ -155,8 +196,8 @@ export default function QuotePage() {
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {JOB_TYPES.map((jt) => {
-              const Icon = jt.icon
-              const isSelected = selectedJobType === jt.id
+              const Icon = jt.icon;
+              const isSelected = selectedJobType === jt.id;
               return (
                 <button
                   key={jt.id}
@@ -167,15 +208,19 @@ export default function QuotePage() {
                       : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600"
                   }`}
                 >
-                  <Icon className={`w-8 h-8 ${isSelected ? "text-blue-500" : jt.color}`} />
-                  <span className={`text-sm font-medium text-center ${isSelected ? "text-blue-700 dark:text-blue-300" : "text-slate-700 dark:text-slate-300"}`}>
+                  <Icon
+                    className={`w-8 h-8 ${isSelected ? "text-blue-500" : jt.color}`}
+                  />
+                  <span
+                    className={`text-sm font-medium text-center ${isSelected ? "text-blue-700 dark:text-blue-300" : "text-slate-700 dark:text-slate-300"}`}
+                  >
                     {jt.label}
                   </span>
                   <span className="text-[10px] text-slate-400 dark:text-slate-500 text-center leading-tight">
                     {jt.standard}
                   </span>
                 </button>
-              )
+              );
             })}
           </div>
         </div>
@@ -191,15 +236,37 @@ export default function QuotePage() {
           {/* Client Details */}
           <Section title="Client Details">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <InputField label="Client Name" value={form.clientName} onChange={(v) => updateField("clientName", v)} />
-              <InputField label="Client Phone" value={form.clientPhone} onChange={(v) => updateField("clientPhone", v)} />
-              <InputField label="Client Email" value={form.clientEmail} onChange={(v) => updateField("clientEmail", v)} className="sm:col-span-2" />
-              <InputField label="Client Address" value={form.clientAddress} onChange={(v) => updateField("clientAddress", v)} className="sm:col-span-2" />
+              <InputField
+                label="Client Name"
+                value={form.clientName}
+                onChange={(v) => updateField("clientName", v)}
+              />
+              <InputField
+                label="Client Phone"
+                value={form.clientPhone}
+                onChange={(v) => updateField("clientPhone", v)}
+              />
+              <InputField
+                label="Client Email"
+                value={form.clientEmail}
+                onChange={(v) => updateField("clientEmail", v)}
+                className="sm:col-span-2"
+              />
+              <InputField
+                label="Client Address"
+                value={form.clientAddress}
+                onChange={(v) => updateField("clientAddress", v)}
+                className="sm:col-span-2"
+              />
               <div className="sm:col-span-2">
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Job Description</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Job Description
+                </label>
                 <textarea
                   value={form.jobDescription}
-                  onChange={(e) => updateField("jobDescription", e.target.value)}
+                  onChange={(e) =>
+                    updateField("jobDescription", e.target.value)
+                  }
                   rows={3}
                   className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
@@ -210,30 +277,60 @@ export default function QuotePage() {
           {/* Area & Duration */}
           <Section title="Area & Duration">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <NumberField label="Affected Area (m²)" value={form.affectedAreaM2} onChange={(v) => updateField("affectedAreaM2", v)} min={1} />
-              <NumberField label="Number of Rooms" value={form.numberOfRooms} onChange={(v) => updateField("numberOfRooms", v)} min={1} step={1} />
-              <NumberField label="Drying Days" value={form.dryingDays} onChange={(v) => updateField("dryingDays", v)} min={1} step={1} />
+              <NumberField
+                label="Affected Area (m²)"
+                value={form.affectedAreaM2}
+                onChange={(v) => updateField("affectedAreaM2", v)}
+                min={1}
+              />
+              <NumberField
+                label="Number of Rooms"
+                value={form.numberOfRooms}
+                onChange={(v) => updateField("numberOfRooms", v)}
+                min={1}
+                step={1}
+              />
+              <NumberField
+                label="Drying Days"
+                value={form.dryingDays}
+                onChange={(v) => updateField("dryingDays", v)}
+                min={1}
+                step={1}
+              />
             </div>
           </Section>
 
           {/* Labour */}
           <Section title="Labour">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <NumberField label="Labour Hours" value={form.labourHours} onChange={(v) => updateField("labourHours", v)} min={0} />
+              <NumberField
+                label="Labour Hours"
+                value={form.labourHours}
+                onChange={(v) => updateField("labourHours", v)}
+                min={0}
+              />
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Labour Tier</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Labour Tier
+                </label>
                 <select
                   value={form.labourTier}
                   onChange={(e) => updateField("labourTier", e.target.value)}
                   className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="masterQualified">Master Qualified Technician</option>
-                  <option value="qualifiedTechnician">Qualified Technician</option>
+                  <option value="masterQualified">
+                    Master Qualified Technician
+                  </option>
+                  <option value="qualifiedTechnician">
+                    Qualified Technician
+                  </option>
                   <option value="labourer">Labourer</option>
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Time Period</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Time Period
+                </label>
                 <select
                   value={form.labourPeriod}
                   onChange={(e) => updateField("labourPeriod", e.target.value)}
@@ -250,29 +347,87 @@ export default function QuotePage() {
           {/* Equipment */}
           <Section title="Equipment">
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-              <NumberField label="Air Movers (Axial)" value={form.airMoversAxial} onChange={(v) => updateField("airMoversAxial", v)} min={0} step={1} />
-              <NumberField label="Air Movers (Centrifugal)" value={form.airMoversCentrifugal} onChange={(v) => updateField("airMoversCentrifugal", v)} min={0} step={1} />
-              <NumberField label="Dehumidifiers (LGR)" value={form.dehumidifiersLGR} onChange={(v) => updateField("dehumidifiersLGR", v)} min={0} step={1} />
-              <NumberField label="Dehumidifiers (Desiccant)" value={form.dehumidifiersDesiccant} onChange={(v) => updateField("dehumidifiersDesiccant", v)} min={0} step={1} />
-              <NumberField label="AFD Units (Large)" value={form.afdUnitsLarge} onChange={(v) => updateField("afdUnitsLarge", v)} min={0} step={1} />
-              <NumberField label="Injection Drying (days)" value={form.injectionDryingDays} onChange={(v) => updateField("injectionDryingDays", v)} min={0} step={1} />
+              <NumberField
+                label="Air Movers (Axial)"
+                value={form.airMoversAxial}
+                onChange={(v) => updateField("airMoversAxial", v)}
+                min={0}
+                step={1}
+              />
+              <NumberField
+                label="Air Movers (Centrifugal)"
+                value={form.airMoversCentrifugal}
+                onChange={(v) => updateField("airMoversCentrifugal", v)}
+                min={0}
+                step={1}
+              />
+              <NumberField
+                label="Dehumidifiers (LGR)"
+                value={form.dehumidifiersLGR}
+                onChange={(v) => updateField("dehumidifiersLGR", v)}
+                min={0}
+                step={1}
+              />
+              <NumberField
+                label="Dehumidifiers (Desiccant)"
+                value={form.dehumidifiersDesiccant}
+                onChange={(v) => updateField("dehumidifiersDesiccant", v)}
+                min={0}
+                step={1}
+              />
+              <NumberField
+                label="AFD Units (Large)"
+                value={form.afdUnitsLarge}
+                onChange={(v) => updateField("afdUnitsLarge", v)}
+                min={0}
+                step={1}
+              />
+              <NumberField
+                label="Injection Drying (days)"
+                value={form.injectionDryingDays}
+                onChange={(v) => updateField("injectionDryingDays", v)}
+                min={0}
+                step={1}
+              />
             </div>
           </Section>
 
           {/* Extraction */}
           <Section title="Extraction">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <NumberField label="Truck-Mounted (hours)" value={form.extractionTruckMountedHours} onChange={(v) => updateField("extractionTruckMountedHours", v)} min={0} />
-              <NumberField label="Electric/Portable (hours)" value={form.extractionElectricHours} onChange={(v) => updateField("extractionElectricHours", v)} min={0} />
+              <NumberField
+                label="Truck-Mounted (hours)"
+                value={form.extractionTruckMountedHours}
+                onChange={(v) => updateField("extractionTruckMountedHours", v)}
+                min={0}
+              />
+              <NumberField
+                label="Electric/Portable (hours)"
+                value={form.extractionElectricHours}
+                onChange={(v) => updateField("extractionElectricHours", v)}
+                min={0}
+              />
             </div>
           </Section>
 
           {/* Options */}
           <Section title="Additional Items">
             <div className="flex flex-wrap gap-6">
-              <CheckboxField label="Call-Out Fee" checked={form.includeCallOut} onChange={(v) => updateField("includeCallOut", v)} />
-              <CheckboxField label="Administration Fee" checked={form.includeAdminFee} onChange={(v) => updateField("includeAdminFee", v)} />
-              <CheckboxField label="Thermal Camera Assessment" checked={form.includeThermalCamera} onChange={(v) => updateField("includeThermalCamera", v)} />
+              <CheckboxField
+                label="Call-Out Fee"
+                checked={form.includeCallOut}
+                onChange={(v) => updateField("includeCallOut", v)}
+              />
+              <CheckboxField
+                label="Administration Fee"
+                checked={form.includeAdminFee}
+                onChange={(v) => updateField("includeAdminFee", v)}
+              />
+              <CheckboxField
+                label="Thermal Camera Assessment"
+                checked={form.includeThermalCamera}
+                onChange={(v) => updateField("includeThermalCamera", v)}
+              />
             </div>
           </Section>
 
@@ -313,28 +468,44 @@ export default function QuotePage() {
               <div>
                 {quoteResult.contractor.logo && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={quoteResult.contractor.logo} alt="Logo" className="h-12 mb-2" />
+                  <img
+                    src={quoteResult.contractor.logo}
+                    alt="Logo"
+                    className="h-12 mb-2"
+                  />
                 )}
                 <h3 className="text-xl font-bold text-slate-900 dark:text-white">
                   {quoteResult.contractor.businessName || "Your Business"}
                 </h3>
                 {quoteResult.contractor.abn && (
-                  <p className="text-sm text-slate-500">ABN: {quoteResult.contractor.abn}</p>
+                  <p className="text-sm text-slate-500">
+                    ABN: {quoteResult.contractor.abn}
+                  </p>
                 )}
                 {quoteResult.contractor.address && (
-                  <p className="text-sm text-slate-500">{quoteResult.contractor.address}</p>
+                  <p className="text-sm text-slate-500">
+                    {quoteResult.contractor.address}
+                  </p>
                 )}
                 <div className="text-sm text-slate-500 space-x-3">
-                  {quoteResult.contractor.phone && <span>{quoteResult.contractor.phone}</span>}
-                  {quoteResult.contractor.email && <span>{quoteResult.contractor.email}</span>}
+                  {quoteResult.contractor.phone && (
+                    <span>{quoteResult.contractor.phone}</span>
+                  )}
+                  {quoteResult.contractor.email && (
+                    <span>{quoteResult.contractor.email}</span>
+                  )}
                 </div>
               </div>
               <div className="text-right">
                 <h2 className="text-2xl font-bold text-blue-600">QUOTE</h2>
-                <p className="text-sm text-slate-500 mt-1">{quoteResult.quoteNumber}</p>
+                <p className="text-sm text-slate-500 mt-1">
+                  {quoteResult.quoteNumber}
+                </p>
                 <p className="text-sm text-slate-500">
                   {new Date(quoteResult.quoteDate).toLocaleDateString("en-AU", {
-                    day: "numeric", month: "long", year: "numeric",
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
                   })}
                 </p>
               </div>
@@ -343,18 +514,44 @@ export default function QuotePage() {
             {/* Client & Job Info */}
             <div className="grid grid-cols-2 gap-6">
               <div>
-                <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Client</h4>
-                {quoteResult.client.name && <p className="text-sm font-medium text-slate-900 dark:text-white">{quoteResult.client.name}</p>}
-                {quoteResult.client.address && <p className="text-sm text-slate-500">{quoteResult.client.address}</p>}
-                {quoteResult.client.phone && <p className="text-sm text-slate-500">{quoteResult.client.phone}</p>}
-                {quoteResult.client.email && <p className="text-sm text-slate-500">{quoteResult.client.email}</p>}
+                <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                  Client
+                </h4>
+                {quoteResult.client.name && (
+                  <p className="text-sm font-medium text-slate-900 dark:text-white">
+                    {quoteResult.client.name}
+                  </p>
+                )}
+                {quoteResult.client.address && (
+                  <p className="text-sm text-slate-500">
+                    {quoteResult.client.address}
+                  </p>
+                )}
+                {quoteResult.client.phone && (
+                  <p className="text-sm text-slate-500">
+                    {quoteResult.client.phone}
+                  </p>
+                )}
+                {quoteResult.client.email && (
+                  <p className="text-sm text-slate-500">
+                    {quoteResult.client.email}
+                  </p>
+                )}
               </div>
               <div>
-                <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Job Details</h4>
-                <p className="text-sm font-medium text-slate-900 dark:text-white">{quoteResult.jobType}</p>
-                <p className="text-sm text-slate-500">Standard: {quoteResult.standardApplied}</p>
+                <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                  Job Details
+                </h4>
+                <p className="text-sm font-medium text-slate-900 dark:text-white">
+                  {quoteResult.jobType}
+                </p>
+                <p className="text-sm text-slate-500">
+                  Standard: {quoteResult.standardApplied}
+                </p>
                 {quoteResult.jobDescription && (
-                  <p className="text-sm text-slate-500 mt-1">{quoteResult.jobDescription}</p>
+                  <p className="text-sm text-slate-500 mt-1">
+                    {quoteResult.jobDescription}
+                  </p>
                 )}
               </div>
             </div>
@@ -364,21 +561,44 @@ export default function QuotePage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b-2 border-slate-200 dark:border-slate-600">
-                    <th className="text-left py-2 pr-4 font-semibold text-slate-700 dark:text-slate-300">Description</th>
-                    <th className="text-right py-2 px-2 font-semibold text-slate-700 dark:text-slate-300 w-16">Qty</th>
-                    <th className="text-center py-2 px-2 font-semibold text-slate-700 dark:text-slate-300 w-20">Unit</th>
-                    <th className="text-right py-2 px-2 font-semibold text-slate-700 dark:text-slate-300 w-24">Rate</th>
-                    <th className="text-right py-2 pl-2 font-semibold text-slate-700 dark:text-slate-300 w-28">Subtotal</th>
+                    <th className="text-left py-2 pr-4 font-semibold text-slate-700 dark:text-slate-300">
+                      Description
+                    </th>
+                    <th className="text-right py-2 px-2 font-semibold text-slate-700 dark:text-slate-300 w-16">
+                      Qty
+                    </th>
+                    <th className="text-center py-2 px-2 font-semibold text-slate-700 dark:text-slate-300 w-20">
+                      Unit
+                    </th>
+                    <th className="text-right py-2 px-2 font-semibold text-slate-700 dark:text-slate-300 w-24">
+                      Rate
+                    </th>
+                    <th className="text-right py-2 pl-2 font-semibold text-slate-700 dark:text-slate-300 w-28">
+                      Subtotal
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {quoteResult.lineItems.map((item, i) => (
-                    <tr key={i} className="border-b border-slate-100 dark:border-slate-700/50">
-                      <td className="py-2 pr-4 text-slate-800 dark:text-slate-200">{item.description}</td>
-                      <td className="py-2 px-2 text-right text-slate-600 dark:text-slate-400">{item.qty}</td>
-                      <td className="py-2 px-2 text-center text-slate-600 dark:text-slate-400">{item.unit}</td>
-                      <td className="py-2 px-2 text-right text-slate-600 dark:text-slate-400">{fmt(item.rate)}</td>
-                      <td className="py-2 pl-2 text-right font-medium text-slate-800 dark:text-slate-200">{fmt(item.subtotal)}</td>
+                    <tr
+                      key={i}
+                      className="border-b border-slate-100 dark:border-slate-700/50"
+                    >
+                      <td className="py-2 pr-4 text-slate-800 dark:text-slate-200">
+                        {item.description}
+                      </td>
+                      <td className="py-2 px-2 text-right text-slate-600 dark:text-slate-400">
+                        {item.qty}
+                      </td>
+                      <td className="py-2 px-2 text-center text-slate-600 dark:text-slate-400">
+                        {item.unit}
+                      </td>
+                      <td className="py-2 px-2 text-right text-slate-600 dark:text-slate-400">
+                        {fmt(item.rate)}
+                      </td>
+                      <td className="py-2 pl-2 text-right font-medium text-slate-800 dark:text-slate-200">
+                        {fmt(item.subtotal)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -390,7 +610,9 @@ export default function QuotePage() {
               <div className="w-72 space-y-2">
                 <div className="flex justify-between text-sm text-slate-600 dark:text-slate-400">
                   <span>Subtotal (ex GST)</span>
-                  <span className="font-medium text-slate-800 dark:text-slate-200">{fmt(quoteResult.subtotalExGST)}</span>
+                  <span className="font-medium text-slate-800 dark:text-slate-200">
+                    {fmt(quoteResult.subtotalExGST)}
+                  </span>
                 </div>
                 <div className="flex justify-between text-sm text-slate-600 dark:text-slate-400">
                   <span>GST (10%)</span>
@@ -406,38 +628,71 @@ export default function QuotePage() {
             {/* Minimum charge notice */}
             {quoteResult.minimumApplied && (
               <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-sm text-amber-800 dark:text-amber-300">
-                A minimum charge of {fmt(quoteResult.minimumChargeAmount)} (ex GST) has been applied in accordance with industry minimum engagement standards.
+                A minimum charge of {fmt(quoteResult.minimumChargeAmount)} (ex
+                GST) has been applied in accordance with industry minimum
+                engagement standards.
               </div>
             )}
 
             {/* Footer */}
             <div className="border-t border-slate-200 dark:border-slate-700 pt-4 text-xs text-slate-400 space-y-1">
-              <p>This quote is valid for 30 days from the date of issue. Rates are based on the National Restoration Pricing Guide (NRPG) framework.</p>
-              <p>All work performed in accordance with {quoteResult.standardApplied} and applicable Australian Standards.</p>
-              <p>Prices are in Australian Dollars (AUD) and include GST where indicated.</p>
+              <p>
+                This quote is valid for 30 days from the date of issue. Rates
+                are based on the National Restoration Pricing Guide (NRPG)
+                framework.
+              </p>
+              <p>
+                All work performed in accordance with{" "}
+                {quoteResult.standardApplied} and applicable Australian
+                Standards.
+              </p>
+              <p>
+                Prices are in Australian Dollars (AUD) and include GST where
+                indicated.
+              </p>
             </div>
           </div>
         </div>
       )}
     </div>
-  )
+  );
 }
 
 /* ─── Reusable Sub-components ─── */
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5">
-      <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-3">{title}</h3>
+      <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-3">
+        {title}
+      </h3>
       {children}
     </div>
-  )
+  );
 }
 
-function InputField({ label, value, onChange, className = "" }: { label: string; value: string; onChange: (v: string) => void; className?: string }) {
+function InputField({
+  label,
+  value,
+  onChange,
+  className = "",
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  className?: string;
+}) {
   return (
     <div className={className}>
-      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{label}</label>
+      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+        {label}
+      </label>
       <input
         type="text"
         value={value}
@@ -445,13 +700,27 @@ function InputField({ label, value, onChange, className = "" }: { label: string;
         className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
       />
     </div>
-  )
+  );
 }
 
-function NumberField({ label, value, onChange, min = 0, step = 1 }: { label: string; value: number; onChange: (v: number) => void; min?: number; step?: number }) {
+function NumberField({
+  label,
+  value,
+  onChange,
+  min = 0,
+  step = 1,
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+  min?: number;
+  step?: number;
+}) {
   return (
     <div>
-      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{label}</label>
+      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+        {label}
+      </label>
       <input
         type="number"
         value={value}
@@ -461,10 +730,18 @@ function NumberField({ label, value, onChange, min = 0, step = 1 }: { label: str
         className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
       />
     </div>
-  )
+  );
 }
 
-function CheckboxField({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+function CheckboxField({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
   return (
     <label className="flex items-center gap-2 cursor-pointer">
       <input
@@ -473,7 +750,9 @@ function CheckboxField({ label, checked, onChange }: { label: string; checked: b
         onChange={(e) => onChange(e.target.checked)}
         className="rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500"
       />
-      <span className="text-sm text-slate-700 dark:text-slate-300">{label}</span>
+      <span className="text-sm text-slate-700 dark:text-slate-300">
+        {label}
+      </span>
     </label>
-  )
+  );
 }

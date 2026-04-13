@@ -1,17 +1,23 @@
-"use client"
+"use client";
 
-import { motion } from "framer-motion"
-import { Plus, Minus } from "lucide-react"
+import { motion } from "framer-motion";
+import { Plus, Minus } from "lucide-react";
 
 interface FAQItemProps {
-  question: string
-  answer: string
-  isOpen: boolean
-  onToggle: () => void
-  delay?: number
+  question: string;
+  answer: string;
+  isOpen: boolean;
+  onToggle: () => void;
+  delay?: number;
 }
 
-export default function FAQItem({ question, answer, isOpen, onToggle, delay = 0 }: FAQItemProps) {
+export default function FAQItem({
+  question,
+  answer,
+  isOpen,
+  onToggle,
+  delay = 0,
+}: FAQItemProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -24,9 +30,9 @@ export default function FAQItem({ question, answer, isOpen, onToggle, delay = 0 
         className="w-full p-6 text-left flex items-center justify-between hover:bg-slate-800/50 transition-colors duration-300"
         onClick={onToggle}
       >
-        <h3 
+        <h3
           className="text-lg font-medium pr-4"
-          style={{ fontFamily: 'Titillium Web, sans-serif' }}
+          style={{ fontFamily: "Titillium Web, sans-serif" }}
         >
           {question}
         </h3>
@@ -34,7 +40,11 @@ export default function FAQItem({ question, answer, isOpen, onToggle, delay = 0 
           animate={{ rotate: isOpen ? 180 : 0 }}
           transition={{ duration: 0.3 }}
         >
-          {isOpen ? <Minus size={24} className="text-cyan-400" /> : <Plus size={24} className="text-slate-400" />}
+          {isOpen ? (
+            <Minus size={24} className="text-cyan-400" />
+          ) : (
+            <Plus size={24} className="text-slate-400" />
+          )}
         </motion.div>
       </button>
       <motion.div
@@ -48,5 +58,5 @@ export default function FAQItem({ question, answer, isOpen, onToggle, delay = 0 
         </div>
       </motion.div>
     </motion.div>
-  )
+  );
 }

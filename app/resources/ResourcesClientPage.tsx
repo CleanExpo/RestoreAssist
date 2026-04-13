@@ -1,78 +1,101 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import Link from "next/link"
-import Image from "next/image"
-import { motion, AnimatePresence } from "framer-motion"
-import { Menu, X } from "lucide-react"
-import Footer from "@/components/landing/Footer"
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { motion, AnimatePresence } from "framer-motion";
+import { Menu, X } from "lucide-react";
+import Footer from "@/components/landing/Footer";
 
-interface VideoGuide {
-  slug: string
-  title: string
-  description: string
-  thumbnailUrl: string
-  uploadDate: string
-}
-
-interface Props {
-  videoGuides: VideoGuide[]
-}
-
-export default function ResourcesClientPage({ videoGuides }: Props) {
-  const [darkMode] = useState(true)
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+export default function ResourcesClientPage() {
+  const [darkMode] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    if (!document.getElementById('google-fonts-preconnect')) {
-      const link1 = document.createElement('link')
-      link1.id = 'google-fonts-preconnect'
-      link1.rel = 'preconnect'
-      link1.href = 'https://fonts.googleapis.com'
-      document.head.appendChild(link1)
+    if (!document.getElementById("google-fonts-preconnect")) {
+      const link1 = document.createElement("link");
+      link1.id = "google-fonts-preconnect";
+      link1.rel = "preconnect";
+      link1.href = "https://fonts.googleapis.com";
+      document.head.appendChild(link1);
 
-      const link2 = document.createElement('link')
-      link2.rel = 'preconnect'
-      link2.href = 'https://fonts.gstatic.com'
-      link2.crossOrigin = 'anonymous'
-      document.head.appendChild(link2)
+      const link2 = document.createElement("link");
+      link2.rel = "preconnect";
+      link2.href = "https://fonts.gstatic.com";
+      link2.crossOrigin = "anonymous";
+      document.head.appendChild(link2);
 
-      const link3 = document.createElement('link')
-      link3.href = 'https://fonts.googleapis.com/css2?family=Open+Sauce+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap'
-      link3.rel = 'stylesheet'
-      document.head.appendChild(link3)
+      const link3 = document.createElement("link");
+      link3.href =
+        "https://fonts.googleapis.com/css2?family=Open+Sauce+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap";
+      link3.rel = "stylesheet";
+      document.head.appendChild(link3);
     }
-  }, [])
+  }, []);
 
   const resourceCategories = [
     {
       category: "Documentation",
       items: [
-        { title: "Getting Started Guide", description: "Learn the basics of using RestoreAssist", link: "/help", comingSoon: true },
-        { title: "API Documentation", description: "Integrate RestoreAssist with your systems", link: "#" },
-        { title: "Compliance Library", description: "Access compliance standards and guidelines", link: "#" }
-      ]
+        {
+          title: "Getting Started Guide",
+          description: "Learn the basics of using RestoreAssist",
+          link: "/help",
+          comingSoon: true,
+        },
+        {
+          title: "API Documentation",
+          description: "Integrate RestoreAssist with your systems",
+          link: "#",
+        },
+        {
+          title: "Compliance Library",
+          description: "Access compliance standards and guidelines",
+          link: "#",
+        },
+      ],
     },
     {
       category: "Support",
       items: [
-        { title: "Help Centre", description: "Find answers to common questions", link: "/help" },
-        { title: "Contact Support", description: "Get help from our support team", link: "#" },
-        { title: "Video Tutorials", description: "Watch step-by-step video guides", link: "#resources-videos", comingSoon: false }
-      ]
+        {
+          title: "Help Centre",
+          description: "Find answers to common questions",
+          link: "/help",
+        },
+        {
+          title: "Contact Support",
+          description: "Get help from our support team",
+          link: "#",
+        },
+      ],
     },
     {
       category: "Community",
       items: [
-        { title: "Blog", description: "Read the latest updates and insights", link: "#" },
-        { title: "Case Studies", description: "See how others use RestoreAssist", link: "#" },
-        { title: "Webinars", description: "Join live training sessions", link: "#" }
-      ]
-    }
-  ]
+        {
+          title: "Blog",
+          description: "Read the latest updates and insights",
+          link: "#",
+        },
+        {
+          title: "Case Studies",
+          description: "See how others use RestoreAssist",
+          link: "#",
+        },
+        {
+          title: "Webinars",
+          description: "Join live training sessions",
+          link: "#",
+        },
+      ],
+    },
+  ];
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-[#1C2E47]' : 'bg-[#F4F5F6]'}`}>
+    <div
+      className={`min-h-screen transition-colors duration-300 ${darkMode ? "bg-[#1C2E47]" : "bg-[#F4F5F6]"}`}
+    >
       {/* Header */}
       <header className="fixed top-0 w-full z-[100] bg-[#1C2E47]/60 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-6 py-2 flex items-center justify-between">
@@ -95,7 +118,11 @@ export default function ResourcesClientPage({ videoGuides }: Props) {
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             aria-label="Toggle menu"
           >
-            {mobileMenuOpen ? <X size={32} className="w-8 h-8" /> : <Menu size={32} className="w-8 h-8" />}
+            {mobileMenuOpen ? (
+              <X size={32} className="w-8 h-8" />
+            ) : (
+              <Menu size={32} className="w-8 h-8" />
+            )}
           </button>
         </div>
       </header>
@@ -112,14 +139,20 @@ export default function ResourcesClientPage({ videoGuides }: Props) {
               onClick={() => setMobileMenuOpen(false)}
             />
             <motion.div
-              initial={{ x: '100%', opacity: 0 }}
+              initial={{ x: "100%", opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
-              exit={{ x: '100%', opacity: 0 }}
-              transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1], opacity: { duration: 0.2 } }}
+              exit={{ x: "100%", opacity: 0 }}
+              transition={{
+                duration: 0.35,
+                ease: [0.32, 0.72, 0, 1],
+                opacity: { duration: 0.2 },
+              }}
               className="fixed top-0 right-0 h-screen w-80 max-w-[85vw] bg-[#1C2E47] border-l border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] z-[160] overflow-hidden flex flex-col"
             >
               <div className="flex-shrink-0 bg-[#1C2E47] border-b border-white/10 px-6 py-5 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-white uppercase tracking-wider">Menu</h2>
+                <h2 className="text-lg font-semibold text-white uppercase tracking-wider">
+                  Menu
+                </h2>
                 <button
                   onClick={() => setMobileMenuOpen(false)}
                   className="text-white hover:text-gray-300 transition-colors p-2 -mr-2 rounded-lg hover:bg-white/10"
@@ -132,10 +165,10 @@ export default function ResourcesClientPage({ videoGuides }: Props) {
                 <div className="p-6">
                   <nav className="space-y-1">
                     {[
-                      { href: '/features', label: 'Features' },
-                      { href: '/solutions', label: 'Solutions' },
-                      { href: '/pricing', label: 'Pricing' },
-                      { href: '/resources', label: 'Resources' },
+                      { href: "/features", label: "Features" },
+                      { href: "/solutions", label: "Solutions" },
+                      { href: "/pricing", label: "Pricing" },
+                      { href: "/resources", label: "Resources" },
                     ].map((item) => (
                       <Link
                         key={item.href}
@@ -182,7 +215,10 @@ export default function ResourcesClientPage({ videoGuides }: Props) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
             className="text-5xl md:text-6xl font-bold mb-6 leading-tight text-[#F4F5F6]"
-            style={{ fontFamily: '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
+            style={{
+              fontFamily:
+                '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            }}
           >
             Resources
           </motion.h1>
@@ -191,7 +227,10 @@ export default function ResourcesClientPage({ videoGuides }: Props) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
             className="text-xl md:text-2xl text-[#C4C8CA]"
-            style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
+            style={{
+              fontFamily:
+                'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            }}
           >
             Everything you need to get the most out of RestoreAssist.
           </motion.p>
@@ -217,7 +256,10 @@ export default function ResourcesClientPage({ videoGuides }: Props) {
               >
                 <h3
                   className="text-2xl font-bold mb-6 text-[#F4F5F6]"
-                  style={{ fontFamily: '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
+                  style={{
+                    fontFamily:
+                      '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                  }}
                 >
                   {category.category}
                 </h3>
@@ -231,7 +273,10 @@ export default function ResourcesClientPage({ videoGuides }: Props) {
                       <div className="flex items-center gap-2 mb-2">
                         <h4
                           className="text-lg font-semibold text-[#F4F5F6]"
-                          style={{ fontFamily: '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
+                          style={{
+                            fontFamily:
+                              '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                          }}
                         >
                           {item.title}
                         </h4>
@@ -241,7 +286,9 @@ export default function ResourcesClientPage({ videoGuides }: Props) {
                           </span>
                         )}
                       </div>
-                      <p className="text-sm text-[#C4C8CA]">{item.description}</p>
+                      <p className="text-sm text-[#C4C8CA]">
+                        {item.description}
+                      </p>
                     </Link>
                   ))}
                 </div>
@@ -251,62 +298,7 @@ export default function ResourcesClientPage({ videoGuides }: Props) {
         </div>
       </section>
 
-      {/* Video Guides — loaded from content/resources/*.json */}
-      <section id="resources-videos" className="py-20 px-6 relative bg-[#1C2E47] overflow-hidden">
-        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-          <div className="absolute top-10 right-1/3 w-80 h-80 bg-[#06b6d4]/8 rounded-full blur-3xl" />
-        </div>
-        <div className="max-w-7xl mx-auto relative z-10">
-          <h2
-            className="text-3xl font-bold text-[#F4F5F6] mb-2"
-            style={{ fontFamily: '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
-          >
-            Video Guides
-          </h2>
-          <p className="text-[#C4C8CA] mb-8">
-            IICRC S500 tutorials and restoration best practices from Australian professionals
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {videoGuides.map((guide) => (
-              <Link
-                key={guide.slug}
-                href={`/resources/${guide.slug}`}
-                className="group block rounded-2xl border border-[#5A6A7B]/30 overflow-hidden hover:border-cyan-400 transition-all bg-[#1C2E47]/50 backdrop-blur-sm"
-              >
-                <div className="aspect-video bg-[#5A6A7B]/20 relative overflow-hidden">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={guide.thumbnailUrl}
-                    alt={guide.title}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center">
-                      <svg className="w-5 h-5 text-cyan-600 ml-1" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-                <div className="p-4">
-                  <h3 className="font-semibold text-sm text-[#F4F5F6] line-clamp-2 group-hover:text-cyan-400 transition-colors">
-                    {guide.title}
-                  </h3>
-                  <p className="text-xs text-[#C4C8CA] mt-1">
-                    {new Date(guide.uploadDate).toLocaleDateString('en-AU', {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric',
-                    })}
-                  </p>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
-
       <Footer darkMode={darkMode} />
     </div>
-  )
+  );
 }

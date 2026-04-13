@@ -1,12 +1,20 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useCallback } from "react"
-import { useRouter } from "next/navigation"
-import { ArrowLeft, RefreshCw, Loader2, AlertTriangle, CheckCircle2, ChevronDown, ChevronUp } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Separator } from "@/components/ui/separator"
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import {
+  ArrowLeft,
+  RefreshCw,
+  Loader2,
+  AlertTriangle,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Separator } from "@/components/ui/separator";
 import {
   Table,
   TableBody,
@@ -14,51 +22,51 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
+} from "@/components/ui/table";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface SyncErrorIntegration {
-  id: string
-  provider: string
-  name: string
-  status: string
+  id: string;
+  provider: string;
+  name: string;
+  status: string;
 }
 
 interface SyncError {
-  id: string
-  integrationId: string
-  integration: SyncErrorIntegration
-  syncType: string
-  status: string
-  recordsProcessed: number
-  recordsFailed: number
-  errorMessage: string | null
-  startedAt: string
-  completedAt: string | null
+  id: string;
+  integrationId: string;
+  integration: SyncErrorIntegration;
+  syncType: string;
+  status: string;
+  recordsProcessed: number;
+  recordsFailed: number;
+  errorMessage: string | null;
+  startedAt: string;
+  completedAt: string | null;
 }
 
 interface WebhookError {
-  id: string
-  integrationId: string
-  integration: SyncErrorIntegration
-  eventType: string
-  status: string
-  errorMessage: string | null
-  retryCount: number
-  createdAt: string
+  id: string;
+  integrationId: string;
+  integration: SyncErrorIntegration;
+  eventType: string;
+  status: string;
+  errorMessage: string | null;
+  retryCount: number;
+  createdAt: string;
 }
 
 interface SyncErrorsResponse {
-  success: boolean
-  syncErrors: SyncError[]
-  webhookErrors: WebhookError[]
+  success: boolean;
+  syncErrors: SyncError[];
+  webhookErrors: WebhookError[];
   pagination: {
-    total: number
-    limit: number
-    offset: number
-    hasMore: boolean
-  }
+    total: number;
+    limit: number;
+    offset: number;
+    hasMore: boolean;
+  };
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -69,7 +77,7 @@ const PROVIDER_COLOURS: Record<string, string> = {
   myob: "bg-purple-100 text-purple-800 border-purple-200",
   servicem8: "bg-orange-100 text-orange-800 border-orange-200",
   ascora: "bg-indigo-100 text-indigo-800 border-indigo-200",
-}
+};
 
 const PROVIDER_LABEL: Record<string, string> = {
   xero: "Xero",
@@ -77,7 +85,7 @@ const PROVIDER_LABEL: Record<string, string> = {
   myob: "MYOB",
   servicem8: "ServiceM8",
   ascora: "Ascora",
-}
+};
 
 const STATUS_STYLES: Record<string, string> = {
   FAILED: "bg-red-100 text-red-800 border-red-200",
@@ -87,7 +95,7 @@ const STATUS_STYLES: Record<string, string> = {
   PENDING: "bg-amber-100 text-amber-800 border-amber-200",
   PROCESSING: "bg-blue-100 text-blue-800 border-blue-200",
   DELIVERED: "bg-green-100 text-green-800 border-green-200",
-}
+};
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleString("en-AU", {
@@ -96,33 +104,33 @@ function formatDate(iso: string) {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  })
+  });
 }
 
 function truncate(str: string | null | undefined, max = 80) {
-  if (!str) return "—"
-  return str.length <= max ? str : str.slice(0, max)
+  if (!str) return "—";
+  return str.length <= max ? str : str.slice(0, max);
 }
 
 function providerLabel(provider: string) {
-  return PROVIDER_LABEL[provider.toLowerCase()] ?? provider
+  return PROVIDER_LABEL[provider.toLowerCase()] ?? provider;
 }
 
 // ─── Row component with "Show more" toggle ────────────────────────────────────
 
 interface SyncErrorRowProps {
-  error: SyncError
-  onRetry: (integrationId: string, syncLogId: string) => Promise<void>
-  retryingId: string | null
+  error: SyncError;
+  onRetry: (integrationId: string, syncLogId: string) => Promise<void>;
+  retryingId: string | null;
 }
 
 function SyncErrorRow({ error, onRetry, retryingId }: SyncErrorRowProps) {
-  const [expanded, setExpanded] = useState(false)
-  const msg = error.errorMessage ?? null
-  const isTruncated = msg !== null && msg.length > 80
-  const providerKey = error.integration.provider.toLowerCase()
-  const isRetrying = retryingId === error.id
-  const isPermanentlyFailed = error.recordsFailed >= 5
+  const [expanded, setExpanded] = useState(false);
+  const msg = error.errorMessage ?? null;
+  const isTruncated = msg !== null && msg.length > 80;
+  const providerKey = error.integration.provider.toLowerCase();
+  const isRetrying = retryingId === error.id;
+  const isPermanentlyFailed = error.recordsFailed >= 5;
 
   return (
     <TableRow>
@@ -143,14 +151,18 @@ function SyncErrorRow({ error, onRetry, retryingId }: SyncErrorRowProps) {
         </span>
         {isTruncated && (
           <button
-            onClick={() => setExpanded(v => !v)}
+            onClick={() => setExpanded((v) => !v)}
             className="ml-2 inline-flex items-center gap-0.5 text-xs text-blue-600 hover:text-blue-800 underline"
             aria-label={expanded ? "Show less" : "Show more"}
           >
             {expanded ? (
-              <><ChevronUp className="h-3 w-3" /> Show less</>
+              <>
+                <ChevronUp className="h-3 w-3" /> Show less
+              </>
             ) : (
-              <><ChevronDown className="h-3 w-3" /> Show more</>
+              <>
+                <ChevronDown className="h-3 w-3" /> Show more
+              </>
             )}
           </button>
         )}
@@ -158,18 +170,27 @@ function SyncErrorRow({ error, onRetry, retryingId }: SyncErrorRowProps) {
 
       {/* Sync type */}
       <TableCell>
-        <span className="text-xs font-mono text-gray-600">{error.syncType}</span>
+        <span className="text-xs font-mono text-gray-600">
+          {error.syncType}
+        </span>
       </TableCell>
 
       {/* Timestamp */}
       <TableCell>
-        <span className="text-xs text-gray-500 whitespace-nowrap">{formatDate(error.startedAt)}</span>
+        <span className="text-xs text-gray-500 whitespace-nowrap">
+          {formatDate(error.startedAt)}
+        </span>
       </TableCell>
 
       {/* Records failed / processed */}
       <TableCell className="text-center">
-        <span className="text-sm font-medium text-red-700">{error.recordsFailed}</span>
-        <span className="text-xs text-gray-400"> / {error.recordsProcessed}</span>
+        <span className="text-sm font-medium text-red-700">
+          {error.recordsFailed}
+        </span>
+        <span className="text-xs text-gray-400">
+          {" "}
+          / {error.recordsProcessed}
+        </span>
       </TableCell>
 
       {/* Status */}
@@ -192,27 +213,31 @@ function SyncErrorRow({ error, onRetry, retryingId }: SyncErrorRowProps) {
           className="h-7 text-xs"
         >
           {isRetrying ? (
-            <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Retrying…</>
+            <>
+              <Loader2 className="h-3 w-3 mr-1 animate-spin" /> Retrying…
+            </>
           ) : (
-            <><RefreshCw className="h-3 w-3 mr-1" /> Retry</>
+            <>
+              <RefreshCw className="h-3 w-3 mr-1" /> Retry
+            </>
           )}
         </Button>
       </TableCell>
     </TableRow>
-  )
+  );
 }
 
 // ─── Webhook error row ────────────────────────────────────────────────────────
 
 interface WebhookErrorRowProps {
-  error: WebhookError
+  error: WebhookError;
 }
 
 function WebhookErrorRow({ error }: WebhookErrorRowProps) {
-  const [expanded, setExpanded] = useState(false)
-  const msg = error.errorMessage ?? null
-  const isTruncated = msg !== null && msg.length > 80
-  const providerKey = error.integration.provider.toLowerCase()
+  const [expanded, setExpanded] = useState(false);
+  const msg = error.errorMessage ?? null;
+  const isTruncated = msg !== null && msg.length > 80;
+  const providerKey = error.integration.provider.toLowerCase();
 
   return (
     <TableRow className="bg-amber-50/40">
@@ -224,7 +249,9 @@ function WebhookErrorRow({ error }: WebhookErrorRowProps) {
           >
             {providerLabel(error.integration.provider)}
           </Badge>
-          <span className="text-[10px] text-amber-700 font-medium">WEBHOOK</span>
+          <span className="text-[10px] text-amber-700 font-medium">
+            WEBHOOK
+          </span>
         </div>
       </TableCell>
 
@@ -234,28 +261,38 @@ function WebhookErrorRow({ error }: WebhookErrorRowProps) {
         </span>
         {isTruncated && (
           <button
-            onClick={() => setExpanded(v => !v)}
+            onClick={() => setExpanded((v) => !v)}
             className="ml-2 inline-flex items-center gap-0.5 text-xs text-blue-600 hover:text-blue-800 underline"
           >
             {expanded ? (
-              <><ChevronUp className="h-3 w-3" /> Show less</>
+              <>
+                <ChevronUp className="h-3 w-3" /> Show less
+              </>
             ) : (
-              <><ChevronDown className="h-3 w-3" /> Show more</>
+              <>
+                <ChevronDown className="h-3 w-3" /> Show more
+              </>
             )}
           </button>
         )}
       </TableCell>
 
       <TableCell>
-        <span className="text-xs font-mono text-gray-600">{error.eventType}</span>
+        <span className="text-xs font-mono text-gray-600">
+          {error.eventType}
+        </span>
       </TableCell>
 
       <TableCell>
-        <span className="text-xs text-gray-500 whitespace-nowrap">{formatDate(error.createdAt)}</span>
+        <span className="text-xs text-gray-500 whitespace-nowrap">
+          {formatDate(error.createdAt)}
+        </span>
       </TableCell>
 
       <TableCell className="text-center">
-        <span className="text-sm font-medium text-amber-700">{error.retryCount}</span>
+        <span className="text-sm font-medium text-amber-700">
+          {error.retryCount}
+        </span>
         <span className="text-xs text-gray-400"> / 5</span>
       </TableCell>
 
@@ -270,12 +307,17 @@ function WebhookErrorRow({ error }: WebhookErrorRowProps) {
 
       {/* No retry for maxed-out webhook errors */}
       <TableCell>
-        <Button size="sm" variant="outline" disabled className="h-7 text-xs opacity-50">
+        <Button
+          size="sm"
+          variant="outline"
+          disabled
+          className="h-7 text-xs opacity-50"
+        >
           Max retries
         </Button>
       </TableCell>
     </TableRow>
-  )
+  );
 }
 
 // ─── Loading skeleton ─────────────────────────────────────────────────────────
@@ -285,22 +327,36 @@ function TableSkeleton() {
     <>
       {Array.from({ length: 5 }).map((_, i) => (
         <TableRow key={i}>
-          <TableCell><Skeleton className="h-5 w-20" /></TableCell>
-          <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-          <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-          <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-          <TableCell><Skeleton className="h-4 w-10" /></TableCell>
-          <TableCell><Skeleton className="h-5 w-20" /></TableCell>
-          <TableCell><Skeleton className="h-7 w-16" /></TableCell>
+          <TableCell>
+            <Skeleton className="h-5 w-20" />
+          </TableCell>
+          <TableCell>
+            <Skeleton className="h-4 w-48" />
+          </TableCell>
+          <TableCell>
+            <Skeleton className="h-4 w-16" />
+          </TableCell>
+          <TableCell>
+            <Skeleton className="h-4 w-28" />
+          </TableCell>
+          <TableCell>
+            <Skeleton className="h-4 w-10" />
+          </TableCell>
+          <TableCell>
+            <Skeleton className="h-5 w-20" />
+          </TableCell>
+          <TableCell>
+            <Skeleton className="h-7 w-16" />
+          </TableCell>
         </TableRow>
       ))}
     </>
-  )
+  );
 }
 
 // ─── Filter tabs ──────────────────────────────────────────────────────────────
 
-type FilterTab = "ALL" | "FAILED" | "PARTIAL" | "SUCCESS" | "WEBHOOK"
+type FilterTab = "ALL" | "FAILED" | "PARTIAL" | "SUCCESS" | "WEBHOOK";
 
 const FILTER_TABS: { label: string; value: FilterTab }[] = [
   { label: "All", value: "ALL" },
@@ -308,106 +364,112 @@ const FILTER_TABS: { label: string; value: FilterTab }[] = [
   { label: "Partial", value: "PARTIAL" },
   { label: "Resolved", value: "SUCCESS" },
   { label: "Webhooks", value: "WEBHOOK" },
-]
+];
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function SyncErrorsPage() {
-  const router = useRouter()
-  const [loading, setLoading] = useState(true)
-  const [syncErrors, setSyncErrors] = useState<SyncError[]>([])
-  const [webhookErrors, setWebhookErrors] = useState<WebhookError[]>([])
-  const [activeTab, setActiveTab] = useState<FilterTab>("ALL")
-  const [retryingId, setRetryingId] = useState<string | null>(null)
-  const [clearing, setClearing] = useState(false)
-  const [fetchError, setFetchError] = useState<string | null>(null)
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [syncErrors, setSyncErrors] = useState<SyncError[]>([]);
+  const [webhookErrors, setWebhookErrors] = useState<WebhookError[]>([]);
+  const [activeTab, setActiveTab] = useState<FilterTab>("ALL");
+  const [retryingId, setRetryingId] = useState<string | null>(null);
+  const [clearing, setClearing] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
 
   const fetchErrors = useCallback(async () => {
-    setLoading(true)
-    setFetchError(null)
+    setLoading(true);
+    setFetchError(null);
     try {
-      const res = await fetch("/api/integrations/sync-errors")
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data: SyncErrorsResponse = await res.json()
+      const res = await fetch("/api/integrations/sync-errors");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data: SyncErrorsResponse = await res.json();
       if (data.success) {
-        setSyncErrors(data.syncErrors ?? [])
-        setWebhookErrors(data.webhookErrors ?? [])
+        setSyncErrors(data.syncErrors ?? []);
+        setWebhookErrors(data.webhookErrors ?? []);
       } else {
-        setFetchError("Failed to load sync errors.")
+        setFetchError("Failed to load sync errors.");
       }
     } catch (err: any) {
-      setFetchError(err.message ?? "Unknown error")
+      setFetchError(err.message ?? "Unknown error");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
-    fetchErrors()
-  }, [fetchErrors])
+    fetchErrors();
+  }, [fetchErrors]);
 
   // ── Retry ──────────────────────────────────────────────────────────────────
 
-  const handleRetry = useCallback(async (integrationId: string, syncLogId: string) => {
-    setRetryingId(syncLogId)
-    try {
-      // Re-trigger the NIR sync for the specific integration.
-      // targetIntegrationId scopes the sync to the single failed integration.
-      const res = await fetch(`/api/integrations/nir-sync`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetIntegrationId: integrationId, syncLogId }),
-      })
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error(body.error ?? `HTTP ${res.status}`)
+  const handleRetry = useCallback(
+    async (integrationId: string, syncLogId: string) => {
+      setRetryingId(syncLogId);
+      try {
+        // Re-trigger the NIR sync for the specific integration.
+        // targetIntegrationId scopes the sync to the single failed integration.
+        const res = await fetch(`/api/integrations/nir-sync`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            targetIntegrationId: integrationId,
+            syncLogId,
+          }),
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error ?? `HTTP ${res.status}`);
+        }
+        // Refresh list after successful retry
+        await fetchErrors();
+      } catch (err: any) {
+        console.error("[Retry]", err);
+        alert(`Retry failed: ${err.message}`);
+      } finally {
+        setRetryingId(null);
       }
-      // Refresh list after successful retry
-      await fetchErrors()
-    } catch (err: any) {
-      console.error("[Retry]", err)
-      alert(`Retry failed: ${err.message}`)
-    } finally {
-      setRetryingId(null)
-    }
-  }, [fetchErrors])
+    },
+    [fetchErrors],
+  );
 
   // ── Clear resolved ──────────────────────────────────────────────────────────
 
   const handleClearResolved = useCallback(async () => {
     // Optimistically remove SUCCESS entries from local state
-    setSyncErrors(prev => prev.filter(e => e.status !== "SUCCESS"))
-    setClearing(true)
+    setSyncErrors((prev) => prev.filter((e) => e.status !== "SUCCESS"));
+    setClearing(true);
     try {
       // Call DELETE to purge old error logs on the server (best-effort)
-      await fetch("/api/integrations/sync-errors", { method: "DELETE" })
+      await fetch("/api/integrations/sync-errors", { method: "DELETE" });
     } catch {
       // Silent — local state already updated
     } finally {
-      setClearing(false)
+      setClearing(false);
     }
-  }, [])
+  }, []);
 
   // ── Derived state ───────────────────────────────────────────────────────────
 
-  const filteredSyncErrors = syncErrors.filter(e => {
-    if (activeTab === "ALL") return true
-    if (activeTab === "WEBHOOK") return false
-    return e.status === activeTab
-  })
+  const filteredSyncErrors = syncErrors.filter((e) => {
+    if (activeTab === "ALL") return true;
+    if (activeTab === "WEBHOOK") return false;
+    return e.status === activeTab;
+  });
 
-  const showWebhooks = activeTab === "ALL" || activeTab === "WEBHOOK"
+  const showWebhooks = activeTab === "ALL" || activeTab === "WEBHOOK";
   const totalErrorCount =
-    syncErrors.filter(e => e.status === "FAILED").length + webhookErrors.length
+    syncErrors.filter((e) => e.status === "FAILED").length +
+    webhookErrors.length;
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-
         {/* Back link */}
         <button
           onClick={() => router.push("/dashboard/integrations")}
@@ -420,7 +482,9 @@ export default function SyncErrorsPage() {
         {/* Header row */}
         <div className="flex items-start justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold text-gray-900">Sync Errors</h1>
+            <h1 className="text-2xl font-semibold text-gray-900">
+              Sync Errors
+            </h1>
             {!loading && (
               <Badge
                 variant="outline"
@@ -445,7 +509,9 @@ export default function SyncErrorsPage() {
               disabled={clearing || loading}
               className="h-8 text-xs"
             >
-              {clearing ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : null}
+              {clearing ? (
+                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+              ) : null}
               Clear Resolved
             </Button>
             <Button
@@ -455,7 +521,9 @@ export default function SyncErrorsPage() {
               disabled={loading}
               className="h-8 text-xs"
             >
-              <RefreshCw className={`h-3 w-3 mr-1 ${loading ? "animate-spin" : ""}`} />
+              <RefreshCw
+                className={`h-3 w-3 mr-1 ${loading ? "animate-spin" : ""}`}
+              />
               Refresh
             </Button>
           </div>
@@ -465,7 +533,7 @@ export default function SyncErrorsPage() {
 
         {/* Filter tabs */}
         <div className="flex gap-1 mb-6 bg-white border border-gray-200 rounded-lg p-1 w-fit">
-          {FILTER_TABS.map(tab => (
+          {FILTER_TABS.map((tab) => (
             <button
               key={tab.value}
               onClick={() => setActiveTab(tab.value)}
@@ -528,7 +596,7 @@ export default function SyncErrorsPage() {
                 </TableRow>
               ) : (
                 <>
-                  {filteredSyncErrors.map(error => (
+                  {filteredSyncErrors.map((error) => (
                     <SyncErrorRow
                       key={error.id}
                       error={error}
@@ -537,7 +605,7 @@ export default function SyncErrorsPage() {
                     />
                   ))}
                   {showWebhooks &&
-                    webhookErrors.map(error => (
+                    webhookErrors.map((error) => (
                       <WebhookErrorRow key={error.id} error={error} />
                     ))}
                 </>
@@ -549,11 +617,12 @@ export default function SyncErrorsPage() {
         {/* Footer count */}
         {!loading && (syncErrors.length > 0 || webhookErrors.length > 0) && (
           <p className="mt-3 text-xs text-gray-400 text-right">
-            {syncErrors.length} sync log{syncErrors.length !== 1 ? "s" : ""} &middot;{" "}
-            {webhookErrors.length} webhook error{webhookErrors.length !== 1 ? "s" : ""}
+            {syncErrors.length} sync log{syncErrors.length !== 1 ? "s" : ""}{" "}
+            &middot; {webhookErrors.length} webhook error
+            {webhookErrors.length !== 1 ? "s" : ""}
           </p>
         )}
       </div>
     </div>
-  )
+  );
 }

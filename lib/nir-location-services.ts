@@ -27,21 +27,28 @@
 
 /** Property risk flags consumed by getActiveTriggers() in nir-jurisdictional-matrix.ts */
 export interface PropertyLocationFlags {
-  isFloodZone: boolean
-  isBushfireProne: boolean
-  isCycloneZone: boolean
-  isHeritageListed: boolean
+  isFloodZone: boolean;
+  isBushfireProne: boolean;
+  isCycloneZone: boolean;
+  isHeritageListed: boolean;
   /** Wind region designation for structural assessment (null if not applicable) */
-  windRegion: 'A' | 'B' | 'C' | 'D' | null
+  windRegion: "A" | "B" | "C" | "D" | null;
   /** BAL rating if determinable from zone data; null requires licensed assessor */
-  approximateBALZone: 'BAL-LOW' | 'BAL-12.5' | 'BAL-19' | 'BAL-29' | 'BAL-40' | 'BAL-FZ' | null
+  approximateBALZone:
+    | "BAL-LOW"
+    | "BAL-12.5"
+    | "BAL-19"
+    | "BAL-29"
+    | "BAL-40"
+    | "BAL-FZ"
+    | null;
   /** Whether flags are from reliable postcode data or require field verification */
-  confidence: 'high' | 'medium' | 'requires-verification'
+  confidence: "high" | "medium" | "requires-verification";
   /** Human-readable advisory notes for the inspection report */
-  advisoryNotes: string[]
+  advisoryNotes: string[];
 }
 
-type PostcodeRange = readonly [number, number]
+type PostcodeRange = readonly [number, number];
 
 // ─── POSTCODE RANGE DEFINITIONS ──────────────────────────────────────────────
 // Sources: ABS Postal Area data, state government hazard mapping, AS/NZS 1170.2
@@ -55,44 +62,44 @@ type PostcodeRange = readonly [number, number]
  */
 const FLOOD_ZONES: Record<string, PostcodeRange[]> = {
   QLD: [
-    [4000, 4013],   // Inner Brisbane / CBD flood plain
-    [4059, 4059],   // Auchenflower / Toowong flood corridor
-    [4064, 4068],   // Milton, Chelmer, Graceville
-    [4101, 4105],   // West End, Dutton Park, Highgate Hill
-    [4300, 4305],   // Ipswich city / Bremer River
-    [4500, 4510],   // Caboolture / North Moreton Bay
-    [4670, 4670],   // Bundaberg (2013 floods)
-    [4740, 4745],   // Mackay / Pioneer River
-    [4870, 4870],   // Cairns
+    [4000, 4013], // Inner Brisbane / CBD flood plain
+    [4059, 4059], // Auchenflower / Toowong flood corridor
+    [4064, 4068], // Milton, Chelmer, Graceville
+    [4101, 4105], // West End, Dutton Park, Highgate Hill
+    [4300, 4305], // Ipswich city / Bremer River
+    [4500, 4510], // Caboolture / North Moreton Bay
+    [4670, 4670], // Bundaberg (2013 floods)
+    [4740, 4745], // Mackay / Pioneer River
+    [4870, 4870], // Cairns
   ],
   NSW: [
-    [2480, 2480],   // Lismore — highest flood-risk in NSW
-    [2460, 2464],   // Grafton / Clarence Valley
-    [2350, 2350],   // Armidale flood plain
-    [2650, 2650],   // Wagga Wagga / Murrumbidgee
-    [2640, 2641],   // Albury / Murray River
+    [2480, 2480], // Lismore — highest flood-risk in NSW
+    [2460, 2464], // Grafton / Clarence Valley
+    [2350, 2350], // Armidale flood plain
+    [2650, 2650], // Wagga Wagga / Murrumbidgee
+    [2640, 2641], // Albury / Murray River
   ],
   VIC: [
-    [3616, 3618],   // Shepparton / Goulburn River
-    [3644, 3644],   // Echuca / Murray River
-    [3500, 3502],   // Mildura / Murray River
+    [3616, 3618], // Shepparton / Goulburn River
+    [3644, 3644], // Echuca / Murray River
+    [3500, 3502], // Mildura / Murray River
   ],
   NT: [
-    [822,  822],    // Katherine — significant flood history (1998 flood)
-    [828,  828],    // Mataranka
-    [852,  852],    // Nhulunbuy
+    [822, 822], // Katherine — significant flood history (1998 flood)
+    [828, 828], // Mataranka
+    [852, 852], // Nhulunbuy
   ],
   SA: [
-    [5253, 5253],   // Murray Bridge / Murray River
+    [5253, 5253], // Murray Bridge / Murray River
   ],
   WA: [
-    [6230, 6232],   // Bunbury / Collie River
+    [6230, 6232], // Bunbury / Collie River
   ],
   TAS: [
-    [7248, 7249],   // Launceston / Tamar River (2016 flood)
+    [7248, 7249], // Launceston / Tamar River (2016 flood)
   ],
   ACT: [],
-}
+};
 
 /**
  * Cyclone zone postcode ranges by state.
@@ -106,31 +113,31 @@ const FLOOD_ZONES: Record<string, PostcodeRange[]> = {
  */
 const CYCLONE_ZONES: Record<string, PostcodeRange[]> = {
   NT: [
-    [800, 999],     // ALL NT — Wind Region C/D throughout territory
+    [800, 999], // ALL NT — Wind Region C/D throughout territory
   ],
   WA: [
-    [6700, 6770],   // Pilbara (Karratha 6714, Port Hedland 6721) + Kimberley (Broome 6725, Kununurra 6743)
-    [6798, 6799],   // Cocos/Christmas Islands
+    [6700, 6770], // Pilbara (Karratha 6714, Port Hedland 6721) + Kimberley (Broome 6725, Kununurra 6743)
+    [6798, 6799], // Cocos/Christmas Islands
   ],
   QLD: [
-    [4800, 4806],   // Whitsunday region
-    [4810, 4825],   // Townsville / Magnetic Island
-    [4870, 4895],   // Cairns / Far North QLD
-    [4740, 4745],   // Mackay coast
+    [4800, 4806], // Whitsunday region
+    [4810, 4825], // Townsville / Magnetic Island
+    [4870, 4895], // Cairns / Far North QLD
+    [4740, 4745], // Mackay coast
   ],
-}
+};
 
 /** Wind Region D designation — more severe cyclone rating */
 const WIND_REGION_D: Record<string, PostcodeRange[]> = {
   NT: [
-    [820, 820],     // Darwin coastal areas
-    [822, 822],     // Palmerston
+    [820, 820], // Darwin coastal areas
+    [822, 822], // Palmerston
   ],
   WA: [
-    [6714, 6714],   // Karratha / Dampier (Pilbara coast)
-    [6721, 6721],   // Port Hedland coast
+    [6714, 6714], // Karratha / Dampier (Pilbara coast)
+    [6721, 6721], // Port Hedland coast
   ],
-}
+};
 
 /**
  * Bushfire Prone Land postcode ranges by state.
@@ -143,43 +150,43 @@ const WIND_REGION_D: Record<string, PostcodeRange[]> = {
  */
 const BUSHFIRE_PRONE: Record<string, PostcodeRange[]> = {
   NSW: [
-    [2777, 2785],   // Blue Mountains — BAL-HIGH / BAL-FZ common
-    [2081, 2086],   // Ku-ring-gai / Hornsby bushland interface
-    [2120, 2125],   // Pennant Hills / Hills District interface
-    [2159, 2159],   // Galston / Berrilee
-    [2250, 2251],   // Gosford / Somersby hinterland
-    [2571, 2577],   // Southern Highlands / Bowral
+    [2777, 2785], // Blue Mountains — BAL-HIGH / BAL-FZ common
+    [2081, 2086], // Ku-ring-gai / Hornsby bushland interface
+    [2120, 2125], // Pennant Hills / Hills District interface
+    [2159, 2159], // Galston / Berrilee
+    [2250, 2251], // Gosford / Somersby hinterland
+    [2571, 2577], // Southern Highlands / Bowral
   ],
   VIC: [
-    [3777, 3779],   // Dandenong Ranges — BMO/WMO
-    [3431, 3444],   // Macedon Ranges — BAL-29 common
-    [3139, 3139],   // Healesville / Yarra Valley interface
-    [3737, 3742],   // Alpine Valleys — Mount Beauty, Bright
+    [3777, 3779], // Dandenong Ranges — BMO/WMO
+    [3431, 3444], // Macedon Ranges — BAL-29 common
+    [3139, 3139], // Healesville / Yarra Valley interface
+    [3737, 3742], // Alpine Valleys — Mount Beauty, Bright
   ],
   ACT: [
-    [2611, 2614],   // Weston Creek / Tuggeranong fringe
-    [2900, 2906],   // Tuggeranong — affected in 2003 bushfires
-    [2618, 2620],   // Belconnen / Gungahlin rural fringe
+    [2611, 2614], // Weston Creek / Tuggeranong fringe
+    [2900, 2906], // Tuggeranong — affected in 2003 bushfires
+    [2618, 2620], // Belconnen / Gungahlin rural fringe
   ],
   SA: [
-    [5350, 5352],   // Barossa Valley / Eden Valley fire corridors
-    [5151, 5153],   // Adelaide Hills — Cudlee Creek 2019 fire area
-    [5076, 5082],   // Tea Tree Gully interface
+    [5350, 5352], // Barossa Valley / Eden Valley fire corridors
+    [5151, 5153], // Adelaide Hills — Cudlee Creek 2019 fire area
+    [5076, 5082], // Tea Tree Gully interface
   ],
   WA: [
-    [6076, 6076],   // Mundaring / Darlington
-    [6071, 6075],   // Swan Valley / Baskerville interface
-    [6057, 6058],   // Greenmount / Helena Valley
+    [6076, 6076], // Mundaring / Darlington
+    [6071, 6075], // Swan Valley / Baskerville interface
+    [6057, 6058], // Greenmount / Helena Valley
   ],
   QLD: [
-    [4310, 4315],   // Boonah / Scenic Rim
-    [4551, 4556],   // Caloundra hinterland / Glass House Mountains
+    [4310, 4315], // Boonah / Scenic Rim
+    [4551, 4556], // Caloundra hinterland / Glass House Mountains
   ],
   NT: [],
   TAS: [
-    [7109, 7120],   // Huon Valley — fire-prone south-west interface
+    [7109, 7120], // Huon Valley — fire-prone south-west interface
   ],
-}
+};
 
 /**
  * Heritage-dense postcode ranges.
@@ -191,34 +198,34 @@ const BUSHFIRE_PRONE: Record<string, PostcodeRange[]> = {
  */
 const HERITAGE_DENSE: Record<string, PostcodeRange[]> = {
   SA: [
-    [5000, 5006],   // Adelaide CBD / North Adelaide — Heritage Register concentration
-    [5350, 5355],   // Barossa Valley heritage townships
+    [5000, 5006], // Adelaide CBD / North Adelaide — Heritage Register concentration
+    [5350, 5355], // Barossa Valley heritage townships
   ],
   VIC: [
-    [3000, 3006],   // Melbourne CBD — Heritage Overlay
-    [3121, 3122],   // Richmond / Prahran Victorian terrace concentration
+    [3000, 3006], // Melbourne CBD — Heritage Overlay
+    [3121, 3122], // Richmond / Prahran Victorian terrace concentration
   ],
   NSW: [
-    [2000, 2000],   // Sydney CBD — The Rocks SHR items
-    [2010, 2011],   // Surry Hills / Pyrmont heritage precincts
+    [2000, 2000], // Sydney CBD — The Rocks SHR items
+    [2010, 2011], // Surry Hills / Pyrmont heritage precincts
   ],
   TAS: [
-    [7000, 7005],   // Hobart CBD — Battery Point, Sullivan's Cove SHR
-    [7250, 7252],   // Launceston CBD heritage precinct
+    [7000, 7005], // Hobart CBD — Battery Point, Sullivan's Cove SHR
+    [7250, 7252], // Launceston CBD heritage precinct
   ],
   QLD: [
-    [4350, 4352],   // Toowoomba heritage streetscapes
+    [4350, 4352], // Toowoomba heritage streetscapes
   ],
-}
+};
 
 // ─── HELPER FUNCTIONS ─────────────────────────────────────────────────────────
 
 function inRange(postcode: number, ranges: PostcodeRange[]): boolean {
-  return ranges.some(([min, max]) => postcode >= min && postcode <= max)
+  return ranges.some(([min, max]) => postcode >= min && postcode <= max);
 }
 
 function postcodeToNumber(postcode: string): number {
-  return parseInt(postcode.replace(/\D/g, ''), 10)
+  return parseInt(postcode.replace(/\D/g, ""), 10);
 }
 
 // ─── DETECTION FUNCTIONS ──────────────────────────────────────────────────────
@@ -229,10 +236,10 @@ function postcodeToNumber(postcode: string): number {
  * @advisory Probabilistic — confirm with state government flood mapping portal.
  */
 export function detectFloodZone(postcode: string, state: string): boolean {
-  const stateUpper = state.toUpperCase()
-  const postcodeNum = postcodeToNumber(postcode)
-  const ranges = FLOOD_ZONES[stateUpper] ?? []
-  return inRange(postcodeNum, ranges)
+  const stateUpper = state.toUpperCase();
+  const postcodeNum = postcodeToNumber(postcode);
+  const ranges = FLOOD_ZONES[stateUpper] ?? [];
+  return inRange(postcodeNum, ranges);
 }
 
 /**
@@ -243,10 +250,10 @@ export function detectFloodZone(postcode: string, state: string): boolean {
  *           Verify for fringe postcodes against AS/NZS 1170.2 wind region maps.
  */
 export function detectCycloneZone(postcode: string, state: string): boolean {
-  const stateUpper = state.toUpperCase()
-  const postcodeNum = postcodeToNumber(postcode)
-  const ranges = CYCLONE_ZONES[stateUpper] ?? []
-  return inRange(postcodeNum, ranges)
+  const stateUpper = state.toUpperCase();
+  const postcodeNum = postcodeToNumber(postcode);
+  const ranges = CYCLONE_ZONES[stateUpper] ?? [];
+  return inRange(postcodeNum, ranges);
 }
 
 /**
@@ -258,18 +265,18 @@ export function detectCycloneZone(postcode: string, state: string): boolean {
  */
 export function detectWindRegion(
   postcode: string,
-  state: string
-): 'C' | 'D' | null {
-  const stateUpper = state.toUpperCase()
-  const postcodeNum = postcodeToNumber(postcode)
+  state: string,
+): "C" | "D" | null {
+  const stateUpper = state.toUpperCase();
+  const postcodeNum = postcodeToNumber(postcode);
 
-  const regionDRanges = WIND_REGION_D[stateUpper] ?? []
-  if (inRange(postcodeNum, regionDRanges)) return 'D'
+  const regionDRanges = WIND_REGION_D[stateUpper] ?? [];
+  if (inRange(postcodeNum, regionDRanges)) return "D";
 
-  const regionCRanges = CYCLONE_ZONES[stateUpper] ?? []
-  if (inRange(postcodeNum, regionCRanges)) return 'C'
+  const regionCRanges = CYCLONE_ZONES[stateUpper] ?? [];
+  if (inRange(postcodeNum, regionCRanges)) return "C";
 
-  return null
+  return null;
 }
 
 /**
@@ -279,10 +286,10 @@ export function detectWindRegion(
  *           BAL rating CANNOT be derived from postcode alone — requires licensed assessor.
  */
 export function detectBushfireProne(postcode: string, state: string): boolean {
-  const stateUpper = state.toUpperCase()
-  const postcodeNum = postcodeToNumber(postcode)
-  const ranges = BUSHFIRE_PRONE[stateUpper] ?? []
-  return inRange(postcodeNum, ranges)
+  const stateUpper = state.toUpperCase();
+  const postcodeNum = postcodeToNumber(postcode);
+  const ranges = BUSHFIRE_PRONE[stateUpper] ?? [];
+  return inRange(postcodeNum, ranges);
 }
 
 /**
@@ -295,11 +302,14 @@ export function detectBushfireProne(postcode: string, state: string): boolean {
  *   NSW: NSW State Heritage Register (www.environment.nsw.gov.au)
  *   TAS: Tasmanian Heritage Register (www.heritage.tas.gov.au)
  */
-export function detectHeritageDenseArea(postcode: string, state: string): boolean {
-  const stateUpper = state.toUpperCase()
-  const postcodeNum = postcodeToNumber(postcode)
-  const ranges = HERITAGE_DENSE[stateUpper] ?? []
-  return inRange(postcodeNum, ranges)
+export function detectHeritageDenseArea(
+  postcode: string,
+  state: string,
+): boolean {
+  const stateUpper = state.toUpperCase();
+  const postcodeNum = postcodeToNumber(postcode);
+  const ranges = HERITAGE_DENSE[stateUpper] ?? [];
+  return inRange(postcodeNum, ranges);
 }
 
 // ─── COMPOSITE FLAG FUNCTION ──────────────────────────────────────────────────
@@ -314,69 +324,69 @@ export function detectHeritageDenseArea(postcode: string, state: string): boolea
  */
 export function getPropertyLocationFlags(
   postcode: string,
-  state: string
+  state: string,
 ): PropertyLocationFlags {
-  const stateUpper = state.toUpperCase()
+  const stateUpper = state.toUpperCase();
 
-  const isFloodZone = detectFloodZone(postcode, stateUpper)
-  const isCycloneZone = detectCycloneZone(postcode, stateUpper)
-  const isBushfireProne = detectBushfireProne(postcode, stateUpper)
-  const isHeritageDense = detectHeritageDenseArea(postcode, stateUpper)
-  const windRegion = detectWindRegion(postcode, stateUpper)
+  const isFloodZone = detectFloodZone(postcode, stateUpper);
+  const isCycloneZone = detectCycloneZone(postcode, stateUpper);
+  const isBushfireProne = detectBushfireProne(postcode, stateUpper);
+  const isHeritageDense = detectHeritageDenseArea(postcode, stateUpper);
+  const windRegion = detectWindRegion(postcode, stateUpper);
 
-  const advisoryNotes: string[] = []
-  let confidence: PropertyLocationFlags['confidence'] = 'high'
+  const advisoryNotes: string[] = [];
+  let confidence: PropertyLocationFlags["confidence"] = "high";
 
   if (isFloodZone) {
     advisoryNotes.push(
       `Flood zone flag: postcode ${postcode} is in a documented high-risk flood area. ` +
-      `Confirm with state government flood mapping portal before finalising scope.`
-    )
-    confidence = 'medium'
+        `Confirm with state government flood mapping portal before finalising scope.`,
+    );
+    confidence = "medium";
   }
 
   if (isCycloneZone) {
-    const region = windRegion ?? 'C'
+    const region = windRegion ?? "C";
     advisoryNotes.push(
       `Cyclone zone flag: Wind Region ${region} designation applies per AS/NZS 1170.2. ` +
-      `All structural restoration must meet Wind Region ${region} specifications.`
-    )
+        `All structural restoration must meet Wind Region ${region} specifications.`,
+    );
   }
 
   if (isBushfireProne) {
     advisoryNotes.push(
       `Bushfire Prone Land flag: postcode ${postcode} is in a designated or likely BPL area. ` +
-      `BAL rating requires licensed assessor — cannot be derived from postcode. ` +
-      `Confirm via state planning portal before specifying replacement materials.`
-    )
-    confidence = 'medium'
+        `BAL rating requires licensed assessor — cannot be derived from postcode. ` +
+        `Confirm via state planning portal before specifying replacement materials.`,
+    );
+    confidence = "medium";
   }
 
   if (isHeritageDense) {
     advisoryNotes.push(
       `Heritage area flag: postcode ${postcode} has high heritage property concentration. ` +
-      `Confirm individual property heritage status via state Heritage Register ` +
-      `before any material removal or demolition works.`
-    )
-    confidence = 'requires-verification'
+        `Confirm individual property heritage status via state Heritage Register ` +
+        `before any material removal or demolition works.`,
+    );
+    confidence = "requires-verification";
   }
 
   // Approximate BAL zone — only useful for known high-BAL areas
   // Cannot derive specific BAL-12.5 vs BAL-29 from postcode alone
-  let approximateBALZone: PropertyLocationFlags['approximateBALZone'] = null
+  let approximateBALZone: PropertyLocationFlags["approximateBALZone"] = null;
   if (isBushfireProne) {
     // All we can say from postcode is "BAL applies — specific rating needs assessor"
-    approximateBALZone = 'BAL-12.5' // conservative minimum — real rating may be higher
+    approximateBALZone = "BAL-12.5"; // conservative minimum — real rating may be higher
     advisoryNotes.push(
-      `BAL-12.5 shown as minimum advisory. Actual BAL rating determined by licensed assessor only.`
-    )
+      `BAL-12.5 shown as minimum advisory. Actual BAL rating determined by licensed assessor only.`,
+    );
   }
 
   if (advisoryNotes.length === 0) {
     advisoryNotes.push(
       `No specific risk zone flags detected for postcode ${postcode} (${stateUpper}). ` +
-      `Standard state requirements apply.`
-    )
+        `Standard state requirements apply.`,
+    );
   }
 
   return {
@@ -384,9 +394,9 @@ export function getPropertyLocationFlags(
     isBushfireProne,
     isCycloneZone,
     isHeritageListed: isHeritageDense, // advisory only — field name matches getActiveTriggers() param
-    windRegion: windRegion ? (windRegion as 'C' | 'D') : null,
+    windRegion: windRegion ? (windRegion as "C" | "D") : null,
     approximateBALZone,
     confidence,
     advisoryNotes,
-  }
+  };
 }

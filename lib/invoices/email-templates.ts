@@ -5,43 +5,52 @@
  * including invoice sent, payment received, overdue reminders, and receipts.
  */
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 interface InvoiceEmailData {
-  invoiceNumber: string
-  invoiceDate: Date
-  dueDate: Date
-  totalIncGST: number
-  amountPaid?: number
-  amountDue: number
-  customerName: string
-  publicToken?: string
-  businessName: string
-  businessEmail?: string
-  businessPhone?: string
-  appUrl: string
+  invoiceNumber: string;
+  invoiceDate: Date;
+  dueDate: Date;
+  totalIncGST: number;
+  amountPaid?: number;
+  amountDue: number;
+  customerName: string;
+  publicToken?: string;
+  businessName: string;
+  businessEmail?: string;
+  businessPhone?: string;
+  appUrl: string;
 }
 
 interface PaymentEmailData {
-  invoiceNumber: string
-  paymentDate: Date
-  amountPaid: number
-  paymentMethod: string
-  reference?: string
-  customerName: string
-  businessName: string
-  remainingBalance: number
+  invoiceNumber: string;
+  paymentDate: Date;
+  amountPaid: number;
+  paymentMethod: string;
+  reference?: string;
+  customerName: string;
+  businessName: string;
+  remainingBalance: number;
 }
 
 interface ReminderEmailData {
-  invoiceNumber: string
-  dueDate: Date
-  daysOverdue: number
-  amountDue: number
-  customerName: string
-  publicToken: string
-  businessName: string
-  businessEmail?: string
-  businessPhone?: string
-  appUrl: string
+  invoiceNumber: string;
+  dueDate: Date;
+  daysOverdue: number;
+  amountDue: number;
+  customerName: string;
+  publicToken: string;
+  businessName: string;
+  businessEmail?: string;
+  businessPhone?: string;
+  appUrl: string;
 }
 
 /**
@@ -59,12 +68,12 @@ export function generateInvoiceSentEmail(data: InvoiceEmailData): string {
     businessName,
     businessEmail,
     businessPhone,
-    appUrl
-  } = data
+    appUrl,
+  } = data;
 
   const viewInvoiceUrl = publicToken
     ? `${appUrl}/invoices/public/${publicToken}`
-    : `${appUrl}/dashboard/invoices`
+    : `${appUrl}/dashboard/invoices`;
 
   return `
 <!DOCTYPE html>
@@ -186,11 +195,11 @@ export function generateInvoiceSentEmail(data: InvoiceEmailData): string {
   <div class="container">
     <div class="header">
       <h1>Invoice ${invoiceNumber}</h1>
-      <p>from ${businessName}</p>
+      <p>from ${escapeHtml(businessName)}</p>
     </div>
 
     <div class="content">
-      <p class="greeting">Dear ${customerName},</p>
+      <p class="greeting">Dear ${escapeHtml(customerName)},</p>
 
       <p>Thank you for your business. Please find your invoice details below.</p>
 
@@ -221,19 +230,19 @@ export function generateInvoiceSentEmail(data: InvoiceEmailData): string {
 
       <p style="margin-top: 30px;">You can view and download your invoice using the button above. If you have any questions about this invoice, please don't hesitate to contact us.</p>
 
-      ${businessEmail ? `<p style="margin-top: 20px; font-size: 14px; color: #6b7280;"><strong>Questions?</strong> Contact us at <a href="mailto:${businessEmail}" style="color: #0ea5e9;">${businessEmail}</a>${businessPhone ? ` or ${businessPhone}` : ''}</p>` : ''}
+      ${businessEmail ? `<p style="margin-top: 20px; font-size: 14px; color: #6b7280;"><strong>Questions?</strong> Contact us at <a href="mailto:${businessEmail}" style="color: #0ea5e9;">${businessEmail}</a>${businessPhone ? ` or ${businessPhone}` : ""}</p>` : ""}
     </div>
 
     <div class="footer">
-      <p><strong>${businessName}</strong></p>
-      ${businessEmail ? `<p><a href="mailto:${businessEmail}">${businessEmail}</a></p>` : ''}
-      ${businessPhone ? `<p>${businessPhone}</p>` : ''}
+      <p><strong>${escapeHtml(businessName)}</strong></p>
+      ${businessEmail ? `<p><a href="mailto:${businessEmail}">${businessEmail}</a></p>` : ""}
+      ${businessPhone ? `<p>${businessPhone}</p>` : ""}
       <p style="margin-top: 15px; font-size: 12px;">This is an automated email from RestoreAssist. Please do not reply directly to this email.</p>
     </div>
   </div>
 </body>
 </html>
-  `.trim()
+  `.trim();
 }
 
 /**
@@ -248,10 +257,10 @@ export function generatePaymentReceivedEmail(data: PaymentEmailData): string {
     reference,
     customerName,
     businessName,
-    remainingBalance
-  } = data
+    remainingBalance,
+  } = data;
 
-  const isPaidInFull = remainingBalance === 0
+  const isPaidInFull = remainingBalance === 0;
 
   return `
 <!DOCTYPE html>
@@ -367,7 +376,7 @@ export function generatePaymentReceivedEmail(data: PaymentEmailData): string {
     </div>
 
     <div class="content">
-      <p class="greeting">Dear ${customerName},</p>
+      <p class="greeting">Dear ${escapeHtml(customerName)},</p>
 
       <p>Thank you! We have successfully received your payment.</p>
 
@@ -385,42 +394,50 @@ export function generatePaymentReceivedEmail(data: PaymentEmailData): string {
           <span class="detail-label">Payment Method:</span>
           <span class="detail-value">${paymentMethod}</span>
         </div>
-        ${reference ? `
+        ${
+          reference
+            ? `
         <div class="detail-row">
           <span class="detail-label">Reference:</span>
           <span class="detail-value">${reference}</span>
         </div>
-        ` : ''}
+        `
+            : ""
+        }
         <div class="divider" style="margin: 15px 0;"></div>
         <div class="detail-row">
           <span class="detail-label">Amount Paid:</span>
           <span class="amount-paid">${formatCurrency(amountPaid)}</span>
         </div>
-        ${!isPaidInFull ? `
+        ${
+          !isPaidInFull
+            ? `
         <div class="detail-row">
           <span class="detail-label">Remaining Balance:</span>
           <span class="detail-value">${formatCurrency(remainingBalance)}</span>
         </div>
-        ` : ''}
+        `
+            : ""
+        }
       </div>
 
       <center>
         ${isPaidInFull ? '<div class="success-badge">✓ PAID IN FULL</div>' : '<div class="success-badge">✓ PARTIAL PAYMENT</div>'}
       </center>
 
-      <p style="margin-top: 30px;">${isPaidInFull ? 'Your invoice has been paid in full. Thank you for your prompt payment!' : 'This is a partial payment. The remaining balance is shown above.'}</p>
+      <p style="margin-top: 30px;">${isPaidInFull ? "Your invoice has been paid in full. Thank you for your prompt payment!" : "This is a partial payment. The remaining balance is shown above."}</p>
 
       <p>A receipt for this payment will be sent to you separately.</p>
     </div>
 
     <div class="footer">
-      <p><strong>${businessName}</strong></p>
+      <p><strong>${escapeHtml(businessName)}</strong></p>
       <p style="margin-top: 15px; font-size: 12px;">This is an automated email from RestoreAssist.</p>
     </div>
   </div>
 </body>
 </html>
-  `.trim()
+  `.trim();
 }
 
 /**
@@ -437,13 +454,24 @@ export function generateOverdueReminderEmail(data: ReminderEmailData): string {
     businessName,
     businessEmail,
     businessPhone,
-    appUrl
-  } = data
+    appUrl,
+  } = data;
 
-  const viewInvoiceUrl = `${appUrl}/invoices/public/${publicToken}`
-  const urgencyLevel = daysOverdue > 30 ? 'high' : daysOverdue > 14 ? 'medium' : 'low'
-  const urgencyColor = urgencyLevel === 'high' ? '#ef4444' : urgencyLevel === 'medium' ? '#f59e0b' : '#f97316'
-  const urgencyText = urgencyLevel === 'high' ? 'URGENT' : urgencyLevel === 'medium' ? 'IMPORTANT' : 'REMINDER'
+  const viewInvoiceUrl = `${appUrl}/invoices/public/${publicToken}`;
+  const urgencyLevel =
+    daysOverdue > 30 ? "high" : daysOverdue > 14 ? "medium" : "low";
+  const urgencyColor =
+    urgencyLevel === "high"
+      ? "#ef4444"
+      : urgencyLevel === "medium"
+        ? "#f59e0b"
+        : "#f97316";
+  const urgencyText =
+    urgencyLevel === "high"
+      ? "URGENT"
+      : urgencyLevel === "medium"
+        ? "IMPORTANT"
+        : "REMINDER";
 
   return `
 <!DOCTYPE html>
@@ -590,7 +618,7 @@ export function generateOverdueReminderEmail(data: ReminderEmailData): string {
     </div>
 
     <div class="content">
-      <p class="greeting">Dear ${customerName},</p>
+      <p class="greeting">Dear ${escapeHtml(customerName)},</p>
 
       <p>This is a friendly reminder that payment for invoice ${invoiceNumber} is now overdue.</p>
 
@@ -621,33 +649,39 @@ export function generateOverdueReminderEmail(data: ReminderEmailData): string {
 
       <p style="margin-top: 30px;">If you have already made this payment, please disregard this email. If you're experiencing any issues or need to discuss payment arrangements, please contact us immediately.</p>
 
-      ${businessEmail || businessPhone ? `
+      ${
+        businessEmail || businessPhone
+          ? `
       <p style="margin-top: 20px; padding: 15px; background-color: #f9fafb; border-radius: 4px; font-size: 14px;">
         <strong>Need Help?</strong><br/>
-        ${businessEmail ? `Email: <a href="mailto:${businessEmail}" style="color: #ef4444;">${businessEmail}</a><br/>` : ''}
-        ${businessPhone ? `Phone: ${businessPhone}` : ''}
+        ${businessEmail ? `Email: <a href="mailto:${businessEmail}" style="color: #ef4444;">${businessEmail}</a><br/>` : ""}
+        ${businessPhone ? `Phone: ${businessPhone}` : ""}
       </p>
-      ` : ''}
+      `
+          : ""
+      }
 
       <p style="margin-top: 20px; font-size: 13px; color: #6b7280;">We appreciate your prompt attention to this matter and thank you for your business.</p>
     </div>
 
     <div class="footer">
-      <p><strong>${businessName}</strong></p>
-      ${businessEmail ? `<p><a href="mailto:${businessEmail}">${businessEmail}</a></p>` : ''}
-      ${businessPhone ? `<p>${businessPhone}</p>` : ''}
+      <p><strong>${escapeHtml(businessName)}</strong></p>
+      ${businessEmail ? `<p><a href="mailto:${businessEmail}">${businessEmail}</a></p>` : ""}
+      ${businessPhone ? `<p>${businessPhone}</p>` : ""}
       <p style="margin-top: 15px; font-size: 12px;">This is an automated reminder from RestoreAssist.</p>
     </div>
   </div>
 </body>
 </html>
-  `.trim()
+  `.trim();
 }
 
 /**
  * Generate upcoming payment reminder email HTML
  */
-export function generateUpcomingPaymentReminderEmail(data: Omit<ReminderEmailData, 'daysOverdue'> & { daysUntilDue: number }): string {
+export function generateUpcomingPaymentReminderEmail(
+  data: Omit<ReminderEmailData, "daysOverdue"> & { daysUntilDue: number },
+): string {
   const {
     invoiceNumber,
     dueDate,
@@ -658,10 +692,10 @@ export function generateUpcomingPaymentReminderEmail(data: Omit<ReminderEmailDat
     businessName,
     businessEmail,
     businessPhone,
-    appUrl
-  } = data
+    appUrl,
+  } = data;
 
-  const viewInvoiceUrl = `${appUrl}/invoices/public/${publicToken}`
+  const viewInvoiceUrl = `${appUrl}/invoices/public/${publicToken}`;
 
   return `
 <!DOCTYPE html>
@@ -789,9 +823,9 @@ export function generateUpcomingPaymentReminderEmail(data: Omit<ReminderEmailDat
     </div>
 
     <div class="content">
-      <p class="greeting">Dear ${customerName},</p>
+      <p class="greeting">Dear ${escapeHtml(customerName)},</p>
 
-      <p>This is a friendly reminder that payment for invoice ${invoiceNumber} is due ${daysUntilDue === 1 ? 'tomorrow' : `in ${daysUntilDue} days`}.</p>
+      <p>This is a friendly reminder that payment for invoice ${invoiceNumber} is due ${daysUntilDue === 1 ? "tomorrow" : `in ${daysUntilDue} days`}.</p>
 
       <div class="reminder-details">
         <h3>Invoice Details</h3>
@@ -820,25 +854,29 @@ export function generateUpcomingPaymentReminderEmail(data: Omit<ReminderEmailDat
 
       <p style="margin-top: 30px;">To avoid any late fees or service interruptions, please arrange payment before the due date. If you have any questions or need assistance, please contact us.</p>
 
-      ${businessEmail || businessPhone ? `
+      ${
+        businessEmail || businessPhone
+          ? `
       <p style="margin-top: 20px; font-size: 14px; color: #6b7280;">
         <strong>Questions?</strong><br/>
-        ${businessEmail ? `Email: <a href="mailto:${businessEmail}" style="color: #f59e0b;">${businessEmail}</a><br/>` : ''}
-        ${businessPhone ? `Phone: ${businessPhone}` : ''}
+        ${businessEmail ? `Email: <a href="mailto:${businessEmail}" style="color: #f59e0b;">${businessEmail}</a><br/>` : ""}
+        ${businessPhone ? `Phone: ${businessPhone}` : ""}
       </p>
-      ` : ''}
+      `
+          : ""
+      }
     </div>
 
     <div class="footer">
-      <p><strong>${businessName}</strong></p>
-      ${businessEmail ? `<p><a href="mailto:${businessEmail}">${businessEmail}</a></p>` : ''}
-      ${businessPhone ? `<p>${businessPhone}</p>` : ''}
+      <p><strong>${escapeHtml(businessName)}</strong></p>
+      ${businessEmail ? `<p><a href="mailto:${businessEmail}">${businessEmail}</a></p>` : ""}
+      ${businessPhone ? `<p>${businessPhone}</p>` : ""}
       <p style="margin-top: 15px; font-size: 12px;">This is an automated reminder from RestoreAssist.</p>
     </div>
   </div>
 </body>
 </html>
-  `.trim()
+  `.trim();
 }
 
 // ============================================
@@ -849,16 +887,16 @@ export function generateUpcomingPaymentReminderEmail(data: Omit<ReminderEmailDat
  * Format cents to currency string
  */
 function formatCurrency(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`
+  return `$${(cents / 100).toFixed(2)}`;
 }
 
 /**
  * Format date to readable format
  */
 function formatDate(date: Date): string {
-  return new Date(date).toLocaleDateString('en-AU', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric'
-  })
+  return new Date(date).toLocaleDateString("en-AU", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
 }

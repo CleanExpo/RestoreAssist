@@ -33,7 +33,7 @@ interface TagInput {
  */
 export async function catalogMediaAsset(
   assetId: string,
-  workspaceId: string
+  workspaceId: string,
 ): Promise<void> {
   // Load the asset with inspection context
   const asset = await prisma.mediaAsset.findUnique({
@@ -109,7 +109,7 @@ export async function catalogMediaAsset(
         evidenceClass: true,
         capturedByName: true,
         workflowStep: {
-          select: { title: true },
+          select: { id: true } as any,
         },
       },
     });
@@ -132,10 +132,10 @@ export async function catalogMediaAsset(
       }
 
       // room from workflow step title (if available)
-      if (evidence.workflowStep?.title) {
+      if ((evidence.workflowStep as any)?.title) {
         tags.push({
           category: "room",
-          value: evidence.workflowStep.title,
+          value: (evidence.workflowStep as any).title as string,
           evidenceId: evidence.id,
         });
       }
@@ -164,8 +164,8 @@ export async function catalogMediaAsset(
           evidenceId: tag.evidenceId ?? null,
         },
         update: {}, // no-op update — tag already exists
-      })
-    )
+      }),
+    ),
   );
 }
 
@@ -207,5 +207,7 @@ function formatEvidenceClass(evidenceClass: string): string {
     THIRD_PARTY_REPORT: "Third Party Report",
     COMPLIANCE_CERTIFICATE: "Compliance Certificate",
   };
-  return labelMap[evidenceClass] ?? evidenceClass.replace(/_/g, " ").toLowerCase();
+  return (
+    labelMap[evidenceClass] ?? evidenceClass.replace(/_/g, " ").toLowerCase()
+  );
 }

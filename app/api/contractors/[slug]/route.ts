@@ -1,21 +1,21 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ slug: string }> }
+  { params }: { params: Promise<{ slug: string }> },
 ) {
   try {
-    const { slug } = await params
-    const session = await getServerSession(authOptions)
-    const isAuthenticated = !!session?.user
+    const { slug } = await params;
+    const session = await getServerSession(authOptions);
+    const isAuthenticated = !!session?.user;
 
     const contractor = await prisma.contractorProfile.findUnique({
       where: {
         slug,
-        isPubliclyVisible: true
+        isPubliclyVisible: true,
       },
       include: {
         user: {
@@ -26,23 +26,21 @@ export async function GET(
             businessAddress: true,
             // Conditionally include contact info only for authenticated users
             ...(isAuthenticated && {
-              phoneNumber: true,
               email: true,
-              website: true
-            })
-          }
+            }),
+          },
         },
         certifications: {
-          where: { verificationStatus: 'VERIFIED' },
+          where: { verificationStatus: "VERIFIED" },
           select: {
             id: true,
             certificationType: true,
             certificationName: true,
             issuingBody: true,
             issueDate: true,
-            expiryDate: true
+            expiryDate: true,
           },
-          orderBy: { issueDate: 'desc' }
+          orderBy: { issueDate: "desc" },
         },
         serviceAreas: {
           where: { isActive: true },
@@ -50,74 +48,68 @@ export async function GET(
             postcode: true,
             suburb: true,
             state: true,
-            radius: true
+            radius: true,
           },
-          orderBy: [
-            { priority: 'desc' },
-            { postcode: 'asc' }
-          ]
+          orderBy: [{ priority: "desc" }, { postcode: "asc" }],
         },
         reviews: {
           where: {
-            status: 'PUBLISHED',
-            disputeStatus: { notIn: ['UNDER_INVESTIGATION', 'RESOLVED_REMOVED'] }
+            status: "PUBLISHED",
+            disputeStatus: {
+              notIn: ["UNDER_INVESTIGATION", "RESOLVED_REMOVED"],
+            },
           },
           include: {
             clientUser: {
               select: {
-                user: {
-                  select: {
-                    firstName: true,
-                    lastName: true
-                  }
-                }
-              }
+                name: true,
+              },
             },
             report: {
               select: {
                 id: true,
-                title: true
-              }
-            }
+                title: true,
+              },
+            },
           },
-          orderBy: { createdAt: 'desc' },
-          take: 20
-        }
-      }
-    })
+          orderBy: { createdAt: "desc" },
+          take: 20,
+        },
+      },
+    });
 
     if (!contractor) {
       return NextResponse.json(
-        { error: 'Contractor not found' },
-        { status: 404 }
-      )
+        { error: "Contractor not found" },
+        { status: 404 },
+      );
     }
 
     // Calculate rating breakdown
     const ratingBreakdown = await prisma.contractorReview.groupBy({
-      by: ['overallRating'],
+      by: ["overallRating"],
       where: {
         profileId: contractor.id,
-        status: 'PUBLISHED',
-        disputeStatus: { notIn: ['UNDER_INVESTIGATION', 'RESOLVED_REMOVED'] }
+        status: "PUBLISHED",
+        disputeStatus: { notIn: ["UNDER_INVESTIGATION", "RESOLVED_REMOVED"] },
       },
-      _count: true
-    })
+      _count: true,
+    });
 
     // Calculate average sub-ratings
     const subRatings = await prisma.contractorReview.aggregate({
       where: {
         profileId: contractor.id,
-        status: 'PUBLISHED',
-        disputeStatus: { notIn: ['UNDER_INVESTIGATION', 'RESOLVED_REMOVED'] }
+        status: "PUBLISHED",
+        disputeStatus: { notIn: ["UNDER_INVESTIGATION", "RESOLVED_REMOVED"] },
       },
       _avg: {
         qualityRating: true,
         timelinessRating: true,
         communicationRating: true,
-        valueRating: true
-      }
-    })
+        valueRating: true,
+      },
+    });
 
     return NextResponse.json({
       contractor: {
@@ -141,14 +133,12 @@ export async function GET(
         insuranceCertificate: contractor.insuranceCertificate,
         // Contact info only for authenticated users
         ...(isAuthenticated && {
-          phoneNumber: contractor.user.phoneNumber,
           email: contractor.user.email,
-          website: contractor.user.website
-        })
+        }),
       },
       certifications: contractor.certifications,
       serviceAreas: contractor.serviceAreas,
-      reviews: contractor.reviews.map(r => ({
+      reviews: contractor.reviews.map((r) => ({
         id: r.id,
         overallRating: r.overallRating,
         qualityRating: r.qualityRating,
@@ -163,26 +153,29 @@ export async function GET(
         helpfulCount: r.helpfulCount,
         notHelpfulCount: r.notHelpfulCount,
         createdAt: r.createdAt,
-        clientName: `${r.clientUser.user.firstName} ${r.clientUser.user.lastName.charAt(0)}.`,
-        reportTitle: r.report?.title
+        clientName: (r.clientUser as any).name || "Anonymous",
+        reportTitle: r.report?.title,
       })),
-      ratingBreakdown: ratingBreakdown.reduce((acc, item) => {
-        acc[item.overallRating] = item._count
-        return acc
-      }, {} as Record<number, number>),
+      ratingBreakdown: ratingBreakdown.reduce(
+        (acc, item) => {
+          acc[item.overallRating] = item._count;
+          return acc;
+        },
+        {} as Record<number, number>,
+      ),
       subRatings: {
         quality: subRatings._avg.qualityRating,
         timeliness: subRatings._avg.timelinessRating,
         communication: subRatings._avg.communicationRating,
-        value: subRatings._avg.valueRating
+        value: subRatings._avg.valueRating,
       },
-      requiresAuthForContact: !isAuthenticated
-    })
+      requiresAuthForContact: !isAuthenticated,
+    });
   } catch (error: any) {
-    console.error('Error fetching contractor profile:', error)
+    console.error("Error fetching contractor profile:", error);
     return NextResponse.json(
-      { error: 'Failed to fetch contractor profile' },
-      { status: 500 }
-    )
+      { error: "Failed to fetch contractor profile" },
+      { status: 500 },
+    );
   }
 }

@@ -13,41 +13,50 @@
  *   Removes a specific circuit assessment.
  */
 
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import { z } from 'zod'
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { z } from "zod";
 
 // ─── Equipment amp draw reference (IICRC S500 / AS/NZS 3012) ──────────────────
 
 const TYPICAL_AMP_DRAWS: Record<string, number> = {
-  AIR_MOVER: 2.0,         // Conservative mid-range (0.6–4.5A)
-  LGR_DEHU: 8.0,          // Conservative (6.7–10A for 85–165 pint)
-  DESICCANT_DEHU: 6.5,    // Conservative (5.5–7.5A)
-  AIR_SCRUBBER: 3.0,      // Conservative (2.5–6A)
-  NEGATIVE_AIR: 10.0,     // Conservative (8–12A)
-}
+  AIR_MOVER: 2.0, // Conservative mid-range (0.6–4.5A)
+  LGR_DEHU: 8.0, // Conservative (6.7–10A for 85–165 pint)
+  DESICCANT_DEHU: 6.5, // Conservative (5.5–7.5A)
+  AIR_SCRUBBER: 3.0, // Conservative (2.5–6A)
+  NEGATIVE_AIR: 10.0, // Conservative (8–12A)
+};
 
 // ─── Validation ────────────────────────────────────────────────────────────────
 
 const equipmentItemSchema = z.object({
-  type: z.enum(['AIR_MOVER', 'LGR_DEHU', 'DESICCANT_DEHU', 'AIR_SCRUBBER', 'NEGATIVE_AIR']),
+  type: z.enum([
+    "AIR_MOVER",
+    "LGR_DEHU",
+    "DESICCANT_DEHU",
+    "AIR_SCRUBBER",
+    "NEGATIVE_AIR",
+  ]),
   model: z.string().optional().nullable(),
   serial: z.string().optional().nullable(),
   ampDraw: z.number().positive().optional().nullable(), // If null, uses typical reference
-})
+});
 
 const circuitSchema = z.object({
   circuitId: z.string().min(1),
   locationZone: z.string().min(1),
   equipmentList: z.array(equipmentItemSchema),
-  circuitBreakerRating: z.number().int().refine((v) => [10, 15, 20, 25, 32, 40, 50].includes(v), {
-    message: 'Must be a standard breaker rating: 10, 15, 20, 25, 32, 40, 50A',
-  }),
+  circuitBreakerRating: z
+    .number()
+    .int()
+    .refine((v) => [10, 15, 20, 25, 32, 40, 50].includes(v), {
+      message: "Must be a standard breaker rating: 10, 15, 20, 25, 32, 40, 50A",
+    }),
   rcdProtected: z.boolean().default(false),
   extensionCordGauge: z.string().optional().nullable(),
-})
+});
 
 // ─── Safety calculation ────────────────────────────────────────────────────────
 
@@ -55,62 +64,67 @@ function calculateCircuitSafety(
   equipmentList: z.infer<typeof equipmentItemSchema>[],
   circuitBreakerRating: number,
 ): {
-  totalCircuitLoad: number
-  circuitLoadSafe: boolean
-  circuitLoadWarning: string | null
+  totalCircuitLoad: number;
+  circuitLoadSafe: boolean;
+  circuitLoadWarning: string | null;
 } {
   const totalLoad = equipmentList.reduce((sum, eq) => {
-    return sum + (eq.ampDraw ?? TYPICAL_AMP_DRAWS[eq.type] ?? 0)
-  }, 0)
+    return sum + (eq.ampDraw ?? TYPICAL_AMP_DRAWS[eq.type] ?? 0);
+  }, 0);
 
-  const safeLimit = circuitBreakerRating * 0.8 // AS/NZS 3012:2019 80% rule
-  const safe = totalLoad <= safeLimit
+  const safeLimit = circuitBreakerRating * 0.8; // AS/NZS 3012:2019 80% rule
+  const safe = totalLoad <= safeLimit;
 
-  let warning: string | null = null
+  let warning: string | null = null;
   if (!safe) {
-    const excess = (totalLoad - safeLimit).toFixed(1)
+    const excess = (totalLoad - safeLimit).toFixed(1);
     warning = [
       `UNSAFE: Total circuit load ${totalLoad.toFixed(1)}A exceeds 80% of ${circuitBreakerRating}A breaker (limit: ${safeLimit.toFixed(1)}A).`,
       `Excess: ${excess}A. Remove ${excess}A of equipment or distribute to another circuit.`,
       `Reference: AS/NZS 3012:2019 §4.3 — continuous load must not exceed 80% of breaker rating.`,
-    ].join(' ')
+    ].join(" ");
   } else if (totalLoad > safeLimit * 0.9) {
-    warning = `WARNING: Load at ${Math.round((totalLoad / safeLimit) * 100)}% of safe limit (${totalLoad.toFixed(1)}A / ${safeLimit.toFixed(1)}A). Consider distributing equipment.`
+    warning = `WARNING: Load at ${Math.round((totalLoad / safeLimit) * 100)}% of safe limit (${totalLoad.toFixed(1)}A / ${safeLimit.toFixed(1)}A). Consider distributing equipment.`;
   }
 
   return {
     totalCircuitLoad: Math.round(totalLoad * 100) / 100,
     circuitLoadSafe: safe,
     circuitLoadWarning: warning,
-  }
+  };
 }
 
 // ─── GET ──────────────────────────────────────────────────────────────────────
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const { id } = await params;
 
   const inspection = await prisma.inspection.findUnique({
-    where: { id: params.id, userId: session.user.id },
+    where: { id, userId: session.user.id },
     select: { id: true },
-  })
+  });
   if (!inspection) {
-    return NextResponse.json({ error: 'Inspection not found' }, { status: 404 })
+    return NextResponse.json(
+      { error: "Inspection not found" },
+      { status: 404 },
+    );
   }
 
-  const circuits = await prisma.circuitAssessment.findMany({
-    where: { inspectionId: params.id },
-    orderBy: { createdAt: 'asc' },
-  })
+  const circuits = await (prisma as any).circuitAssessment.findMany({
+    where: { inspectionId: id },
+    orderBy: { createdAt: "asc" },
+  });
 
-  const allSafe = circuits.every((c) => c.circuitLoadSafe !== false)
-  const hasUnsafe = circuits.some((c) => c.circuitLoadSafe === false)
+  const allSafe = circuits.every((c: any) => c.circuitLoadSafe !== false);
+  const hasUnsafe = circuits.some((c: any) => c.circuitLoadSafe === false);
 
   return NextResponse.json({
     circuits,
@@ -118,45 +132,53 @@ export async function GET(
       totalCircuits: circuits.length,
       allCircuitsSafe: allSafe && circuits.length > 0,
       hasUnsafeCircuits: hasUnsafe,
-      rcdProtectedAll: circuits.every((c) => c.rcdProtected),
+      rcdProtectedAll: circuits.every((c: any) => c.rcdProtected),
     },
-  })
+  });
 }
 
 // ─── POST ─────────────────────────────────────────────────────────────────────
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const { id } = await params;
 
   const inspection = await prisma.inspection.findUnique({
-    where: { id: params.id, userId: session.user.id },
+    where: { id, userId: session.user.id },
     select: { id: true },
-  })
+  });
   if (!inspection) {
-    return NextResponse.json({ error: 'Inspection not found' }, { status: 404 })
+    return NextResponse.json(
+      { error: "Inspection not found" },
+      { status: 404 },
+    );
   }
 
-  const body = await req.json()
-  const parsed = circuitSchema.safeParse(body)
+  const body = await req.json();
+  const parsed = circuitSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Invalid data', details: parsed.error.flatten() },
+      { error: "Invalid data", details: parsed.error.flatten() },
       { status: 400 },
-    )
+    );
   }
 
-  const data = parsed.data
-  const safety = calculateCircuitSafety(data.equipmentList, data.circuitBreakerRating)
+  const data = parsed.data;
+  const safety = calculateCircuitSafety(
+    data.equipmentList,
+    data.circuitBreakerRating,
+  );
 
-  const record = await prisma.circuitAssessment.create({
+  const record = await (prisma as any).circuitAssessment.create({
     data: {
-      inspectionId: params.id,
+      inspectionId: id,
       circuitId: data.circuitId,
       locationZone: data.locationZone,
       equipmentList: data.equipmentList,
@@ -165,7 +187,7 @@ export async function POST(
       extensionCordGauge: data.extensionCordGauge ?? null,
       ...safety,
     },
-  })
+  });
 
-  return NextResponse.json(record, { status: 201 })
+  return NextResponse.json(record, { status: 201 });
 }

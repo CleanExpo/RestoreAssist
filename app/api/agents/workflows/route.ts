@@ -1,41 +1,49 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { applyRateLimit } from '@/lib/rate-limiter'
-import { prisma } from '@/lib/prisma'
-import { createWorkflow, quickAssessmentWorkflow } from '@/lib/agents'
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { applyRateLimit } from "@/lib/rate-limiter";
+import { prisma } from "@/lib/prisma";
+import { createWorkflow, quickAssessmentWorkflow } from "@/lib/agents";
 
 const WORKFLOW_TEMPLATES: Record<string, any> = {
-  'quick-assessment': quickAssessmentWorkflow,
-}
+  "quick-assessment": quickAssessmentWorkflow,
+};
 
 /**
  * POST /api/agents/workflows — Create a new workflow
  */
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Rate limit: 10 workflow creations per 15 minutes
-    const rateLimited = applyRateLimit(request, { maxRequests: 10, prefix: 'agent-workflows' })
-    if (rateLimited) return rateLimited
+    const rateLimited = await applyRateLimit(request, {
+      maxRequests: 10,
+      prefix: "agent-workflows",
+    });
+    if (rateLimited) return rateLimited;
 
-    const body = await request.json()
-    const { workflow: templateName, reportId, inspectionId, config } = body
+    const body = await request.json();
+    const { workflow: templateName, reportId, inspectionId, config } = body;
 
     if (!templateName) {
-      return NextResponse.json({ error: 'Workflow template name is required' }, { status: 400 })
+      return NextResponse.json(
+        { error: "Workflow template name is required" },
+        { status: 400 },
+      );
     }
 
-    const template = WORKFLOW_TEMPLATES[templateName]
+    const template = WORKFLOW_TEMPLATES[templateName];
     if (!template) {
       return NextResponse.json(
-        { error: `Unknown workflow template: ${templateName}. Available: ${Object.keys(WORKFLOW_TEMPLATES).join(', ')}` },
-        { status: 400 }
-      )
+        {
+          error: `Unknown workflow template: ${templateName}. Available: ${Object.keys(WORKFLOW_TEMPLATES).join(", ")}`,
+        },
+        { status: 400 },
+      );
     }
 
     const result = await createWorkflow(template, {
@@ -43,12 +51,15 @@ export async function POST(request: NextRequest) {
       reportId,
       inspectionId,
       config,
-    })
+    });
 
-    return NextResponse.json(result, { status: 201 })
+    return NextResponse.json(result, { status: 201 });
   } catch (error) {
-    console.error('Error creating workflow:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error("Error creating workflow:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -57,14 +68,14 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const url = new URL(request.url)
-    const limit = Math.min(parseInt(url.searchParams.get('limit') ?? '20'), 50)
-    const status = url.searchParams.get('status') ?? undefined
+    const url = new URL(request.url);
+    const limit = Math.min(parseInt(url.searchParams.get("limit") ?? "20"), 50);
+    const status = url.searchParams.get("status") ?? undefined;
 
     const workflows = await prisma.agentWorkflow.findMany({
       where: {
@@ -83,13 +94,16 @@ export async function GET(request: NextRequest) {
         completedAt: true,
         createdAt: true,
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       take: limit,
-    })
+    });
 
-    return NextResponse.json({ workflows, count: workflows.length })
+    return NextResponse.json({ workflows, count: workflows.length });
   } catch (error) {
-    console.error('Error listing workflows:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error("Error listing workflows:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

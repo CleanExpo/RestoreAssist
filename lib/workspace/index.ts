@@ -13,7 +13,11 @@ export {
   requirePermission,
 } from "./permissions";
 
-export type { PermissionKey, PermissionCategory, SystemRoleName } from "./permissions";
+export type {
+  PermissionKey,
+  PermissionCategory,
+  SystemRoleName,
+} from "./permissions";
 
 export { provisionWorkspace } from "./provision";
 export type { ProvisionWorkspaceInput, ProvisionResult } from "./provision";

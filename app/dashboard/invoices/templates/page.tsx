@@ -1,16 +1,10 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
-import {
-  Copy,
-  Pencil,
-  Plus,
-  Star,
-  Trash2,
-} from 'lucide-react'
-import toast from 'react-hot-toast'
+import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { Copy, Pencil, Plus, Star, Trash2 } from "lucide-react";
+import toast from "react-hot-toast";
 
 import {
   AlertDialog,
@@ -21,17 +15,17 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card'
-import { Checkbox } from '@/components/ui/checkbox'
+} from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -39,272 +33,289 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Textarea } from '@/components/ui/textarea'
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
 
 interface InvoiceTemplate {
-  id: string
-  name: string
-  description: string | null
-  isDefault: boolean
-  primaryColor: string | null
-  secondaryColor: string | null
-  accentColor: string | null
-  logoUrl: string | null
-  usageCount: number
-  lastUsedAt: string | null
-  createdAt: string
-  updatedAt: string
+  id: string;
+  name: string;
+  description: string | null;
+  isDefault: boolean;
+  primaryColor: string | null;
+  secondaryColor: string | null;
+  accentColor: string | null;
+  logoUrl: string | null;
+  usageCount: number;
+  lastUsedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface TemplateFormData {
-  name: string
-  description: string
-  isDefault: boolean
+  name: string;
+  description: string;
+  isDefault: boolean;
 }
 
 const defaultFormData: TemplateFormData = {
-  name: '',
-  description: '',
+  name: "",
+  description: "",
   isDefault: false,
-}
+};
 
 export default function InvoiceTemplatesPage() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
+  const { data: session, status } = useSession();
+  const router = useRouter();
 
-  const [templates, setTemplates] = useState<InvoiceTemplate[]>([])
-  const [loading, setLoading] = useState(true)
+  const [templates, setTemplates] = useState<InvoiceTemplate[]>([]);
+  const [loading, setLoading] = useState(true);
 
   // Create dialog
-  const [createOpen, setCreateOpen] = useState(false)
-  const [createForm, setCreateForm] = useState<TemplateFormData>(defaultFormData)
-  const [creating, setCreating] = useState(false)
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createForm, setCreateForm] =
+    useState<TemplateFormData>(defaultFormData);
+  const [creating, setCreating] = useState(false);
 
   // Edit dialog
-  const [editOpen, setEditOpen] = useState(false)
-  const [editingTemplate, setEditingTemplate] = useState<InvoiceTemplate | null>(null)
-  const [editForm, setEditForm] = useState<TemplateFormData>(defaultFormData)
-  const [editing, setEditing] = useState(false)
+  const [editOpen, setEditOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] =
+    useState<InvoiceTemplate | null>(null);
+  const [editForm, setEditForm] = useState<TemplateFormData>(defaultFormData);
+  const [editing, setEditing] = useState(false);
 
   // Delete dialog
-  const [deleteOpen, setDeleteOpen] = useState(false)
-  const [deletingTemplate, setDeletingTemplate] = useState<InvoiceTemplate | null>(null)
-  const [deleting, setDeleting] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deletingTemplate, setDeletingTemplate] =
+    useState<InvoiceTemplate | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Duplicate loading state
-  const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
 
   // Set default loading state
-  const [settingDefaultId, setSettingDefaultId] = useState<string | null>(null)
+  const [settingDefaultId, setSettingDefaultId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/auth/signin')
+    if (status === "unauthenticated") {
+      router.push("/auth/signin");
     }
-  }, [status, router])
+  }, [status, router]);
 
   useEffect(() => {
-    if (status === 'authenticated') {
-      fetchTemplates()
+    if (status === "authenticated") {
+      fetchTemplates();
     }
-  }, [status])
+  }, [status]);
 
   async function fetchTemplates() {
-    setLoading(true)
+    setLoading(true);
     try {
-      const res = await fetch('/api/invoices/templates')
-      if (!res.ok) throw new Error('Failed to fetch templates')
-      const data = await res.json()
-      setTemplates(data.templates ?? [])
+      const res = await fetch("/api/invoices/templates");
+      if (!res.ok) throw new Error("Failed to fetch templates");
+      const data = await res.json();
+      setTemplates(data.templates ?? []);
     } catch {
-      toast.error('Failed to load invoice templates')
+      toast.error("Failed to load invoice templates");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   // ---- Create ----
   function openCreateDialog() {
-    setCreateForm(defaultFormData)
-    setCreateOpen(true)
+    setCreateForm(defaultFormData);
+    setCreateOpen(true);
   }
 
   async function handleCreate() {
     if (!createForm.name.trim()) {
-      toast.error('Template name is required')
-      return
+      toast.error("Template name is required");
+      return;
     }
-    setCreating(true)
+    setCreating(true);
     try {
-      const res = await fetch('/api/invoices/templates', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/invoices/templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: createForm.name.trim(),
           description: createForm.description.trim() || null,
           isDefault: createForm.isDefault,
         }),
-      })
+      });
       if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error ?? 'Failed to create template')
+        const err = await res.json();
+        throw new Error(err.error ?? "Failed to create template");
       }
-      const data = await res.json()
+      const data = await res.json();
       // If new template is default, clear old defaults in local state
-      let updated = templates
+      let updated = templates;
       if (createForm.isDefault) {
-        updated = updated.map(t => ({ ...t, isDefault: false }))
+        updated = updated.map((t) => ({ ...t, isDefault: false }));
       }
-      setTemplates([data.template, ...updated])
-      setCreateOpen(false)
-      toast.success('Template created')
+      setTemplates([data.template, ...updated]);
+      setCreateOpen(false);
+      toast.success("Template created");
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to create template')
+      toast.error(
+        err instanceof Error ? err.message : "Failed to create template",
+      );
     } finally {
-      setCreating(false)
+      setCreating(false);
     }
   }
 
   // ---- Edit ----
   function openEditDialog(template: InvoiceTemplate) {
-    setEditingTemplate(template)
+    setEditingTemplate(template);
     setEditForm({
       name: template.name,
-      description: template.description ?? '',
+      description: template.description ?? "",
       isDefault: template.isDefault,
-    })
-    setEditOpen(true)
+    });
+    setEditOpen(true);
   }
 
   async function handleEdit() {
-    if (!editingTemplate) return
+    if (!editingTemplate) return;
     if (!editForm.name.trim()) {
-      toast.error('Template name is required')
-      return
+      toast.error("Template name is required");
+      return;
     }
-    setEditing(true)
+    setEditing(true);
     try {
       const res = await fetch(`/api/invoices/templates/${editingTemplate.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: editForm.name.trim(),
           description: editForm.description.trim() || null,
           isDefault: editForm.isDefault,
         }),
-      })
+      });
       if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error ?? 'Failed to update template')
+        const err = await res.json();
+        throw new Error(err.error ?? "Failed to update template");
       }
-      const data = await res.json()
-      let updated = templates.map(t =>
-        t.id === editingTemplate.id ? data.template : t
-      )
+      const data = await res.json();
+      let updated = templates.map((t) =>
+        t.id === editingTemplate.id ? data.template : t,
+      );
       // If set as default, clear other defaults
       if (editForm.isDefault) {
-        updated = updated.map(t =>
-          t.id === editingTemplate.id ? t : { ...t, isDefault: false }
-        )
+        updated = updated.map((t) =>
+          t.id === editingTemplate.id ? t : { ...t, isDefault: false },
+        );
       }
-      setTemplates(updated)
-      setEditOpen(false)
-      toast.success('Template updated')
+      setTemplates(updated);
+      setEditOpen(false);
+      toast.success("Template updated");
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to update template')
+      toast.error(
+        err instanceof Error ? err.message : "Failed to update template",
+      );
     } finally {
-      setEditing(false)
+      setEditing(false);
     }
   }
 
   // ---- Delete ----
   function openDeleteDialog(template: InvoiceTemplate) {
-    setDeletingTemplate(template)
-    setDeleteOpen(true)
+    setDeletingTemplate(template);
+    setDeleteOpen(true);
   }
 
   async function handleDelete() {
-    if (!deletingTemplate) return
-    setDeleting(true)
+    if (!deletingTemplate) return;
+    setDeleting(true);
     try {
-      const res = await fetch(`/api/invoices/templates/${deletingTemplate.id}`, {
-        method: 'DELETE',
-      })
+      const res = await fetch(
+        `/api/invoices/templates/${deletingTemplate.id}`,
+        {
+          method: "DELETE",
+        },
+      );
       if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error ?? 'Failed to delete template')
+        const err = await res.json();
+        throw new Error(err.error ?? "Failed to delete template");
       }
-      setTemplates(prev => prev.filter(t => t.id !== deletingTemplate.id))
-      setDeleteOpen(false)
-      toast.success('Template deleted')
+      setTemplates((prev) => prev.filter((t) => t.id !== deletingTemplate.id));
+      setDeleteOpen(false);
+      toast.success("Template deleted");
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to delete template')
+      toast.error(
+        err instanceof Error ? err.message : "Failed to delete template",
+      );
     } finally {
-      setDeleting(false)
+      setDeleting(false);
     }
   }
 
   // ---- Duplicate ----
   async function handleDuplicate(template: InvoiceTemplate) {
-    setDuplicatingId(template.id)
+    setDuplicatingId(template.id);
     try {
-      const res = await fetch(`/api/invoices/templates/${template.id}/duplicate`, {
-        method: 'POST',
-      })
+      const res = await fetch(
+        `/api/invoices/templates/${template.id}/duplicate`,
+        {
+          method: "POST",
+        },
+      );
       if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error ?? 'Failed to duplicate template')
+        const err = await res.json();
+        throw new Error(err.error ?? "Failed to duplicate template");
       }
-      const data = await res.json()
-      setTemplates(prev => [...prev, data.template])
-      toast.success('Template duplicated')
+      const data = await res.json();
+      setTemplates((prev) => [...prev, data.template]);
+      toast.success("Template duplicated");
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to duplicate template')
+      toast.error(
+        err instanceof Error ? err.message : "Failed to duplicate template",
+      );
     } finally {
-      setDuplicatingId(null)
+      setDuplicatingId(null);
     }
   }
 
   // ---- Set Default ----
   async function handleSetDefault(template: InvoiceTemplate) {
-    setSettingDefaultId(template.id)
+    setSettingDefaultId(template.id);
     try {
       const res = await fetch(`/api/invoices/templates/${template.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isDefault: true }),
-      })
+      });
       if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error ?? 'Failed to set default')
+        const err = await res.json();
+        throw new Error(err.error ?? "Failed to set default");
       }
-      setTemplates(prev =>
-        prev.map(t => ({
+      setTemplates((prev) =>
+        prev.map((t) => ({
           ...t,
           isDefault: t.id === template.id,
-        }))
-      )
-      toast.success(`"${template.name}" is now the default template`)
+        })),
+      );
+      toast.success(`"${template.name}" is now the default template`);
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to set default')
+      toast.error(err instanceof Error ? err.message : "Failed to set default");
     } finally {
-      setSettingDefaultId(null)
+      setSettingDefaultId(null);
     }
   }
 
   function formatDate(dateStr: string) {
-    return new Date(dateStr).toLocaleDateString('en-AU', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    })
+    return new Date(dateStr).toLocaleDateString("en-AU", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
   }
 
-  if (status === 'loading' || loading) {
+  if (status === "loading" || loading) {
     return (
       <div className="p-6 space-y-4">
         <div className="flex items-center justify-between">
@@ -312,12 +323,12 @@ export default function InvoiceTemplatesPage() {
           <Skeleton className="h-9 w-36" />
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3].map(i => (
+          {[1, 2, 3].map((i) => (
             <Skeleton key={i} className="h-44" />
           ))}
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -325,7 +336,9 @@ export default function InvoiceTemplatesPage() {
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Invoice Templates</h1>
+          <h1 className="text-2xl font-bold tracking-tight">
+            Invoice Templates
+          </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Manage your invoice layouts, branding, and display settings.
           </p>
@@ -355,7 +368,7 @@ export default function InvoiceTemplatesPage() {
         </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {templates.map(template => (
+          {templates.map((template) => (
             <Card key={template.id} className="relative flex flex-col">
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-2">
@@ -380,9 +393,9 @@ export default function InvoiceTemplatesPage() {
                 {/* Colour swatches */}
                 <div className="flex items-center gap-2">
                   {[
-                    template.primaryColor ?? '#0EA5E9',
-                    template.secondaryColor ?? '#1E293B',
-                    template.accentColor ?? '#10B981',
+                    template.primaryColor ?? "#0EA5E9",
+                    template.secondaryColor ?? "#1E293B",
+                    template.accentColor ?? "#10B981",
                   ].map((colour, i) => (
                     <span
                       key={i}
@@ -392,7 +405,8 @@ export default function InvoiceTemplatesPage() {
                     />
                   ))}
                   <span className="text-xs text-muted-foreground ml-1">
-                    {template.usageCount} use{template.usageCount !== 1 ? 's' : ''}
+                    {template.usageCount} use
+                    {template.usageCount !== 1 ? "s" : ""}
                   </span>
                 </div>
 
@@ -419,7 +433,7 @@ export default function InvoiceTemplatesPage() {
                     title="Duplicate template"
                   >
                     <Copy className="h-3.5 w-3.5 mr-1" />
-                    {duplicatingId === template.id ? 'Copying…' : 'Duplicate'}
+                    {duplicatingId === template.id ? "Copying…" : "Duplicate"}
                   </Button>
                   {!template.isDefault && (
                     <Button
@@ -430,7 +444,9 @@ export default function InvoiceTemplatesPage() {
                       title="Set as default"
                     >
                       <Star className="h-3.5 w-3.5 mr-1" />
-                      {settingDefaultId === template.id ? 'Saving…' : 'Set Default'}
+                      {settingDefaultId === template.id
+                        ? "Saving…"
+                        : "Set Default"}
                     </Button>
                   )}
                   <Button
@@ -456,8 +472,8 @@ export default function InvoiceTemplatesPage() {
           <DialogHeader>
             <DialogTitle>New Invoice Template</DialogTitle>
             <DialogDescription>
-              Give your template a name and optional description. You can customise
-              branding and layout settings afterwards.
+              Give your template a name and optional description. You can
+              customise branding and layout settings afterwards.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -469,7 +485,9 @@ export default function InvoiceTemplatesPage() {
                 id="create-name"
                 placeholder="e.g. Standard Invoice"
                 value={createForm.name}
-                onChange={e => setCreateForm(f => ({ ...f, name: e.target.value }))}
+                onChange={(e) =>
+                  setCreateForm((f) => ({ ...f, name: e.target.value }))
+                }
               />
             </div>
             <div className="space-y-1.5">
@@ -479,8 +497,8 @@ export default function InvoiceTemplatesPage() {
                 placeholder="Optional description…"
                 rows={3}
                 value={createForm.description}
-                onChange={e =>
-                  setCreateForm(f => ({ ...f, description: e.target.value }))
+                onChange={(e) =>
+                  setCreateForm((f) => ({ ...f, description: e.target.value }))
                 }
               />
             </div>
@@ -488,8 +506,8 @@ export default function InvoiceTemplatesPage() {
               <Checkbox
                 id="create-isDefault"
                 checked={createForm.isDefault}
-                onCheckedChange={checked =>
-                  setCreateForm(f => ({ ...f, isDefault: checked === true }))
+                onCheckedChange={(checked) =>
+                  setCreateForm((f) => ({ ...f, isDefault: checked === true }))
                 }
               />
               <Label htmlFor="create-isDefault" className="cursor-pointer">
@@ -498,11 +516,15 @@ export default function InvoiceTemplatesPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={creating}>
+            <Button
+              variant="outline"
+              onClick={() => setCreateOpen(false)}
+              disabled={creating}
+            >
               Cancel
             </Button>
             <Button onClick={handleCreate} disabled={creating}>
-              {creating ? 'Creating…' : 'Create Template'}
+              {creating ? "Creating…" : "Create Template"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -526,7 +548,9 @@ export default function InvoiceTemplatesPage() {
                 id="edit-name"
                 placeholder="e.g. Standard Invoice"
                 value={editForm.name}
-                onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, name: e.target.value }))
+                }
               />
             </div>
             <div className="space-y-1.5">
@@ -536,8 +560,8 @@ export default function InvoiceTemplatesPage() {
                 placeholder="Optional description…"
                 rows={3}
                 value={editForm.description}
-                onChange={e =>
-                  setEditForm(f => ({ ...f, description: e.target.value }))
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, description: e.target.value }))
                 }
               />
             </div>
@@ -545,8 +569,8 @@ export default function InvoiceTemplatesPage() {
               <Checkbox
                 id="edit-isDefault"
                 checked={editForm.isDefault}
-                onCheckedChange={checked =>
-                  setEditForm(f => ({ ...f, isDefault: checked === true }))
+                onCheckedChange={(checked) =>
+                  setEditForm((f) => ({ ...f, isDefault: checked === true }))
                 }
               />
               <Label htmlFor="edit-isDefault" className="cursor-pointer">
@@ -555,11 +579,15 @@ export default function InvoiceTemplatesPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditOpen(false)} disabled={editing}>
+            <Button
+              variant="outline"
+              onClick={() => setEditOpen(false)}
+              disabled={editing}
+            >
               Cancel
             </Button>
             <Button onClick={handleEdit} disabled={editing}>
-              {editing ? 'Saving…' : 'Save Changes'}
+              {editing ? "Saving…" : "Save Changes"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -571,10 +599,12 @@ export default function InvoiceTemplatesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete template?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete{' '}
-              <span className="font-semibold">&ldquo;{deletingTemplate?.name}&rdquo;</span>?
-              This cannot be undone. Templates linked to existing invoices cannot be
-              deleted.
+              Are you sure you want to delete{" "}
+              <span className="font-semibold">
+                &ldquo;{deletingTemplate?.name}&rdquo;
+              </span>
+              ? This cannot be undone. Templates linked to existing invoices
+              cannot be deleted.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -584,11 +614,11 @@ export default function InvoiceTemplatesPage() {
               disabled={deleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {deleting ? 'Deleting…' : 'Delete'}
+              {deleting ? "Deleting…" : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
-  )
+  );
 }

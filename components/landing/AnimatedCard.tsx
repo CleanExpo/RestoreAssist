@@ -1,22 +1,22 @@
-"use client"
+"use client";
 
-import { motion } from "framer-motion"
-import { ReactNode } from "react"
+import { motion } from "framer-motion";
+import { ReactNode } from "react";
 
 interface AnimatedCardProps {
-  children: ReactNode
-  className?: string
-  delay?: number
-  gradient?: string
-  hoverGradient?: string
+  children: ReactNode;
+  className?: string;
+  delay?: number;
+  gradient?: string;
+  hoverGradient?: string;
 }
 
-export default function AnimatedCard({ 
-  children, 
-  className = "", 
+export default function AnimatedCard({
+  children,
+  className = "",
   delay = 0,
   gradient = "from-slate-800/30 to-slate-800/60",
-  hoverGradient = "from-slate-800/60 to-slate-800/80"
+  hoverGradient = "from-slate-800/60 to-slate-800/80",
 }: AnimatedCardProps) {
   return (
     <motion.div
@@ -29,5 +29,5 @@ export default function AnimatedCard({
     >
       {children}
     </motion.div>
-  )
+  );
 }

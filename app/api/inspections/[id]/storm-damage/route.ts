@@ -11,11 +11,11 @@
  *   Removes the record (idempotent).
  */
 
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import { z } from 'zod'
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { z } from "zod";
 
 // ─── Validation ────────────────────────────────────────────────────────────────
 
@@ -23,87 +23,102 @@ const stormSchema = z.object({
   bomEventReference: z.string().nullable().optional(),
   windSpeedKmh: z.number().nonnegative().nullable().optional(),
   eventType: z
-    .enum(['STORM', 'CYCLONE', 'HAIL', 'DOWNBURST', 'TORNADO'])
+    .enum(["STORM", "CYCLONE", "HAIL", "DOWNBURST", "TORNADO"])
     .nullable()
     .optional(),
   eventTimestamp: z.string().datetime().nullable().optional(),
   roofMaterialType: z
-    .enum(['COLORBOND', 'TERRACOTTA', 'SHINGLES', 'METAL', 'OTHER'])
+    .enum(["COLORBOND", "TERRACOTTA", "SHINGLES", "METAL", "OTHER"])
     .nullable()
     .optional(),
   roofDamageAreaM2: z.number().nonnegative().nullable().optional(),
-  damagePenetration: z.enum(['SURFACE', 'PARTIAL', 'FULL']).nullable().optional(),
+  damagePenetration: z
+    .enum(["SURFACE", "PARTIAL", "FULL"])
+    .nullable()
+    .optional(),
   waterIngressPoints: z.string().nullable().optional(),
   engineerClearanceRequired: z.boolean().optional(),
   emergencyTarpingCompleted: z.boolean().optional(),
   emergencyTarpingM2: z.number().nonnegative().nullable().optional(),
   emergencyTarpingTimestamp: z.string().datetime().nullable().optional(),
-  waterCategory: z.enum(['CAT_1', 'CAT_2', 'CAT_3']).nullable().optional(),
+  waterCategory: z.enum(["CAT_1", "CAT_2", "CAT_3"]).nullable().optional(),
   asbestosRiskFlag: z.boolean().optional(),
-})
+});
 
 // ─── GET ──────────────────────────────────────────────────────────────────────
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const inspection = await prisma.inspection.findUnique({
-    where: { id: params.id, userId: session.user.id },
+  const { id } = await params;
+
+  const inspection = await (prisma as any).inspection.findUnique({
+    where: { id, userId: session.user.id },
     select: { id: true, stormDamageAssessment: true },
-  })
+  });
 
   if (!inspection) {
-    return NextResponse.json({ error: 'Inspection not found' }, { status: 404 })
+    return NextResponse.json(
+      { error: "Inspection not found" },
+      { status: 404 },
+    );
   }
 
-  return NextResponse.json(inspection.stormDamageAssessment ?? null)
+  return NextResponse.json((inspection as any).stormDamageAssessment ?? null);
 }
 
 // ─── POST ─────────────────────────────────────────────────────────────────────
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const { id } = await params;
 
   const inspection = await prisma.inspection.findUnique({
-    where: { id: params.id, userId: session.user.id },
+    where: { id, userId: session.user.id },
     select: { id: true },
-  })
+  });
 
   if (!inspection) {
-    return NextResponse.json({ error: 'Inspection not found' }, { status: 404 })
+    return NextResponse.json(
+      { error: "Inspection not found" },
+      { status: 404 },
+    );
   }
 
-  const body = await req.json()
-  const parsed = stormSchema.safeParse(body)
+  const body = await req.json();
+  const parsed = stormSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Invalid data', details: parsed.error.flatten() },
+      { error: "Invalid data", details: parsed.error.flatten() },
       { status: 400 },
-    )
+    );
   }
 
-  const data = parsed.data
+  const data = parsed.data;
 
-  const record = await prisma.stormDamageAssessment.upsert({
-    where: { inspectionId: params.id },
+  const record = await (prisma as any).stormDamageAssessment.upsert({
+    where: { inspectionId: id },
     create: {
-      inspectionId: params.id,
+      inspectionId: id,
       bomEventReference: data.bomEventReference ?? undefined,
       windSpeedKmh: data.windSpeedKmh ?? undefined,
       eventType: data.eventType ?? undefined,
-      eventTimestamp: data.eventTimestamp ? new Date(data.eventTimestamp) : undefined,
+      eventTimestamp: data.eventTimestamp
+        ? new Date(data.eventTimestamp)
+        : undefined,
       roofMaterialType: data.roofMaterialType ?? undefined,
       roofDamageAreaM2: data.roofDamageAreaM2 ?? undefined,
       damagePenetration: data.damagePenetration ?? undefined,
@@ -118,69 +133,94 @@ export async function POST(
       asbestosRiskFlag: data.asbestosRiskFlag ?? false,
     },
     update: {
-      ...(data.bomEventReference !== undefined && { bomEventReference: data.bomEventReference }),
-      ...(data.windSpeedKmh !== undefined && { windSpeedKmh: data.windSpeedKmh }),
+      ...(data.bomEventReference !== undefined && {
+        bomEventReference: data.bomEventReference,
+      }),
+      ...(data.windSpeedKmh !== undefined && {
+        windSpeedKmh: data.windSpeedKmh,
+      }),
       ...(data.eventType !== undefined && { eventType: data.eventType }),
       ...(data.eventTimestamp !== undefined && {
-        eventTimestamp: data.eventTimestamp ? new Date(data.eventTimestamp) : null,
+        eventTimestamp: data.eventTimestamp
+          ? new Date(data.eventTimestamp)
+          : null,
       }),
-      ...(data.roofMaterialType !== undefined && { roofMaterialType: data.roofMaterialType }),
-      ...(data.roofDamageAreaM2 !== undefined && { roofDamageAreaM2: data.roofDamageAreaM2 }),
-      ...(data.damagePenetration !== undefined && { damagePenetration: data.damagePenetration }),
-      ...(data.waterIngressPoints !== undefined && { waterIngressPoints: data.waterIngressPoints }),
+      ...(data.roofMaterialType !== undefined && {
+        roofMaterialType: data.roofMaterialType,
+      }),
+      ...(data.roofDamageAreaM2 !== undefined && {
+        roofDamageAreaM2: data.roofDamageAreaM2,
+      }),
+      ...(data.damagePenetration !== undefined && {
+        damagePenetration: data.damagePenetration,
+      }),
+      ...(data.waterIngressPoints !== undefined && {
+        waterIngressPoints: data.waterIngressPoints,
+      }),
       ...(data.engineerClearanceRequired !== undefined && {
         engineerClearanceRequired: data.engineerClearanceRequired,
       }),
       ...(data.emergencyTarpingCompleted !== undefined && {
         emergencyTarpingCompleted: data.emergencyTarpingCompleted,
       }),
-      ...(data.emergencyTarpingM2 !== undefined && { emergencyTarpingM2: data.emergencyTarpingM2 }),
+      ...(data.emergencyTarpingM2 !== undefined && {
+        emergencyTarpingM2: data.emergencyTarpingM2,
+      }),
       ...(data.emergencyTarpingTimestamp !== undefined && {
         emergencyTarpingTimestamp: data.emergencyTarpingTimestamp
           ? new Date(data.emergencyTarpingTimestamp)
           : null,
       }),
-      ...(data.waterCategory !== undefined && { waterCategory: data.waterCategory }),
-      ...(data.asbestosRiskFlag !== undefined && { asbestosRiskFlag: data.asbestosRiskFlag }),
+      ...(data.waterCategory !== undefined && {
+        waterCategory: data.waterCategory,
+      }),
+      ...(data.asbestosRiskFlag !== undefined && {
+        asbestosRiskFlag: data.asbestosRiskFlag,
+      }),
     },
-  })
+  });
 
   await prisma.inspection.update({
-    where: { id: params.id },
-    data: { claimType: 'STORM' },
-  })
+    where: { id },
+    data: { claimType: "STORM" } as any,
+  });
 
-  return NextResponse.json(record)
+  return NextResponse.json(record);
 }
 
 // ─── DELETE ───────────────────────────────────────────────────────────────────
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const { id } = await params;
 
   const inspection = await prisma.inspection.findUnique({
-    where: { id: params.id, userId: session.user.id },
+    where: { id, userId: session.user.id },
     select: { id: true },
-  })
+  });
 
   if (!inspection) {
-    return NextResponse.json({ error: 'Inspection not found' }, { status: 404 })
+    return NextResponse.json(
+      { error: "Inspection not found" },
+      { status: 404 },
+    );
   }
 
-  await prisma.stormDamageAssessment
-    .delete({ where: { inspectionId: params.id } })
-    .catch(() => {})
+  await (prisma as any).stormDamageAssessment
+    .delete({ where: { inspectionId: id } })
+    .catch(() => {});
 
   await prisma.inspection.update({
-    where: { id: params.id },
-    data: { claimType: null },
-  })
+    where: { id },
+    data: { claimType: null } as any,
+  });
 
-  return NextResponse.json({ deleted: true })
+  return NextResponse.json({ deleted: true });
 }

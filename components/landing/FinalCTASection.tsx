@@ -1,67 +1,58 @@
-"use client"
+"use client";
 
-import { motion } from "framer-motion"
-import { CheckCircle, Gift, Shield, Clock } from "lucide-react"
-import Link from "next/link"
-import { BRAND } from '@/lib/brand'
-import SectionWrapper from "./SectionWrapper"
-import SectionHeader from "./SectionHeader"
+import { motion } from "framer-motion";
+import { CheckCircle, Gift, Shield, Clock } from "lucide-react";
+import Link from "next/link";
+import { BRAND } from "@/lib/brand";
+import SectionWrapper from "./SectionWrapper";
+import SectionHeader from "./SectionHeader";
 
 const benefits = [
   {
     icon: Gift,
     title: "3 Free Trial Reports",
-    description: "No Card Required"
+    description: "No Card Required",
   },
   {
     icon: Shield,
     title: "24/7 Support",
-    description: "Always here to help"
+    description: "Always here to help",
   },
   {
     icon: Clock,
     title: "Instant Setup",
-    description: "Start in minutes"
-  }
-]
+    description: "Start in minutes",
+  },
+];
 
 export default function FinalCTASection() {
   return (
     <SectionWrapper id="final-cta" background="gradient">
-      <SectionHeader
-        title={BRAND.slogan}
-        subtitle={BRAND.description}
-      />
-      
+      <SectionHeader title={BRAND.slogan} subtitle={BRAND.description} />
+
       <div className="max-w-4xl mx-auto text-center">
         {/* CTA Buttons */}
-        <motion.div 
+        <motion.div
           className="flex flex-col sm:flex-row gap-6 justify-center mb-16"
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
           viewport={{ once: true }}
         >
-          <motion.div
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
             <Link
               href={BRAND.cta.primary.href}
               className="px-6 py-4 bg-gradient-to-r from-blue-500 via-cyan-500 to-blue-500 rounded-md font-medium text-xl hover:shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 transform hover:scale-105"
-              style={{ fontFamily: 'Titillium Web, sans-serif' }}
+              style={{ fontFamily: "Titillium Web, sans-serif" }}
             >
               {BRAND.cta.primary.label}
             </Link>
           </motion.div>
-          <motion.div
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
             <Link
               href={BRAND.cta.secondary.href}
               className="px-6 py-4 border-2 border-white/30 rounded-md font-medium text-xl hover:bg-white/10 transition-all duration-300"
-              style={{ fontFamily: 'Titillium Web, sans-serif' }}
+              style={{ fontFamily: "Titillium Web, sans-serif" }}
             >
               {BRAND.cta.secondary.label}
             </Link>
@@ -69,7 +60,7 @@ export default function FinalCTASection() {
         </motion.div>
 
         {/* Key Benefits */}
-        <motion.div 
+        <motion.div
           className="grid md:grid-cols-3 gap-8 mb-16"
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -77,7 +68,7 @@ export default function FinalCTASection() {
           viewport={{ once: true }}
         >
           {benefits.map((benefit, index) => (
-            <motion.div 
+            <motion.div
               key={index}
               className="text-center p-6 bg-slate-800/30 border border-slate-700/50 rounded-xl"
               whileHover={{ y: -5 }}
@@ -86,18 +77,19 @@ export default function FinalCTASection() {
               <div className="w-16 h-16 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
                 <benefit.icon size={32} className="text-white" />
               </div>
-              <h3 className="text-xl font-medium mb-2" style={{ fontFamily: 'Titillium Web, sans-serif' }}>
+              <h3
+                className="text-xl font-medium mb-2"
+                style={{ fontFamily: "Titillium Web, sans-serif" }}
+              >
                 {benefit.title}
               </h3>
-              <p className="text-slate-400">
-                {benefit.description}
-              </p>
+              <p className="text-slate-400">{benefit.description}</p>
             </motion.div>
           ))}
         </motion.div>
 
         {/* Trust Badges */}
-        <motion.div 
+        <motion.div
           className="flex flex-wrap justify-center gap-6"
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -114,14 +106,18 @@ export default function FinalCTASection() {
           </div>
           <div className="flex items-center gap-2 px-4 py-2 bg-slate-800/50 border border-slate-700/50 rounded-full">
             <CheckCircle size={20} className="text-emerald-400" />
-            <span className="text-slate-300 font-medium">NCC 2022 Verified</span>
+            <span className="text-slate-300 font-medium">
+              NCC 2022 Verified
+            </span>
           </div>
           <div className="flex items-center gap-2 px-4 py-2 bg-slate-800/50 border border-slate-700/50 rounded-full">
             <CheckCircle size={20} className="text-emerald-400" />
-            <span className="text-slate-300 font-medium">ISO 27001 Security</span>
+            <span className="text-slate-300 font-medium">
+              ISO 27001 Security
+            </span>
           </div>
         </motion.div>
       </div>
     </SectionWrapper>
-  )
+  );
 }

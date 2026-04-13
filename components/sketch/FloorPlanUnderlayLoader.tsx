@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 /**
  * FloorPlanUnderlayLoader — RA2-023 (RA-105)
@@ -8,8 +8,8 @@
  * semi-transparent underlay on the Fabric.js canvas for tracing.
  */
 
-import { useState, useRef, useCallback, useEffect } from "react"
-import { cn } from "@/lib/utils"
+import { useState, useRef, useCallback, useEffect } from "react";
+import { cn } from "@/lib/utils";
 import {
   MapPin,
   ImageIcon,
@@ -21,28 +21,28 @@ import {
   Layers,
   CheckCircle2,
   AlertCircle,
-} from "lucide-react"
-import type { ScrapedPropertyData } from "@/lib/property-data-parser"
+} from "lucide-react";
+import type { ScrapedPropertyData } from "@/lib/property-data-parser";
 
 export interface FloorPlanUnderlayLoaderProps {
   /** Pass the inspection's address to pre-fill the search. */
-  defaultAddress?: string
+  defaultAddress?: string;
   /** Pass postcode for a better cache hit. */
-  defaultPostcode?: string
-  inspectionId?: string
+  defaultPostcode?: string;
+  inspectionId?: string;
   /** Called when the user confirms an image + opacity. */
-  onApply: (imageUrl: string, opacity: number) => void
+  onApply: (imageUrl: string, opacity: number) => void;
   /** Called when the user removes the current underlay. */
-  onClear: () => void
+  onClear: () => void;
   /** Whether a background image is currently set. */
-  hasBackground?: boolean
+  hasBackground?: boolean;
   /**
    * When true AND defaultAddress is provided, automatically fetch the
    * property listing on mount and apply the first floor plan found.
    * The panel expands to show loading state.
    */
-  autoFetch?: boolean
-  className?: string
+  autoFetch?: boolean;
+  className?: string;
 }
 
 export function FloorPlanUnderlayLoader({
@@ -55,53 +55,54 @@ export function FloorPlanUnderlayLoader({
   autoFetch = false,
   className,
 }: FloorPlanUnderlayLoaderProps) {
-  const [expanded, setExpanded] = useState(autoFetch && !!defaultAddress)
-  const [address, setAddress] = useState(defaultAddress)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [results, setResults] = useState<ScrapedPropertyData | null>(null)
-  const [selectedImage, setSelectedImage] = useState<string | null>(null)
-  const [opacity, setOpacity] = useState(0.35)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [expanded, setExpanded] = useState(autoFetch && !!defaultAddress);
+  const [address, setAddress] = useState(defaultAddress);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [results, setResults] = useState<ScrapedPropertyData | null>(null);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [opacity, setOpacity] = useState(0.35);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   // Track whether we've already auto-applied so we don't re-trigger on re-renders
-  const autoAppliedRef = useRef(false)
+  const autoAppliedRef = useRef(false);
 
   // Auto-fetch on mount when autoFetch=true and an address is available
   useEffect(() => {
-    if (!autoFetch || !defaultAddress || hasBackground) return
+    if (!autoFetch || !defaultAddress || hasBackground) return;
     // Small delay so the canvas is fully mounted before the background is set
     const timer = setTimeout(() => {
-      fetchListing()
-    }, 400)
-    return () => clearTimeout(timer)
+      fetchListing();
+    }, 400);
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // mount-only — intentionally omitting deps to avoid re-triggering
+  }, []); // mount-only — intentionally omitting deps to avoid re-triggering
 
   // After results arrive from auto-fetch, apply the best image automatically
   useEffect(() => {
-    if (!autoFetch || autoAppliedRef.current) return
-    if (!results) return
-    const autoSelect = results.floorPlanImages[0] ?? results.propertyImages[0] ?? null
+    if (!autoFetch || autoAppliedRef.current) return;
+    if (!results) return;
+    const autoSelect =
+      results.floorPlanImages[0] ?? results.propertyImages[0] ?? null;
     if (autoSelect) {
-      autoAppliedRef.current = true
-      onApply(autoSelect, opacity)
+      autoAppliedRef.current = true;
+      onApply(autoSelect, opacity);
       // Collapse the panel once applied — the Active indicator will appear
-      setExpanded(false)
+      setExpanded(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [results])
+  }, [results]);
 
   const allImages = results
     ? [...results.floorPlanImages, ...results.propertyImages]
-    : []
+    : [];
 
   const fetchListing = useCallback(async () => {
-    const q = address.trim()
-    if (!q) return
-    setLoading(true)
-    setError(null)
-    setResults(null)
-    setSelectedImage(null)
+    const q = address.trim();
+    if (!q) return;
+    setLoading(true);
+    setError(null);
+    setResults(null);
+    setSelectedImage(null);
 
     try {
       const res = await fetch("/api/properties/scrape", {
@@ -111,67 +112,76 @@ export function FloorPlanUnderlayLoader({
           address: q,
           postcode: defaultPostcode || undefined,
           inspectionId: inspectionId || undefined,
+          // Always allow domain.com.au fallback so the UI works even when
+          // the OTH search endpoint changes (RA-108)
+          fallbackSources: ["domain"],
         }),
-      })
-      const json = await res.json()
+      });
+      const json = await res.json();
 
       if (!res.ok || !json.data) {
-        setError(json.error ?? "No property found for this address")
-        return
+        setError(json.error ?? "No property found for this address");
+        return;
       }
 
-      const data = json.data as ScrapedPropertyData
-      setResults(data)
+      const data = json.data as ScrapedPropertyData;
+      setResults(data);
 
       // Auto-select first floor plan image (preferred), then first property image
-      const autoSelect = data.floorPlanImages[0] ?? data.propertyImages[0] ?? null
-      setSelectedImage(autoSelect)
+      const autoSelect =
+        data.floorPlanImages[0] ?? data.propertyImages[0] ?? null;
+      setSelectedImage(autoSelect);
     } catch {
-      setError("Request failed — check your connection")
+      setError("Request failed — check your connection");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [address, defaultPostcode, inspectionId])
+  }, [address, defaultPostcode, inspectionId]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") fetchListing()
-  }
+    if (e.key === "Enter") fetchListing();
+  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
     reader.onload = (ev) => {
       if (ev.target?.result) {
-        setSelectedImage(ev.target.result as string)
-        setResults(null)
-        setError(null)
+        setSelectedImage(ev.target.result as string);
+        setResults(null);
+        setError(null);
       }
-    }
-    reader.readAsDataURL(file)
+    };
+    reader.readAsDataURL(file);
     // Reset so the same file can be re-selected
-    e.target.value = ""
-  }
+    e.target.value = "";
+  };
 
   const handleApply = () => {
-    if (!selectedImage) return
-    onApply(selectedImage, opacity)
-    setExpanded(false)
-  }
+    if (!selectedImage) return;
+    onApply(selectedImage, opacity);
+    setExpanded(false);
+  };
 
   const handleClear = () => {
-    onClear()
-    setSelectedImage(null)
-    setResults(null)
-    setExpanded(false)
-  }
+    onClear();
+    setSelectedImage(null);
+    setResults(null);
+    setExpanded(false);
+  };
 
   return (
-    <div className={cn("rounded-xl border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-hidden", className)}>
+    <div
+      className={cn(
+        "rounded-xl border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-hidden",
+        className,
+      )}
+    >
       {/* Header toggle */}
       <button
         type="button"
-        onClick={() => setExpanded(v => !v)}
+        onClick={() => setExpanded((v) => !v)}
         className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-slate-700/50 transition-colors"
       >
         <Layers size={14} className="text-cyan-500 flex-shrink-0" />
@@ -202,7 +212,7 @@ export function FloorPlanUnderlayLoader({
               <input
                 type="text"
                 value={address}
-                onChange={e => setAddress(e.target.value)}
+                onChange={(e) => setAddress(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Enter property address…"
                 className="flex-1 min-w-0 text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-400"
@@ -272,7 +282,7 @@ export function FloorPlanUnderlayLoader({
                       "relative w-16 h-12 rounded-md overflow-hidden border-2 transition-all flex-shrink-0",
                       selectedImage === img
                         ? "border-cyan-500 shadow-md shadow-cyan-500/20"
-                        : "border-transparent hover:border-neutral-300 dark:hover:border-slate-500"
+                        : "border-transparent hover:border-neutral-300 dark:hover:border-slate-500",
                     )}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -317,7 +327,7 @@ export function FloorPlanUnderlayLoader({
                 max={0.8}
                 step={0.05}
                 value={opacity}
-                onChange={e => setOpacity(parseFloat(e.target.value))}
+                onChange={(e) => setOpacity(parseFloat(e.target.value))}
                 className="w-full accent-cyan-500"
               />
             </div>
@@ -354,5 +364,5 @@ export function FloorPlanUnderlayLoader({
         </div>
       )}
     </div>
-  )
+  );
 }

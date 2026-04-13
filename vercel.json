@@ -15,6 +15,14 @@
     {
       "path": "/api/cron/cleanup",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/brand-ambassador",
+      "schedule": "0 8 * * 0"
+    },
+    {
+      "path": "/api/cron/design-system-onboarding",
+      "schedule": "0 23 * * *"
     }
   ]
 }

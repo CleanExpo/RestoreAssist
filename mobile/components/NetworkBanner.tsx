@@ -1,8 +1,8 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing } from '@/constants/theme';
-import { useAppStore } from '@/lib/store';
+import React from "react";
+import { View, Text, StyleSheet } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { colors, spacing } from "@/constants/theme";
+import { useAppStore } from "@/lib/store";
 
 export default function NetworkBanner() {
   const isOnline = useAppStore((s) => s.isOnline);
@@ -21,14 +21,14 @@ const styles = StyleSheet.create({
   banner: {
     height: 38,
     backgroundColor: colors.warning,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: spacing.sm,
   },
   text: {
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: "800",
     color: colors.bg,
     letterSpacing: 0.5,
   },

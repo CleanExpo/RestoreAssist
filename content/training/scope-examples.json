@@ -14,7 +14,16 @@
     },
     "estimatedValueAud": 2850,
     "estimatedDurationDays": 6,
-    "iicrcReferences": ["S500:2025 §4.2", "S500:2025 §5.2", "S500:2025 §6", "S500:2025 §7.3", "S500:2025 §8.2", "S500:2025 §10.2", "S500:2025 §11.4", "AS/NZS 3012:2019"]
+    "iicrcReferences": [
+      "S500:2025 §4.2",
+      "S500:2025 §5.2",
+      "S500:2025 §6",
+      "S500:2025 §7.3",
+      "S500:2025 §8.2",
+      "S500:2025 §10.2",
+      "S500:2025 §11.4",
+      "AS/NZS 3012:2019"
+    ]
   },
   {
     "id": "scope_002",
@@ -31,7 +40,16 @@
     },
     "estimatedValueAud": 7400,
     "estimatedDurationDays": 9,
-    "iicrcReferences": ["S500:2025 §4.2", "S500:2025 §5.3", "S500:2025 §6", "S500:2025 §7.4", "S500:2025 §8.2", "S500:2025 §10.2", "S500:2025 §11.4", "AS/NZS 3012:2019"]
+    "iicrcReferences": [
+      "S500:2025 §4.2",
+      "S500:2025 §5.3",
+      "S500:2025 §6",
+      "S500:2025 §7.4",
+      "S500:2025 §8.2",
+      "S500:2025 §10.2",
+      "S500:2025 §11.4",
+      "AS/NZS 3012:2019"
+    ]
   },
   {
     "id": "scope_003",
@@ -48,7 +66,15 @@
     },
     "estimatedValueAud": 9200,
     "estimatedDurationDays": 7,
-    "iicrcReferences": ["S500:2025 §4.2", "S500:2025 §5.4", "S500:2025 §6", "S500:2025 §7.3", "S500:2025 §8", "S500:2025 §10.2", "S500:2025 §11.4"]
+    "iicrcReferences": [
+      "S500:2025 §4.2",
+      "S500:2025 §5.4",
+      "S500:2025 §6",
+      "S500:2025 §7.3",
+      "S500:2025 §8",
+      "S500:2025 §10.2",
+      "S500:2025 §11.4"
+    ]
   },
   {
     "id": "scope_004",
@@ -65,7 +91,13 @@
     },
     "estimatedValueAud": 680,
     "estimatedDurationDays": 3,
-    "iicrcReferences": ["S500:2025 §4.2", "S500:2025 §5.2", "S500:2025 §7.2", "S500:2025 §8.2", "S500:2025 §11.4"]
+    "iicrcReferences": [
+      "S500:2025 §4.2",
+      "S500:2025 §5.2",
+      "S500:2025 §7.2",
+      "S500:2025 §8.2",
+      "S500:2025 §11.4"
+    ]
   },
   {
     "id": "scope_005",
@@ -77,12 +109,25 @@
     "scope": "## 1. Water Source & Loss Mechanism\n\n**Source confirmed:** Electric hot water unit (250 L, estimated age 12 years) failed at pressure relief valve in roof space. Roof-space water classified Category 2 due to contact with fibreglass insulation, dust, and biological contaminants in roof void. Source isolated at cold-water isolation valve. Insurer notified. IICRC S500:2025 §4.2 / §5.3. Water pathway: roof-space concrete tile → sarking → insulation batts → plasterboard ceiling → cavity → hardwood flooring.\n\n## 2. Initial Emergency Services\n\n- Emergency ceiling access: 3 × inspection holes cut to assess insulation saturation\n- Saturated glasswool insulation (R3.5, 85 m² roof space): fully saturated — removal required, cannot be dried in situ\n- Ceiling plasterboard: buckled and water-stained, 68 m² affected — removal required\n- Hardwood T&G flooring: surface saturation and initial cupping detected across all 3 rooms\n- Extraction: wet vacuum of standing water on flooring — approximately 120 L\n- Content protection: furniture relocated to garage, rugs removed\n\n## 3. Affected Materials & Extent\n\n**Ceiling void / roof space (68 m²)**\n- Glasswool insulation R3.5: fully saturated — remove and dispose\n- Plasterboard ceiling 10 mm: buckled, water-stained — remove and dispose\n\n**Hardwood flooring (68 m²)**\n- Hardwood tongue-and-groove (spotted gum, 80×19 mm, nail-down): cupping confirmed. Classified IICRC S500:2025 **Class 4** — low permeance, extended drying required **§7.5**\n- Target EMC for spotted gum in QLD climate: 12–14% WME\n- Acceptable moisture range at baseline: up to 35% WME (current readings: 42–56% WME)\n\n## 4. Psychrometric Conditions\n\nBaseline: Temp 29.1°C, RH 78%, GPP 176, Dew point 25.0°C. Elevated ambient RH (QLD summer) is unfavourable for hardwood drying. Desiccant dehumidification considered for Phase 2 if LGR units insufficient by Day 7.\n\n## 5. Drying Equipment Setup\n\nAffected area: 68 m².\n\n| Equipment | Quantity | Basis |\n|---|---|---|\n| LGR Dehumidifier | 2 × 100 L/day | 1 per 40 m² |\n| Air movers (centrifugal, low-profile) | 6 × 1.5 kW | Floor-hugging position for hardwood; 1 per 15 m² = 4.5 → 6 for Class 4 |\n| HEPA Air Scrubber | 1 × 800 m³/h | Mandatory Category 2. Fibreglass particles released during insulation removal |\n| Desiccant dehumidifier (standby) | Standby option if RH target not achieved by Day 7 | Class 4 extended protocol §7.5 |\n\nHardwood drying strategy: low-profile centrifugal air movers placed flat on floor at 45° to boards. Cross-ventilation through open crawl space/sub-floor access ports. Hardwood boards re-nailed at affected joints to resist cupping pressure.\n\n## 6. Daily Monitoring Protocol\n\nMonitoring daily at 09:00. Hardwood moisture grid: 12 reading points across 3 rooms, daily. Cupping measurement logged weekly. Psychrometric log. Desiccant escalation decision: if Day 7 average hardwood reading > 25% WME, escalate to desiccant protocol. Expected drying period: 14–21 days per Class 4 protocol.\n\n## 7. Drying Validation & Sign-Off\n\nDrying goal: hardwood ≤14% WME (QLD EMC target per §11.4, adjusted for tropical climate). 3 consecutive compliant daily readings across all 12 grid points. Cupping assessment — minor residual cupping may require light sanding post-dry. Independent flooring specialist engaged if cupping > 2 mm variance across board width. Reinstatement: new plasterboard ceiling, R3.5 insulation replacement, painting. Hot water unit replacement by licensed plumber. Flooring: sand, re-coat if structurally sound, or board replacement if irreversible cupping.",
     "equipmentList": {
       "lgrDehumidifier": { "quantity": 2, "spec": "100 L/day LGR", "days": 18 },
-      "airMovers": { "quantity": 6, "spec": "Centrifugal low-profile 1.5 kW", "days": 18 },
+      "airMovers": {
+        "quantity": 6,
+        "spec": "Centrifugal low-profile 1.5 kW",
+        "days": 18
+      },
       "airScrubber": { "quantity": 1, "spec": "HEPA 800 m³/h", "days": 18 }
     },
     "estimatedValueAud": 18500,
     "estimatedDurationDays": 18,
-    "iicrcReferences": ["S500:2025 §4.2", "S500:2025 §5.3", "S500:2025 §6", "S500:2025 §7.5", "S500:2025 §8", "S500:2025 §10.2", "S500:2025 §11.4", "AS/NZS 3012:2019"]
+    "iicrcReferences": [
+      "S500:2025 §4.2",
+      "S500:2025 §5.3",
+      "S500:2025 §6",
+      "S500:2025 §7.5",
+      "S500:2025 §8",
+      "S500:2025 §10.2",
+      "S500:2025 §11.4",
+      "AS/NZS 3012:2019"
+    ]
   },
   {
     "id": "scope_006",
@@ -99,7 +144,16 @@
     },
     "estimatedValueAud": 14200,
     "estimatedDurationDays": 12,
-    "iicrcReferences": ["S500:2025 §4.2", "S500:2025 §5.2", "S500:2025 §6", "S500:2025 §7.4", "S500:2025 §8", "S500:2025 §10.2", "S500:2025 §11.4", "AS/NZS 3012:2019"]
+    "iicrcReferences": [
+      "S500:2025 §4.2",
+      "S500:2025 §5.2",
+      "S500:2025 §6",
+      "S500:2025 §7.4",
+      "S500:2025 §8",
+      "S500:2025 §10.2",
+      "S500:2025 §11.4",
+      "AS/NZS 3012:2019"
+    ]
   },
   {
     "id": "scope_007",
@@ -110,12 +164,28 @@
     "causeOfLoss": "Chronic moisture from inadequately sealed shower recess allowing water intrusion into wall cavity. Combined with poor bathroom ventilation (exhaust fan disconnected at roof), mould Condition 3 established in wall cavities behind tiles.",
     "scope": "## 1. Visual Assessment & Contamination Mapping\n\nRoom-by-room contamination mapping per IICRC S520 **§4.2**:\n\n- **Bathroom** (5 m²): Condition 3. Visible mould growth on plasterboard behind removed tile (2.8 m²). Musty odour confirmed. Moisture reading: plasterboard 88% WME; timber stud framing 42% WME. Photo references: photos 1–18.\n- **Laundry** (4 m²): Condition 2. Mould growth on lower 400 mm of plasterboard wall (1.0 m²). No tile backing. Moisture 62% WME. Photos 19–26.\n- **Hallway adjacent to bathroom** (2 m²): Condition 1. No visible growth. Moisture readings normal. No remediation required.\n\nTotal affected area: **3.8 m²** visible growth.\n\n## 2. Moisture Source Identification\n\nMoisture source per IICRC S520 **§5.1 — must be confirmed and rectified before remediation commences**:\n\n1. **Shower recess**: grout and silicone perished in 3 corners — water ingress confirmed via flood testing. **Rectification required**: licensed tiler to re-grout and re-silicone shower before remediation proceeds.\n2. **Exhaust fan**: bathroom exhaust fan duct disconnected at roof — humid air recirculating into ceiling void. **Rectification required**: reconnect duct and clean fan impeller before remediation. Electrician to confirm fan operational.\n3. **Laundry wall**: rising damp from slab edge detected — concrete moisture 24% WME at 100 mm above slab. Recommend plumber assess slab drainage.\n\nScope cannot proceed until Items 1 and 2 above are rectified and confirmed in writing by trades.\n\n## 3. Contamination Boundary\n\nPer IICRC S520 **§6.3** — minimum 500 mm clearance beyond visible growth boundary:\n\n- Bathroom: visible growth 2.8 m² + 500 mm perimeter = remediation zone 5.2 m² plasterboard\n- Laundry: visible growth 1.0 m² + 500 mm perimeter = remediation zone 2.1 m² plasterboard\n- All materials within boundary listed for removal: plasterboard (7.3 m² total), timber noggings if wet >40% WME (2 noggings identified), any insulation within boundary (if present — to be confirmed on opening)\n\n## 4. Containment Setup\n\nBathroom: Condition 3 — full critical barrier required per IICRC S520 **§7**:\n- 200 µm poly sheeting floor-to-ceiling perimeter seal with duct tape\n- 300 mm overlapping slit entry\n- HEPA air scrubber establishing negative pressure differential ≥12.5 Pa — verify with manometer before work commences\n- PPE: full-face respirator with P3 cartridge, Tyvek Level B coveralls, double nitrile gloves, boot covers\n\nLaundry: Condition 2 — precautionary containment:\n- 200 µm poly sheeting around work area\n- N95/P2 respirator, nitrile gloves, disposable coveralls, eye protection\n\n## 5. Remediation Scope\n\n**Bathroom (Condition 3):**\n- Remove ceramic wall tiles (2.8 m² tile area — careful removal to minimise airborne spore release)\n- Remove plasterboard 5.2 m² (boundary zone)\n- HEPA vacuum all exposed framing and adjacent surfaces\n- Wet wipe all timber framing within boundary with EPA-registered antimicrobial (Benefect Botanical or equivalent)\n- Rinse with clean water, dry with air mover, re-apply antimicrobial\n- Inspect framing: 2 × noggings at 42% WME moisture — borate treatment applied (if structurally sound) or remove and replace\n\n**Laundry (Condition 2):**\n- Remove plasterboard 2.1 m²\n- Wet wipe all exposed surfaces with EPA-registered antimicrobial\n- HEPA vacuum post-treatment\n\nAll work per IICRC S520 **§8**.\n\n## 6. Disposal Protocol\n\nPer IICRC S520 **§8.4**:\n- All removed materials double-bagged in 200 µm poly bags, sealed with duct tape\n- Bags labelled: \"Biological Waste — Mould Contaminated Material\"\n- Removed via designated exit pathway (not through habited areas)\n- Disposal via council-approved general waste stream (non-infectious) — local council bio-waste guidelines confirm this classification for mould-contaminated building materials in QLD\n- Waste removal to occur same day as remediation — no storage on site\n\n## 7. Clearance Testing Recommendation\n\nPost-remediation per IICRC S520 **§9**:\n- Bathroom (Condition 3): independent third-party hygienist air sampling mandatory. Criteria: Condition 1 restored (spore counts within normal outdoor reference range, no elevated Stachybotrys or Chaetomium species)\n- Laundry (Condition 2): visual inspection clearance acceptable; hygienist sampling recommended but not mandatory\n- Reinstatement to commence only after written clearance certificate received\n- Recommended hygienist: independent (not affiliated with restoration contractor) to maintain insurer credibility",
     "equipmentList": {
-      "hepaAirScrubber": { "quantity": 1, "spec": "HEPA 600 m³/h with manometer port", "days": 3 },
-      "airMovers": { "quantity": 2, "spec": "Axial 1.5 kW (post-remediation drying)", "days": 3 }
+      "hepaAirScrubber": {
+        "quantity": 1,
+        "spec": "HEPA 600 m³/h with manometer port",
+        "days": 3
+      },
+      "airMovers": {
+        "quantity": 2,
+        "spec": "Axial 1.5 kW (post-remediation drying)",
+        "days": 3
+      }
     },
     "estimatedValueAud": 4800,
     "estimatedDurationDays": 3,
-    "iicrcReferences": ["S520 §4.2", "S520 §5.1", "S520 §6.3", "S520 §7", "S520 §8", "S520 §8.4", "S520 §9"]
+    "iicrcReferences": [
+      "S520 §4.2",
+      "S520 §5.1",
+      "S520 §6.3",
+      "S520 §7",
+      "S520 §8",
+      "S520 §8.4",
+      "S520 §9"
+    ]
   },
   {
     "id": "scope_008",
@@ -126,12 +196,28 @@
     "causeOfLoss": "Air-handling unit condensate drain blocked — condensate overflow saturated ceiling insulation for estimated 6–8 weeks before discovery during maintenance inspection. Condition 3 mould throughout Level 1 ceiling void.",
     "scope": "## 1. Visual Assessment & Contamination Mapping\n\nContamination mapping per IICRC S520 **§4.2**:\n\n- **Level 1 ceiling void (210 m²)**: Condition 3. Widespread visible mould growth on underside of concrete deck, top surface of plasterboard tiles, and rockwool insulation batts. Air sample (independent hygienist) confirmed elevated Cladosporium and Aspergillus/Penicillium counts. Photos 1–64.\n- **Level 1 open-plan office (210 m²)**: Condition 2 (settled spores via return air grilles). No visible growth on surfaces. Air sample elevated vs reference.\n- **Level 2**: Condition 1. Normal spore counts. No remediation required.\n\nBusiness disruption: Level 1 vacated. Occupant health advisory issued to building owner.\n\n## 2. Moisture Source Identification\n\nPer IICRC S520 **§5.1**:\n\n1. HVAC condensate drain: blocked drain confirmed by HVAC contractor. Drain cleared, pan drained, AHU serviced.\n2. AHU internal: mould growth confirmed on AHU internal components — full AHU decontamination and coil cleaning required before system restart (separate HVAC contractor scope).\n\nBoth items confirmed rectified by building services contractor in writing before remediation scope proceeds.\n\n## 3. Contamination Boundary\n\n210 m² ceiling void entire Level 1 is remediation zone. Boundary per §6.3 extends to all surfaces within cavity including underside of Level 2 slab, all service penetrations, all ductwork within cavity.\n\n## 4. Containment Setup\n\nFull critical barrier — commercial scale per IICRC S520 **§7**:\n- Full Level 1 occupied area sealed with 200 µm poly barriers at stairwells and lift lobbies\n- Industrial HEPA air scrubbers (3 × 1200 m³/h): negative pressure differential ≥12.5 Pa confirmed via 3-point manometer monitoring\n- Decontamination unit (decon trailer or constructed anteroom): clean change area → dirty zone\n- PPE: full-face respirator P3, Tyvek Level B, double nitrile, boot covers — full team\n- HVAC system isolated and sealed at all grilles before work commences\n\n## 5. Remediation Scope\n\n- Remove all ceiling tile system (suspended grid + acoustic tiles, 210 m²)\n- Remove all rockwool insulation within ceiling void (210 m²)\n- HEPA vacuum all exposed surfaces: concrete deck underside, ductwork outer surfaces, conduit, pipe lagging\n- Wet wipe all surfaces with EPA-registered antimicrobial × 2 applications\n- AHU internal: decontaminate drain pan, coil surfaces, internal surfaces with antimicrobial (HVAC contractor)\n- All ductwork within cavity: HEPA vacuum and antimicrobial wipe externally; internal duct survey recommended (separate scope)\n- Reinstatement of ceiling void by licensed building contractor\n\nPer IICRC S520 **§8**.\n\n## 6. Disposal Protocol\n\nPer IICRC S520 **§8.4**: all removed materials double-bagged in 200 µm poly. Estimated waste volume: 4 × 240 L skip bins. Commercial waste contractor engaged. Chain-of-custody documentation required for building owner's EHS records.\n\n## 7. Clearance Testing Recommendation\n\nPer IICRC S520 **§9**: independent hygienist air sampling mandatory (Condition 3, commercial occupancy). Sampling plan: 6-point air sample grid + 2 outdoor reference samples. Clearance criteria: indoor spore counts ≤ outdoor reference, no indicator species. Written clearance certificate required before HVAC restart and Level 1 reoccupation. Recommend 48-hour stabilisation period after works before sampling.",
     "equipmentList": {
-      "hepaAirScrubber": { "quantity": 3, "spec": "HEPA 1200 m³/h industrial", "days": 5 },
-      "airMovers": { "quantity": 6, "spec": "Axial 1.5 kW (post-remediation drying)", "days": 4 }
+      "hepaAirScrubber": {
+        "quantity": 3,
+        "spec": "HEPA 1200 m³/h industrial",
+        "days": 5
+      },
+      "airMovers": {
+        "quantity": 6,
+        "spec": "Axial 1.5 kW (post-remediation drying)",
+        "days": 4
+      }
     },
     "estimatedValueAud": 62000,
     "estimatedDurationDays": 5,
-    "iicrcReferences": ["S520 §4.2", "S520 §5.1", "S520 §6.3", "S520 §7", "S520 §8", "S520 §8.4", "S520 §9"]
+    "iicrcReferences": [
+      "S520 §4.2",
+      "S520 §5.1",
+      "S520 §6.3",
+      "S520 §7",
+      "S520 §8",
+      "S520 §8.4",
+      "S520 §9"
+    ]
   },
   {
     "id": "scope_009",
@@ -142,13 +228,33 @@
     "causeOfLoss": "Unattended cooking — frying pan ignited, fire spread to overhead cabinetry before self-extinguishment. No suppression water applied. Dry smoke residue (fast-burning, high-temperature). Fire brigade attended, no structural suppression.",
     "scope": "## 1. Fire Origin & Cause\n\n**Origin confirmed:** Kitchen cooktop — unattended frying pan. Fire spread to overhead cabinetry (laminated particleboard) before self-extinguishing. Queensland Fire and Emergency Services (QFES) report reference: [to be inserted]. No structural fire involvement beyond kitchen. Dry smoke type (fast-burning, high-temperature fire) producing light, powdery soot. **IICRC S770 §4.1**.\n\n## 2. Smoke Migration Mapping by Zone\n\nZone classification per IICRC S770 **§4.2**:\n\n| Zone | Rooms | Classification | Visible Soot | Odour |\n|---|---|---|---|---|\n| Char | Kitchen 12 m² | Char zone | Heavy carbon deposit | Intense |\n| Smoke | Living/Dining 32 m² | Smoke zone | Light soot on walls, ceilings | Strong |\n| Odour | Bedrooms (3) 64 m² | Odour zone | No visible soot | Noticeable |\n\nMigration pathway: kitchen overhead cabinetry → open-plan ceiling void → living/dining ceiling rose and cornice → hallway → bedroom door gaps. HVAC not operating at time of fire — no duct contamination confirmed (all return grilles checked, no soot visible).\n\n## 3. Affected Materials by Zone\n\n**Char zone — Kitchen (12 m²)**\n- Overhead cabinetry (4 units, laminated particleboard): complete loss — remove\n- Plasterboard ceiling 10 mm (12 m²): smoke-stained, remove\n- Plasterboard wall lining — 2 walls to 2.4 m height: light char, remove and replace\n- Ceramic tile splashback: non-porous, clean in situ\n- Concrete slab floor: non-porous, clean in situ\n\n**Smoke zone — Living/Dining (32 m²)**\n- Plasterboard ceiling 13 mm: light dry smoke soot — clean in situ\n- Plasterboard walls: soot on upper sections — clean in situ\n- Carpet (polyester): smoke odour absorbed — cleaning assessment (restore or replace)\n- Fabric lounge suite: moderate smoke odour — hydroxyl chamber treatment\n\n**Odour zone — Bedrooms (64 m²)**\n- Plasterboard walls and ceilings: thermal fogging\n- Carpet: odour treatment\n- Wardrobes (hollow-core MDF doors): odour, thermal fogging treatment\n\n## 4. Cleaning Methods by Material & Smoke Type\n\nDry smoke (fast-burning, powdery soot) per IICRC S770 **§8**:\n\n1. **Dry sponge technique first** on all sooted surfaces — do not wet clean until dry soot completely removed (wet cleaning before dry sponge smears soot irreversibly)\n2. HEPA vacuum all surfaces after dry sponge — capture residual soot particles\n3. Wet clean with alkaline degreaser (pH 10–11) on hard surfaces after HEPA vacuum\n4. Neutraliser rinse (pH 7) after alkaline clean\n5. Char zone: surfaces too heavily sooted for cleaning — removal and replacement\n6. Protein smoke present (cooking residue, minor): enzyme-based cleaner applied to cooktop surround and tile splashback in addition to above steps\n\n## 5. Contents Inventory — Restore vs Replace Assessment\n\nPer IICRC S770 **§9**:\n\n- Kitchen overhead cabinets (4): total loss — removal included in structural scope\n- Lounge suite (3-seater + 2-seater): restore — hydroxyl chamber treatment, vacuum, fabric deodoriser\n- Bedding (3 bedrooms): restore — commercial laundering with enzyme treatment\n- Electronics (TV, laptop): no soot contact — wipe down with antistatic cloth; functional check by owner\n- Artwork (1 canvas print, living room): light soot — specialist dry-sponge by art conservator; restore\n- Kitchen small appliances (microwave, toaster, kettle): char zone proximity — assess for soot ingress; recommend replacement for items with visible soot infiltration\n\n## 6. Deodorisation Protocol\n\nPer IICRC S770 **§10**:\n\n- **Thermal fogging**: whole house including bedrooms, wardrobe internals, roof space access — 2-hour treatment. Re-entry interval: 4 hours post-fogging, ventilate for 2 hours before occupant re-entry\n- **Hydroxyl generator**: living/dining zone — 3-day continuous treatment at 1 unit per 60 m². Lounge suite treated in-room\n- **Ozone treatment**: NOT recommended with fabric contents present — risk of material degradation. Hydroxyl preferred for this job profile\n- HVAC system: no contamination confirmed — recommend filter replacement as precaution before system operation resumes\n\n## 7. Structural Drying\n\nNo fire suppression water applied. No structural drying required. Monitor plasterboard replacement areas for condensation during painting phase.\n\n## 8. Clearance & Sign-Off\n\nPer IICRC S770 **§11**:\n- Visual inspection: all char and smoke zones to show no residual soot on any surface\n- Odour assessment: panel of 3 technicians confirms no smoke odour at nasal height in any room\n- Air quality test: NOT mandatory for this event (no char zone residue on porous materials post-removal; no suppression water). Recommend at owner/insurer request\n- Reinstatement trigger: clearance sign-off → kitchen cabinetry replacement, ceiling/wall lining replacement, painting, new carpet to char and smoke zones",
     "equipmentList": {
-      "thermalFogger": { "quantity": 1, "spec": "Electric thermal fogger", "uses": 1 },
-      "hydroxylGenerator": { "quantity": 1, "spec": "60 m² coverage unit", "days": 3 },
-      "hepaVacuum": { "quantity": 2, "spec": "HEPA commercial dry vacuum", "days": 2 }
+      "thermalFogger": {
+        "quantity": 1,
+        "spec": "Electric thermal fogger",
+        "uses": 1
+      },
+      "hydroxylGenerator": {
+        "quantity": 1,
+        "spec": "60 m² coverage unit",
+        "days": 3
+      },
+      "hepaVacuum": {
+        "quantity": 2,
+        "spec": "HEPA commercial dry vacuum",
+        "days": 2
+      }
     },
     "estimatedValueAud": 19800,
     "estimatedDurationDays": 5,
-    "iicrcReferences": ["S770 §4.1", "S770 §4.2", "S770 §5", "S770 §8", "S770 §9", "S770 §10", "S770 §11"]
+    "iicrcReferences": [
+      "S770 §4.1",
+      "S770 §4.2",
+      "S770 §5",
+      "S770 §8",
+      "S770 §9",
+      "S770 §10",
+      "S770 §11"
+    ]
   },
   {
     "id": "scope_010",
@@ -165,6 +271,12 @@
     },
     "estimatedValueAud": 8900,
     "estimatedDurationDays": 6,
-    "iicrcReferences": ["S500:2025 §7.3", "S500:2025 §10.2", "S500:2025 §11.4", "AS 4055:2021", "NCC 2022 Vol 2"]
+    "iicrcReferences": [
+      "S500:2025 §7.3",
+      "S500:2025 §10.2",
+      "S500:2025 §11.4",
+      "AS 4055:2021",
+      "NCC 2022 Vol 2"
+    ]
   }
 ]

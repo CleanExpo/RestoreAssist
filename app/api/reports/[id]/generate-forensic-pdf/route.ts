@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import { generateForensicReportPDF } from '@/lib/generate-forensic-report-pdf'
-import { detectStateFromPostcode, getStateInfo } from '@/lib/state-detection'
-import { applyRateLimit } from '@/lib/rate-limiter'
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { generateForensicReportPDF } from "@/lib/generate-forensic-report-pdf";
+import { detectStateFromPostcode, getStateInfo } from "@/lib/state-detection";
+import { applyRateLimit } from "@/lib/rate-limiter";
 
 /**
  * GET /api/reports/[id]/generate-forensic-pdf
@@ -14,114 +14,140 @@ import { applyRateLimit } from '@/lib/rate-limiter'
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
 
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Rate limit: 10 forensic PDF generations per 15 minutes per user
-    const rateLimited = applyRateLimit(request, { maxRequests: 10, prefix: "gen-forensic", key: session.user.email })
-    if (rateLimited) return rateLimited
+    const rateLimited = await applyRateLimit(request, {
+      maxRequests: 10,
+      prefix: "gen-forensic",
+      key: session.user.id,
+    });
+    if (rateLimited) return rateLimited;
 
-    const { id: reportId } = await params
+    const { id: reportId } = await params;
 
     // Get user with business info
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { id: session.user.id },
       select: {
         id: true,
         name: true,
         email: true,
+        subscriptionStatus: true,
         businessName: true,
         businessAddress: true,
         businessLogo: true,
         businessABN: true,
         businessPhone: true,
         businessEmail: true,
-        pricingConfig: true
-    }
-    })
+        pricingConfig: true,
+      },
+    });
 
     if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
+    if (
+      !ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")
+    ) {
+      return NextResponse.json(
+        { error: "Active subscription required" },
+        { status: 402 },
+      );
     }
 
     // Get the report
     const report = await prisma.report.findUnique({
-      where: { id: reportId, userId: user.id }
-    })
+      where: { id: reportId, userId: user.id },
+    });
 
     if (!report) {
-      return NextResponse.json(
-        { error: 'Report not found' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: "Report not found" }, { status: 404 });
     }
 
     // Parse all stored data
-    const analysis = report.technicianReportAnalysis 
-      ? JSON.parse(report.technicianReportAnalysis) 
-      : null
-    const tier1 = report.tier1Responses 
-      ? JSON.parse(report.tier1Responses) 
-      : null
-    const tier2 = report.tier2Responses 
-      ? JSON.parse(report.tier2Responses) 
-      : null
-    const tier3 = report.tier3Responses 
-      ? JSON.parse(report.tier3Responses) 
-      : null
+    const analysis = report.technicianReportAnalysis
+      ? JSON.parse(report.technicianReportAnalysis)
+      : null;
+    const tier1 = report.tier1Responses
+      ? JSON.parse(report.tier1Responses)
+      : null;
+    const tier2 = report.tier2Responses
+      ? JSON.parse(report.tier2Responses)
+      : null;
+    const tier3 = report.tier3Responses
+      ? JSON.parse(report.tier3Responses)
+      : null;
     const psychrometricAssessment = report.psychrometricAssessment
       ? JSON.parse(report.psychrometricAssessment)
-      : null
-    const scopeAreas = report.scopeAreas
-      ? JSON.parse(report.scopeAreas)
-      : null
+      : null;
+    const scopeAreas = report.scopeAreas ? JSON.parse(report.scopeAreas) : null;
     const equipmentSelection = report.equipmentSelection
       ? JSON.parse(report.equipmentSelection)
-      : null
+      : null;
 
     // Detect state from postcode
-    const stateCode = detectStateFromPostcode(report.propertyPostcode || '')
-    const stateInfo = getStateInfo(stateCode)
+    const stateCode = detectStateFromPostcode(report.propertyPostcode || "");
+    const stateInfo = getStateInfo(stateCode);
 
     // Get appropriate API key based on subscription status for Google Drive standards retrieval
     // Free users: uses ANTHROPIC_API_KEY from .env
     // Upgraded users: uses API key from integrations
-    const { getAnthropicApiKey } = await import('@/lib/ai-provider')
-    
+    const { getAnthropicApiKey } = await import("@/lib/ai-provider");
+
     // Retrieve standards from Google Drive
-    let standardsContext = ''
+    let standardsContext = "";
     try {
-      const anthropicApiKey = await getAnthropicApiKey(user.id)
-      const { retrieveRelevantStandards, buildStandardsContextPrompt } = await import('@/lib/standards-retrieval')
-      
+      const anthropicApiKey = await getAnthropicApiKey(user.id);
+      const { retrieveRelevantStandards, buildStandardsContextPrompt } =
+        await import("@/lib/standards-retrieval");
+
       // Determine report type
-      const retrievalReportType: 'mould' | 'fire' | 'commercial' | 'water' | 'general' = 
-        report.hazardType === 'Mould' ? 'mould' : 
-        report.hazardType === 'Fire' ? 'fire' : 
-        report.hazardType === 'Commercial' ? 'commercial' : 'water'
-      
+      const retrievalReportType:
+        | "mould"
+        | "fire"
+        | "commercial"
+        | "water"
+        | "general" =
+        report.hazardType === "Mould"
+          ? "mould"
+          : report.hazardType === "Fire"
+            ? "fire"
+            : report.hazardType === "Commercial"
+              ? "commercial"
+              : "water";
+
       const retrievalQuery = {
         reportType: retrievalReportType,
-        waterCategory: report.waterCategory as '1' | '2' | '3' | undefined,
+        waterCategory: report.waterCategory as "1" | "2" | "3" | undefined,
         keywords: [
-          report.waterCategory ? `Category ${report.waterCategory}` : '',
-          report.waterClass ? `Class ${report.waterClass}` : '',
+          report.waterCategory ? `Category ${report.waterCategory}` : "",
+          report.waterClass ? `Class ${report.waterClass}` : "",
         ].filter(Boolean),
         materials: tier1?.T1_Q6_materialsAffected || [],
-        technicianNotes: report.technicianFieldReport?.substring(0, 1000) || '',
-    }
-      
-      const retrievedStandards = await retrieveRelevantStandards(retrievalQuery, anthropicApiKey)
-        
-      standardsContext = buildStandardsContextPrompt(retrievedStandards)
+        technicianNotes: report.technicianFieldReport?.substring(0, 1000) || "",
+      };
+
+      const retrievedStandards = await retrieveRelevantStandards(
+        retrievalQuery,
+        anthropicApiKey,
+      );
+
+      standardsContext = buildStandardsContextPrompt(retrievedStandards);
     } catch (error: any) {
-      console.error('[Generate Forensic PDF] Error retrieving standards:', error)
+      console.error(
+        "[Generate Forensic PDF] Error retrieving standards:",
+        error,
+      );
       // Continue without standards context - not critical for PDF generation
     }
 
@@ -144,7 +170,7 @@ export async function GET(
         phase2EndDate: report.phase2EndDate,
         phase3StartDate: report.phase3StartDate,
         phase3EndDate: report.phase3EndDate,
-        insurerName: report.insurerName
+        insurerName: report.insurerName,
       },
       analysis,
       tier1,
@@ -161,30 +187,29 @@ export async function GET(
         businessLogo: user.businessLogo,
         businessABN: user.businessABN,
         businessPhone: user.businessPhone,
-        businessEmail: user.businessEmail
-    }
-    }
+        businessEmail: user.businessEmail,
+      },
+    };
 
     // Generate PDF
-    const pdfBytes = await generateForensicReportPDF(reportData)
+    const pdfBytes = await generateForensicReportPDF(reportData);
 
     // Return PDF as response
-    const filename = `Forensic-Report-${report.claimReferenceNumber || report.reportNumber || reportId}.pdf`
-    
-    return new NextResponse(pdfBytes, {
+    const filename = `Forensic-Report-${report.claimReferenceNumber || report.reportNumber || reportId}.pdf`;
+
+    return new NextResponse(Buffer.from(pdfBytes), {
       status: 200,
       headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${filename}"`,
-        'Content-Length': pdfBytes.length.toString()
-    }
-    })
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Length": pdfBytes.length.toString(),
+      },
+    });
   } catch (error: any) {
-    console.error('Error generating forensic PDF:', error)
+    console.error("Error generating forensic PDF:", error);
     return NextResponse.json(
-      { error: 'Failed to generate forensic PDF', details: error.message },
-      { status: 500 }
-    )
+      { error: "Failed to generate forensic PDF", details: error.message },
+      { status: 500 },
+    );
   }
 }
-

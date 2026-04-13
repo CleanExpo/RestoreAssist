@@ -4,58 +4,69 @@
  * Orchestrates question progression, answer recording, and field auto-population
  */
 
-'use client'
+"use client";
 
-import React, { useState, useEffect, useCallback, useRef } from 'react'
-import { useRouter } from 'next/navigation'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Progress } from '@/components/ui/progress'
-import { AlertCircle, Loader2, CheckCircle2, Lock, Crown } from 'lucide-react'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { QuestionCard } from './QuestionCard'
-import { ProgressRing } from './ProgressRing'
-import { BottomActionBar } from './BottomActionBar'
-import type { Question } from '@/lib/interview'
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { AlertCircle, Loader2, CheckCircle2, Lock, Crown } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { QuestionCard } from "./QuestionCard";
+import { ProgressRing } from "./ProgressRing";
+import { BottomActionBar } from "./BottomActionBar";
+import type { Question } from "@/lib/interview";
 
 /**
  * Interview state management
  */
 interface InterviewState {
-  sessionId: string
-  currentTier: number
-  currentQuestion: Question | null
-  allQuestions: Question[]
-  tieredQuestions: { tier1: Question[]; tier2: Question[]; tier3: Question[]; tier4: Question[] }
-  answers: Map<string, any>
-  autoPopulatedFields: Map<string, { value: any; confidence: number }>
-  totalQuestions: number
-  answeredQuestions: number
-  progressPercentage: number
-  estimatedDurationMinutes: number
-  standardsCovered: string[]
-  isLoading: boolean
-  error: string | null
-  status: 'STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'ERROR'
+  sessionId: string;
+  currentTier: number;
+  currentQuestion: Question | null;
+  allQuestions: Question[];
+  tieredQuestions: {
+    tier1: Question[];
+    tier2: Question[];
+    tier3: Question[];
+    tier4: Question[];
+  };
+  answers: Map<string, any>;
+  autoPopulatedFields: Map<string, { value: any; confidence: number }>;
+  totalQuestions: number;
+  answeredQuestions: number;
+  progressPercentage: number;
+  estimatedDurationMinutes: number;
+  standardsCovered: string[];
+  isLoading: boolean;
+  error: string | null;
+  status: "STARTED" | "IN_PROGRESS" | "COMPLETED" | "ERROR";
 }
 
 /** One question and its answer for summary review */
 export interface InterviewQuestionAnswer {
-  questionId: string
-  questionText: string
-  answer: unknown
+  questionId: string;
+  questionText: string;
+  answer: unknown;
 }
 
 interface GuidedInterviewPanelProps {
-  formTemplateId: string
-  jobType?: string
-  postcode?: string
-  experienceLevel?: "novice" | "experienced" | "expert"
-  sessionId?: string
-  reportId?: string
-  onComplete?: (questionsAndAnswers: InterviewQuestionAnswer[]) => void
-  onCancel?: () => void
-  showAutoPopulatedFields?: boolean
+  formTemplateId: string;
+  jobType?: string;
+  postcode?: string;
+  experienceLevel?: "novice" | "experienced" | "expert";
+  sessionId?: string;
+  reportId?: string;
+  onComplete?: (questionsAndAnswers: InterviewQuestionAnswer[]) => void;
+  onCancel?: () => void;
+  showAutoPopulatedFields?: boolean;
 }
 
 /**
@@ -63,7 +74,7 @@ interface GuidedInterviewPanelProps {
  */
 export function GuidedInterviewPanel({
   formTemplateId,
-  jobType = 'WATER_DAMAGE',
+  jobType = "WATER_DAMAGE",
   postcode,
   experienceLevel,
   sessionId: resumeSessionId,
@@ -72,11 +83,11 @@ export function GuidedInterviewPanel({
   onCancel,
   showAutoPopulatedFields = true,
 }: GuidedInterviewPanelProps) {
-  const router = useRouter()
-  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false)
-  const [lockedTier, setLockedTier] = useState<number | null>(null)
+  const router = useRouter();
+  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
+  const [lockedTier, setLockedTier] = useState<number | null>(null);
   const [interviewState, setInterviewState] = useState<InterviewState>({
-    sessionId: '',
+    sessionId: "",
     currentTier: 1,
     currentQuestion: null,
     allQuestions: [],
@@ -90,108 +101,124 @@ export function GuidedInterviewPanel({
     standardsCovered: [],
     isLoading: true,
     error: null,
-    status: 'STARTED',
-  })
+    status: "STARTED",
+  });
 
-  const startTimeRef = useRef<number | null>(null)
-  const isInitializingRef = useRef(false)
-  const hasInitializedRef = useRef(false)
+  const startTimeRef = useRef<number | null>(null);
+  const isInitializingRef = useRef(false);
+  const hasInitializedRef = useRef(false);
 
   /**
    * Initialize interview on mount - only once
    */
   useEffect(() => {
-    console.log('[INIT] useEffect triggered', {
+    console.log("[INIT] useEffect triggered", {
       hasInitialized: hasInitializedRef.current,
       isInitializing: isInitializingRef.current,
       resumeSessionId,
-    })
+    });
 
     // Prevent multiple initializations - only check refs (not state, which is stale in closure)
     if (hasInitializedRef.current) {
-      console.log('[INIT] Already initialized, skipping')
-      return
+      console.log("[INIT] Already initialized, skipping");
+      return;
     }
 
     if (isInitializingRef.current) {
-      console.log('[INIT] Already initializing, skipping')
-      return
+      console.log("[INIT] Already initializing, skipping");
+      return;
     }
 
-    console.log('[INIT] Starting initialization...')
+    console.log("[INIT] Starting initialization...");
 
     const init = async () => {
       try {
-        console.log('[INIT] Init function called', { resumeSessionId })
+        console.log("[INIT] Init function called", { resumeSessionId });
         if (resumeSessionId) {
-          console.log('[INIT] Restoring session:', resumeSessionId)
-          await restoreSession(resumeSessionId)
+          console.log("[INIT] Restoring session:", resumeSessionId);
+          await restoreSession(resumeSessionId);
         } else {
-          console.log('[INIT] Starting new interview')
-          await initializeInterview()
+          console.log("[INIT] Starting new interview");
+          await initializeInterview();
         }
       } catch (error) {
-        console.error('[INIT] Error initializing interview:', error)
-        console.error('[INIT] Error stack:', error instanceof Error ? error.stack : 'No stack trace')
+        console.error("[INIT] Error initializing interview:", error);
+        console.error(
+          "[INIT] Error stack:",
+          error instanceof Error ? error.stack : "No stack trace",
+        );
         // Reset refs on error so user can retry
-        hasInitializedRef.current = false
-        isInitializingRef.current = false
+        hasInitializedRef.current = false;
+        isInitializingRef.current = false;
         setInterviewState((prev) => ({
           ...prev,
           isLoading: false,
-          error: error instanceof Error ? error.message : 'Failed to initialize interview',
-          status: 'ERROR',
-        }))
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to initialize interview",
+          status: "ERROR",
+        }));
       }
-    }
+    };
 
-    init()
+    init();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Only run once on mount - don't include state or callbacks to prevent re-runs
+  }, []); // Only run once on mount - don't include state or callbacks to prevent re-runs
 
   /**
    * Start interview - fetch initial questions
    */
   const initializeInterview = useCallback(async () => {
-    console.log('[INIT_INTERVIEW] Called', {
+    console.log("[INIT_INTERVIEW] Called", {
       isInitializing: isInitializingRef.current,
       hasInitialized: hasInitializedRef.current,
-    })
+    });
 
     // Prevent multiple calls - only check refs, not state (state causes re-renders)
     if (isInitializingRef.current) {
-      console.log('[INIT_INTERVIEW] Already initializing, aborting')
-      return
+      console.log("[INIT_INTERVIEW] Already initializing, aborting");
+      return;
     }
 
     if (hasInitializedRef.current) {
-      console.log('[INIT_INTERVIEW] Already initialized, aborting')
-      return
+      console.log("[INIT_INTERVIEW] Already initialized, aborting");
+      return;
     }
 
-    console.log('[INIT_INTERVIEW] Setting isInitializingRef to true')
-    isInitializingRef.current = true
+    console.log("[INIT_INTERVIEW] Setting isInitializingRef to true");
+    isInitializingRef.current = true;
 
     try {
-      console.log('[INIT_INTERVIEW] Setting loading state')
+      console.log("[INIT_INTERVIEW] Setting loading state");
       setInterviewState((prev) => {
-        console.log('[INIT_INTERVIEW] Previous state:', { isLoading: prev.isLoading, sessionId: prev.sessionId })
-        return { ...prev, isLoading: true, error: null }
-      })
+        console.log("[INIT_INTERVIEW] Previous state:", {
+          isLoading: prev.isLoading,
+          sessionId: prev.sessionId,
+        });
+        return { ...prev, isLoading: true, error: null };
+      });
 
-      console.log('[INIT_INTERVIEW] Starting interview with:', { formTemplateId, jobType, postcode, experienceLevel })
+      console.log("[INIT_INTERVIEW] Starting interview with:", {
+        formTemplateId,
+        jobType,
+        postcode,
+        experienceLevel,
+      });
 
       // Add timeout to prevent hanging
-      const controller = new AbortController()
+      const controller = new AbortController();
       const timeoutId = setTimeout(() => {
-        console.error('Interview start request timed out after 30 seconds')
-        controller.abort()
-      }, 30000) // 30 second timeout
+        console.error("Interview start request timed out after 30 seconds");
+        controller.abort();
+      }, 30000); // 30 second timeout
 
-      console.log('[INIT_INTERVIEW] Making API request to /api/forms/interview/start')
-      const response = await fetch('/api/forms/interview/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      console.log(
+        "[INIT_INTERVIEW] Making API request to /api/forms/interview/start",
+      );
+      const response = await fetch("/api/forms/interview/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           formTemplateId,
           jobType,
@@ -200,27 +227,32 @@ export function GuidedInterviewPanel({
           reportId: reportId || undefined,
         }),
         signal: controller.signal,
-      })
+      });
 
-      clearTimeout(timeoutId)
-      
-      console.log('[INIT_INTERVIEW] API response received:', {
+      clearTimeout(timeoutId);
+
+      console.log("[INIT_INTERVIEW] API response received:", {
         status: response.status,
         statusText: response.statusText,
         ok: response.ok,
-      })
+      });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        const errorMessage = errorData.error || errorData.details || response.statusText
-        console.error('[INIT_INTERVIEW] API error:', { status: response.status, error: errorMessage, errorData })
-        throw new Error(`Failed to start interview: ${errorMessage}`)
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage =
+          errorData.error || errorData.details || response.statusText;
+        console.error("[INIT_INTERVIEW] API error:", {
+          status: response.status,
+          error: errorMessage,
+          errorData,
+        });
+        throw new Error(`Failed to start interview: ${errorMessage}`);
       }
 
-      console.log('[INIT_INTERVIEW] Parsing response JSON...')
-      const data = await response.json()
-      
-      console.log('[INIT_INTERVIEW] Response data parsed:', {
+      console.log("[INIT_INTERVIEW] Parsing response JSON...");
+      const data = await response.json();
+
+      console.log("[INIT_INTERVIEW] Response data parsed:", {
         hasSessionId: !!data.sessionId,
         sessionId: data.sessionId,
         questionsCount: data.questions?.length || 0,
@@ -231,34 +263,43 @@ export function GuidedInterviewPanel({
         tier3Count: data.tieredQuestions?.tier3?.length || 0,
         tier4Count: data.tieredQuestions?.tier4?.length || 0,
         fullData: data,
-      })
+      });
 
       // Validate response data
       if (!data || !data.sessionId) {
-        console.error('[INIT_INTERVIEW] Invalid response: missing sessionId', data)
-        throw new Error('Invalid response from server: missing sessionId')
+        console.error(
+          "[INIT_INTERVIEW] Invalid response: missing sessionId",
+          data,
+        );
+        throw new Error("Invalid response from server: missing sessionId");
       }
 
-      console.log('[INIT_INTERVIEW] Validating questions...', {
+      console.log("[INIT_INTERVIEW] Validating questions...", {
         hasQuestions: !!data.questions,
         isArray: Array.isArray(data.questions),
         length: data.questions?.length || 0,
-      })
+      });
 
-      if (!data.questions || !Array.isArray(data.questions) || data.questions.length === 0) {
-        console.error('[INIT_INTERVIEW] No questions in response:', {
+      if (
+        !data.questions ||
+        !Array.isArray(data.questions) ||
+        data.questions.length === 0
+      ) {
+        console.error("[INIT_INTERVIEW] No questions in response:", {
           questions: data.questions,
           tieredQuestions: data.tieredQuestions,
           allData: data,
-        })
-        throw new Error('No questions returned from server. Please check your subscription tier.')
+        });
+        throw new Error(
+          "No questions returned from server. Please check your subscription tier.",
+        );
       }
 
       // Push sessionId to URL for resume capability
-      if (typeof window !== 'undefined' && data.sessionId) {
-        const url = new URL(window.location.href)
-        url.searchParams.set('sessionId', data.sessionId)
-        window.history.replaceState({}, '', url.toString())
+      if (typeof window !== "undefined" && data.sessionId) {
+        const url = new URL(window.location.href);
+        url.searchParams.set("sessionId", data.sessionId);
+        window.history.replaceState({}, "", url.toString());
       }
 
       // Flatten all questions from all tiers for allQuestions
@@ -267,226 +308,256 @@ export function GuidedInterviewPanel({
         ...(data.tieredQuestions?.tier2 || []),
         ...(data.tieredQuestions?.tier3 || []),
         ...(data.tieredQuestions?.tier4 || []),
-      ]
+      ];
 
       // Use questions from response, or fallback to flattened questions
-      const questionsToUse = data.questions && data.questions.length > 0 
-        ? data.questions 
-        : allQuestionsFlat
+      const questionsToUse =
+        data.questions && data.questions.length > 0
+          ? data.questions
+          : allQuestionsFlat;
 
-      const firstQuestion = questionsToUse[0] || allQuestionsFlat[0] || null
+      const firstQuestion = questionsToUse[0] || allQuestionsFlat[0] || null;
 
       if (!firstQuestion) {
-        throw new Error('No questions available to start the interview')
+        throw new Error("No questions available to start the interview");
       }
 
-      console.log('[INIT_INTERVIEW] Preparing state update:', {
+      console.log("[INIT_INTERVIEW] Preparing state update:", {
         sessionId: data.sessionId,
         firstQuestionId: firstQuestion.id,
         firstQuestionText: firstQuestion.text?.substring(0, 50),
         totalQuestions: data.totalQuestions || allQuestionsFlat.length,
         questionsCount: questionsToUse.length,
         allQuestionsFlatCount: allQuestionsFlat.length,
-      })
+      });
 
-      startTimeRef.current = Date.now()
-      console.log('[INIT_INTERVIEW] Calling setInterviewState...')
+      startTimeRef.current = Date.now();
+      console.log("[INIT_INTERVIEW] Calling setInterviewState...");
       setInterviewState((prev) => {
         const newState = {
           ...prev,
           sessionId: data.sessionId,
           currentTier: data.currentTier || 1,
           currentQuestion: firstQuestion,
-          allQuestions: allQuestionsFlat.length > 0 ? allQuestionsFlat : questionsToUse,
-          tieredQuestions: data.tieredQuestions || { tier1: [], tier2: [], tier3: [], tier4: [] },
-          totalQuestions: data.totalQuestions || allQuestionsFlat.length || questionsToUse.length,
+          allQuestions:
+            allQuestionsFlat.length > 0 ? allQuestionsFlat : questionsToUse,
+          tieredQuestions: data.tieredQuestions || {
+            tier1: [],
+            tier2: [],
+            tier3: [],
+            tier4: [],
+          },
+          totalQuestions:
+            data.totalQuestions ||
+            allQuestionsFlat.length ||
+            questionsToUse.length,
           estimatedDurationMinutes: data.estimatedDuration || 10,
           standardsCovered: data.standardsCovered || [],
           isLoading: false,
-          status: 'IN_PROGRESS' as const,
-        }
-        console.log('[INIT_INTERVIEW] New state:', {
+          status: "IN_PROGRESS" as const,
+        };
+        console.log("[INIT_INTERVIEW] New state:", {
           sessionId: newState.sessionId,
           isLoading: newState.isLoading,
           status: newState.status,
           hasCurrentQuestion: !!newState.currentQuestion,
           totalQuestions: newState.totalQuestions,
-        })
-        return newState
-      })
-      
-      console.log('[INIT_INTERVIEW] Setting isInitializingRef to false')
-      isInitializingRef.current = false
-      hasInitializedRef.current = true
-      console.log('[INIT_INTERVIEW] Interview initialized successfully')
+        });
+        return newState;
+      });
+
+      console.log("[INIT_INTERVIEW] Setting isInitializingRef to false");
+      isInitializingRef.current = false;
+      hasInitializedRef.current = true;
+      console.log("[INIT_INTERVIEW] Interview initialized successfully");
     } catch (error) {
-      let errorMessage = 'Failed to start interview'
-      
+      let errorMessage = "Failed to start interview";
+
       if (error instanceof Error) {
-        if (error.name === 'AbortError') {
-          errorMessage = 'Request timed out. Please try again.'
+        if (error.name === "AbortError") {
+          errorMessage = "Request timed out. Please try again.";
         } else {
-          errorMessage = error.message
+          errorMessage = error.message;
         }
       }
-      
-      console.error('[INIT_INTERVIEW] Error starting interview:', error)
-      console.error('[INIT_INTERVIEW] Error stack:', error instanceof Error ? error.stack : 'No stack trace')
-      isInitializingRef.current = false
-      hasInitializedRef.current = false // Allow retry on error
+
+      console.error("[INIT_INTERVIEW] Error starting interview:", error);
+      console.error(
+        "[INIT_INTERVIEW] Error stack:",
+        error instanceof Error ? error.stack : "No stack trace",
+      );
+      isInitializingRef.current = false;
+      hasInitializedRef.current = false; // Allow retry on error
       setInterviewState((prev) => {
-        console.log('[INIT_INTERVIEW] Setting error state')
+        console.log("[INIT_INTERVIEW] Setting error state");
         return {
           ...prev,
           isLoading: false,
           error: errorMessage,
-          status: 'ERROR',
-        }
-      })
+          status: "ERROR",
+        };
+      });
     }
-  }, [formTemplateId, jobType, postcode, experienceLevel]) // Removed interviewState dependencies to prevent re-creation
+  }, [formTemplateId, jobType, postcode, experienceLevel]); // Removed interviewState dependencies to prevent re-creation
 
   /**
    * Restore session from saved answers
    */
-  const restoreSession = useCallback(async (sessionId: string) => {
-    console.log('[RESTORE_SESSION] Called', {
-      sessionId,
-      isInitializing: isInitializingRef.current,
-      hasInitialized: hasInitializedRef.current,
-    })
+  const restoreSession = useCallback(
+    async (sessionId: string) => {
+      console.log("[RESTORE_SESSION] Called", {
+        sessionId,
+        isInitializing: isInitializingRef.current,
+        hasInitialized: hasInitializedRef.current,
+      });
 
-    // Prevent multiple calls - only check refs
-    if (isInitializingRef.current) {
-      console.log('[RESTORE_SESSION] Already initializing, aborting')
-      return
-    }
-
-    if (hasInitializedRef.current) {
-      console.log('[RESTORE_SESSION] Already initialized, aborting')
-      return
-    }
-
-    isInitializingRef.current = true
-
-    try {
-      console.log('[RESTORE_SESSION] Setting loading state')
-      setInterviewState((prev) => ({ ...prev, isLoading: true, error: null }))
-
-      // Fetch session data with stored answers
-      const sessionResponse = await fetch(`/api/interviews/${sessionId}`)
-      if (!sessionResponse.ok) {
-        // Session not found — start fresh
-        console.warn(`Session ${sessionId} not found, starting fresh interview`)
-        isInitializingRef.current = false
-        await initializeInterview()
-        return
+      // Prevent multiple calls - only check refs
+      if (isInitializingRef.current) {
+        console.log("[RESTORE_SESSION] Already initializing, aborting");
+        return;
       }
-      
-      const responseData = await sessionResponse.json()
-      if (!responseData || !responseData.session) {
-        console.warn(`Session ${sessionId} data invalid, starting fresh interview`)
-        isInitializingRef.current = false
-        await initializeInterview()
-        return
+
+      if (hasInitializedRef.current) {
+        console.log("[RESTORE_SESSION] Already initialized, aborting");
+        return;
       }
-      
-      const { session: savedSession } = responseData
 
-      // Re-initialize questions via start API
-      const startResponse = await fetch('/api/forms/interview/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          formTemplateId: savedSession.formTemplateId,
-          jobType,
-          postcode,
-        }),
-      })
+      isInitializingRef.current = true;
 
-      if (!startResponse.ok) {
-        throw new Error('Failed to restore interview questions')
-      }
-      const startData = await startResponse.json()
+      try {
+        console.log("[RESTORE_SESSION] Setting loading state");
+        setInterviewState((prev) => ({
+          ...prev,
+          isLoading: true,
+          error: null,
+        }));
 
-      // Rebuild answers map from stored responses
-      const restoredAnswers = new Map<string, any>()
-      if (savedSession.responses && Array.isArray(savedSession.responses)) {
-        for (const resp of savedSession.responses) {
-          try {
-            // Try to parse answerValue (JSON) or use answer directly
-            const answerData = resp.answerValue || resp.answer
-            if (answerData) {
-              try {
-                restoredAnswers.set(resp.questionId, JSON.parse(answerData))
-              } catch {
-                restoredAnswers.set(resp.questionId, answerData)
+        // Fetch session data with stored answers
+        const sessionResponse = await fetch(`/api/interviews/${sessionId}`);
+        if (!sessionResponse.ok) {
+          // Session not found — start fresh
+          console.warn(
+            `Session ${sessionId} not found, starting fresh interview`,
+          );
+          isInitializingRef.current = false;
+          await initializeInterview();
+          return;
+        }
+
+        const responseData = await sessionResponse.json();
+        if (!responseData || !responseData.session) {
+          console.warn(
+            `Session ${sessionId} data invalid, starting fresh interview`,
+          );
+          isInitializingRef.current = false;
+          await initializeInterview();
+          return;
+        }
+
+        const { session: savedSession } = responseData;
+
+        // Re-initialize questions via start API
+        const startResponse = await fetch("/api/forms/interview/start", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            formTemplateId: savedSession.formTemplateId,
+            jobType,
+            postcode,
+          }),
+        });
+
+        if (!startResponse.ok) {
+          throw new Error("Failed to restore interview questions");
+        }
+        const startData = await startResponse.json();
+
+        // Rebuild answers map from stored responses
+        const restoredAnswers = new Map<string, any>();
+        if (savedSession.responses && Array.isArray(savedSession.responses)) {
+          for (const resp of savedSession.responses) {
+            try {
+              // Try to parse answerValue (JSON) or use answer directly
+              const answerData = resp.answerValue || resp.answer;
+              if (answerData) {
+                try {
+                  restoredAnswers.set(resp.questionId, JSON.parse(answerData));
+                } catch {
+                  restoredAnswers.set(resp.questionId, answerData);
+                }
               }
+            } catch (err) {
+              console.warn("Error parsing response:", resp, err);
             }
-          } catch (err) {
-            console.warn('Error parsing response:', resp, err)
           }
         }
-      }
 
-      // Find the next unanswered question
-      let nextQuestion: Question | null = null
-      for (const q of startData.questions) {
-        if (!restoredAnswers.has(q.id)) {
-          nextQuestion = q
-          break
+        // Find the next unanswered question
+        let nextQuestion: Question | null = null;
+        for (const q of startData.questions) {
+          if (!restoredAnswers.has(q.id)) {
+            nextQuestion = q;
+            break;
+          }
         }
+
+        // Calculate tier
+        let currentTier = 1;
+        if (nextQuestion?.sequenceNumber) {
+          if (nextQuestion.sequenceNumber <= 5) currentTier = 1;
+          else if (nextQuestion.sequenceNumber <= 8) currentTier = 2;
+          else if (nextQuestion.sequenceNumber <= 13) currentTier = 3;
+          else currentTier = 4;
+        }
+
+        const answeredCount = restoredAnswers.size;
+        const totalQ = startData.totalQuestions;
+        const isComplete = !nextQuestion || answeredCount >= totalQ;
+        startTimeRef.current = Date.now();
+
+        setInterviewState((prev) => ({
+          ...prev,
+          sessionId: savedSession.id,
+          currentTier,
+          currentQuestion:
+            nextQuestion || startData.questions[startData.questions.length - 1],
+          allQuestions: startData.questions,
+          tieredQuestions: startData.tieredQuestions,
+          answers: restoredAnswers,
+          totalQuestions: totalQ,
+          answeredQuestions: answeredCount,
+          progressPercentage:
+            totalQ > 0 ? Math.round((answeredCount / totalQ) * 100) : 0,
+          estimatedDurationMinutes: startData.estimatedDuration,
+          standardsCovered: startData.standardsCovered,
+          isLoading: false,
+          status: isComplete ? "COMPLETED" : "IN_PROGRESS",
+        }));
+
+        console.log("[RESTORE_SESSION] Setting isInitializingRef to false");
+        isInitializingRef.current = false;
+        hasInitializedRef.current = true;
+        console.log("[RESTORE_SESSION] Session restored successfully");
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to restore session";
+        console.error("[RESTORE_SESSION] Error restoring session:", error);
+        console.error(
+          "[RESTORE_SESSION] Error stack:",
+          error instanceof Error ? error.stack : "No stack trace",
+        );
+        isInitializingRef.current = false;
+        hasInitializedRef.current = false; // Allow retry on error
+        setInterviewState((prev) => ({
+          ...prev,
+          isLoading: false,
+          error: errorMessage,
+          status: "ERROR",
+        }));
       }
-
-      // Calculate tier
-      let currentTier = 1
-      if (nextQuestion?.sequenceNumber) {
-        if (nextQuestion.sequenceNumber <= 5) currentTier = 1
-        else if (nextQuestion.sequenceNumber <= 8) currentTier = 2
-        else if (nextQuestion.sequenceNumber <= 13) currentTier = 3
-        else currentTier = 4
-      }
-
-      const answeredCount = restoredAnswers.size
-      const totalQ = startData.totalQuestions
-      const isComplete = !nextQuestion || answeredCount >= totalQ
-      startTimeRef.current = Date.now()
-
-      setInterviewState((prev) => ({
-        ...prev,
-        sessionId: savedSession.id,
-        currentTier,
-        currentQuestion: nextQuestion || startData.questions[startData.questions.length - 1],
-        allQuestions: startData.questions,
-        tieredQuestions: startData.tieredQuestions,
-        answers: restoredAnswers,
-        totalQuestions: totalQ,
-        answeredQuestions: answeredCount,
-        progressPercentage: totalQ > 0 ? Math.round((answeredCount / totalQ) * 100) : 0,
-        estimatedDurationMinutes: startData.estimatedDuration,
-        standardsCovered: startData.standardsCovered,
-        isLoading: false,
-        status: isComplete ? 'COMPLETED' : 'IN_PROGRESS',
-      }))
-      
-      console.log('[RESTORE_SESSION] Setting isInitializingRef to false')
-      isInitializingRef.current = false
-      hasInitializedRef.current = true
-      console.log('[RESTORE_SESSION] Session restored successfully')
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to restore session'
-      console.error('[RESTORE_SESSION] Error restoring session:', error)
-      console.error('[RESTORE_SESSION] Error stack:', error instanceof Error ? error.stack : 'No stack trace')
-      isInitializingRef.current = false
-      hasInitializedRef.current = false // Allow retry on error
-      setInterviewState((prev) => ({
-        ...prev,
-        isLoading: false,
-        error: errorMessage,
-        status: 'ERROR',
-      }))
-    }
-  }, [formTemplateId, jobType, postcode, initializeInterview])
+    },
+    [formTemplateId, jobType, postcode, initializeInterview],
+  );
 
   /**
    * Record answer and get next question
@@ -494,100 +565,115 @@ export function GuidedInterviewPanel({
   const handleAnswer = useCallback(
     async (answer: any) => {
       if (!interviewState.currentQuestion || !interviewState.sessionId) {
-        return
+        return;
       }
 
       try {
-        setInterviewState((prev) => ({ ...prev, isLoading: true }))
+        setInterviewState((prev) => ({ ...prev, isLoading: true }));
 
-        const questionId = interviewState.currentQuestion.id
-        const newAnswers = new Map(interviewState.answers)
-        newAnswers.set(questionId, answer)
+        const questionId = interviewState.currentQuestion.id;
+        const newAnswers = new Map(interviewState.answers);
+        newAnswers.set(questionId, answer);
 
         // Record answer in database
-        const response = await fetch('/api/forms/interview/answer', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        const response = await fetch("/api/forms/interview/answer", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             sessionId: interviewState.sessionId,
             questionId,
             answer,
             confidence: 100,
           }),
-        })
+        });
 
         if (!response.ok) {
-          throw new Error(`Failed to submit answer: ${response.statusText}`)
+          throw new Error(`Failed to submit answer: ${response.statusText}`);
         }
 
-        const progressData = await response.json()
+        const progressData = await response.json();
 
-      // Process field mappings from this question
-      const newAutoPopulated = new Map(interviewState.autoPopulatedFields)
-      interviewState.currentQuestion.fieldMappings?.forEach((mapping) => {
-        let value = mapping.value
-        if (mapping.transformer) {
-          try {
-            // Pass current auto-populated fields as context for transformers
-            const context = Object.fromEntries(newAutoPopulated)
-            value = mapping.transformer(answer, context)
-          } catch (e) {
-            console.error('Transformer error:', e)
-            value = answer // Fallback to direct answer
+        // Process field mappings from this question
+        const newAutoPopulated = new Map(interviewState.autoPopulatedFields);
+        interviewState.currentQuestion.fieldMappings?.forEach((mapping) => {
+          let value = mapping.value;
+          if (mapping.transformer) {
+            try {
+              // Pass current auto-populated fields as context for transformers
+              const context = Object.fromEntries(newAutoPopulated);
+              value = mapping.transformer(answer, context);
+            } catch (e) {
+              console.error("Transformer error:", e);
+              value = answer; // Fallback to direct answer
+            }
+          } else if (value === undefined) {
+            value = answer;
           }
-        } else if (value === undefined) {
-          value = answer
-        }
 
-        // Handle special field mappings for better report field population
-        if (mapping.formFieldId === 'sourceOfWater') {
-          // Map clean_water, grey_water, black_water to readable descriptions
-          if (answer === 'clean_water') {
-            value = 'Clean water (supply line burst, roof leak)'
-          } else if (answer === 'grey_water') {
-            value = 'Grey water (washing machine, dishwasher, toilet)'
-          } else if (answer === 'black_water') {
-            value = 'Black water (sewage backup, highly contaminated)'
-          } else if (typeof answer === 'string') {
-            // Keep original if already formatted
-            value = answer
-          }
-        }
-        
-        // Map waterCategory values properly
-        if (mapping.formFieldId === 'waterCategory') {
-          // Ensure proper format: Category 1, Category 2, Category 3
-          if (typeof value === 'string') {
-            if (value.includes('Category 1') || value === '1' || value.toLowerCase().includes('category 1')) {
-              value = 'Category 1'
-            } else if (value.includes('Category 2') || value === '2' || value.toLowerCase().includes('category 2')) {
-              value = 'Category 2'
-            } else if (value.includes('Category 3') || value === '3' || value.toLowerCase().includes('category 3')) {
-              value = 'Category 3'
+          // Handle special field mappings for better report field population
+          if (mapping.formFieldId === "sourceOfWater") {
+            // Map clean_water, grey_water, black_water to readable descriptions
+            if (answer === "clean_water") {
+              value = "Clean water (supply line burst, roof leak)";
+            } else if (answer === "grey_water") {
+              value = "Grey water (washing machine, dishwasher, toilet)";
+            } else if (answer === "black_water") {
+              value = "Black water (sewage backup, highly contaminated)";
+            } else if (typeof answer === "string") {
+              // Keep original if already formatted
+              value = answer;
             }
           }
-        }
-        
-        // Map hazardType if needed
-        if (mapping.formFieldId === 'hazardType' && !value) {
-          value = 'WATER_DAMAGE' // Default for water damage interviews
-        }
 
-        newAutoPopulated.set(mapping.formFieldId, {
-          value,
-          confidence: mapping.confidence,
-        })
-      })
+          // Map waterCategory values properly
+          if (mapping.formFieldId === "waterCategory") {
+            // Ensure proper format: Category 1, Category 2, Category 3
+            if (typeof value === "string") {
+              if (
+                value.includes("Category 1") ||
+                value === "1" ||
+                value.toLowerCase().includes("category 1")
+              ) {
+                value = "Category 1";
+              } else if (
+                value.includes("Category 2") ||
+                value === "2" ||
+                value.toLowerCase().includes("category 2")
+              ) {
+                value = "Category 2";
+              } else if (
+                value.includes("Category 3") ||
+                value === "3" ||
+                value.toLowerCase().includes("category 3")
+              ) {
+                value = "Category 3";
+              }
+            }
+          }
+
+          // Map hazardType if needed
+          if (mapping.formFieldId === "hazardType" && !value) {
+            value = "WATER_DAMAGE"; // Default for water damage interviews
+          }
+
+          newAutoPopulated.set(mapping.formFieldId, {
+            value,
+            confidence: mapping.confidence,
+          });
+        });
 
         // Find next question
-        let nextQuestion: Question | null = null
+        let nextQuestion: Question | null = null;
 
         // Check skip logic
         if (interviewState.currentQuestion.skipLogic) {
           for (const rule of interviewState.currentQuestion.skipLogic) {
             if (answer === rule.answerValue) {
-              nextQuestion = interviewState.allQuestions.find((q) => q.id === rule.nextQuestionId) || null
-              break
+              nextQuestion =
+                interviewState.allQuestions.find(
+                  (q) => q.id === rule.nextQuestionId,
+                ) || null;
+              break;
             }
           }
         }
@@ -595,43 +681,47 @@ export function GuidedInterviewPanel({
         // If no skip, find next question respecting conditionals
         if (!nextQuestion) {
           const currentIndex = interviewState.allQuestions.findIndex(
-            (q) => q.id === interviewState.currentQuestion!.id
-          )
+            (q) => q.id === interviewState.currentQuestion!.id,
+          );
 
-          for (let i = currentIndex + 1; i < interviewState.allQuestions.length; i++) {
-            const q = interviewState.allQuestions[i]
+          for (
+            let i = currentIndex + 1;
+            i < interviewState.allQuestions.length;
+            i++
+          ) {
+            const q = interviewState.allQuestions[i];
 
             // Check conditional shows
             if (q.conditionalShows && q.conditionalShows.length > 0) {
               const allConditionsMet = q.conditionalShows.every((cond) => {
-                const answer = newAnswers.get(cond.field)
-                return evaluateCondition(answer, cond)
-              })
+                const answer = newAnswers.get(cond.field);
+                return evaluateCondition(answer, cond);
+              });
 
               if (allConditionsMet) {
-                nextQuestion = q
-                break
+                nextQuestion = q;
+                break;
               }
             } else {
-              nextQuestion = q
-              break
+              nextQuestion = q;
+              break;
             }
           }
         }
 
         // Update tier based on next question
-        let newTier = 1
+        let newTier = 1;
         if (nextQuestion?.sequenceNumber) {
-          if (nextQuestion.sequenceNumber <= 5) newTier = 1
-          else if (nextQuestion.sequenceNumber <= 8) newTier = 2
-          else if (nextQuestion.sequenceNumber <= 13) newTier = 3
-          else newTier = 4
+          if (nextQuestion.sequenceNumber <= 5) newTier = 1;
+          else if (nextQuestion.sequenceNumber <= 8) newTier = 2;
+          else if (nextQuestion.sequenceNumber <= 13) newTier = 3;
+          else newTier = 4;
         }
 
-        const newAnsweredCount = interviewState.answeredQuestions + 1
+        const newAnsweredCount = interviewState.answeredQuestions + 1;
         const newProgressPercentage = Math.round(
-          (newAnsweredCount / interviewState.totalQuestions) * 100
-        )
+          (newAnsweredCount / interviewState.totalQuestions) * 100,
+        );
 
         setInterviewState((prev) => ({
           ...prev,
@@ -641,154 +731,162 @@ export function GuidedInterviewPanel({
           currentTier: newTier,
           answeredQuestions: newAnsweredCount,
           progressPercentage: newProgressPercentage,
-          status: nextQuestion ? 'IN_PROGRESS' : 'COMPLETED',
+          status: nextQuestion ? "IN_PROGRESS" : "COMPLETED",
           isLoading: false,
-        }))
+        }));
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Failed to submit answer'
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to submit answer";
         setInterviewState((prev) => ({
           ...prev,
           isLoading: false,
           error: errorMessage,
-        }))
+        }));
       }
     },
-    [interviewState]
-  )
+    [interviewState],
+  );
 
   /**
    * Navigate to previous question
    */
   const handlePrevious = useCallback(() => {
-    if (!interviewState.currentQuestion) return
+    if (!interviewState.currentQuestion) return;
 
     const currentIndex = interviewState.allQuestions.findIndex(
-      (q) => q.id === interviewState.currentQuestion!.id
-    )
+      (q) => q.id === interviewState.currentQuestion!.id,
+    );
 
     if (currentIndex > 0) {
       // Find previous question respecting conditionals
       for (let i = currentIndex - 1; i >= 0; i--) {
-        const q = interviewState.allQuestions[i]
+        const q = interviewState.allQuestions[i];
 
         // Check if this question should be shown
         if (q.conditionalShows && q.conditionalShows.length > 0) {
           const allConditionsMet = q.conditionalShows.every((cond) => {
-            const answer = interviewState.answers.get(cond.field)
-            return evaluateCondition(answer, cond)
-          })
+            const answer = interviewState.answers.get(cond.field);
+            return evaluateCondition(answer, cond);
+          });
 
           if (allConditionsMet) {
-            let newTier = 1
+            let newTier = 1;
             if (q.sequenceNumber) {
-              if (q.sequenceNumber <= 5) newTier = 1
-              else if (q.sequenceNumber <= 8) newTier = 2
-              else if (q.sequenceNumber <= 13) newTier = 3
-              else newTier = 4
+              if (q.sequenceNumber <= 5) newTier = 1;
+              else if (q.sequenceNumber <= 8) newTier = 2;
+              else if (q.sequenceNumber <= 13) newTier = 3;
+              else newTier = 4;
             }
 
             setInterviewState((prev) => ({
               ...prev,
               currentQuestion: q,
               currentTier: newTier,
-            }))
-            break
+            }));
+            break;
           }
         } else {
-          let newTier = 1
+          let newTier = 1;
           if (q.sequenceNumber) {
-            if (q.sequenceNumber <= 5) newTier = 1
-            else if (q.sequenceNumber <= 8) newTier = 2
-            else if (q.sequenceNumber <= 13) newTier = 3
-            else newTier = 4
+            if (q.sequenceNumber <= 5) newTier = 1;
+            else if (q.sequenceNumber <= 8) newTier = 2;
+            else if (q.sequenceNumber <= 13) newTier = 3;
+            else newTier = 4;
           }
 
           setInterviewState((prev) => ({
             ...prev,
             currentQuestion: q,
             currentTier: newTier,
-          }))
-          break
+          }));
+          break;
         }
       }
     }
-  }, [interviewState])
+  }, [interviewState]);
 
   /**
    * Jump to specific question (from progress ring)
    */
-  const handleJumpToQuestion = useCallback((questionId: string) => {
-    const question = interviewState.allQuestions.find((q) => q.id === questionId)
-    const questionIndex = interviewState.allQuestions.findIndex((q) => q.id === questionId)
-    const currentIndex = interviewState.allQuestions.findIndex(
-      (q) => q.id === interviewState.currentQuestion!.id
-    )
+  const handleJumpToQuestion = useCallback(
+    (questionId: string) => {
+      const question = interviewState.allQuestions.find(
+        (q) => q.id === questionId,
+      );
+      const questionIndex = interviewState.allQuestions.findIndex(
+        (q) => q.id === questionId,
+      );
+      const currentIndex = interviewState.allQuestions.findIndex(
+        (q) => q.id === interviewState.currentQuestion!.id,
+      );
 
-    // Can only jump to questions we've passed or already answered
-    if (question && questionIndex <= currentIndex) {
-      let newTier = 1
-      if (question.sequenceNumber) {
-        if (question.sequenceNumber <= 5) newTier = 1
-        else if (question.sequenceNumber <= 8) newTier = 2
-        else if (question.sequenceNumber <= 13) newTier = 3
-        else newTier = 4
+      // Can only jump to questions we've passed or already answered
+      if (question && questionIndex <= currentIndex) {
+        let newTier = 1;
+        if (question.sequenceNumber) {
+          if (question.sequenceNumber <= 5) newTier = 1;
+          else if (question.sequenceNumber <= 8) newTier = 2;
+          else if (question.sequenceNumber <= 13) newTier = 3;
+          else newTier = 4;
+        }
+
+        setInterviewState((prev) => ({
+          ...prev,
+          currentQuestion: question,
+          currentTier: newTier,
+        }));
       }
-
-      setInterviewState((prev) => ({
-        ...prev,
-        currentQuestion: question,
-        currentTier: newTier,
-      }))
-    }
-  }, [interviewState])
+    },
+    [interviewState],
+  );
 
   /**
    * Complete interview: pass questions and answers for summary review
    */
   const handleComplete = useCallback(() => {
-    if (!onComplete) return
+    if (!onComplete) return;
     const questionsAndAnswers: InterviewQuestionAnswer[] = Array.from(
-      interviewState.answers.entries()
+      interviewState.answers.entries(),
     ).map(([questionId, answer]) => {
-      const q = interviewState.allQuestions.find((qq) => qq.id === questionId)
+      const q = interviewState.allQuestions.find((qq) => qq.id === questionId);
       return {
         questionId,
-        questionText: q?.text ?? '',
+        questionText: q?.text ?? "",
         answer,
-      }
-    })
-    onComplete(questionsAndAnswers)
-  }, [interviewState.answers, interviewState.allQuestions, onComplete])
+      };
+    });
+    onComplete(questionsAndAnswers);
+  }, [interviewState.answers, interviewState.allQuestions, onComplete]);
 
   /**
    * Evaluate condition for conditional shows
    */
   const evaluateCondition = (answer: any, condition: any): boolean => {
-    if (answer === undefined || answer === null) return false
+    if (answer === undefined || answer === null) return false;
 
     switch (condition.operator) {
-      case 'eq':
-        return answer === condition.value
-      case 'neq':
-        return answer !== condition.value
-      case 'gt':
-        return Number(answer) > Number(condition.value)
-      case 'lt':
-        return Number(answer) < Number(condition.value)
-      case 'gte':
-        return Number(answer) >= Number(condition.value)
-      case 'lte':
-        return Number(answer) <= Number(condition.value)
-      case 'includes':
-        return Array.isArray(answer) && answer.includes(condition.value)
-      case 'excludes':
-        return Array.isArray(answer) && !answer.includes(condition.value)
-      case 'contains':
-        return String(answer).includes(String(condition.value))
+      case "eq":
+        return answer === condition.value;
+      case "neq":
+        return answer !== condition.value;
+      case "gt":
+        return Number(answer) > Number(condition.value);
+      case "lt":
+        return Number(answer) < Number(condition.value);
+      case "gte":
+        return Number(answer) >= Number(condition.value);
+      case "lte":
+        return Number(answer) <= Number(condition.value);
+      case "includes":
+        return Array.isArray(answer) && answer.includes(condition.value);
+      case "excludes":
+        return Array.isArray(answer) && !answer.includes(condition.value);
+      case "contains":
+        return String(answer).includes(String(condition.value));
       default:
-        return false
+        return false;
     }
-  }
+  };
 
   // Render loading state
   if (interviewState.isLoading && !interviewState.currentQuestion) {
@@ -802,21 +900,27 @@ export function GuidedInterviewPanel({
             </div>
           </div>
           <div className="text-center space-y-2">
-            <p className="text-lg font-semibold text-foreground">Starting interview...</p>
-            <p className="text-sm text-muted-foreground">Preparing your personalized questions</p>
+            <p className="text-lg font-semibold text-foreground">
+              Starting interview...
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Preparing your personalized questions
+            </p>
           </div>
           {interviewState.error && (
             <div className="mt-4 max-w-md animate-in fade-in slide-in-from-bottom-4">
               <Alert variant="destructive" className="border-2">
                 <AlertCircle className="h-5 w-5" />
-                <AlertDescription className="font-medium">{interviewState.error}</AlertDescription>
+                <AlertDescription className="font-medium">
+                  {interviewState.error}
+                </AlertDescription>
               </Alert>
-              <Button 
+              <Button
                 onClick={() => {
-                  isInitializingRef.current = false
-                  hasInitializedRef.current = false
-                  initializeInterview()
-                }} 
+                  isInitializingRef.current = false;
+                  hasInitializedRef.current = false;
+                  initializeInterview();
+                }}
                 className="mt-4 w-full h-11 text-base font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
               >
                 Retry
@@ -825,11 +929,11 @@ export function GuidedInterviewPanel({
           )}
         </CardContent>
       </Card>
-    )
+    );
   }
 
   // Render error state
-  if (interviewState.status === 'ERROR') {
+  if (interviewState.status === "ERROR") {
     return (
       <Card className="w-full h-full flex flex-col">
         <CardContent className="flex-1 flex flex-col pt-8">
@@ -842,27 +946,37 @@ export function GuidedInterviewPanel({
           </Button>
         </CardContent>
       </Card>
-    )
+    );
   }
 
   // Format answer for one-line preview
   const formatAnswerPreview = (value: unknown): string => {
-    if (value === null || value === undefined) return '—'
-    if (typeof value === 'string') return value.length > 60 ? value.slice(0, 60) + '…' : value
-    if (Array.isArray(value)) return value.join(', ').slice(0, 60) + (value.join(', ').length > 60 ? '…' : '')
-    if (typeof value === 'object') return JSON.stringify(value).slice(0, 60) + '…'
-    return String(value)
-  }
+    if (value === null || value === undefined) return "—";
+    if (typeof value === "string")
+      return value.length > 60 ? value.slice(0, 60) + "…" : value;
+    if (Array.isArray(value))
+      return (
+        value.join(", ").slice(0, 60) +
+        (value.join(", ").length > 60 ? "…" : "")
+      );
+    if (typeof value === "object")
+      return JSON.stringify(value).slice(0, 60) + "…";
+    return String(value);
+  };
 
   // Render completion state: detailed summary then "View full summary"
-  if (interviewState.status === 'COMPLETED') {
-    const completedQa = Array.from(interviewState.answers.entries()).map(([questionId, answer]) => {
-      const q = interviewState.allQuestions.find((qq) => qq.id === questionId)
-      return { questionText: q?.text ?? '', answer }
-    })
-    const start = startTimeRef.current ?? Date.now()
-    const timeSpentMin = Math.round((Date.now() - start) / 60000)
-    const timeSpentSec = Math.round((Date.now() - start) / 1000) % 60
+  if (interviewState.status === "COMPLETED") {
+    const completedQa = Array.from(interviewState.answers.entries()).map(
+      ([questionId, answer]) => {
+        const q = interviewState.allQuestions.find(
+          (qq) => qq.id === questionId,
+        );
+        return { questionText: q?.text ?? "", answer };
+      },
+    );
+    const start = startTimeRef.current ?? Date.now();
+    const timeSpentMin = Math.round((Date.now() - start) / 60000);
+    const timeSpentSec = Math.round((Date.now() - start) / 1000) % 60;
 
     return (
       <Card className="w-full h-full flex flex-col border-2 border-green-200/60 dark:border-green-800/60 bg-gradient-to-b from-green-50/50 to-white dark:from-green-950/20 dark:to-slate-900">
@@ -872,9 +986,12 @@ export function GuidedInterviewPanel({
               <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
             </div>
             <div>
-              <CardTitle className="text-xl text-gray-900 dark:text-white">Interview Complete</CardTitle>
+              <CardTitle className="text-xl text-gray-900 dark:text-white">
+                Interview Complete
+              </CardTitle>
               <CardDescription className="text-sm text-gray-600 dark:text-slate-400">
-                All questions answered. Review your answers below or open the full summary.
+                All questions answered. Review your answers below or open the
+                full summary.
               </CardDescription>
             </div>
           </div>
@@ -883,20 +1000,34 @@ export function GuidedInterviewPanel({
           {/* Stats */}
           <div className="grid grid-cols-3 gap-3">
             <div className="rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-3 text-center">
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Questions</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{interviewState.answeredQuestions}</p>
-              <p className="text-xs text-muted-foreground">of {interviewState.totalQuestions}</p>
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Questions
+              </p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                {interviewState.answeredQuestions}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                of {interviewState.totalQuestions}
+              </p>
             </div>
             <div className="rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-3 text-center">
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Time</p>
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Time
+              </p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {timeSpentMin > 0 ? `${timeSpentMin} min` : `${timeSpentSec} sec`}
+                {timeSpentMin > 0
+                  ? `${timeSpentMin} min`
+                  : `${timeSpentSec} sec`}
               </p>
               <p className="text-xs text-muted-foreground">total</p>
             </div>
             <div className="rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-3 text-center">
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Progress</p>
-              <p className="text-2xl font-bold text-green-600 dark:text-green-400">100%</p>
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Progress
+              </p>
+              <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                100%
+              </p>
               <p className="text-xs text-muted-foreground">complete</p>
             </div>
           </div>
@@ -904,7 +1035,9 @@ export function GuidedInterviewPanel({
           {/* Standards covered */}
           {interviewState.standardsCovered.length > 0 && (
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Standards covered</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                Standards covered
+              </p>
               <div className="flex flex-wrap gap-1.5">
                 {interviewState.standardsCovered.map((std) => (
                   <span
@@ -920,15 +1053,21 @@ export function GuidedInterviewPanel({
 
           {/* Answers at a glance */}
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Your answers at a glance</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+              Your answers at a glance
+            </p>
             <div className="max-h-64 overflow-y-auto rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/30 divide-y divide-gray-200 dark:divide-slate-700">
               {completedQa.map((item, index) => (
                 <div
                   key={index}
                   className="px-3 py-2.5 text-left hover:bg-gray-100/80 dark:hover:bg-slate-700/30 transition-colors"
                 >
-                  <p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2">{item.questionText}</p>
-                  <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{formatAnswerPreview(item.answer)}</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2">
+                    {item.questionText}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                    {formatAnswerPreview(item.answer)}
+                  </p>
                 </div>
               ))}
             </div>
@@ -938,13 +1077,18 @@ export function GuidedInterviewPanel({
             <Button onClick={handleComplete} className="flex-1" size="lg">
               View full summary
             </Button>
-            <Button onClick={onCancel} variant="outline" className="flex-1" size="lg">
+            <Button
+              onClick={onCancel}
+              variant="outline"
+              className="flex-1"
+              size="lg"
+            >
               Cancel
             </Button>
           </div>
         </CardContent>
       </Card>
-    )
+    );
   }
 
   // Render active interview
@@ -967,8 +1111,9 @@ export function GuidedInterviewPanel({
                       Guided Interview
                     </CardTitle>
                     <CardDescription className="text-sm text-gray-600 dark:text-slate-400">
-                      {interviewState.answeredQuestions} of {interviewState.totalQuestions} questions
-                      {' '}answered · ~{interviewState.estimatedDurationMinutes} min total
+                      {interviewState.answeredQuestions} of{" "}
+                      {interviewState.totalQuestions} questions answered · ~
+                      {interviewState.estimatedDurationMinutes} min total
                     </CardDescription>
                   </div>
                 </div>
@@ -981,7 +1126,8 @@ export function GuidedInterviewPanel({
                       {interviewState.progressPercentage}%
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {interviewState.answeredQuestions} / {interviewState.totalQuestions}
+                      {interviewState.answeredQuestions} /{" "}
+                      {interviewState.totalQuestions}
                     </p>
                   </div>
                   <ProgressRing
@@ -992,15 +1138,17 @@ export function GuidedInterviewPanel({
                     allQuestions={interviewState.allQuestions}
                     userTierLevel={
                       interviewState.currentTier <= 1
-                        ? 'STANDARD'
+                        ? "STANDARD"
                         : interviewState.currentTier <= 2
-                        ? 'PREMIUM'
-                        : 'ENTERPRISE'
+                          ? "PREMIUM"
+                          : "ENTERPRISE"
                     }
-                    onUpgrade={(tier) => {
-                      setLockedTier(tier)
-                      setShowUpgradePrompt(true)
-                    }}
+                    onUpgrade={
+                      (() => {
+                        setLockedTier(interviewState.currentTier);
+                        setShowUpgradePrompt(true);
+                      }) as () => void
+                    }
                   />
                 </div>
               </CardHeader>
@@ -1033,7 +1181,8 @@ export function GuidedInterviewPanel({
                 <div>
                   <p className="text-xs text-muted-foreground">Answered</p>
                   <p className="mt-0.5 text-base font-semibold text-foreground">
-                    {interviewState.answeredQuestions} / {interviewState.totalQuestions}
+                    {interviewState.answeredQuestions} /{" "}
+                    {interviewState.totalQuestions}
                   </p>
                 </div>
                 <div>
@@ -1044,7 +1193,9 @@ export function GuidedInterviewPanel({
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Estimated time</p>
+                  <p className="text-xs text-muted-foreground">
+                    Estimated time
+                  </p>
                   <p className="mt-0.5 text-base font-semibold text-foreground">
                     ~{interviewState.estimatedDurationMinutes} min
                   </p>
@@ -1066,7 +1217,8 @@ export function GuidedInterviewPanel({
                     Standards coverage
                   </CardTitle>
                   <CardDescription className="text-xs text-blue-800/80 dark:text-blue-300/80">
-                    Live view of IICRC / NCC / AS references touched by this interview.
+                    Live view of IICRC / NCC / AS references touched by this
+                    interview.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -1091,14 +1243,18 @@ export function GuidedInterviewPanel({
       <BottomActionBar
         onPrevious={handlePrevious}
         onNext={() => {}} // Handled by QuestionCard
-        onComplete={interviewState.status === 'COMPLETED' ? handleComplete : undefined}
+        onComplete={
+          (interviewState.status as string) === "COMPLETED"
+            ? handleComplete
+            : undefined
+        }
         canGoPrevious={
           interviewState.allQuestions.findIndex(
-            (q) => q.id === interviewState.currentQuestion?.id
+            (q) => q.id === interviewState.currentQuestion?.id,
           ) > 0
         }
         canGoNext={!!interviewState.currentQuestion}
-        isComplete={interviewState.status === 'COMPLETED'}
+        isComplete={(interviewState.status as string) === "COMPLETED"}
         onCancel={onCancel}
       />
 
@@ -1113,7 +1269,9 @@ export function GuidedInterviewPanel({
                 </div>
                 <div>
                   <CardTitle>Upgrade Required</CardTitle>
-                  <CardDescription>Tier {lockedTier} questions are locked</CardDescription>
+                  <CardDescription>
+                    Tier {lockedTier} questions are locked
+                  </CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -1121,16 +1279,16 @@ export function GuidedInterviewPanel({
               <Alert>
                 <Crown className="h-4 w-4" />
                 <AlertDescription>
-                  To access Tier {lockedTier} questions, you need to upgrade to{' '}
-                  {lockedTier <= 2 ? 'Premium' : 'Enterprise'} plan.
+                  To access Tier {lockedTier} questions, you need to upgrade to{" "}
+                  {lockedTier <= 2 ? "Premium" : "Enterprise"} plan.
                 </AlertDescription>
               </Alert>
               <div className="flex gap-2">
                 <Button
                   variant="outline"
                   onClick={() => {
-                    setShowUpgradePrompt(false)
-                    setLockedTier(null)
+                    setShowUpgradePrompt(false);
+                    setLockedTier(null);
                   }}
                   className="flex-1"
                 >
@@ -1138,7 +1296,7 @@ export function GuidedInterviewPanel({
                 </Button>
                 <Button
                   onClick={() => {
-                    router.push('/dashboard/pricing?upgrade=true')
+                    router.push("/dashboard/pricing?upgrade=true");
                   }}
                   className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
                 >
@@ -1151,5 +1309,5 @@ export function GuidedInterviewPanel({
         </div>
       )}
     </div>
-  )
+  );
 }

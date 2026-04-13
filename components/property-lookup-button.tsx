@@ -11,25 +11,25 @@
  * - Australian Property Monitors
  */
 
-'use client'
+"use client";
 
-import { Button } from '@/components/ui/button'
-import { Loader2 } from 'lucide-react'
+import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 
 interface PropertyLookupButtonProps {
-  inspectionId?: string
-  address?: string
-  postcode?: string
-  label?: string
-  onSuccess?: (data: any) => void
-  onError?: (error: any) => void
+  inspectionId?: string;
+  address?: string;
+  postcode?: string;
+  label?: string;
+  onSuccess?: (data: any) => void;
+  onError?: (error: any) => void;
 }
 
 export function PropertyLookupButton({
   inspectionId,
   address,
   postcode,
-  label = 'Lookup Property Data',
+  label = "Lookup Property Data",
   onSuccess,
   onError,
 }: PropertyLookupButtonProps) {
@@ -38,14 +38,14 @@ export function PropertyLookupButton({
       // V3 Feature: Property Intelligence Integration
       // This will call /api/property/lookup when CoreLogic/Domain integration is complete
       if (onSuccess) {
-        onSuccess({ data: null, expiresAt: null })
+        onSuccess({ data: null, expiresAt: null });
       }
     } catch (error) {
       if (onError) {
-        onError(error)
+        onError(error);
       }
     }
-  }
+  };
 
   return (
     <Button
@@ -55,5 +55,5 @@ export function PropertyLookupButton({
     >
       {label}
     </Button>
-  )
+  );
 }

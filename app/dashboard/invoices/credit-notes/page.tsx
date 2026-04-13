@@ -1,20 +1,20 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
+import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   ChevronDown,
   ChevronRight,
   DollarSign,
   FileX,
   Plus,
-} from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -22,81 +22,86 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
+} from "@/components/ui/table";
 
 // ---------------------------------------------------------------------------
 // Types (derived from Prisma schema — no imports needed at runtime)
 // ---------------------------------------------------------------------------
 
-type CreditNoteStatus = 'DRAFT' | 'ISSUED' | 'APPLIED' | 'REFUNDED' | 'CANCELLED'
+type CreditNoteStatus =
+  | "DRAFT"
+  | "ISSUED"
+  | "APPLIED"
+  | "REFUNDED"
+  | "CANCELLED";
 type CreditNoteReason =
-  | 'CUSTOMER_REFUND'
-  | 'PRICING_ERROR'
-  | 'DUPLICATE_INVOICE'
-  | 'SERVICE_ISSUE'
-  | 'GOODWILL'
-  | 'OTHER'
+  | "CUSTOMER_REFUND"
+  | "PRICING_ERROR"
+  | "DUPLICATE_INVOICE"
+  | "SERVICE_ISSUE"
+  | "GOODWILL"
+  | "OTHER";
 
 interface CreditNoteLineItem {
-  id: string
-  description: string
-  quantity: number
-  unitPrice: number
-  subtotal: number
-  gstRate: number
-  gstAmount: number
-  total: number
-  sortOrder: number
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  subtotal: number;
+  gstRate: number;
+  gstAmount: number;
+  total: number;
+  sortOrder: number;
 }
 
 interface CreditNote {
-  id: string
-  creditNoteNumber: string
-  status: CreditNoteStatus
-  creditDate: string
-  appliedDate: string | null
-  subtotalExGST: number
-  gstAmount: number
-  totalIncGST: number
-  reason: CreditNoteReason
-  reasonNotes: string | null
-  refundMethod: string | null
-  refundReference: string | null
-  refundedAt: string | null
-  invoiceId: string
+  id: string;
+  creditNoteNumber: string;
+  status: CreditNoteStatus;
+  creditDate: string;
+  appliedDate: string | null;
+  subtotalExGST: number;
+  gstAmount: number;
+  totalIncGST: number;
+  reason: CreditNoteReason;
+  reasonNotes: string | null;
+  refundMethod: string | null;
+  refundReference: string | null;
+  refundedAt: string | null;
+  invoiceId: string;
   invoice: {
-    invoiceNumber: string
-    customerName: string
-  } | null
-  lineItems: CreditNoteLineItem[]
+    invoiceNumber: string;
+    customerName: string;
+  } | null;
+  lineItems: CreditNoteLineItem[];
 }
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-const STATUS_TABS: { label: string; value: CreditNoteStatus | 'ALL' }[] = [
-  { label: 'All', value: 'ALL' },
-  { label: 'Draft', value: 'DRAFT' },
-  { label: 'Issued', value: 'ISSUED' },
-  { label: 'Applied', value: 'APPLIED' },
-  { label: 'Refunded', value: 'REFUNDED' },
-  { label: 'Voided', value: 'CANCELLED' },
-]
+const STATUS_TABS: { label: string; value: CreditNoteStatus | "ALL" }[] = [
+  { label: "All", value: "ALL" },
+  { label: "Draft", value: "DRAFT" },
+  { label: "Issued", value: "ISSUED" },
+  { label: "Applied", value: "APPLIED" },
+  { label: "Refunded", value: "REFUNDED" },
+  { label: "Voided", value: "CANCELLED" },
+];
 
 function formatAUD(cents: number): string {
-  return new Intl.NumberFormat('en-AU', {
-    style: 'currency',
-    currency: 'AUD',
-  }).format(cents / 100)
+  return new Intl.NumberFormat("en-AU", {
+    style: "currency",
+    currency: "AUD",
+  }).format(cents / 100);
 }
 
 function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-AU', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  })
+  return new Date(dateStr).toLocaleDateString("en-AU", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 // Status badge config
@@ -105,65 +110,68 @@ const STATUS_CONFIG: Record<
   { label: string; className: string }
 > = {
   DRAFT: {
-    label: 'Draft',
+    label: "Draft",
     className:
-      'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300 border-0',
+      "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300 border-0",
   },
   ISSUED: {
-    label: 'Issued',
+    label: "Issued",
     className:
-      'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border-0',
+      "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border-0",
   },
   APPLIED: {
-    label: 'Applied',
+    label: "Applied",
     className:
-      'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 border-0',
+      "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 border-0",
   },
   REFUNDED: {
-    label: 'Refunded',
+    label: "Refunded",
     className:
-      'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300 border-0',
+      "bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300 border-0",
   },
   CANCELLED: {
-    label: 'Voided',
+    label: "Voided",
     className:
-      'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 border-0',
+      "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 border-0",
   },
-}
+};
 
 // Reason badge config
-const REASON_CONFIG: Record<CreditNoteReason, { label: string; className: string }> = {
+const REASON_CONFIG: Record<
+  CreditNoteReason,
+  { label: string; className: string }
+> = {
   CUSTOMER_REFUND: {
-    label: 'Customer Refund',
+    label: "Customer Refund",
     className:
-      'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border-0',
+      "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border-0",
   },
   PRICING_ERROR: {
-    label: 'Pricing Error',
+    label: "Pricing Error",
     className:
-      'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border-0',
+      "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border-0",
   },
   DUPLICATE_INVOICE: {
-    label: 'Duplicate Invoice',
+    label: "Duplicate Invoice",
     className:
-      'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300 border-0',
+      "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300 border-0",
   },
   SERVICE_ISSUE: {
-    label: 'Service Issue',
+    label: "Service Issue",
     className:
-      'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 border-0',
+      "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 border-0",
   },
   GOODWILL: {
-    label: 'Goodwill',
+    label: "Goodwill",
     className:
-      'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300 border-0',
+      "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300 border-0",
   },
   OTHER: {
-    label: 'Other',
+    label: "Other",
     className:
-      'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300 border-0',
+      "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300 border-0",
   },
-}
+};
 
 // ---------------------------------------------------------------------------
 // Sub-components
@@ -179,7 +187,7 @@ function SummaryCardSkeleton() {
         <Skeleton className="h-8 w-40" />
       </CardContent>
     </Card>
-  )
+  );
 }
 
 function TableRowSkeleton() {
@@ -210,11 +218,11 @@ function TableRowSkeleton() {
         <Skeleton className="h-4 w-24" />
       </TableCell>
     </TableRow>
-  )
+  );
 }
 
 interface ExpandedRowProps {
-  creditNote: CreditNote
+  creditNote: CreditNote;
 }
 
 function ExpandedDetailRow({ creditNote }: ExpandedRowProps) {
@@ -280,7 +288,7 @@ function ExpandedDetailRow({ creditNote }: ExpandedRowProps) {
                 Refund Method
               </p>
               <p className="text-sm text-slate-700 dark:text-slate-300">
-                {creditNote.refundMethod.replace(/_/g, ' ')}
+                {creditNote.refundMethod.replace(/_/g, " ")}
                 {creditNote.refundReference && (
                   <span className="ml-2 text-slate-500 dark:text-slate-400">
                     (Ref: {creditNote.refundReference})
@@ -309,7 +317,7 @@ function ExpandedDetailRow({ creditNote }: ExpandedRowProps) {
         </div>
       </TableCell>
     </TableRow>
-  )
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -317,50 +325,50 @@ function ExpandedDetailRow({ creditNote }: ExpandedRowProps) {
 // ---------------------------------------------------------------------------
 
 export default function CreditNotesPage() {
-  const { status: authStatus } = useSession()
-  const router = useRouter()
+  const { status: authStatus } = useSession();
+  const router = useRouter();
 
-  const [creditNotes, setCreditNotes] = useState<CreditNote[]>([])
-  const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<CreditNoteStatus | 'ALL'>('ALL')
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [creditNotes, setCreditNotes] = useState<CreditNote[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<CreditNoteStatus | "ALL">("ALL");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Redirect if unauthenticated
   useEffect(() => {
-    if (authStatus === 'unauthenticated') {
-      router.push('/login')
-    } else if (authStatus === 'authenticated') {
-      fetchCreditNotes()
+    if (authStatus === "unauthenticated") {
+      router.push("/login");
+    } else if (authStatus === "authenticated") {
+      fetchCreditNotes();
     }
-  }, [authStatus])
+  }, [authStatus]);
 
   async function fetchCreditNotes() {
-    setLoading(true)
+    setLoading(true);
     try {
-      const res = await fetch('/api/invoices/credit-notes')
-      if (!res.ok) throw new Error('Failed to fetch credit notes')
-      const data = await res.json()
-      setCreditNotes(data.creditNotes ?? [])
+      const res = await fetch("/api/invoices/credit-notes");
+      if (!res.ok) throw new Error("Failed to fetch credit notes");
+      const data = await res.json();
+      setCreditNotes(data.creditNotes ?? []);
     } catch (err) {
-      console.error('[CreditNotesPage] fetch error:', err)
-      setCreditNotes([])
+      console.error("[CreditNotesPage] fetch error:", err);
+      setCreditNotes([]);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   // Derived values
   const filteredNotes =
-    activeTab === 'ALL'
+    activeTab === "ALL"
       ? creditNotes
-      : creditNotes.filter((cn) => cn.status === activeTab)
+      : creditNotes.filter((cn) => cn.status === activeTab);
 
   const totalCreditsIssued = creditNotes
-    .filter((cn) => cn.status !== 'CANCELLED')
-    .reduce((sum, cn) => sum + cn.totalIncGST, 0)
+    .filter((cn) => cn.status !== "CANCELLED")
+    .reduce((sum, cn) => sum + cn.totalIncGST, 0);
 
   function toggleRow(id: string) {
-    setExpandedId((prev) => (prev === id ? null : id))
+    setExpandedId((prev) => (prev === id ? null : id));
   }
 
   return (
@@ -375,7 +383,10 @@ export default function CreditNotesPage() {
             Manage adjustments and refunds issued against invoices.
           </p>
         </div>
-        <Button asChild className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:opacity-90">
+        <Button
+          asChild
+          className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:opacity-90"
+        >
           <Link href="/dashboard/invoices/credit-notes/new">
             <Plus className="h-4 w-4" />
             Issue New Credit Note
@@ -413,22 +424,22 @@ export default function CreditNotesPage() {
       <div className="flex gap-1 mb-4 border-b border-slate-200 dark:border-slate-700">
         {STATUS_TABS.map((tab) => {
           const count =
-            tab.value === 'ALL'
+            tab.value === "ALL"
               ? creditNotes.length
-              : creditNotes.filter((cn) => cn.status === tab.value).length
-          const isActive = activeTab === tab.value
+              : creditNotes.filter((cn) => cn.status === tab.value).length;
+          const isActive = activeTab === tab.value;
           return (
             <button
               key={tab.value}
               type="button"
               onClick={() => {
-                setActiveTab(tab.value)
-                setExpandedId(null)
+                setActiveTab(tab.value);
+                setExpandedId(null);
               }}
               className={`px-4 py-2 text-sm font-medium transition-colors relative -mb-px ${
                 isActive
-                  ? 'text-cyan-600 dark:text-cyan-400 border-b-2 border-cyan-500'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  ? "text-cyan-600 dark:text-cyan-400 border-b-2 border-cyan-500"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
               {tab.label}
@@ -436,15 +447,15 @@ export default function CreditNotesPage() {
                 <span
                   className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${
                     isActive
-                      ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300'
-                      : 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400'
+                      ? "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300"
+                      : "bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400"
                   }`}
                 >
                   {count}
                 </span>
               )}
             </button>
-          )
+          );
         })}
       </div>
 
@@ -512,9 +523,9 @@ export default function CreditNotesPage() {
             </TableHeader>
             <TableBody>
               {filteredNotes.map((cn) => {
-                const isExpanded = expandedId === cn.id
-                const statusCfg = STATUS_CONFIG[cn.status]
-                const reasonCfg = REASON_CONFIG[cn.reason]
+                const isExpanded = expandedId === cn.id;
+                const statusCfg = STATUS_CONFIG[cn.status];
+                const reasonCfg = REASON_CONFIG[cn.reason];
                 return [
                   <TableRow
                     key={cn.id}
@@ -555,7 +566,7 @@ export default function CreditNotesPage() {
                     {/* Client name */}
                     <TableCell>
                       <span className="text-sm text-slate-700 dark:text-slate-300">
-                        {cn.invoice?.customerName ?? '—'}
+                        {cn.invoice?.customerName ?? "—"}
                       </span>
                     </TableCell>
 
@@ -590,14 +601,17 @@ export default function CreditNotesPage() {
 
                   // Expanded detail row
                   isExpanded ? (
-                    <ExpandedDetailRow key={`${cn.id}-expanded`} creditNote={cn} />
+                    <ExpandedDetailRow
+                      key={`${cn.id}-expanded`}
+                      creditNote={cn}
+                    />
                   ) : null,
-                ]
+                ];
               })}
             </TableBody>
           </Table>
         </div>
       )}
     </div>
-  )
+  );
 }

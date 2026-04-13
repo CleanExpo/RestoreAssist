@@ -1,15 +1,18 @@
-import React from 'react';
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing } from '@/constants/theme';
-import { useAppStore } from '@/lib/store';
+import React from "react";
+import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { colors, spacing } from "@/constants/theme";
+import { useAppStore } from "@/lib/store";
 
 interface SyncStatusBarProps {
   submitting?: boolean;
   error?: string | null;
 }
 
-export default function SyncStatusBar({ submitting, error }: SyncStatusBarProps) {
+export default function SyncStatusBar({
+  submitting,
+  error,
+}: SyncStatusBarProps) {
   const isOnline = useAppStore((s) => s.isOnline);
 
   if (error) {
@@ -27,7 +30,9 @@ export default function SyncStatusBar({ submitting, error }: SyncStatusBarProps)
     return (
       <View style={[styles.bar, styles.submittingBar]}>
         <ActivityIndicator size="small" color={colors.accent} />
-        <Text style={[styles.text, styles.submittingText]}>Submitting to server...</Text>
+        <Text style={[styles.text, styles.submittingText]}>
+          Submitting to server...
+        </Text>
       </View>
     );
   }
@@ -51,9 +56,9 @@ export default function SyncStatusBar({ submitting, error }: SyncStatusBarProps)
 
 const styles = StyleSheet.create({
   bar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: spacing.xs,
     paddingVertical: spacing.sm,
     borderRadius: 8,
@@ -66,7 +71,7 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: "700",
     letterSpacing: 0.3,
   },
   onlineBar: {

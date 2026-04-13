@@ -1,65 +1,102 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import Link from "next/link"
-import { motion } from "framer-motion"
-import Header from "@/components/landing/Header"
-import Footer from "@/components/landing/Footer"
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { motion } from "framer-motion";
+import Header from "@/components/landing/Header";
+import Footer from "@/components/landing/Footer";
 
 export default function ComplianceLibraryPage() {
-  const [darkMode, setDarkMode] = useState(true)
+  const [darkMode, setDarkMode] = useState(true);
 
   useEffect(() => {
-    if (!document.getElementById('google-fonts-preconnect')) {
-      const link1 = document.createElement('link')
-      link1.id = 'google-fonts-preconnect'
-      link1.rel = 'preconnect'
-      link1.href = 'https://fonts.googleapis.com'
-      document.head.appendChild(link1)
+    if (!document.getElementById("google-fonts-preconnect")) {
+      const link1 = document.createElement("link");
+      link1.id = "google-fonts-preconnect";
+      link1.rel = "preconnect";
+      link1.href = "https://fonts.googleapis.com";
+      document.head.appendChild(link1);
 
-      const link2 = document.createElement('link')
-      link2.rel = 'preconnect'
-      link2.href = 'https://fonts.gstatic.com'
-      link2.crossOrigin = 'anonymous'
-      document.head.appendChild(link2)
+      const link2 = document.createElement("link");
+      link2.rel = "preconnect";
+      link2.href = "https://fonts.gstatic.com";
+      link2.crossOrigin = "anonymous";
+      document.head.appendChild(link2);
 
-      const link3 = document.createElement('link')
-      link3.href = 'https://fonts.googleapis.com/css2?family=Open+Sauce+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap'
-      link3.rel = 'stylesheet'
-      document.head.appendChild(link3)
+      const link3 = document.createElement("link");
+      link3.href =
+        "https://fonts.googleapis.com/css2?family=Open+Sauce+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap";
+      link3.rel = "stylesheet";
+      document.head.appendChild(link3);
     }
-  }, [])
+  }, []);
 
   const documents = [
     {
       category: "IICRC Standards",
       items: [
-        { title: "IICRC S500 Standard", description: "Standard and Reference Guide for Professional Water Damage Restoration", type: "PDF" },
-        { title: "IICRC S520 Standard", description: "Standard and Reference Guide for Professional Mold Remediation", type: "PDF" },
-        { title: "IICRC R520 Reference Guide", description: "Reference Guide for Professional Mold Remediation", type: "PDF" }
-      ]
+        {
+          title: "IICRC S500 Standard",
+          description:
+            "Standard and Reference Guide for Professional Water Damage Restoration",
+          type: "PDF",
+        },
+        {
+          title: "IICRC S520 Standard",
+          description:
+            "Standard and Reference Guide for Professional Mold Remediation",
+          type: "PDF",
+        },
+        {
+          title: "IICRC R520 Reference Guide",
+          description: "Reference Guide for Professional Mold Remediation",
+          type: "PDF",
+        },
+      ],
     },
     {
       category: "Australian Standards",
       items: [
-        { title: "AS/NZS ISO 9001", description: "Quality management systems - Requirements", type: "PDF" },
-        { title: "NCC 2022", description: "National Construction Code Volume One and Two", type: "PDF" },
-        { title: "Building Code of Australia", description: "Current building regulations and requirements", type: "PDF" }
-      ]
+        {
+          title: "AS/NZS ISO 9001",
+          description: "Quality management systems - Requirements",
+          type: "PDF",
+        },
+        {
+          title: "NCC 2022",
+          description: "National Construction Code Volume One and Two",
+          type: "PDF",
+        },
+        {
+          title: "Building Code of Australia",
+          description: "Current building regulations and requirements",
+          type: "PDF",
+        },
+      ],
     },
     {
       category: "Insurance Guidelines",
       items: [
-        { title: "Insurance Council of Australia Guidelines", description: "Industry guidelines for restoration work", type: "PDF" },
-        { title: "Claims Process Documentation", description: "Standard procedures for insurance claims", type: "PDF" }
-      ]
-    }
-  ]
+        {
+          title: "Insurance Council of Australia Guidelines",
+          description: "Industry guidelines for restoration work",
+          type: "PDF",
+        },
+        {
+          title: "Claims Process Documentation",
+          description: "Standard procedures for insurance claims",
+          type: "PDF",
+        },
+      ],
+    },
+  ];
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-[#1C2E47]' : 'bg-[#F4F5F6]'}`}>
+    <div
+      className={`min-h-screen transition-colors duration-300 ${darkMode ? "bg-[#1C2E47]" : "bg-[#F4F5F6]"}`}
+    >
       <Header darkMode={darkMode} setDarkMode={setDarkMode} />
-      
+
       {/* Hero Section */}
       <section className="pt-48 pb-20 px-6 relative z-10 min-h-[60vh] flex items-center bg-[#C4C8CA]/30 overflow-hidden">
         {/* Golden Decorative Shapes */}
@@ -72,8 +109,11 @@ export default function ComplianceLibraryPage() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className={`text-5xl md:text-6xl font-bold mb-6 leading-tight ${darkMode ? 'text-[#F4F5F6]' : 'text-[#1C2E47]'}`}
-            style={{ fontFamily: '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
+            className={`text-5xl md:text-6xl font-bold mb-6 leading-tight ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+            style={{
+              fontFamily:
+                '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            }}
           >
             Compliance Library
           </motion.h1>
@@ -81,8 +121,11 @@ export default function ComplianceLibraryPage() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className={`text-xl md:text-2xl ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`}
-            style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
+            className={`text-xl md:text-2xl ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+            style={{
+              fontFamily:
+                '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            }}
           >
             Access standards, guidelines, and compliance documentation.
           </motion.p>
@@ -105,30 +148,57 @@ export default function ComplianceLibraryPage() {
                 viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: index * 0.1 }}
               >
-                <h2 className={`text-2xl font-bold mb-6 ${darkMode ? 'text-[#F4F5F6]' : 'text-[#1C2E47]'}`} style={{ fontFamily: '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+                <h2
+                  className={`text-2xl font-bold mb-6 ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+                  style={{
+                    fontFamily:
+                      '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                  }}
+                >
                   {category.category}
                 </h2>
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {category.items.map((item, idx) => (
                     <div
                       key={idx}
-                      className={`p-6 rounded-lg border ${darkMode ? 'bg-[#1C2E47]/50 border-[#5A6A7B]/30' : 'bg-[#F4F5F6]/50 border-[#5A6A7B]/20'} backdrop-blur-sm hover:border-[#8A6B4E] transition-colors`}
+                      className={`p-6 rounded-lg border ${darkMode ? "bg-[#1C2E47]/50 border-[#5A6A7B]/30" : "bg-[#F4F5F6]/50 border-[#5A6A7B]/20"} backdrop-blur-sm hover:border-[#8A6B4E] transition-colors`}
                     >
                       <div className="flex items-start justify-between mb-3">
-                        <h3 className={`text-lg font-semibold flex-1 ${darkMode ? 'text-[#F4F5F6]' : 'text-[#1C2E47]'}`} style={{ fontFamily: '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+                        <h3
+                          className={`text-lg font-semibold flex-1 ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+                          style={{
+                            fontFamily:
+                              '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                          }}
+                        >
                           {item.title}
                         </h3>
-                        <span className={`text-xs px-2 py-1 rounded ${darkMode ? 'bg-[#8A6B4E]/20 text-[#8A6B4E]' : 'bg-[#8A6B4E]/10 text-[#8A6B4E]'}`} style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+                        <span
+                          className={`text-xs px-2 py-1 rounded ${darkMode ? "bg-[#8A6B4E]/20 text-[#8A6B4E]" : "bg-[#8A6B4E]/10 text-[#8A6B4E]"}`}
+                          style={{
+                            fontFamily:
+                              '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                          }}
+                        >
                           {item.type}
                         </span>
                       </div>
-                      <p className={`text-sm mb-4 ${darkMode ? 'text-[#C4C8CA]' : 'text-[#5A6A7B]'}`} style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+                      <p
+                        className={`text-sm mb-4 ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                        style={{
+                          fontFamily:
+                            '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                        }}
+                      >
                         {item.description}
                       </p>
                       <Link
                         href="#"
-                        className={`text-sm font-medium ${darkMode ? 'text-[#8A6B4E] hover:text-[#8A6B4E]/80' : 'text-[#8A6B4E] hover:text-[#8A6B4E]/90'} transition-colors`}
-                        style={{ fontFamily: '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
+                        className={`text-sm font-medium ${darkMode ? "text-[#8A6B4E] hover:text-[#8A6B4E]/80" : "text-[#8A6B4E] hover:text-[#8A6B4E]/90"} transition-colors`}
+                        style={{
+                          fontFamily:
+                            '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                        }}
                       >
                         Coming Soon
                       </Link>
@@ -143,6 +213,5 @@ export default function ComplianceLibraryPage() {
 
       <Footer darkMode={darkMode} />
     </div>
-  )
+  );
 }
-

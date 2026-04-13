@@ -1,25 +1,29 @@
-'use client'
+"use client";
 
-import { HelpCircle } from 'lucide-react'
+import { HelpCircle } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip'
-import { cn } from '@/lib/utils'
+} from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 interface HelpTooltipProps {
-  content: string
-  className?: string
-  side?: 'top' | 'right' | 'bottom' | 'left'
+  content: string;
+  className?: string;
+  side?: "top" | "right" | "bottom" | "left";
 }
 
 /**
  * Simple inline help tooltip for form fields and UI elements
  * Shows a brief description on hover
  */
-export function HelpTooltip({ content, className, side = 'top' }: HelpTooltipProps) {
+export function HelpTooltip({
+  content,
+  className,
+  side = "top",
+}: HelpTooltipProps) {
   return (
     <TooltipProvider>
       <Tooltip delayDuration={300}>
@@ -27,8 +31,8 @@ export function HelpTooltip({ content, className, side = 'top' }: HelpTooltipPro
           <button
             type="button"
             className={cn(
-              'inline-flex items-center justify-center rounded-full p-0.5 text-neutral-400 hover:text-cyan-500 transition-colors',
-              className
+              "inline-flex items-center justify-center rounded-full p-0.5 text-neutral-400 hover:text-cyan-500 transition-colors",
+              className,
             )}
             aria-label="Help"
           >
@@ -43,5 +47,5 @@ export function HelpTooltip({ content, className, side = 'top' }: HelpTooltipPro
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
-  )
+  );
 }

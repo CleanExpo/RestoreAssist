@@ -1,25 +1,25 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import archiver from 'archiver'
-import { Readable } from 'stream'
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import archiver from "archiver";
+import { Readable } from "stream";
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    
+    const session = await getServerSession(authOptions);
+
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { ids, zip = false } = await request.json()
+    const { ids, zip = false } = await request.json();
 
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
       return NextResponse.json(
-        { error: 'Invalid request', message: 'ids must be a non-empty array' },
-        { status: 400 }
-      )
+        { error: "Invalid request", message: "ids must be a non-empty array" },
+        { status: 400 },
+      );
     }
 
     // Fetch all selected reports to check which ones have Excel files
@@ -36,96 +36,104 @@ export async function POST(request: NextRequest) {
         propertyAddress: true,
         excelReportUrl: true,
       },
-    })
+    });
 
     // Separate reports with and without Excel files
-    const reportsWithExcel = allReports.filter(r => r.excelReportUrl !== null)
-    const reportsWithoutExcel = allReports.filter(r => r.excelReportUrl === null)
+    const reportsWithExcel = allReports.filter(
+      (r) => r.excelReportUrl !== null,
+    );
+    const reportsWithoutExcel = allReports.filter(
+      (r) => r.excelReportUrl === null,
+    );
 
     if (reportsWithExcel.length === 0) {
       return NextResponse.json(
-        { 
-          error: 'No Excel reports found', 
-          message: 'None of the selected reports have Excel files available. Please generate Excel reports individually for each report first.',
-          missingReports: reportsWithoutExcel.map(r => ({
+        {
+          error: "No Excel reports found",
+          message:
+            "None of the selected reports have Excel files available. Please generate Excel reports individually for each report first.",
+          missingReports: reportsWithoutExcel.map((r) => ({
             id: r.id,
             reportNumber: r.reportNumber,
             clientName: r.clientName,
             propertyAddress: r.propertyAddress,
           })),
-          totalSelected: allReports.length
+          totalSelected: allReports.length,
         },
-        { status: 404 }
-      )
+        { status: 404 },
+      );
     }
 
     // If some reports are missing Excel files, include that info in the response
-    const reports = reportsWithExcel
+    const reports = reportsWithExcel;
 
     // If zip is requested, create a zip file
     if (zip) {
       return new Promise<NextResponse>(async (resolve, reject) => {
         try {
-          const archive = archiver('zip', { zlib: { level: 9 } })
-          const buffers: Buffer[] = []
+          const archive = archiver("zip", { zlib: { level: 9 } });
+          const buffers: Buffer[] = [];
 
-          archive.on('data', (chunk: Buffer) => {
-            buffers.push(chunk)
-          })
+          archive.on("data", (chunk: Buffer) => {
+            buffers.push(chunk);
+          });
 
-          archive.on('end', () => {
-            const zipBuffer = Buffer.concat(buffers)
-            resolve(new NextResponse(zipBuffer, {
-              status: 200,
-              headers: {
-                'Content-Type': 'application/zip',
-                'Content-Disposition': `attachment; filename="Excel_Reports_${new Date().toISOString().split('T')[0]}.zip"`,
-                'Content-Length': zipBuffer.length.toString(),
-              },
-            }))
-          })
+          archive.on("end", () => {
+            const zipBuffer = Buffer.concat(buffers);
+            resolve(
+              new NextResponse(zipBuffer, {
+                status: 200,
+                headers: {
+                  "Content-Type": "application/zip",
+                  "Content-Disposition": `attachment; filename="Excel_Reports_${new Date().toISOString().split("T")[0]}.zip"`,
+                  "Content-Length": zipBuffer.length.toString(),
+                },
+              }),
+            );
+          });
 
-          archive.on('error', (err) => {
-            reject(err)
-          })
+          archive.on("error", (err) => {
+            reject(err);
+          });
 
           // Download and add each Excel file to the zip (one by one from Cloudinary)
-          console.log(`[Bulk Excel Export] Starting download of ${reports.length} Excel files from Cloudinary...`)
-          
           for (const report of reports) {
             if (report.excelReportUrl) {
               try {
-                console.log(`[Bulk Excel Export] Downloading Excel for report ${report.id} from: ${report.excelReportUrl}`)
-                const response = await fetch(report.excelReportUrl)
-                
+                const response = await fetch(report.excelReportUrl);
+
                 if (response.ok) {
-                  const buffer = Buffer.from(await response.arrayBuffer())
-                  const filename = `${report.reportNumber || report.id}.xlsx`
-                  archive.append(buffer, { name: filename })
-                  console.log(`[Bulk Excel Export] ✓ Added ${filename} to ZIP (${buffer.length} bytes)`)
+                  const buffer = Buffer.from(await response.arrayBuffer());
+                  const filename = `${report.reportNumber || report.id}.xlsx`;
+                  archive.append(buffer, { name: filename });
                 } else {
-                  console.error(`[Bulk Excel Export] ✗ Failed to download Excel for report ${report.id}: HTTP ${response.status}`)
+                  console.error(
+                    `[Bulk Excel Export] ✗ Failed to download Excel for report ${report.id}: HTTP ${response.status}`,
+                  );
                 }
               } catch (error) {
-                console.error(`[Bulk Excel Export] ✗ Error downloading Excel for report ${report.id}:`, error)
+                console.error(
+                  `[Bulk Excel Export] ✗ Error downloading Excel for report ${report.id}:`,
+                  error,
+                );
               }
             } else {
-              console.warn(`[Bulk Excel Export] Report ${report.id} has no Excel URL`)
+              console.warn(
+                `[Bulk Excel Export] Report ${report.id} has no Excel URL`,
+              );
             }
           }
-          
-          console.log(`[Bulk Excel Export] Finished downloading files, finalizing ZIP...`)
 
-          await archive.finalize()
+          await archive.finalize();
         } catch (error) {
-          reject(error)
+          reject(error);
         }
-      })
+      });
     }
 
     // Return list of Excel URLs
     return NextResponse.json({
-      reports: reports.map(report => ({
+      reports: reports.map((report) => ({
         id: report.id,
         reportNumber: report.reportNumber,
         title: report.title,
@@ -134,19 +142,25 @@ export async function POST(request: NextRequest) {
         excelUrl: report.excelReportUrl,
       })),
       count: reports.length,
-      missingReports: reportsWithoutExcel.length > 0 ? reportsWithoutExcel.map(r => ({
-        id: r.id,
-        reportNumber: r.reportNumber,
-        clientName: r.clientName,
-        propertyAddress: r.propertyAddress,
-      })) : [],
+      missingReports:
+        reportsWithoutExcel.length > 0
+          ? reportsWithoutExcel.map((r) => ({
+              id: r.id,
+              reportNumber: r.reportNumber,
+              clientName: r.clientName,
+              propertyAddress: r.propertyAddress,
+            }))
+          : [],
       totalSelected: allReports.length,
-    })
+    });
   } catch (error) {
-    console.error('Error in bulk-export-excel-list:', error)
+    console.error("Error in bulk-export-excel-list:", error);
     return NextResponse.json(
-      { error: 'Export failed', message: error instanceof Error ? error.message : 'Unknown error' },
-      { status: 500 }
-    )
+      {
+        error: "Export failed",
+        message: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 },
+    );
   }
 }

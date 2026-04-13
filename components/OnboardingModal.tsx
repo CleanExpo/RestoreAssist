@@ -1,114 +1,162 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { X, CheckCircle, Circle, ArrowRight, Crown, Key, Settings, AlertCircle, User, FileText, Sparkles, Zap, Home } from "lucide-react"
-import { PropertyDataSetupWizard } from "@/components/property-data/PropertyDataSetupWizard"
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import {
+  X,
+  CheckCircle,
+  Circle,
+  ArrowRight,
+  Crown,
+  Key,
+  Settings,
+  AlertCircle,
+  User,
+  FileText,
+  Sparkles,
+  Zap,
+  Home,
+} from "lucide-react";
+import { PropertyDataSetupWizard } from "@/components/property-data/PropertyDataSetupWizard";
 
 interface OnboardingStatus {
-  isComplete: boolean
-  incompleteSteps: string[]
-  nextStep: string | null
+  isComplete: boolean;
+  incompleteSteps: string[];
+  nextStep: string | null;
   steps: {
-    business_profile: { completed: boolean; required: boolean; title: string; description: string; route: string }
-    integrations?: { completed: boolean; required: boolean; title: string; description: string; route: string }
-    pricing_config: { completed: boolean; required: boolean; title: string; description: string; route: string }
-    property_data: { completed: boolean; required: boolean; title: string; description: string; route: string }
-    first_report: { completed: boolean; required: boolean; title: string; description: string; route: string }
-  }
+    business_profile: {
+      completed: boolean;
+      required: boolean;
+      title: string;
+      description: string;
+      route: string;
+    };
+    integrations?: {
+      completed: boolean;
+      required: boolean;
+      title: string;
+      description: string;
+      route: string;
+    };
+    pricing_config: {
+      completed: boolean;
+      required: boolean;
+      title: string;
+      description: string;
+      route: string;
+    };
+    property_data: {
+      completed: boolean;
+      required: boolean;
+      title: string;
+      description: string;
+      route: string;
+    };
+    first_report: {
+      completed: boolean;
+      required: boolean;
+      title: string;
+      description: string;
+      route: string;
+    };
+  };
 }
 
 interface OnboardingModalProps {
-  isOpen: boolean
-  onClose: () => void
-  onComplete?: () => void
+  isOpen: boolean;
+  onClose: () => void;
+  onComplete?: () => void;
 }
 
-export default function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModalProps) {
-  const router = useRouter()
-  const [status, setStatus] = useState<OnboardingStatus | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [showPropertyWizard, setShowPropertyWizard] = useState(false)
-  const [skippedPropertyData, setSkippedPropertyData] = useState(false)
+export default function OnboardingModal({
+  isOpen,
+  onClose,
+  onComplete,
+}: OnboardingModalProps) {
+  const router = useRouter();
+  const [status, setStatus] = useState<OnboardingStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showPropertyWizard, setShowPropertyWizard] = useState(false);
+  const [skippedPropertyData, setSkippedPropertyData] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
-      fetchOnboardingStatus()
+      fetchOnboardingStatus();
     }
-  }, [isOpen])
+  }, [isOpen]);
 
   const fetchOnboardingStatus = async () => {
     try {
-      setLoading(true)
-      const response = await fetch('/api/onboarding/status')
+      setLoading(true);
+      const response = await fetch("/api/onboarding/status");
       if (response.ok) {
-        const data = await response.json()
-        setStatus(data)
-        
+        const data = await response.json();
+        setStatus(data);
+
         // If all steps are complete, call onComplete
         if (data.isComplete && onComplete) {
-          onComplete()
+          onComplete();
         }
       }
     } catch (error) {
-      console.error('Error fetching onboarding status:', error)
+      console.error("Error fetching onboarding status:", error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleStepAction = (step: string) => {
     if (status?.steps[step as keyof typeof status.steps]) {
-      const stepInfo = status.steps[step as keyof typeof status.steps]
-      router.push(stepInfo.route)
-        onClose()
+      const stepInfo = status.steps[step as keyof typeof status.steps]!;
+      router.push(stepInfo.route);
+      onClose();
     }
-  }
+  };
 
   const getStepInfo = (step: string) => {
-    if (!status?.steps[step as keyof typeof status.steps]) return null
-    
-    const stepData = status.steps[step as keyof typeof status.steps]
-    
+    if (!status?.steps[step as keyof typeof status.steps]) return null;
+
+    const stepData = status.steps[step as keyof typeof status.steps]!;
+
     switch (step) {
-      case 'business_profile':
+      case "business_profile":
         return {
           title: stepData.title,
           description: stepData.description,
           icon: Settings,
-          action: 'Setup Business Details',
-          route: stepData.route
-        }
-      case 'integrations':
+          action: "Setup Business Details",
+          route: stepData.route,
+        };
+      case "integrations":
         return {
           title: stepData.title,
           description: stepData.description,
           icon: Key,
-          action: 'Configure Integration',
-          route: stepData.route
-        }
-      case 'pricing_config':
+          action: "Configure Integration",
+          route: stepData.route,
+        };
+      case "pricing_config":
         return {
           title: stepData.title,
           description: stepData.description,
           icon: Settings,
-          action: 'Configure Pricing',
-          route: stepData.route
-        }
-      case 'first_report':
+          action: "Configure Pricing",
+          route: stepData.route,
+        };
+      case "first_report":
         return {
           title: stepData.title,
           description: stepData.description,
           icon: ArrowRight,
-          action: 'Create Report',
-          route: stepData.route
-        }
+          action: "Create Report",
+          route: stepData.route,
+        };
       default:
-        return null
+        return null;
     }
-  }
+  };
 
-  if (!isOpen) return null
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -120,18 +168,22 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
               <AlertCircle className="w-6 h-6 text-cyan-400" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white">Complete Your Setup</h2>
-              <p className="text-sm text-slate-400">Finish these steps to start creating reports</p>
+              <h2 className="text-xl font-bold text-white">
+                Complete Your Setup
+              </h2>
+              <p className="text-sm text-slate-400">
+                Finish these steps to start creating reports
+              </p>
             </div>
           </div>
           {status?.isComplete ? (
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-slate-800 rounded-lg transition-all duration-200 hover:scale-110 active:scale-95"
-            title="Close"
-          >
-            <X className="w-5 h-5 text-slate-400 hover:text-white transition-colors" />
-          </button>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-slate-800 rounded-lg transition-all duration-200 hover:scale-110 active:scale-95"
+              title="Close"
+            >
+              <X className="w-5 h-5 text-slate-400 hover:text-white transition-colors" />
+            </button>
           ) : (
             <div className="text-xs text-slate-500 px-2">
               Complete all steps
@@ -149,70 +201,79 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
             <div className="space-y-4">
               <div className="mb-6 p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
                 <p className="text-sm text-amber-400 font-medium">
-                  ⚠️ You must complete all required steps before creating reports. Please complete the following steps to continue.
+                  ⚠️ You must complete all required steps before creating
+                  reports. Please complete the following steps to continue.
                 </p>
               </div>
 
-              {status.incompleteSteps.filter(step => step !== 'subscription').map((step, index, filteredArray) => {
-                const stepInfo = getStepInfo(step)
-                if (!stepInfo) return null
+              {status.incompleteSteps
+                .filter((step) => step !== "subscription")
+                .map((step, index, filteredArray) => {
+                  const stepInfo = getStepInfo(step);
+                  if (!stepInfo) return null;
 
-                const Icon = stepInfo.icon
-                const isFirst = index === 0
-                const isLast = index === filteredArray.length - 1
+                  const Icon = stepInfo.icon;
+                  const isFirst = index === 0;
+                  const isLast = index === filteredArray.length - 1;
 
-                return (
-                  <div key={step} className="relative">
-                    {/* Connector Line */}
-                    {!isLast && (
-                      <div className="absolute left-6 top-12 w-0.5 h-full bg-slate-700"></div>
-                    )}
+                  return (
+                    <div key={step} className="relative">
+                      {/* Connector Line */}
+                      {!isLast && (
+                        <div className="absolute left-6 top-12 w-0.5 h-full bg-slate-700"></div>
+                      )}
 
-                    <div className="relative bg-slate-800/50 border border-slate-700 rounded-lg p-5 hover:border-cyan-500/50 transition-all">
-                      <div className="flex items-start gap-4">
-                        {/* Step Icon */}
-                        <div className={`p-3 rounded-lg ${
-                          isFirst 
-                            ? 'bg-cyan-500/20 border-2 border-cyan-500' 
-                            : 'bg-slate-700/50 border border-slate-600'
-                        }`}>
-                          <Icon className={`w-6 h-6 ${
-                            isFirst ? 'text-cyan-400' : 'text-slate-400'
-                          }`} />
-                        </div>
-
-                        {/* Step Content */}
-                        <div className="flex-1">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1">
-                              <h3 className="text-lg font-semibold text-white mb-1">
-                                {stepInfo.title}
-                              </h3>
-                              <p className="text-sm text-slate-400 mb-4">
-                                {stepInfo.description}
-                              </p>
-                            </div>
-                          </div>
-
-                          {/* Action Button */}
-                          <button
-                            onClick={() => handleStepAction(step)}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] group ${
+                      <div className="relative bg-slate-800/50 border border-slate-700 rounded-lg p-5 hover:border-cyan-500/50 transition-all">
+                        <div className="flex items-start gap-4">
+                          {/* Step Icon */}
+                          <div
+                            className={`p-3 rounded-lg ${
                               isFirst
-                                ? 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl shadow-cyan-500/20 hover:shadow-cyan-500/30'
-                                : 'bg-slate-700 hover:bg-slate-600 text-slate-200 shadow-md hover:shadow-lg'
+                                ? "bg-cyan-500/20 border-2 border-cyan-500"
+                                : "bg-slate-700/50 border border-slate-600"
                             }`}
                           >
-                            {isFirst ? <Sparkles className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" /> : null}
-                            <span>{stepInfo.action}</span>
-                            <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
-                          </button>
+                            <Icon
+                              className={`w-6 h-6 ${
+                                isFirst ? "text-cyan-400" : "text-slate-400"
+                              }`}
+                            />
+                          </div>
+
+                          {/* Step Content */}
+                          <div className="flex-1">
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex-1">
+                                <h3 className="text-lg font-semibold text-white mb-1">
+                                  {stepInfo.title}
+                                </h3>
+                                <p className="text-sm text-slate-400 mb-4">
+                                  {stepInfo.description}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Action Button */}
+                            <button
+                              onClick={() => handleStepAction(step)}
+                              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] group ${
+                                isFirst
+                                  ? "bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl shadow-cyan-500/20 hover:shadow-cyan-500/30"
+                                  : "bg-slate-700 hover:bg-slate-600 text-slate-200 shadow-md hover:shadow-lg"
+                              }`}
+                            >
+                              {isFirst ? (
+                                <Sparkles className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
+                              ) : null}
+                              <span>{stepInfo.action}</span>
+                              <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                )
-              })}
+                  );
+                })}
 
               {/* Note: Cannot skip required steps */}
               <div className="mt-6 pt-6 border-t border-slate-700">
@@ -226,40 +287,52 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
               <div className="inline-flex p-4 bg-green-500/10 rounded-full mb-4">
                 <CheckCircle className="w-12 h-12 text-green-400" />
               </div>
-              <h3 className="text-xl font-semibold text-white mb-2">All Set!</h3>
-              <p className="text-slate-400 mb-6">You've completed all required setup steps.</p>
+              <h3 className="text-xl font-semibold text-white mb-2">
+                All Set!
+              </h3>
+              <p className="text-slate-400 mb-6">
+                You've completed all required setup steps.
+              </p>
 
               {/* Optional: Connect Property Data */}
-              {status.steps.property_data && !status.steps.property_data.completed && !skippedPropertyData && (
-                <div className="mb-6 text-left p-4 rounded-xl border border-slate-700 bg-slate-800/50">
-                  <div className="flex items-start gap-3 mb-3">
-                    <div className="p-2 bg-cyan-500/10 rounded-lg">
-                      <Home className="w-5 h-5 text-cyan-400" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-semibold text-white text-sm">{status.steps.property_data.title}</h4>
-                        <span className="text-xs px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded-full">Optional</span>
+              {status.steps.property_data &&
+                !status.steps.property_data.completed &&
+                !skippedPropertyData && (
+                  <div className="mb-6 text-left p-4 rounded-xl border border-slate-700 bg-slate-800/50">
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className="p-2 bg-cyan-500/10 rounded-lg">
+                        <Home className="w-5 h-5 text-cyan-400" />
                       </div>
-                      <p className="text-xs text-slate-400">{status.steps.property_data.description}</p>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-semibold text-white text-sm">
+                            {status.steps.property_data.title}
+                          </h4>
+                          <span className="text-xs px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded-full">
+                            Optional
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-400">
+                          {status.steps.property_data.description}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setShowPropertyWizard(true)}
+                        className="flex-1 px-3 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg text-sm font-medium hover:from-cyan-700 hover:to-blue-700 transition-all"
+                      >
+                        Connect Now
+                      </button>
+                      <button
+                        onClick={() => setSkippedPropertyData(true)}
+                        className="px-3 py-2 border border-slate-600 text-slate-400 rounded-lg text-sm hover:bg-slate-700 transition-colors"
+                      >
+                        Skip
+                      </button>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setShowPropertyWizard(true)}
-                      className="flex-1 px-3 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg text-sm font-medium hover:from-cyan-700 hover:to-blue-700 transition-all"
-                    >
-                      Connect Now
-                    </button>
-                    <button
-                      onClick={() => setSkippedPropertyData(true)}
-                      className="px-3 py-2 border border-slate-600 text-slate-400 rounded-lg text-sm hover:bg-slate-700 transition-colors"
-                    >
-                      Skip
-                    </button>
-                  </div>
-                </div>
-              )}
+                )}
 
               <button
                 onClick={onClose}
@@ -279,12 +352,11 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
         <PropertyDataSetupWizard
           onClose={() => setShowPropertyWizard(false)}
           onComplete={() => {
-            setShowPropertyWizard(false)
-            fetchOnboardingStatus()
+            setShowPropertyWizard(false);
+            fetchOnboardingStatus();
           }}
         />
       )}
     </div>
-  )
+  );
 }
-

@@ -13,11 +13,11 @@
  *   Removes the record (idempotent).
  */
 
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import { z } from 'zod'
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { z } from "zod";
 
 // ─── Validation ────────────────────────────────────────────────────────────────
 
@@ -26,15 +26,18 @@ const auComplianceSchema = z.object({
   claimNumber: z.string().nullable().optional(),
   lossAdjusterName: z.string().nullable().optional(),
   lossAdjusterReference: z.string().nullable().optional(),
-  nrpgCategory: z.enum(['SMALL', 'MEDIUM', 'LARGE', 'CATASTROPHIC']).nullable().optional(),
+  nrpgCategory: z
+    .enum(["SMALL", "MEDIUM", "LARGE", "CATASTROPHIC"])
+    .nullable()
+    .optional(),
   iicrcCertifiedTechnician: z.boolean().optional(),
   technicianCertification: z
-    .enum(['WRT', 'ASD', 'CMS', 'HST', 'OCT', 'CCT', 'MRS', 'OTHER'])
+    .enum(["WRT", "ASD", "CMS", "HST", "OCT", "CCT", "MRS", "OTHER"])
     .nullable()
     .optional(),
   technicianLicenseNumber: z.string().nullable().optional(),
   state: z
-    .enum(['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'ACT', 'NT'])
+    .enum(["NSW", "VIC", "QLD", "WA", "SA", "TAS", "ACT", "NT"])
     .nullable()
     .optional(),
   propertyYearBuilt: z.number().int().min(1800).max(2100).nullable().optional(),
@@ -45,74 +48,88 @@ const auComplianceSchema = z.object({
   licensedAssessorLicense: z.string().nullable().optional(),
   removalQuoteAud: z.number().nonnegative().nullable().optional(),
   separateInvoiceRequired: z.boolean().optional(),
-})
+});
 
 // ─── GET ──────────────────────────────────────────────────────────────────────
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const { id } = await params;
 
   const inspection = await prisma.inspection.findUnique({
-    where: { id: params.id, userId: session.user.id },
-    select: { id: true, australianComplianceRecord: true },
-  })
+    where: { id, userId: session.user.id },
+    select: { id: true },
+  });
 
   if (!inspection) {
-    return NextResponse.json({ error: 'Inspection not found' }, { status: 404 })
+    return NextResponse.json(
+      { error: "Inspection not found" },
+      { status: 404 },
+    );
   }
 
-  return NextResponse.json(inspection.australianComplianceRecord ?? null)
+  const record = await (prisma as any).australianComplianceRecord.findUnique({
+    where: { inspectionId: id },
+  });
+
+  return NextResponse.json(record ?? null);
 }
 
 // ─── POST ─────────────────────────────────────────────────────────────────────
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const { id } = await params;
 
   const inspection = await prisma.inspection.findUnique({
-    where: { id: params.id, userId: session.user.id },
+    where: { id, userId: session.user.id },
     select: { id: true },
-  })
+  });
 
   if (!inspection) {
-    return NextResponse.json({ error: 'Inspection not found' }, { status: 404 })
+    return NextResponse.json(
+      { error: "Inspection not found" },
+      { status: 404 },
+    );
   }
 
-  const body = await req.json()
-  const parsed = auComplianceSchema.safeParse(body)
+  const body = await req.json();
+  const parsed = auComplianceSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Invalid data', details: parsed.error.flatten() },
+      { error: "Invalid data", details: parsed.error.flatten() },
       { status: 400 },
-    )
+    );
   }
 
-  const data = parsed.data
+  const data = parsed.data;
 
   // Warn if asbestos risk is present in a pre-1990 property but not acknowledged
   const asbestosWarning =
     data.propertyYearBuilt != null &&
     data.propertyYearBuilt < 1990 &&
     data.asbestosRiskAcknowledged !== true
-      ? 'Property built before 1990 — asbestos-containing materials must be assumed present until tested. Set asbestosRiskAcknowledged: true after review.'
-      : null
+      ? "Property built before 1990 — asbestos-containing materials must be assumed present until tested. Set asbestosRiskAcknowledged: true after review."
+      : null;
 
-  const record = await prisma.australianComplianceRecord.upsert({
-    where: { inspectionId: params.id },
+  const record = await (prisma as any).australianComplianceRecord.upsert({
+    where: { inspectionId: id },
     create: {
-      inspectionId: params.id,
+      inspectionId: id,
       insurerName: data.insurerName ?? undefined,
       claimNumber: data.claimNumber ?? undefined,
       lossAdjusterName: data.lossAdjusterName ?? undefined,
@@ -134,11 +151,15 @@ export async function POST(
     update: {
       ...(data.insurerName !== undefined && { insurerName: data.insurerName }),
       ...(data.claimNumber !== undefined && { claimNumber: data.claimNumber }),
-      ...(data.lossAdjusterName !== undefined && { lossAdjusterName: data.lossAdjusterName }),
+      ...(data.lossAdjusterName !== undefined && {
+        lossAdjusterName: data.lossAdjusterName,
+      }),
       ...(data.lossAdjusterReference !== undefined && {
         lossAdjusterReference: data.lossAdjusterReference,
       }),
-      ...(data.nrpgCategory !== undefined && { nrpgCategory: data.nrpgCategory }),
+      ...(data.nrpgCategory !== undefined && {
+        nrpgCategory: data.nrpgCategory,
+      }),
       ...(data.iicrcCertifiedTechnician !== undefined && {
         iicrcCertifiedTechnician: data.iicrcCertifiedTechnician,
       }),
@@ -149,11 +170,15 @@ export async function POST(
         technicianLicenseNumber: data.technicianLicenseNumber,
       }),
       ...(data.state !== undefined && { state: data.state }),
-      ...(data.propertyYearBuilt !== undefined && { propertyYearBuilt: data.propertyYearBuilt }),
+      ...(data.propertyYearBuilt !== undefined && {
+        propertyYearBuilt: data.propertyYearBuilt,
+      }),
       ...(data.asbestosRiskAcknowledged !== undefined && {
         asbestosRiskAcknowledged: data.asbestosRiskAcknowledged,
       }),
-      ...(data.friableAssessment !== undefined && { friableAssessment: data.friableAssessment }),
+      ...(data.friableAssessment !== undefined && {
+        friableAssessment: data.friableAssessment,
+      }),
       ...(data.workHalted !== undefined && { workHalted: data.workHalted }),
       ...(data.licensedAssessorName !== undefined && {
         licensedAssessorName: data.licensedAssessorName,
@@ -161,39 +186,46 @@ export async function POST(
       ...(data.licensedAssessorLicense !== undefined && {
         licensedAssessorLicense: data.licensedAssessorLicense,
       }),
-      ...(data.removalQuoteAud !== undefined && { removalQuoteAud: data.removalQuoteAud }),
+      ...(data.removalQuoteAud !== undefined && {
+        removalQuoteAud: data.removalQuoteAud,
+      }),
       ...(data.separateInvoiceRequired !== undefined && {
         separateInvoiceRequired: data.separateInvoiceRequired,
       }),
     },
-  })
+  });
 
-  return NextResponse.json({ ...record, asbestosWarning })
+  return NextResponse.json({ ...record, asbestosWarning });
 }
 
 // ─── DELETE ───────────────────────────────────────────────────────────────────
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const { id } = await params;
 
   const inspection = await prisma.inspection.findUnique({
-    where: { id: params.id, userId: session.user.id },
+    where: { id, userId: session.user.id },
     select: { id: true },
-  })
+  });
 
   if (!inspection) {
-    return NextResponse.json({ error: 'Inspection not found' }, { status: 404 })
+    return NextResponse.json(
+      { error: "Inspection not found" },
+      { status: 404 },
+    );
   }
 
-  await prisma.australianComplianceRecord
-    .delete({ where: { inspectionId: params.id } })
-    .catch(() => {})
+  await (prisma as any).australianComplianceRecord
+    .delete({ where: { inspectionId: id } })
+    .catch(() => {});
 
-  return NextResponse.json({ deleted: true })
+  return NextResponse.json({ deleted: true });
 }

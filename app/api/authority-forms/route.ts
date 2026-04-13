@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 /**
  * GET /api/authority-forms
@@ -9,13 +9,13 @@ import { prisma } from "@/lib/prisma"
  */
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url)
-    const status = searchParams.get("status")
+    const { searchParams } = new URL(request.url);
+    const status = searchParams.get("status");
 
     const whereClause: Record<string, unknown> = {
       report: {
@@ -25,10 +25,10 @@ export async function GET(request: NextRequest) {
           { assignedAdminId: session.user.id },
         ],
       },
-    }
+    };
 
     if (status && status !== "ALL") {
-      whereClause.status = status
+      whereClause.status = status;
     }
 
     const forms = await prisma.authorityFormInstance.findMany({
@@ -62,14 +62,14 @@ export async function GET(request: NextRequest) {
         },
       },
       orderBy: { createdAt: "desc" },
-    })
+    });
 
-    return NextResponse.json({ forms })
+    return NextResponse.json({ forms });
   } catch (error) {
-    console.error("Error fetching authority forms:", error)
+    console.error("Error fetching authority forms:", error);
     return NextResponse.json(
       { error: "Failed to fetch authority forms" },
-      { status: 500 }
-    )
+      { status: 500 },
+    );
   }
 }

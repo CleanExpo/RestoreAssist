@@ -1,15 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 // Get contractor's own profile
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const profile = await prisma.contractorProfile.findUnique({
@@ -20,50 +20,45 @@ export async function GET(request: NextRequest) {
             businessName: true,
             businessLogo: true,
             businessAddress: true,
-            phoneNumber: true,
             email: true,
-            website: true
-          }
+          },
         },
         certifications: {
-          orderBy: { createdAt: 'desc' }
+          orderBy: { createdAt: "desc" },
         },
         serviceAreas: {
-          orderBy: [
-            { priority: 'desc' },
-            { postcode: 'asc' }
-          ]
-        }
-      }
-    })
+          orderBy: [{ priority: "desc" }, { postcode: "asc" }],
+        },
+      },
+    });
 
     if (!profile) {
       return NextResponse.json(
-        { error: 'Contractor profile not found' },
-        { status: 404 }
-      )
+        { error: "Contractor profile not found" },
+        { status: 404 },
+      );
     }
 
-    return NextResponse.json({ profile })
+    return NextResponse.json({ profile });
   } catch (error: any) {
-    console.error('Error fetching contractor profile:', error)
+    console.error("Error fetching contractor profile:", error);
     return NextResponse.json(
-      { error: 'Failed to fetch profile' },
-      { status: 500 }
-    )
+      { error: "Failed to fetch profile" },
+      { status: 500 },
+    );
   }
 }
 
 // Create or update contractor profile
 export async function PUT(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json()
+    const body = await request.json();
     const {
       publicDescription,
       yearsInBusiness,
@@ -72,27 +67,27 @@ export async function PUT(request: NextRequest) {
       isPubliclyVisible,
       specializations,
       servicesOffered,
-      searchKeywords
-    } = body
+      searchKeywords,
+    } = body;
 
     // Check if user has contractor role
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { role: true, businessName: true }
-    })
+      select: { role: true, businessName: true },
+    });
 
-    if (user?.role !== 'CONTRACTOR') {
+    if (user?.role !== ("CONTRACTOR" as any)) {
       return NextResponse.json(
-        { error: 'User is not a contractor' },
-        { status: 403 }
-      )
+        { error: "User is not a contractor" },
+        { status: 403 },
+      );
     }
 
     // Generate slug from business name
-    const slug = user.businessName
+    const slug = (user?.businessName ?? "contractor")
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '')
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
 
     // Upsert contractor profile
     const profile = await prisma.contractorProfile.upsert({
@@ -107,7 +102,7 @@ export async function PUT(request: NextRequest) {
         isPubliclyVisible: isPubliclyVisible ?? true,
         specializations: specializations || [],
         servicesOffered,
-        searchKeywords: searchKeywords || []
+        searchKeywords: searchKeywords || [],
       },
       update: {
         publicDescription,
@@ -117,29 +112,29 @@ export async function PUT(request: NextRequest) {
         isPubliclyVisible: isPubliclyVisible ?? true,
         specializations: specializations || [],
         servicesOffered,
-        searchKeywords: searchKeywords || []
+        searchKeywords: searchKeywords || [],
       },
       include: {
         certifications: true,
-        serviceAreas: true
-      }
-    })
+        serviceAreas: true,
+      },
+    });
 
-    return NextResponse.json({ profile })
+    return NextResponse.json({ profile });
   } catch (error: any) {
-    console.error('Error updating contractor profile:', error)
+    console.error("Error updating contractor profile:", error);
 
     // Handle unique constraint violation
-    if (error.code === 'P2002') {
+    if (error.code === "P2002") {
       return NextResponse.json(
-        { error: 'A profile with this slug already exists' },
-        { status: 409 }
-      )
+        { error: "A profile with this slug already exists" },
+        { status: 409 },
+      );
     }
 
     return NextResponse.json(
-      { error: 'Failed to update profile' },
-      { status: 500 }
-    )
+      { error: "Failed to update profile" },
+      { status: 500 },
+    );
   }
 }

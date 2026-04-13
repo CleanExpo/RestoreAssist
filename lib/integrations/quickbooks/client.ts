@@ -10,84 +10,80 @@ import {
   type TokenResponse,
   getClientId,
   getClientSecret,
-} from '../base-client'
-import {
-  getTokens,
-  storeTokens,
-  markIntegrationError,
-} from '../oauth-handler'
-import { prisma } from '@/lib/prisma'
+} from "../base-client";
+import { getTokens, storeTokens, markIntegrationError } from "../oauth-handler";
+import { prisma } from "@/lib/prisma";
 
 interface QuickBooksCustomer {
-  Id: string
-  DisplayName: string
-  CompanyName?: string
-  GivenName?: string
-  FamilyName?: string
+  Id: string;
+  DisplayName: string;
+  CompanyName?: string;
+  GivenName?: string;
+  FamilyName?: string;
   PrimaryEmailAddr?: {
-    Address: string
-  }
+    Address: string;
+  };
   PrimaryPhone?: {
-    FreeFormNumber: string
-  }
+    FreeFormNumber: string;
+  };
   BillAddr?: {
-    Line1?: string
-    Line2?: string
-    City?: string
-    CountrySubDivisionCode?: string
-    PostalCode?: string
-  }
-  Active: boolean
+    Line1?: string;
+    Line2?: string;
+    City?: string;
+    CountrySubDivisionCode?: string;
+    PostalCode?: string;
+  };
+  Active: boolean;
 }
 
 interface QuickBooksInvoice {
-  Id: string
-  DocNumber: string
-  TxnDate: string
-  DueDate?: string
-  TotalAmt: number
-  Balance: number
+  Id: string;
+  DocNumber: string;
+  TxnDate: string;
+  DueDate?: string;
+  TotalAmt: number;
+  Balance: number;
   CustomerRef?: {
-    value: string
-    name: string
-  }
+    value: string;
+    name: string;
+  };
   Line?: Array<{
-    Description?: string
-  }>
-  PrivateNote?: string
+    Description?: string;
+  }>;
+  PrivateNote?: string;
 }
 
 interface QuickBooksQueryResponse<T> {
   QueryResponse: {
-    Customer?: T[]
-    Invoice?: T[]
-    startPosition: number
-    maxResults: number
-  }
+    Customer?: T[];
+    Invoice?: T[];
+    startPosition: number;
+    maxResults: number;
+  };
 }
 
 export class QuickBooksClient extends BaseIntegrationClient {
-  private realmId: string | null = null
+  private realmId: string | null = null;
 
   constructor(integrationId: string, realmId?: string) {
-    super(integrationId, 'QUICKBOOKS')
-    this.realmId = realmId || null
+    super(integrationId, "QUICKBOOKS");
+    this.realmId = realmId || null;
   }
 
   /**
    * Get QuickBooks OAuth authorization URL
    */
   getAuthUrl(redirectUri: string, state: string): string {
-    const clientId = getClientId('QUICKBOOKS')
+    const clientId = getClientId("QUICKBOOKS");
     const params = new URLSearchParams({
-      response_type: 'code',
+      response_type: "code",
       client_id: clientId,
       redirect_uri: redirectUri,
       state,
-      scope: this.config.scopes.join(' '),
-    })
+      scope: this.config.scopes.join(" "),
+    });
 
-    return `${this.config.authUrl}?${params.toString()}`
+    return `${this.config.authUrl}?${params.toString()}`;
   }
 
   /**
@@ -95,86 +91,89 @@ export class QuickBooksClient extends BaseIntegrationClient {
    */
   async exchangeCodeForTokens(
     code: string,
-    redirectUri: string
+    redirectUri: string,
   ): Promise<TokenResponse> {
-    const clientId = getClientId('QUICKBOOKS')
-    const clientSecret = getClientSecret('QUICKBOOKS')
+    const clientId = getClientId("QUICKBOOKS");
+    const clientSecret = getClientSecret("QUICKBOOKS");
 
     const response = await fetch(this.config.tokenUrl, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
-        Accept: 'application/json',
+        "Content-Type": "application/x-www-form-urlencoded",
+        Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
+        Accept: "application/json",
       },
       body: new URLSearchParams({
-        grant_type: 'authorization_code',
+        grant_type: "authorization_code",
         code,
         redirect_uri: redirectUri,
       }),
-    })
+    });
 
     if (!response.ok) {
-      const error = await response.text()
-      throw new Error(`Token exchange failed: ${error}`)
+      const error = await response.text();
+      throw new Error(`Token exchange failed: ${error}`);
     }
 
-    const tokenResponse: TokenResponse = await response.json()
-    await this.handleTokenResponse(tokenResponse)
+    const tokenResponse: TokenResponse = await response.json();
+    await this.handleTokenResponse(tokenResponse);
 
-    return tokenResponse
+    return tokenResponse;
   }
 
   /**
    * Store realm ID from callback
    */
   async setRealmId(realmId: string): Promise<void> {
-    this.realmId = realmId
+    this.realmId = realmId;
     await prisma.integration.update({
       where: { id: this.integrationId },
       data: { realmId },
-    })
+    });
   }
 
   /**
    * Refresh access token
    */
   async refreshAccessToken(): Promise<void> {
-    const tokens = await getTokens(this.integrationId)
+    const tokens = await getTokens(this.integrationId);
 
     if (!tokens.refreshToken) {
-      throw new Error('No refresh token available')
+      throw new Error("No refresh token available");
     }
 
-    const clientId = getClientId('QUICKBOOKS')
-    const clientSecret = getClientSecret('QUICKBOOKS')
+    const clientId = getClientId("QUICKBOOKS");
+    const clientSecret = getClientSecret("QUICKBOOKS");
 
     const response = await fetch(this.config.tokenUrl, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
-        Accept: 'application/json',
+        "Content-Type": "application/x-www-form-urlencoded",
+        Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
+        Accept: "application/json",
       },
       body: new URLSearchParams({
-        grant_type: 'refresh_token',
+        grant_type: "refresh_token",
         refresh_token: tokens.refreshToken,
       }),
-    })
+    });
 
     if (!response.ok) {
-      const error = await response.text()
-      await markIntegrationError(this.integrationId, `Token refresh failed: ${error}`)
-      throw new Error(`Token refresh failed: ${error}`)
+      const error = await response.text();
+      await markIntegrationError(
+        this.integrationId,
+        `Token refresh failed: ${error}`,
+      );
+      throw new Error(`Token refresh failed: ${error}`);
     }
 
-    const tokenResponse: TokenResponse = await response.json()
+    const tokenResponse: TokenResponse = await response.json();
     await storeTokens(
       this.integrationId,
       tokenResponse.access_token,
       tokenResponse.refresh_token || tokens.refreshToken,
-      tokenResponse.expires_in
-    )
+      tokenResponse.expires_in,
+    );
   }
 
   /**
@@ -182,49 +181,49 @@ export class QuickBooksClient extends BaseIntegrationClient {
    */
   protected async makeRequest<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
   ): Promise<T> {
     if (!this.realmId) {
       const integration = await prisma.integration.findUnique({
         where: { id: this.integrationId },
         select: { realmId: true },
-      })
-      this.realmId = integration?.realmId || null
+      });
+      this.realmId = integration?.realmId || null;
     }
 
     if (!this.realmId) {
-      throw new Error('No QuickBooks realm connected')
+      throw new Error("No QuickBooks realm connected");
     }
 
-    const tokens = await getTokens(this.integrationId)
+    const tokens = await getTokens(this.integrationId);
     if (!tokens.accessToken) {
-      throw new Error('No access token available')
+      throw new Error("No access token available");
     }
 
     if (tokens.isExpired && tokens.refreshToken) {
-      await this.refreshAccessToken()
+      await this.refreshAccessToken();
     }
 
-    const url = `${this.config.apiBaseUrl}/${this.realmId}${endpoint}`
-    const headers = new Headers(options.headers)
-    headers.set('Authorization', `Bearer ${tokens.accessToken}`)
-    headers.set('Accept', 'application/json')
+    const url = `${this.config.apiBaseUrl}/${this.realmId}${endpoint}`;
+    const headers = new Headers(options.headers);
+    headers.set("Authorization", `Bearer ${tokens.accessToken}`);
+    headers.set("Accept", "application/json");
 
     const response = await fetch(url, {
       ...options,
       headers,
-    })
+    });
 
     if (!response.ok) {
-      const errorText = await response.text()
+      const errorText = await response.text();
       await markIntegrationError(
         this.integrationId,
-        `API Error ${response.status}: ${errorText}`
-      )
-      throw new Error(`API request failed: ${response.status} ${errorText}`)
+        `API Error ${response.status}: ${errorText}`,
+      );
+      throw new Error(`API request failed: ${response.status} ${errorText}`);
     }
 
-    return response.json()
+    return response.json();
   }
 
   /**
@@ -232,26 +231,32 @@ export class QuickBooksClient extends BaseIntegrationClient {
    */
   async fetchClients(): Promise<ExternalClientData[]> {
     try {
-      const response = await this.makeRequest<QuickBooksQueryResponse<QuickBooksCustomer>>(
-        "/query?query=SELECT * FROM Customer WHERE Active = true MAXRESULTS 1000"
-      )
+      const response = await this.makeRequest<
+        QuickBooksQueryResponse<QuickBooksCustomer>
+      >(
+        "/query?query=SELECT * FROM Customer WHERE Active = true MAXRESULTS 1000",
+      );
 
-      const customers = response.QueryResponse.Customer || []
+      const customers = response.QueryResponse.Customer || [];
       const mappedClients: ExternalClientData[] = customers.map((customer) => ({
         externalId: customer.Id,
-        name: customer.DisplayName || customer.CompanyName || `${customer.GivenName} ${customer.FamilyName}`.trim(),
+        name:
+          customer.DisplayName ||
+          customer.CompanyName ||
+          `${customer.GivenName} ${customer.FamilyName}`.trim(),
         email: customer.PrimaryEmailAddr?.Address || undefined,
         phone: customer.PrimaryPhone?.FreeFormNumber || undefined,
         address: this.formatAddress(customer),
         rawData: customer as unknown as Record<string, unknown>,
-      }))
+      }));
 
-      await this.logSyncResult('CLIENTS', mappedClients.length)
-      return mappedClients
+      await this.logSyncResult("CLIENTS", mappedClients.length);
+      return mappedClients;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      await this.logSyncResult('CLIENTS', 0, 0, errorMessage)
-      throw error
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      await this.logSyncResult("CLIENTS", 0, 0, errorMessage);
+      throw error;
     }
   }
 
@@ -260,11 +265,13 @@ export class QuickBooksClient extends BaseIntegrationClient {
    */
   async fetchJobs(): Promise<ExternalJobData[]> {
     try {
-      const response = await this.makeRequest<QuickBooksQueryResponse<QuickBooksInvoice>>(
-        "/query?query=SELECT * FROM Invoice ORDERBY TxnDate DESC MAXRESULTS 1000"
-      )
+      const response = await this.makeRequest<
+        QuickBooksQueryResponse<QuickBooksInvoice>
+      >(
+        "/query?query=SELECT * FROM Invoice ORDERBY TxnDate DESC MAXRESULTS 1000",
+      );
 
-      const invoices = response.QueryResponse.Invoice || []
+      const invoices = response.QueryResponse.Invoice || [];
       const mappedJobs: ExternalJobData[] = invoices.map((invoice) => ({
         externalId: invoice.Id,
         title: invoice.DocNumber || `Invoice ${invoice.Id}`,
@@ -272,14 +279,15 @@ export class QuickBooksClient extends BaseIntegrationClient {
         clientExternalId: invoice.CustomerRef?.value,
         description: invoice.PrivateNote || invoice.Line?.[0]?.Description,
         rawData: invoice as unknown as Record<string, unknown>,
-      }))
+      }));
 
-      await this.logSyncResult('JOBS', mappedJobs.length)
-      return mappedJobs
+      await this.logSyncResult("JOBS", mappedJobs.length);
+      return mappedJobs;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      await this.logSyncResult('JOBS', 0, 0, errorMessage)
-      throw error
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      await this.logSyncResult("JOBS", 0, 0, errorMessage);
+      throw error;
     }
   }
 
@@ -287,8 +295,8 @@ export class QuickBooksClient extends BaseIntegrationClient {
    * Sync clients to database
    */
   async syncClients(): Promise<number> {
-    const clients = await this.fetchClients()
-    let synced = 0
+    const clients = await this.fetchClients();
+    let synced = 0;
 
     for (const client of clients) {
       await prisma.externalClient.upsert({
@@ -305,29 +313,29 @@ export class QuickBooksClient extends BaseIntegrationClient {
           email: client.email,
           phone: client.phone,
           address: client.address,
-          rawData: client.rawData,
+          rawData: client.rawData as any,
         },
         update: {
           name: client.name,
           email: client.email,
           phone: client.phone,
           address: client.address,
-          rawData: client.rawData,
+          rawData: client.rawData as any,
           lastSyncedAt: new Date(),
         },
-      })
-      synced++
+      });
+      synced++;
     }
 
-    return synced
+    return synced;
   }
 
   /**
    * Sync jobs to database
    */
   async syncJobs(): Promise<number> {
-    const jobs = await this.fetchJobs()
-    let synced = 0
+    const jobs = await this.fetchJobs();
+    let synced = 0;
 
     for (const job of jobs) {
       await prisma.externalJob.upsert({
@@ -344,25 +352,25 @@ export class QuickBooksClient extends BaseIntegrationClient {
           status: job.status,
           clientExternalId: job.clientExternalId,
           description: job.description,
-          rawData: job.rawData,
+          rawData: job.rawData as any,
         },
         update: {
           title: job.title,
           status: job.status,
           clientExternalId: job.clientExternalId,
           description: job.description,
-          rawData: job.rawData,
+          rawData: job.rawData as any,
           lastSyncedAt: new Date(),
         },
-      })
-      synced++
+      });
+      synced++;
     }
 
-    return synced
+    return synced;
   }
 
   private formatAddress(customer: QuickBooksCustomer): string | undefined {
-    if (!customer.BillAddr) return undefined
+    if (!customer.BillAddr) return undefined;
 
     const parts = [
       customer.BillAddr.Line1,
@@ -370,26 +378,28 @@ export class QuickBooksClient extends BaseIntegrationClient {
       customer.BillAddr.City,
       customer.BillAddr.CountrySubDivisionCode,
       customer.BillAddr.PostalCode,
-    ].filter(Boolean)
+    ].filter(Boolean);
 
-    return parts.length > 0 ? parts.join(', ') : undefined
+    return parts.length > 0 ? parts.join(", ") : undefined;
   }
 
   private mapInvoiceStatus(invoice: QuickBooksInvoice): string {
-    if (invoice.Balance === 0) return 'PAID'
-    if (invoice.Balance < invoice.TotalAmt) return 'PARTIAL'
-    return 'PENDING'
+    if (invoice.Balance === 0) return "PAID";
+    if (invoice.Balance < invoice.TotalAmt) return "PARTIAL";
+    return "PENDING";
   }
 }
 
-export async function createQuickBooksClient(integrationId: string): Promise<QuickBooksClient> {
+export async function createQuickBooksClient(
+  integrationId: string,
+): Promise<QuickBooksClient> {
   const integration = await prisma.integration.findUnique({
     where: { id: integrationId },
-  })
+  });
 
-  if (!integration || integration.provider !== 'QUICKBOOKS') {
-    throw new Error('Invalid QuickBooks integration')
+  if (!integration || integration.provider !== "QUICKBOOKS") {
+    throw new Error("Invalid QuickBooks integration");
   }
 
-  return new QuickBooksClient(integrationId, integration.realmId || undefined)
+  return new QuickBooksClient(integrationId, integration.realmId || undefined);
 }

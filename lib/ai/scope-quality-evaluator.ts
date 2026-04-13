@@ -17,32 +17,32 @@
 // ============================================================
 
 export interface ScopeEvaluationInput {
-  claimType: string
-  damageCategory?: number
-  damageClass?: number
-  affectedAreaM2?: number
+  claimType: string;
+  damageCategory?: number;
+  damageClass?: number;
+  affectedAreaM2?: number;
 }
 
 export interface ScopeQualityScore {
   /** 0–100 weighted composite */
-  composite: number
+  composite: number;
   /** 0–100: all 7 sections present? */
-  structural: number
+  structural: number;
   /** 0–100: IICRC refs per section */
-  citationDensity: number
+  citationDensity: number;
   /** 0–100: quantities match S500 ratios */
-  equipmentAccuracy: number
+  equipmentAccuracy: number;
   /** 0–100: penalise hedging words */
-  specificity: number
+  specificity: number;
   /** 0–100: category-specific requirements met */
-  categoryCompliance: number
+  categoryCompliance: number;
   details: {
-    sectionsFound: number[]
-    sectionsMissing: number[]
-    iicrcRefsCount: number
-    hedgingWords: string[]
-    equipmentIssues: string[]
-  }
+    sectionsFound: number[];
+    sectionsMissing: number[];
+    iicrcRefsCount: number;
+    hedgingWords: string[];
+    equipmentIssues: string[];
+  };
 }
 
 // ============================================================
@@ -108,44 +108,44 @@ const SECTION_KEYWORDS: Record<number, RegExp[]> = {
     /clearance\s+testing/i,
     /reinstatement/i,
   ],
-}
+};
 
 /**
  * Find which of the 7 expected sections are present in the scope text.
  * Looks for explicit `## N.` headings first, then falls back to keyword matching.
  */
 function detectSections(scope: string): { found: number[]; missing: number[] } {
-  const found = new Set<number>()
+  const found = new Set<number>();
 
   // Pass 1: explicit numbered headings (## 1. ... or # 1) ... or **1.** etc.)
-  const numberedHeadingPattern = /(?:^|\n)\s*(?:#{1,3}\s*)?(\d+)[\.\)]\s+/gm
-  let match: RegExpExecArray | null
+  const numberedHeadingPattern = /(?:^|\n)\s*(?:#{1,3}\s*)?(\d+)[\.\)]\s+/gm;
+  let match: RegExpExecArray | null;
   while ((match = numberedHeadingPattern.exec(scope)) !== null) {
-    const num = parseInt(match[1], 10)
+    const num = parseInt(match[1], 10);
     if (num >= 1 && num <= 7) {
-      found.add(num)
+      found.add(num);
     }
     // Some scopes go up to 8 sections (fire/smoke) — treat 8 as bonus section 7
     if (num === 8) {
-      found.add(7)
+      found.add(7);
     }
   }
 
   // Pass 2: keyword fallback for sections not yet found
   for (let s = 1; s <= 7; s++) {
-    if (found.has(s)) continue
-    const patterns = SECTION_KEYWORDS[s]
+    if (found.has(s)) continue;
+    const patterns = SECTION_KEYWORDS[s];
     if (patterns && patterns.some((re) => re.test(scope))) {
-      found.add(s)
+      found.add(s);
     }
   }
 
-  const foundArr = Array.from(found).sort((a, b) => a - b)
-  const missing: number[] = []
+  const foundArr = Array.from(found).sort((a, b) => a - b);
+  const missing: number[] = [];
   for (let s = 1; s <= 7; s++) {
-    if (!found.has(s)) missing.push(s)
+    if (!found.has(s)) missing.push(s);
   }
-  return { found: foundArr, missing }
+  return { found: foundArr, missing };
 }
 
 // ============================================================
@@ -159,22 +159,22 @@ function countIicrcReferences(scope: string): number {
     /S520/g,
     /S770/g,
     /§[\d.]+/g,
-  ]
+  ];
 
   // Collect all unique match positions to avoid double-counting overlapping patterns
-  const matchPositions = new Set<string>()
+  const matchPositions = new Set<string>();
 
   for (const pattern of patterns) {
-    let m: RegExpExecArray | null
+    let m: RegExpExecArray | null;
     // Reset lastIndex for safety
-    pattern.lastIndex = 0
+    pattern.lastIndex = 0;
     while ((m = pattern.exec(scope)) !== null) {
       // Key by position + match text to deduplicate
-      matchPositions.add(`${m.index}:${m[0]}`)
+      matchPositions.add(`${m.index}:${m[0]}`);
     }
   }
 
-  return matchPositions.size
+  return matchPositions.size;
 }
 
 // ============================================================
@@ -182,13 +182,13 @@ function countIicrcReferences(scope: string): number {
 // ============================================================
 
 interface ExtractedEquipment {
-  airMovers: number | null
-  dehumidifiers: number | null
+  airMovers: number | null;
+  dehumidifiers: number | null;
 }
 
 function extractEquipmentQuantities(scope: string): ExtractedEquipment {
-  let airMovers: number | null = null
-  let dehumidifiers: number | null = null
+  let airMovers: number | null = null;
+  let dehumidifiers: number | null = null;
 
   // Air movers: look for patterns like "4 × 1.5 kW" or "Air movers | 4" or "4 air movers"
   const airMoverPatterns: RegExp[] = [
@@ -198,13 +198,13 @@ function extractEquipmentQuantities(scope: string): ExtractedEquipment {
     /(\d+)\s*(?:[×x]\s*)?(?:[\d.]+\s*kW\s*)?air\s*movers?/i,
     // Table row format: | Air movers ... | N × ...
     /[Aa]ir\s+movers?\s*(?:\([^)]*\))?\s*\|\s*(\d+)\s*[×x]/,
-  ]
+  ];
 
   for (const pattern of airMoverPatterns) {
-    const m = scope.match(pattern)
+    const m = scope.match(pattern);
     if (m && m[1]) {
-      airMovers = parseInt(m[1], 10)
-      break
+      airMovers = parseInt(m[1], 10);
+      break;
     }
   }
 
@@ -216,63 +216,63 @@ function extractEquipmentQuantities(scope: string): ExtractedEquipment {
     /(\d+)\s*(?:[×x]\s*)?(?:[\d.]+\s*[Ll]\/day\s*)?(?:LGR\s+)?[Dd]ehumidifier/,
     // Table row format: | LGR Dehumidifier | N × ...
     /LGR\s+[Dd]ehumidifier\s*\|\s*(\d+)\s*[×x]/,
-  ]
+  ];
 
   for (const pattern of dehuPatterns) {
-    const m = scope.match(pattern)
+    const m = scope.match(pattern);
     if (m && m[1]) {
-      dehumidifiers = parseInt(m[1], 10)
-      break
+      dehumidifiers = parseInt(m[1], 10);
+      break;
     }
   }
 
-  return { airMovers, dehumidifiers }
+  return { airMovers, dehumidifiers };
 }
 
 function scoreEquipmentAccuracy(
   scope: string,
-  affectedAreaM2: number | undefined
+  affectedAreaM2: number | undefined,
 ): { score: number; issues: string[] } {
   if (affectedAreaM2 === undefined || affectedAreaM2 <= 0) {
-    return { score: 50, issues: ['No affected area provided — neutral score'] }
+    return { score: 50, issues: ["No affected area provided — neutral score"] };
   }
 
-  const extracted = extractEquipmentQuantities(scope)
-  const issues: string[] = []
-  let totalDeviation = 0
+  const extracted = extractEquipmentQuantities(scope);
+  const issues: string[] = [];
+  let totalDeviation = 0;
 
   // Expected air movers: ceil(area / 15)
-  const expectedAirMovers = Math.ceil(affectedAreaM2 / 15)
+  const expectedAirMovers = Math.ceil(affectedAreaM2 / 15);
   if (extracted.airMovers !== null) {
-    const deviation = Math.abs(extracted.airMovers - expectedAirMovers)
+    const deviation = Math.abs(extracted.airMovers - expectedAirMovers);
     if (deviation > 0) {
       issues.push(
-        `Air movers: found ${extracted.airMovers}, expected ${expectedAirMovers} (ceil(${affectedAreaM2}/15)). Deviation: ${deviation}`
-      )
+        `Air movers: found ${extracted.airMovers}, expected ${expectedAirMovers} (ceil(${affectedAreaM2}/15)). Deviation: ${deviation}`,
+      );
     }
-    totalDeviation += deviation
+    totalDeviation += deviation;
   } else {
-    issues.push('Could not extract air mover quantity from scope text')
-    totalDeviation += 2 // Moderate penalty for missing data
+    issues.push("Could not extract air mover quantity from scope text");
+    totalDeviation += 2; // Moderate penalty for missing data
   }
 
   // Expected dehumidifiers: ceil(area / 40)
-  const expectedDehu = Math.ceil(affectedAreaM2 / 40)
+  const expectedDehu = Math.ceil(affectedAreaM2 / 40);
   if (extracted.dehumidifiers !== null) {
-    const deviation = Math.abs(extracted.dehumidifiers - expectedDehu)
+    const deviation = Math.abs(extracted.dehumidifiers - expectedDehu);
     if (deviation > 0) {
       issues.push(
-        `Dehumidifiers: found ${extracted.dehumidifiers}, expected ${expectedDehu} (ceil(${affectedAreaM2}/40)). Deviation: ${deviation}`
-      )
+        `Dehumidifiers: found ${extracted.dehumidifiers}, expected ${expectedDehu} (ceil(${affectedAreaM2}/40)). Deviation: ${deviation}`,
+      );
     }
-    totalDeviation += deviation
+    totalDeviation += deviation;
   } else {
-    issues.push('Could not extract dehumidifier quantity from scope text')
-    totalDeviation += 2
+    issues.push("Could not extract dehumidifier quantity from scope text");
+    totalDeviation += 2;
   }
 
-  const score = Math.max(0, 100 - 20 * totalDeviation)
-  return { score, issues }
+  const score = Math.max(0, 100 - 20 * totalDeviation);
+  return { score, issues };
 }
 
 // ============================================================
@@ -285,33 +285,33 @@ function scoreEquipmentAccuracy(
  * "adequate ventilation" is not).
  */
 const HEDGING_WORDS = [
-  'adequate',
-  'appropriate',
-  'as needed',
-  'sufficient',
-  'some',
-  'various',
-  'multiple',
-  'several',
-]
+  "adequate",
+  "appropriate",
+  "as needed",
+  "sufficient",
+  "some",
+  "various",
+  "multiple",
+  "several",
+];
 
 function findHedgingWords(scope: string): string[] {
-  const found: string[] = []
-  const lowerScope = scope.toLowerCase()
+  const found: string[] = [];
+  const lowerScope = scope.toLowerCase();
 
   for (const word of HEDGING_WORDS) {
     // Build a regex that matches the word NOT followed by a digit
-    const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    const pattern = new RegExp(`\\b${escaped}\\b(?!\\s*\\d)`, 'gi')
-    const matches = lowerScope.match(pattern)
+    const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const pattern = new RegExp(`\\b${escaped}\\b(?!\\s*\\d)`, "gi");
+    const matches = lowerScope.match(pattern);
     if (matches) {
       for (const m of matches) {
-        found.push(word)
+        found.push(word);
       }
     }
   }
 
-  return found
+  return found;
 }
 
 // ============================================================
@@ -320,38 +320,39 @@ function findHedgingWords(scope: string): string[] {
 
 function scoreCategoryCompliance(
   scope: string,
-  damageCategory: number | undefined
+  damageCategory: number | undefined,
 ): number {
   if (damageCategory === undefined) {
-    return 70 // Neutral when not provided
+    return 70; // Neutral when not provided
   }
 
   if (damageCategory === 1) {
-    return 100 // Category 1 has no special requirements
+    return 100; // Category 1 has no special requirements
   }
 
-  const lowerScope = scope.toLowerCase()
-  let score = 0
+  const lowerScope = scope.toLowerCase();
+  let score = 0;
 
   if (damageCategory === 2) {
     // Must mention "antimicrobial"
-    if (/antimicrobial/i.test(scope)) score += 50
+    if (/antimicrobial/i.test(scope)) score += 50;
     // Must mention "grey water" or "Category 2"
-    if (/grey\s*water/i.test(scope) || /category\s*2/i.test(scope)) score += 50
+    if (/grey\s*water/i.test(scope) || /category\s*2/i.test(scope)) score += 50;
   }
 
   if (damageCategory === 3) {
     // Must mention "PPE"
-    if (/\bPPE\b/.test(scope)) score += 25
+    if (/\bPPE\b/.test(scope)) score += 25;
     // Must mention "remove" + "porous"
-    if (/remov/i.test(scope) && /porous/i.test(scope)) score += 25
+    if (/remov/i.test(scope) && /porous/i.test(scope)) score += 25;
     // Must mention "Category 3" or "black water"
-    if (/category\s*3/i.test(scope) || /black\s*water/i.test(scope)) score += 25
+    if (/category\s*3/i.test(scope) || /black\s*water/i.test(scope))
+      score += 25;
     // Must mention "hygienist" or "clearance"
-    if (/hygienist/i.test(scope) || /clearance/i.test(scope)) score += 25
+    if (/hygienist/i.test(scope) || /clearance/i.test(scope)) score += 25;
   }
 
-  return score
+  return score;
 }
 
 // ============================================================
@@ -360,37 +361,39 @@ function scoreCategoryCompliance(
 
 export function evaluateScopeQuality(
   scope: string,
-  input: ScopeEvaluationInput
+  input: ScopeEvaluationInput,
 ): ScopeQualityScore {
   // 1. Structural completeness (weight 30%)
-  const { found: sectionsFound, missing: sectionsMissing } = detectSections(scope)
-  const structural = Math.round((sectionsFound.length / 7) * 100)
+  const { found: sectionsFound, missing: sectionsMissing } =
+    detectSections(scope);
+  const structural = Math.round((sectionsFound.length / 7) * 100);
 
   // 2. IICRC citation density (weight 25%)
-  const iicrcRefsCount = countIicrcReferences(scope)
-  const citationDensity = Math.min(100, Math.round((iicrcRefsCount / 7) * 100))
+  const iicrcRefsCount = countIicrcReferences(scope);
+  const citationDensity = Math.min(100, Math.round((iicrcRefsCount / 7) * 100));
 
   // 3. Equipment ratio correctness (weight 20%)
-  const { score: equipmentAccuracy, issues: equipmentIssues } = scoreEquipmentAccuracy(
-    scope,
-    input.affectedAreaM2
-  )
+  const { score: equipmentAccuracy, issues: equipmentIssues } =
+    scoreEquipmentAccuracy(scope, input.affectedAreaM2);
 
   // 4. Specificity score (weight 15%)
-  const hedgingWords = findHedgingWords(scope)
-  const specificity = Math.max(0, 100 - 15 * hedgingWords.length)
+  const hedgingWords = findHedgingWords(scope);
+  const specificity = Math.max(0, 100 - 15 * hedgingWords.length);
 
   // 5. Category compliance (weight 10%)
-  const categoryCompliance = scoreCategoryCompliance(scope, input.damageCategory)
+  const categoryCompliance = scoreCategoryCompliance(
+    scope,
+    input.damageCategory,
+  );
 
   // Composite: weighted sum
   const composite = Math.round(
-    0.30 * structural +
-    0.25 * citationDensity +
-    0.20 * equipmentAccuracy +
-    0.15 * specificity +
-    0.10 * categoryCompliance
-  )
+    0.3 * structural +
+      0.25 * citationDensity +
+      0.2 * equipmentAccuracy +
+      0.15 * specificity +
+      0.1 * categoryCompliance,
+  );
 
   return {
     composite,
@@ -406,5 +409,5 @@ export function evaluateScopeQuality(
       hedgingWords,
       equipmentIssues,
     },
-  }
+  };
 }

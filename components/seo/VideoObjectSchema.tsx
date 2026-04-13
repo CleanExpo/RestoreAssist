@@ -5,14 +5,14 @@
  */
 
 interface VideoObjectSchemaProps {
-  title: string
-  description: string
-  thumbnailUrl: string[] // [1x1, 4x3, 16x9] — 3 aspect ratios required
-  uploadDate: string     // ISO 8601 with +11:00 AEDT offset
-  duration: string       // ISO 8601 PT format e.g. "PT12M30S"
-  embedUrl: string       // YouTube embed URL
-  contentUrl?: string
-  viewCount?: number
+  title: string;
+  description: string;
+  thumbnailUrl: string[]; // [1x1, 4x3, 16x9] — 3 aspect ratios required
+  uploadDate: string; // ISO 8601 with +11:00 AEDT offset
+  duration: string; // ISO 8601 PT format e.g. "PT12M30S"
+  embedUrl: string; // YouTube embed URL
+  contentUrl?: string;
+  viewCount?: number;
 }
 
 export default function VideoObjectSchema({
@@ -25,7 +25,8 @@ export default function VideoObjectSchema({
   contentUrl,
   viewCount,
 }: VideoObjectSchemaProps) {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://restoreassist.com.au"
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://restoreassist.com.au";
 
   const schema: Record<string, unknown> = {
     "@context": "https://schema.org",
@@ -44,10 +45,10 @@ export default function VideoObjectSchema({
         url: siteUrl + "/logo.png",
       },
     },
-  }
+  };
 
   if (contentUrl) {
-    schema.contentUrl = contentUrl
+    schema.contentUrl = contentUrl;
   }
 
   if (viewCount !== undefined) {
@@ -55,13 +56,14 @@ export default function VideoObjectSchema({
       "@type": "InteractionCounter",
       interactionType: { "@type": "WatchAction" },
       userInteractionCount: viewCount,
-    }
+    };
   }
 
   return (
+    // SAFE: JSON-LD structured data — JSON.stringify of server-controlled schema object; no user input reaches this
     <script
       type="application/ld+json"
       dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
     />
-  )
+  );
 }

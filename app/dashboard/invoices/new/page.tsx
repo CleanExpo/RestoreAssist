@@ -1,203 +1,217 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { ArrowLeft, Plus, Trash2, User, Building2, FileText } from 'lucide-react'
-import toast from 'react-hot-toast'
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import {
+  ArrowLeft,
+  Plus,
+  Trash2,
+  User,
+  Building2,
+  FileText,
+} from "lucide-react";
+import toast from "react-hot-toast";
 
 interface Client {
-  id: string
-  name: string
-  email: string
-  phone?: string
-  address?: string
-  company?: string
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  address?: string;
+  company?: string;
 }
 
 interface LineItem {
-  id: string
-  description: string
-  category?: string
-  quantity: number
-  unitPrice: number
-  gstRate: number
+  id: string;
+  description: string;
+  category?: string;
+  quantity: number;
+  unitPrice: number;
+  gstRate: number;
 }
 
 export default function NewInvoicePage() {
-  const router = useRouter()
-  const [loading, setLoading] = useState(false)
-  const [loadingClients, setLoadingClients] = useState(false)
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [loadingClients, setLoadingClients] = useState(false);
 
   // Customer selection
-  const [customerType, setCustomerType] = useState<'client' | 'manual'>('manual')
-  const [clients, setClients] = useState<Client[]>([])
-  const [selectedClientId, setSelectedClientId] = useState('')
+  const [customerType, setCustomerType] = useState<"client" | "manual">(
+    "manual",
+  );
+  const [clients, setClients] = useState<Client[]>([]);
+  const [selectedClientId, setSelectedClientId] = useState("");
 
   // Manual customer details
-  const [customerName, setCustomerName] = useState('')
-  const [customerEmail, setCustomerEmail] = useState('')
-  const [customerPhone, setCustomerPhone] = useState('')
-  const [customerAddress, setCustomerAddress] = useState('')
-  const [customerABN, setCustomerABN] = useState('')
+  const [customerName, setCustomerName] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [customerAddress, setCustomerAddress] = useState("");
+  const [customerABN, setCustomerABN] = useState("");
 
   // Invoice details
-  const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().slice(0, 10))
-  const [dueInDays, setDueInDays] = useState(30)
+  const [invoiceDate, setInvoiceDate] = useState(
+    new Date().toISOString().slice(0, 10),
+  );
+  const [dueInDays, setDueInDays] = useState(30);
   const [dueDate, setDueDate] = useState(() => {
-    const date = new Date()
-    date.setDate(date.getDate() + 30)
-    return date.toISOString().slice(0, 10)
-  })
+    const date = new Date();
+    date.setDate(date.getDate() + 30);
+    return date.toISOString().slice(0, 10);
+  });
 
   // Line items
   const [lineItems, setLineItems] = useState<LineItem[]>([
     {
       id: crypto.randomUUID(),
-      description: '',
-      category: '',
+      description: "",
+      category: "",
       quantity: 1,
       unitPrice: 0,
-      gstRate: 10.0
-    }
-  ])
+      gstRate: 10.0,
+    },
+  ]);
 
   // Additional charges
-  const [discountType, setDiscountType] = useState<'amount' | 'percentage'>('amount')
-  const [discountAmount, setDiscountAmount] = useState('')
-  const [discountPercentage, setDiscountPercentage] = useState('')
-  const [shippingAmount, setShippingAmount] = useState('')
+  const [discountType, setDiscountType] = useState<"amount" | "percentage">(
+    "amount",
+  );
+  const [discountAmount, setDiscountAmount] = useState("");
+  const [discountPercentage, setDiscountPercentage] = useState("");
+  const [shippingAmount, setShippingAmount] = useState("");
 
   // Notes
-  const [notes, setNotes] = useState('')
+  const [notes, setNotes] = useState("");
   const [terms, setTerms] = useState(
-    'Payment is due within 30 days from the date of this invoice. Late payments may incur additional charges.'
-  )
-  const [footer, setFooter] = useState('Thank you for your business!')
+    "Payment is due within 30 days from the date of this invoice. Late payments may incur additional charges.",
+  );
+  const [footer, setFooter] = useState("Thank you for your business!");
 
   useEffect(() => {
-    fetchClients()
-  }, [])
+    fetchClients();
+  }, []);
 
   useEffect(() => {
     // Auto-calculate due date when invoice date or due in days changes
-    const date = new Date(invoiceDate)
-    date.setDate(date.getDate() + parseInt(dueInDays.toString()))
-    setDueDate(date.toISOString().slice(0, 10))
-  }, [invoiceDate, dueInDays])
+    const date = new Date(invoiceDate);
+    date.setDate(date.getDate() + parseInt(dueInDays.toString()));
+    setDueDate(date.toISOString().slice(0, 10));
+  }, [invoiceDate, dueInDays]);
 
   useEffect(() => {
     // Auto-fill customer details when client is selected
     if (selectedClientId) {
-      const client = clients.find((c) => c.id === selectedClientId)
+      const client = clients.find((c) => c.id === selectedClientId);
       if (client) {
-        setCustomerName(client.name)
-        setCustomerEmail(client.email)
-        setCustomerPhone(client.phone || '')
-        setCustomerAddress(client.address || '')
+        setCustomerName(client.name);
+        setCustomerEmail(client.email);
+        setCustomerPhone(client.phone || "");
+        setCustomerAddress(client.address || "");
       }
     }
-  }, [selectedClientId, clients])
+  }, [selectedClientId, clients]);
 
   const fetchClients = async () => {
-    setLoadingClients(true)
+    setLoadingClients(true);
     try {
-      const response = await fetch('/api/clients?limit=100')
+      const response = await fetch("/api/clients?limit=100");
       if (response.ok) {
-        const data = await response.json()
-        setClients(data.clients || [])
+        const data = await response.json();
+        setClients(data.clients || []);
       }
     } catch (error) {
-      console.error('Failed to fetch clients:', error)
+      console.error("Failed to fetch clients:", error);
     } finally {
-      setLoadingClients(false)
+      setLoadingClients(false);
     }
-  }
+  };
 
   const addLineItem = () => {
     setLineItems([
       ...lineItems,
       {
         id: crypto.randomUUID(),
-        description: '',
-        category: '',
+        description: "",
+        category: "",
         quantity: 1,
         unitPrice: 0,
-        gstRate: 10.0
-      }
-    ])
-  }
+        gstRate: 10.0,
+      },
+    ]);
+  };
 
   const removeLineItem = (id: string) => {
     if (lineItems.length === 1) {
-      toast.error('At least one line item is required')
-      return
+      toast.error("At least one line item is required");
+      return;
     }
-    setLineItems(lineItems.filter((item) => item.id !== id))
-  }
+    setLineItems(lineItems.filter((item) => item.id !== id));
+  };
 
   const updateLineItem = (id: string, field: keyof LineItem, value: any) => {
     setLineItems(
       lineItems.map((item) =>
-        item.id === id ? { ...item, [field]: value } : item
-      )
-    )
-  }
+        item.id === id ? { ...item, [field]: value } : item,
+      ),
+    );
+  };
 
   const calculateFinancials = () => {
-    let subtotal = 0
+    let subtotal = 0;
 
     lineItems.forEach((item) => {
-      subtotal += item.quantity * item.unitPrice * 100
-    })
+      subtotal += item.quantity * item.unitPrice * 100;
+    });
 
     // Apply discount
-    if (discountType === 'amount' && discountAmount) {
-      subtotal -= parseFloat(discountAmount) * 100
-    } else if (discountType === 'percentage' && discountPercentage) {
-      const discount = subtotal * (parseFloat(discountPercentage) / 100)
-      subtotal -= discount
+    if (discountType === "amount" && discountAmount) {
+      subtotal -= parseFloat(discountAmount) * 100;
+    } else if (discountType === "percentage" && discountPercentage) {
+      const discount = subtotal * (parseFloat(discountPercentage) / 100);
+      subtotal -= discount;
     }
 
     // Add shipping
     if (shippingAmount) {
-      subtotal += parseFloat(shippingAmount) * 100
+      subtotal += parseFloat(shippingAmount) * 100;
     }
 
-    const gst = Math.round(subtotal * 0.1)
-    const total = subtotal + gst
+    const gst = Math.round(subtotal * 0.1);
+    const total = subtotal + gst;
 
     return {
       subtotal: Math.round(subtotal),
       gst,
-      total
-    }
-  }
+      total,
+    };
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
     // Validation
     if (!customerName.trim()) {
-      toast.error('Customer name is required')
-      return
+      toast.error("Customer name is required");
+      return;
     }
 
     if (!customerEmail.trim()) {
-      toast.error('Customer email is required')
-      return
+      toast.error("Customer email is required");
+      return;
     }
 
     const hasValidItems = lineItems.some(
-      (item) => item.description.trim() && item.quantity > 0 && item.unitPrice > 0
-    )
+      (item) =>
+        item.description.trim() && item.quantity > 0 && item.unitPrice > 0,
+    );
 
     if (!hasValidItems) {
-      toast.error('At least one valid line item is required')
-      return
+      toast.error("At least one valid line item is required");
+      return;
     }
 
     try {
-      setLoading(true)
+      setLoading(true);
 
       const payload: any = {
         customerName: customerName.trim(),
@@ -214,60 +228,60 @@ export default function NewInvoicePage() {
             category: item.category?.trim() || null,
             quantity: item.quantity,
             unitPrice: Math.round(item.unitPrice * 100), // Convert to cents
-            gstRate: item.gstRate
+            gstRate: item.gstRate,
           })),
         notes: notes.trim() || null,
         terms: terms.trim() || null,
-        footer: footer.trim() || null
-      }
+        footer: footer.trim() || null,
+      };
 
       // Add client relationship
-      if (customerType === 'client' && selectedClientId) {
-        payload.clientId = selectedClientId
+      if (customerType === "client" && selectedClientId) {
+        payload.clientId = selectedClientId;
       }
 
       // Add discounts
-      if (discountType === 'amount' && discountAmount) {
-        payload.discountAmount = Math.round(parseFloat(discountAmount) * 100)
-      } else if (discountType === 'percentage' && discountPercentage) {
-        payload.discountPercentage = parseFloat(discountPercentage)
+      if (discountType === "amount" && discountAmount) {
+        payload.discountAmount = Math.round(parseFloat(discountAmount) * 100);
+      } else if (discountType === "percentage" && discountPercentage) {
+        payload.discountPercentage = parseFloat(discountPercentage);
       }
 
       // Add shipping
       if (shippingAmount) {
-        payload.shippingAmount = Math.round(parseFloat(shippingAmount) * 100)
+        payload.shippingAmount = Math.round(parseFloat(shippingAmount) * 100);
       }
 
-      const response = await fetch('/api/invoices', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })
+      const response = await fetch("/api/invoices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
       if (response.ok) {
-        const data = await response.json()
-        toast.success('Invoice created successfully')
-        router.push(`/dashboard/invoices/${data.invoice.id}`)
+        const data = await response.json();
+        toast.success("Invoice created successfully");
+        router.push(`/dashboard/invoices/${data.invoice.id}`);
       } else {
-        const error = await response.json()
-        toast.error(error.message || 'Failed to create invoice')
+        const error = await response.json();
+        toast.error(error.message || "Failed to create invoice");
       }
     } catch (error) {
-      console.error('Failed to create invoice:', error)
-      toast.error('An error occurred while creating the invoice')
+      console.error("Failed to create invoice:", error);
+      toast.error("An error occurred while creating the invoice");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  const financials = calculateFinancials()
+  const financials = calculateFinancials();
 
   return (
     <div className="space-y-6 pb-12">
       {/* Header */}
       <div className="flex items-center gap-4">
         <button
-          onClick={() => router.push('/dashboard/invoices')}
+          onClick={() => router.push("/dashboard/invoices")}
           className="p-2 hover:bg-slate-800 dark:hover:bg-slate-700 rounded-lg transition-colors"
         >
           <ArrowLeft className="h-5 w-5" />
@@ -282,7 +296,10 @@ export default function NewInvoicePage() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <form
+        onSubmit={handleSubmit}
+        className="grid grid-cols-1 lg:grid-cols-3 gap-6"
+      >
         {/* Main Form */}
         <div className="lg:col-span-2 space-y-6">
           {/* Customer Selection */}
@@ -299,11 +316,11 @@ export default function NewInvoicePage() {
               <div className="flex gap-3">
                 <button
                   type="button"
-                  onClick={() => setCustomerType('client')}
+                  onClick={() => setCustomerType("client")}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-colors ${
-                    customerType === 'client'
-                      ? 'border-cyan-500 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400'
-                      : 'border-slate-300 dark:border-slate-600 hover:border-slate-400'
+                    customerType === "client"
+                      ? "border-cyan-500 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400"
+                      : "border-slate-300 dark:border-slate-600 hover:border-slate-400"
                   }`}
                 >
                   <User className="h-4 w-4" />
@@ -311,11 +328,11 @@ export default function NewInvoicePage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setCustomerType('manual')}
+                  onClick={() => setCustomerType("manual")}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-colors ${
-                    customerType === 'manual'
-                      ? 'border-cyan-500 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400'
-                      : 'border-slate-300 dark:border-slate-600 hover:border-slate-400'
+                    customerType === "manual"
+                      ? "border-cyan-500 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400"
+                      : "border-slate-300 dark:border-slate-600 hover:border-slate-400"
                   }`}
                 >
                   <FileText className="h-4 w-4" />
@@ -325,7 +342,7 @@ export default function NewInvoicePage() {
             </div>
 
             {/* Client Selection */}
-            {customerType === 'client' && (
+            {customerType === "client" && (
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
@@ -350,7 +367,7 @@ export default function NewInvoicePage() {
             )}
 
             {/* Manual Entry or Auto-filled Fields */}
-            {(customerType === 'manual' || selectedClientId) && (
+            {(customerType === "manual" || selectedClientId) && (
               <div className="space-y-4 mt-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
@@ -449,7 +466,7 @@ export default function NewInvoicePage() {
                       type="text"
                       value={item.description}
                       onChange={(e) =>
-                        updateLineItem(item.id, 'description', e.target.value)
+                        updateLineItem(item.id, "description", e.target.value)
                       }
                       required
                       className="w-full px-2 py-1.5 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
@@ -465,7 +482,11 @@ export default function NewInvoicePage() {
                       step="0.01"
                       value={item.quantity}
                       onChange={(e) =>
-                        updateLineItem(item.id, 'quantity', parseFloat(e.target.value) || 0)
+                        updateLineItem(
+                          item.id,
+                          "quantity",
+                          parseFloat(e.target.value) || 0,
+                        )
                       }
                       required
                       min="0"
@@ -482,7 +503,11 @@ export default function NewInvoicePage() {
                       step="0.01"
                       value={item.unitPrice}
                       onChange={(e) =>
-                        updateLineItem(item.id, 'unitPrice', parseFloat(e.target.value) || 0)
+                        updateLineItem(
+                          item.id,
+                          "unitPrice",
+                          parseFloat(e.target.value) || 0,
+                        )
                       }
                       required
                       min="0"
@@ -527,7 +552,7 @@ export default function NewInvoicePage() {
                 <select
                   value={discountType}
                   onChange={(e) =>
-                    setDiscountType(e.target.value as 'amount' | 'percentage')
+                    setDiscountType(e.target.value as "amount" | "percentage")
                   }
                   className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 >
@@ -540,7 +565,7 @@ export default function NewInvoicePage() {
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                   Discount Value
                 </label>
-                {discountType === 'amount' ? (
+                {discountType === "amount" ? (
                   <input
                     type="number"
                     step="0.01"
@@ -682,14 +707,18 @@ export default function NewInvoicePage() {
 
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-slate-600 dark:text-slate-400">Subtotal (Ex GST)</span>
+                <span className="text-slate-600 dark:text-slate-400">
+                  Subtotal (Ex GST)
+                </span>
                 <span className="font-medium text-slate-900 dark:text-white">
                   ${(financials.subtotal / 100).toFixed(2)}
                 </span>
               </div>
 
               <div className="flex justify-between text-sm">
-                <span className="text-slate-600 dark:text-slate-400">GST (10%)</span>
+                <span className="text-slate-600 dark:text-slate-400">
+                  GST (10%)
+                </span>
                 <span className="font-medium text-slate-900 dark:text-white">
                   ${(financials.gst / 100).toFixed(2)}
                 </span>
@@ -711,11 +740,11 @@ export default function NewInvoicePage() {
               disabled={loading}
               className="w-full px-4 py-3 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors font-medium disabled:opacity-50"
             >
-              {loading ? 'Creating Invoice...' : 'Create Invoice'}
+              {loading ? "Creating Invoice..." : "Create Invoice"}
             </button>
             <button
               type="button"
-              onClick={() => router.push('/dashboard/invoices')}
+              onClick={() => router.push("/dashboard/invoices")}
               disabled={loading}
               className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
             >
@@ -725,5 +754,5 @@ export default function NewInvoicePage() {
         </div>
       </form>
     </div>
-  )
+  );
 }

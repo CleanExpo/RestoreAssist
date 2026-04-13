@@ -1,7 +1,7 @@
-'use client'
+"use client";
 
-import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   Bell,
   CheckCircle2,
@@ -10,38 +10,43 @@ import {
   CheckCircle,
   AlertTriangle,
   XCircle,
-} from 'lucide-react'
-import { formatDistanceToNow, isToday, isWithinInterval, subDays } from 'date-fns'
-import toast from 'react-hot-toast'
+} from "lucide-react";
+import {
+  formatDistanceToNow,
+  isToday,
+  isWithinInterval,
+  subDays,
+} from "date-fns";
+import toast from "react-hot-toast";
 
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Switch } from '@/components/ui/switch'
-import { cn } from '@/lib/utils'
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type NotificationType = 'info' | 'success' | 'warning' | 'error'
+type NotificationType = "info" | "success" | "warning" | "error";
 
 interface Notification {
-  id: string
-  title: string
-  message: string
-  type: NotificationType
-  read: boolean
-  createdAt: string | Date
-  link?: string | null
+  id: string;
+  title: string;
+  message: string;
+  type: NotificationType;
+  read: boolean;
+  createdAt: string | Date;
+  link?: string | null;
 }
 
 interface NotificationPreferences {
-  newReport: boolean
-  inspectionComplete: boolean
-  paymentReceived: boolean
-  syncError: boolean
-  systemAlert: boolean
+  newReport: boolean;
+  inspectionComplete: boolean;
+  paymentReceived: boolean;
+  syncError: boolean;
+  systemAlert: boolean;
 }
 
 const DEFAULT_PREFERENCES: NotificationPreferences = {
@@ -50,62 +55,66 @@ const DEFAULT_PREFERENCES: NotificationPreferences = {
   paymentReceived: true,
   syncError: true,
   systemAlert: true,
-}
+};
 
-const PREFS_STORAGE_KEY = 'ra_notification_preferences'
+const PREFS_STORAGE_KEY = "ra_notification_preferences";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getTypeConfig(type: NotificationType) {
   switch (type) {
-    case 'success':
+    case "success":
       return {
         Icon: CheckCircle,
-        badgeClass: 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20',
-        label: 'Success',
-      }
-    case 'warning':
+        badgeClass:
+          "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20",
+        label: "Success",
+      };
+    case "warning":
       return {
         Icon: AlertTriangle,
-        badgeClass: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
-        label: 'Warning',
-      }
-    case 'error':
+        badgeClass:
+          "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
+        label: "Warning",
+      };
+    case "error":
       return {
         Icon: XCircle,
-        badgeClass: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20',
-        label: 'Error',
-      }
-    case 'info':
+        badgeClass:
+          "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20",
+        label: "Error",
+      };
+    case "info":
     default:
       return {
         Icon: Info,
-        badgeClass: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20',
-        label: 'Info',
-      }
+        badgeClass:
+          "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20",
+        label: "Info",
+      };
   }
 }
 
 function groupNotifications(notifications: Notification[]) {
-  const today: Notification[] = []
-  const thisWeek: Notification[] = []
-  const older: Notification[] = []
+  const today: Notification[] = [];
+  const thisWeek: Notification[] = [];
+  const older: Notification[] = [];
 
-  const now = new Date()
-  const weekAgo = subDays(now, 7)
+  const now = new Date();
+  const weekAgo = subDays(now, 7);
 
   for (const n of notifications) {
-    const date = new Date(n.createdAt)
+    const date = new Date(n.createdAt);
     if (isToday(date)) {
-      today.push(n)
+      today.push(n);
     } else if (isWithinInterval(date, { start: weekAgo, end: now })) {
-      thisWeek.push(n)
+      thisWeek.push(n);
     } else {
-      older.push(n)
+      older.push(n);
     }
   }
 
-  return { today, thisWeek, older }
+  return { today, thisWeek, older };
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -120,16 +129,16 @@ function NotificationSkeleton() {
         <Skeleton className="h-3 w-1/3" />
       </div>
     </div>
-  )
+  );
 }
 
 interface NotificationRowProps {
-  notification: Notification
-  onRead: (id: string, link?: string | null) => void
+  notification: Notification;
+  onRead: (id: string, link?: string | null) => void;
 }
 
 function NotificationRow({ notification, onRead }: NotificationRowProps) {
-  const { Icon, badgeClass, label } = getTypeConfig(notification.type)
+  const { Icon, badgeClass, label } = getTypeConfig(notification.type);
 
   return (
     <div
@@ -137,22 +146,23 @@ function NotificationRow({ notification, onRead }: NotificationRowProps) {
       tabIndex={0}
       onClick={() => onRead(notification.id, notification.link)}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') onRead(notification.id, notification.link)
+        if (e.key === "Enter" || e.key === " ")
+          onRead(notification.id, notification.link);
       }}
       className={cn(
-        'flex items-start gap-3 p-4 cursor-pointer transition-colors',
-        'hover:bg-neutral-50 dark:hover:bg-neutral-800/60',
-        'border-b border-neutral-200 dark:border-neutral-800 last:border-0',
+        "flex items-start gap-3 p-4 cursor-pointer transition-colors",
+        "hover:bg-neutral-50 dark:hover:bg-neutral-800/60",
+        "border-b border-neutral-200 dark:border-neutral-800 last:border-0",
         !notification.read && [
-          'border-l-2 border-l-cyan-500',
-          'bg-cyan-500/5 dark:bg-cyan-500/5',
+          "border-l-2 border-l-cyan-500",
+          "bg-cyan-500/5 dark:bg-cyan-500/5",
         ],
       )}
     >
       {/* Type icon */}
       <div
         className={cn(
-          'flex-shrink-0 mt-0.5 flex items-center justify-center h-8 w-8 rounded-full',
+          "flex-shrink-0 mt-0.5 flex items-center justify-center h-8 w-8 rounded-full",
           badgeClass,
         )}
       >
@@ -164,8 +174,8 @@ function NotificationRow({ notification, onRead }: NotificationRowProps) {
         <div className="flex items-center gap-2 flex-wrap">
           <p
             className={cn(
-              'text-sm text-neutral-900 dark:text-white truncate',
-              !notification.read && 'font-semibold',
+              "text-sm text-neutral-900 dark:text-white truncate",
+              !notification.read && "font-semibold",
             )}
           >
             {notification.title}
@@ -183,7 +193,9 @@ function NotificationRow({ notification, onRead }: NotificationRowProps) {
           {notification.message}
         </p>
         <p className="text-xs text-neutral-500 dark:text-neutral-500 mt-1">
-          {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
+          {formatDistanceToNow(new Date(notification.createdAt), {
+            addSuffix: true,
+          })}
         </p>
       </div>
 
@@ -192,17 +204,21 @@ function NotificationRow({ notification, onRead }: NotificationRowProps) {
         <ExternalLink className="h-4 w-4 flex-shrink-0 mt-1 text-neutral-400 dark:text-neutral-500" />
       )}
     </div>
-  )
+  );
 }
 
 interface NotificationGroupProps {
-  label: string
-  notifications: Notification[]
-  onRead: (id: string, link?: string | null) => void
+  label: string;
+  notifications: Notification[];
+  onRead: (id: string, link?: string | null) => void;
 }
 
-function NotificationGroup({ label, notifications, onRead }: NotificationGroupProps) {
-  if (notifications.length === 0) return null
+function NotificationGroup({
+  label,
+  notifications,
+  onRead,
+}: NotificationGroupProps) {
+  if (notifications.length === 0) return null;
 
   return (
     <div>
@@ -215,25 +231,29 @@ function NotificationGroup({ label, notifications, onRead }: NotificationGroupPr
         <NotificationRow key={n.id} notification={n} onRead={onRead} />
       ))}
     </div>
-  )
+  );
 }
 
 // ─── Preference toggle row ─────────────────────────────────────────────────────
 
 interface PrefRowProps {
-  id: keyof NotificationPreferences
-  label: string
-  description: string
-  checked: boolean
-  onToggle: (id: keyof NotificationPreferences, value: boolean) => void
+  id: keyof NotificationPreferences;
+  label: string;
+  description: string;
+  checked: boolean;
+  onToggle: (id: keyof NotificationPreferences, value: boolean) => void;
 }
 
 function PrefRow({ id, label, description, checked, onToggle }: PrefRowProps) {
   return (
     <div className="flex items-center justify-between py-3">
       <div className="flex-1 min-w-0 pr-4">
-        <p className="text-sm font-medium text-neutral-900 dark:text-white">{label}</p>
-        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">{description}</p>
+        <p className="text-sm font-medium text-neutral-900 dark:text-white">
+          {label}
+        </p>
+        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+          {description}
+        </p>
       </div>
       <Switch
         checked={checked}
@@ -241,50 +261,51 @@ function PrefRow({ id, label, description, checked, onToggle }: PrefRowProps) {
         aria-label={`Toggle ${label} notifications`}
       />
     </div>
-  )
+  );
 }
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function NotificationsPage() {
-  const router = useRouter()
-  const [notifications, setNotifications] = useState<Notification[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [preferences, setPreferences] = useState<NotificationPreferences>(DEFAULT_PREFERENCES)
-  const [savingPrefs, setSavingPrefs] = useState(false)
+  const router = useRouter();
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [preferences, setPreferences] =
+    useState<NotificationPreferences>(DEFAULT_PREFERENCES);
+  const [savingPrefs, setSavingPrefs] = useState(false);
 
   // ── Load preferences from localStorage ──────────────────────────────────────
   useEffect(() => {
     try {
-      const stored = localStorage.getItem(PREFS_STORAGE_KEY)
+      const stored = localStorage.getItem(PREFS_STORAGE_KEY);
       if (stored) {
-        setPreferences({ ...DEFAULT_PREFERENCES, ...JSON.parse(stored) })
+        setPreferences({ ...DEFAULT_PREFERENCES, ...JSON.parse(stored) });
       }
     } catch {
       // ignore parse errors
     }
-  }, [])
+  }, []);
 
   // ── Fetch notifications ──────────────────────────────────────────────────────
   const fetchNotifications = useCallback(async () => {
     try {
-      setLoading(true)
-      setError(null)
-      const res = await fetch('/api/notifications')
-      if (!res.ok) throw new Error('Failed to fetch')
-      const data = await res.json()
-      setNotifications(data.notifications ?? [])
+      setLoading(true);
+      setError(null);
+      const res = await fetch("/api/notifications");
+      if (!res.ok) throw new Error("Failed to fetch");
+      const data = await res.json();
+      setNotifications(data.notifications ?? []);
     } catch {
-      setError('Could not load notifications. Please try again.')
+      setError("Could not load notifications. Please try again.");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
-    fetchNotifications()
-  }, [fetchNotifications])
+    fetchNotifications();
+  }, [fetchNotifications]);
 
   // ── Mark single notification as read + navigate ───────────────────────────────
   const handleRead = useCallback(
@@ -292,69 +313,68 @@ export default function NotificationsPage() {
       // Optimistic update
       setNotifications((prev) =>
         prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
-      )
+      );
 
       try {
-        await fetch(`/api/notifications/${id}/read`, { method: 'POST' })
+        await fetch(`/api/notifications/${id}/read`, { method: "POST" });
       } catch {
         // non-critical — optimistic update stands
       }
 
       if (link) {
-        router.push(link)
+        router.push(link);
       }
     },
     [router],
-  )
+  );
 
   // ── Mark all as read ─────────────────────────────────────────────────────────
   const handleMarkAllRead = useCallback(async () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
 
     try {
-      await fetch('/api/notifications/read-all', { method: 'POST' })
-      toast.success('All notifications marked as read')
+      await fetch("/api/notifications/read-all", { method: "POST" });
+      toast.success("All notifications marked as read");
     } catch {
-      toast.error('Failed to mark all as read')
+      toast.error("Failed to mark all as read");
     }
-  }, [])
+  }, []);
 
   // ── Update preferences ───────────────────────────────────────────────────────
   const handlePrefToggle = useCallback(
     (id: keyof NotificationPreferences, value: boolean) => {
-      setPreferences((prev) => ({ ...prev, [id]: value }))
+      setPreferences((prev) => ({ ...prev, [id]: value }));
     },
     [],
-  )
+  );
 
   const handleSavePrefs = useCallback(async () => {
-    setSavingPrefs(true)
+    setSavingPrefs(true);
     try {
-      localStorage.setItem(PREFS_STORAGE_KEY, JSON.stringify(preferences))
+      localStorage.setItem(PREFS_STORAGE_KEY, JSON.stringify(preferences));
       // Also persist to user profile for future cross-device sync
-      await fetch('/api/user/profile', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+      await fetch("/api/user/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ notificationPreferences: preferences }),
-      })
-      toast.success('Notification preferences saved')
+      });
+      toast.success("Notification preferences saved");
     } catch {
       // Still saved locally — treat as success
-      toast.success('Preferences saved locally')
+      toast.success("Preferences saved locally");
     } finally {
-      setSavingPrefs(false)
+      setSavingPrefs(false);
     }
-  }, [preferences])
+  }, [preferences]);
 
   // ── Derived data ─────────────────────────────────────────────────────────────
-  const unreadCount = notifications.filter((n) => !n.read).length
-  const { today, thisWeek, older } = groupNotifications(notifications)
-  const hasAnyNotification = notifications.length > 0
+  const unreadCount = notifications.filter((n) => !n.read).length;
+  const { today, thisWeek, older } = groupNotifications(notifications);
+  const hasAnyNotification = notifications.length > 0;
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 space-y-8">
-
       {/* ── Header ── */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -391,7 +411,9 @@ export default function NotificationsPage() {
         ) : error ? (
           <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
             <XCircle className="h-10 w-10 text-red-400 mb-3" />
-            <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">{error}</p>
+            <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+              {error}
+            </p>
             <Button
               variant="outline"
               size="sm"
@@ -413,9 +435,21 @@ export default function NotificationsPage() {
           </div>
         ) : (
           <div>
-            <NotificationGroup label="Today" notifications={today} onRead={handleRead} />
-            <NotificationGroup label="This Week" notifications={thisWeek} onRead={handleRead} />
-            <NotificationGroup label="Older" notifications={older} onRead={handleRead} />
+            <NotificationGroup
+              label="Today"
+              notifications={today}
+              onRead={handleRead}
+            />
+            <NotificationGroup
+              label="This Week"
+              notifications={thisWeek}
+              onRead={handleRead}
+            />
+            <NotificationGroup
+              label="Older"
+              notifications={older}
+              onRead={handleRead}
+            />
           </div>
         )}
       </Card>
@@ -439,7 +473,7 @@ export default function NotificationsPage() {
             disabled={savingPrefs}
             className="bg-cyan-500 hover:bg-cyan-600 text-white"
           >
-            {savingPrefs ? 'Saving…' : 'Save'}
+            {savingPrefs ? "Saving…" : "Save"}
           </Button>
         </div>
 
@@ -482,5 +516,5 @@ export default function NotificationsPage() {
         </Card>
       </div>
     </div>
-  )
+  );
 }

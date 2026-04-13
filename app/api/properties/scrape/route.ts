@@ -14,21 +14,21 @@
  * Returns: { data: ScrapedPropertyData, cached: boolean, source: string }
  */
 
-import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import {
   parseOnTheHouseHTML,
   parseOnTheHouseSearchResults,
   parseDomainComAuHTML,
   parseDomainComAuSearchResults,
   type ScrapedPropertyData,
-} from "@/lib/property-data-parser"
+} from "@/lib/property-data-parser";
 
-const OTH_BASE = "https://www.onthehouse.com.au"
-const DOMAIN_BASE = "https://www.domain.com.au"
-const TIMEOUT_MS = 15_000
+const OTH_BASE = "https://www.onthehouse.com.au";
+const DOMAIN_BASE = "https://www.domain.com.au";
+const TIMEOUT_MS = 15_000;
 
 const SCRAPE_HEADERS: Record<string, string> = {
   "User-Agent":
@@ -39,46 +39,56 @@ const SCRAPE_HEADERS: Record<string, string> = {
   "Accept-Encoding": "gzip, deflate, br",
   "Cache-Control": "no-cache",
   Pragma: "no-cache",
-}
+};
 
-async function fetchHtml(url: string): Promise<{ html: string; status: number }> {
+async function fetchHtml(
+  url: string,
+): Promise<{ html: string; status: number }> {
   try {
     const res = await fetch(url, {
       headers: SCRAPE_HEADERS,
       redirect: "follow",
       signal: AbortSignal.timeout(TIMEOUT_MS),
-    })
-    const html = await res.text()
-    return { html, status: res.status }
+    });
+    const html = await res.text();
+    return { html, status: res.status };
   } catch (err) {
-    console.error("fetchHtml failed:", url, err)
-    return { html: "", status: 0 }
+    console.error("fetchHtml failed:", url, err);
+    return { html: "", status: 0 };
   }
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let body: Record<string, unknown>
+  let body: Record<string, unknown>;
   try {
-    body = await req.json()
+    body = await req.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { address, postcode, inspectionId, url: directUrl } = body as Record<string, string>
-  const fallbackSources = (body.fallbackSources as string[] | undefined) ?? []
-  const useDomainFallback = fallbackSources.includes("domain")
+  const {
+    address,
+    postcode,
+    inspectionId,
+    url: directUrl,
+  } = body as Record<string, string>;
+  const fallbackSources = (body.fallbackSources as string[] | undefined) ?? [];
+  const useDomainFallback = fallbackSources.includes("domain");
 
   if (!address && !directUrl) {
-    return NextResponse.json({ error: "address or url is required" }, { status: 400 })
+    return NextResponse.json(
+      { error: "address or url is required" },
+      { status: 400 },
+    );
   }
 
-  const normAddress = address?.toUpperCase().trim()
-  const normPostcode = postcode?.trim()
+  const normAddress = address?.toUpperCase().trim();
+  const normPostcode = postcode?.trim();
 
   // ── Check cache ─────────────────────────────────────────
   if (normAddress && normPostcode) {
@@ -90,9 +100,9 @@ export async function POST(req: NextRequest) {
           dataSource: "onthehouse",
           expiresAt: { gt: new Date() },
         },
-      })
+      });
       if (cached?.propertyData) {
-        return NextResponse.json({ data: cached.propertyData, cached: true })
+        return NextResponse.json({ data: cached.propertyData, cached: true });
       }
     } catch {
       // Cache miss — continue to scrape
@@ -100,82 +110,97 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Resolve property URL ────────────────────────────────
-  let propertyUrl = directUrl as string | undefined
-  let sourceLabel = "onthehouse"
+  let propertyUrl = directUrl as string | undefined;
+  let sourceLabel = "onthehouse";
 
   if (!propertyUrl) {
-    const searchQuery = [address, postcode].filter(Boolean).join(" ")
-    const searchUrl = `${OTH_BASE}/search?q=${encodeURIComponent(searchQuery)}`
-    const { html: searchHtml, status: searchStatus } = await fetchHtml(searchUrl)
+    const searchQuery = [address, postcode].filter(Boolean).join(" ");
+    const searchUrl = `${OTH_BASE}/search?q=${encodeURIComponent(searchQuery)}`;
+    const { html: searchHtml, status: searchStatus } =
+      await fetchHtml(searchUrl);
 
-    if (searchStatus === 0) {
-      return NextResponse.json(
-        { error: "Could not connect to OnTheHouse. Please try again." },
-        { status: 503 }
-      )
-    }
-    if (searchStatus !== 200) {
-      return NextResponse.json(
-        { error: `OnTheHouse search returned status ${searchStatus}` },
-        { status: 503 }
-      )
-    }
+    // Parse OTH results only when the search page returned successfully
+    const othUrls =
+      searchStatus === 200
+        ? parseOnTheHouseSearchResults(searchHtml, OTH_BASE)
+        : [];
 
-    const urls = parseOnTheHouseSearchResults(searchHtml, OTH_BASE)
-    if (urls.length === 0) {
+    if (othUrls.length > 0) {
+      propertyUrl = othUrls[0];
+    } else {
       // ── domain.com.au fallback (RA-108) ─────────────────
-      if (!useDomainFallback) {
+      // Triggered when: OTH search fails (404/503/network), returns no listings,
+      // OR caller explicitly opts in. Allows the scraper to survive OTH URL changes.
+      if (!useDomainFallback && searchStatus === 0) {
         return NextResponse.json(
-          { error: "No property found on OnTheHouse for this address.", data: null },
-          { status: 404 }
-        )
+          { error: "Could not connect to OnTheHouse. Please try again." },
+          { status: 503 },
+        );
       }
 
-      // Try domain.com.au
-      const domainSearchUrl = `${DOMAIN_BASE}/sale/?q=${encodeURIComponent(searchQuery)}`
-      const { html: domainHtml, status: domainStatus } = await fetchHtml(domainSearchUrl)
+      if (!useDomainFallback && othUrls.length === 0 && searchStatus === 200) {
+        // OTH returned a page but found no listings — give up without domain fallback
+        return NextResponse.json(
+          {
+            error: "No property found on OnTheHouse for this address.",
+            data: null,
+          },
+          { status: 404 },
+        );
+      }
+
+      // Try domain.com.au when: OTH returned non-200 (broken search) OR no results
+      const domainSearchUrl = `${DOMAIN_BASE}/sale/?q=${encodeURIComponent(searchQuery)}`;
+      const { html: domainHtml, status: domainStatus } =
+        await fetchHtml(domainSearchUrl);
 
       if (domainStatus !== 200 || !domainHtml) {
         return NextResponse.json(
-          { error: "No property found on OnTheHouse or domain.com.au.", data: null },
-          { status: 404 }
-        )
+          {
+            error:
+              "No property found. OnTheHouse search unavailable and domain.com.au did not respond.",
+            data: null,
+          },
+          { status: 404 },
+        );
       }
 
-      const domainUrls = parseDomainComAuSearchResults(domainHtml, DOMAIN_BASE)
+      const domainUrls = parseDomainComAuSearchResults(domainHtml, DOMAIN_BASE);
       if (!domainUrls.length) {
         return NextResponse.json(
-          { error: "No property found on OnTheHouse or domain.com.au.", data: null },
-          { status: 404 }
-        )
+          {
+            error: "No property found on OnTheHouse or domain.com.au.",
+            data: null,
+          },
+          { status: 404 },
+        );
       }
-      propertyUrl = domainUrls[0]
-      sourceLabel = "domain"
-    } else {
-      propertyUrl = urls[0]
+      propertyUrl = domainUrls[0];
+      sourceLabel = "domain";
     }
   }
 
-  const isDomainUrl = propertyUrl?.startsWith(DOMAIN_BASE)
+  const isDomainUrl = propertyUrl?.startsWith(DOMAIN_BASE);
 
   // ── Fetch and parse property page ───────────────────────
-  const { html: propertyHtml, status: propertyStatus } = await fetchHtml(propertyUrl)
+  const { html: propertyHtml, status: propertyStatus } =
+    await fetchHtml(propertyUrl);
 
   if (propertyStatus === 0) {
     return NextResponse.json(
       { error: "Could not fetch property page." },
-      { status: 503 }
-    )
+      { status: 503 },
+    );
   }
 
   const data = isDomainUrl
     ? parseDomainComAuHTML(propertyHtml, propertyUrl)
-    : parseOnTheHouseHTML(propertyHtml, propertyUrl)
+    : parseOnTheHouseHTML(propertyHtml, propertyUrl);
 
   // ── Cache the result ────────────────────────────────────
   if (normAddress && normPostcode) {
-    const now = new Date()
-    const expiresAt = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000) // 90 days
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000); // 90 days
 
     try {
       await prisma.propertyLookup.upsert({
@@ -194,7 +219,7 @@ export async function POST(req: NextRequest) {
           dataSource: isDomainUrl ? "domain" : "onthehouse",
           lookupCost: 0,
           confidence: data.confidence,
-          propertyData: data as unknown as Record<string, unknown>,
+          propertyData: data as any,
           ...(inspectionId ? { inspectionId } : {}),
         },
         update: {
@@ -202,17 +227,17 @@ export async function POST(req: NextRequest) {
           expiresAt,
           apiResponseStatus: propertyStatus,
           confidence: data.confidence,
-          propertyData: data as unknown as Record<string, unknown>,
+          propertyData: data as any,
         },
-      })
+      });
     } catch (err) {
       // Non-fatal — return the data even if caching fails
-      console.error("PropertyLookup cache write failed:", err)
+      console.error("PropertyLookup cache write failed:", err);
     }
   }
 
   // Update sourceLabel if we ended up on domain.com.au
-  if (isDomainUrl) sourceLabel = "domain"
+  if (isDomainUrl) sourceLabel = "domain";
 
-  return NextResponse.json({ data, cached: false, source: sourceLabel })
+  return NextResponse.json({ data, cached: false, source: sourceLabel });
 }

@@ -1,4 +1,5 @@
 # Decision Room — Series Design Document
+
 **Date:** 2026-03-30
 **Status:** Approved for implementation
 **Scope:** Remotion composition architecture · 8-episode Season 1 · YouTube OAuth pipeline
@@ -10,6 +11,7 @@
 A cinematic documentary series called **Decision Room** — eight 5-minute episodes, each revealing one major architectural decision made during the RestoreAssist build. Target audience: restoration industry professionals, solo founders, and developers building compliance software.
 
 **Series framing:** Every episode follows the same six-act structure:
+
 > Methods Evaluated → SWOT Analysis → Decision Granted → Product Alive
 
 No competitor or tool names are mentioned. The narrative is entirely about the problem space, the methods considered, and the decision process that shaped the product.
@@ -20,16 +22,16 @@ No competitor or tool names are mentioned. The narrative is entirely about the p
 
 ## 2. Season 1 — Eight Episodes
 
-| # | Title | Decision | Product Feature Unlocked |
-|---|-------|----------|--------------------------|
-| 1 | The Sketch Tool Decision | Interactive canvas rendering approach | 9-mode drawing tool, 50-step undo/redo, multi-floor canvas |
-| 2 | Encoding a 200-Page Standard as Code | IICRC S500 rules engine approach | Automated drying goal validation, EMC thresholds per material |
-| 3 | AI-Generated Compliance Documentation | Scope narrative generation approach | Real-time IICRC-cited 7-section scope, SSE streaming |
-| 4 | Connecting to Australian Industry Software | Legacy job management integration approach | Live Ascora job sync, historical pricing import |
-| 5 | Auto-Filling Property Data at the Jobsite | Property data retrieval approach | Auto-populated beds/baths/land size, 90-day cache |
-| 6 | Taking the Platform to the Field | Mobile delivery approach | Offline-first iOS/Android apps, Bluetooth meter pairing |
-| 7 | One Developer. One AI. Ninety Days. | Solo-founder development approach | The full RestoreAssist compliance platform |
-| 8 | Visualising Moisture — The Mapping Decision | Moisture visualisation approach | SVG moisture map, IICRC equipment placement ratios |
+| #   | Title                                       | Decision                                   | Product Feature Unlocked                                      |
+| --- | ------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------- |
+| 1   | The Sketch Tool Decision                    | Interactive canvas rendering approach      | 9-mode drawing tool, 50-step undo/redo, multi-floor canvas    |
+| 2   | Encoding a 200-Page Standard as Code        | IICRC S500 rules engine approach           | Automated drying goal validation, EMC thresholds per material |
+| 3   | AI-Generated Compliance Documentation       | Scope narrative generation approach        | Real-time IICRC-cited 7-section scope, SSE streaming          |
+| 4   | Connecting to Australian Industry Software  | Legacy job management integration approach | Live Ascora job sync, historical pricing import               |
+| 5   | Auto-Filling Property Data at the Jobsite   | Property data retrieval approach           | Auto-populated beds/baths/land size, 90-day cache             |
+| 6   | Taking the Platform to the Field            | Mobile delivery approach                   | Offline-first iOS/Android apps, Bluetooth meter pairing       |
+| 7   | One Developer. One AI. Ninety Days.         | Solo-founder development approach          | The full RestoreAssist compliance platform                    |
+| 8   | Visualising Moisture — The Mapping Decision | Moisture visualisation approach            | SVG moisture map, IICRC equipment placement ratios            |
 
 ---
 
@@ -93,14 +95,14 @@ Each scene file stays under 200 lines. Shared primitives are imported, never dup
 
 Six named curves, used consistently across all scenes:
 
-| Name | Curve | Use |
-|------|-------|-----|
-| REVEAL | `cubic-bezier(0.16, 1, 0.3, 1)` | Content entering — fast out, slow settle |
-| EMPHASIS | `cubic-bezier(0.34, 1.56, 0.64, 1)` | Stats, headlines — slight overshoot |
-| DISMISS | `linear` | Methods dimming as next arrives |
-| SCENE_TRANSITION | white flash 3f + cross-fade 15f | Act boundaries |
-| DECISION_SNAP | `spring({ damping: 14, stiffness: 180 })` | Decision statement only |
-| SCREENSHOT_REVEAL | `cubic-bezier(0.25, 0.46, 0.45, 0.94)` | Product screenshots |
+| Name              | Curve                                     | Use                                      |
+| ----------------- | ----------------------------------------- | ---------------------------------------- |
+| REVEAL            | `cubic-bezier(0.16, 1, 0.3, 1)`           | Content entering — fast out, slow settle |
+| EMPHASIS          | `cubic-bezier(0.34, 1.56, 0.64, 1)`       | Stats, headlines — slight overshoot      |
+| DISMISS           | `linear`                                  | Methods dimming as next arrives          |
+| SCENE_TRANSITION  | white flash 3f + cross-fade 15f           | Act boundaries                           |
+| DECISION_SNAP     | `spring({ damping: 14, stiffness: 180 })` | Decision statement only                  |
+| SCREENSHOT_REVEAL | `cubic-bezier(0.25, 0.46, 0.45, 0.94)`    | Product screenshots                      |
 
 Spring animations are used **only** for DECISION_SNAP and the CTA scale-in. Everything else uses the named curves above.
 
@@ -108,14 +110,14 @@ Spring animations are used **only** for DECISION_SNAP and the CTA scale-in. Ever
 
 Grade shifts across acts to carry emotional weight:
 
-| Act | Background | Feel |
-|-----|-----------|------|
-| Cold Open | `#0a0f1a` | Before anything |
-| Problem | `#101827` | Cold, urgent |
-| Methods | `#152338` (base navy) | Neutral, considered |
-| SWOT | Split: warm left / cool right | Tension |
-| Decision | `#1a1508` | First warmth |
-| Product | `#0f172a` | Confident close |
+| Act       | Background                    | Feel                |
+| --------- | ----------------------------- | ------------------- |
+| Cold Open | `#0a0f1a`                     | Before anything     |
+| Problem   | `#101827`                     | Cold, urgent        |
+| Methods   | `#152338` (base navy)         | Neutral, considered |
+| SWOT      | Split: warm left / cool right | Tension             |
+| Decision  | `#1a1508`                     | First warmth        |
+| Product   | `#0f172a`                     | Confident close     |
 
 Full hex values with glow orb positions: `~/.claude/skills/decision-room-production/references/color-system.md`
 
@@ -135,32 +137,32 @@ Content lives in `content/resources/{slug}.json`, extended with Decision Room fi
 
 ```typescript
 interface DecisionRoomEpisode {
-  slug: string
-  title: string
-  episodeNumber: number
-  coldOpenStat: string           // ≤12 words, single striking line
+  slug: string;
+  title: string;
+  episodeNumber: number;
+  coldOpenStat: string; // ≤12 words, single striking line
   problem: {
-    headline: string             // ≤8 words
-    facts: string[]              // 2–3 facts, ≤20 words each
-    ticketRef?: string           // e.g. "RA-93"
-  }
+    headline: string; // ≤8 words
+    facts: string[]; // 2–3 facts, ≤20 words each
+    ticketRef?: string; // e.g. "RA-93"
+  };
   methods: Array<{
-    name: string                 // ≤6 words, no product/tool names
-    description: string          // ≤30 words
-    screenshotName?: string      // from public/screenshots/
-    consequence?: string         // "if chosen: …" ≤20 words
-  }>
+    name: string; // ≤6 words, no product/tool names
+    description: string; // ≤30 words
+    screenshotName?: string; // from public/screenshots/
+    consequence?: string; // "if chosen: …" ≤20 words
+  }>;
   swot: {
-    strengths: [string, string]
-    weaknesses: [string, string]
-    opportunities: [string, string]
-    threats: [string, string]
-  }
-  decisionStatement: string      // THE sentence. ≤20 words. One only.
-  shippedScreenshot: string      // from public/screenshots/
-  productScreenshots: string[]   // 3–4 filenames, cross-dissolve sequence
-  videoScript: string            // ElevenLabs TTS with [PAUSE] markers
-  tags: string[]
+    strengths: [string, string];
+    weaknesses: [string, string];
+    opportunities: [string, string];
+    threats: [string, string];
+  };
+  decisionStatement: string; // THE sentence. ≤20 words. One only.
+  shippedScreenshot: string; // from public/screenshots/
+  productScreenshots: string[]; // 3–4 filenames, cross-dissolve sequence
+  videoScript: string; // ElevenLabs TTS with [PAUSE] markers
+  tags: string[];
 }
 ```
 
@@ -220,6 +222,7 @@ YOUTUBE_REFRESH_TOKEN=       # generated once via get-youtube-token.ts
 New script: `scripts/video-pipeline/get-youtube-token.ts`
 
 **Flow:**
+
 1. Reads `YOUTUBE_CLIENT_ID` + `YOUTUBE_CLIENT_SECRET` from env
 2. Generates the OAuth consent URL with `https://www.googleapis.com/auth/youtube.upload` scope
 3. Opens it in the default browser (`open` / `start`)

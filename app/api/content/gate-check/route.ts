@@ -26,9 +26,9 @@
  * Response 401: not authenticated
  */
 
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import {
   validateContentBeforePublish,
   checkContentGate,
@@ -37,49 +37,62 @@ import {
   type ContentMetadata,
   type ContentDomain,
   type ContentType,
-} from '@/lib/nir-content-gate'
+} from "@/lib/nir-content-gate";
 
 // ─── VALIDATION ────────────────────────────────────────────────────────────────
 
 const VALID_DOMAINS: ContentDomain[] = [
-  'water-damage',
-  'mould-remediation',
-  'fire-smoke',
-  'cost-savings',
-  'industry-standard',
-]
+  "water-damage",
+  "mould-remediation",
+  "fire-smoke",
+  "cost-savings",
+  "industry-standard",
+];
 
 const VALID_CONTENT_TYPES: ContentType[] = [
-  'blog-post',
-  'case-study',
-  'landing-page',
-  'social-post',
-  'press-release',
-  'pitch-deck',
-  'enterprise-proposal',
-]
+  "blog-post",
+  "case-study",
+  "landing-page",
+  "social-post",
+  "press-release",
+  "pitch-deck",
+  "enterprise-proposal",
+];
 
-function parseAndValidateBody(body: unknown): ContentMetadata | { error: string } {
-  if (!body || typeof body !== 'object') {
-    return { error: 'Request body must be a JSON object' }
+function parseAndValidateBody(
+  body: unknown,
+): ContentMetadata | { error: string } {
+  if (!body || typeof body !== "object") {
+    return { error: "Request body must be a JSON object" };
   }
 
-  const b = body as Record<string, unknown>
+  const b = body as Record<string, unknown>;
 
   if (!b.domain || !VALID_DOMAINS.includes(b.domain as ContentDomain)) {
-    return { error: `domain must be one of: ${VALID_DOMAINS.join(', ')}` }
+    return { error: `domain must be one of: ${VALID_DOMAINS.join(", ")}` };
   }
 
-  if (!b.contentType || !VALID_CONTENT_TYPES.includes(b.contentType as ContentType)) {
-    return { error: `contentType must be one of: ${VALID_CONTENT_TYPES.join(', ')}` }
+  if (
+    !b.contentType ||
+    !VALID_CONTENT_TYPES.includes(b.contentType as ContentType)
+  ) {
+    return {
+      error: `contentType must be one of: ${VALID_CONTENT_TYPES.join(", ")}`,
+    };
   }
 
-  if (!b.title || typeof b.title !== 'string' || b.title.trim().length === 0) {
-    return { error: 'title must be a non-empty string' }
+  if (!b.title || typeof b.title !== "string" || b.title.trim().length === 0) {
+    return { error: "title must be a non-empty string" };
   }
 
-  if (!Array.isArray(b.claimIds) || !b.claimIds.every(id => typeof id === 'string')) {
-    return { error: 'claimIds must be an array of claim ID strings (e.g. ["CLAIM-001"])' }
+  if (
+    !Array.isArray(b.claimIds) ||
+    !b.claimIds.every((id) => typeof id === "string")
+  ) {
+    return {
+      error:
+        'claimIds must be an array of claim ID strings (e.g. ["CLAIM-001"])',
+    };
   }
 
   return {
@@ -87,47 +100,47 @@ function parseAndValidateBody(body: unknown): ContentMetadata | { error: string 
     contentType: b.contentType as ContentType,
     title: (b.title as string).trim(),
     claimIds: b.claimIds as string[],
-    submittedBy: typeof b.submittedBy === 'string' ? b.submittedBy : undefined,
-  }
+    submittedBy: typeof b.submittedBy === "string" ? b.submittedBy : undefined,
+  };
 }
 
 // ─── POST — Gate check for a single piece of content ─────────────────────────
 
 export async function POST(request: NextRequest) {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   }
 
-  let body: unknown
+  let body: unknown;
   try {
-    body = await request.json()
+    body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const validated = parseAndValidateBody(body)
-  if ('error' in validated) {
-    return NextResponse.json({ error: validated.error }, { status: 400 })
+  const validated = parseAndValidateBody(body);
+  if ("error" in validated) {
+    return NextResponse.json({ error: validated.error }, { status: 400 });
   }
 
   try {
     // validateContentBeforePublish throws ContentGateViolationError if blocked
-    const result = validateContentBeforePublish(validated)
+    const result = validateContentBeforePublish(validated);
 
     return NextResponse.json(
       {
         gateStatus: result.gateStatus,
         domain: result.domain,
         certificationMet: result.certificationMet,
-        allowedClaims: result.allowedClaims.map(c => ({
+        allowedClaims: result.allowedClaims.map((c) => ({
           id: c.id,
           claim: c.claim,
           value: c.value,
           status: c.status,
           source: c.source,
         })),
-        blockedClaims: result.blockedClaims.map(c => ({
+        blockedClaims: result.blockedClaims.map((c) => ({
           id: c.id,
           claim: c.claim,
           status: c.status,
@@ -137,18 +150,18 @@ export async function POST(request: NextRequest) {
         requiredActions: result.requiredActions,
         checkedAt: new Date().toISOString(),
       },
-      { status: 200 }
-    )
+      { status: 200 },
+    );
   } catch (err) {
     if (err instanceof ContentGateViolationError) {
-      const result = err.gateResult
+      const result = err.gateResult;
       return NextResponse.json(
         {
-          gateStatus: 'blocked',
+          gateStatus: "blocked",
           domain: result.domain,
           certificationMet: result.certificationMet,
           blockReasons: result.blockReasons,
-          blockedClaims: result.blockedClaims.map(c => ({
+          blockedClaims: result.blockedClaims.map((c) => ({
             id: c.id,
             claim: c.claim,
             status: c.status,
@@ -165,24 +178,27 @@ export async function POST(request: NextRequest) {
           requiredActions: result.requiredActions,
           checkedAt: new Date().toISOString(),
         },
-        { status: 403 }
-      )
+        { status: 403 },
+      );
     }
 
-    console.error('[Content Gate] Unexpected error:', err)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error("[Content Gate] Unexpected error:", err);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
 // ─── GET — Full gate dashboard (all domains) ─────────────────────────────────
 
 export async function GET(request: NextRequest) {
-  const session = await getServerSession(authOptions)
+  const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   }
 
-  const clearance = getAllGateStatuses()
+  const clearance = getAllGateStatuses();
 
   return NextResponse.json(
     {
@@ -203,9 +219,9 @@ export async function GET(request: NextRequest) {
             certificationRequirement: result.certificationRecord.requirement,
             requiredActions: result.requiredActions,
           },
-        ])
+        ]),
       ),
     },
-    { status: 200 }
-  )
+    { status: 200 },
+  );
 }
