@@ -27,7 +27,7 @@ restoreassist/
 ├── lib/                          # Business logic layer
 │   ├── nir-*.ts                  # NIR (National Inspection Report) engine modules
 │   ├── integrations/             # Platform-specific sync clients (Xero, QBO, MYOB, SM8, Ascora)
-│   ├── content-pipeline/         # Autonomous video production pipeline (HeyGen + YouTube)
+│   ├── content-pipeline/         # Autonomous video production pipeline (YouTube)
 │   ├── cron/                     # Cron job handlers (content, analytics, cleanup)
 │   ├── agents/                   # AI agent definitions and workflow engine
 │   ├── ai/                       # AI routing layer (Gemma client + task-based model router)
@@ -66,9 +66,9 @@ restoreassist/
 ### Content Pipeline (`lib/content-pipeline/`)
 
 - **Purpose:** Autonomous video generation for YouTube channel
-- **Owns:** Topic selection, script generation, HeyGen video submission, YouTube upload
-- **Depends on:** Prisma (ContentJob, ContentPost), Anthropic API, HeyGen API, YouTube API
-- **Triggered by:** Cron endpoints (`/api/cron/generate-content`, `/api/cron/poll-heygen`, `/api/cron/distribute-content`)
+- **Owns:** Topic selection, script generation, video upload to YouTube
+- **Depends on:** Prisma (ContentJob, ContentPost), Anthropic API, YouTube API
+- **Triggered by:** Cron endpoints (`/api/cron/generate-content`, `/api/cron/distribute-content`)
 
 ### Invoicing (`app/api/invoices/`)
 
@@ -97,7 +97,6 @@ restoreassist/
 | Stripe           | Payments + subscriptions                                         | API key                           |
 | Anthropic Claude | AI report generation                                             | API key                           |
 | Google Gemini    | Alternative AI provider                                          | API key                           |
-| HeyGen           | Avatar video rendering                                           | API key                           |
 | YouTube          | Video distribution                                               | OAuth2                            |
 | Xero             | Accounting sync                                                  | OAuth2                            |
 | QuickBooks       | Accounting sync                                                  | OAuth2                            |

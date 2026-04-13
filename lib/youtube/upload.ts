@@ -1,7 +1,7 @@
 /**
  * YouTube Video Upload Service
  *
- * Downloads a video from a URL (HeyGen CDN or Supabase) and uploads it
+ * Downloads a video from a URL (Supabase storage) and uploads it
  * to YouTube using the Data API v3 resumable upload.
  *
  * Quota cost: 1,600 units per upload (daily budget: 10,000 units = ~6 uploads)
@@ -20,7 +20,7 @@ export interface YouTubeUploadResult {
  * Upload a video to YouTube.
  *
  * @param systemUserId - The system user who owns the YouTube OAuth token
- * @param videoUrl - URL to download the video from (HeyGen or Supabase)
+ * @param videoUrl - URL to download the video from (Supabase storage)
  * @param metadata - Title, description, tags, category
  * @returns YouTube video ID and URL
  */
