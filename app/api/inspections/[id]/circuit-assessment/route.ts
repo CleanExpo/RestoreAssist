@@ -98,15 +98,17 @@ function calculateCircuitSafety(
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const { id } = await params;
+
   const inspection = await prisma.inspection.findUnique({
-    where: { id: params.id, userId: session.user.id },
+    where: { id, userId: session.user.id },
     select: { id: true },
   });
   if (!inspection) {
@@ -117,7 +119,7 @@ export async function GET(
   }
 
   const circuits = await (prisma as any).circuitAssessment.findMany({
-    where: { inspectionId: params.id },
+    where: { inspectionId: id },
     orderBy: { createdAt: "asc" },
   });
 
@@ -139,15 +141,17 @@ export async function GET(
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const { id } = await params;
+
   const inspection = await prisma.inspection.findUnique({
-    where: { id: params.id, userId: session.user.id },
+    where: { id, userId: session.user.id },
     select: { id: true },
   });
   if (!inspection) {
@@ -174,7 +178,7 @@ export async function POST(
 
   const record = await (prisma as any).circuitAssessment.create({
     data: {
-      inspectionId: params.id,
+      inspectionId: id,
       circuitId: data.circuitId,
       locationZone: data.locationZone,
       equipmentList: data.equipmentList,

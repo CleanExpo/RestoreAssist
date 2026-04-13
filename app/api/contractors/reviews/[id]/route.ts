@@ -6,7 +6,7 @@ import { authOptions } from "@/lib/auth";
 // Respond to a review (contractors only)
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -15,12 +15,14 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { id } = await params;
+
     const body = await request.json();
     const { contractorResponse } = body;
 
     // Get review and verify ownership
     const review = await prisma.contractorReview.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         profile: {
           select: {
@@ -46,7 +48,7 @@ export async function PATCH(
     }
 
     const updated = await prisma.contractorReview.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         contractorResponse,
         respondedAt: new Date(),

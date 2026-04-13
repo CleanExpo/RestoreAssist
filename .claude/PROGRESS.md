@@ -7,7 +7,49 @@
 
 All 447 Linear issues are Done. The full RestoreAssist platform is implemented and deployed to production at restoreassist.com.au. Only RA-287 remains (blocked on DO_TOKEN GitHub secret).
 
-## Current Session (2026-04-10)
+## Current Session (2026-04-12) — ALL COMPLETE
+
+| Task                                           | Status | Notes                                                                                            |
+| ---------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------ |
+| RA-613: Manual onboarding playbook (20 pilots) | Done   | PR #171, branch feat/ra-613-onboarding-playbook, Linear In Review                                |
+| RA-611: BYOE year-two vision document          | Done   | PR #172, branch feat/ra-611-byoe-vision, Linear In Review                                        |
+| DR-534: Alfred event page (BUILD-008)          | Done   | PR #38, branch feat/dr-534-event-pages in D:/Disaster Recovery/                                  |
+| DR-534: Cyclone Alfred canonical redirect      | Done   | /cyclone-alfred-queensland-2026 → /events/cyclone-alfred-fnq-2026                                |
+| DR-534: GAP-073 claim page trust header        | Done   | "We work for you, not your insurer." on /claim                                                   |
+| DR-533: NSW/QLD storms event page              | Done   | Covered by PR #38 (ours) and PR #35 (previous session). DR-533 → In Review                       |
+| DR-534: Maila ACL pivot (BUILD-006)            | Done   | Covered by PR #35 (previous session, open) — Maila pages updated to evergreen                    |
+| DR-534/DR-533: Linear → In Review              | Done   | Both issues moved to In Review state                                                             |
+| DR-536: AML/CTF Tranche 2 + privacy policy     | Done   | PR #39 (Disaster Recovery repo), DR-536 In Review                                                |
+| RA-625: Sprint G graph-readiness audit         | Done   | PR #173, SPRINT-G-GRAPH-READINESS-AUDIT.md, Linear In Review                                     |
+| RA-624: lib/knowledge/index.ts                 | Done   | PR #173, expandContext wired into generate-inspection-report, Linear In Review                   |
+| RA-601: DR-NRPG XSS + SQL injection            | Done   | PR #70 (DR-NRPG), $executeRawUnsafe → $executeRaw, SafeHtml component, DOMPurify on module       |
+| DR-561: DR-NRPG 6 critical CVEs                | Done   | lockfile updated: axios@1.15.0, jspdf@4.2.1, basic-ftp@5.2.2, fast-xml-parser@5.5.11, hbs@4.7.9  |
+| F13: jsPDF CVE (RestoreAssist)                 | Done   | jspdf@4.2.1 already in RestoreAssist pnpm-lock.yaml — no action needed                           |
+| F15: Nonce-based CSP                           | Done   | middleware.ts: 'nonce-${nonce}' + 'strict-dynamic' + 'unsafe-inline' (progressive nonce pattern) |
+
+## Prior Session Verification (2026-04-12)
+
+Items from triage plan — confirmed Done in prior sessions (verified via Linear API):
+
+- RA-555: Done (PR #166 — DOMPurify XSS fix on ProfessionalDocumentViewer)
+- RA-571: Done (Sprint 6 — generator SDK migration)
+- RA-572: Done (Sprint 6 — evaluator SDK migration)
+- RA-573: Done (Sprint 6 — metrics wiring)
+- RA-574: Done (Sprint 6 — canary rollout plan)
+- PR #153/#154 (RA-511/512): Merged — no longer open
+
+## Remaining DR-534 Human Actions (Phill)
+
+| Action                | Detail                                                             |
+| --------------------- | ------------------------------------------------------------------ |
+| Merge PR #35 + PR #38 | Review for conflicts (both touch claim/page.tsx + nsw-storms page) |
+| P0-J: Vercel env vars | KMS env vars — code complete, needs Vercel dashboard provisioning  |
+| P0-K: Prisma migrate  | `npx prisma migrate deploy` with DB backup first                   |
+| GAP-044: WAF rule     | robots.txt/sitemap.xml 401 → allow Googlebot; <5 min change        |
+| DR-535: Legal review  | Platform guarantee language — brief due Apr 12                     |
+| GSC submit            | Submit new event pages to Google Search Console after merge        |
+
+## Previous Session (2026-04-10)
 
 | Task                                        | Status  | Notes                                                             |
 | ------------------------------------------- | ------- | ----------------------------------------------------------------- |
@@ -113,9 +155,33 @@ All 5 rounds complete. 55 findings identified and fixed across 8 commits.
 - **Rate limiter**: Code already supports Upstash Redis — just needs `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` env vars in Vercel (human action)
 - **Remaining security**: jsPDF CVEs (F13), nonce-based CSP (F15) — medium effort, deferred
 
-## 2026-04-10 11:06 — Session End
+## 2026-04-11 — Session Summary (branch: fix/do-deploy-dompurify-missing, PR #170)
 
-## 2026-04-10 11:27 — Session End
+### Completed this session
+
+| Task                                                                 | Linear        | Status | Commits    |
+| -------------------------------------------------------------------- | ------------- | ------ | ---------- |
+| Extract ReportTypeSelection + UseCaseModal from InitialDataEntryForm | RA-512 Part 2 | Done   | `c1b26827` |
+| Extract ReviewSection (467 lines) from InitialDataEntryForm          | RA-512 Part 3 | Done   | `2b05efac` |
+| Extract FormNavigation (77 lines) from InitialDataEntryForm          | RA-512 Part 4 | Done   | `0b909a2b` |
+| Classify 9 hardcoded-password scanner findings                       | RA-599        | Done   | `b684220b` |
+| Annotate 11 dangerouslySetInnerHTML instances as SAFE                | RA-600        | Done   | `b684220b` |
+
+RA-512 fully Done — InitialDataEntryForm 5,769 → 4,935 lines, 4 sub-components extracted.  
+RA-599: All findings are false positives or dead-module demo fixtures — no rotation required.  
+RA-600: All 11 instances are safe (CSS print styles, JSON-LD, or pre-sanitized).
+
+### Still open (RA-specific)
+
+- **RA-576**: Remove claude -p subprocess fallback — **gated on 7-day Phase C canary stability**
+- **PR #170**: Open, builds in progress (all prior RA tickets bundled here)
+
+### Next priorities (other repos — not this worktree)
+
+- RA-601: DR-NRPG 2 critical security findings
+- RA-597: CCW-CRM 1 critical finding
+- RA-602: DR-NRPG 4 critical npm CVEs
+- RA-598: CCW-CRM 137 hardcoded secrets/passwords
 
 ## 2026-04-10 12:32 — Session End
 
@@ -334,3 +400,109 @@ Audited production: `restoreassist-okzjr4l3g-unite-group.vercel.app` (latest Pro
 ## 2026-04-11 09:08 — Session End
 
 ## 2026-04-11 09:09 — Session End
+
+## 2026-04-11 09:40 — Session End
+
+## 2026-04-11 10:09 — Session End
+
+## 2026-04-12 11:36 — Session End
+
+## 2026-04-12 11:36 — Session End
+
+## 2026-04-12 11:36 — Session End
+
+## 2026-04-12 11:36 — Session End
+
+## 2026-04-12 11:38 — Session End
+
+## 2026-04-12 11:56 — Session End
+
+## 2026-04-12 11:56 — Session End
+
+## 2026-04-12 11:58 — Session End
+
+## 2026-04-12 11:59 — Session End
+
+## 2026-04-12 11:59 — Session End
+
+## 2026-04-12 12:00 — Session End
+
+## 2026-04-12 12:00 — Session End
+
+## 2026-04-12 12:01 — Session End
+
+## 2026-04-12 12:02 — Session End
+
+## 2026-04-12 12:02 — Session End
+
+## 2026-04-12 12:02 — Session End
+
+## 2026-04-12 12:32 — Session End
+
+## 2026-04-12 12:48 — Session End
+
+## 2026-04-12 13:01 — Session End
+
+## 2026-04-12 13:02 — Session End
+
+## 2026-04-12 13:02 — Session End
+
+## 2026-04-12 13:18 — Session End
+
+## 2026-04-12 13:18 — Session End
+
+## 2026-04-12 13:19 — Session End
+
+## 2026-04-12 13:19 — Session End
+
+## 2026-04-12 17:09 — Session End
+
+## 2026-04-12 17:09 — Session End
+
+## 2026-04-12 17:09 — Session End
+
+## 2026-04-12 17:18 — Session End
+
+## 2026-04-12 17:44 — Session End
+
+## 2026-04-12 18:34 — Session End
+
+## 2026-04-12 18:44 — Session End
+
+## 2026-04-12 19:01 — Session End
+
+## 2026-04-12 19:02 — Session End
+
+## 2026-04-12 19:16 — Session End
+
+## 2026-04-12 20:08 — Session End
+
+## 2026-04-12 20:27 — Session End
+
+## 2026-04-12 20:44 — Session End
+
+## 2026-04-12 20:45 — Session End
+
+## 2026-04-12 21:13 — Session End
+
+## 2026-04-12 21:16 — Session End
+
+## 2026-04-12 22:05 — Session End
+
+## 2026-04-12 22:05 — Session End
+
+## 2026-04-12 22:05 — Session End
+
+## 2026-04-12 22:08 — Session End
+
+## 2026-04-12 22:08 — Session End
+
+## 2026-04-12 22:08 — Session End
+
+## 2026-04-12 22:10 — Session End
+
+## 2026-04-13 06:22 — Session End
+
+## 2026-04-13 07:31 — Session End
+
+## 2026-04-13 07:31 — Session End

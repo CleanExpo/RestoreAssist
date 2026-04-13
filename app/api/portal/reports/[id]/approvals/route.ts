@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 // POST /api/portal/reports/[id]/approvals - Create or update approval
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -24,7 +24,7 @@ export async function POST(
       );
     }
 
-    const reportId = params.id;
+    const { id: reportId } = await params;
     const body = await request.json();
     const { approvalType, status, clientComments, amount } = body;
 
@@ -107,7 +107,7 @@ export async function POST(
 // GET /api/portal/reports/[id]/approvals - Get approvals for a report
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -125,7 +125,7 @@ export async function GET(
       );
     }
 
-    const reportId = params.id;
+    const { id: reportId } = await params;
 
     // Verify report belongs to this client
     const report = await prisma.report.findFirst({

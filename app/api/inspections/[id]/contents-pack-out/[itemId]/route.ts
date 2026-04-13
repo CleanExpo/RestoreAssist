@@ -10,16 +10,18 @@ import { prisma } from "@/lib/prisma";
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: { id: string; itemId: string } },
+  { params }: { params: Promise<{ id: string; itemId: string }> },
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const { id, itemId } = await params;
+
   // Verify inspection ownership
   const inspection = await prisma.inspection.findUnique({
-    where: { id: params.id, userId: session.user.id },
+    where: { id, userId: session.user.id },
     select: { id: true },
   });
 
@@ -32,7 +34,7 @@ export async function DELETE(
 
   // Verify item belongs to this inspection
   const item = await (prisma as any).contentsPackOutItem.findFirst({
-    where: { id: params.itemId, inspectionId: params.id },
+    where: { id: itemId, inspectionId: id },
   });
 
   if (!item) {
@@ -40,7 +42,7 @@ export async function DELETE(
   }
 
   await (prisma as any).contentsPackOutItem.delete({
-    where: { id: params.itemId },
+    where: { id: itemId },
   });
 
   return NextResponse.json({ deleted: true });

@@ -298,7 +298,7 @@ const TIER2_QUESTIONS: Question[] = [
 
     standardsReference: [
       "NCC 2025 s3 Building Structure",
-      "Building Standards - Structural",
+      "NCC Building Standards - Structural",
     ],
     standardsJustification:
       "Structural damage affects safety and drying approach",
@@ -382,7 +382,7 @@ const TIER3_QUESTIONS: Question[] = [
 
     standardsReference: [
       "QDC 4.5 Building Materials",
-      "Environmental Protection Regulation 2008",
+      "NCC 2025 Environmental Protection Regulation",
       "WHS Act 2011",
     ],
     standardsJustification:
@@ -407,7 +407,7 @@ const TIER3_QUESTIONS: Question[] = [
           };
           return yearMap[answer] || 2000;
         },
-        confidence: 75,
+        confidence: 85,
       },
       {
         formFieldId: "asbestosSurveyRequired",
@@ -510,7 +510,7 @@ const TIER3_QUESTIONS: Question[] = [
 
     standardsReference: [
       "AS/NZS 3500:2021 Plumbing Code",
-      "Building Standards - Plumbing",
+      "AS/NZS Building Standards - Plumbing",
     ],
     standardsJustification: "Plumbing damage requires licensed plumber repair",
 
@@ -538,8 +538,8 @@ const TIER3_QUESTIONS: Question[] = [
     type: "yes_no",
 
     standardsReference: [
-      "Work Health and Safety Act 2011",
-      "SWMS Site Setup Requirements",
+      "WHS Act 2011",
+      "AS/NZS 4804 SWMS Site Setup Requirements",
     ],
     standardsJustification:
       "Safety hazards must be identified and managed before remediation",
@@ -578,11 +578,11 @@ const TIER4_QUESTIONS: Question[] = [
     type: "yes_no",
 
     standardsReference: [
-      "General Insurance Code of Practice",
-      "NECA Standards",
+      "IICRC S500 s2 Documentation Requirements",
+      "NCC 2025 Insurance Compliance",
     ],
     standardsJustification:
-      "Insurance claims require specific documentation and compliance",
+      "Insurance claims require specific documentation and compliance per IICRC S500 and NCC",
 
     fieldMappings: [
       {
@@ -610,9 +610,9 @@ const TIER4_QUESTIONS: Question[] = [
     text: "What insurance company?",
     type: "text",
 
-    standardsReference: ["General Insurance Code of Practice"],
+    standardsReference: ["IICRC S500 s2 Insurer Documentation"],
     standardsJustification:
-      "Insurance company affects claim documentation requirements",
+      "Insurance company identity required for IICRC S500 claim documentation",
 
     conditionalShows: [
       {
@@ -663,7 +663,7 @@ const TIER4_QUESTIONS: Question[] = [
       {
         formFieldId: "contaminationLevel",
         value: undefined,
-        confidence: 80,
+        confidence: 86,
       },
       {
         formFieldId: "ppeRequirements",
@@ -692,7 +692,7 @@ const TIER4_QUESTIONS: Question[] = [
 
     standardsReference: [
       "IICRC S500 s7 Verification",
-      "Building Standards - Completion",
+      "NCC Building Standards - Completion",
     ],
     standardsJustification:
       "Proper verification ensures standards compliance and customer satisfaction",
@@ -713,6 +713,91 @@ const TIER4_QUESTIONS: Question[] = [
     ],
 
     minTierLevel: "standard",
+  },
+
+  {
+    // Q15: Affected Materials
+    id: "q15_affected_materials",
+    sequenceNumber: 15,
+    text: "Which building materials have been affected by the water damage?",
+    type: "multiselect",
+
+    standardsReference: [
+      "IICRC S500 s7 Affected Materials",
+      "AS/NZS 2311 Surface Materials",
+    ],
+    standardsJustification:
+      "Material type determines drying protocols and potential replacement requirements per IICRC S500 §7",
+
+    options: [
+      { label: "Carpet and underlay", value: "carpet" },
+      { label: "Drywall / plasterboard", value: "drywall" },
+      { label: "Timber flooring", value: "timber" },
+      { label: "Concrete slab", value: "concrete" },
+      { label: "Insulation", value: "insulation" },
+      { label: "Ceiling tiles", value: "ceiling" },
+    ],
+
+    fieldMappings: [
+      {
+        formFieldId: "affectedMaterials",
+        value: undefined,
+        confidence: 95,
+      },
+    ],
+
+    minTierLevel: "standard",
+  },
+
+  {
+    // Q16: Occupant Health Concerns
+    id: "q16_occupant_health",
+    sequenceNumber: 16,
+    text: "Are any occupants reporting health symptoms potentially related to the water damage (e.g. respiratory, skin irritation)?",
+    type: "yes_no",
+
+    standardsReference: [
+      "WHS Act 2011 s19 Duty of Care",
+      "IICRC S500 s3 Health and Safety",
+    ],
+    standardsJustification:
+      "Occupant health symptoms may indicate mould or contamination requiring elevated remediation protocols",
+
+    fieldMappings: [
+      {
+        formFieldId: "occupantHealthConcerns",
+        transformer: (answer: boolean) => (answer ? "HEALTH_CONCERN" : "NONE"),
+        confidence: 90,
+      },
+    ],
+
+    minTierLevel: "premium",
+  },
+
+  {
+    // Q17: Previous Water Damage Events
+    id: "q17_prior_damage",
+    sequenceNumber: 17,
+    text: "Has this property experienced previous water damage events in the last 5 years?",
+    type: "yes_no",
+
+    standardsReference: [
+      "IICRC S500 s4 Chronic Moisture Assessment",
+      "NCC 2025 Structural Integrity Requirements",
+    ],
+    standardsJustification:
+      "Repeat water events indicate potential structural or plumbing issues requiring documentation per IICRC S500 §4",
+
+    fieldMappings: [
+      {
+        formFieldId: "priorWaterDamage",
+        transformer: (answer: boolean) =>
+          answer ? "REPEAT_EVENT" : "FIRST_EVENT",
+        confidence: 88,
+      },
+    ],
+
+    minTierLevel: "premium",
   },
 ];
 

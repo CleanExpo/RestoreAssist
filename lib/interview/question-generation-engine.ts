@@ -175,10 +175,9 @@ export class QuestionGenerationEngine {
 
     // Find the most recent answer that affects this question
     for (const rule of question.skipLogic) {
-      // Check if previous answers match the skip condition
-      for (const [questionId, answer] of previousAnswers) {
-        const question = allQuestions.find((q) => q.id === questionId);
-        if (question && this.answerMatches(answer, rule.answerValue)) {
+      // Check if any previous answer matches the skip condition
+      for (const [, answer] of previousAnswers) {
+        if (this.answerMatches(answer, rule.answerValue)) {
           return {
             shouldSkip: true,
             nextQuestionId: rule.nextQuestionId,

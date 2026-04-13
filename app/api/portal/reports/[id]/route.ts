@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 // GET /api/portal/reports/[id] - Get single report for logged-in client
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -24,7 +24,7 @@ export async function GET(
       );
     }
 
-    const reportId = params.id;
+    const { id: reportId } = await params;
 
     // Fetch report - verify it belongs to this client
     const report = await prisma.report.findFirst({

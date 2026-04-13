@@ -2,16 +2,27 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 /**
- * Content Security Policy middleware.
+ * Content Security Policy middleware — progressive nonce-based CSP (F15).
  *
- * Generates a per-request nonce and forwards it as 'x-nonce' so Server Components
- * can read it via headers(). The nonce is NOT injected into script-src because
- * Next.js App Router script tags don't carry the nonce attribute — using
- * 'strict-dynamic' + nonce with unnonce'd script tags would block all JS.
+ * Generates a per-request nonce and applies it to script-src using the progressive
+ * nonce pattern recommended by the Google Web Fundamentals CSP guide:
  *
- * script-src uses 'self' to allow same-origin Next.js chunks plus the explicit
- * external allowlist below. 'unsafe-eval' is retained for Fabric.js/Firebase SDK.
+ *   'nonce-{nonce}' 'strict-dynamic' 'unsafe-inline'
  *
+ * Behaviour by CSP level:
+ *   Level 1 (legacy browsers): 'unsafe-inline' is honoured — all inline scripts run.
+ *   Level 2 (2016+): nonce overrides 'unsafe-inline'; inline scripts need the nonce.
+ *     'self' and domain allowlists still cover same-origin external script tags.
+ *   Level 3 (modern): 'strict-dynamic' propagates trust from nonce'd scripts to
+ *     their dynamically-created children. 'self' and domain allowlists are ignored
+ *     (dynamically-injected chunks are trusted instead). 'unsafe-inline' is ignored.
+ *
+ * Next.js 16 App Router reads the 'x-nonce' request header and applies the nonce
+ * to RSC streaming inline scripts automatically, so hydration is not broken.
+ * Stripe SDK and Firebase are loaded via @stripe/stripe-js / Firebase JS SDK, which
+ * use document.createElement('script') — trusted via 'strict-dynamic'.
+ *
+ * 'unsafe-eval' is retained for Fabric.js (SketchCanvas / SketchEditor).
  * style-src uses 'unsafe-inline' — inline styles are lower risk and Radix UI /
  * shadcn components apply them extensively.
  */
@@ -21,10 +32,9 @@ export function middleware(request: NextRequest) {
 
   const cspDirectives = [
     "default-src 'self'",
-    // 'self' allows same-origin Next.js chunks; 'unsafe-eval' retained for Fabric.js/Firebase.
-    // Note: 'strict-dynamic' is intentionally omitted — when present it ignores 'self', which
-    // breaks Next.js hydration because the framework's script tags don't carry the nonce.
-    `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://*.firebaseapp.com https://*.googleapis.com https://js.stripe.com`,
+    // Progressive nonce: Level 3 browsers use nonce+strict-dynamic; Level 2 uses nonce+self;
+    // Level 1 falls back to unsafe-inline. 'unsafe-eval' retained for Fabric.js.
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://*.firebaseapp.com https://*.googleapis.com https://js.stripe.com`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: blob: https://res.cloudinary.com https://lh3.googleusercontent.com https://*.stripe.com https://*.supabase.co https://storage.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",

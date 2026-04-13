@@ -44,15 +44,17 @@ const biohazardSchema = z.object({
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const { id } = await params;
+
   const inspection = await (prisma as any).inspection.findUnique({
-    where: { id: params.id, userId: session.user.id },
+    where: { id, userId: session.user.id },
     select: { id: true, biohazardAssessment: true },
   });
 
@@ -70,15 +72,17 @@ export async function GET(
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const { id } = await params;
+
   const inspection = await prisma.inspection.findUnique({
-    where: { id: params.id, userId: session.user.id },
+    where: { id, userId: session.user.id },
     select: { id: true },
   });
 
@@ -101,9 +105,9 @@ export async function POST(
   const data = parsed.data;
 
   const record = await (prisma as any).biohazardAssessment.upsert({
-    where: { inspectionId: params.id },
+    where: { inspectionId: id },
     create: {
-      inspectionId: params.id,
+      inspectionId: id,
       biohazardType: data.biohazardType ?? undefined,
       contaminationAreaM2: data.contaminationAreaM2 ?? undefined,
       atpReadingPre: data.atpReadingPre ?? undefined,
@@ -144,7 +148,7 @@ export async function POST(
   });
 
   await prisma.inspection.update({
-    where: { id: params.id },
+    where: { id },
     data: { claimType: "BIOHAZARD" } as any,
   });
 
@@ -155,15 +159,17 @@ export async function POST(
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const { id } = await params;
+
   const inspection = await prisma.inspection.findUnique({
-    where: { id: params.id, userId: session.user.id },
+    where: { id, userId: session.user.id },
     select: { id: true },
   });
 
@@ -175,11 +181,11 @@ export async function DELETE(
   }
 
   await (prisma as any).biohazardAssessment
-    .delete({ where: { inspectionId: params.id } })
+    .delete({ where: { inspectionId: id } })
     .catch(() => {});
 
   await prisma.inspection.update({
-    where: { id: params.id },
+    where: { id },
     data: { claimType: null } as any,
   });
 
