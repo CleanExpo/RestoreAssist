@@ -450,7 +450,7 @@ Format the response as a well-structured professional report with clear sections
   } catch (error: any) {
     console.error("Error generating enhanced report:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to generate enhanced report" },
+      { error: "Failed to generate enhanced report" },
       { status: 500 },
     );
   }

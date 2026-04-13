@@ -199,7 +199,7 @@ Example responses:
     }
   } catch (error: any) {
     return NextResponse.json(
-      { error: error.message || "Failed to generate question" },
+      { error: "Failed to generate question" },
       { status: 500 },
     );
   }

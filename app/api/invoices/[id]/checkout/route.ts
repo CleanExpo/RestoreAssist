@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
 import { isDraft, isCancelled } from "@/lib/invoice-status";
 
-const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.com.au";
+const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.app";
 
 export async function POST(
   request: NextRequest,
@@ -121,7 +121,7 @@ export async function POST(
   } catch (error: any) {
     console.error("Error creating checkout session:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to create checkout session" },
+      { error: "Failed to create checkout session" },
       { status: 500 },
     );
   }
