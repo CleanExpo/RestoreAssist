@@ -2,11 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import {
-  parseSearchQuery,
-  toPostgresTsquery,
-  validateSearchParams,
-} from "@/lib/search-utils";
+import { Prisma } from "@prisma/client";
+import { toPostgresTsquery, validateSearchParams } from "@/lib/search-utils";
 
 export async function GET(request: NextRequest) {
   try {
@@ -39,21 +36,19 @@ export async function GET(request: NextRequest) {
 
     const query = validation.query!;
     const tsquery = toPostgresTsquery(query);
+    const userId = session.user.id;
 
-    // Build WHERE clause
-    let whereConditions = [`"userId" = '${session.user.id}'`];
-    whereConditions.push(
-      `search_vector @@ to_tsquery('english', '${tsquery}')`,
-    );
+    // Build WHERE fragment using Prisma.sql for safe parameterization —
+    // avoids the SQL-injection risk of string-interpolated whereClause.
+    let whereFragment = Prisma.sql`"userId" = ${userId}
+      AND search_vector @@ to_tsquery('english', ${tsquery})`;
 
     if (status && status !== "all") {
-      whereConditions.push(`"status" = '${status}'`);
+      whereFragment = Prisma.sql`${whereFragment} AND "status" = ${status}`;
     }
 
-    const whereClause = whereConditions.join(" AND ");
-
-    // Execute search query
-    const clients = await prisma.$queryRaw<any[]>`
+    // Execute search query — all values are parameterized by Prisma.sql
+    const clients = await prisma.$queryRaw<any[]>(Prisma.sql`
       SELECT
         id,
         name,
@@ -62,22 +57,22 @@ export async function GET(request: NextRequest) {
         company,
         address,
         status,
-        createdAt,
-        updatedAt,
+        "createdAt",
+        "updatedAt",
         ts_rank(search_vector, to_tsquery('english', ${tsquery})) as rank
       FROM "Client"
-      WHERE ${whereClause}
+      WHERE ${whereFragment}
       ORDER BY rank DESC, "updatedAt" DESC
       LIMIT ${limit}
       OFFSET ${offset}
-    `;
+    `);
 
     // Get total count
-    const totalResult = await prisma.$queryRaw<[{ count: bigint }]>`
+    const totalResult = await prisma.$queryRaw<[{ count: bigint }]>(Prisma.sql`
       SELECT COUNT(*) as count
       FROM "Client"
-      WHERE ${whereClause}
-    `;
+      WHERE ${whereFragment}
+    `);
 
     const totalCount = Number(totalResult[0].count);
 
