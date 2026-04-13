@@ -9,6 +9,12 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  eslint: {
+    // ESLint runs in CI via `pnpm lint` — skip during `next build` to prevent
+    // 45-minute Vercel timeouts. Equivalent to `next build --no-lint` but
+    // compatible across all Next.js 15/16 CLI versions.
+    ignoreDuringBuilds: true,
+  },
   async headers() {
     // Shared security headers applied to every route
     const sharedHeaders = [
