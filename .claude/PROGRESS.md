@@ -7,6 +7,18 @@
 
 All 447 Linear issues are Done. The full RestoreAssist platform is implemented and deployed to production at restoreassist.com.au. Only RA-287 remains (blocked on DO_TOKEN GitHub secret).
 
+## Current Session (2026-04-13) — KARPATHY SPRINT COMPLETE
+
+| Task                                                     | Status | Notes                                                                                                        |
+| -------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------ |
+| RA-683: Ship Chain educational series                    | Done   | docs/ship-chain/ (6 docs), commit c54e5618                                                                   |
+| RA-692: verify_deploy.py + DEPLOYMENT.md + CI workflow   | Done   | scripts/verify_deploy.py, DEPLOYMENT.md, .github/workflows/deploy-check.yml, commit 44080f12                 |
+| RA-693: brand-ambassador cron + design-system onboarding | Done   | lib/cron/brand-ambassador.ts + design-system-onboarding.ts, 2 new cron routes + vercel.json, commit 05b157fe |
+
+All commits pushed to `claude/tender-feynman-v2` → PR #178
+
+Remaining Backlog: RA-612 (LightRAG Q3 2026, P4 Low — intentionally deferred, not actionable until 200+ inspections)
+
 ## Current Session (2026-04-12) — ALL COMPLETE
 
 | Task                                           | Status | Notes                                                                                            |
@@ -506,3 +518,97 @@ Audited production: `restoreassist-okzjr4l3g-unite-group.vercel.app` (latest Pro
 ## 2026-04-13 07:31 — Session End
 
 ## 2026-04-13 07:31 — Session End
+
+## 2026-04-13 13:37 — Session End
+
+## 2026-04-13 13:37 — Session End
+
+## 2026-04-13 13:37 — Session End
+
+## 2026-04-13 13:37 — Session End
+
+## 2026-04-13 13:37 — Session End
+
+## 2026-04-13 13:37 — Session End
+
+## 2026-04-13 13:38 — Session End
+
+## 2026-04-13 13:38 — Session End
+
+## 2026-04-13 13:38 — Session End
+
+## 2026-04-13 13:38 — Session End
+
+## 2026-04-13 13:38 — Session End
+
+## 2026-04-13 13:38 — Session End
+
+## 2026-04-13 13:39 — Session End
+
+## 2026-04-13 13:46 — Session End
+
+## 2026-04-13 13:48 — Session End
+
+## 2026-04-13 13:52 — Session End
+
+## 2026-04-13 13:53 — Session End
+
+## 2026-04-13 14:27 — Session End
+
+## 2026-04-13 14:27 — Session End
+
+## 2026-04-13 14:30 — Session End
+
+## 2026-04-13 14:35 — Session End
+
+## 2026-04-13 14:35 — Session End
+
+## 2026-04-13 14:47 — Session End
+
+## 2026-04-13 14:49 — Session End
+
+## 2026-04-13 14:53 — Session End
+
+## 2026-04-13 15:08 — Session End
+
+## 2026-04-13 15:21 — Session End
+
+## 2026-04-13 15:21 — Session End
+
+## 2026-04-13 15:32 — Session End
+
+## 2026-04-13 15:38 — Session End
+
+## 2026-04-13 15:45 — Session End
+
+## 2026-04-13 16:16 — Session End
+
+## 2026-04-13 16:23 — Session End
+
+## 2026-04-13 16:26 — Session End
+
+## 2026-04-13 16:53 — Session End
+
+## 2026-04-13 17:04 — Session End
+
+## 2026-04-13 17:06 — Session End
+
+## 2026-04-13 17:09 — Session End
+
+## 2026-04-13 17:10 — Session End
+
+## 2026-04-13 17:20 — Session End
+
+## 2026-04-13 17:24 — Session End
+
+## 2026-04-13 17:29 — Session End
+
+## 2026-04-13 17:31 — Session End
+
+## 2026-04-13 17:38 — Session End
+
+## 2026-04-13 17:38 — Session End
+
+## 2026-04-13 17:44 — Session End
+
+## 2026-04-13 17:46 — Session End

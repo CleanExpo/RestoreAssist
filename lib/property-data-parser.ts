@@ -210,7 +210,20 @@ export function parseOnTheHouseHTML(
   const fromJsonLd = parseFromJsonLd(jsonLd);
 
   // Merge — Next.js data wins over JSON-LD
-  const merged = { ...fromJsonLd, ...fromNext };
+  const rawMerged = { ...fromJsonLd, ...fromNext };
+
+  // Sanity-clamp numeric fields: OTH occasionally returns bogus values (e.g. 33
+  // bedrooms) when the JSON path has drifted. Cap at realistic residential maxima
+  // so the HTML-fallback regex gets a chance to provide a better answer.
+  const clamp = (v: number | undefined, max: number): number | undefined =>
+    v !== undefined && v <= max ? v : undefined;
+  const merged = {
+    ...rawMerged,
+    bedrooms: clamp(rawMerged.bedrooms, 20),
+    bathrooms: clamp(rawMerged.bathrooms, 15),
+    carSpaces: clamp(rawMerged.carSpaces, 20),
+  };
+
   const confidence: "high" | "medium" | "low" =
     fromNext && Object.keys(fromNext).length > 2
       ? "high"
@@ -365,7 +378,7 @@ export function parseDomainComAuSearchResults(
   // HTML fallback — Domain property URLs contain "property-"
   if (results.length === 0) {
     for (const m of html.matchAll(
-      /href="(\/property-[^"?#]+\/\d+[^"?#]*)"/gi,
+      /href="(\/property-[^"?#]*\d{5,}[^"?#]*)"/gi,
     )) {
       const full = absoluteUrl(m[1], baseUrl);
       if (!seen.has(full)) {

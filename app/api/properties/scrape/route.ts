@@ -119,23 +119,27 @@ export async function POST(req: NextRequest) {
     const { html: searchHtml, status: searchStatus } =
       await fetchHtml(searchUrl);
 
-    if (searchStatus === 0) {
-      return NextResponse.json(
-        { error: "Could not connect to OnTheHouse. Please try again." },
-        { status: 503 },
-      );
-    }
-    if (searchStatus !== 200) {
-      return NextResponse.json(
-        { error: `OnTheHouse search returned status ${searchStatus}` },
-        { status: 503 },
-      );
-    }
+    // Parse OTH results only when the search page returned successfully
+    const othUrls =
+      searchStatus === 200
+        ? parseOnTheHouseSearchResults(searchHtml, OTH_BASE)
+        : [];
 
-    const urls = parseOnTheHouseSearchResults(searchHtml, OTH_BASE);
-    if (urls.length === 0) {
+    if (othUrls.length > 0) {
+      propertyUrl = othUrls[0];
+    } else {
       // ── domain.com.au fallback (RA-108) ─────────────────
-      if (!useDomainFallback) {
+      // Triggered when: OTH search fails (404/503/network), returns no listings,
+      // OR caller explicitly opts in. Allows the scraper to survive OTH URL changes.
+      if (!useDomainFallback && searchStatus === 0) {
+        return NextResponse.json(
+          { error: "Could not connect to OnTheHouse. Please try again." },
+          { status: 503 },
+        );
+      }
+
+      if (!useDomainFallback && othUrls.length === 0 && searchStatus === 200) {
+        // OTH returned a page but found no listings — give up without domain fallback
         return NextResponse.json(
           {
             error: "No property found on OnTheHouse for this address.",
@@ -145,7 +149,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Try domain.com.au
+      // Try domain.com.au when: OTH returned non-200 (broken search) OR no results
       const domainSearchUrl = `${DOMAIN_BASE}/sale/?q=${encodeURIComponent(searchQuery)}`;
       const { html: domainHtml, status: domainStatus } =
         await fetchHtml(domainSearchUrl);
@@ -153,7 +157,8 @@ export async function POST(req: NextRequest) {
       if (domainStatus !== 200 || !domainHtml) {
         return NextResponse.json(
           {
-            error: "No property found on OnTheHouse or domain.com.au.",
+            error:
+              "No property found. OnTheHouse search unavailable and domain.com.au did not respond.",
             data: null,
           },
           { status: 404 },
@@ -172,8 +177,6 @@ export async function POST(req: NextRequest) {
       }
       propertyUrl = domainUrls[0];
       sourceLabel = "domain";
-    } else {
-      propertyUrl = urls[0];
     }
   }
 
