@@ -33,7 +33,7 @@ export interface SketchCanvasProps {
 }
 
 export interface FabricCanvasRef {
-  /** Serialise entire canvas state to JSON */
+  /** Serialise entire canvas state to JSON (includes custom `data` property) */
   toJSON: () => object;
   /** Load canvas state from JSON (replaces current state) */
   loadFromJSON: (data: object) => Promise<void>;
@@ -95,9 +95,9 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
 
     // ── Undo/Redo helpers ─────────────────────────────────────
     const saveState = useCallback(() => {
-      const canvas = fabricRef.current as { toJSON: () => object } | null;
+      const canvas = fabricRef.current as { toJSON: (extras?: string[]) => object } | null;
       if (!canvas) return;
-      const json = JSON.stringify(canvas.toJSON());
+      const json = JSON.stringify(canvas.toJSON(["data"]));
       const stack = historyRef.current;
       const idx = historyIdxRef.current;
 
@@ -156,8 +156,8 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       ref,
       () => ({
         toJSON: () => {
-          const c = fabricRef.current as { toJSON: () => object } | null;
-          return c?.toJSON() ?? {};
+          const c = fabricRef.current as { toJSON: (extras?: string[]) => object } | null;
+          return c?.toJSON(["data"]) ?? {};
         },
         loadFromJSON: async (data: object) => {
           const c = fabricRef.current as {
@@ -218,6 +218,14 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
           stopContextMenu: true,
           fireRightClick: false,
         });
+
+        // ── PencilBrush must be explicitly instantiated in Fabric v6 ──
+        // Without this, freehand drawing silently fails (no brush object).
+        const PencilBrush = (
+          fabric as { PencilBrush: new (c: unknown) => { color: string; width: number } }
+        ).PencilBrush;
+        (fabricCanvas as unknown as { freeDrawingBrush: { color: string; width: number } }).freeDrawingBrush =
+          new PencilBrush(fabricCanvas);
 
         fabricRef.current = fabricCanvas;
         const canvas = fabricCanvas as {
@@ -338,7 +346,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
 
         // Notify parent
         onReady?.({
-          toJSON: () => canvas.toJSON(),
+          toJSON: () => (canvas as unknown as { toJSON: (e?: string[]) => object }).toJSON(["data"]),
           loadFromJSON: (data) =>
             new Promise((resolve) => canvas.loadFromJSON(data, resolve)),
           toDataURL: (opts) => canvas.toDataURL(opts),
