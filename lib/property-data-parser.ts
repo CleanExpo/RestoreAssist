@@ -124,6 +124,37 @@ function parseFromNextData(
     | undefined;
   if (!listing) return null;
 
+  // ── Extract images from media/photos arrays in the listing ───────────────
+  // OTH and Domain store images as { url, type } objects; type may be
+  // "floorplan", "floor_plan", "FLOOR_PLAN", or similar for floor plans.
+  const floorPlanImages: string[] = [];
+  const propertyImages: string[] = [];
+
+  const mediaArray = (
+    listing.media ?? listing.images ?? listing.photos ?? listing.photoUrls
+  ) as unknown[] | undefined;
+
+  if (Array.isArray(mediaArray)) {
+    for (const item of mediaArray) {
+      const m = item as Record<string, unknown>;
+      // Support nested { url } or flat string entries
+      const rawUrl =
+        typeof item === "string"
+          ? item
+          : ((m.url ?? m.src ?? m.imageUrl ?? m.fullUrl ?? m.thumbnailUrl) as
+              | string
+              | undefined);
+      if (!rawUrl || typeof rawUrl !== "string") continue;
+      const url = rawUrl.startsWith("//") ? "https:" + rawUrl : rawUrl;
+      const mediaType = ((m.type ?? m.mediaType ?? m.category) as string | undefined)?.toLowerCase() ?? "";
+      if (/floor.?plan|floorplan/i.test(mediaType) || /floor.?plan|floorplan/i.test(url)) {
+        floorPlanImages.push(url);
+      } else {
+        propertyImages.push(url);
+      }
+    }
+  }
+
   return {
     bedrooms: (listing.bedrooms ?? listing.beds) as number | undefined,
     bathrooms: (listing.bathrooms ?? listing.baths) as number | undefined,
@@ -145,6 +176,8 @@ function parseFromNextData(
         : ((listing.displayAddress ?? listing.fullAddress) as
             | string
             | undefined),
+    ...(floorPlanImages.length ? { floorPlanImages } : {}),
+    ...(propertyImages.length ? { propertyImages } : {}),
   };
 }
 
@@ -249,17 +282,23 @@ export function parseOnTheHouseHTML(
       /(?:floor|house|building)\s*(?:size|area)?\s*[:\-–]?\s*([\d,.]+)\s*(?:m²|sqm|m2)/i,
     ]);
 
-  // Floor plan images — look for "floor" or "plan" in src/alt
-  const floorPlanImages = extractImages(
+  // Floor plan images — Next.js data first, then HTML fallback (url/alt pattern match)
+  const htmlFloorPlanImages = extractImages(
     html,
     base,
     (src, alt) =>
       /floor[-_]?plan|floorplan/i.test(src) ||
       /floor[-_]?plan|floorplan/i.test(alt),
   );
+  // Merge: Next.js-extracted floor plans (hashed URLs identified by media type) + HTML regex matches
+  const seenFP = new Set<string>();
+  const floorPlanImages: string[] = [];
+  for (const u of [...(merged.floorPlanImages ?? []), ...htmlFloorPlanImages]) {
+    if (!seenFP.has(u)) { seenFP.add(u); floorPlanImages.push(u); }
+  }
 
-  // General property images — skip icons, logos, tiny dimension thumbnails
-  const propertyImages = extractImages(
+  // General property images — Next.js data first, then HTML fallback
+  const htmlPropertyImages = extractImages(
     html,
     base,
     (src) =>
@@ -267,7 +306,13 @@ export function parseOnTheHouseHTML(
       !/logo|icon|avatar|sprite|badge/i.test(src) &&
       !/\/\d{1,3}x\d{1,3}\//i.test(src) &&
       !/data:image/i.test(src),
-  ).slice(0, 24);
+  );
+  const seenPI = new Set<string>(floorPlanImages); // don't duplicate floor plan urls
+  const propertyImages: string[] = [];
+  for (const u of [...(merged.propertyImages ?? []), ...htmlPropertyImages]) {
+    if (!seenPI.has(u)) { seenPI.add(u); propertyImages.push(u); }
+    if (propertyImages.length >= 24) break;
+  }
 
   // Address from og:title or <title>
   const titleMeta =

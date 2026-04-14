@@ -17,6 +17,7 @@ import {
   ZoomOut,
   Trash2,
   Download,
+  Grid3x3,
 } from "lucide-react";
 import type { ToolMode } from "./SketchCanvas";
 
@@ -31,6 +32,8 @@ interface SketchToolbarProps {
   onZoomOut?: () => void;
   onClear?: () => void;
   onExport?: () => void;
+  showGrid?: boolean;
+  onToggleGrid?: () => void;
   readonly?: boolean;
   className?: string;
 }
@@ -63,6 +66,8 @@ export function SketchToolbar({
   onZoomOut,
   onClear,
   onExport,
+  showGrid = false,
+  onToggleGrid,
   readonly = false,
   className,
 }: SketchToolbarProps) {
@@ -130,6 +135,23 @@ export function SketchToolbar({
         className="w-8 h-8 flex items-center justify-center rounded-lg text-neutral-500 dark:text-slate-400 hover:bg-neutral-100 dark:hover:bg-slate-700 hover:text-neutral-800 dark:hover:text-white transition-all"
       >
         <ZoomOut size={15} />
+      </button>
+
+      {/* Divider */}
+      <div className="h-px bg-neutral-200 dark:bg-slate-700 my-0.5" />
+
+      {/* Grid toggle */}
+      <button
+        title={showGrid ? "Hide grid" : "Show grid"}
+        onClick={onToggleGrid}
+        className={cn(
+          "w-8 h-8 flex items-center justify-center rounded-lg transition-all",
+          showGrid
+            ? "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400"
+            : "text-neutral-500 dark:text-slate-400 hover:bg-neutral-100 dark:hover:bg-slate-700 hover:text-neutral-800 dark:hover:text-white",
+        )}
+      >
+        <Grid3x3 size={15} />
       </button>
 
       {/* Divider */}

@@ -307,27 +307,30 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         };
         document.addEventListener("keydown", handleKeyDown);
 
-        // ── Background image ──
+        // ── Background image (Fabric.js v6: backgroundImage property) ──
         if (backgroundImageUrl) {
-          const { FabricImage } = fabric as {
-            FabricImage: { fromURL: (url: string) => Promise<unknown> };
-          };
-          const img = await FabricImage.fromURL(backgroundImageUrl);
-          const imgEl = img as {
-            set: (opts: object) => void;
-            scaleToWidth: (w: number) => void;
-          };
-          imgEl.set({
-            selectable: false,
-            evented: false,
-            opacity: backgroundImageOpacity,
-          });
-          imgEl.scaleToWidth(width);
-          (
-            canvas as unknown as {
-              setBackgroundImage: (img: unknown, cb: () => void) => void;
+          try {
+            const { FabricImage } = fabric as {
+              FabricImage: { fromURL: (url: string, opts?: object) => Promise<unknown> };
+            };
+            const isDataUrl = backgroundImageUrl.startsWith("data:");
+            const opts = isDataUrl ? {} : { crossOrigin: "anonymous" };
+            const img = await FabricImage.fromURL(backgroundImageUrl, opts);
+            const imgEl = img as {
+              set: (opts: object) => void;
+              scaleToWidth: (w: number) => void;
+            };
+            imgEl.set({ selectable: false, evented: false, opacity: backgroundImageOpacity });
+            imgEl.scaleToWidth(width);
+            (canvas as unknown as { backgroundImage: unknown }).backgroundImage = img;
+            if ("requestRenderAll" in (canvas as object)) {
+              (canvas as unknown as { requestRenderAll: () => void }).requestRenderAll();
+            } else {
+              canvas.renderAll();
             }
-          ).setBackgroundImage(img, () => canvas.renderAll());
+          } catch (e) {
+            console.error("SketchCanvas: mount background load failed", e);
+          }
         }
 
         // Save initial empty state
@@ -388,30 +391,45 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       canvas.defaultCursor = toolMode === "pan" ? "grab" : "default";
     }, [toolMode, readonly]);
 
-    // ── Update background image when URL changes ─────────────
+    // ── Update background image when URL/opacity changes (Fabric.js v6) ──
     useEffect(() => {
       const canvas = fabricRef.current as {
         renderAll: () => void;
-        setBackgroundImage: (img: unknown, cb: () => void) => void;
+        backgroundImage: unknown;
       } | null;
-      if (!canvas || !backgroundImageUrl) return;
+      if (!canvas) return;
+      if (!backgroundImageUrl) {
+        // Clear background
+        canvas.backgroundImage = null;
+        canvas.renderAll();
+        return;
+      }
       (async () => {
-        const fabric = await import("fabric");
-        const { FabricImage } = fabric as {
-          FabricImage: { fromURL: (url: string) => Promise<unknown> };
-        };
-        const img = await FabricImage.fromURL(backgroundImageUrl);
-        const imgEl = img as {
-          set: (opts: object) => void;
-          scaleToWidth: (w: number) => void;
-        };
-        imgEl.set({
-          selectable: false,
-          evented: false,
-          opacity: backgroundImageOpacity,
-        });
-        imgEl.scaleToWidth(width);
-        canvas.setBackgroundImage(img, () => canvas.renderAll());
+        try {
+          const fabric = await import("fabric");
+          const { FabricImage } = fabric as {
+            FabricImage: { fromURL: (url: string, opts?: object) => Promise<unknown> };
+          };
+          // Avoid crossOrigin on data URLs — it causes silent failures
+          const isDataUrl = backgroundImageUrl.startsWith("data:");
+          const opts = isDataUrl ? {} : { crossOrigin: "anonymous" };
+          const img = await FabricImage.fromURL(backgroundImageUrl, opts);
+          const imgEl = img as {
+            set: (opts: object) => void;
+            scaleToWidth: (w: number) => void;
+          };
+          imgEl.set({ selectable: false, evented: false, opacity: backgroundImageOpacity });
+          imgEl.scaleToWidth(width);
+          canvas.backgroundImage = img;
+          // v6: requestRenderAll is preferred; fall back to renderAll
+          if ("requestRenderAll" in (canvas as object)) {
+            (canvas as unknown as { requestRenderAll: () => void }).requestRenderAll();
+          } else {
+            canvas.renderAll();
+          }
+        } catch (e) {
+          console.error("SketchCanvas: failed to load background image", e);
+        }
       })();
     }, [backgroundImageUrl, backgroundImageOpacity, width]);
 
