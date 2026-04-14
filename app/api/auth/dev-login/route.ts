@@ -53,26 +53,28 @@ export async function GET(request: NextRequest) {
 
   const gauthProof = gauthToken(email, secret);
 
-  // Auto-submitting form — signs in via NextAuth credentials provider
-  const csrfRes = await fetch(
-    `${process.env.NEXTAUTH_URL ?? "http://localhost:3000"}/api/auth/csrf`,
-    { cache: "no-store" },
-  );
-  const { csrfToken } = await csrfRes.json();
-
+  // CSRF must be fetched client-side so the cookie is set in the browser context.
+  // A server-side fetch sets the cookie on the server request, not the browser.
   const html = `<!DOCTYPE html>
 <html>
 <head><title>Dev Sign In…</title></head>
 <body>
   <p style="font-family:monospace;color:#06b6d4;padding:32px">Signing in as ${email}…</p>
   <form id="f" method="POST" action="/api/auth/callback/credentials">
-    <input type="hidden" name="csrfToken" value="${csrfToken}" />
+    <input id="csrf" type="hidden" name="csrfToken" value="" />
     <input type="hidden" name="email" value="${email}" />
     <input type="hidden" name="password" value="${gauthProof}" />
     <input type="hidden" name="callbackUrl" value="${callbackUrl}" />
     <input type="hidden" name="json" value="true" />
   </form>
-  <script>document.getElementById('f').submit();</script>
+  <script>
+    fetch('/api/auth/csrf')
+      .then(r => r.json())
+      .then(({ csrfToken }) => {
+        document.getElementById('csrf').value = csrfToken;
+        document.getElementById('f').submit();
+      });
+  </script>
 </body>
 </html>`;
 
