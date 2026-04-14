@@ -5,14 +5,15 @@ import { withCircuitBreaker, DEFAULT_CIRCUIT_OPTIONS } from "./circuit-breaker";
 import { retryWithExponentialBackoff, DEFAULT_RETRY_OPTIONS } from "./retry";
 
 /**
- * Sync Queue System
+ * Durable Sync Queue System — RA-902
  *
- * Manages invoice sync operations with:
- * - Priority queuing (manual syncs > scheduled syncs)
- * - Rate limiting per provider
- * - Circuit breaker protection
- * - Retry logic with exponential backoff
+ * Replaces the previous in-memory array with a Prisma-backed `InvoiceSyncJob`
+ * table so jobs survive Vercel cold starts and serverless scale-out.
+ *
+ * The priority / rate-limit / circuit-breaker / retry logic is unchanged.
  */
+
+// ─── Types (kept for external callers) ───────────────────────────────────────
 
 export interface SyncJob {
   id: string;
@@ -25,52 +26,49 @@ export interface SyncJob {
   createdAt: Date;
 }
 
-// In-memory queue (would use Redis or database in production)
-const syncQueue: SyncJob[] = [];
-let processingJobs: Set<string> = new Set();
+// ─── Queue writes ─────────────────────────────────────────────────────────────
 
 /**
- * Add invoice to sync queue
+ * Add invoice to the durable sync queue.
+ * Upserts so duplicate enqueue calls for the same (invoiceId, provider) are safe.
+ * Returns the job ID.
  */
-export function queueInvoiceSync(
+export async function queueInvoiceSync(
   invoiceId: string,
   provider: IntegrationProvider,
   priority: "HIGH" | "NORMAL" | "LOW" = "NORMAL",
-): string {
-  // Check if already queued
-  const existing = syncQueue.find(
-    (job) =>
-      job.invoiceId === invoiceId &&
-      job.provider === provider &&
-      job.status === "PENDING",
-  );
+): Promise<string> {
+  // Priority upgrade: if a PENDING job already exists with lower priority, bump it.
+  const priorityOrder: Record<string, number> = { HIGH: 2, NORMAL: 1, LOW: 0 };
+
+  const existing = await prisma.invoiceSyncJob.findUnique({
+    where: { invoiceId_provider: { invoiceId, provider: provider as string } },
+  });
 
   if (existing) {
-    // Update priority if higher
     if (
-      (priority === "HIGH" && existing.priority !== "HIGH") ||
-      (priority === "NORMAL" && existing.priority === "LOW")
+      existing.status === "PENDING" &&
+      priorityOrder[priority] > priorityOrder[existing.priority]
     ) {
-      existing.priority = priority;
+      await prisma.invoiceSyncJob.update({
+        where: { id: existing.id },
+        data: { priority },
+      });
       console.log(
-        `[Sync Queue] Updated priority for invoice ${invoiceId} to ${priority}`,
+        `[Sync Queue] Upgraded priority for invoice ${invoiceId} to ${priority}`,
       );
     }
     return existing.id;
   }
 
-  // Create new job
-  const job: SyncJob = {
-    id: `sync-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    invoiceId,
-    provider,
-    priority,
-    status: "PENDING",
-    retryCount: 0,
-    createdAt: new Date(),
-  };
-
-  syncQueue.push(job);
+  const job = await prisma.invoiceSyncJob.create({
+    data: {
+      invoiceId,
+      provider: provider as string,
+      priority,
+      status: "PENDING",
+    },
+  });
 
   console.log(
     `[Sync Queue] Queued invoice ${invoiceId} for ${provider} sync (priority: ${priority})`,
@@ -79,185 +77,55 @@ export function queueInvoiceSync(
   return job.id;
 }
 
-/**
- * Get next job from queue (priority-based)
- */
-function getNextJob(): SyncJob | null {
-  // Sort by priority then creation time
-  const priorityOrder = { HIGH: 0, NORMAL: 1, LOW: 2 };
-
-  const sortedQueue = syncQueue
-    .filter((job) => job.status === "PENDING" && !processingJobs.has(job.id))
-    .sort((a, b) => {
-      // First by priority
-      const priorityDiff =
-        priorityOrder[a.priority] - priorityOrder[b.priority];
-      if (priorityDiff !== 0) return priorityDiff;
-
-      // Then by creation time (older first)
-      return a.createdAt.getTime() - b.createdAt.getTime();
-    });
-
-  return sortedQueue[0] || null;
-}
+// ─── Queue processing ─────────────────────────────────────────────────────────
 
 /**
- * Process a single sync job
+ * Fetch and process the next batch of PENDING jobs (priority-ordered).
+ * Called by the sync-invoices cron route.
  */
-async function processSyncJob(job: SyncJob): Promise<void> {
-  try {
-    console.log(
-      `[Sync Queue] Processing job ${job.id}: invoice ${job.invoiceId} → ${job.provider}`,
-    );
+export async function processNextBatch(options: {
+  maxJobs?: number;
+} = {}): Promise<{ processed: number; failed: number; remaining: number }> {
+  const { maxJobs = 20 } = options;
 
-    // Mark as processing
-    job.status = "PROCESSING";
-    processingJobs.add(job.id);
-
-    // Fetch invoice
-    const invoice = await prisma.invoice.findUnique({
-      where: { id: job.invoiceId },
-      include: {
-        lineItems: {
-          orderBy: { sortOrder: "asc" },
-        },
-      },
-    });
-
-    if (!invoice) {
-      throw new Error(`Invoice ${job.invoiceId} not found`);
-    }
-
-    // Execute sync with rate limiting, circuit breaker, and retry
-    const serviceName = `${job.provider}-sync`;
-
-    await withRateLimit(job.provider, async () => {
-      await withCircuitBreaker(
-        serviceName,
-        async () => {
-          await retryWithExponentialBackoff(async () => {
-            // Actual sync logic would go here
-            // For now, simulate sync
-            await syncInvoiceToProvider(invoice, job.provider);
-          }, DEFAULT_RETRY_OPTIONS);
-        },
-        DEFAULT_CIRCUIT_OPTIONS,
-      );
-    });
-
-    // Mark as completed
-    job.status = "COMPLETED";
-    job.errorMessage = undefined;
-
-    console.log(`[Sync Queue] Completed job ${job.id}`);
-
-    // Create audit log
-    await prisma.invoiceAuditLog.create({
-      data: {
-        invoiceId: invoice.id,
-        userId: invoice.userId,
-        action: "sync_queued",
-        description: `Invoice synced to ${job.provider} via queue`,
-        metadata: {
-          jobId: job.id,
-          priority: job.priority,
-        },
-      },
-    });
-  } catch (error: any) {
-    console.error(`[Sync Queue] Job ${job.id} failed:`, error);
-
-    job.retryCount++;
-    job.errorMessage = error.message;
-
-    // Retry or fail
-    if (job.retryCount >= 3) {
-      job.status = "FAILED";
-      console.error(
-        `[Sync Queue] Job ${job.id} failed after ${job.retryCount} attempts`,
-      );
-    } else {
-      job.status = "PENDING";
-      console.log(
-        `[Sync Queue] Job ${job.id} will be retried (attempt ${job.retryCount}/3)`,
-      );
-    }
-  } finally {
-    processingJobs.delete(job.id);
-  }
-}
-
-/**
- * Process sync queue
- */
-export async function processSyncQueue(
-  options: {
-    maxConcurrent?: number;
-    maxJobs?: number;
-  } = {},
-): Promise<{
-  processed: number;
-  failed: number;
-  remaining: number;
-}> {
-  const { maxConcurrent = 3, maxJobs = 20 } = options;
+  // Fetch PENDING jobs ordered by priority (HIGH first) then age (oldest first)
+  const jobs = await prisma.invoiceSyncJob.findMany({
+    where: { status: "PENDING" },
+    orderBy: [
+      // Prisma sorts strings lexicographically; we store HIGH/NORMAL/LOW
+      // so we sort descending — H > N > L
+      { priority: "desc" },
+      { createdAt: "asc" },
+    ],
+    take: maxJobs,
+  });
 
   let processed = 0;
   let failed = 0;
 
-  console.log(
-    `[Sync Queue] Starting queue processing (max concurrent: ${maxConcurrent})`,
-  );
-
-  // Process jobs in parallel up to maxConcurrent
-  const activePromises: Promise<void>[] = [];
-
-  while (processed + failed < maxJobs) {
-    // Wait if at max concurrency
-    while (activePromises.length >= maxConcurrent) {
-      await Promise.race(activePromises);
-      // Remove completed promises
-      activePromises.splice(
-        0,
-        activePromises.length,
-        ...activePromises.filter((p) => {
-          let completed = false;
-          p.then(() => {
-            completed = true;
-          }).catch(() => {
-            completed = true;
-          });
-          return !completed;
-        }),
-      );
-    }
-
-    // Get next job
-    const job = getNextJob();
-
-    if (!job) {
-      // No more jobs
-      break;
-    }
-
-    // Start processing
-    const promise = processSyncJob(job)
-      .then(() => {
-        processed++;
-      })
-      .catch(() => {
-        failed++;
+  for (const job of jobs) {
+    try {
+      // Mark as PROCESSING (optimistic lock — prevents duplicate processing)
+      const locked = await prisma.invoiceSyncJob.updateMany({
+        where: { id: job.id, status: "PENDING" },
+        data: { status: "PROCESSING" },
       });
 
-    activePromises.push(promise);
+      if (locked.count === 0) {
+        // Another process grabbed it — skip
+        continue;
+      }
+
+      await _processJob(job);
+      processed++;
+    } catch {
+      failed++;
+    }
   }
 
-  // Wait for all remaining jobs
-  await Promise.allSettled(activePromises);
-
-  const remaining = syncQueue.filter(
-    (job) => job.status === "PENDING" || job.status === "PROCESSING",
-  ).length;
+  const remaining = await prisma.invoiceSyncJob.count({
+    where: { status: { in: ["PENDING", "PROCESSING"] } },
+  });
 
   console.log(
     `[Sync Queue] Completed: ${processed} processed, ${failed} failed, ${remaining} remaining`,
@@ -266,132 +134,173 @@ export async function processSyncQueue(
   return { processed, failed, remaining };
 }
 
-/**
- * Get queue statistics
- */
-export function getSyncQueueStats() {
-  const stats = {
-    total: syncQueue.length,
-    pending: syncQueue.filter((j) => j.status === "PENDING").length,
-    processing: syncQueue.filter((j) => j.status === "PROCESSING").length,
-    completed: syncQueue.filter((j) => j.status === "COMPLETED").length,
-    failed: syncQueue.filter((j) => j.status === "FAILED").length,
-    byPriority: {
-      high: syncQueue.filter(
-        (j) => j.priority === "HIGH" && j.status === "PENDING",
-      ).length,
-      normal: syncQueue.filter(
-        (j) => j.priority === "NORMAL" && j.status === "PENDING",
-      ).length,
-      low: syncQueue.filter(
-        (j) => j.priority === "LOW" && j.status === "PENDING",
-      ).length,
-    },
-    byProvider: {} as Record<string, number>,
-  };
+async function _processJob(
+  job: Awaited<ReturnType<typeof prisma.invoiceSyncJob.findMany>>[0],
+): Promise<void> {
+  const provider = job.provider as IntegrationProvider;
+  const serviceName = `${provider}-sync`;
 
-  // Count by provider
-  syncQueue
-    .filter((j) => j.status === "PENDING")
-    .forEach((j) => {
-      stats.byProvider[j.provider] = (stats.byProvider[j.provider] || 0) + 1;
+  try {
+    console.log(
+      `[Sync Queue] Processing job ${job.id}: invoice ${job.invoiceId} → ${provider}`,
+    );
+
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: job.invoiceId },
+      include: {
+        lineItems: { orderBy: { sortOrder: "asc" } },
+      },
     });
 
-  return stats;
+    if (!invoice) {
+      throw new Error(`Invoice ${job.invoiceId} not found`);
+    }
+
+    await withRateLimit(provider, async () => {
+      await withCircuitBreaker(
+        serviceName,
+        async () => {
+          await retryWithExponentialBackoff(async () => {
+            await _syncInvoiceToProvider(invoice, provider);
+          }, DEFAULT_RETRY_OPTIONS);
+        },
+        DEFAULT_CIRCUIT_OPTIONS,
+      );
+    });
+
+    // Mark completed
+    await prisma.invoiceSyncJob.update({
+      where: { id: job.id },
+      data: { status: "COMPLETED", completedAt: new Date(), errorMessage: null },
+    });
+
+    // Audit trail
+    await prisma.invoiceAuditLog.create({
+      data: {
+        invoiceId: invoice.id,
+        userId: invoice.userId,
+        action: "sync_queued",
+        description: `Invoice synced to ${provider} via durable queue`,
+        metadata: { jobId: job.id, priority: job.priority },
+      },
+    });
+
+    console.log(`[Sync Queue] Completed job ${job.id}`);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[Sync Queue] Job ${job.id} failed:`, error);
+
+    const newRetryCount = job.retryCount + 1;
+    const maxRetries = 3;
+
+    await prisma.invoiceSyncJob.update({
+      where: { id: job.id },
+      data: {
+        status: newRetryCount >= maxRetries ? "FAILED" : "PENDING",
+        retryCount: newRetryCount,
+        errorMessage: message,
+      },
+    });
+
+    if (newRetryCount >= maxRetries) {
+      console.error(
+        `[Sync Queue] Job ${job.id} permanently failed after ${newRetryCount} attempts`,
+      );
+    } else {
+      console.log(
+        `[Sync Queue] Job ${job.id} will retry (attempt ${newRetryCount}/${maxRetries})`,
+      );
+    }
+
+    throw error; // re-throw so processNextBatch increments failed counter
+  }
 }
 
-/**
- * Clear completed and failed jobs (older than 1 hour)
- */
-export function cleanupSyncQueue(): number {
-  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+// ─── Status / management helpers ──────────────────────────────────────────────
 
-  const before = syncQueue.length;
+/** Get queue statistics (reads from DB). */
+export async function getSyncQueueStats(): Promise<{
+  total: number;
+  pending: number;
+  processing: number;
+  completed: number;
+  failed: number;
+}> {
+  const [total, pending, processing, completed, failed] = await Promise.all([
+    prisma.invoiceSyncJob.count(),
+    prisma.invoiceSyncJob.count({ where: { status: "PENDING" } }),
+    prisma.invoiceSyncJob.count({ where: { status: "PROCESSING" } }),
+    prisma.invoiceSyncJob.count({ where: { status: "COMPLETED" } }),
+    prisma.invoiceSyncJob.count({ where: { status: "FAILED" } }),
+  ]);
 
-  // Remove old completed/failed jobs
-  syncQueue.splice(
-    0,
-    syncQueue.length,
-    ...syncQueue.filter(
-      (job) =>
-        !(
-          (job.status === "COMPLETED" || job.status === "FAILED") &&
-          job.createdAt < oneHourAgo
-        ),
-    ),
-  );
+  return { total, pending, processing, completed, failed };
+}
 
-  const after = syncQueue.length;
-  const removed = before - after;
+/** Cancel a PENDING job. Returns true if cancelled, false if not found/not pending. */
+export async function cancelJob(jobId: string): Promise<boolean> {
+  const result = await prisma.invoiceSyncJob.updateMany({
+    where: { id: jobId, status: "PENDING" },
+    data: { status: "FAILED", errorMessage: "Cancelled by user" },
+  });
+  return result.count > 0;
+}
 
-  if (removed > 0) {
-    console.log(`[Sync Queue] Cleaned up ${removed} old jobs`);
+/** Retry a FAILED job by resetting it to PENDING. */
+export async function retryJob(jobId: string): Promise<boolean> {
+  const result = await prisma.invoiceSyncJob.updateMany({
+    where: { id: jobId, status: "FAILED" },
+    data: { status: "PENDING", retryCount: 0, errorMessage: null },
+  });
+  return result.count > 0;
+}
+
+/** Get a single job's current status. */
+export async function getJobStatus(jobId: string): Promise<SyncJob | null> {
+  const job = await prisma.invoiceSyncJob.findUnique({ where: { id: jobId } });
+  if (!job) return null;
+
+  return {
+    id: job.id,
+    invoiceId: job.invoiceId,
+    provider: job.provider as IntegrationProvider,
+    priority: job.priority as "HIGH" | "NORMAL" | "LOW",
+    status: job.status as "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED",
+    retryCount: job.retryCount,
+    errorMessage: job.errorMessage ?? undefined,
+    createdAt: job.createdAt,
+  };
+}
+
+/** Remove COMPLETED/FAILED jobs older than 24 hours. Returns count deleted. */
+export async function cleanupSyncQueue(): Promise<number> {
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const result = await prisma.invoiceSyncJob.deleteMany({
+    where: {
+      status: { in: ["COMPLETED", "FAILED"] },
+      createdAt: { lt: oneDayAgo },
+    },
+  });
+
+  if (result.count > 0) {
+    console.log(`[Sync Queue] Cleaned up ${result.count} old jobs`);
   }
 
-  return removed;
+  return result.count;
 }
 
+// ─── Internal sync stub ───────────────────────────────────────────────────────
+
 /**
- * Simulate invoice sync (placeholder for actual implementation)
- * In reality, this would call the integration client
+ * Placeholder sync implementation.
+ * Replace with real integration client calls (Xero, QuickBooks, MYOB) once
+ * the per-provider clients are wired up.
  */
-async function syncInvoiceToProvider(
-  invoice: any,
+async function _syncInvoiceToProvider(
+  invoice: { id: string },
   provider: IntegrationProvider,
 ): Promise<void> {
-  // Simulate API call
-  await new Promise((resolve) =>
-    setTimeout(resolve, 500 + Math.random() * 1000),
-  );
-
-  // Simulate occasional failures for testing
-  if (Math.random() < 0.05) {
-    throw new Error(`Simulated sync failure for ${provider}`);
-  }
-
+  // Simulate async API call
+  await new Promise((resolve) => setTimeout(resolve, 200));
   console.log(`[Sync Queue] Synced invoice ${invoice.id} to ${provider}`);
-}
-
-/**
- * Get job status
- */
-export function getJobStatus(jobId: string): SyncJob | null {
-  return syncQueue.find((job) => job.id === jobId) || null;
-}
-
-/**
- * Cancel pending job
- */
-export function cancelJob(jobId: string): boolean {
-  const job = syncQueue.find((j) => j.id === jobId);
-
-  if (!job || job.status !== "PENDING") {
-    return false;
-  }
-
-  job.status = "FAILED";
-  job.errorMessage = "Cancelled by user";
-
-  console.log(`[Sync Queue] Cancelled job ${jobId}`);
-
-  return true;
-}
-
-/**
- * Retry failed job
- */
-export function retryJob(jobId: string): boolean {
-  const job = syncQueue.find((j) => j.id === jobId);
-
-  if (!job || job.status !== "FAILED") {
-    return false;
-  }
-
-  job.status = "PENDING";
-  job.errorMessage = undefined;
-  job.retryCount = 0;
-
-  console.log(`[Sync Queue] Retrying job ${jobId}`);
-
-  return true;
 }

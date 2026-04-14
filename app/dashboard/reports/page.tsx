@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
+import { useFetch } from "@/lib/hooks/useFetch";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -32,8 +33,12 @@ export default function ReportsPage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [reports, setReports] = useState<ReportWithSessionData[]>([]);
+  const {
+    data: reportsData,
+    loading,
+    refetch: refetchReports,
+  } = useFetch<{ reports: ReportWithSessionData[] }>("/api/reports");
+  const reports = reportsData?.reports ?? [];
   const [duplicating, setDuplicating] = useState<string | null>(null);
   const [downloading, setDownloading] = useState<string | null>(null);
   const [selectedReports, setSelectedReports] = useState<string[]>([]);
@@ -69,19 +74,7 @@ export default function ReportsPage() {
             border: "1px solid #059669",
           },
         });
-        // Refresh the reports list
-        const fetchReports = async () => {
-          try {
-            const response = await fetch("/api/reports");
-            if (response.ok) {
-              const data = await response.json();
-              setReports(data.reports || []);
-            }
-          } catch (error) {
-            console.error("Error fetching reports:", error);
-          }
-        };
-        fetchReports();
+        refetchReports();
       } else {
         const errorData = await response.json();
 
@@ -158,10 +151,9 @@ export default function ReportsPage() {
       });
 
       if (response.ok) {
-        setReports(reports.filter((r) => !selectedReports.includes(r.id)));
         setSelectedReports([]);
         setShowBulkDeleteModal(false);
-        // Success — reports removed from local state above
+        refetchReports();
       } else {
         console.error("Failed to delete reports");
       }
@@ -186,27 +178,7 @@ export default function ReportsPage() {
     setSelectedReports([]);
   };
 
-  // Fetch reports from API
-  useEffect(() => {
-    const fetchReports = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch("/api/reports");
-        if (response.ok) {
-          const data = await response.json();
-          setReports(data.reports || []);
-        } else {
-          console.error("Failed to fetch reports");
-        }
-      } catch (error) {
-        console.error("Error fetching reports:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchReports();
-  }, []);
+  // Data fetching handled by useFetch above — auto-fetches on mount + abort on unmount
 
   const filteredReports = useMemo(() => {
     return reports.filter((report) => {

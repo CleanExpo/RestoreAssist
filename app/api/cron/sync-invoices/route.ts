@@ -1,47 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { queueInvoiceSync } from "@/lib/integrations/sync-queue";
+import {
+  queueInvoiceSync,
+  processNextBatch,
+} from "@/lib/integrations/sync-queue";
+import { verifyCronAuth } from "@/lib/cron/auth";
 
 /**
  * GET /api/cron/sync-invoices - Scheduled invoice sync cron job
  *
- * This endpoint should be called by:
- * - Vercel Cron (hourly): 0 * * * *
- * - Or external cron service
+ * Phase 1: Enqueue any invoices that have been modified since last sync.
+ * Phase 2: Process up to 20 PENDING jobs from the durable InvoiceSyncJob table.
  *
- * Automatically syncs modified invoices to connected accounting systems
- *
- * Requires CRON_SECRET for security
+ * Called by Vercel Cron (hourly): 0 * * * *
+ * Requires CRON_SECRET for security (timing-safe via verifyCronAuth)
  */
 export async function GET(request: NextRequest) {
   try {
-    // Verify cron secret for security
-    const authHeader = request.headers.get("authorization");
-    const cronSecret = process.env.CRON_SECRET;
+    const authError = verifyCronAuth(request);
+    if (authError) return authError;
 
-    if (!cronSecret) {
-      console.error("[Invoice Sync Cron] CRON_SECRET not configured");
-      return NextResponse.json(
-        { error: "CRON_SECRET not configured" },
-        { status: 500 },
-      );
-    }
-
-    // Allow Bearer token or direct secret
-    const providedSecret = authHeader?.replace("Bearer ", "");
-
-    if (providedSecret !== cronSecret) {
-      console.error("[Invoice Sync Cron] Invalid authorization");
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // Find all active integrations
+    // ── Phase 1: discover invoices that need syncing ──────────────────────────
     const integrations = await prisma.integration.findMany({
       where: {
         status: "CONNECTED",
-        provider: {
-          in: ["XERO", "QUICKBOOKS", "MYOB"],
-        },
+        provider: { in: ["XERO", "QUICKBOOKS", "MYOB"] },
       },
       select: {
         id: true,
@@ -51,108 +34,68 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    if (integrations.length === 0) {
-      return NextResponse.json({
-        success: true,
-        message: "No active integrations",
-        stats: {
-          integrations: 0,
-          invoicesQueued: 0,
-        },
-      });
-    }
-
     let totalQueued = 0;
 
-    // For each integration, find invoices that need syncing
     for (const integration of integrations) {
       try {
-        // Determine sync window (since last sync or last 24 hours)
         const syncWindow =
           integration.lastSyncAt || new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-        // Find invoices modified since last sync
         const invoices = await prisma.invoice.findMany({
           where: {
             userId: integration.userId,
-            status: {
-              not: "DRAFT", // Don't sync drafts
-            },
-            updatedAt: {
-              gte: syncWindow,
-            },
-            // Exclude invoices that were already synced to this provider
-            // and haven't been modified since
+            status: { not: "DRAFT" },
+            updatedAt: { gte: syncWindow },
             OR: [
-              {
-                externalInvoiceId: null, // Never synced
-              },
-              {
-                externalSyncProvider: {
-                  not: integration.provider, // Synced to different provider
-                },
-              },
-              {
-                updatedAt: {
-                  gte: integration.lastSyncAt || new Date(0), // Modified since last sync
-                },
-              },
+              { externalInvoiceId: null },
+              { externalSyncProvider: { not: integration.provider } },
+              { updatedAt: { gte: integration.lastSyncAt || new Date(0) } },
             ],
           },
-          select: {
-            id: true,
-            invoiceNumber: true,
-            status: true,
-          },
-          take: 50, // Limit to 50 per integration per run
+          select: { id: true },
+          take: 50,
         });
 
-        if (invoices.length === 0) {
-          continue;
-        }
-
-        // Queue each invoice for sync
         for (const invoice of invoices) {
           try {
-            // Use NORMAL priority for scheduled syncs
-            queueInvoiceSync(invoice.id, integration.provider, "NORMAL");
+            await queueInvoiceSync(invoice.id, integration.provider, "NORMAL");
             totalQueued++;
-          } catch (error) {
+          } catch (err) {
             console.error(
-              `[Invoice Sync Cron] Failed to queue invoice ${invoice.id}:`,
-              error,
+              `[Invoice Sync Cron] Failed to enqueue invoice ${invoice.id}:`,
+              err,
             );
           }
         }
 
-        // Update last sync time
         await prisma.integration.update({
           where: { id: integration.id },
           data: { lastSyncAt: new Date() },
         });
-      } catch (error) {
+      } catch (err) {
         console.error(
-          `[Invoice Sync Cron] Error processing integration ${integration.id}:`,
-          error,
+          `[Invoice Sync Cron] Error scanning integration ${integration.id}:`,
+          err,
         );
       }
     }
+
+    // ── Phase 2: process the durable queue ───────────────────────────────────
+    const batchResult = await processNextBatch({ maxJobs: 20 });
 
     return NextResponse.json({
       success: true,
       stats: {
         integrations: integrations.length,
         invoicesQueued: totalQueued,
+        ...batchResult,
       },
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("[Invoice Sync Cron] Error:", error);
     return NextResponse.json(
-      {
-        success: false,
-        error: error.message || "Unknown error",
-      },
+      { success: false, error: "Internal server error" },
       { status: 500 },
     );
   }

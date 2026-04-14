@@ -4738,3 +4738,44 @@ model HistoricalJob {
   @@index([state])
   @@index([completedDate])
 }
+
+// ─── RA-911: Brand Ambassador idempotency ─────────────────────────────────────
+// Prevents duplicate Telegram deliveries when the weekly cron is retried.
+// One record per (projectKey, isoWeek, year) — created after successful delivery.
+
+model BrandAmbassadorPost {
+  id          String   @id @default(cuid())
+  projectKey  String   // e.g. "restore-assist", "disaster-recovery"
+  isoWeek     Int      // ISO week number 1–53
+  year        Int      // Calendar year
+  deliveredAt DateTime @default(now())
+  draft       String   @db.Text // The generated draft (audit trail)
+
+  createdAt DateTime @default(now())
+
+  @@unique([projectKey, isoWeek, year], name: "projectKey_isoWeek_year")
+  @@index([projectKey])
+  @@index([year, isoWeek])
+}
+
+// ─── RA-902: Durable Invoice Sync Queue ──────────────────────────────────────
+// Replaces the in-memory syncQueue array — survives Vercel cold starts.
+// Keyed by (invoiceId, provider) with a unique constraint for deduplication.
+
+model InvoiceSyncJob {
+  id         String @id @default(cuid())
+  invoiceId  String
+  provider   String // IntegrationProvider value stored as string
+  priority   String @default("NORMAL") // HIGH | NORMAL | LOW
+  status     String @default("PENDING") // PENDING | PROCESSING | COMPLETED | FAILED
+  retryCount Int    @default(0)
+  errorMessage String? @db.Text
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  completedAt DateTime?
+
+  @@unique([invoiceId, provider], name: "invoiceId_provider")
+  @@index([status, priority, createdAt])
+  @@index([invoiceId])
+}

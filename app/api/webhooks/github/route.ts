@@ -144,40 +144,58 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ data: "already processed" });
   }
 
-  // Generate release notes
-  const { title, notes } = await generateReleaseNotes(commits, version);
-
-  // Create the release record
+  // Create the release record immediately with placeholder notes so we can
+  // return 200 before the AI call (prevents GitHub's 10-second timeout).
   const release = await prisma.appRelease.create({
-    data: { version, title, notes, commitSha },
-  });
-
-  // Fan-out: create a notification for every active user
-  const users = await prisma.user.findMany({
-    where: {
-      OR: [
-        { subscriptionStatus: { in: ["ACTIVE", "TRIAL"] } },
-        { lifetimeAccess: true },
-      ],
+    data: {
+      version,
+      title: `Version ${version}`,
+      notes: "Release notes generating…",
+      commitSha,
     },
-    select: { id: true },
-    take: 5000,
   });
 
-  if (users.length > 0) {
-    await prisma.notification.createMany({
-      data: users.map((u) => ({
-        userId: u.id,
-        title,
-        message: `See what's new in ${version}`,
-        type: "INFO" as NotificationType,
-        link: `/dashboard?release=${release.id}`,
-      })),
-      skipDuplicates: true,
-    });
-  }
+  // Fire-and-forget: generate real notes + fan-out notifications in background.
+  // Failures are logged but must never block the webhook response.
+  void (async () => {
+    try {
+      const { title, notes } = await generateReleaseNotes(commits, version);
+
+      await prisma.appRelease.update({
+        where: { id: release.id },
+        data: { title, notes },
+      });
+
+      // Fan-out: create a notification for every active user
+      const users = await prisma.user.findMany({
+        where: {
+          OR: [
+            { subscriptionStatus: { in: ["ACTIVE", "TRIAL"] } },
+            { lifetimeAccess: true },
+          ],
+        },
+        select: { id: true },
+        take: 5000,
+      });
+
+      if (users.length > 0) {
+        await prisma.notification.createMany({
+          data: users.map((u) => ({
+            userId: u.id,
+            title,
+            message: `See what's new in ${version}`,
+            type: "INFO" as NotificationType,
+            link: `/dashboard?release=${release.id}`,
+          })),
+          skipDuplicates: true,
+        });
+      }
+    } catch (err) {
+      console.error("[github-webhook] Background release-notes job failed:", err);
+    }
+  })();
 
   return NextResponse.json({
-    data: { releaseId: release.id, version, usersNotified: users.length },
+    data: { releaseId: release.id, version },
   });
 }
