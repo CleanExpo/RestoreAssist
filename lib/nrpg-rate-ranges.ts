@@ -165,6 +165,80 @@ export const NRPG_RATE_RANGES: Record<string, NRPGRateRange> = {
     unit: "$",
     label: "Thermal Camera Assessment",
   },
+
+  // Equipment Daily Rental Rates — RA-848 additions
+  negativeAirMachineDailyRate: {
+    min: 55,
+    max: 180,
+    unit: "$/day",
+    label: "Negative Air Machine",
+  },
+  hepaVacuumDailyRate: {
+    min: 35,
+    max: 90,
+    unit: "$/day",
+    label: "HEPA Vacuum",
+  },
+
+  // Fees — RA-848 additions
+  mobilisationFee: {
+    min: 100,
+    max: 450,
+    unit: "$",
+    label: "Mobilisation Fee",
+  },
+  monitoringVisitDailyRate: {
+    min: 85,
+    max: 220,
+    unit: "$/visit",
+    label: "Monitoring Visit",
+  },
+  photoDocumentationFee: {
+    min: 95,
+    max: 250,
+    unit: "$",
+    label: "Photo Documentation Fee",
+  },
+  wasteDisposalPerBinRate: {
+    min: 280,
+    max: 650,
+    unit: "$/bin",
+    label: "Waste Disposal (per bin)",
+  },
+
+  // Multipliers — RA-848 additions (expressed as decimal multipliers, e.g. 1.5 = 150%)
+  afterHoursMultiplier: {
+    min: 1.25,
+    max: 2.0,
+    unit: "x",
+    label: "After Hours Multiplier",
+  },
+  saturdayMultiplier: {
+    min: 1.25,
+    max: 1.75,
+    unit: "x",
+    label: "Saturday Multiplier",
+  },
+  sundayMultiplier: {
+    min: 1.5,
+    max: 2.25,
+    unit: "x",
+    label: "Sunday Multiplier",
+  },
+  publicHolidayMultiplier: {
+    min: 2.0,
+    max: 3.0,
+    unit: "x",
+    label: "Public Holiday Multiplier",
+  },
+
+  // Management — RA-848 additions
+  projectManagementPercent: {
+    min: 5.0,
+    max: 15.0,
+    unit: "%",
+    label: "Project Management (%)",
+  },
 };
 
 /** Check whether a rate value falls within the NRPG range for a given field. */
