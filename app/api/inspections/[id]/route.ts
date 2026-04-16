@@ -256,8 +256,7 @@ const DEMO_INSPECTION = {
       id: "dal-006",
       action: "Inspection marked COMPLETED",
       timestamp: "2026-04-07T10:00:00.000Z",
-    },
-  ],
+    },  ],
 };
 
 // GET - Get single inspection by ID with all relations

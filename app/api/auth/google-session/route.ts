@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error("Error in Google session:", error);
     return NextResponse.json(
-      { error: error.message || "Internal server error" },
+      { error: "Internal server error" },
       { status: 500 },
     );
   }

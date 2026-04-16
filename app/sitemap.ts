@@ -1,7 +1,7 @@
 import { MetadataRoute } from "next";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = process.env.NEXTAUTH_URL || "https://restoreassist.com.au";
+  const baseUrl = process.env.NEXTAUTH_URL || "https://restoreassist.app";
 
   return [
     {

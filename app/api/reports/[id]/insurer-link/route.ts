@@ -34,7 +34,7 @@ export async function POST(
     const token = generateInsurerToken(report.id);
     const baseUrl =
       process.env.NEXTAUTH_URL?.replace(/\/$/, "") ??
-      "https://restoreassist.com.au";
+      "https://restoreassist.app";
     const url = `${baseUrl}/portal/insurer/${token}`;
 
     return NextResponse.json({

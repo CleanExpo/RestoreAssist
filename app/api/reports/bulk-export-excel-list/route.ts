@@ -154,12 +154,10 @@ export async function POST(request: NextRequest) {
       totalSelected: allReports.length,
     });
   } catch (error) {
+    // RA-786: do not leak error.message to clients
     console.error("Error in bulk-export-excel-list:", error);
     return NextResponse.json(
-      {
-        error: "Export failed",
-        message: error instanceof Error ? error.message : "Unknown error",
-      },
+      { error: "Export failed" },
       { status: 500 },
     );
   }

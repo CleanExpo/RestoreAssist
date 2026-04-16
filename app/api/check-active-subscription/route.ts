@@ -236,9 +236,10 @@ export async function POST(request: NextRequest) {
         );
       }
     } catch (stripeError: any) {
+      // RA-786: do not leak stripeError.message to clients
       console.error("Error checking subscriptions:", stripeError);
       return NextResponse.json(
-        { error: stripeError.message || "Failed to check subscriptions" },
+        { error: "Failed to check subscriptions" },
         { status: 500 },
       );
     }

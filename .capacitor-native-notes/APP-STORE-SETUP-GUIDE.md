@@ -1,4 +1,4 @@
-# App Store & Google Play — Complete Setup Guide
+﻿# App Store & Google Play — Complete Setup Guide
 
 **RestoreAssist (com.restoreassist.app) + CET (com.restoreassist.cet)**
 **Prepared for: First-time developer, Windows machine, Australian business**
@@ -39,7 +39,7 @@ Both Apple and Google require a D-U-N-S number if you're registering as a busine
 
 ### 1.1 Prepare your Apple ID
 
-1. Create an Apple ID at https://appleid.apple.com (use a dedicated business email, e.g. `dev@restoreassist.com.au`)
+1. Create an Apple ID at https://appleid.apple.com (use a dedicated business email, e.g. `dev@restoreassist.app`)
 2. **Enable two-factor authentication (2FA)** — mandatory, cannot enrol without it
    Settings → Password & Security → Two-Factor Authentication
 3. Ensure your legal name on the Apple ID matches your ABN registration
@@ -52,7 +52,7 @@ Both Apple and Google require a D-U-N-S number if you're registering as a busine
 4. You'll be asked for:
    - Legal entity name (exactly as registered — ABN lookup: https://www.abr.gov.au)
    - D-U-N-S Number (from Step 0)
-   - Business website (restoreassist.com.au)
+   - Business website (restoreassist.app)
    - Work email
    - ABN
 5. Pay $149 AUD by credit card
@@ -67,7 +67,7 @@ You'll get access to:
 - **Developer Portal**: https://developer.apple.com/account — certificates, app IDs, provisioning profiles
 
 The SE will handle all Xcode/certificate configuration. You just need to give the SE access
-to App Store Connect (invite `se@restoreassist.com.au` as Admin in Users and Access).
+to App Store Connect (invite `se@restoreassist.app` as Admin in Users and Access).
 
 ---
 
@@ -75,7 +75,7 @@ to App Store Connect (invite `se@restoreassist.com.au` as Admin in Users and Acc
 
 ### 2.1 Prepare
 
-1. Create or use a Google account (recommend a dedicated `dev@restoreassist.com.au` Google Workspace account)
+1. Create or use a Google account (recommend a dedicated `dev@restoreassist.app` Google Workspace account)
 2. Have a physical Android device available (Google requires verifying via the Play Console app on an Android device)
 3. Have your D-U-N-S number ready (from Step 0, if registering as organisation)
 
@@ -86,7 +86,7 @@ to App Store Connect (invite `se@restoreassist.com.au` as Admin in Users and Acc
 3. Fill in:
    - Developer name: "RestoreAssist" (this is what users see on Play Store)
    - D-U-N-S Number
-   - Business website: restoreassist.com.au
+   - Business website: restoreassist.app
    - Contact email
 4. Pay $25 USD by credit card (one-time, never charged again)
 
@@ -213,7 +213,7 @@ The SE will prepare:
 - App name: "RestoreAssist" / "RestoreAssist CET"
 - Package names: `com.restoreassist.app` / `com.restoreassist.cet`
 - Content rating questionnaire
-- Privacy policy URL (must exist on restoreassist.com.au/privacy)
+- Privacy policy URL (must exist on restoreassist.app/privacy)
 - App description
 
 **New account requirement:** Before your app goes live on Google Play, you must:
@@ -228,7 +228,7 @@ The SE will prepare:
 
 Both stores require a privacy policy. Before submitting either app, ensure:
 
-- `https://restoreassist.com.au/privacy` returns a valid privacy policy page
+- `https://restoreassist.app/privacy` returns a valid privacy policy page
 - The policy covers: what data is collected, how it's used, third-party services (Cloudinary, AI providers)
 
 The SE can draft the privacy policy content — it just needs to be published to that URL.

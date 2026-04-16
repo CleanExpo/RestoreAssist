@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import type React from "react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -161,11 +162,8 @@ export default function DashboardLayout({
     },
     { icon: Calculator, label: "Quote Generator", href: "/dashboard/quote" },
     { icon: Plug, label: "Integrations", href: "/dashboard/integrations" },
-    {
-      icon: Activity,
-      label: "Webhook Logs",
-      href: "/dashboard/integrations/webhooks",
-    },
+    // RA-905: Webhook Logs removed from top-level nav — operational tool, not a user feature.
+    // Accessible via Integrations > Webhook Logs tab for users who need it.
     { icon: Smartphone, label: "Field Mode", href: "/dashboard/field" },
     { icon: BarChart3, label: "Analytics", href: "/dashboard/analytics" },
     {
@@ -325,10 +323,9 @@ export default function DashboardLayout({
               // Special handling for "New Report" to check credits
               if (item.label === "New Report") {
                 return (
-                  <>
+                  <Fragment key={item.href}>
                     {divider}
                     <button
-                      key={item.href}
                       onClick={async () => {
                         try {
                           const response = await fetch(
@@ -373,14 +370,13 @@ export default function DashboardLayout({
                         <span className="text-sm">{item.label}</span>
                       )}
                     </button>
-                  </>
+                  </Fragment>
                 );
               }
               return (
-                <>
+                <Fragment key={item.href}>
                   {divider}
                   <Link
-                    key={item.href}
                     href={item.href}
                     className={cn(
                       "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group",
@@ -410,7 +406,7 @@ export default function DashboardLayout({
                       <span className="text-sm">{item.label}</span>
                     )}
                   </Link>
-                </>
+                </Fragment>
               );
             })}
 

@@ -74,7 +74,7 @@ export async function POST(
     }
 
     // Queue the sync with HIGH priority (manual retry)
-    const jobId = queueInvoiceSync(
+    const jobId = await queueInvoiceSync(
       invoice.id,
       provider as IntegrationProvider,
       "HIGH",
@@ -104,7 +104,7 @@ export async function POST(
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Failed to retry sync",
+        error: "Failed to retry sync",
       },
       { status: 500 },
     );

@@ -7,7 +7,7 @@
  * No login required. Access is controlled by the pilot token embedded in the URL
  * (shared by the RestoreAssist pilot team with each participating insurer).
  *
- * Usage: https://app.restoreassist.com.au/pilot/adjuster-review?token=nir-pilot-2026
+ * Usage: https://app.restoreassist.app/pilot/adjuster-review?token=nir-pilot-2026
  *
  * Records: how long an adjuster spent reviewing a report (NIR vs. existing format).
  * Feeds: CLAIM-004 in the NIR evidence register via /api/pilot/adjuster-session.

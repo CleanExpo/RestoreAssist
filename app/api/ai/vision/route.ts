@@ -7,6 +7,10 @@
  * Auth: getServerSession required — no anonymous access.
  * Provider: whichever of Claude / GPT / Gemini the user has connected via BYOK.
  *
+ * Subscription gate: intentionally absent — this is a BYOK-only route. The user
+ * supplies their own API key via Integrations; no platform credits are consumed.
+ * Calls will fail at analyseImageWithBYOK() if no key is configured.
+ *
  * RA-393: Phase 0.5 — BYOK Vision Extension
  */
 

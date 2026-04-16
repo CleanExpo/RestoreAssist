@@ -13,7 +13,7 @@
  *   - AI-generated S500:2025 report text
  *
  * Run with: npx tsx prisma/seed-demo.ts
- * Idempotent: skips creation if demo@restoreassist.com.au already exists.
+ * Idempotent: skips creation if demo@restoreassist.app already exists.
  */
 
 import { PrismaClient } from "@prisma/client";
@@ -22,7 +22,7 @@ const prisma = new PrismaClient();
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const DEMO_EMAIL = "demo@restoreassist.com.au";
+const DEMO_EMAIL = "demo@restoreassist.app";
 const DEMO_INSPECTION_NUMBER = "NIR-2026-04-DEMO";
 const DEMO_REPORT_NUMBER = "RA-DEMO-2026-0001";
 
@@ -770,7 +770,7 @@ async function main() {
   console.log("────────────────────────────────────");
   console.log("✅ Demo dataset seeded successfully!");
   console.log("");
-  console.log("  User:         demo@restoreassist.com.au");
+  console.log("  User:         demo@restoreassist.app");
   console.log(`  Inspection:   ${DEMO_INSPECTION_NUMBER}`);
   console.log(`  Report:       ${DEMO_REPORT_NUMBER}`);
   console.log("  Job type:     Category 2 / Class 2 — grey water");

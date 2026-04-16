@@ -21,7 +21,8 @@ import {
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useFetch } from "@/lib/hooks/useFetch";
 import toast from "react-hot-toast";
 
 interface Invoice {
@@ -44,19 +45,41 @@ export default function InvoicesPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
 
-  // Stats (amounts in cents from API)
-  const [stats, setStats] = useState({
+  // Build dynamic URL — null when session not yet authenticated (skips fetch)
+  const invoiceParams = new URLSearchParams();
+  if (search) invoiceParams.append("search", search);
+  if (statusFilter) invoiceParams.append("status", statusFilter);
+  const invoiceUrl =
+    status === "authenticated" ? `/api/invoices?${invoiceParams}` : null;
+
+  const {
+    data: invoiceData,
+    loading,
+    refetch: refetchInvoices,
+  } = useFetch<{ invoices: Invoice[] }>(invoiceUrl);
+  const invoices = invoiceData?.invoices ?? [];
+
+  const { data: statsApiData, refetch: refetchStats } = useFetch<{
+    stats: {
+      totalRevenue: number;
+      outstanding: number;
+      overdue: number;
+      paidThisMonth: number;
+      draftTotal: number;
+    };
+  }>(status === "authenticated" ? "/api/invoices/analytics" : null);
+
+  // Stats derived from useFetch above
+  const stats = statsApiData?.stats ?? {
     totalRevenue: 0,
     outstanding: 0,
     overdue: 0,
     paidThisMonth: 0,
     draftTotal: 0,
-  });
+  };
 
   // Bulk delete: selected invoice IDs (only DRAFT/CANCELLED can be deleted)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -115,8 +138,8 @@ export default function InvoicesPage() {
             ? "Invoice deleted successfully"
             : `${succeeded} invoices deleted successfully`,
         );
-        fetchInvoices();
-        fetchStats();
+        refetchInvoices();
+        refetchStats();
       }
       if (failed.length > 0) {
         toast.error(
@@ -133,47 +156,11 @@ export default function InvoicesPage() {
     }
   };
 
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login");
-    } else if (status === "authenticated") {
-      fetchInvoices();
-      fetchStats();
-    }
-  }, [status, search, statusFilter]);
-
-  const fetchInvoices = async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (search) params.append("search", search);
-      if (statusFilter) params.append("status", statusFilter);
-
-      const res = await fetch(`/api/invoices?${params}`);
-      const data = await res.json();
-      setInvoices(data.invoices || []);
-    } catch (error) {
-      console.error("Failed to fetch invoices:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchStats = async () => {
-    try {
-      const res = await fetch("/api/invoices/analytics");
-      const data = await res.json();
-      setStats({
-        totalRevenue: data.stats?.totalRevenue ?? 0,
-        outstanding: data.stats?.outstanding ?? 0,
-        overdue: data.stats?.overdue ?? 0,
-        paidThisMonth: data.stats?.paidThisMonth ?? 0,
-        draftTotal: data.stats?.draftTotal ?? 0,
-      });
-    } catch (error) {
-      console.error("Failed to fetch stats:", error);
-    }
-  };
+  // Auth redirect — keep as simple effect (not data-fetching)
+  // useFetch handles the actual data load; redirect is separate concern
+  if (status === "unauthenticated") {
+    router.push("/login");
+  }
 
   const getStatusBadge = (invoice: {
     status: string;
@@ -360,6 +347,8 @@ export default function InvoicesPage() {
         </div>
       ) : (
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+          {/* RA-918: overflow-x-auto enables horizontal scroll on narrow viewports */}
+          <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-slate-50 dark:bg-slate-700/50">
               <tr>
@@ -475,6 +464,7 @@ export default function InvoicesPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

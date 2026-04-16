@@ -148,7 +148,7 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error("Error fetching missing elements:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to fetch missing elements" },
+      { error: "Failed to fetch missing elements" },
       { status: 500 },
     );
   }

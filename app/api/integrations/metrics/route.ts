@@ -187,7 +187,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Failed to fetch metrics",
+        error: "Failed to fetch metrics",
       },
       { status: 500 },
     );

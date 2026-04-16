@@ -36,7 +36,7 @@ jobs:
           distribution: "temurin"
 
       # Server-hosted WebView — no Next.js build needed.
-      # The Android app loads https://restoreassist.com.au directly.
+      # The Android app loads https://restoreassist.app directly.
       # We only need cap sync to copy native plugins.
       - name: Sync Capacitor Android
         run: |

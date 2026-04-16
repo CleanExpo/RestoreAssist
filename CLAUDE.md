@@ -19,7 +19,6 @@ TypeScript / Next.js 15 App Router compliance platform for Australian water dama
 ## Rules
 
 ### Auth & Identity
-
 1. Every API route requires `getServerSession` — only `/api/auth/*`, `/api/cron/*` (bearer-token), and webhook endpoints are exempt
 2. Use `session.user.id` (JWT `sub`) as authoritative identifier — `session.user.email` can be stale
 3. Admin routes use `verifyAdminFromDb()` from `lib/admin-auth.ts` — JWT role claim can be stale; always re-validate from DB

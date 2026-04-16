@@ -217,7 +217,7 @@ export async function GET() {
   } catch (error: any) {
     console.error("Error fetching latest analyses:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to fetch latest analyses" },
+      { error: "Failed to fetch latest analyses" },
       { status: 500 },
     );
   }

@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
-const SUPPORT_EMAIL = "support@restoreassist.com.au";
+const SUPPORT_EMAIL = "support@restoreassist.app";
 
 export default function SupportPage() {
   return (
@@ -149,10 +149,10 @@ export default function SupportPage() {
             <div className="px-5 pb-4 text-sm text-neutral-600 dark:text-neutral-400">
               Email{" "}
               <a
-                href="mailto:privacy@restoreassist.com.au"
+                href="mailto:privacy@restoreassist.app"
                 className="text-[#1C2E47] dark:text-[#D4A574] hover:underline"
               >
-                privacy@restoreassist.com.au
+                privacy@restoreassist.app
               </a>{" "}
               with the subject line &ldquo;Account Deletion Request&rdquo;. We
               will confirm deletion within 30 days. Note that inspection records

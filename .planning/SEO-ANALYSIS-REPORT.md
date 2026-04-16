@@ -3,7 +3,7 @@
 ## UNI-184 - Comprehensive Analysis & Recommendations
 
 **Date:** January 27, 2026
-**Domain:** restoreassist.com.au / restoreassist.com
+**Domain:** restoreassist.app / restoreassist.com
 **Platform:** Next.js 16 with App Router
 **Target Market:** Australian restoration professionals
 
@@ -426,10 +426,10 @@ export const metadata: Metadata = {
     title: "RestoreAssist Features - AI-Powered Restoration Tools",
     description:
       "Professional restoration tools with AI damage assessment and compliance automation.",
-    url: "https://restoreassist.com.au/features",
+    url: "https://restoreassist.app/features",
   },
   alternates: {
-    canonical: "https://restoreassist.com.au/features",
+    canonical: "https://restoreassist.app/features",
   },
 };
 
@@ -450,7 +450,7 @@ export default function FeaturesLayout({
 import { MetadataRoute } from "next";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = "https://restoreassist.com.au";
+  const baseUrl = "https://restoreassist.app";
   const lastModified = new Date();
 
   const staticPages = [
@@ -548,8 +548,8 @@ export function OrganizationJsonLd() {
     "@context": "https://schema.org",
     "@type": "Organization",
     "name": "Restore Assist",
-    "url": "https://restoreassist.com.au",
-    "logo": "https://restoreassist.com.au/logo.png",
+    "url": "https://restoreassist.app",
+    "logo": "https://restoreassist.app/logo.png",
     "description": "AI-powered damage assessment platform for Australian restoration professionals",
     "address": {
       "@type": "PostalAddress",
@@ -667,7 +667,7 @@ Disallow: /api/
 Disallow: /sign/
 
 # Primary Domain
-Sitemap: https://restoreassist.com.au/sitemap.xml
+Sitemap: https://restoreassist.app/sitemap.xml
 
 # Crawl-delay for polite crawling
 Crawl-delay: 1

@@ -40,7 +40,7 @@ function layout(title: string, body: string): string {
             <td style="background:#f8fafc;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px;padding:20px 32px;text-align:center;">
               <p style="margin:0;font-size:12px;color:#94a3b8;">
                 You received this email because you are a RestoreAssist user.
-                To unsubscribe, contact <a href="mailto:support@restoreassist.com.au" style="color:#3b82f6;text-decoration:none;">support@restoreassist.com.au</a>.
+                To unsubscribe, contact <a href="mailto:support@restoreassist.app" style="color:#3b82f6;text-decoration:none;">support@restoreassist.app</a>.
               </p>
               <p style="margin:8px 0 0;font-size:11px;color:#cbd5e1;">&copy; ${new Date().getFullYear()} RestoreAssist. All rights reserved.</p>
             </td>

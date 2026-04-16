@@ -240,7 +240,7 @@ export default function ClientPortalPage({
   const acceptedInvitation = invitations.find((i) => i.status === "ACCEPTED");
   const latestPending = invitations.find((i) => i.status === "PENDING");
 
-  const portalUrl = `${typeof window !== "undefined" ? window.location.origin : "https://restoreassist.com.au"}/portal/login`;
+  const portalUrl = `${typeof window !== "undefined" ? window.location.origin : "https://restoreassist.app"}/portal/login`;
 
   // ── Render ───────────────────────────────────────────────────────────────────
 

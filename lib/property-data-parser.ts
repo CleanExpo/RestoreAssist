@@ -124,6 +124,37 @@ function parseFromNextData(
     | undefined;
   if (!listing) return null;
 
+  // ── Extract images from media/photos arrays in the listing ───────────────
+  // OTH and Domain store images as { url, type } objects; type may be
+  // "floorplan", "floor_plan", "FLOOR_PLAN", or similar for floor plans.
+  const floorPlanImages: string[] = [];
+  const propertyImages: string[] = [];
+
+  const mediaArray = (
+    listing.media ?? listing.images ?? listing.photos ?? listing.photoUrls
+  ) as unknown[] | undefined;
+
+  if (Array.isArray(mediaArray)) {
+    for (const item of mediaArray) {
+      const m = item as Record<string, unknown>;
+      // Support nested { url } or flat string entries
+      const rawUrl =
+        typeof item === "string"
+          ? item
+          : ((m.url ?? m.src ?? m.imageUrl ?? m.fullUrl ?? m.thumbnailUrl) as
+              | string
+              | undefined);
+      if (!rawUrl || typeof rawUrl !== "string") continue;
+      const url = rawUrl.startsWith("//") ? "https:" + rawUrl : rawUrl;
+      const mediaType = ((m.type ?? m.mediaType ?? m.category) as string | undefined)?.toLowerCase() ?? "";
+      if (/floor.?plan|floorplan/i.test(mediaType) || /floor.?plan|floorplan/i.test(url)) {
+        floorPlanImages.push(url);
+      } else {
+        propertyImages.push(url);
+      }
+    }
+  }
+
   return {
     bedrooms: (listing.bedrooms ?? listing.beds) as number | undefined,
     bathrooms: (listing.bathrooms ?? listing.baths) as number | undefined,
@@ -145,10 +176,33 @@ function parseFromNextData(
         : ((listing.displayAddress ?? listing.fullAddress) as
             | string
             | undefined),
+    ...(floorPlanImages.length ? { floorPlanImages } : {}),
+    ...(propertyImages.length ? { propertyImages } : {}),
   };
 }
 
 // ── JSON-LD extraction ─────────────────────────────────────
+
+/**
+ * Schema.org values can be plain numbers OR QuantitativeValue objects like
+ * { "@type": "QuantitativeValue", "unitText": "sqm", "value": 85 }.
+ * This helper always returns a plain number or undefined.
+ */
+function coerceSchemaNumber(
+  v: unknown,
+): number | undefined {
+  if (typeof v === "number") return isNaN(v) ? undefined : v;
+  if (typeof v === "string") {
+    const n = parseFloat(v.replace(/,/g, ""));
+    return isNaN(n) ? undefined : n;
+  }
+  if (v && typeof v === "object") {
+    // QuantitativeValue: { value: number, unitText: "sqm" }
+    const qv = v as Record<string, unknown>;
+    return coerceSchemaNumber(qv.value ?? qv.minValue);
+  }
+  return undefined;
+}
 
 function parseFromJsonLd(
   jsonLd: Record<string, unknown>[],
@@ -179,12 +233,12 @@ function parseFromJsonLd(
 
   return {
     address,
-    bedrooms: obj.numberOfBedrooms as number | undefined,
-    bathrooms: (obj.numberOfBathroomsTotal ?? obj.numberOfBathrooms) as
-      | number
-      | undefined,
-    landSizeM2: (obj.lotSize ?? obj.floorSize) as number | undefined,
-    floorAreaM2: obj.floorSize as number | undefined,
+    bedrooms: coerceSchemaNumber(obj.numberOfBedrooms),
+    bathrooms: coerceSchemaNumber(
+      obj.numberOfBathroomsTotal ?? obj.numberOfBathrooms,
+    ),
+    landSizeM2: coerceSchemaNumber(obj.lotSize ?? obj.floorSize),
+    floorAreaM2: coerceSchemaNumber(obj.floorSize),
     propertyType: obj["@type"] as string | undefined,
   };
 }
@@ -217,7 +271,10 @@ export function parseOnTheHouseHTML(
   // so the HTML-fallback regex gets a chance to provide a better answer.
   const clamp = (v: number | undefined, max: number): number | undefined =>
     v !== undefined && v <= max ? v : undefined;
-  const merged = {
+const clamp = (
+    v: number | undefined,
+    max: number,
+  ): number | undefined => (v !== undefined && v <= max ? v : undefined);  const merged = {
     ...rawMerged,
     bedrooms: clamp(rawMerged.bedrooms, 20),
     bathrooms: clamp(rawMerged.bathrooms, 15),
@@ -231,25 +288,32 @@ export function parseOnTheHouseHTML(
         ? "medium"
         : "low";
 
-  // 3. HTML fallback for any missing values
-  const bedrooms =
+  // 3. HTML fallback for any missing values — clamp finals too so bogus regex
+  //    matches (e.g. scraped "99 bedrooms" as a placeholder) don't leak through
+  const bedrooms = clamp(
     merged.bedrooms ??
-    extractNumber(stripped, [
-      /(\d+)\s*bed(?:room)?s?/i,
-      /bed(?:room)?s?\s*:\s*(\d+)/i,
-    ]);
-  const bathrooms =
+      extractNumber(stripped, [
+        /(\d+)\s*bed(?:room)?s?/i,
+        /bed(?:room)?s?\s*:\s*(\d+)/i,
+      ]),
+    20,
+  );
+  const bathrooms = clamp(
     merged.bathrooms ??
-    extractNumber(stripped, [
-      /(\d+)\s*bath(?:room)?s?/i,
-      /bath(?:room)?s?\s*:\s*(\d+)/i,
-    ]);
-  const carSpaces =
+      extractNumber(stripped, [
+        /(\d+)\s*bath(?:room)?s?/i,
+        /bath(?:room)?s?\s*:\s*(\d+)/i,
+      ]),
+    15,
+  );
+  const carSpaces = clamp(
     merged.carSpaces ??
-    extractNumber(stripped, [
-      /(\d+)\s*car\s*(?:space|garage|park)/i,
-      /garage\s*:\s*(\d+)/i,
-    ]);
+      extractNumber(stripped, [
+        /(\d+)\s*car\s*(?:space|garage|park)/i,
+        /garage\s*:\s*(\d+)/i,
+      ]),
+    20,
+  );
   const landSizeM2 =
     merged.landSizeM2 ??
     extractFloat(stripped, [
@@ -262,17 +326,23 @@ export function parseOnTheHouseHTML(
       /(?:floor|house|building)\s*(?:size|area)?\s*[:\-–]?\s*([\d,.]+)\s*(?:m²|sqm|m2)/i,
     ]);
 
-  // Floor plan images — look for "floor" or "plan" in src/alt
-  const floorPlanImages = extractImages(
+  // Floor plan images — Next.js data first, then HTML fallback (url/alt pattern match)
+  const htmlFloorPlanImages = extractImages(
     html,
     base,
     (src, alt) =>
       /floor[-_]?plan|floorplan/i.test(src) ||
       /floor[-_]?plan|floorplan/i.test(alt),
   );
+  // Merge: Next.js-extracted floor plans (hashed URLs identified by media type) + HTML regex matches
+  const seenFP = new Set<string>();
+  const floorPlanImages: string[] = [];
+  for (const u of [...(merged.floorPlanImages ?? []), ...htmlFloorPlanImages]) {
+    if (!seenFP.has(u)) { seenFP.add(u); floorPlanImages.push(u); }
+  }
 
-  // General property images — skip icons, logos, tiny dimension thumbnails
-  const propertyImages = extractImages(
+  // General property images — Next.js data first, then HTML fallback
+  const htmlPropertyImages = extractImages(
     html,
     base,
     (src) =>
@@ -280,7 +350,13 @@ export function parseOnTheHouseHTML(
       !/logo|icon|avatar|sprite|badge/i.test(src) &&
       !/\/\d{1,3}x\d{1,3}\//i.test(src) &&
       !/data:image/i.test(src),
-  ).slice(0, 24);
+  );
+  const seenPI = new Set<string>(floorPlanImages); // don't duplicate floor plan urls
+  const propertyImages: string[] = [];
+  for (const u of [...(merged.propertyImages ?? []), ...htmlPropertyImages]) {
+    if (!seenPI.has(u)) { seenPI.add(u); propertyImages.push(u); }
+    if (propertyImages.length >= 24) break;
+  }
 
   // Address from og:title or <title>
   const titleMeta =
@@ -375,7 +451,9 @@ export function parseDomainComAuSearchResults(
     }
   }
 
-  // HTML fallback — Domain property URLs contain "property-"
+  // HTML fallback — Domain property URLs contain "property-" followed by a
+  // numeric ID at the end (hyphen-separated, e.g. /property-house-nsw-manly-2095-18461593)
+  // or slash-separated (older format). Match both.
   if (results.length === 0) {
     for (const m of html.matchAll(
       /href="(\/property-[^"?#]*\d{5,}[^"?#]*)"/gi,

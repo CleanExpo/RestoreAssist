@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
+import { useFetch } from "@/lib/hooks/useFetch";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -32,10 +33,15 @@ export default function ReportsPage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [reports, setReports] = useState<ReportWithSessionData[]>([]);
+  const {
+    data: reportsData,
+    loading,
+    refetch: refetchReports,
+  } = useFetch<{ reports: ReportWithSessionData[] }>("/api/reports");
+  const reports = reportsData?.reports ?? [];
   const [duplicating, setDuplicating] = useState<string | null>(null);
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [batchDownloading, setBatchDownloading] = useState(false);
   const [selectedReports, setSelectedReports] = useState<string[]>([]);
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
   const [filters, setFilters] = useState({
@@ -69,19 +75,7 @@ export default function ReportsPage() {
             border: "1px solid #059669",
           },
         });
-        // Refresh the reports list
-        const fetchReports = async () => {
-          try {
-            const response = await fetch("/api/reports");
-            if (response.ok) {
-              const data = await response.json();
-              setReports(data.reports || []);
-            }
-          } catch (error) {
-            console.error("Error fetching reports:", error);
-          }
-        };
-        fetchReports();
+        refetchReports();
       } else {
         const errorData = await response.json();
 
@@ -144,6 +138,59 @@ export default function ReportsPage() {
     }
   };
 
+  // RA-916: Batch download selected reports as ZIP
+  const handleBatchDownload = async () => {
+    if (selectedReports.length === 0) {
+      toast.error("Select at least one report to download.");
+      return;
+    }
+    if (selectedReports.length > 25) {
+      toast.error("Maximum 25 reports per batch download. Please narrow your selection.");
+      return;
+    }
+
+    const loadingToast = toast.loading(
+      `Preparing ${selectedReports.length} PDF${selectedReports.length > 1 ? "s" : ""}…`,
+    );
+    setBatchDownloading(true);
+
+    try {
+      const response = await fetch("/api/reports/bulk-export-zip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: selectedReports, pdfType: "basic" }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || `Server error ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      // Use the filename from the Content-Disposition header if present
+      const disposition = response.headers.get("Content-Disposition");
+      const match = disposition?.match(/filename="([^"]+)"/);
+      a.download = match?.[1] ?? `RestoreAssist_PDFs_${new Date().toISOString().slice(0, 10)}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast.dismiss(loadingToast);
+      toast.success(`Downloaded ${selectedReports.length} report${selectedReports.length > 1 ? "s" : ""} as ZIP.`);
+    } catch (error) {
+      toast.dismiss(loadingToast);
+      toast.error(
+        error instanceof Error ? error.message : "Batch download failed. Please try again.",
+      );
+    } finally {
+      setBatchDownloading(false);
+    }
+  };
+
   // Bulk delete functions
   const handleBulkDelete = async () => {
     if (selectedReports.length === 0) return;
@@ -158,11 +205,9 @@ export default function ReportsPage() {
       });
 
       if (response.ok) {
-        setReports(reports.filter((r) => !selectedReports.includes(r.id)));
         setSelectedReports([]);
         setShowBulkDeleteModal(false);
-        // Show success message
-        console.log(`${selectedReports.length} reports deleted successfully`);
+        refetchReports();
       } else {
         console.error("Failed to delete reports");
       }
@@ -187,27 +232,7 @@ export default function ReportsPage() {
     setSelectedReports([]);
   };
 
-  // Fetch reports from API
-  useEffect(() => {
-    const fetchReports = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch("/api/reports");
-        if (response.ok) {
-          const data = await response.json();
-          setReports(data.reports || []);
-        } else {
-          console.error("Failed to fetch reports");
-        }
-      } catch (error) {
-        console.error("Error fetching reports:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchReports();
-  }, []);
+  // Data fetching handled by useFetch above — auto-fetches on mount + abort on unmount
 
   const filteredReports = useMemo(() => {
     return reports.filter((report) => {
@@ -334,14 +359,16 @@ export default function ReportsPage() {
           <Filter size={20} />
         </button>
         <button
-          onClick={() => {
-            // Download all reports as a batch (you can implement this later)
-            console.log("Batch download not implemented yet");
-          }}
-          className="p-2 border border-slate-700 rounded-lg hover:bg-slate-800 transition-colors"
-          title="Download All Reports"
+          onClick={handleBatchDownload}
+          disabled={batchDownloading || selectedReports.length === 0}
+          className="p-2 border border-slate-700 rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          title={selectedReports.length > 0 ? `Download ${selectedReports.length} selected report(s) as ZIP` : "Select reports to download"}
         >
-          <Download size={20} />
+          {batchDownloading ? (
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-cyan-500" />
+          ) : (
+            <Download size={20} />
+          )}
         </button>
       </div>
 

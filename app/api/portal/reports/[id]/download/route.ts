@@ -97,9 +97,11 @@ export async function GET(
       },
     });
   } catch (error: unknown) {
-    const message =
-      error instanceof Error ? error.message : "Failed to generate PDF";
+    // RA-786: do not leak error.message to clients
     console.error("[Portal Download] Error:", error);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to generate PDF" },
+      { status: 500 },
+    );
   }
 }

@@ -8,6 +8,8 @@
  * and mirrored here. Do NOT modify the allowlist.
  */
 
+import Anthropic from "@anthropic-ai/sdk";
+
 // ═══ BYOK Allowlist (mirror of mobile/constants/byok.ts) ═══════════
 
 export const BYOK_ALLOWED_MODELS = [
@@ -139,21 +141,25 @@ export interface S500StructuredOutput {
 
 /**
  * Format vision inputs for Anthropic Claude API.
- * Claude uses content blocks with type "image" containing base64 source.
+ * Claude accepts image/* as base64 blocks. video/mp4 is not supported
+ * as base64 input — video frames must be sent as individual images.
  */
 function formatClaudeMessages(
   userPrompt: string,
   visionInputs?: VisionInput[],
-): Array<Record<string, unknown>> {
-  const content: Array<Record<string, unknown>> = [];
+): Anthropic.MessageParam[] {
+  const content: Anthropic.ContentBlockParam[] = [];
 
   if (visionInputs?.length) {
     for (const input of visionInputs) {
+      // Skip video/mp4 — Anthropic only accepts image media types as base64
+      if (input.mediaType === "video/mp4") continue;
+
       content.push({
         type: "image",
         source: {
           type: "base64",
-          media_type: input.mediaType,
+          media_type: input.mediaType as Anthropic.Base64ImageSource["media_type"],
           data: input.data,
         },
       });
@@ -224,56 +230,41 @@ function formatGptMessages(
 
 // ═══ Provider Dispatch ══════════════════════════════════════════════
 
+// RA-1065: Replaced raw fetch + hardcoded anthropic-version header with
+// @anthropic-ai/sdk. Benefits: auto-retry on 429/529, type-safe response
+// objects, SDK-managed versioning, streaming-ready for future extension.
 async function callAnthropic(req: ByokRequest): Promise<ByokResponse> {
   const start = Date.now();
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), req.timeoutMs ?? 60000);
 
-  try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": req.apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: req.model,
-        max_tokens: req.maxTokens ?? 4096,
-        temperature: req.temperature ?? 0.3,
-        system: req.systemPrompt,
-        messages: formatClaudeMessages(req.userPrompt, req.visionInputs),
-      }),
-      signal: controller.signal,
-    });
+  const client = new Anthropic({
+    apiKey: req.apiKey,
+    timeout: req.timeoutMs ?? 60000,
+    maxRetries: 2, // Auto-retry on rate limit (429) and overload (529)
+  });
 
-    if (!res.ok) {
-      const errBody = await res.text().catch(() => "");
-      throw new Error(`Anthropic API ${res.status}: ${errBody.slice(0, 200)}`);
-    }
+  const response = await client.messages.create({
+    model: req.model,
+    max_tokens: req.maxTokens ?? 4096,
+    temperature: req.temperature ?? 0.3,
+    system: req.systemPrompt,
+    messages: formatClaudeMessages(req.userPrompt, req.visionInputs),
+  });
 
-    const json = await res.json();
-    const text =
-      json.content
-        ?.filter((c: Record<string, unknown>) => c.type === "text")
-        .map((c: Record<string, unknown>) => c.text)
-        .join("") ?? "";
+  const text = response.content
+    .filter((block): block is Anthropic.TextBlock => block.type === "text")
+    .map((block) => block.text)
+    .join("");
 
-    return {
-      text,
-      model: req.model,
-      provider: "anthropic",
-      usage: json.usage
-        ? {
-            inputTokens: json.usage.input_tokens,
-            outputTokens: json.usage.output_tokens,
-          }
-        : undefined,
-      durationMs: Date.now() - start,
-    };
-  } finally {
-    clearTimeout(timeout);
-  }
+  return {
+    text,
+    model: req.model,
+    provider: "anthropic",
+    usage: {
+      inputTokens: response.usage.input_tokens,
+      outputTokens: response.usage.output_tokens,
+    },
+    durationMs: Date.now() - start,
+  };
 }
 
 async function callGoogle(req: ByokRequest): Promise<ByokResponse> {

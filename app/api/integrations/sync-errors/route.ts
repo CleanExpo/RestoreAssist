@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Failed to fetch sync errors",
+        error: "Failed to fetch sync errors",
       },
       { status: 500 },
     );
@@ -148,7 +148,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Failed to delete sync errors",
+        error: "Failed to delete sync errors",
       },
       { status: 500 },
     );

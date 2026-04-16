@@ -293,7 +293,7 @@ export async function POST(request: NextRequest) {
                 file: file.name,
                 index: i,
                 status: "failed",
-                error: error.message,
+                error: "Analysis failed",
               });
             }
           }
@@ -512,7 +512,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error("Error performing gap analysis:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to perform gap analysis" },
+      { error: "Failed to perform gap analysis" },
       { status: 500 },
     );
   }

@@ -117,15 +117,15 @@ Now available for Australian restoration professionals. IICRC S500/S520/S700 com
 
 ### Support URL
 
-https://restoreassist.com.au/support
+https://restoreassist.app/support
 
 ### Marketing URL
 
-https://restoreassist.com.au
+https://restoreassist.app
 
 ### Privacy Policy URL
 
-https://restoreassist.com.au/privacy
+https://restoreassist.app/privacy
 
 ---
 

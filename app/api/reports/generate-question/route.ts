@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
       anthropicApiKey = await getAnthropicApiKey(session.user.id);
     } catch (error: any) {
       return NextResponse.json(
-        { error: error.message || "Failed to get Anthropic API key" },
+        { error: "Failed to get Anthropic API key" },
         { status: 400 },
       );
     }
@@ -177,12 +177,13 @@ Example responses:
         integrationUsed: "Anthropic API",
       });
     } catch (apiError: any) {
+      // RA-786: do not leak apiError.message to clients
+      console.error("Generate-question API error:", apiError);
       if (apiError.status === 404) {
         return NextResponse.json(
           {
             error:
               "Failed to connect to Anthropic API. Please check your API key and try again.",
-            details: apiError.message,
           },
           { status: 500 },
         );
@@ -192,14 +193,13 @@ Example responses:
         {
           error:
             "Failed to generate question. Please check your API key and try again.",
-          details: apiError.message,
         },
         { status: 500 },
       );
     }
   } catch (error: any) {
     return NextResponse.json(
-      { error: error.message || "Failed to generate question" },
+      { error: "Failed to generate question" },
       { status: 500 },
     );
   }
