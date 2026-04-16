@@ -29,83 +29,122 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
+  // RA-913: Event deduplication — Stripe retries webhooks for up to 72h.
+  // Record the event ID before processing; bail out silently if already seen.
+  try {
+    await prisma.stripeWebhookEvent.create({
+      data: {
+        stripeEventId: event.id,
+        eventType: event.type,
+        eventData: JSON.stringify(event.data.object),
+        status: "PENDING",
+      },
+    });
+  } catch (err: unknown) {
+    // P2002 = unique constraint violation — event already processed
+    if (
+      typeof err === "object" &&
+      err !== null &&
+      "code" in err &&
+      (err as { code: string }).code === "P2002"
+    ) {
+      // Mark as SKIPPED in the audit table for visibility
+      await prisma.stripeWebhookEvent.updateMany({
+        where: { stripeEventId: event.id },
+        data: { status: "SKIPPED", processedAt: new Date() },
+      }).catch(() => {});
+      return NextResponse.json({ received: true });
+    }
+    // Any other DB error — still attempt processing (don't block on audit table)
+    console.error("[Stripe] Failed to record webhook event:", event.id);
+  }
+
   try {
     switch (event.type) {
-      case "checkout.session.completed":
+      case "checkout.session.completed": {
+        // RA-907: session.subscription is a string ID in checkout events.
+        // Retrieve the full subscription to get the real current_period_end.
         const session = event.data.object as Stripe.Checkout.Session;
 
         if (session.mode === "subscription" && session.customer_email) {
-          // Update user subscription status
-          const checkoutResult = await prisma.user.updateMany({
+          const subscriptionId = session.subscription;
+          if (!subscriptionId || typeof subscriptionId !== "string") {
+            console.error(
+              "[Stripe] checkout.session.completed: no subscription ID on session",
+              session.id,
+            );
+            break;
+          }
+
+          // Retrieve full subscription for accurate period end date
+          const subscription =
+            await stripe.subscriptions.retrieve(subscriptionId);
+
+          const subscriptionEndsAt = new Date(
+            subscription.current_period_end * 1000,
+          );
+
+          await prisma.user.updateMany({
             where: { email: session.customer_email },
             data: {
               subscriptionStatus: "ACTIVE",
               stripeCustomerId: session.customer as string,
-              subscriptionId: session.subscription as string,
-              subscriptionEndsAt: new Date(
-                Date.now() + 30 * 24 * 60 * 60 * 1000,
-              ),
-              nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+              subscriptionId: subscriptionId,
+              subscriptionEndsAt,
+              nextBillingDate: subscriptionEndsAt,
               creditsRemaining: 999999, // Unlimited for paid plans
             },
           });
-
-          void checkoutResult;
         }
         break;
+      }
 
-      case "customer.subscription.created":
+      case "customer.subscription.created": {
+        // RA-907: current_period_end is a number on Stripe.Subscription
         const subscription = event.data.object as Stripe.Subscription;
 
-        // Update user subscription
         if (subscription.customer) {
-          const subscriptionResult = await prisma.user.updateMany({
+          const subscriptionEndsAt = new Date(
+            subscription.current_period_end * 1000,
+          );
+
+          await prisma.user.updateMany({
             where: { stripeCustomerId: subscription.customer as string },
             data: {
               subscriptionStatus: "ACTIVE",
               subscriptionId: subscription.id,
-              subscriptionEndsAt: new Date(
-                ((subscription as any).current_period_end ??
-                  Math.floor(Date.now() / 1000 + 30 * 24 * 3600)) * 1000,
-              ),
-              nextBillingDate: new Date(
-                ((subscription as any).current_period_end ??
-                  Math.floor(Date.now() / 1000 + 30 * 24 * 3600)) * 1000,
-              ),
+              subscriptionEndsAt,
+              nextBillingDate: subscriptionEndsAt,
               creditsRemaining: 999999,
             },
           });
-
-          void subscriptionResult;
         }
         break;
+      }
 
-      case "customer.subscription.updated":
+      case "customer.subscription.updated": {
+        // RA-907: use actual current_period_end, not a hardcoded fallback
         const updatedSubscription = event.data.object as Stripe.Subscription;
+        const updatedEndsAt = new Date(
+          updatedSubscription.current_period_end * 1000,
+        );
 
-        const updateResult = await prisma.user.updateMany({
+        await prisma.user.updateMany({
           where: { subscriptionId: updatedSubscription.id },
           data: {
             subscriptionStatus:
               updatedSubscription.status === "active" ? "ACTIVE" : "CANCELED",
-            subscriptionEndsAt: new Date(
-              ((updatedSubscription as any).current_period_end ??
-                Math.floor(Date.now() / 1000 + 30 * 24 * 3600)) * 1000,
-            ),
-            nextBillingDate: new Date(
-              ((updatedSubscription as any).current_period_end ??
-                Math.floor(Date.now() / 1000 + 30 * 24 * 3600)) * 1000,
-            ),
+            subscriptionEndsAt: updatedEndsAt,
+            nextBillingDate: updatedEndsAt,
           },
         });
-
-        void updateResult;
         break;
+      }
 
-      case "customer.subscription.deleted":
+      case "customer.subscription.deleted": {
         const deletedSubscription = event.data.object as Stripe.Subscription;
 
-        const deletionResult = await prisma.user.updateMany({
+        await prisma.user.updateMany({
           where: { subscriptionId: deletedSubscription.id },
           data: {
             subscriptionStatus: "EXPIRED",
@@ -113,16 +152,17 @@ export async function POST(request: NextRequest) {
             creditsRemaining: 0,
           },
         });
-
-        void deletionResult;
         break;
+      }
 
-      case "invoice.payment_succeeded":
+      case "invoice.payment_succeeded": {
         const invoice = event.data.object as Stripe.Invoice;
+        const invoiceSubscriptionId = (invoice as { subscription?: string })
+          .subscription;
 
-        if ((invoice as any).subscription) {
+        if (invoiceSubscriptionId) {
           await prisma.user.updateMany({
-            where: { subscriptionId: (invoice as any).subscription as string },
+            where: { subscriptionId: invoiceSubscriptionId },
             data: {
               lastBillingDate: new Date(),
               nextBillingDate: new Date(invoice.period_end * 1000),
@@ -131,29 +171,50 @@ export async function POST(request: NextRequest) {
           });
         }
         break;
+      }
 
-      case "invoice.payment_failed":
+      case "invoice.payment_failed": {
         const failedInvoice = event.data.object as Stripe.Invoice;
+        const failedSubscriptionId = (
+          failedInvoice as { subscription?: string }
+        ).subscription;
 
-        if ((failedInvoice as any).subscription) {
+        if (failedSubscriptionId) {
           await prisma.user.updateMany({
-            where: {
-              subscriptionId: (failedInvoice as any).subscription as string,
-            },
+            where: { subscriptionId: failedSubscriptionId },
             data: {
               subscriptionStatus: "PAST_DUE",
             },
           });
         }
         break;
+      }
 
       default:
         // Unhandled event types are silently ignored
         break;
     }
 
+    // Mark event as processed
+    await prisma.stripeWebhookEvent.updateMany({
+      where: { stripeEventId: event.id },
+      data: { status: "COMPLETED", processedAt: new Date() },
+    }).catch(() => {
+      // Non-fatal — audit update failure doesn't block the response
+    });
+
     return NextResponse.json({ received: true });
   } catch (error) {
+    // Mark event as failed for retry visibility
+    await prisma.stripeWebhookEvent.updateMany({
+      where: { stripeEventId: event.id },
+      data: {
+        status: "FAILED",
+        errorMessage:
+          error instanceof Error ? error.message : "Unknown error",
+      },
+    }).catch(() => {});
+
     return NextResponse.json(
       { error: "Webhook processing failed" },
       { status: 500 },
