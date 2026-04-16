@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sanitizeString } from "@/lib/sanitize";
+import { applyRateLimit } from "@/lib/rate-limiter";
 
 // POST - Add moisture reading
 export async function POST(
@@ -15,6 +16,16 @@ export async function POST(
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // RA-1113: rate-limit POST moisture. Techs may legitimately capture
+    // 30–40 readings per visit; 60/min leaves headroom without DoS risk.
+    const rateLimited = await applyRateLimit(request, {
+      windowMs: 60 * 1000,
+      maxRequests: 60,
+      prefix: "moisture",
+      key: session.user.id,
+    });
+    if (rateLimited) return rateLimited;
 
     const { id } = await params;
     const body = await request.json();

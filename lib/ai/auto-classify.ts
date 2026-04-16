@@ -9,7 +9,12 @@ export interface ClassificationResult {
   claimType: ClaimType;
   damageCategory?: number; // 1-3, water damage only
   damageClass?: number; // 1-4, water damage only
-  confidence: "high" | "medium" | "low";
+  /**
+   * @deprecated RA-1115: rule-based stage returns "unclear" only — prior
+   * heuristic (input-length) was misleading. True LLM confidence lands in
+   * RA-1126. Vector stage retains "high" | "medium" pending that work.
+   */
+  confidence: "high" | "medium" | "low" | "unclear";
   reasoning: string; // Human-readable explanation shown in UI
 }
 
@@ -98,9 +103,6 @@ export function ruleBasedClassify(input: {
     }
   }
 
-  const confidence: "high" | "medium" | "low" =
-    text.length > 50 ? "medium" : text.length > 20 ? "low" : "low";
-
   const reasoning = [
     typeReasoning,
     categoryReasoning,
@@ -113,7 +115,9 @@ export function ruleBasedClassify(input: {
     claimType,
     damageCategory,
     damageClass,
-    confidence,
+    // RA-1115: input length is not a confidence signal — stopgap until RA-1126
+    // replaces rule-based stage with real LLM confidence.
+    confidence: "unclear",
     reasoning,
   };
 }
