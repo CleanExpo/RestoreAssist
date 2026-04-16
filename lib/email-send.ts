@@ -10,7 +10,7 @@ export interface EmailPayload {
   replyTo?: string;
 }
 
-const FROM = "RestoreAssist <noreply@restoreassist.com.au>";
+const FROM = "RestoreAssist <noreply@restoreassist.app>";
 
 export async function sendEmail(payload: EmailPayload): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;

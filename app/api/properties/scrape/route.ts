@@ -28,7 +28,6 @@ import {
 
 const OTH_BASE = "https://www.onthehouse.com.au";
 const DOMAIN_BASE = "https://www.domain.com.au";
-const DDG_HTML = "https://html.duckduckgo.com/html";
 const TIMEOUT_MS = 15_000;
 
 const SCRAPE_HEADERS: Record<string, string> = {
@@ -116,57 +115,65 @@ export async function POST(req: NextRequest) {
 
   if (!propertyUrl) {
     const searchQuery = [address, postcode].filter(Boolean).join(" ");
+    const searchUrl = `${OTH_BASE}/search?q=${encodeURIComponent(searchQuery)}`;
+    const { html: searchHtml, status: searchStatus } =
+      await fetchHtml(searchUrl);
 
-    // ── Step 1: DuckDuckGo HTML search for OTH property page ─────────────
-    // DDG's HTML endpoint returns static, scrapeable results — unlike OTH/Domain
-    // which are SPA sites that render search results via JavaScript.
-    const ddgOthUrl = `${DDG_HTML}/?q=${encodeURIComponent(`site:onthehouse.com.au/property ${searchQuery}`)}`;
-    const { html: ddgOthHtml, status: ddgOthStatus } = await fetchHtml(ddgOthUrl);
-
-    if (ddgOthStatus === 200 && ddgOthHtml) {
-      // DDG wraps result links as /l/?uddg=ENCODED_URL — decode to get the real URL.
-      // Also check for direct hrefs in case DDG format changes.
-      const urlCandidates: string[] = [];
-      for (const m of ddgOthHtml.matchAll(/uddg=([^&">\s]+)/gi)) {
-        try { urlCandidates.push(decodeURIComponent(m[1])); } catch { /* skip */ }
-      }
-      for (const m of ddgOthHtml.matchAll(/href="(https:\/\/www\.onthehouse\.com\.au\/property\/[^"?#]+)"/gi)) {
-        urlCandidates.push(m[1]);
-      }
-      const othCandidate = urlCandidates.find(u => u.startsWith(`${OTH_BASE}/property/`));
-      if (othCandidate) {
-        propertyUrl = othCandidate;
-        sourceLabel = "onthehouse";
-      }
-    }
-
-    // ── Step 2: DuckDuckGo fallback for domain.com.au ─────────────────────
-    if (!propertyUrl) {
-      const ddgDomainUrl = `${DDG_HTML}/?q=${encodeURIComponent(`site:domain.com.au/property ${searchQuery}`)}`;
-      const { html: ddgDomainHtml, status: ddgDomainStatus } = await fetchHtml(ddgDomainUrl);
-
-      if (ddgDomainStatus === 200 && ddgDomainHtml) {
-        const urlCandidates: string[] = [];
-        for (const m of ddgDomainHtml.matchAll(/uddg=([^&">\s]+)/gi)) {
-          try { urlCandidates.push(decodeURIComponent(m[1])); } catch { /* skip */ }
-        }
-        for (const m of ddgDomainHtml.matchAll(/href="(https:\/\/www\.domain\.com\.au\/[^"?#]*-\d{6,}[^"?#]*)"/gi)) {
-          urlCandidates.push(m[1]);
-        }
-        const domainCandidate = urlCandidates.find(u => u.includes("domain.com.au") && /-\d{6,}/.test(u));
-        if (domainCandidate) {
-          propertyUrl = domainCandidate;
-          sourceLabel = "domain";
-        }
-      }
-    }
-
-    // ── Step 3: Give up gracefully ─────────────────────────────────────────
-    if (!propertyUrl) {
+    if (searchStatus === 0) {
       return NextResponse.json(
-        { error: "No property listing found for this address. Try uploading a floor plan manually.", data: null },
-        { status: 404 },
+        { error: "Could not connect to OnTheHouse. Please try again." },
+        { status: 503 },
       );
+    }
+    if (searchStatus !== 200) {
+      return NextResponse.json(
+        { error: `OnTheHouse search returned status ${searchStatus}` },
+        { status: 503 },
+      );
+    }
+
+    const urls = parseOnTheHouseSearchResults(searchHtml, OTH_BASE);
+    if (urls.length === 0) {
+      // ── domain.com.au fallback (RA-108) ─────────────────
+      if (!useDomainFallback) {
+        return NextResponse.json(
+          {
+            error: "No property found on OnTheHouse for this address.",
+            data: null,
+          },
+          { status: 404 },
+        );
+      }
+
+      // Try domain.com.au
+      const domainSearchUrl = `${DOMAIN_BASE}/sale/?q=${encodeURIComponent(searchQuery)}`;
+      const { html: domainHtml, status: domainStatus } =
+        await fetchHtml(domainSearchUrl);
+
+      if (domainStatus !== 200 || !domainHtml) {
+        return NextResponse.json(
+          {
+            error: "No property found on OnTheHouse or domain.com.au.",
+            data: null,
+          },
+          { status: 404 },
+        );
+      }
+
+      const domainUrls = parseDomainComAuSearchResults(domainHtml, DOMAIN_BASE);
+      if (!domainUrls.length) {
+        return NextResponse.json(
+          {
+            error: "No property found on OnTheHouse or domain.com.au.",
+            data: null,
+          },
+          { status: 404 },
+        );
+      }
+      propertyUrl = domainUrls[0];
+      sourceLabel = "domain";
+    } else {
+      propertyUrl = urls[0];
     }
   }
 

@@ -138,10 +138,11 @@ export async function POST(request: NextRequest) {
           provider: "anthropic" as const,
         };
       } catch (error: any) {
+        // RA-786: do not leak error.message to clients
+        console.error("Generate-inspection-report: Anthropic key error:", error);
         return NextResponse.json(
           {
             error:
-              error.message ||
               "Failed to get Anthropic API key. Please ensure ANTHROPIC_API_KEY is configured in environment variables.",
           },
           { status: 400 },
@@ -352,11 +353,10 @@ BUSINESS INFORMATION: If business information is provided in the REPORT DATA sec
         maxTokens: 16000,
       });
     } catch (error: any) {
+      // RA-786: do not leak error.message to clients
+      console.error("Failed to generate inspection report:", error);
       return NextResponse.json(
-        {
-          error: "Failed to generate inspection report",
-          details: error.message || "Unknown error occurred",
-        },
+        { error: "Failed to generate inspection report" },
         { status: 500 },
       );
     }

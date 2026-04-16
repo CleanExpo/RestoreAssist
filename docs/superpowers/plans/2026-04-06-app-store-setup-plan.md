@@ -1509,7 +1509,7 @@ The following accounts and credentials must be set up manually by the developer.
             distribution: "temurin"
 
         # RestoreAssist uses a server-hosted Capacitor WebView.
-        # No Next.js static export is needed — the app loads https://restoreassist.com.au.
+        # No Next.js static export is needed — the app loads https://restoreassist.app.
         # cap sync copies native plugin changes into the Android project.
         - name: Sync Capacitor Android
           run: |

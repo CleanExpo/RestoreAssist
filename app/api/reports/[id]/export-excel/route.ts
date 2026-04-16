@@ -146,11 +146,9 @@ export async function GET(
     });
   } catch (error) {
     console.error("Error generating Excel export:", error);
+    // RA-786: do not leak error.message to clients
     return NextResponse.json(
-      {
-        error: "Failed to generate Excel report",
-        message: error instanceof Error ? error.message : "Unknown error",
-      },
+      { error: "Failed to generate Excel report" },
       { status: 500 },
     );
   }

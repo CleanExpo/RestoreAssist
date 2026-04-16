@@ -31,7 +31,7 @@ export const RESTOREASSIST_AI_DISPLAY_NAME = "RestoreAssist AI";
 
 /** Self-hosted inference endpoint (A10G) */
 const RESTOREASSIST_AI_ENDPOINT =
-  process.env.RESTOREASSIST_AI_ENDPOINT ?? "https://ai.restoreassist.com.au/v1";
+  process.env.RESTOREASSIST_AI_ENDPOINT ?? "https://ai.restoreassist.app/v1";
 
 /** Internal API key for self-hosted endpoint */
 const RESTOREASSIST_AI_API_KEY = process.env.RESTOREASSIST_AI_API_KEY ?? "";

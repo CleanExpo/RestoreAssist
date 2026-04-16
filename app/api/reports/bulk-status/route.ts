@@ -14,7 +14,7 @@ import {
 import { sendReportCompletedEmail } from "@/lib/email";
 import { notifyReportCompleted } from "@/lib/notifications";
 
-const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.com.au";
+const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.app";
 
 interface BulkStatusUpdateRequest {
   ids: string[];
@@ -196,11 +196,10 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    // RA-786: do not leak error.message to clients
+    console.error("bulk-status request failed:", error);
     return NextResponse.json(
-      {
-        error: "Request failed",
-        message: error instanceof Error ? error.message : "Unknown error",
-      },
+      { error: "Request failed" },
       { status: 500 },
     );
   }

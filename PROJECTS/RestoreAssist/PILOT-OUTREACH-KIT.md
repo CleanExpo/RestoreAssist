@@ -26,7 +26,7 @@ Would you have 10 minutes this week or next for a quick screen share? I'd rather
 Happy to work around your schedule.
 
 Phill McGurk
-RestoreAssist | restoreassist.com.au
+RestoreAssist | restoreassist.app
 ABN: 62 580 077 456
 
 ---
@@ -49,7 +49,7 @@ I'd love to show you in a 15-minute demo. We're currently onboarding a small gro
 Are you open to a call?
 
 Phill McGurk
-RestoreAssist | restoreassist.com.au
+RestoreAssist | restoreassist.app
 
 ---
 
@@ -71,7 +71,7 @@ For a business like CRSA — where your reputation is built on compliance and qu
 10 minutes to see it?
 
 Phill McGurk
-RestoreAssist | restoreassist.com.au
+RestoreAssist | restoreassist.app
 
 ---
 
@@ -180,7 +180,7 @@ Phill
 
 ## Demo Environment
 
-- URL: https://restoreassist.com.au/dashboard (or sandbox)
+- URL: https://restoreassist.app/dashboard (or sandbox)
 - Demo account: use admin account to show full feature set
 - Demo report: use whichever seed report looks cleanest
 - Duration: 15 min max — leave time for their questions

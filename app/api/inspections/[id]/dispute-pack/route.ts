@@ -72,11 +72,11 @@ export async function POST(
       },
     });
   } catch (error: unknown) {
+    // RA-786: do not leak error.message to clients
     console.error("Error generating dispute pack:", error);
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Failed to generate dispute pack";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to generate dispute pack" },
+      { status: 500 },
+    );
   }
 }

@@ -25,7 +25,7 @@ TypeScript / Next.js App Router compliance platform for Australian water damage 
 7. Brand colours: primary navy `#1C2E47`, warm accent `#8A6B4E`, light accent `#D4A574`, dark bg `#050505`
 8. New API routes follow REST conventions: GET (list/read), POST (create), PATCH (update), DELETE (remove) — consistent `{ data }` or `{ error }` response shape
 9. Environment secrets go in `.env.local` (never committed) — reference `.env.example` for the full variable list
-10. Mobile app uses Capacitor (server-hosted WebView at restoreassist.com.au) — no static export needed for Android/iOS builds
+10. Mobile app uses Capacitor (server-hosted WebView at restoreassist.app) — no static export needed for Android/iOS builds
 11. All Prisma schema changes require a migration — run `npx prisma migrate dev --name descriptive_name` locally before committing
 12. Read source files before modifying — this codebase has 120+ Prisma models and 800+ source files; never assume structure
 13. Admin routes must use `verifyAdminFromDb()` from `lib/admin-auth.ts` — JWT role claim can be stale; always re-validate role from DB

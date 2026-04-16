@@ -1,4 +1,4 @@
-# App Store & Google Play Metadata
+﻿# App Store & Google Play Metadata
 
 **Ready to copy-paste into App Store Connect and Google Play Console**
 
@@ -20,11 +20,11 @@
 
 **Age Rating:** 4+ (no restricted content)
 
-**Privacy Policy URL:** https://restoreassist.com.au/privacy
+**Privacy Policy URL:** https://restoreassist.app/privacy
 
-**Support URL:** https://restoreassist.com.au/support
+**Support URL:** https://restoreassist.app/support
 
-**Marketing URL:** https://restoreassist.com.au
+**Marketing URL:** https://restoreassist.app
 
 ---
 
@@ -117,7 +117,7 @@ Property restoration reporting — IICRC-compliant, offline-first
 **Full Description (4,000 chars):**
 _(Same as Apple description above — use identical copy)_
 
-**Privacy Policy URL:** https://restoreassist.com.au/privacy
+**Privacy Policy URL:** https://restoreassist.app/privacy
 
 **Screenshots Required:**
 
@@ -144,7 +144,7 @@ _(Simple graphic — company logo on dark background works fine)_
 
 **Category:** Business
 **Age Rating:** 4+
-**Privacy Policy URL:** https://restoreassist.com.au/privacy
+**Privacy Policy URL:** https://restoreassist.app/privacy
 
 ---
 

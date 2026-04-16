@@ -163,9 +163,10 @@ export async function POST(request: NextRequest) {
         increment: addonReports,
       });
     } catch (stripeError: any) {
+      // RA-786: do not leak stripeError.message to clients
       console.error("❌ STRIPE ERROR:", stripeError);
       return NextResponse.json(
-        { error: stripeError.message || "Failed to verify add-on purchase" },
+        { error: "Failed to verify add-on purchase" },
         { status: 500 },
       );
     }

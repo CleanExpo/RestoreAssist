@@ -370,13 +370,9 @@ export async function POST(request: NextRequest) {
       meta: error.meta,
     });
 
-    // Return more detailed error message for debugging
+    // RA-786: do not leak error.message / error.code to clients
     return NextResponse.json(
-      {
-        error: "Internal server error",
-        details: error.message || "Failed to create inspection",
-        code: error.code || "UNKNOWN_ERROR",
-      },
+      { error: "Internal server error" },
       { status: 500 },
     );
   }

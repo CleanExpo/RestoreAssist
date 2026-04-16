@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    const appUrl = process.env.NEXTAUTH_URL ?? "https://restoreassist.com.au";
+    const appUrl = process.env.NEXTAUTH_URL ?? "https://restoreassist.app";
 
     return NextResponse.json({
       success: true,
@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ integration: null });
     }
 
-    const appUrl = process.env.NEXTAUTH_URL ?? "https://restoreassist.com.au";
+    const appUrl = process.env.NEXTAUTH_URL ?? "https://restoreassist.app";
 
     return NextResponse.json({
       integration: {

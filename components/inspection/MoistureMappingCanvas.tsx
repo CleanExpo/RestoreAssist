@@ -46,6 +46,9 @@ export interface EquipmentPoint {
 
 type SketchMode = "structural" | "moisture" | "equipment";
 
+const EMPTY_POINTS: MoisturePoint[] = [];
+const EMPTY_EQUIPMENT: EquipmentPoint[] = [];
+
 interface MoistureMappingCanvasProps {
   readings: MoistureReading[];
   className?: string;
@@ -113,8 +116,8 @@ function getMoistureLabel(level: number, material = "other"): string {
 export default function MoistureMappingCanvas({
   readings,
   className,
-  initialPoints = [],
-  initialEquipmentPoints = [],
+  initialPoints = EMPTY_POINTS,
+  initialEquipmentPoints = EMPTY_EQUIPMENT,
   initialBackgroundImage = null,
   onPointsChange,
   onEquipmentPointsChange,

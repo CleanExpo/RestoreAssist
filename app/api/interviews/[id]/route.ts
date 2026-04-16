@@ -64,10 +64,10 @@ export async function GET(
 
     return NextResponse.json({ session: interviewSession });
   } catch (error) {
+    // RA-786: do not leak error.message to clients
     console.error("Error fetching interview session:", error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { error: "Internal server error", details: errorMessage },
+      { error: "Internal server error" },
       { status: 500 },
     );
   }

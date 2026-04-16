@@ -30,6 +30,7 @@ export async function GET(_req: NextRequest) {
 
     return NextResponse.json({ templates });
   } catch (error) {
+    // RA-786: do not leak error.message to clients
     console.error("Error fetching authority form templates:", error);
     return NextResponse.json(
       { error: "Failed to fetch templates" },

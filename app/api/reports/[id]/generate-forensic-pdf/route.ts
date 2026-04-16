@@ -207,8 +207,9 @@ export async function GET(
     });
   } catch (error: any) {
     console.error("Error generating forensic PDF:", error);
+    // RA-786: do not leak error.message to clients
     return NextResponse.json(
-      { error: "Failed to generate forensic PDF", details: error.message },
+      { error: "Failed to generate forensic PDF" },
       { status: 500 },
     );
   }

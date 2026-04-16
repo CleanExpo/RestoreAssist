@@ -32,7 +32,7 @@ jobs:
         working-directory: apps/cet
         run: npm run build
         env:
-          VITE_API_BASE: https://restoreassist.com.au
+          VITE_API_BASE: https://restoreassist.app
 
       - name: Set up Java
         uses: actions/setup-java@v4

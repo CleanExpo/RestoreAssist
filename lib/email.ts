@@ -1,6 +1,6 @@
 import { Resend } from "resend";
 
-const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.com.au";
+const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.app";
 
 let resend: Resend | null = null;
 function getResendClient(): Resend {
@@ -32,6 +32,16 @@ function sanitiseEmailField(value: string, maxLength = 255): string {
   return value.replace(/[\r\n]/g, " ").slice(0, maxLength);
 }
 
+/** Escape user-provided content before interpolating into HTML email bodies. */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 export async function sendSignedFormEmail(data: SignedFormEmailData) {
   if (!process.env.RESEND_API_KEY) {
     throw new Error("Email service is not configured");
@@ -43,7 +53,7 @@ export async function sendSignedFormEmail(data: SignedFormEmailData) {
   const sigList = data.signatories
     .map(
       (s) =>
-        `<tr><td style="padding:6px 12px;border-bottom:1px solid #e5e7eb;">${s.name}</td><td style="padding:6px 12px;border-bottom:1px solid #e5e7eb;">${s.role.replace(/_/g, " ")}</td><td style="padding:6px 12px;border-bottom:1px solid #e5e7eb;">${new Date(s.signedAt).toLocaleDateString("en-AU")}</td></tr>`,
+        `<tr><td style="padding:6px 12px;border-bottom:1px solid #e5e7eb;">${escapeHtml(s.name)}</td><td style="padding:6px 12px;border-bottom:1px solid #e5e7eb;">${escapeHtml(s.role.replace(/_/g, " "))}</td><td style="padding:6px 12px;border-bottom:1px solid #e5e7eb;">${new Date(s.signedAt).toLocaleDateString("en-AU")}</td></tr>`,
     )
     .join("");
 
@@ -52,16 +62,16 @@ export async function sendSignedFormEmail(data: SignedFormEmailData) {
     <html>
     <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
       <div style="background: linear-gradient(135deg, #10b981 0%, #06b6d4 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
-        <h1 style="color: white; margin: 0; font-size: 24px;">${data.companyName}</h1>
+        <h1 style="color: white; margin: 0; font-size: 24px;">${escapeHtml(data.companyName)}</h1>
         <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0;">Signed Authority Form</p>
       </div>
       <div style="background: white; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
-        <p>Hello ${data.recipientName},</p>
+        <p>Hello ${escapeHtml(data.recipientName)},</p>
         <p>The following authority form has been <strong style="color:#10b981;">fully signed</strong> by all parties:</p>
         <div style="background: #f8fafc; border-radius: 8px; padding: 16px; margin: 16px 0;">
-          <p style="margin: 0 0 8px;"><strong>Form:</strong> ${data.formName}</p>
-          <p style="margin: 0 0 8px;"><strong>Client:</strong> ${data.clientName}</p>
-          <p style="margin: 0;"><strong>Address:</strong> ${data.clientAddress}</p>
+          <p style="margin: 0 0 8px;"><strong>Form:</strong> ${escapeHtml(data.formName)}</p>
+          <p style="margin: 0 0 8px;"><strong>Client:</strong> ${escapeHtml(data.clientName)}</p>
+          <p style="margin: 0;"><strong>Address:</strong> ${escapeHtml(data.clientAddress)}</p>
         </div>
         <p style="font-weight:600;margin:16px 0 8px;">Signatories:</p>
         <table style="width:100%;border-collapse:collapse;font-size:14px;">

@@ -8,7 +8,7 @@ import { sendWelcomeEmail } from "@/lib/email";
 import { notifyWelcome } from "@/lib/notifications";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
 
-const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.com.au";
+const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.app";
 
 export async function POST(request: NextRequest) {
   try {
