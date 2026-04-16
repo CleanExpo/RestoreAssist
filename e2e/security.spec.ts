@@ -52,7 +52,7 @@ test.describe("1 · Unauthenticated access", () => {
     { method: "GET", path: "/api/reports" },
     { method: "GET", path: "/api/invoices" },
     { method: "GET", path: "/api/contractors/profile" },
-    { method: "GET", path: "/api/settings/profile" },
+    { method: "GET", path: "/api/user/profile" },
     { method: "POST", path: "/api/reports/generate-question" },
     { method: "POST", path: "/api/reports/generate-enhanced" },
   ];
