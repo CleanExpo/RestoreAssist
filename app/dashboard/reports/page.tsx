@@ -41,6 +41,7 @@ export default function ReportsPage() {
   const reports = reportsData?.reports ?? [];
   const [duplicating, setDuplicating] = useState<string | null>(null);
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [batchDownloading, setBatchDownloading] = useState(false);
   const [selectedReports, setSelectedReports] = useState<string[]>([]);
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
   const [filters, setFilters] = useState({
@@ -134,6 +135,59 @@ export default function ReportsPage() {
       console.error("Error downloading report:", error);
     } finally {
       setDownloading(null);
+    }
+  };
+
+  // RA-916: Batch download selected reports as ZIP
+  const handleBatchDownload = async () => {
+    if (selectedReports.length === 0) {
+      toast.error("Select at least one report to download.");
+      return;
+    }
+    if (selectedReports.length > 25) {
+      toast.error("Maximum 25 reports per batch download. Please narrow your selection.");
+      return;
+    }
+
+    const loadingToast = toast.loading(
+      `Preparing ${selectedReports.length} PDF${selectedReports.length > 1 ? "s" : ""}…`,
+    );
+    setBatchDownloading(true);
+
+    try {
+      const response = await fetch("/api/reports/bulk-export-zip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: selectedReports, pdfType: "basic" }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || `Server error ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      // Use the filename from the Content-Disposition header if present
+      const disposition = response.headers.get("Content-Disposition");
+      const match = disposition?.match(/filename="([^"]+)"/);
+      a.download = match?.[1] ?? `RestoreAssist_PDFs_${new Date().toISOString().slice(0, 10)}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast.dismiss(loadingToast);
+      toast.success(`Downloaded ${selectedReports.length} report${selectedReports.length > 1 ? "s" : ""} as ZIP.`);
+    } catch (error) {
+      toast.dismiss(loadingToast);
+      toast.error(
+        error instanceof Error ? error.message : "Batch download failed. Please try again.",
+      );
+    } finally {
+      setBatchDownloading(false);
     }
   };
 
@@ -305,13 +359,16 @@ export default function ReportsPage() {
           <Filter size={20} />
         </button>
         <button
-          onClick={() => {
-            // Batch download not yet implemented
-          }}
-          className="p-2 border border-slate-700 rounded-lg hover:bg-slate-800 transition-colors"
-          title="Download All Reports"
+          onClick={handleBatchDownload}
+          disabled={batchDownloading || selectedReports.length === 0}
+          className="p-2 border border-slate-700 rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          title={selectedReports.length > 0 ? `Download ${selectedReports.length} selected report(s) as ZIP` : "Select reports to download"}
         >
-          <Download size={20} />
+          {batchDownloading ? (
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-cyan-500" />
+          ) : (
+            <Download size={20} />
+          )}
         </button>
       </div>
 

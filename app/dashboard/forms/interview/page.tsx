@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import {
@@ -155,7 +156,7 @@ export default function InterviewPage() {
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Error exporting summary:", error);
-      alert(
+      toast.error(
         `Export failed: ${error instanceof Error ? error.message : "Unknown error"}`,
       );
     }
