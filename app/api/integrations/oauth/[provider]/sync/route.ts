@@ -123,12 +123,10 @@ export async function POST(
       throw syncError;
     }
   } catch (error) {
+    // RA-786: do not leak error.message to clients
     console.error("Sync error:", error);
     return NextResponse.json(
-      {
-        error: "Sync failed",
-        details: error instanceof Error ? error.message : String(error),
-      },
+      { error: "Sync failed" },
       { status: 500 },
     );
   }

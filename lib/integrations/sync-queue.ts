@@ -1,8 +1,12 @@
 import { prisma } from "@/lib/prisma";
-import { IntegrationProvider } from "@prisma/client";
+import { Integration, IntegrationProvider } from "@prisma/client";
 import { withRateLimit } from "./rate-limiter";
 import { withCircuitBreaker, DEFAULT_CIRCUIT_OPTIONS } from "./circuit-breaker";
 import { retryWithExponentialBackoff, DEFAULT_RETRY_OPTIONS } from "./retry";
+// RA-902: real provider dispatch — replaces simulation stub
+import { syncInvoiceToXero } from "./xero";
+import { syncInvoiceToQuickBooks } from "./quickbooks";
+import { syncInvoiceToMYOB } from "./myob";
 
 /**
  * Durable Sync Queue System — RA-902
@@ -289,18 +293,48 @@ export async function cleanupSyncQueue(): Promise<number> {
   return result.count;
 }
 
-// ─── Internal sync stub ───────────────────────────────────────────────────────
+// ─── Internal sync dispatch ───────────────────────────────────────────────────
 
 /**
- * Placeholder sync implementation.
- * Replace with real integration client calls (Xero, QuickBooks, MYOB) once
- * the per-provider clients are wired up.
+ * RA-902: Dispatch an invoice to the correct provider integration.
+ *
+ * Looks up the active Integration row for this invoice's workspace/user,
+ * then calls the appropriate provider client. Errors propagate to the
+ * caller (_processJob) which handles retry/dead-letter via the queue.
  */
 async function _syncInvoiceToProvider(
-  invoice: { id: string },
+  invoice: { id: string; userId: string; workspaceId?: string | null },
   provider: IntegrationProvider,
 ): Promise<void> {
-  // Simulate async API call
-  await new Promise((resolve) => setTimeout(resolve, 200));
-  console.log(`[Sync Queue] Synced invoice ${invoice.id} to ${provider}`);
+  // Find the active integration for this provider + workspace/user
+  const integration = await prisma.integration.findFirst({
+    where: {
+      provider,
+      userId: invoice.userId,
+      ...(invoice.workspaceId ? { workspaceId: invoice.workspaceId } : {}),
+      status: "CONNECTED",
+    },
+  });
+
+  if (!integration) {
+    throw new Error(
+      `No active ${provider} integration found for invoice ${invoice.id} (userId: ${invoice.userId})`,
+    );
+  }
+
+  switch (provider) {
+    case IntegrationProvider.XERO:
+      await syncInvoiceToXero(invoice, integration as Integration);
+      break;
+    case IntegrationProvider.QUICKBOOKS:
+      await syncInvoiceToQuickBooks(invoice, integration as Integration);
+      break;
+    case IntegrationProvider.MYOB:
+      await syncInvoiceToMYOB(invoice, integration as Integration);
+      break;
+    default:
+      throw new Error(
+        `Provider ${provider} does not support invoice sync via the durable queue`,
+      );
+  }
 }

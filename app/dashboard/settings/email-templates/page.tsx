@@ -50,7 +50,7 @@ const TEMPLATES = [
       inspectionNumber: SAMPLE.inspectionNumber,
       address: SAMPLE.address,
       scopeItemCount: SAMPLE.scopeItemCount,
-      portalUrl: "https://restoreassist.com.au/dashboard/inspections/preview",
+      portalUrl: "https://restoreassist.app/dashboard/inspections/preview",
     }),
   },
   {
@@ -79,7 +79,7 @@ const TEMPLATES = [
       inspectionNumber: SAMPLE.inspectionNumber,
       address: SAMPLE.address,
       reportUrl:
-        "https://restoreassist.com.au/dashboard/inspections/preview/report",
+        "https://restoreassist.app/dashboard/inspections/preview/report",
     }),
   },
 ] as const;

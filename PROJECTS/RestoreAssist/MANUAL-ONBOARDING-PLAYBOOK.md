@@ -13,7 +13,7 @@ Run this before each new company's onboarding session:
 
 - [ ] Company ABN validated (11 digits, active on ABR) — check at abr.business.gov.au
 - [ ] Contact person confirmed (name, role, mobile)
-- [ ] Demo account credentials ready (admin login on restoreassist.com.au)
+- [ ] Demo account credentials ready (admin login on restoreassist.app)
 - [ ] Seed inspection loaded in demo environment (Category 2, Class 3, 3-room residential)
 - [ ] Browser incognito window ready for insurer portal demo
 - [ ] Screen share software tested (Zoom or Teams — 1080p, no notifications)
@@ -193,7 +193,7 @@ Walk them through adding a photo to an inspection:
 
 If they're using mobile:
 
-1. Open restoreassist.com.au in mobile browser (or the Capacitor app if installed)
+1. Open restoreassist.app in mobile browser (or the Capacitor app if installed)
 2. Walk through the same steps
 3. Confirm photos upload correctly on their mobile connection
 

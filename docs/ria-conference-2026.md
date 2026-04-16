@@ -120,8 +120,8 @@
 
 - RestoreAssist logo + tagline: "Scope. Document. Get Paid."
 - 3 key features: AI Scope Generator, Mobile Field App, IICRC S500:2025 Compliance
-- QR code linking to: [restoreassist.com.au/demo](https://restoreassist.com.au)
-- Contact: phill@restoreassist.com.au
+- QR code linking to: [restoreassist.app/demo](https://restoreassist.app)
+- Contact: phill@restoreassist.app
 
 ### Demo device setup (1 week before)
 

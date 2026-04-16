@@ -7,7 +7,6 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Mail, Lock, ArrowRight } from "lucide-react";
 import toast from "react-hot-toast";
-import { signInWithGoogleFirebase } from "@/lib/firebase-google-auth";
 
 function LoginForm() {
   const [email, setEmail] = useState("");
@@ -32,7 +31,7 @@ function LoginForm() {
     setError("");
 
     try {
-      const result = await signIn("contractor-credentials", {
+      const result = await signIn("credentials", {
         email,
         password,
         redirect: false,
@@ -64,52 +63,11 @@ function LoginForm() {
     setIsLoading(true);
     setError("");
     try {
-      // Use Firebase Google authentication
-      const googleUser = await signInWithGoogleFirebase();
-
-      if (!googleUser.email) {
-        throw new Error("No email returned from Google sign-in");
-      }
-
-      // User is now created/updated in database via /api/auth/google-signin
-      // Sign in with NextAuth using credentials (email only, no password for Google users)
-      const signInResult = await signIn("credentials", {
-        email: googleUser.email,
-        password: googleUser.googleAuthToken || "", // HMAC-signed proof from /api/auth/google-signin
-        redirect: false,
-      });
-
-      if (signInResult?.ok) {
-        toast.success("Login successful! Welcome back!");
-        const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
-        router.push(callbackUrl);
-      } else {
-        console.error("Sign in result:", signInResult);
-        setError("Failed to create session. Please try again.");
-        toast.error("Failed to create session. Please try again.");
-      }
+      const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+      await signIn("google", { callbackUrl });
     } catch (error: any) {
-      console.error("Google sign-in error:", error);
-      // Don't show Firebase popup closed error as an error
-      if (
-        error?.code === "auth/popup-closed-by-user" ||
-        error?.code === "auth/cancelled-popup-request"
-      ) {
-        setIsLoading(false);
-        return;
-      }
-      // Hide internal Firebase config/setup errors from end users
-      const isFirebaseConfigError =
-        error?.message?.includes("Firebase configuration") ||
-        error?.message?.includes("NEXT_PUBLIC_FIREBASE") ||
-        error?.message?.includes("firebase/app") ||
-        error?.message?.includes("Cannot find module");
-      const errorMessage = isFirebaseConfigError
-        ? "Google sign-in is not available. Please use email and password."
-        : error.message || "Google sign-in failed. Please try again.";
-      setError(errorMessage);
-      toast.error(errorMessage);
-    } finally {
+      setError("Google sign-in failed. Please try again.");
+      toast.error("Google sign-in failed. Please try again.");
       setIsLoading(false);
     }
   };

@@ -177,12 +177,13 @@ Example responses:
         integrationUsed: "Anthropic API",
       });
     } catch (apiError: any) {
+      // RA-786: do not leak apiError.message to clients
+      console.error("Generate-question API error:", apiError);
       if (apiError.status === 404) {
         return NextResponse.json(
           {
             error:
               "Failed to connect to Anthropic API. Please check your API key and try again.",
-            details: apiError.message,
           },
           { status: 500 },
         );
@@ -192,7 +193,6 @@ Example responses:
         {
           error:
             "Failed to generate question. Please check your API key and try again.",
-          details: apiError.message,
         },
         { status: 500 },
       );

@@ -202,7 +202,7 @@ interface StatCounterSceneProps {
 - Wraps `LetterboxReveal mode="outro"` — bars close in from top and bottom by frame 30
 - Inside the letterbox band: logo reappears with `#D4A574` flare (same as Scene 1, callback)
 - Below logo: `"Start Your Free Trial"` in 72px bold white, spring-entrance from `y: 30`
-- URL `restoreassist.com.au` in `#D4A574`, 36px, with a subtle `box-shadow` pulse animation (glow in/out over 60-frame cycle)
+- URL `restoreassist.app` in `#D4A574`, 36px, with a subtle `box-shadow` pulse animation (glow in/out over 60-frame cycle)
 - Tagline reprise: `"One System. Fewer Gaps. More Confidence."` fades in at frame 90, 28px, `rgba(255,255,255,0.75)`
 - Final 30 frames: slow fade to black
 
@@ -243,7 +243,7 @@ Logo source: `staticFile("logo.png")` via Remotion's asset system (copies from `
 | 5 – Compliance | _"Built for Australian law. IICRC S500, S520, and S700 standards are automatically applied. State-specific regulatory triggers fire based on job location. Every inspection builds a court-ready evidence register."_ |
 | 6 – Scope      | _"AI generates your complete scope of works in seconds. Every item is IICRC-cited, evidence-linked, and ready for the insurer. What used to take two hours now takes thirty seconds."_                                |
 | 7 – Stats      | _"Over two hours saved per inspection. One hundred percent IICRC-compliant reports. Coverage across all eight Australian states. RestoreAssist is how professional restoration businesses operate."_                  |
-| 8 – CTA        | _"Start your free trial today. No credit card required. Three full reports, completely free. Visit restoreassist.com.au and get your first job documented in under ten minutes."_                                     |
+| 8 – CTA        | _"Start your free trial today. No credit card required. Three full reports, completely free. Visit restoreassist.app and get your first job documented in under ten minutes."_                                     |
 
 ### 7.3 Background Music
 

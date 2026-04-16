@@ -1,0 +1,48 @@
+# AdvancedBrief — full spec, for power users (RA-681 / KARPATHY-8)
+#
+# Use this template when you want full control over pipeline behaviour:
+# evaluation threshold, autonomy budget, targeted files, and research direction.
+# Corresponds directly to the BuildRequest API schema.
+#
+# Usage:
+#   Fill in required fields + any optional overrides, then submit via:
+#   POST /api/harness/brief-templates  { "tier": "advanced", "data": { ... } }
+
+tier: advanced
+
+# === Inherited from DetailedBrief ===
+
+title: ""
+description: ""
+repo: ""
+intent_type: feature # feature | bugfix | chore | hotfix | spike
+acceptance_criteria: ""
+do_not_break: ""
+
+# === AdvancedBrief additions ===
+
+# Override minimum quality score to auto-ship (0.0–10.0, default from config.yaml)
+# Lower = faster shipping; higher = stricter quality gate
+# custom_eval_threshold: 8.5
+
+# Cap total build time in minutes (maps to model tier + retries via AUTONOMY_BUDGET)
+# 10  → haiku, 1 retry,  8 min timeout
+# 30  → sonnet, 2 retries, 25 min timeout
+# 60  → sonnet, 3 retries, 50 min timeout
+# 120 → opus, 4 retries, 100 min timeout
+# autonomy_budget: 60
+
+# Restrict the build to specific files/directories (reduces scope creep)
+# target_files:
+#   - "app/dashboard/components/"
+#   - "lib/compliance/"
+
+# Direct the research phase toward a specific implementation approach
+# research_intent: "Explore CSS variables vs Tailwind dark: prefix trade-offs"
+
+# Scope contract — number of files the build is allowed to modify
+# Violations trigger Telegram alert and skip the eval loop
+# max_files_modified: 5
+
+# Enable 3-variation plan discovery before main generation (adds ~5 min)
+# plan_discovery: false

@@ -15,7 +15,7 @@ import { authOptions } from "@/lib/auth";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
 import { prisma } from "@/lib/prisma";
 
-const DEMO_EMAIL = "demo@restoreassist.com.au";
+const DEMO_EMAIL = "demo@restoreassist.app";
 const DEMO_INSPECTION_NUMBER = "NIR-2026-04-DEMO";
 const DEMO_REPORT_NUMBER = "RA-DEMO-2026-0001";
 

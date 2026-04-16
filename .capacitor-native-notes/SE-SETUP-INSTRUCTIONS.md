@@ -1,4 +1,4 @@
-# Capacitor Native Shell — SE Setup Instructions
+﻿# Capacitor Native Shell — SE Setup Instructions
 
 ## Step 1: Initialize Capacitor (run once, from repo root)
 
@@ -9,7 +9,7 @@ npx cap add android
 ```
 
 Note: `webDir: out` is a placeholder. The native shell uses `server.url` from
-`capacitor.config.ts` to load `https://restoreassist.com.au` directly —
+`capacitor.config.ts` to load `https://restoreassist.app` directly —
 no static export is needed.
 
 ## Step 2: iOS permissions (ios/App/App/Info.plist)
@@ -54,7 +54,7 @@ if there's a merge conflict with PR #28.
 ## Architecture note
 
 The native shell is a **server-hosted WebView** — it loads the production Next.js
-app from `https://restoreassist.com.au`. SSR and API routes are unchanged.
+app from `https://restoreassist.app`. SSR and API routes are unchanged.
 The native wrapper adds:
 
 - App Store / Play Store distribution

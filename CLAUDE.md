@@ -1,82 +1,80 @@
 # RestoreAssist
 
-TypeScript / Next.js App Router compliance platform for Australian water damage restoration professionals.
+TypeScript / Next.js 15 App Router compliance platform for Australian water damage restoration.
 
 ## Commands
 
-- **Dev**: `pnpm dev`
-- **Build**: `pnpm build` (runs prisma generate + migrate deploy + next build)
-- **Lint**: `pnpm lint`
-- **Type check**: `pnpm type-check` — **only authoritative check**; `npx tsc --noEmit path/to/file.ts` gives false path-alias errors, never use it alone
-- **Test (e2e)**: `npx playwright test` (single: `npx playwright test e2e/auth.spec.ts`)
-- **Test (unit)**: `npx vitest run` (single: `npx vitest run lib/interview/__tests__/question-generation-engine.test.ts`)
-- **DB studio**: `pnpm db:studio`
-- **Prisma generate**: `pnpm prisma:generate` (run after every schema change, before type-check)
-- **Prisma validate**: `npx prisma validate` (schema syntax check — no DB connection needed)
+| Command                | Purpose                                                                                                     |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `pnpm dev`             | Development server                                                                                          |
+| `pnpm build`           | Prisma generate + migrate deploy + next build                                                               |
+| `pnpm lint`            | ESLint                                                                                                      |
+| `pnpm type-check`      | **Authoritative type check** — never use `npx tsc --noEmit path/to/file.ts` alone (false path-alias errors) |
+| `npx playwright test`  | E2E suite / single: `npx playwright test e2e/auth.spec.ts`                                                  |
+| `npx vitest run`       | Unit tests / single: `npx vitest run lib/interview/__tests__/...`                                           |
+| `pnpm db:studio`       | Prisma Studio                                                                                               |
+| `pnpm prisma:generate` | Run after every schema change, before type-check                                                            |
+| `npx prisma validate`  | Schema syntax check — no DB connection needed                                                               |
 
 ## Rules
 
-1. All API routes require `getServerSession` auth check — no unauthenticated access to `/api/` routes except `/api/auth/*`, `/api/cron/*` (bearer-token gated), and webhook endpoints
-2. Use Prisma `include`/`select` to prevent N+1 queries — never raw `findMany` without pagination or `take` limit
-3. IICRC references must cite edition and section number (e.g., "IICRC S500:2025 §7.1") — never abbreviate or omit the standard version
-4. Australian compliance: GST is always 10%, ABN format is 11 digits, state building codes vary by jurisdiction (use `lib/nir-jurisdictional-matrix.ts`)
-5. Integration sync is always fire-and-forget — sync failures must never block user-facing operations
-6. Use shadcn/ui components from `components/ui/` — never create custom form controls or dialogs
-7. Brand colours: primary navy `#1C2E47`, warm accent `#8A6B4E`, light accent `#D4A574`, dark bg `#050505`
-8. New API routes follow REST conventions: GET (list/read), POST (create), PATCH (update), DELETE (remove) — consistent `{ data }` or `{ error }` response shape
-9. Environment secrets go in `.env.local` (never committed) — reference `.env.example` for the full variable list
-10. Mobile app uses Capacitor (server-hosted WebView at restoreassist.com.au) — no static export needed for Android/iOS builds
-11. All Prisma schema changes require a migration — run `npx prisma migrate dev --name descriptive_name` locally before committing
-12. Read source files before modifying — this codebase has 120+ Prisma models and 800+ source files; never assume structure
-13. Admin routes must use `verifyAdminFromDb()` from `lib/admin-auth.ts` — JWT role claim can be stale; always re-validate role from DB
-14. Rate-limit keys must use `session.user.id`, not client IP — IP-based keys are bypassable in serverless (cold-start resets in-process Maps)
-15. File upload validation must check magic bytes (not Content-Type) — see `app/api/upload/route.ts` for the JPEG/PNG/GIF/WebP pattern
-16. Subscription gate before every AI call: allowlist is `["TRIAL","ACTIVE","LIFETIME"]` — CANCELED and PAST_DUE must be blocked at 402
-17. Atomic credit/limit deduction: use `updateMany({ where: { creditsRemaining: { gte: 1 } } })` and check `result.count === 0` — never read-then-write
-18. Never expose `error.message` in API 500 responses — always return generic `{ error: "..." }` shape; log internally only
-19. Escape HTML before interpolating user content into email bodies — use a local `escapeHtml()` helper (`&`, `<`, `>`, `"`, `'`)
-20. Use `session.user.id` (JWT `sub`) as the authoritative user identifier in API routes — `session.user.email` can be stale
+### Auth & Identity
+1. Every API route requires `getServerSession` — only `/api/auth/*`, `/api/cron/*` (bearer-token), and webhook endpoints are exempt
+2. Use `session.user.id` (JWT `sub`) as authoritative identifier — `session.user.email` can be stale
+3. Admin routes use `verifyAdminFromDb()` from `lib/admin-auth.ts` — JWT role claim can be stale; always re-validate from DB
 
-## Architecture
+### Data & Queries
 
-Read `.claude/ARCHITECTURE.md` before structural changes or new features.
+4. All Prisma queries require explicit `select`/`include` and a `take` limit — never unbounded `findMany`
+5. All schema changes require a migration — `npx prisma migrate dev --name descriptive_name` before committing
+6. `$queryRaw` must use `Prisma.sql` tagged templates — never string-interpolate user values into raw SQL
 
-## Standards
+### Security
 
-Read `.claude/STANDARDS.md` before writing new modules or refactoring.
+7. Never expose `error.message` in 500 responses — return `{ error: "Internal server error" }` and log internally
+8. Subscription gate before every AI call: allowlist `["TRIAL","ACTIVE","LIFETIME"]` — block `CANCELED`/`PAST_DUE` at 402
+9. Atomic credit deduction: `updateMany({ where: { creditsRemaining: { gte: 1 } } })`, check `result.count === 0` — never read-then-write
+10. Rate-limit keys use `session.user.id` — IP-based keys are bypassable in serverless cold starts
+11. File uploads must validate magic bytes, not `Content-Type` — canonical: `app/api/upload/route.ts`
+12. Escape HTML before interpolating user content into email bodies — `escapeHtml()` helper (`&` `<` `>` `"` `'`)
 
-## Testing
+### Integrations
 
-Read `.claude/TESTING.md` for verification. After any task, run the relevant
-test scope and verify output before reporting completion.
+13. All sync is fire-and-forget — failures queue to dead-letter, never block user-facing requests
 
-## Current State
+### Compliance & UI
 
-Read `.claude/PROGRESS.md` at the start of every new context window.
-Update it when completing tasks or making significant decisions.
+14. IICRC references cite edition and section: `S500:2025 §7.1` — never abbreviate or omit version
+15. Australian compliance: GST = 10%, ABN = 11 digits, state building codes via `lib/nir-jurisdictional-matrix.ts`
+16. Use shadcn/ui from `components/ui/` — never create custom form controls or dialogs
+17. Brand: navy `#1C2E47` · warm `#8A6B4E` · light `#D4A574` · dark bg `#050505`
 
-## Context Management
+### General
 
-Context will be compacted automatically. Do not stop tasks early due to
-context concerns. When compacting, preserve: modified file list, test
-commands, active task state from PROGRESS.md, and uncommitted decisions.
+18. REST conventions: GET/POST/PATCH/DELETE — consistent `{ data }` or `{ error }` response shape
+19. Secrets in `.env.local` only (never committed) — reference `.env.example` for full variable list
+20. Read source files before modifying — 120+ Prisma models, 800+ files; never assume structure
 
-When starting a fresh context window:
+## Reference Files
 
-1. Read `.claude/PROGRESS.md` for current state
-2. Read `git log --oneline -10` for recent changes
-3. Run `pnpm type-check` to verify environment
-4. Continue from the next task in PROGRESS.md
+Before structural changes or new features, read:
 
-## Investigation Rule
+- `.claude/ARCHITECTURE.md` — system design and data flow
+- `.claude/STANDARDS.md` — code patterns and conventions
+- `.claude/TESTING.md` — test scope and verification
 
-Read relevant source files before making claims about this codebase.
-Never speculate about code, APIs, or data structures you haven't opened.
+## Context Window
+
+**Session start:** read `.claude/PROGRESS.md` → `git log --oneline -10` → `pnpm type-check`
+
+**Before compaction:** update `.claude/PROGRESS.md` with active task state and uncommitted decisions.
 
 ## Git Recovery
 
-Automated hooks write timestamps to `.claude/PROGRESS.md` on every commit, which causes push rejections when remote has moved ahead.
+Hooks write timestamps to `.claude/PROGRESS.md` on every commit, causing push rejections when remote has moved ahead.
 
-Recovery: `git stash && git pull --rebase origin main && git stash pop && git push`
+```
+git stash && git pull --rebase origin sandbox && git stash pop && git push
+```
 
-PROGRESS.md conflicts during rebase: `git checkout --ours .claude/PROGRESS.md && git add .claude/PROGRESS.md && git rebase --continue`
+PROGRESS.md rebase conflict: `git checkout --ours .claude/PROGRESS.md && git add .claude/PROGRESS.md && git rebase --continue`

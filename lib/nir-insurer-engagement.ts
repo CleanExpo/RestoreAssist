@@ -126,7 +126,7 @@ export const INSURER_ADOPTION_PATHWAY = [
     action:
       "Publish Guidewire ClaimCenter integration guide as open documentation",
     deliverable:
-      "Technical integration guide published at docs.restoreassist.com.au/integrations/guidewire",
+      "Technical integration guide published at docs.restoreassist.app/integrations/guidewire",
     successCriteria:
       "Insurer technical team can begin feasibility assessment without RestoreAssist resource",
   },

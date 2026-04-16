@@ -115,12 +115,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(response);
   } catch (error) {
+    // RA-786: do not leak error.message to clients
     console.error("Interview start error:", error);
     return NextResponse.json(
-      {
-        error: "Failed to start interview",
-        details: error instanceof Error ? error.message : String(error),
-      },
+      { error: "Failed to start interview" },
       { status: 500 },
     );
   }

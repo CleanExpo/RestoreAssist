@@ -466,7 +466,7 @@ async function buildResponse(
       generatedAt: new Date().toISOString(),
       guidewireApiBase: "/pc/rest/v1",
       integrationGuide:
-        "https://docs.restoreassist.com.au/integrations/guidewire",
+        "https://docs.restoreassist.app/integrations/guidewire",
       note: "This payload is generated locally. No call is made to Guidewire. Submit claimPayload to your ClaimCenter instance using your insurer-issued OAuth 2.0 credentials.",
     },
   });

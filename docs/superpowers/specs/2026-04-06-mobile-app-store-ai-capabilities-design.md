@@ -8,7 +8,7 @@
 
 ## Background
 
-RestoreAssist is a Next.js App Router application served via Capacitor 8 as a server-hosted WebView (`restoreassist.com.au`). The Android and iOS app shells already exist with correct permissions declared. This sprint completes the path to both app stores and adds three AI-powered field tools for technicians.
+RestoreAssist is a Next.js App Router application served via Capacitor 8 as a server-hosted WebView (`restoreassist.app`). The Android and iOS app shells already exist with correct permissions declared. This sprint completes the path to both app stores and adds three AI-powered field tools for technicians.
 
 ---
 

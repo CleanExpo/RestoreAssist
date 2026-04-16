@@ -1,30 +1,47 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import {
-  queueInvoiceSync,
-  processNextBatch,
-} from "@/lib/integrations/sync-queue";
-import { verifyCronAuth } from "@/lib/cron/auth";
+import { queueInvoiceSync } from "@/lib/integrations/sync-queue";
 
 /**
  * GET /api/cron/sync-invoices - Scheduled invoice sync cron job
  *
- * Phase 1: Enqueue any invoices that have been modified since last sync.
- * Phase 2: Process up to 20 PENDING jobs from the durable InvoiceSyncJob table.
+ * This endpoint should be called by:
+ * - Vercel Cron (hourly): 0 * * * *
+ * - Or external cron service
  *
- * Called by Vercel Cron (hourly): 0 * * * *
- * Requires CRON_SECRET for security (timing-safe via verifyCronAuth)
+ * Automatically syncs modified invoices to connected accounting systems
+ *
+ * Requires CRON_SECRET for security
  */
 export async function GET(request: NextRequest) {
   try {
-    const authError = verifyCronAuth(request);
-    if (authError) return authError;
+    // Verify cron secret for security
+    const authHeader = request.headers.get("authorization");
+    const cronSecret = process.env.CRON_SECRET;
 
-    // ── Phase 1: discover invoices that need syncing ──────────────────────────
+    if (!cronSecret) {
+      console.error("[Invoice Sync Cron] CRON_SECRET not configured");
+      return NextResponse.json(
+        { error: "CRON_SECRET not configured" },
+        { status: 500 },
+      );
+    }
+
+    // Allow Bearer token or direct secret
+    const providedSecret = authHeader?.replace("Bearer ", "");
+
+    if (providedSecret !== cronSecret) {
+      console.error("[Invoice Sync Cron] Invalid authorization");
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Find all active integrations
     const integrations = await prisma.integration.findMany({
       where: {
         status: "CONNECTED",
-        provider: { in: ["XERO", "QUICKBOOKS", "MYOB"] },
+        provider: {
+          in: ["XERO", "QUICKBOOKS", "MYOB"],
+        },
       },
       select: {
         id: true,
@@ -34,68 +51,108 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    if (integrations.length === 0) {
+      return NextResponse.json({
+        success: true,
+        message: "No active integrations",
+        stats: {
+          integrations: 0,
+          invoicesQueued: 0,
+        },
+      });
+    }
+
     let totalQueued = 0;
 
+    // For each integration, find invoices that need syncing
     for (const integration of integrations) {
       try {
+        // Determine sync window (since last sync or last 24 hours)
         const syncWindow =
           integration.lastSyncAt || new Date(Date.now() - 24 * 60 * 60 * 1000);
 
+        // Find invoices modified since last sync
         const invoices = await prisma.invoice.findMany({
           where: {
             userId: integration.userId,
-            status: { not: "DRAFT" },
-            updatedAt: { gte: syncWindow },
+            status: {
+              not: "DRAFT", // Don't sync drafts
+            },
+            updatedAt: {
+              gte: syncWindow,
+            },
+            // Exclude invoices that were already synced to this provider
+            // and haven't been modified since
             OR: [
-              { externalInvoiceId: null },
-              { externalSyncProvider: { not: integration.provider } },
-              { updatedAt: { gte: integration.lastSyncAt || new Date(0) } },
+              {
+                externalInvoiceId: null, // Never synced
+              },
+              {
+                externalSyncProvider: {
+                  not: integration.provider, // Synced to different provider
+                },
+              },
+              {
+                updatedAt: {
+                  gte: integration.lastSyncAt || new Date(0), // Modified since last sync
+                },
+              },
             ],
           },
-          select: { id: true },
-          take: 50,
+          select: {
+            id: true,
+            invoiceNumber: true,
+            status: true,
+          },
+          take: 50, // Limit to 50 per integration per run
         });
 
+        if (invoices.length === 0) {
+          continue;
+        }
+
+        // Queue each invoice for sync
         for (const invoice of invoices) {
           try {
-            await queueInvoiceSync(invoice.id, integration.provider, "NORMAL");
+            // Use NORMAL priority for scheduled syncs
+            queueInvoiceSync(invoice.id, integration.provider, "NORMAL");
             totalQueued++;
-          } catch (err) {
+          } catch (error) {
             console.error(
-              `[Invoice Sync Cron] Failed to enqueue invoice ${invoice.id}:`,
-              err,
+              `[Invoice Sync Cron] Failed to queue invoice ${invoice.id}:`,
+              error,
             );
           }
         }
 
+        // Update last sync time
         await prisma.integration.update({
           where: { id: integration.id },
           data: { lastSyncAt: new Date() },
         });
-      } catch (err) {
+      } catch (error) {
         console.error(
-          `[Invoice Sync Cron] Error scanning integration ${integration.id}:`,
-          err,
+          `[Invoice Sync Cron] Error processing integration ${integration.id}:`,
+          error,
         );
       }
     }
-
-    // ── Phase 2: process the durable queue ───────────────────────────────────
-    const batchResult = await processNextBatch({ maxJobs: 20 });
 
     return NextResponse.json({
       success: true,
       stats: {
         integrations: integrations.length,
         invoicesQueued: totalQueued,
-        ...batchResult,
       },
       timestamp: new Date().toISOString(),
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("[Invoice Sync Cron] Error:", error);
     return NextResponse.json(
-      { success: false, error: "Internal server error" },
+      {
+        success: false,
+        error: error.message || "Unknown error",
+      },
       { status: 500 },
     );
   }

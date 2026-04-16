@@ -201,8 +201,9 @@ export async function POST(request: NextRequest) {
       });
     } catch (stripeError: any) {
       console.error("Error verifying subscription:", stripeError);
+      // RA-786: do not leak stripeError.message to clients
       return NextResponse.json(
-        { error: stripeError.message || "Failed to verify subscription" },
+        { error: "Failed to verify subscription" },
         { status: 500 },
       );
     }

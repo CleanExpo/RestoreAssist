@@ -853,10 +853,11 @@ model Integration {
   updatedAt DateTime @updatedAt
 
   // Relations
-  externalClients ExternalClient[]
-  externalJobs    ExternalJob[]
-  syncLogs        IntegrationSyncLog[]
-  webhookEvents   WebhookEvent[]
+  externalClients    ExternalClient[]
+  externalJobs       ExternalJob[]
+  syncLogs           IntegrationSyncLog[]
+  webhookEvents      WebhookEvent[]
+  xeroAccountMappings XeroAccountCodeMapping[] @relation("IntegrationXeroMappings")
 
   @@unique([userId, provider])
   @@index([userId])
@@ -1002,6 +1003,28 @@ model WebhookEvent {
   @@index([status, createdAt])
   @@index([integrationId, status])
   @@index([provider, integrationId])
+}
+
+// RA-848: Xero account code mappings — per-integration, per-category routing
+// Maps InvoiceLineItem.category values to Xero chart-of-accounts codes.
+// Null category = default fallback for unmapped line items.
+model XeroAccountCodeMapping {
+  id            String      @id @default(cuid())
+  integrationId String
+  integration   Integration @relation("IntegrationXeroMappings", fields: [integrationId], references: [id], onDelete: Cascade)
+
+  // Mapping key: line item category → Xero account code
+  // category: null = default rule applied when no category-specific mapping exists
+  category    String? // Matches InvoiceLineItem.category (e.g. "Labour", "Equipment", "Materials")
+  accountCode String  // Xero account code string (e.g. "200", "400", "461", "630")
+  taxType     String  @default("OUTPUT") // Xero tax type for this category
+  description String? // Optional: human-readable account name for display in UI
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([integrationId, category])
+  @@index([integrationId])
 }
 
 enum SubscriptionStatus {
@@ -3162,6 +3185,33 @@ model CronJobRun {
 }
 
 // ============================================
+// HARNESS — CONFIDENCE-WEIGHTED GATE CHECKS (RA-674)
+// ============================================
+
+/// Records each gate-check evaluation for confidence-weighted autonomy decisions
+model GateCheck {
+  id          String   @id @default(cuid())
+  projectKey  String // e.g., "restoreassist", "scope-quality", "report-builder"
+  taskId      String? // Linear issue ID if applicable
+  /// Overall quality score 0–100
+  qualityScore Int
+  /// Confidence in the quality assessment 0–100
+  confidence   Int
+  /// Three-tier decision: AUTO_SHIP | FLAG | RETRY
+  decision     String
+  /// Dimensions evaluated — JSON array of { dimension, score, confidence, reason }
+  dimensions   String   @db.Text
+  retryCount   Int      @default(0)
+  telegramSent Boolean  @default(false)
+  /// Raw model response for debugging
+  rawResponse  String?  @db.Text
+  createdAt    DateTime @default(now())
+
+  @@index([projectKey, createdAt])
+  @@index([decision, createdAt])
+}
+
+// ============================================
 // INVOICING MODULE
 // ============================================
 
@@ -3260,7 +3310,7 @@ model Invoice {
 
   // External sync (accounting software)
   externalInvoiceId    String? // Xero/QuickBooks invoice ID
-  externalSyncProvider String? // "xero", "quickbooks", "myob"
+  externalSyncProvider String? // "XERO", "QUICKBOOKS", "MYOB"
   externalSyncStatus   ExternalSyncStatus?
   externalSyncedAt     DateTime?
   externalSyncError    String?             @db.Text
@@ -3312,6 +3362,9 @@ model InvoiceLineItem {
   category    String? // "Labour", "Equipment", "Chemical"
   quantity    Float
   unitPrice   Int // Price per unit (cents)
+
+  // RA-848: Xero account code override (null = resolved from XeroAccountCodeMapping by category)
+  xeroAccountCode String?
 
   // Financial
   subtotal  Int // quantity * unitPrice

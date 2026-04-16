@@ -165,7 +165,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Send invitation email
-    const baseUrl = process.env.NEXTAUTH_URL || "https://restoreassist.com.au";
+    const baseUrl = process.env.NEXTAUTH_URL || "https://restoreassist.app";
     const inviteUrl = `${baseUrl}/portal/signup?token=${invitation.token}`;
     const contractorName =
       invitation.user.businessName || invitation.user.name || "RestoreAssist";
@@ -174,7 +174,7 @@ export async function POST(request: NextRequest) {
     if (resend) {
       try {
         await resend.emails.send({
-          from: "RestoreAssist <noreply@restoreassist.com.au>",
+          from: "RestoreAssist <noreply@restoreassist.app>",
           to: invitation.email,
           subject: `${contractorName} has invited you to view your restoration project`,
           html: `

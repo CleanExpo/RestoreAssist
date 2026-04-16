@@ -18,7 +18,6 @@ import {
   ExternalLink,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import { signInWithGoogleFirebase } from "@/lib/firebase-google-auth";
 
 export default function SignupPage() {
   const [name, setName] = useState("");
@@ -129,47 +128,10 @@ export default function SignupPage() {
     setIsLoading(true);
     setError("");
     try {
-      // Use Firebase Google authentication
-      const googleUser = await signInWithGoogleFirebase();
-
-      // User is now created/updated in database via /api/auth/google-signin
-      // Sign in with NextAuth using credentials (email only, no password for Google users)
-      toast.success("Signing you in...");
-
-      // Small delay to ensure database write is complete
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Sign in with NextAuth using credentials (email only, no password for Google users)
-      const signInResult = await signIn("credentials", {
-        email: googleUser.email || "",
-        password: googleUser.googleAuthToken || "", // HMAC-signed proof from /api/auth/google-signin
-        redirect: false,
-      });
-
-      if (signInResult?.ok) {
-        toast.success("Welcome to Restore Assist!");
-        router.push("/dashboard?welcome=1");
-      } else {
-        console.error("Sign in result:", signInResult);
-        const errorMsg = signInResult?.error || "Failed to create session";
-        toast.error(
-          "Failed to create session. Please try logging in manually.",
-        );
-        setError(errorMsg);
-        // Fallback: redirect to login with email pre-filled
-        setTimeout(() => {
-          router.push(
-            "/login?email=" + encodeURIComponent(googleUser.email || ""),
-          );
-        }, 2000);
-      }
+      await signIn("google", { callbackUrl: "/dashboard?welcome=1" });
     } catch (error: any) {
-      console.error("Google sign-in error:", error);
-      const errorMessage =
-        error.message || "Google sign-in failed. Please try again.";
-      setError(errorMessage);
-      toast.error(errorMessage);
-    } finally {
+      setError("Google sign-in failed. Please try again.");
+      toast.error("Google sign-in failed. Please try again.");
       setIsLoading(false);
     }
   };

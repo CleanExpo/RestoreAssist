@@ -8,7 +8,7 @@ const config: CapacitorConfig = {
     // No static export needed; SSR API routes stay intact on the server.
     url:
       process.env.NODE_ENV === "production"
-        ? "https://restoreassist.com.au"
+        ? "https://restoreassist.app"
         : "http://localhost:3000",
     cleartext: false,
     androidScheme: "https",

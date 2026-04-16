@@ -54,7 +54,7 @@ export const metadata: Metadata = {
     follow: true,
   },
   metadataBase: new URL(
-    process.env.NEXTAUTH_URL || "https://restoreassist.com.au",
+    process.env.NEXTAUTH_URL || "https://restoreassist.app",
   ),
 };
 

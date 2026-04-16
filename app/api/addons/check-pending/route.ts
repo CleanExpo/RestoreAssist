@@ -215,12 +215,10 @@ export async function POST(request: NextRequest) {
       previousAddonReports: user.addonReports,
     });
   } catch (error: any) {
+    // RA-786: do not leak error.message to clients
     console.error("❌ ERROR CHECKING PENDING ADD-ONS:", error);
     return NextResponse.json(
-      {
-        error: "Internal server error",
-        message: error.message,
-      },
+      { error: "Internal server error" },
       { status: 500 },
     );
   }

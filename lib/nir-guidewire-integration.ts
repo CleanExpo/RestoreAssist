@@ -478,7 +478,7 @@ export const MAJESCO_FIELD_MAP_STUB = {
   _status: "STUB — Phase 3 completion after Suncorp technical engagement",
   _reference: "Majesco Claims API v2 — obtain from Suncorp procurement",
   _nirContactForMapping:
-    "RestoreAssist technical team via docs.restoreassist.com.au/integrations",
+    "RestoreAssist technical team via docs.restoreassist.app/integrations",
   knownMappings: {
     claimReference: {
       nirSource: "reportId",

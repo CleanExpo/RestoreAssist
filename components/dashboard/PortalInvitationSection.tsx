@@ -173,7 +173,7 @@ export default function PortalInvitationSection({
             <p className="mt-1">
               They can log in at:{" "}
               <span className="text-purple-400">
-                https://restoreassist.com.au/portal/login
+                https://restoreassist.app/portal/login
               </span>
             </p>
           </div>
