@@ -112,6 +112,9 @@ export function FloorPlanUnderlayLoader({
           address: q,
           postcode: defaultPostcode || undefined,
           inspectionId: inspectionId || undefined,
+          // Always allow domain.com.au fallback so the UI works even when
+          // the OTH search endpoint changes (RA-108)
+          fallbackSources: ["domain"],
         }),
       });
       const json = await res.json();

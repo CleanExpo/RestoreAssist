@@ -3185,6 +3185,33 @@ model CronJobRun {
 }
 
 // ============================================
+// HARNESS — CONFIDENCE-WEIGHTED GATE CHECKS (RA-674)
+// ============================================
+
+/// Records each gate-check evaluation for confidence-weighted autonomy decisions
+model GateCheck {
+  id          String   @id @default(cuid())
+  projectKey  String // e.g., "restoreassist", "scope-quality", "report-builder"
+  taskId      String? // Linear issue ID if applicable
+  /// Overall quality score 0–100
+  qualityScore Int
+  /// Confidence in the quality assessment 0–100
+  confidence   Int
+  /// Three-tier decision: AUTO_SHIP | FLAG | RETRY
+  decision     String
+  /// Dimensions evaluated — JSON array of { dimension, score, confidence, reason }
+  dimensions   String   @db.Text
+  retryCount   Int      @default(0)
+  telegramSent Boolean  @default(false)
+  /// Raw model response for debugging
+  rawResponse  String?  @db.Text
+  createdAt    DateTime @default(now())
+
+  @@index([projectKey, createdAt])
+  @@index([decision, createdAt])
+}
+
+// ============================================
 // INVOICING MODULE
 // ============================================
 

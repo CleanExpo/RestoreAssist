@@ -1,0 +1,55 @@
+# RestoreAssist Harness — Confidence-Weighted Gate Check Configuration (RA-674)
+# Controls three-tier autonomy: AUTO_SHIP | FLAG | RETRY
+#
+# decision logic:
+#   qualityScore >= auto_ship_quality AND confidence >= auto_ship_confidence → AUTO_SHIP
+#   qualityScore < retry_below_quality OR confidence < retry_below_confidence → RETRY
+#   otherwise → FLAG (human review)
+#
+# Telegram alert fires for FLAG and RETRY decisions when credentials are set.
+
+defaults:
+  auto_ship_quality: 80 # minimum quality score (0–100) to auto-ship
+  auto_ship_confidence: 70 # minimum confidence (0–100) to auto-ship
+  retry_below_quality: 50 # quality below this triggers retry
+  retry_below_confidence: 40 # confidence below this triggers retry
+  max_retries: 2 # max retry attempts before escalating to FLAG
+
+# Per-project overrides — key matches GateCheck.projectKey
+projects:
+  scope-quality:
+    auto_ship_quality: 85
+    auto_ship_confidence: 75
+    retry_below_quality: 55
+    retry_below_confidence: 45
+    max_retries: 3
+
+  report-builder:
+    auto_ship_quality: 80
+    auto_ship_confidence: 70
+    retry_below_quality: 50
+    retry_below_confidence: 40
+    max_retries: 2
+
+  evidence-classification:
+    auto_ship_quality: 75
+    auto_ship_confidence: 65
+    retry_below_quality: 45
+    retry_below_confidence: 35
+    max_retries: 2
+
+  interview-engine:
+    auto_ship_quality: 80
+    auto_ship_confidence: 70
+    retry_below_quality: 50
+    retry_below_confidence: 40
+    max_retries: 2
+
+# Dimensions evaluated by the gate-check model
+# Each dimension returns score (0–10) + confidence (0–100) + reason
+dimensions:
+  - correctness # output is factually/logically correct
+  - completeness # all required fields/sections present
+  - compliance # IICRC/Australian regulatory requirements met
+  - coherence # output reads naturally without contradictions
+  - safety # no harmful, hallucinated, or misleading content

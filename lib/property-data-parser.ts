@@ -269,11 +269,12 @@ export function parseOnTheHouseHTML(
   // Sanity-clamp numeric fields: OTH occasionally returns bogus values (e.g. 33
   // bedrooms) when the JSON path has drifted. Cap at realistic residential maxima
   // so the HTML-fallback regex gets a chance to provide a better answer.
-  const clamp = (
+  const clamp = (v: number | undefined, max: number): number | undefined =>
+    v !== undefined && v <= max ? v : undefined;
+const clamp = (
     v: number | undefined,
     max: number,
-  ): number | undefined => (v !== undefined && v <= max ? v : undefined);
-  const merged = {
+  ): number | undefined => (v !== undefined && v <= max ? v : undefined);  const merged = {
     ...rawMerged,
     bedrooms: clamp(rawMerged.bedrooms, 20),
     bathrooms: clamp(rawMerged.bathrooms, 15),

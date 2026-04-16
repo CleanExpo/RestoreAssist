@@ -1,0 +1,36 @@
+# DetailedBrief — 6 fields, ~2 minutes to complete (RA-681 / KARPATHY-8)
+#
+# Use this template when you have specific acceptance criteria or areas of the
+# codebase that must not be broken. Produces significantly better build quality
+# than BasicBrief because the pipeline has less to infer.
+#
+# Usage:
+#   Fill in all six fields and submit via:
+#   POST /api/harness/brief-templates  { "tier": "detailed", "data": { ... } }
+
+tier: detailed
+
+# === Inherited from BasicBrief ===
+
+# REQUIRED — what you want built (1 sentence)
+title: ""
+
+# REQUIRED — why it's needed and what problem it solves (2-3 sentences)
+description: ""
+
+# REQUIRED — target repository
+repo: ""
+
+# === DetailedBrief additions ===
+
+# REQUIRED — task type
+# Options: feature | bugfix | chore | hotfix | spike
+intent_type: feature
+
+# REQUIRED — specific conditions that must be true when the task is complete
+# Example: "Toggle persists after page reload, works on mobile viewport"
+acceptance_criteria: ""
+
+# REQUIRED — existing functionality that must not regress
+# Example: "Login flow, dashboard charts, PDF export"
+do_not_break: ""
