@@ -35,6 +35,7 @@ export interface SketchViewerFloor {
   floorNumber: number;
   floorLabel: string;
   sketchData: Record<string, unknown> | null;
+  backgroundImageUrl?: string | null;
 }
 
 export interface SketchViewerProps {
@@ -153,11 +154,18 @@ export function SketchViewer({
             floorLabel: string;
             sketchData: Record<string, unknown> | null;
             sketchType?: string;
+            backgroundImageUrl?: string | null;
           }>;
         };
         const structural = sketches
           .filter((s) => !s.sketchType || s.sketchType === "structural")
-          .sort((a, b) => a.floorNumber - b.floorNumber);
+          .sort((a, b) => a.floorNumber - b.floorNumber)
+          .map((s) => ({
+            floorNumber: s.floorNumber,
+            floorLabel: s.floorLabel,
+            sketchData: s.sketchData,
+            backgroundImageUrl: s.backgroundImageUrl ?? null,
+          }));
         if (!cancelled) setFloors(structural);
       } catch {
         // fail silently — viewer shows empty state
@@ -352,6 +360,8 @@ export function SketchViewer({
               height={height}
               toolMode="pan"
               readonly={true}
+              backgroundImageUrl={floor.backgroundImageUrl}
+              backgroundImageOpacity={0.35}
               onReady={(canvas) => handleCanvasReady(floor.floorNumber, canvas)}
               className="w-full"
             />

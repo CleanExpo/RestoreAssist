@@ -19,7 +19,8 @@ import {
   GitBranch,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo } from "react";
+import { useFetch } from "@/lib/hooks/useFetch";
 import toast from "react-hot-toast";
 import Link from "next/link";
 import SessionMetadataCard, {
@@ -29,85 +30,59 @@ import type { ReportWithSessionData } from "@/lib/session-types";
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
-  const [dashboardData, setDashboardData] = useState<{
-    totalReports: number;
-    totalClients: number;
-    totalRevenue: number;
-    recentReports: ReportWithSessionData[];
-    recentClients: Array<{ id: string; name: string; createdAt: string }>;
-    loading: boolean;
-  }>({
-    totalReports: 0,
-    totalClients: 0,
-    totalRevenue: 0,
-    recentReports: [],
-    recentClients: [],
-    loading: true,
-  });
 
+  // Only fetch once the session is confirmed authenticated
+  const isAuthed = status === "authenticated";
+
+  const { data: reportsRaw, loading: reportsLoading } = useFetch<{
+    reports: ReportWithSessionData[];
+  }>(isAuthed ? "/api/reports" : null);
+
+  const { data: clientsRaw, loading: clientsLoading } = useFetch<{
+    clients: Array<{ id: string; name: string; createdAt: string }>;
+  }>(isAuthed ? "/api/clients" : null);
+
+  // Welcome toast — fire once when session first becomes authenticated
   useEffect(() => {
-    if (status === "authenticated" && session?.user) {
-      toast.success(`Welcome back, ${session.user.name?.split(" ")[0]}!`);
-      fetchDashboardData();
+    if (status === "authenticated" && session?.user?.name) {
+      toast.success(`Welcome back, ${session.user.name.split(" ")[0]}!`);
     }
-  }, [status, session]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
 
-  const fetchDashboardData = async () => {
-    try {
-      setDashboardData((prev) => ({ ...prev, loading: true }));
+  // Derive dashboard metrics from fetched data
+  const dashboardData = useMemo(() => {
+    const reports = reportsRaw?.reports ?? [];
+    const clients = clientsRaw?.clients ?? [];
 
-      // Fetch reports data
-      const reportsResponse = await fetch("/api/reports");
-      const reportsData = reportsResponse.ok
-        ? await reportsResponse.json()
-        : { reports: [] };
+    const totalRevenue = reports.reduce(
+      (sum: number, report: any) => sum + (report.totalCost || 0),
+      0,
+    );
 
-      // Fetch clients data
-      const clientsResponse = await fetch("/api/clients");
-      const clientsData = clientsResponse.ok
-        ? await clientsResponse.json()
-        : { clients: [] };
+    const recentReports = [...reports]
+      .sort(
+        (a: any, b: any) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      )
+      .slice(0, 5);
 
-      const reports = reportsData.reports || [];
-      const clients = clientsData.clients || [];
+    const recentClients = [...clients]
+      .sort(
+        (a: any, b: any) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      )
+      .slice(0, 5);
 
-      // Calculate metrics
-      const totalReports = reports.length;
-      const totalClients = clients.length;
-      const totalRevenue = reports.reduce(
-        (sum: number, report: any) => sum + (report.totalCost || 0),
-        0,
-      );
-
-      // Get recent reports (last 5)
-      const recentReports = reports
-        .sort(
-          (a: any, b: any) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-        )
-        .slice(0, 5);
-
-      // Get recent clients (last 5)
-      const recentClients = clients
-        .sort(
-          (a: any, b: any) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-        )
-        .slice(0, 5);
-
-      setDashboardData({
-        totalReports,
-        totalClients,
-        totalRevenue,
-        recentReports,
-        recentClients,
-        loading: false,
-      });
-    } catch (error) {
-      console.error("Error fetching dashboard data:", error);
-      setDashboardData((prev) => ({ ...prev, loading: false }));
-    }
-  };
+    return {
+      totalReports: reports.length,
+      totalClients: clients.length,
+      totalRevenue,
+      recentReports,
+      recentClients,
+      loading: reportsLoading || clientsLoading,
+    };
+  }, [reportsRaw, clientsRaw, reportsLoading, clientsLoading]);
 
   if (status === "loading") {
     return (

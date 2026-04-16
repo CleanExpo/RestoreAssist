@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateIICRCReportPDF } from "@/lib/generate-iicrc-report-pdf";
 import { verifyInsurerToken } from "@/lib/portal-token";
+import { applyRateLimit, getClientIp } from "@/lib/rate-limiter";
 
 /**
  * GET /api/reports/[id]/pdf
@@ -24,6 +25,9 @@ export async function GET(
 
     let authorised = false;
 
+    // Fetch session once; reused for both auth and rate-limit key
+    const session = await getServerSession(authOptions);
+
     // Mode 1: insurer share token (no session required)
     if (shareToken) {
       const verified = verifyInsurerToken(shareToken);
@@ -33,20 +37,27 @@ export async function GET(
     }
 
     // Mode 2: authenticated session
-    if (!authorised) {
-      const session = await getServerSession(authOptions);
-      if (session?.user?.id) {
-        const owns = await prisma.report.findFirst({
-          where: { id, userId: session.user.id },
-          select: { id: true },
-        });
-        if (owns) authorised = true;
-      }
+    if (!authorised && session?.user?.id) {
+      const owns = await prisma.report.findFirst({
+        where: { id, userId: session.user.id },
+        select: { id: true },
+      });
+      if (owns) authorised = true;
     }
 
     if (!authorised) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Rate limit: 10 PDFs per 5 minutes per user/IP to prevent DoS
+    const rlKey = session?.user?.id ?? getClientIp(request);
+    const rlError = await applyRateLimit(request, {
+      windowMs: 5 * 60 * 1000,
+      maxRequests: 10,
+      prefix: "pdf",
+      key: rlKey,
+    });
+    if (rlError) return rlError;
 
     const report = await prisma.report.findUnique({
       where: { id },

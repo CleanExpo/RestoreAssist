@@ -12,6 +12,13 @@ const PortalInvitePanel = dynamic(
   () => import("@/components/inspection/PortalInvitePanel"),
   { ssr: false },
 );
+const SketchEditor = dynamic(
+  () =>
+    import("@/components/sketch/SketchEditor").then((m) => ({
+      default: m.SketchEditor,
+    })),
+  { ssr: false },
+);
 const ExportPdfButton = dynamic(
   () => import("@/components/inspection/ExportPdfButton"),
   { ssr: false },
@@ -39,6 +46,7 @@ import {
   Clock,
   XCircle,
   Map,
+  PenLine,
   Receipt,
   Upload,
   History,
@@ -76,6 +84,7 @@ type Tab =
   | "environmental"
   | "moisture"
   | "moisture-map"
+  | "sketch"
   | "areas"
   | "classification"
   | "scope"
@@ -724,6 +733,7 @@ export default function InspectionDetailPage({
       count: moistureReadings.length,
     },
     { key: "moisture-map", label: "Moisture Map", icon: Map },
+    { key: "sketch", label: "Floor Plan", icon: PenLine },
     {
       key: "areas",
       label: "Affected Areas",
@@ -1545,6 +1555,17 @@ export default function InspectionDetailPage({
                 No moisture readings to map — add readings first
               </div>
             )}
+          </div>
+        )}
+
+        {/* Floor Plan / Sketch Tab */}
+        {activeTab === "sketch" && (
+          <div className="min-h-[600px]">
+            <SketchEditor
+              inspectionId={inspection.id}
+              propertyAddress={inspection.propertyAddress ?? undefined}
+              propertyPostcode={inspection.propertyPostcode ?? undefined}
+            />
           </div>
         )}
 

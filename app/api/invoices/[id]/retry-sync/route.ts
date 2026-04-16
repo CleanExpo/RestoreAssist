@@ -74,7 +74,7 @@ export async function POST(
     }
 
     // Queue the sync with HIGH priority (manual retry)
-    const jobId = queueInvoiceSync(
+    const jobId = await queueInvoiceSync(
       invoice.id,
       provider as IntegrationProvider,
       "HIGH",

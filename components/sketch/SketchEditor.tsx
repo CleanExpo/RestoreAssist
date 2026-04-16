@@ -53,6 +53,16 @@ const ROOM_COLORS = [
   { fill: "rgba(239,68,68,0.10)", stroke: "#ef4444", label: "Damage Zone" },
 ];
 
+// ─── Damage type colours (freehand overlay) ──────────────
+const DAMAGE_TYPES = [
+  { id: "water",    label: "Water",     color: "rgba(59,130,246,0.35)",  stroke: "#3b82f6" },
+  { id: "fire",     label: "Fire",      color: "rgba(239,68,68,0.35)",   stroke: "#ef4444" },
+  { id: "mould",    label: "Mould",     color: "rgba(34,197,94,0.35)",   stroke: "#22c55e" },
+  { id: "sewage",   label: "Sewage",    color: "rgba(120,53,15,0.35)",   stroke: "#78350f" },
+  { id: "biohazard",label: "Bio Hazard",color: "rgba(234,179,8,0.35)",   stroke: "#eab308" },
+] as const;
+type DamageTypeId = (typeof DAMAGE_TYPES)[number]["id"];
+
 // ─── Types ────────────────────────────────────────────────
 interface Floor {
   id: string;
@@ -116,6 +126,12 @@ export function SketchEditor({
     canUndo: false,
     canRedo: false,
   });
+
+  // ── Grid overlay ──
+  const [showGrid, setShowGrid] = useState(false);
+
+  // ── Damage type (freehand mode) ──
+  const [selectedDamageType, setSelectedDamageType] = useState<DamageTypeId>("water");
 
   // ── Save / PDF export state ──
   const [saving, setSaving] = useState(false);
@@ -235,8 +251,9 @@ export function SketchEditor({
     canvas.defaultCursor = toolMode === "pan" ? "grab" : "crosshair";
 
     if (toolMode === "freehand") {
-      canvas.freeDrawingBrush.color = "rgba(59,130,246,0.25)";
-      canvas.freeDrawingBrush.width = 24;
+      const dmg = DAMAGE_TYPES.find((d) => d.id === selectedDamageType) ?? DAMAGE_TYPES[0];
+      canvas.freeDrawingBrush.color = dmg.color;
+      canvas.freeDrawingBrush.width = 28;
     }
 
     // ── Per-tool click handler ──
@@ -450,6 +467,7 @@ export function SketchEditor({
     toolMode,
     activeFloor.id,
     selectedRoomColor,
+    selectedDamageType,
     canvasRef,
     readonly,
     getFabric,
@@ -692,11 +710,46 @@ export function SketchEditor({
               scheduleSave();
             }}
             onExport={handleExport}
+            showGrid={showGrid}
+            onToggleGrid={() => setShowGrid((v) => !v)}
           />
         )}
 
         {/* Canvas + room color picker */}
         <div className="flex-1 flex flex-col gap-2">
+          {/* Damage type picker (freehand mode) */}
+          {toolMode === "freehand" && !readonly && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-neutral-500 dark:text-slate-400">
+                Damage type:
+              </span>
+              {DAMAGE_TYPES.map((dt) => (
+                <button
+                  key={dt.id}
+                  title={dt.label}
+                  onClick={() => setSelectedDamageType(dt.id)}
+                  className={cn(
+                    "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs border transition-all",
+                    selectedDamageType === dt.id
+                      ? "border-2 shadow-sm font-semibold"
+                      : "border opacity-60 hover:opacity-100",
+                  )}
+                  style={{
+                    borderColor: dt.stroke,
+                    backgroundColor: dt.color,
+                    color: dt.stroke,
+                  }}
+                >
+                  <span
+                    className="w-2 h-2 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: dt.stroke }}
+                  />
+                  {dt.label}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Room color picker (only in room mode) */}
           {toolMode === "room" && !readonly && (
             <div className="flex items-center gap-2 flex-wrap">
@@ -732,9 +785,21 @@ export function SketchEditor({
 
           {/* Canvas */}
           <div
-            className="rounded-xl border border-neutral-200 dark:border-slate-700/50 overflow-hidden bg-neutral-50 dark:bg-slate-900/50"
+            className="rounded-xl border border-neutral-200 dark:border-slate-700/50 overflow-hidden bg-neutral-50 dark:bg-slate-900/50 relative"
             style={{ minHeight: 400 }}
           >
+            {/* Grid overlay */}
+            {showGrid && (
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 z-10"
+                style={{
+                  backgroundImage:
+                    "linear-gradient(to right, rgba(99,102,241,0.12) 1px, transparent 1px), linear-gradient(to bottom, rgba(99,102,241,0.12) 1px, transparent 1px)",
+                  backgroundSize: "40px 40px",
+                }}
+              />
+            )}
             {floors.map((floor, idx) => (
               <div
                 key={floor.id}

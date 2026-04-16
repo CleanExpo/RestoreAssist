@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
+import { useFetch } from "@/lib/hooks/useFetch";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import {
@@ -89,8 +90,12 @@ const STATUS_CONFIG: Record<
 
 export default function InspectionsPage() {
   const router = useRouter();
-  const [inspections, setInspections] = useState<Inspection[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: inspectionsData,
+    loading,
+    refetch: refetchInspections,
+  } = useFetch<{ inspections: Inspection[] }>("/api/inspections");
+  const inspections = inspectionsData?.inspections ?? [];
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -104,27 +109,7 @@ export default function InspectionsPage() {
     id?: string;
   } | null>(null);
 
-  useEffect(() => {
-    fetchInspections();
-  }, []);
-
-  const fetchInspections = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch("/api/inspections");
-      if (response.ok) {
-        const data = await response.json();
-        setInspections(data.inspections || []);
-      } else {
-        toast.error("Failed to fetch inspections");
-      }
-    } catch (error) {
-      console.error("Error fetching inspections:", error);
-      toast.error("Failed to fetch inspections");
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Data fetching handled by useFetch above — auto-fetches on mount + abort on unmount
 
   const filtered = useMemo(() => {
     const fromDate = dateFrom ? new Date(dateFrom) : null;
@@ -195,15 +180,13 @@ export default function InspectionsPage() {
           method: "DELETE",
         });
         if (res.ok) {
-          setInspections((prev) =>
-            prev.filter((i) => i.id !== deleteTarget.id),
-          );
           setSelectedIds((prev) => {
             const next = new Set(prev);
             next.delete(deleteTarget.id!);
             return next;
           });
           toast.success("Inspection deleted");
+          refetchInspections();
         } else {
           const data = await res.json().catch(() => ({}));
           toast.error(data.error || "Failed to delete inspection");
@@ -216,11 +199,11 @@ export default function InspectionsPage() {
         });
         const data = await res.json().catch(() => ({}));
         if (res.ok && data.success) {
-          setInspections((prev) => prev.filter((i) => !selectedIds.has(i.id)));
           setSelectedIds(new Set());
           toast.success(
             `${data.deletedCount ?? selectedIds.size} inspection(s) deleted`,
           );
+          refetchInspections();
         } else {
           toast.error(data.error || "Failed to delete inspections");
         }
