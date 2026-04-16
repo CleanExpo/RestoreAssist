@@ -55,8 +55,8 @@ export async function getValidXeroToken(integrationId: string): Promise<string> 
   const FIVE_MINUTES_MS = 5 * 60 * 1000;
   const needsRefresh =
     tokens.isExpired ||
-    (tokens.expiresAt != null &&
-      tokens.expiresAt.getTime() - Date.now() < FIVE_MINUTES_MS);
+    (tokens.tokenExpiresAt != null &&
+      tokens.tokenExpiresAt.getTime() - Date.now() < FIVE_MINUTES_MS);
 
   if (needsRefresh) {
     if (!tokens.refreshToken) {

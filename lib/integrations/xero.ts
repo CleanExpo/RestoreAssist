@@ -335,4 +335,35 @@ export async function updateXeroInvoiceStatus(
 export function formatABN(abn: string | null | undefined): string | null {
   if (!abn) return null;
   const digits = abn.replace(/\D/g, "");
-  if (digits.length !== 1
+  if (digits.length !== 11) return null;
+  return `${digits.slice(0, 2)} ${digits.slice(2, 5)} ${digits.slice(5, 8)} ${digits.slice(8, 11)}`;
+}
+
+/**
+ * Helper: Map RestoreAssist invoice status to Xero status
+ */
+function mapInvoiceStatusToXero(
+  status: string,
+): "DRAFT" | "SUBMITTED" | "AUTHORISED" {
+  switch (status) {
+    case "DRAFT":
+      return "DRAFT";
+    case "SENT":
+    case "VIEWED":
+      return "SUBMITTED";
+    case "PARTIALLY_PAID":
+    case "PAID":
+    case "OVERDUE":
+      return "AUTHORISED"; // Must be authorised to accept payments
+    default:
+      return "DRAFT";
+  }
+}
+
+/**
+ * Helper: Format date for Xero API (YYYY-MM-DD)
+ */
+function formatDateForXero(date: Date | string): string {
+  const d = new Date(date);
+  return d.toISOString().split("T")[0];
+}
