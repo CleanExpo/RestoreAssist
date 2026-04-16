@@ -161,11 +161,8 @@ export default function DashboardLayout({
     },
     { icon: Calculator, label: "Quote Generator", href: "/dashboard/quote" },
     { icon: Plug, label: "Integrations", href: "/dashboard/integrations" },
-    {
-      icon: Activity,
-      label: "Webhook Logs",
-      href: "/dashboard/integrations/webhooks",
-    },
+    // RA-905: Webhook Logs removed from top-level nav — operational tool, not a user feature.
+    // Accessible via Integrations > Webhook Logs tab for users who need it.
     { icon: Smartphone, label: "Field Mode", href: "/dashboard/field" },
     { icon: BarChart3, label: "Analytics", href: "/dashboard/analytics" },
     {
