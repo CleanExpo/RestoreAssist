@@ -13,6 +13,7 @@
 
 import { getTokens, markIntegrationError, logSync } from "../oauth-handler";
 import { XeroClient } from "./client";
+import { formatABN } from "../xero";
 import { prisma } from "@/lib/prisma";
 
 export interface NIRScopeItem {
@@ -32,6 +33,7 @@ export interface NIRJobPayload {
   clientEmail?: string;
   clientPhone?: string;
   clientAddress?: string;
+  clientABN?: string; // RA-870: ABN → Xero Contact.TaxNumber for ATO reporting
   propertyAddress: string;
   reportNumber: string;
   damageType: "WATER" | "FIRE" | "MOULD" | "GENERAL";
@@ -131,6 +133,8 @@ export async function syncNIRJobToXero(
       ...(job.clientPhone && {
         Phones: [{ PhoneType: "DEFAULT", PhoneNumber: job.clientPhone }],
       }),
+      // RA-870: Map client ABN to Xero TaxNumber for ATO reporting
+      ...(formatABN(job.clientABN) && { TaxNumber: formatABN(job.clientABN) }),
     },
     Date: formatDate(job.reportDate),
     DueDate: formatDate(dueDate),
