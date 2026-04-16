@@ -6,6 +6,7 @@
  */
 
 import { Integration } from "@prisma/client";
+import { getValidXeroToken } from "./xero/token-manager";
 
 interface XeroInvoice {
   Type: "ACCREC"; // Accounts Receivable (customer invoice)
@@ -76,6 +77,10 @@ export async function syncInvoiceToXero(
           },
         ],
       }),
+      // RA-870: Map client ABN to Xero Contact TaxNumber for ATO reporting
+      ...(formatABN(invoice.customerABN) && {
+        TaxNumber: formatABN(invoice.customerABN),
+      }),
     },
     Date: formatDateForXero(invoice.invoiceDate),
     DueDate: formatDateForXero(invoice.dueDate),
@@ -99,7 +104,9 @@ export async function syncInvoiceToXero(
       Description: "Discount",
       Quantity: 1,
       UnitAmount: -(invoice.discountAmount / 100).toFixed(2),
-      TaxType: "NONE",
+      // RA-870: Discounts reduce taxable income — must use OUTPUT, not NONE.
+      // NONE would overstate net GST payable in Xero P&L reports.
+      TaxType: "OUTPUT",
       LineAmount: -(invoice.discountAmount / 100).toFixed(2),
     });
   }
@@ -127,10 +134,99 @@ export async function syncInvoiceToXero(
     body: JSON.stringify({ Invoices: [xeroInvoice] }),
   });
 
+  // RA-920: Smart error code handling — recover from transient failures instead of
+  // dead-lettering jobs that could succeed on retry with a refreshed token.
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
+
+    // 409 Conflict: invoice already exists in Xero — switch to full update path.
+    // Xero may return the existing InvoiceID in the Invoices array or Extensions.
+    if (response.status === 409) {
+      const existingId: string | undefined =
+        errorData?.Invoices?.[0]?.InvoiceID ??
+        errorData?.Extensions?.InvoiceID ??
+        undefined;
+
+      if (existingId) {
+        console.log(
+          `[Xero] Invoice already exists (${existingId}), switching to full update path`,
+        );
+        // PUT the complete invoice payload to the existing Xero InvoiceID
+        const updateResponse = await fetch(
+          `https://api.xero.com/api.xro/2.0/Invoices/${existingId}`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${integration.accessToken}`,
+              "Xero-tenant-id": integration.tenantId!,
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            body: JSON.stringify({
+              Invoices: [{ ...xeroInvoice, InvoiceID: existingId }],
+            }),
+          },
+        );
+        const updateData = await updateResponse.json().catch(() => ({}));
+        const updated = updateData?.Invoices?.[0] as XeroInvoiceResponse | undefined;
+        if (!updated) {
+          throw new Error(
+            `Xero 409 update failed for InvoiceID ${existingId}: ${JSON.stringify(updateData)}`,
+          );
+        }
+        return {
+          invoiceId: updated.InvoiceID,
+          invoiceNumber: updated.InvoiceNumber,
+          status: updated.Status,
+          total: updated.Total,
+          amountDue: updated.AmountDue,
+          provider: "xero",
+          rawResponse: updated,
+        };
+      }
+      // No existing ID recoverable — throw so queue retries
+      throw new Error(
+        `Xero 409 Conflict — could not recover existing InvoiceID: ${JSON.stringify(errorData)}`,
+      );
+    }
+
+    // 401 Unauthorized / 403 Forbidden: access token expired or revoked.
+    // Proactively refresh via token-manager so the next queue retry uses a live token.
+    if (response.status === 401 || response.status === 403) {
+      console.warn(
+        `[Xero] Token error (${response.status}) on integration ${integration.id} — refreshing token for next retry`,
+      );
+      try {
+        // getValidXeroToken stores the refreshed token in the DB.
+        // The next _processJob run will load the fresh integration row.
+        await getValidXeroToken(integration.id);
+      } catch (refreshErr) {
+        throw new Error(
+          `Xero token refresh failed (integration ${integration.id}): ${
+            refreshErr instanceof Error ? refreshErr.message : String(refreshErr)
+          }`,
+        );
+      }
+      throw new Error(
+        `Xero ${response.status} — token refreshed, will retry on next queue run`,
+      );
+    }
+
+    // 400 Bad Request / 404 Not Found: payload or data problem — not recoverable by retry.
+    // Queue will exhaust retries and set status FAILED; error message is the audit trail.
+    if (response.status === 400 || response.status === 404) {
+      const detail =
+        errorData?.ValidationErrors?.map((e: { Message: string }) => e.Message).join("; ") ??
+        errorData?.Detail ??
+        response.statusText;
+      throw new Error(
+        `Xero ${response.status} (non-recoverable): ${detail} — ${JSON.stringify(errorData)}`,
+      );
+    }
+
+    // Catch-all for unexpected status codes — retryable
     throw new Error(
-      `Xero API error: ${response.statusText} - ${JSON.stringify(errorData)}`,
+      `Xero API error ${response.status}: ${response.statusText} — ${JSON.stringify(errorData)}`,
     );
   }
 
@@ -233,30 +329,10 @@ export async function updateXeroInvoiceStatus(
 }
 
 /**
- * Helper: Map RestoreAssist invoice status to Xero status
+ * RA-870: Format an 11-digit ABN to Xero TaxNumber format (XX XXX XXX XXX).
+ * Returns null if the input is not a valid 11-digit ABN.
  */
-function mapInvoiceStatusToXero(
-  status: string,
-): "DRAFT" | "SUBMITTED" | "AUTHORISED" {
-  switch (status) {
-    case "DRAFT":
-      return "DRAFT";
-    case "SENT":
-    case "VIEWED":
-      return "SUBMITTED";
-    case "PARTIALLY_PAID":
-    case "PAID":
-    case "OVERDUE":
-      return "AUTHORISED"; // Must be authorised to accept payments
-    default:
-      return "DRAFT";
-  }
-}
-
-/**
- * Helper: Format date for Xero API (YYYY-MM-DD)
- */
-function formatDateForXero(date: Date | string): string {
-  const d = new Date(date);
-  return d.toISOString().split("T")[0];
-}
+export function formatABN(abn: string | null | undefined): string | null {
+  if (!abn) return null;
+  const digits = abn.replace(/\D/g, "");
+  if (digits.length !== 1
