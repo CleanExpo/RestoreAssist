@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 import {
   ArrowLeft,
   RefreshCw,
@@ -428,7 +429,7 @@ export default function SyncErrorsPage() {
         await fetchErrors();
       } catch (err: any) {
         console.error("[Retry]", err);
-        alert(`Retry failed: ${err.message}`);
+        toast.error(`Retry failed: ${err.message}`);
       } finally {
         setRetryingId(null);
       }

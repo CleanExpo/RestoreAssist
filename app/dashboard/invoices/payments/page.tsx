@@ -1,5 +1,6 @@
 "use client";
 
+import toast from "react-hot-toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -338,7 +339,7 @@ export default function PaymentRegisterPage() {
             : p,
         ),
       );
-      alert("Failed to update reconciliation status. Please try again.");
+      toast.error("Failed to update reconciliation status. Please try again.");
     }
   };
 
