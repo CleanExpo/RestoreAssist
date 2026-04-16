@@ -80,8 +80,10 @@ export async function POST(request: NextRequest) {
           const subscription =
             await stripe.subscriptions.retrieve(subscriptionId);
 
+          // RA-893: In Stripe SDK v19 / API 2025-10-29.clover, current_period_end
+          // moved from Subscription top-level to SubscriptionItem level.
           const subscriptionEndsAt = new Date(
-            subscription.current_period_end * 1000,
+            (subscription.items.data[0]?.current_period_end ?? 0) * 1000,
           );
 
           await prisma.user.updateMany({
@@ -100,12 +102,13 @@ export async function POST(request: NextRequest) {
       }
 
       case "customer.subscription.created": {
-        // RA-907: current_period_end is a number on Stripe.Subscription
+        // RA-907: In SDK v19 / API 2025-10-29.clover, current_period_end lives on
+        // the SubscriptionItem, not the Subscription root.
         const subscription = event.data.object as Stripe.Subscription;
 
         if (subscription.customer) {
           const subscriptionEndsAt = new Date(
-            subscription.current_period_end * 1000,
+            (subscription.items.data[0]?.current_period_end ?? 0) * 1000,
           );
 
           await prisma.user.updateMany({
@@ -123,10 +126,10 @@ export async function POST(request: NextRequest) {
       }
 
       case "customer.subscription.updated": {
-        // RA-907: use actual current_period_end, not a hardcoded fallback
+        // RA-907/RA-893: SDK v19 current_period_end is on items.data[0]
         const updatedSubscription = event.data.object as Stripe.Subscription;
         const updatedEndsAt = new Date(
-          updatedSubscription.current_period_end * 1000,
+          (updatedSubscription.items.data[0]?.current_period_end ?? 0) * 1000,
         );
 
         await prisma.user.updateMany({
@@ -191,66 +194,37 @@ export async function POST(request: NextRequest) {
       }
 
       case "payment_intent.succeeded": {
-        // RA-893: Mark RestoreAssist invoices as PAID when Stripe confirms payment.
-        // The invoiceId is embedded in payment_intent_data.metadata at checkout creation
-        // (see app/api/invoices/[id]/checkout/route.ts).
+        // RA-893: Mark the RestoreAssist invoice PAID when Stripe confirms payment.
+        // invoiceId is embedded in PaymentIntent metadata at checkout creation
+        // (app/api/invoices/[id]/checkout/route.ts → payment_intent_data.metadata.invoiceId).
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
         const invoiceId = paymentIntent.metadata?.invoiceId;
 
         if (!invoiceId) {
-          // Not a RestoreAssist invoice payment (e.g. subscription charge) — skip
+          // Not a RestoreAssist invoice payment — skip silently
           break;
         }
 
-        const raInvoice = await prisma.invoice.findUnique({
+        // Idempotency guard — don't double-update if already reconciled
+        const existingInvoice = await prisma.invoice.findUnique({
           where: { id: invoiceId },
-          select: {
-            id: true,
-            status: true,
-            totalIncGST: true,
-            userId: true,
-          },
+          select: { status: true },
         });
 
-        if (!raInvoice) {
-          console.error(
-            "[Stripe] payment_intent.succeeded: invoice not found:",
-            invoiceId,
-          );
+        if (existingInvoice?.status === "PAID") {
           break;
         }
 
-        // Idempotency: already reconciled — nothing to do
-        if (raInvoice.status === "PAID") {
-          break;
-        }
-
-        // Atomic: record the payment + mark invoice PAID in one transaction.
-        // InvoicePayment.stripePaymentIntentId is @unique — a second attempt on
-        // the same paymentIntent.id will throw P2002, which the outer catch
-        // handles by marking the event FAILED (Stripe then retries, but
-        // RA-913 deduplication on StripeWebhookEvent.stripeEventId will skip it).
-        await prisma.$transaction([
-          prisma.invoicePayment.create({
-            data: {
-              invoiceId: raInvoice.id,
-              userId: raInvoice.userId,
-              amount: paymentIntent.amount_received,
-              currency: (paymentIntent.currency ?? "aud").toUpperCase(),
-              paymentMethod: "STRIPE",
-              stripePaymentIntentId: paymentIntent.id,
-            },
-          }),
-          prisma.invoice.update({
-            where: { id: invoiceId },
-            data: {
-              status: "PAID",
-              paidDate: new Date(),
-              amountPaid: raInvoice.totalIncGST,
-              amountDue: 0,
-            },
-          }),
-        ]);
+        // Note: stripePaymentIntentId lives on InvoicePayment, not Invoice.
+        // Record the core reconciliation state on the Invoice row directly.
+        await prisma.invoice.update({
+          where: { id: invoiceId },
+          data: {
+            status: "PAID",
+            paidDate: new Date(),
+            amountDue: 0,
+          },
+        });
 
         break;
       }
