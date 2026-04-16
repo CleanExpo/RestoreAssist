@@ -183,6 +183,27 @@ function parseFromNextData(
 
 // ── JSON-LD extraction ─────────────────────────────────────
 
+/**
+ * Schema.org values can be plain numbers OR QuantitativeValue objects like
+ * { "@type": "QuantitativeValue", "unitText": "sqm", "value": 85 }.
+ * This helper always returns a plain number or undefined.
+ */
+function coerceSchemaNumber(
+  v: unknown,
+): number | undefined {
+  if (typeof v === "number") return isNaN(v) ? undefined : v;
+  if (typeof v === "string") {
+    const n = parseFloat(v.replace(/,/g, ""));
+    return isNaN(n) ? undefined : n;
+  }
+  if (v && typeof v === "object") {
+    // QuantitativeValue: { value: number, unitText: "sqm" }
+    const qv = v as Record<string, unknown>;
+    return coerceSchemaNumber(qv.value ?? qv.minValue);
+  }
+  return undefined;
+}
+
 function parseFromJsonLd(
   jsonLd: Record<string, unknown>[],
 ): Partial<ScrapedPropertyData> | null {
@@ -212,12 +233,12 @@ function parseFromJsonLd(
 
   return {
     address,
-    bedrooms: obj.numberOfBedrooms as number | undefined,
-    bathrooms: (obj.numberOfBathroomsTotal ?? obj.numberOfBathrooms) as
-      | number
-      | undefined,
-    landSizeM2: (obj.lotSize ?? obj.floorSize) as number | undefined,
-    floorAreaM2: obj.floorSize as number | undefined,
+    bedrooms: coerceSchemaNumber(obj.numberOfBedrooms),
+    bathrooms: coerceSchemaNumber(
+      obj.numberOfBathroomsTotal ?? obj.numberOfBathrooms,
+    ),
+    landSizeM2: coerceSchemaNumber(obj.lotSize ?? obj.floorSize),
+    floorAreaM2: coerceSchemaNumber(obj.floorSize),
     propertyType: obj["@type"] as string | undefined,
   };
 }
@@ -243,7 +264,22 @@ export function parseOnTheHouseHTML(
   const fromJsonLd = parseFromJsonLd(jsonLd);
 
   // Merge — Next.js data wins over JSON-LD
-  const merged = { ...fromJsonLd, ...fromNext };
+  const rawMerged = { ...fromJsonLd, ...fromNext };
+
+  // Sanity-clamp numeric fields: OTH occasionally returns bogus values (e.g. 33
+  // bedrooms) when the JSON path has drifted. Cap at realistic residential maxima
+  // so the HTML-fallback regex gets a chance to provide a better answer.
+  const clamp = (
+    v: number | undefined,
+    max: number,
+  ): number | undefined => (v !== undefined && v <= max ? v : undefined);
+  const merged = {
+    ...rawMerged,
+    bedrooms: clamp(rawMerged.bedrooms, 20),
+    bathrooms: clamp(rawMerged.bathrooms, 15),
+    carSpaces: clamp(rawMerged.carSpaces, 20),
+  };
+
   const confidence: "high" | "medium" | "low" =
     fromNext && Object.keys(fromNext).length > 2
       ? "high"
@@ -251,25 +287,32 @@ export function parseOnTheHouseHTML(
         ? "medium"
         : "low";
 
-  // 3. HTML fallback for any missing values
-  const bedrooms =
+  // 3. HTML fallback for any missing values — clamp finals too so bogus regex
+  //    matches (e.g. scraped "99 bedrooms" as a placeholder) don't leak through
+  const bedrooms = clamp(
     merged.bedrooms ??
-    extractNumber(stripped, [
-      /(\d+)\s*bed(?:room)?s?/i,
-      /bed(?:room)?s?\s*:\s*(\d+)/i,
-    ]);
-  const bathrooms =
+      extractNumber(stripped, [
+        /(\d+)\s*bed(?:room)?s?/i,
+        /bed(?:room)?s?\s*:\s*(\d+)/i,
+      ]),
+    20,
+  );
+  const bathrooms = clamp(
     merged.bathrooms ??
-    extractNumber(stripped, [
-      /(\d+)\s*bath(?:room)?s?/i,
-      /bath(?:room)?s?\s*:\s*(\d+)/i,
-    ]);
-  const carSpaces =
+      extractNumber(stripped, [
+        /(\d+)\s*bath(?:room)?s?/i,
+        /bath(?:room)?s?\s*:\s*(\d+)/i,
+      ]),
+    15,
+  );
+  const carSpaces = clamp(
     merged.carSpaces ??
-    extractNumber(stripped, [
-      /(\d+)\s*car\s*(?:space|garage|park)/i,
-      /garage\s*:\s*(\d+)/i,
-    ]);
+      extractNumber(stripped, [
+        /(\d+)\s*car\s*(?:space|garage|park)/i,
+        /garage\s*:\s*(\d+)/i,
+      ]),
+    20,
+  );
   const landSizeM2 =
     merged.landSizeM2 ??
     extractFloat(stripped, [
@@ -407,10 +450,12 @@ export function parseDomainComAuSearchResults(
     }
   }
 
-  // HTML fallback — Domain property URLs contain "property-"
+  // HTML fallback — Domain property URLs contain "property-" followed by a
+  // numeric ID at the end (hyphen-separated, e.g. /property-house-nsw-manly-2095-18461593)
+  // or slash-separated (older format). Match both.
   if (results.length === 0) {
     for (const m of html.matchAll(
-      /href="(\/property-[^"?#]+\/\d+[^"?#]*)"/gi,
+      /href="(\/property-[^"?#]*\d{5,}[^"?#]*)"/gi,
     )) {
       const full = absoluteUrl(m[1], baseUrl);
       if (!seen.has(full)) {

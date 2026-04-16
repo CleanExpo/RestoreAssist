@@ -26,7 +26,7 @@ export default function VideoObjectSchema({
   viewCount,
 }: VideoObjectSchemaProps) {
   const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://restoreassist.com.au";
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://restoreassist.app";
 
   const schema: Record<string, unknown> = {
     "@context": "https://schema.org",

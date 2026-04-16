@@ -22,8 +22,8 @@ export function OrganizationSchema() {
     "@context": "https://schema.org",
     "@type": "Organization",
     name: "RestoreAssist",
-    url: "https://restoreassist.com.au",
-    logo: "https://restoreassist.com.au/logo.png",
+    url: "https://restoreassist.app",
+    logo: "https://restoreassist.app/logo.png",
     description:
       "AI-powered restoration report software for Australian water damage and disaster recovery professionals. IICRC S500 compliant.",
     address: {

@@ -108,7 +108,7 @@ async function testRLSPolicies() {
 async function testDemoDataPresent() {
   try {
     const user = await prisma.user.findUnique({
-      where: { email: "demo@restoreassist.com.au" },
+      where: { email: "demo@restoreassist.app" },
     });
     if (!user) {
       fail("Demo user", "Not found — run: npx tsx prisma/seed-demo.ts");

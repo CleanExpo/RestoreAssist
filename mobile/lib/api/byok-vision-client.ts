@@ -13,7 +13,7 @@
 import type { S500VisionResult } from "@/lib/ai/byok-vision-client";
 
 const API_BASE =
-  process.env.EXPO_PUBLIC_API_BASE ?? "https://restoreassist.com.au";
+  process.env.EXPO_PUBLIC_API_BASE ?? "https://restoreassist.app";
 
 // ─── Request types ────────────────────────────────────────────────────────────
 

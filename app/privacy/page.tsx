@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 };
 
 const EFFECTIVE_DATE = "26 March 2026";
-const CONTACT_EMAIL = "privacy@restoreassist.com.au";
+const CONTACT_EMAIL = "privacy@restoreassist.app";
 
 export default function PrivacyPage() {
   return (

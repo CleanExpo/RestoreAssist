@@ -613,12 +613,11 @@ Analyze this document thoroughly and extract every piece of available informatio
           );
         }
       } catch (parseError: any) {
+        // RA-786: do not leak parseError.message to clients
+        console.error("PDF parse error:", parseError);
         return NextResponse.json(
           {
             error: "Failed to parse extracted data from PDF.",
-            details:
-              parseError.message ||
-              "The AI response format was unexpected. Please try uploading the PDF again.",
             suggestion:
               "If this persists, the PDF format may be too complex. Try a simpler report or contact support.",
           },
@@ -936,13 +935,12 @@ Analyze this document thoroughly and extract every piece of available informatio
       );
     }
   } catch (error: any) {
+    // RA-786: do not leak error.message to clients
     console.error("Unexpected error in PDF upload handler:", error);
 
     return NextResponse.json(
       {
         error: "Failed to process PDF upload",
-        details:
-          error.message || "An unexpected error occurred. Please try again.",
         suggestion:
           "If this problem persists, please contact support with details about the file you're trying to upload.",
       },

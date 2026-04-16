@@ -44,12 +44,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ id: feedback.id, success: true });
   } catch (error: unknown) {
+    // RA-786: do not leak error.message to clients
     console.error("Feedback POST error:", error);
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error ? error.message : "Failed to submit feedback",
-      },
+      { error: "Failed to submit feedback" },
       { status: 500 },
     );
   }
@@ -114,12 +112,10 @@ export async function GET(request: NextRequest) {
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
   } catch (error: unknown) {
+    // RA-786: do not leak error.message to clients
     console.error("Feedback GET error:", error);
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error ? error.message : "Failed to load feedback",
-      },
+      { error: "Failed to load feedback" },
       { status: 500 },
     );
   }

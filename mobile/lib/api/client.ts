@@ -1,7 +1,7 @@
 import type { Inspection } from "@/shared/types";
 
 const API_BASE =
-  process.env.EXPO_PUBLIC_API_BASE ?? "https://restoreassist.com.au";
+  process.env.EXPO_PUBLIC_API_BASE ?? "https://restoreassist.app";
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const controller = new AbortController();

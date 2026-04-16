@@ -13,27 +13,10 @@ import { verifyCronAuth } from "@/lib/cron/auth";
  * Requires CRON_SECRET for security
  */
 export async function POST(request: NextRequest) {
+  const authError = verifyCronAuth(request);
+  if (authError) return authError;
+
   try {
-    // Verify cron secret for security
-    const authHeader = request.headers.get("authorization");
-    const cronSecret = process.env.CRON_SECRET;
-
-    if (!cronSecret) {
-      console.error("[Webhook Process] CRON_SECRET not configured");
-      return NextResponse.json(
-        { error: "CRON_SECRET not configured" },
-        { status: 500 },
-      );
-    }
-
-    // Allow Bearer token or direct secret
-    const providedSecret = authHeader?.replace("Bearer ", "");
-
-    if (providedSecret !== cronSecret) {
-      console.error("[Webhook Process] Invalid authorization");
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     // Process the queue
     const result = await processWebhookQueue({
       batchSize: 20,
@@ -54,7 +37,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Unknown error",
+        error: "Webhook processing failed",
       },
       { status: 500 },
     );
@@ -85,7 +68,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Unknown error",
+        error: "Webhook processing failed",
       },
       { status: 500 },
     );

@@ -190,6 +190,71 @@ export async function POST(request: NextRequest) {
         break;
       }
 
+      case "payment_intent.succeeded": {
+        // RA-893: Mark RestoreAssist invoices as PAID when Stripe confirms payment.
+        // The invoiceId is embedded in payment_intent_data.metadata at checkout creation
+        // (see app/api/invoices/[id]/checkout/route.ts).
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        const invoiceId = paymentIntent.metadata?.invoiceId;
+
+        if (!invoiceId) {
+          // Not a RestoreAssist invoice payment (e.g. subscription charge) — skip
+          break;
+        }
+
+        const raInvoice = await prisma.invoice.findUnique({
+          where: { id: invoiceId },
+          select: {
+            id: true,
+            status: true,
+            totalIncGST: true,
+            userId: true,
+          },
+        });
+
+        if (!raInvoice) {
+          console.error(
+            "[Stripe] payment_intent.succeeded: invoice not found:",
+            invoiceId,
+          );
+          break;
+        }
+
+        // Idempotency: already reconciled — nothing to do
+        if (raInvoice.status === "PAID") {
+          break;
+        }
+
+        // Atomic: record the payment + mark invoice PAID in one transaction.
+        // InvoicePayment.stripePaymentIntentId is @unique — a second attempt on
+        // the same paymentIntent.id will throw P2002, which the outer catch
+        // handles by marking the event FAILED (Stripe then retries, but
+        // RA-913 deduplication on StripeWebhookEvent.stripeEventId will skip it).
+        await prisma.$transaction([
+          prisma.invoicePayment.create({
+            data: {
+              invoiceId: raInvoice.id,
+              userId: raInvoice.userId,
+              amount: paymentIntent.amount_received,
+              currency: (paymentIntent.currency ?? "aud").toUpperCase(),
+              paymentMethod: "STRIPE",
+              stripePaymentIntentId: paymentIntent.id,
+            },
+          }),
+          prisma.invoice.update({
+            where: { id: invoiceId },
+            data: {
+              status: "PAID",
+              paidDate: new Date(),
+              amountPaid: raInvoice.totalIncGST,
+              amountDue: 0,
+            },
+          }),
+        ]);
+
+        break;
+      }
+
       default:
         // Unhandled event types are silently ignored
         break;

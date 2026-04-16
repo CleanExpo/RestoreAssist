@@ -693,8 +693,8 @@ export async function POST(request: NextRequest) {
       message,
     });
   } catch (error) {
+    // RA-786: do not leak error.message to clients
     console.error("[ascora/sync POST]", error);
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: "Ascora sync failed" }, { status: 500 });
   }
 }

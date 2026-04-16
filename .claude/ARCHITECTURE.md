@@ -6,7 +6,7 @@ RestoreAssist is a full-stack compliance platform for Australian water damage re
 
 The platform runs as a Next.js App Router application deployed on DigitalOcean App Platform, with Vercel used for PR preview deployments. PostgreSQL (Supabase-hosted) is the primary datastore via Prisma ORM. Authentication uses NextAuth.js with Google OAuth + Firebase for mobile auth flows.
 
-A Capacitor-based mobile app wraps the web app in a native WebView for Android/iOS (server-hosted — loads restoreassist.com.au directly). A separate React Native/Expo scaffold exists in `mobile/` for future native field capture features.
+A Capacitor-based mobile app wraps the web app in a native WebView for Android/iOS (server-hosted — loads restoreassist.app directly). A separate React Native/Expo scaffold exists in `mobile/` for future native field capture features.
 
 ## Component Map
 

@@ -124,13 +124,10 @@ export async function POST(request: NextRequest) {
       metadata: metadata || {},
     });
   } catch (error) {
+    // RA-786: do not leak error.message to clients
     console.error("Error submitting form:", error);
     return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to submit form",
-        details: error instanceof Error ? error.message : "Unknown error",
-      },
+      { success: false, error: "Failed to submit form" },
       { status: 500 },
     );
   }

@@ -75,7 +75,7 @@ export async function POST(
     const fromEmail =
       invoice.user.businessEmail ||
       invoice.user.email ||
-      "invoices@restoreassist.com.au";
+      "invoices@restoreassist.app";
     const fromName =
       invoice.user.businessName || invoice.user.name || "RestoreAssist";
 
@@ -91,7 +91,7 @@ export async function POST(
       businessName: fromName,
       businessEmail: invoice.user.businessEmail || undefined,
       businessPhone: invoice.user.businessPhone || undefined,
-      appUrl: process.env.NEXT_PUBLIC_APP_URL || "https://restoreassist.com.au",
+      appUrl: process.env.NEXT_PUBLIC_APP_URL || "https://restoreassist.app",
     });
 
     try {
@@ -142,9 +142,10 @@ export async function POST(
         emailId: emailData?.id,
       });
     } catch (emailError: any) {
+      // RA-786: do not leak emailError.message to clients
       console.error("Email send error:", emailError);
       return NextResponse.json(
-        { error: "Failed to send email: " + emailError.message },
+        { error: "Failed to send email" },
         { status: 500 },
       );
     }

@@ -57,8 +57,6 @@ export function FloorPlanUnderlayLoader({
 }: FloorPlanUnderlayLoaderProps) {
   const [expanded, setExpanded] = useState(autoFetch && !!defaultAddress);
   const [address, setAddress] = useState(defaultAddress);
-  const [directUrl, setDirectUrl] = useState("");
-  const [showDirectUrl, setShowDirectUrl] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<ScrapedPropertyData | null>(null);
@@ -100,27 +98,21 @@ export function FloorPlanUnderlayLoader({
 
   const fetchListing = useCallback(async () => {
     const q = address.trim();
-    const urlInput = directUrl.trim();
-    if (!q && !urlInput) return;
+    if (!q) return;
     setLoading(true);
     setError(null);
     setResults(null);
     setSelectedImage(null);
 
     try {
-      const body: Record<string, string> = {};
-      if (urlInput) {
-        body.url = urlInput;
-      } else {
-        body.address = q;
-        if (defaultPostcode) body.postcode = defaultPostcode;
-        if (inspectionId) body.inspectionId = inspectionId;
-      }
-
       const res = await fetch("/api/properties/scrape", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          address: q,
+          postcode: defaultPostcode || undefined,
+          inspectionId: inspectionId || undefined,
+        }),
       });
       const json = await res.json();
 
@@ -141,7 +133,7 @@ export function FloorPlanUnderlayLoader({
     } finally {
       setLoading(false);
     }
-  }, [address, directUrl, defaultPostcode, inspectionId]);
+  }, [address, defaultPostcode, inspectionId]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") fetchListing();
@@ -210,64 +202,32 @@ export function FloorPlanUnderlayLoader({
         <div className="px-3 pb-3 pt-1 border-t border-neutral-100 dark:border-slate-700/50 space-y-3">
           {/* Fetch from listing */}
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wide">
-                Fetch from OnTheHouse
-              </label>
+            <label className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wide">
+              Fetch from OnTheHouse
+            </label>
+            <div className="flex gap-1.5">
+              <input
+                type="text"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Enter property address…"
+                className="flex-1 min-w-0 text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-400"
+              />
               <button
                 type="button"
-                onClick={() => { setShowDirectUrl(v => !v); setError(null); }}
-                className="text-[11px] text-cyan-500 hover:text-cyan-400 transition-colors"
+                onClick={fetchListing}
+                disabled={loading || !address.trim()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-cyan-500 text-white hover:bg-cyan-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
               >
-                {showDirectUrl ? "Use address" : "Paste URL instead"}
+                {loading ? (
+                  <Loader2 size={13} className="animate-spin" />
+                ) : (
+                  <MapPin size={13} />
+                )}
+                Fetch
               </button>
             </div>
-
-            {showDirectUrl ? (
-              <div className="flex gap-1.5">
-                <input
-                  type="url"
-                  value={directUrl}
-                  onChange={(e) => setDirectUrl(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && fetchListing()}
-                  placeholder="https://www.onthehouse.com.au/property/…"
-                  className="flex-1 min-w-0 text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-400"
-                />
-                <button
-                  type="button"
-                  onClick={fetchListing}
-                  disabled={loading || !directUrl.trim()}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-cyan-500 text-white hover:bg-cyan-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
-                >
-                  {loading ? <Loader2 size={13} className="animate-spin" /> : <MapPin size={13} />}
-                  Fetch
-                </button>
-              </div>
-            ) : (
-              <div className="flex gap-1.5">
-                <input
-                  type="text"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Enter property address…"
-                  className="flex-1 min-w-0 text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-400"
-                />
-                <button
-                  type="button"
-                  onClick={fetchListing}
-                  disabled={loading || !address.trim()}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-cyan-500 text-white hover:bg-cyan-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
-                >
-                  {loading ? (
-                    <Loader2 size={13} className="animate-spin" />
-                  ) : (
-                    <MapPin size={13} />
-                  )}
-                  Fetch
-                </button>
-              </div>
-            )}
           </div>
 
           {/* Upload option */}

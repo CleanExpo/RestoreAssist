@@ -4,7 +4,7 @@ import { colors, spacing, shadows } from "@/constants/theme";
 import { useAppStore } from "@/lib/store";
 
 const API_ENDPOINT =
-  process.env.EXPO_PUBLIC_API_BASE ?? "https://restoreassist.com.au";
+  process.env.EXPO_PUBLIC_API_BASE ?? "https://restoreassist.app";
 
 const MONO = Platform.select({
   ios: "Menlo",
