@@ -4,6 +4,24 @@ import { authOptions } from "@/lib/auth";
 import { validateCsrf } from "@/lib/csrf";
 import { stripe } from "@/lib/stripe";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { prisma } from "@/lib/prisma";
+import { z } from "zod";
+
+// RA-1243: accept optional reason + comment so we can capture churn signal.
+// Both are optional to preserve backwards compatibility with the old
+// confirm()-based cancel that sent an empty body.
+const cancelSchema = z.object({
+  reason: z
+    .enum([
+      "too_expensive",
+      "not_using",
+      "missing_feature",
+      "switching",
+      "other",
+    ])
+    .optional(),
+  comment: z.string().max(2000).optional(),
+});
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,6 +41,16 @@ export async function POST(request: NextRequest) {
       key: session.user.id,
     });
     if (rateLimited) return rateLimited;
+
+    // Body is optional — old clients send nothing.
+    const bodyRaw = await request.json().catch(() => ({}));
+    const parsed = cancelSchema.safeParse(bodyRaw);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Validation failed", issues: parsed.error.issues },
+        { status: 422 },
+      );
+    }
 
     // Find customer
     const customers = await stripe.customers.list({
@@ -57,6 +85,33 @@ export async function POST(request: NextRequest) {
     await stripe.subscriptions.update(subscription.id, {
       cancel_at_period_end: true,
     });
+
+    // Persist churn feedback (best-effort — never block the cancel on this).
+    if (parsed.data.reason) {
+      try {
+        const user = await prisma.user.findUnique({
+          where: { id: session.user.id },
+          select: { createdAt: true, subscriptionPlan: true },
+        });
+        const tenureDays = user?.createdAt
+          ? Math.floor(
+              (Date.now() - user.createdAt.getTime()) / (24 * 60 * 60 * 1000),
+            )
+          : null;
+
+        await prisma.cancellationFeedback.create({
+          data: {
+            userId: session.user.id,
+            reason: parsed.data.reason,
+            comment: parsed.data.comment ?? null,
+            subscriptionPlan: user?.subscriptionPlan ?? null,
+            tenureDays,
+          },
+        });
+      } catch (err) {
+        console.error("[cancel-subscription] Failed to persist feedback:", err);
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

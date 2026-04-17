@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { PRICING_CONFIG, type PricingPlan } from "@/lib/pricing";
 import toast from "react-hot-toast";
+import { CancelSubscriptionDialog } from "@/components/billing/CancelSubscriptionDialog";
 
 interface Subscription {
   id: string;
@@ -38,6 +39,7 @@ export default function SubscriptionPage() {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
   const [canceling, setCanceling] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [reactivating, setReactivating] = useState(false);
   const [pricingLoading, setPricingLoading] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -106,33 +108,11 @@ export default function SubscriptionPage() {
     }
   };
 
-  const handleCancelSubscription = async () => {
-    if (
-      !confirm(
-        "Are you sure you want to cancel your subscription? You will lose access to premium features at the end of your current billing period.",
-      )
-    ) {
-      return;
-    }
-
-    setCanceling(true);
-    try {
-      const response = await fetch("/api/cancel-subscription", {
-        method: "POST",
-      });
-
-      if (response.ok) {
-        toast.success("Subscription canceled successfully");
-        fetchSubscription();
-      } else {
-        toast.error("Failed to cancel subscription");
-      }
-    } catch (error) {
-      console.error("Error canceling subscription:", error);
-      toast.error("Failed to cancel subscription");
-    } finally {
-      setCanceling(false);
-    }
+  // RA-1243: cancel flow now opens a dialog that captures reason + comment
+  // before calling /api/cancel-subscription. Replaces the old confirm() which
+  // gave users no exit survey and gave us no churn signal.
+  const handleCancelSubscription = () => {
+    setShowCancelDialog(true);
   };
 
   const handleReactivateSubscription = async () => {
@@ -542,6 +522,13 @@ export default function SubscriptionPage() {
           </div>
         </div>
       )}
+
+      {/* RA-1243: cancel dialog with reason + comment capture */}
+      <CancelSubscriptionDialog
+        open={showCancelDialog}
+        onOpenChange={setShowCancelDialog}
+        onCancelled={() => fetchSubscription()}
+      />
     </div>
   );
 }
