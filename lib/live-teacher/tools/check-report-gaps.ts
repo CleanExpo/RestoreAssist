@@ -83,7 +83,7 @@ export async function checkReportGaps(
       field: "makeSafe.water_stopped",
       severity: "block",
       description:
-        "Make-safe action 'water_stopped' is applicable but not yet completed (IICRC S500:2025 §5.1)",
+        "Stabilisation action 'water_stopped' is applicable but not yet completed (IICRC S500:2025 §5.1)",
     });
   }
 

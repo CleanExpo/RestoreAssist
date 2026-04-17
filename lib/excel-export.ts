@@ -497,11 +497,11 @@ export async function generateSingleReportExcel(
     { field: "", value: "" },
     { field: "PROJECT TIMELINE", value: "" },
     {
-      field: "Phase 1 Start Date (Make-safe)",
+      field: "Phase 1 Start Date (Stabilisation)",
       value: formatDateOnly(report.phase1StartDate),
     },
     {
-      field: "Phase 1 End Date (Make-safe)",
+      field: "Phase 1 End Date (Stabilisation)",
       value: formatDateOnly(report.phase1EndDate),
     },
     {

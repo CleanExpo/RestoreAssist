@@ -331,8 +331,8 @@ Extract the following fields if available in the document:
 - emergencyRepairPerformed: "Yes" or "No" or description (if mentioned)
 
 **Timeline Estimation:**
-- phase1StartDate: Phase 1 (Make-safe) start date (format: YYYY-MM-DD)
-- phase1EndDate: Phase 1 (Make-safe) end date (format: YYYY-MM-DD)
+- phase1StartDate: Phase 1 (Stabilisation) start date (format: YYYY-MM-DD)
+- phase1EndDate: Phase 1 (Stabilisation) end date (format: YYYY-MM-DD)
 - phase2StartDate: Phase 2 (Remediation/Drying) start date (format: YYYY-MM-DD)
 - phase2EndDate: Phase 2 (Remediation/Drying) end date (format: YYYY-MM-DD)
 - phase3StartDate: Phase 3 (Verification/Handover) start date (format: YYYY-MM-DD)

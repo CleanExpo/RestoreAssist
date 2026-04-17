@@ -39,7 +39,7 @@ export const JOB_TYPE_LABELS: Record<JobType, string> = {
   IMPACT_DAMAGE: "Impact Damage",
   VANDALISM: "Vandalism",
   CLANDESTINE_HAZARDOUS: "Clandestine / Hazardous",
-  MAKE_SAFE: "Make Safe Only",
+  MAKE_SAFE: "Stabilisation Only",
   CONTENTS_ONLY: "Contents Only",
   COMMERCIAL: "Commercial",
   STRATA: "Strata / Body Corporate",
@@ -350,12 +350,12 @@ const STEP_STRUCTURAL_ASSESSMENT: WorkflowStepDefinition = {
 
 const STEP_MAKE_SAFE_ACTIONS: WorkflowStepDefinition = {
   stepKey: "make_safe_actions",
-  stepTitle: "Make Safe Actions",
+  stepTitle: "Stabilisation Actions",
   stepDescription:
-    "Perform immediate make-safe: isolate electrical if water near wiring, " +
+    "Perform immediate stabilisation (make-safe): isolate electrical if water near wiring, " +
     "board up broken windows/doors, tarp damaged roof areas, " +
     "extract standing water, remove trip hazards. " +
-    "Photograph before AND after each make-safe action.",
+    "Photograph before AND after each stabilisation action.",
   stepDescriptionShort:
     "Isolate hazards + extract water + before/after photos.",
   requiredEvidenceClasses: ["PHOTO_DAMAGE", "PHOTO_PROGRESS"],
@@ -364,7 +364,7 @@ const STEP_MAKE_SAFE_ACTIONS: WorkflowStepDefinition = {
   isMandatory: true,
   riskTier: 2,
   escalationNote:
-    "Elevated: Make-safe documentation protects against liability.",
+    "Elevated: Stabilisation documentation protects against liability.",
 };
 
 const STEP_PROGRESS_MONITORING: WorkflowStepDefinition = {
@@ -596,8 +596,8 @@ const WORKFLOW_CLANDESTINE: WorkflowTemplate = {
 
 const WORKFLOW_MAKE_SAFE: WorkflowTemplate = {
   jobType: "MAKE_SAFE",
-  label: "Make Safe Only",
-  description: "Emergency make-safe — no full restoration scope.",
+  label: "Stabilisation Only",
+  description: "Emergency stabilisation (make-safe) — no full restoration scope.",
   steps: [
     STEP_SITE_ARRIVAL,
     STEP_CLIENT_AUTHORITY,
