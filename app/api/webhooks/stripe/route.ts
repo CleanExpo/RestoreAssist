@@ -5,6 +5,35 @@ import { headers } from "next/headers";
 import Stripe from "stripe";
 import { SubscriptionStatus } from "@prisma/client";
 
+/**
+ * Best-effort human-readable plan name from a Stripe Subscription.
+ * Prefers the Product name (e.g. "Monthly Plan - 50 Reports") embedded in
+ * the first SubscriptionItem's price.product. Falls back to Price nickname,
+ * then the recurring interval ("monthly" / "yearly"). Returns null if
+ * Stripe hasn't expanded deep enough — caller should leave subscriptionPlan
+ * untouched in that case.
+ */
+function derivePlanNameFromSubscription(
+  subscription: Stripe.Subscription,
+): string | null {
+  const item = subscription.items?.data?.[0];
+  if (!item) return null;
+  const price = item.price;
+  if (!price) return null;
+
+  const product = price.product;
+  if (product && typeof product === "object" && "name" in product) {
+    return (product as Stripe.Product).name ?? null;
+  }
+
+  if (price.nickname) return price.nickname;
+
+  const interval = price.recurring?.interval;
+  if (interval === "month") return "Monthly Plan";
+  if (interval === "year") return "Yearly Plan";
+  return null;
+}
+
 export async function POST(request: NextRequest) {
   const body = await request.text();
   const hdrs = await headers();
@@ -97,6 +126,11 @@ export async function POST(request: NextRequest) {
             (subscription.items.data[0]?.current_period_end ?? 0) * 1000,
           );
 
+          // Derive subscriptionPlan from the Price/Product on the first item
+          // so the UI has a human-readable plan name. Previously only written
+          // by /api/verify-subscription; the webhook path left it NULL.
+          const subscriptionPlan = derivePlanNameFromSubscription(subscription);
+
           const where = metadataUserId
             ? { id: metadataUserId }
             : customerId
@@ -119,6 +153,7 @@ export async function POST(request: NextRequest) {
               subscriptionStatus: "ACTIVE",
               stripeCustomerId: customerId ?? undefined,
               subscriptionId: subscriptionId,
+              subscriptionPlan: subscriptionPlan ?? undefined,
               subscriptionEndsAt,
               nextBillingDate: subscriptionEndsAt,
               creditsRemaining: 999999, // Unlimited for paid plans
@@ -137,12 +172,14 @@ export async function POST(request: NextRequest) {
           const subscriptionEndsAt = new Date(
             (subscription.items.data[0]?.current_period_end ?? 0) * 1000,
           );
+          const subscriptionPlan = derivePlanNameFromSubscription(subscription);
 
           await prisma.user.updateMany({
             where: { stripeCustomerId: subscription.customer as string },
             data: {
               subscriptionStatus: "ACTIVE",
               subscriptionId: subscription.id,
+              subscriptionPlan: subscriptionPlan ?? undefined,
               subscriptionEndsAt,
               nextBillingDate: subscriptionEndsAt,
               creditsRemaining: 999999,
@@ -297,6 +334,56 @@ export async function POST(request: NextRequest) {
           },
         });
 
+        break;
+      }
+
+      case "customer.subscription.trial_will_end": {
+        // Fires ~3 days before trial ends. Flag on the user so the UI can
+        // show an in-app banner and a cron can send a reminder email.
+        // We intentionally do NOT change subscriptionStatus here — user is
+        // still on TRIAL until the period actually ends.
+        const trialingSub = event.data.object as Stripe.Subscription;
+        const trialEndsAt = trialingSub.trial_end
+          ? new Date(trialingSub.trial_end * 1000)
+          : null;
+
+        if (trialingSub.customer && trialEndsAt) {
+          await prisma.user.updateMany({
+            where: { stripeCustomerId: trialingSub.customer as string },
+            data: { trialEndsAt },
+          });
+        }
+        break;
+      }
+
+      case "customer.updated": {
+        // Keep our cached email in sync if the user changes it in Stripe.
+        // Email is not the canonical identifier (stripeCustomerId is), but
+        // out-of-sync email can break billing notifications.
+        const updatedCustomer = event.data.object as Stripe.Customer;
+        if (updatedCustomer.email && updatedCustomer.id) {
+          await prisma.user.updateMany({
+            where: { stripeCustomerId: updatedCustomer.id },
+            data: { email: updatedCustomer.email },
+          });
+        }
+        break;
+      }
+
+      case "charge.refunded": {
+        // Revoke access on refund. Only if the charge is fully refunded —
+        // partial refunds may or may not be material to the subscription.
+        const refundedCharge = event.data.object as Stripe.Charge;
+        if (
+          refundedCharge.refunded &&
+          refundedCharge.customer &&
+          typeof refundedCharge.customer === "string"
+        ) {
+          await prisma.user.updateMany({
+            where: { stripeCustomerId: refundedCharge.customer },
+            data: { subscriptionStatus: SubscriptionStatus.CANCELED },
+          });
+        }
         break;
       }
 
