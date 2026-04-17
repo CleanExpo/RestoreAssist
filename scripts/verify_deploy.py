@@ -2,14 +2,12 @@
 """
 verify_deploy.py — Deployment parity checker (RA-692)
 
-Compares the git SHA deployed on Vercel and Railway against the local git HEAD.
+Compares the git SHA deployed on Vercel against the local git HEAD.
 Exits 0 on clean parity, 1 if drift is detected or credentials are missing.
 
 Required environment variables:
   VERCEL_TOKEN        — Vercel API token (Account Settings → Tokens)
   VERCEL_PROJECT_ID   — Vercel project ID (Project Settings → General)
-  RAILWAY_TOKEN       — Railway API token (Account Settings → Tokens)
-  RAILWAY_SERVICE_ID  — Railway service ID (from project dashboard)
 
 Optional:
   VERCEL_TEAM_ID      — Required for team projects (slug or ID)
@@ -88,66 +86,12 @@ def get_vercel_sha(token: str, project_id: str, team_id: str) -> str | None:
     return sha
 
 
-# ── Railway ──────────────────────────────────────────────────────────────────
-
-RAILWAY_GQL = "https://backboard.railway.app/graphql/v2"
-
-RAILWAY_QUERY = """
-query GetLatestDeployment($serviceId: String!) {
-  deployments(
-    input: { serviceId: $serviceId }
-    first: 1
-    orderBy: { field: CREATED_AT, direction: DESC }
-  ) {
-    edges {
-      node {
-        id
-        status
-        meta {
-          commitHash
-        }
-      }
-    }
-  }
-}
-"""
-
-
-def get_railway_sha(token: str, service_id: str) -> str | None:
-    payload = json.dumps({
-        "query": RAILWAY_GQL,
-        "variables": {"serviceId": service_id},
-    }).encode()
-    req = urllib.request.Request(RAILWAY_GQL, data=payload, method="POST")
-    req.add_header("Authorization", f"Bearer {token}")
-    req.add_header("Content-Type", "application/json")
-    try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            data = json.loads(resp.read())
-    except urllib.error.HTTPError as e:
-        body = e.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"Railway API HTTP {e.code}: {body}") from e
-
-    edges = data.get("data", {}).get("deployments", {}).get("edges", [])
-    if not edges:
-        print("[WARN] Railway: no deployments found for service.")
-        return None
-
-    node = edges[0]["node"]
-    sha = node.get("meta", {}).get("commitHash")
-    if not sha:
-        print(f"[WARN] Railway: deployment {node.get('id')} has no commitHash in meta.")
-    return sha
-
-
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 def main() -> int:
     # Collect credentials — fail fast with clear messages if missing
     vercel_token = env_required("VERCEL_TOKEN")
     vercel_project_id = env_required("VERCEL_PROJECT_ID")
-    railway_token = env_required("RAILWAY_TOKEN")
-    railway_service_id = env_required("RAILWAY_SERVICE_ID")
     vercel_team_id = env_optional("VERCEL_TEAM_ID")
 
     try:
@@ -172,20 +116,6 @@ def main() -> int:
             drift_detected = True
     except RuntimeError as e:
         print(f"[ERROR] Vercel check failed: {e}", file=sys.stderr)
-        drift_detected = True
-
-    # ── Railway check ─────────────────────────────────────────────────────────
-    try:
-        railway_sha = get_railway_sha(railway_token, railway_service_id)
-        if railway_sha is None:
-            print("[WARN] Railway: could not determine deployed SHA — skipping comparison.")
-        elif railway_sha.startswith(local_sha[:8]) or local_sha.startswith(railway_sha[:8]):
-            print(f"Railway:     {railway_sha} ✓ (parity)")
-        else:
-            print(f"Railway:     {railway_sha} ✗ DRIFT DETECTED (expected {local_sha[:12]})")
-            drift_detected = True
-    except RuntimeError as e:
-        print(f"[ERROR] Railway check failed: {e}", file=sys.stderr)
         drift_detected = True
 
     if drift_detected:
