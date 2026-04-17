@@ -130,7 +130,8 @@ export async function POST(
     if (!makeSafeResult.canSubmit) {
       return NextResponse.json(
         {
-          error: "Stabilisation checklist incomplete — required per AS-IICRC S500:2025",
+          error:
+            "Stabilisation checklist incomplete — required per AS-IICRC S500:2025",
           blockers: makeSafeResult.blockers,
         },
         { status: 422 },
@@ -165,10 +166,6 @@ export async function POST(
     // Per IICRC S500:2025 moisture monitoring concern zone (>20% on Day 3+).
     const moistureTrendResult = await detectMoistureTrendAnomalies(id);
 
-    // ── RA-1131: Duplicate-job detection ───────────────────────────────────────
-    // WARN-ONLY — prevents double-billing and insurer confusion caused by two
-    // technicians independently creating inspections for the same property on
-    // the same day. Suggests merge action; does not block submission.
     const duplicateCheck = await detectDuplicateJob(id);
 
     // ── RA-1136e: NZBS E2/E3 compliance (NZ only) ──────────────────────────────
@@ -290,7 +287,6 @@ export async function POST(
           message: a.message,
         })),
       }),
-      // RA-1131: Duplicate-job candidates (warn-only)
       ...(duplicateCheck.hasDuplicates && {
         duplicateCandidates: duplicateCheck.candidates,
         mergeSuggestion: duplicateCheck.mergeSuggestion,
