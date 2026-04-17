@@ -110,6 +110,24 @@ export async function POST(request: NextRequest) {
     });
     if (rateLimited) return rateLimited;
 
+    // Subscription gate — CANCELED/PAST_DUE users must not run billable calculations
+    const subUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { subscriptionStatus: true },
+    });
+    const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
+    if (
+      !ALLOWED_SUBSCRIPTION_STATUSES.includes(subUser?.subscriptionStatus ?? "")
+    ) {
+      return NextResponse.json(
+        {
+          error: "Active subscription required to calculate quotes",
+          upgradeRequired: true,
+        },
+        { status: 402 },
+      );
+    }
+
     const body = await request.json();
     const parsed = QuoteRequestSchema.safeParse(body);
     if (!parsed.success) {
