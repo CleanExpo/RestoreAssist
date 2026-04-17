@@ -1275,6 +1275,21 @@ model CompanyPricingConfig {
   // Custom Fields (JSON: { category: [{ name: string, value: number }] })
   customFields String? @db.Text
 
+  // RA-848: Optional equipment rates (nullable = not yet configured)
+  negativeAirMachineDailyRate Float?
+  hepaVacuumDailyRate         Float?
+  monitoringVisitDailyRate    Float?
+  mobilisationFee             Float?
+  wasteDisposalPerBinRate     Float?
+  photoDocumentationFee       Float?
+
+  // RA-848: Multipliers (NRPG standard defaults)
+  afterHoursMultiplier     Float @default(1.5)
+  saturdayMultiplier       Float @default(1.5)
+  sundayMultiplier         Float @default(2.0)
+  publicHolidayMultiplier  Float @default(2.5)
+  projectManagementPercent Float @default(8.0)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
