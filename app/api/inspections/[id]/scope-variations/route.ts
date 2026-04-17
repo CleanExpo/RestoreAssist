@@ -18,6 +18,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { evaluateVariation } from "@/lib/compliance/variation-auto-approve";
 
 const VALID_AUTHORISATION_SOURCES = [
   "insurer_email",
@@ -92,10 +93,19 @@ export async function POST(
 
     const { id } = await params;
 
-    // Ownership check
+    // Ownership check — also fetch organisation country for threshold resolution
     const inspection = await prisma.inspection.findFirst({
       where: { id, userId: session.user.id },
-      select: { id: true },
+      select: {
+        id: true,
+        user: {
+          select: {
+            organization: {
+              select: { country: true },
+            },
+          },
+        },
+      },
     });
     if (!inspection) {
       return NextResponse.json(
@@ -115,7 +125,16 @@ export async function POST(
     const body = await request.json();
 
     // Validate required fields
-    const { reason, authorisationSource, authorisationRef, costDeltaCents, notes } = body;
+    const {
+      reason,
+      authorisationSource,
+      authorisationRef,
+      costDeltaCents,
+      costDeltaPercent,
+      waterCategory,
+      isStructural,
+      notes,
+    } = body;
 
     if (!reason || typeof reason !== "string" || !reason.trim()) {
       return NextResponse.json(
@@ -140,10 +159,23 @@ export async function POST(
       );
     }
 
-    // Auto-approval: internal_manager + |delta| <= $100 AUD (10000 cents)
-    const isAutoApprove =
-      authorisationSource === "internal_manager" &&
-      Math.abs(costDeltaCents) <= 10_000;
+    // ── RA-1131: rules-engine auto-decision ──────────────────────────────────
+    const orgCountry = inspection.user.organization?.country ?? "AU";
+    const autoResult = evaluateVariation(
+      {
+        costDeltaCents,
+        costDeltaPercent: typeof costDeltaPercent === "number" ? costDeltaPercent : null,
+        waterCategory: typeof waterCategory === "string" ? waterCategory : null,
+        isStructural: typeof isStructural === "boolean" ? isStructural : null,
+      },
+      { country: orgCountry },
+      null,
+    );
+
+    // Legacy simple gate: internal_manager + |delta| <= $100 AUD still applies
+    // Rules engine supersedes it — status maps from decision
+    const statusFromDecision =
+      autoResult.decision === "auto-approved" ? "AUTO_APPROVED" : "PENDING";
 
     const variation = await prisma.scopeVariation.create({
       data: {
@@ -152,10 +184,15 @@ export async function POST(
         authorisationSource,
         authorisationRef: authorisationRef ?? null,
         costDeltaCents,
+        costDeltaPercent: typeof costDeltaPercent === "number" ? costDeltaPercent : null,
         approvedByUserId: session.user.id,
-        status: isAutoApprove ? "AUTO_APPROVED" : "PENDING",
-        autoApprovalRule: isAutoApprove ? "UNDER_100_AUD_INTERNAL" : null,
+        status: statusFromDecision,
+        autoApprovalRule:
+          autoResult.decision === "auto-approved" ? "RA1131_RULES_ENGINE" : null,
         notes: notes ?? null,
+        autoDecision: autoResult.decision,
+        autoDecisionReason: autoResult.reason,
+        autoDecisionAt: new Date(),
       },
     });
 

@@ -14,6 +14,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { IICRC_DRY_STANDARDS, getDryStandard } from "@/lib/iicrc-dry-standards";
+import { computeTargetCurve } from "@/lib/drying/target-curve";
 
 // Material EMC targets for the "Drying Goal: ACHIEVED" gate
 // These map the iicrc-dry-standards.ts values into the per-material target JSON
@@ -54,7 +55,69 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       where: { inspectionId },
     });
 
-    return NextResponse.json({ dryingGoal: record });
+    // Additive: compute target curve when the record has enough context.
+    // targetClass and targetCategory are stored on the record from POST.
+    // roomVolumeM3 and dehumidifierCapacityLpd use sensible defaults when absent
+    // (technicians can pass them as query params for a more precise curve).
+    let targetCurve = null;
+    let projectedCompletion = null;
+
+    if (record) {
+      // Read the highest initial moisture reading for this inspection (if any)
+      const readings = await prisma.moistureReading.findMany({
+        where: { inspectionId },
+        select: { moistureLevel: true, surfaceType: true },
+        take: 200,
+        orderBy: { recordedAt: "desc" },
+      });
+
+      if (readings.length > 0) {
+        const maxMC = Math.max(
+          ...readings.map((r: { moistureLevel: number }) => r.moistureLevel),
+        );
+        // Derive material from most common surfaceType in readings
+        const surfaceCounts: Record<string, number> = {};
+        for (const r of readings) {
+          surfaceCounts[r.surfaceType] =
+            (surfaceCounts[r.surfaceType] || 0) + 1;
+        }
+        const primarySurface =
+          Object.entries(surfaceCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ??
+          "other";
+
+        // Optional query params for more precise curve
+        const url = new URL(request.url);
+        const roomVolumeM3 = parseFloat(
+          url.searchParams.get("roomVolumeM3") ?? "25",
+        );
+        const dehumidifierCapacityLpd = parseFloat(
+          url.searchParams.get("dehumidifierCapacityLpd") ?? "50",
+        );
+
+        const curve = computeTargetCurve({
+          initialMC: maxMC,
+          materialType: primarySurface,
+          category: record.targetCategory ?? "Category 2",
+          waterClass: record.targetClass ?? "Class 2",
+          roomVolumeM3: isNaN(roomVolumeM3) ? 25 : roomVolumeM3,
+          dehumidifierCapacityLpd: isNaN(dehumidifierCapacityLpd)
+            ? 50
+            : dehumidifierCapacityLpd,
+        });
+
+        targetCurve = curve;
+        projectedCompletion = {
+          day: curve.projectedCompletionDay,
+          standardsRef: curve.standardsRef,
+        };
+      }
+    }
+
+    return NextResponse.json({
+      dryingGoal: record,
+      targetCurve,
+      projectedCompletion,
+    });
   } catch (error) {
     console.error("[drying-goal GET]", error);
     return NextResponse.json(

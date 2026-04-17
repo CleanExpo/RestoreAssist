@@ -1,106 +1,105 @@
 /**
- * Adjuster Review Time Recording (CLAIM-004)
+ * RA-1131: Adjuster AI Agent API
  *
  * POST /api/pilot/adjuster-session
- *   Records the time an insurance adjuster spent reviewing a report.
- *   No authentication required — adjusters are external users without accounts.
- *   A short-lived pilot token (passed as query param) prevents abuse.
+ *   Runs the adjuster AI agent for a given inspection and returns a structured
+ *   recommendation object.
  *
- *   Body:
- *     {
- *       pilotToken: string        — shared token issued to participating insurer teams
- *       reportFormat: 'nir' | 'existing'  — NIR or non-standardised format
- *       reviewMinutes: number     — time spent reviewing the report (minutes)
- *       reportId?: string         — NIR inspection ID if format='nir'
- *       adjusterCode?: string     — anonymised adjuster identifier (e.g. "ADJ-03")
- *       notes?: string
- *     }
+ *   Body: { inspectionId: string }
  *
- * GET /api/pilot/adjuster-session/status
- *   Returns aggregate adjuster session counts (admin only, see readiness endpoint).
+ *   Gates:
+ *   - Session auth (getServerSession)
+ *   - Rate limit: 10 requests / 15 min per user (session.user.id)
+ *   - Subscription gate: TRIAL | ACTIVE | LIFETIME only
+ *   - Atomic credit deduction (updateMany where creditsRemaining >= 1)
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { applyRateLimit } from "@/lib/rate-limiter";
+import { runAdjusterAgent } from "@/lib/ai/adjuster-agent";
+import { deductCreditsAndTrackUsage } from "@/lib/report-limits";
 
-// ── Pilot token guard ─────────────────────────────────────────────────────────
-// In production, rotate this via environment variable.
-// Set PILOT_ADJUSTER_TOKEN in .env — shared with participating insurer teams.
-const VALID_PILOT_TOKEN = process.env.PILOT_ADJUSTER_TOKEN ?? "nir-pilot-2026";
+const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"] as const;
 
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as {
-      pilotToken?: string;
-      reportFormat?: string;
-      reviewMinutes?: number;
-      reportId?: string;
-      adjusterCode?: string;
-      notes?: string;
-    };
+    // ── 1. Auth ───────────────────────────────────────────────────────────────
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const userId = session.user.id;
 
-    // Token guard — prevents random public submissions
-    if (!body.pilotToken || body.pilotToken !== VALID_PILOT_TOKEN) {
+    // ── 2. Rate limit (by user ID — rule 10) ──────────────────────────────────
+    const rateLimited = await applyRateLimit(request, {
+      maxRequests: 10,
+      prefix: "adjuster-agent",
+      key: userId,
+    });
+    if (rateLimited) return rateLimited;
+
+    // ── 3. Subscription gate (rule 8) ─────────────────────────────────────────
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, subscriptionStatus: true },
+    });
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+    if (
+      !ALLOWED_SUBSCRIPTION_STATUSES.includes(
+        user.subscriptionStatus as (typeof ALLOWED_SUBSCRIPTION_STATUSES)[number],
+      )
+    ) {
       return NextResponse.json(
-        { error: "Invalid pilot token. Contact the RestoreAssist pilot team." },
-        { status: 403 },
+        { error: "Active subscription required" },
+        { status: 402 },
       );
     }
 
-    // Validate required fields
-    const errors: string[] = [];
-    if (
-      !body.reportFormat ||
-      !["nir", "existing"].includes(body.reportFormat)
-    ) {
-      errors.push("reportFormat must be 'nir' or 'existing'");
-    }
-    if (
-      typeof body.reviewMinutes !== "number" ||
-      body.reviewMinutes <= 0 ||
-      body.reviewMinutes > 480
-    ) {
-      errors.push(
-        "reviewMinutes must be a positive number (max 480 minutes / 8 hours)",
-      );
-    }
-    if (errors.length > 0) {
+    // ── 4. Parse body ─────────────────────────────────────────────────────────
+    const body = (await request.json()) as { inspectionId?: unknown };
+    if (!body.inspectionId || typeof body.inspectionId !== "string") {
       return NextResponse.json(
-        { error: "Invalid submission", details: errors },
+        { error: "inspectionId is required" },
         { status: 400 },
       );
     }
+    const { inspectionId } = body;
 
-    // Use a system user ID for adjuster submissions (no account)
-    const systemUserId = "pilot-adjuster-system";
+    // ── 5. Atomic credit deduction (rule 9) ───────────────────────────────────
+    try {
+      await deductCreditsAndTrackUsage(userId);
+    } catch (creditError) {
+      if (
+        creditError instanceof Error &&
+        creditError.message === "INSUFFICIENT_CREDITS"
+      ) {
+        return NextResponse.json(
+          { error: "No credits remaining. Please subscribe to continue." },
+          { status: 402 },
+        );
+      }
+      throw creditError;
+    }
 
-    await prisma.pilotObservation.create({
-      data: {
-        claimId: "CLAIM-004",
-        observationType: "adjuster_session",
-        value: body.reviewMinutes!,
-        group: body.reportFormat === "nir" ? "nir" : "control",
-        inspectionId: body.reportId ?? null,
-        recordedByUserId: systemUserId,
-        context: {
-          adjusterCode: body.adjusterCode ?? "anonymous",
-          reportFormat: body.reportFormat,
-          source: "adjuster-self-report",
-        },
-        notes: body.notes ?? null,
-      },
-    });
+    // ── 6. Run adjuster agent ─────────────────────────────────────────────────
+    const recommendation = await runAdjusterAgent(inspectionId);
 
-    return NextResponse.json(
-      {
-        message:
-          "Review time recorded. Thank you for contributing to the NIR pilot.",
-        claimId: "CLAIM-004",
-      },
-      { status: 201 },
-    );
+    return NextResponse.json({ data: recommendation }, { status: 200 });
   } catch (error) {
-    console.error("Error recording adjuster session:", error);
+    console.error("[adjuster-session] error:", error);
+
+    if (error instanceof Error && error.message.includes("not found")) {
+      return NextResponse.json(
+        { error: "Inspection not found" },
+        { status: 404 },
+      );
+    }
+
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 },

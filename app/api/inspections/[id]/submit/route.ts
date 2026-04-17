@@ -15,6 +15,8 @@ import { checkScopeVariationGate } from "@/lib/compliance/scope-variation-gate";
 import { checkNzMoistureGate } from "@/lib/compliance/nz-moisture-gate";
 import { checkSafeworkGate } from "@/lib/compliance/safework-notification-gate";
 import { checkNzbsGate } from "@/lib/compliance/nzbs-compliance-gate";
+import { detectMoistureTrendAnomalies } from "@/lib/compliance/moisture-trend-anomaly";
+import { detectDuplicateJob } from "@/lib/compliance/duplicate-detector";
 
 // POST - Submit inspection for processing
 export async function POST(
@@ -128,7 +130,8 @@ export async function POST(
     if (!makeSafeResult.canSubmit) {
       return NextResponse.json(
         {
-          error: "Stabilisation checklist incomplete — required per AS-IICRC S500:2025",
+          error:
+            "Stabilisation checklist incomplete — required per AS-IICRC S500:2025",
           blockers: makeSafeResult.blockers,
         },
         { status: 422 },
@@ -156,6 +159,14 @@ export async function POST(
     // ── RA-1136d: SafeWork notification trigger ─────────────────────────────────
     // WARN-ONLY — surfaces actionable regulator notifications in the response.
     const safeworkResult = await checkSafeworkGate(id);
+
+    // ── RA-1131: Moisture trend anomaly detection ───────────────────────────────
+    // WARN-ONLY — flags plateau / rising / stuck-high patterns for early warning
+    // of hidden moisture sources, HVAC faults, and imminent mould risk.
+    // Per IICRC S500:2025 moisture monitoring concern zone (>20% on Day 3+).
+    const moistureTrendResult = await detectMoistureTrendAnomalies(id);
+
+    const duplicateCheck = await detectDuplicateJob(id);
 
     // ── RA-1136e: NZBS E2/E3 compliance (NZ only) ──────────────────────────────
     // BLOCKING for NZ-jurisdiction inspections; no-op for AU (pending RA-1120).
@@ -267,6 +278,18 @@ export async function POST(
       // RA-1136d: SafeWork regulator notifications (warn-only)
       ...(safeworkResult.notifications.length > 0 && {
         safeworkNotifications: safeworkResult.notifications,
+      }),
+      // RA-1131: Moisture trend anomalies (warn-only)
+      ...(moistureTrendResult.hasAnomalies && {
+        moistureTrendAnomalies: moistureTrendResult.anomalies.map((a) => ({
+          location: a.location,
+          severity: a.severity,
+          message: a.message,
+        })),
+      }),
+      ...(duplicateCheck.hasDuplicates && {
+        duplicateCandidates: duplicateCheck.candidates,
+        mergeSuggestion: duplicateCheck.mergeSuggestion,
       }),
     });
   } catch (error) {

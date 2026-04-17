@@ -27,12 +27,15 @@ import {
   Legend,
   ReferenceLine,
   ResponsiveContainer,
+  Area,
+  ComposedChart,
 } from "recharts";
 import {
   CheckCircle2,
   AlertTriangle,
   TrendingDown,
   Droplets,
+  Calendar,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -41,6 +44,10 @@ import {
   STATUS_COLORS,
   IICRC_DRY_STANDARDS,
 } from "@/lib/iicrc-dry-standards";
+import {
+  computeTargetCurve,
+  type TargetCurveResult,
+} from "@/lib/drying/target-curve";
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -58,6 +65,18 @@ interface DryingProgressChartProps {
   readings: DryingMoistureReading[];
   inspectionStartDate?: string;
   className?: string;
+  /**
+   * Optional target-curve parameters. When provided, a dashed target curve
+   * is overlaid and a projected completion badge is shown.
+   * Per AS-IICRC S500:2025 §12.2.2.
+   */
+  targetCurveParams?: {
+    materialType: string;
+    category: string;
+    waterClass: string;
+    roomVolumeM3: number;
+    dehumidifierCapacityLpd: number;
+  };
 }
 
 // ── Helpers ───────────────────────────────────────────────────────
@@ -244,6 +263,7 @@ export default function DryingProgressChart({
   readings,
   inspectionStartDate,
   className,
+  targetCurveParams,
 }: DryingProgressChartProps) {
   // ── Empty state ──
   if (!readings || readings.length < 2) {
@@ -304,6 +324,67 @@ export default function DryingProgressChart({
     "other";
   const primaryStd = getDryStandard(primaryMaterial);
 
+  // ── Target curve computation (S500:2025 §12.2.2) ─────────────────
+  // Use the highest initial reading across all series as the curve starting point
+  const maxInitialMC = Math.max(...readings.map((r) => r.moistureLevel));
+  const targetCurve: TargetCurveResult | null = targetCurveParams
+    ? computeTargetCurve({
+        initialMC: maxInitialMC,
+        materialType: targetCurveParams.materialType,
+        category: targetCurveParams.category,
+        waterClass: targetCurveParams.waterClass,
+        roomVolumeM3: targetCurveParams.roomVolumeM3,
+        dehumidifierCapacityLpd: targetCurveParams.dehumidifierCapacityLpd,
+      })
+    : null;
+
+  // Build a lookup map of day → targetMC for chart overlay
+  const targetByDay: Record<string, number> = {};
+  if (targetCurve) {
+    for (const pt of targetCurve.daily) {
+      targetByDay[`Day ${pt.day}`] = pt.targetMC;
+    }
+  }
+
+  // Merge target curve values into chart data points
+  const chartData = targetCurve
+    ? data.map((pt) => ({
+        ...pt,
+        __target: targetByDay[pt.day] ?? null,
+        // Gap = actual latest reading minus target (positive = behind schedule)
+        __gap:
+          pt.__target != null
+            ? Math.max(
+                0,
+                (Object.values(pt).find(
+                  (v) =>
+                    typeof v === "number" &&
+                    v !== pt.dayNum &&
+                    v !== pt.__target,
+                ) as number | undefined) ?? 0,
+              )
+            : null,
+      }))
+    : data;
+
+  // On/behind/ahead calculation using primary series vs target
+  let trackingStatus: "on-track" | "ahead" | "behind" | null = null;
+  if (targetCurve && data.length > 0) {
+    const lastDay = data[data.length - 1];
+    const lastDayLabel = lastDay.day as string;
+    const tgt = targetByDay[lastDayLabel];
+    // Find the minimum MC across active series on the last recorded day
+    const seriesVals = series
+      .map((s) => lastDay[s])
+      .filter((v) => typeof v === "number") as number[];
+    if (tgt != null && seriesVals.length > 0) {
+      const worstActual = Math.max(...seriesVals);
+      if (worstActual <= tgt - 2) trackingStatus = "ahead";
+      else if (worstActual <= tgt + 2) trackingStatus = "on-track";
+      else trackingStatus = "behind";
+    }
+  }
+
   return (
     <div className={cn("space-y-4", className)}>
       {/* Status summary */}
@@ -326,6 +407,34 @@ export default function DryingProgressChart({
             {wetCount} still wet
           </span>
         )}
+
+        {/* Projected completion badge — S500:2025 §12.2.2 */}
+        {targetCurve && targetCurve.projectedCompletionDay > 0 && (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-[#1C2E47]/10 text-[#1C2E47] dark:bg-[#D4A574]/10 dark:text-[#D4A574] border border-[#1C2E47]/20 dark:border-[#D4A574]/30">
+            <Calendar size={12} />
+            Projected complete Day {targetCurve.projectedCompletionDay}
+          </span>
+        )}
+
+        {/* On-track indicator */}
+        {trackingStatus === "ahead" && (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30">
+            <TrendingDown size={12} />
+            Ahead of schedule
+          </span>
+        )}
+        {trackingStatus === "on-track" && (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-500/30">
+            <CheckCircle2 size={12} />
+            On track
+          </span>
+        )}
+        {trackingStatus === "behind" && (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30">
+            <AlertTriangle size={12} />
+            Behind schedule
+          </span>
+        )}
       </div>
 
       {/* Chart */}
@@ -336,7 +445,9 @@ export default function DryingProgressChart({
               Drying Progress Curve
             </h4>
             <p className="text-xs text-neutral-500 dark:text-slate-500 mt-0.5">
-              IICRC S500:2021 — moisture % per location over drying period
+              AS-IICRC S500:2025 §12.2.2 — moisture % per location over drying
+              period
+              {targetCurve && " · dashed = target curve"}
             </p>
           </div>
           <div className="text-right text-xs text-neutral-400 dark:text-slate-500 flex-shrink-0">
@@ -346,8 +457,8 @@ export default function DryingProgressChart({
         </div>
 
         <ResponsiveContainer width="100%" height={280}>
-          <LineChart
-            data={data}
+          <ComposedChart
+            data={chartData}
             margin={{ top: 4, right: 8, left: -16, bottom: 4 }}
           >
             <CartesianGrid
@@ -389,7 +500,40 @@ export default function DryingProgressChart({
               }}
             />
 
-            {/* One line per location-material series */}
+            {/* Target curve overlay — dashed navy line (S500:2025 §12.2.2) */}
+            {targetCurve && (
+              <>
+                {/* Gap shading between target and actual (warm brand colour) */}
+                <Area
+                  type="monotone"
+                  dataKey="__target"
+                  name="Target curve"
+                  stroke="none"
+                  fill="#8A6B4E"
+                  fillOpacity={0.1}
+                  legendType="none"
+                  connectNulls
+                  dot={false}
+                  activeDot={false}
+                  isAnimationActive={false}
+                />
+                {/* Dashed target line */}
+                <Line
+                  type="monotone"
+                  dataKey="__target"
+                  name="Target curve (S500:2025 §12.2.2)"
+                  stroke="#1C2E47"
+                  strokeWidth={2}
+                  strokeDasharray="8 4"
+                  dot={false}
+                  activeDot={false}
+                  connectNulls
+                  isAnimationActive={false}
+                />
+              </>
+            )}
+
+            {/* One solid line per location-material series */}
             {series.map((s, i) => {
               const color = seriesColor(s, latestMap, i);
               return (
@@ -406,7 +550,7 @@ export default function DryingProgressChart({
                 />
               );
             })}
-          </LineChart>
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
 
