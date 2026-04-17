@@ -7,7 +7,7 @@ export default {
   test: {
     globals: true,
     environment: "node",
-    include: ["lib/**/__tests__/**/*.test.ts"],
+    include: ["lib/**/__tests__/**/*.test.ts", "app/api/**/__tests__/**/*.test.ts"],
     exclude: [
       "e2e/**",
       "node_modules/**",
