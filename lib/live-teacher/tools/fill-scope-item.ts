@@ -27,7 +27,7 @@ export async function fillScopeItem(args: FillScopeItemArgs) {
       description,
       quantity,
       unit,
-      justification: clauseRef ?? null,
+      clauseRef,
     },
     select: {
       id: true,
@@ -35,7 +35,7 @@ export async function fillScopeItem(args: FillScopeItemArgs) {
       description: true,
       quantity: true,
       unit: true,
-      justification: true,
+      clauseRef: true,
     },
   });
 
@@ -45,7 +45,7 @@ export async function fillScopeItem(args: FillScopeItemArgs) {
     description: item.description,
     quantity: item.quantity,
     unit: item.unit,
-    clauseRef: item.justification,
+    clauseRef: item.clauseRef,
   };
 }
 

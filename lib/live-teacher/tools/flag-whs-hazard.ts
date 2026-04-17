@@ -1,31 +1,67 @@
 import { z } from "zod";
+import { prisma } from "@/lib/prisma";
 
-// WHSIncident is NOT in the Prisma schema in this worktree.
-// The model exists as a TypeScript interface in app/dashboard/whs/page.tsx,
-// backed by /api/whs (a route that is also absent from the codebase).
-// Per the escape hatch rule: adjust the handler — return graceful degradation
-// with the validated args so the caller can log/queue them externally.
+// WHSIncident now in Prisma schema (RA-1140).
+// Maps hazardType → incidentType, severity to uppercase, controls array → description bullets
 
 export const flagWhsHazardSchema = z.object({
   inspectionId: z.string(),
   hazardType: z.enum(["confined_space", "asbestos", "biohazard", "electrical"]),
-  severity: z.enum(["low", "medium", "high", "critical"]),
-  controls: z.array(z.string()),
-  source: z.enum(["teacher_proactive", "user_reported"]),
+  severity: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]),
+  controls: z.array(z.string()).optional(),
+  source: z.enum(["teacher_proactive", "user_reported"]).optional(),
+  location: z.string().optional(),
+  injuredParty: z.string().optional(),
+  injuryDescription: z.string().optional(),
 });
 
 export type FlagWhsHazardArgs = z.infer<typeof flagWhsHazardSchema>;
 
 export async function flagWhsHazard(args: FlagWhsHazardArgs) {
-  const validated = flagWhsHazardSchema.parse(args);
+  const {
+    inspectionId,
+    hazardType,
+    severity,
+    controls,
+    source,
+    location,
+    injuredParty,
+    injuryDescription,
+  } = flagWhsHazardSchema.parse(args);
 
-  // WHSIncident Prisma model not yet available in this worktree.
-  // Return validated payload so the caller can surface the hazard in-session
-  // until the model is migrated (tracked in RA-80 / pending schema migration).
+  // Build description from controls array if provided
+  const controlsBullets =
+    controls && controls.length > 0
+      ? "\n" + controls.map((c) => `• ${c}`).join("\n")
+      : "";
+
+  const incident = await prisma.wHSIncident.create({
+    data: {
+      inspectionId,
+      incidentType: hazardType,
+      severity,
+      incidentDate: new Date(),
+      location,
+      injuredParty,
+      injuryDescription,
+      description: source
+        ? `Flagged by: ${source}${controlsBullets}`
+        : controlsBullets || null,
+      userId: "system", // TODO: get from session context
+    },
+    select: {
+      id: true,
+      incidentType: true,
+      severity: true,
+      createdAt: true,
+    },
+  });
+
   return {
-    status: "queued" as const,
-    hint: "WHSIncident Prisma model pending migration — hazard captured in-session",
-    hazard: validated,
+    id: incident.id,
+    incidentType: incident.incidentType,
+    severity: incident.severity,
+    createdAt: incident.createdAt,
   };
 }
 
@@ -44,7 +80,7 @@ export const flagWhsHazardDefinition = {
       },
       severity: {
         type: "string",
-        enum: ["low", "medium", "high", "critical"],
+        enum: ["LOW", "MEDIUM", "HIGH", "CRITICAL"],
         description: "Risk severity level",
       },
       controls: {
@@ -57,7 +93,19 @@ export const flagWhsHazardDefinition = {
         enum: ["teacher_proactive", "user_reported"],
         description: "Who identified the hazard",
       },
+      location: {
+        type: "string",
+        description: "Location/zone of the hazard",
+      },
+      injuredParty: {
+        type: "string",
+        description: "Person(s) affected if applicable",
+      },
+      injuryDescription: {
+        type: "string",
+        description: "Details of injury if applicable",
+      },
     },
-    required: ["inspectionId", "hazardType", "severity", "controls", "source"],
+    required: ["inspectionId", "hazardType", "severity"],
   },
 };
