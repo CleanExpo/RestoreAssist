@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { queueInvoiceSync } from "@/lib/integrations/sync-queue";
+import { verifyCronAuth } from "@/lib/cron/auth";
 
 /**
  * GET /api/cron/sync-invoices - Scheduled invoice sync cron job
@@ -11,29 +12,13 @@ import { queueInvoiceSync } from "@/lib/integrations/sync-queue";
  *
  * Automatically syncs modified invoices to connected accounting systems
  *
- * Requires CRON_SECRET for security
+ * Secured by CRON_SECRET bearer token via verifyCronAuth (timing-safe).
  */
 export async function GET(request: NextRequest) {
   try {
-    // Verify cron secret for security
-    const authHeader = request.headers.get("authorization");
-    const cronSecret = process.env.CRON_SECRET;
-
-    if (!cronSecret) {
-      console.error("[Invoice Sync Cron] CRON_SECRET not configured");
-      return NextResponse.json(
-        { error: "CRON_SECRET not configured" },
-        { status: 500 },
-      );
-    }
-
-    // Allow Bearer token or direct secret
-    const providedSecret = authHeader?.replace("Bearer ", "");
-
-    if (providedSecret !== cronSecret) {
-      console.error("[Invoice Sync Cron] Invalid authorization");
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    // Verify cron secret using timing-safe comparison (prevents timing oracle attacks)
+    const authError = verifyCronAuth(request);
+    if (authError) return authError;
 
     // Find all active integrations
     const integrations = await prisma.integration.findMany({
@@ -115,7 +100,7 @@ export async function GET(request: NextRequest) {
         for (const invoice of invoices) {
           try {
             // Use NORMAL priority for scheduled syncs
-            queueInvoiceSync(invoice.id, integration.provider, "NORMAL");
+            await queueInvoiceSync(invoice.id, integration.provider, "NORMAL");
             totalQueued++;
           } catch (error) {
             console.error(
@@ -146,13 +131,10 @@ export async function GET(request: NextRequest) {
       },
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("[Invoice Sync Cron] Error:", error);
     return NextResponse.json(
-      {
-        success: false,
-        error: error.message || "Unknown error",
-      },
+      { error: "Internal server error" },
       { status: 500 },
     );
   }

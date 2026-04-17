@@ -105,7 +105,9 @@ export async function GET(request: NextRequest) {
               );
               continue;
             }
-            throw new Error(`Xero API ${res.status} for invoice ${invoice.externalInvoiceId}`);
+            throw new Error(
+              `Xero API ${res.status} for invoice ${invoice.externalInvoiceId}`,
+            );
           }
 
           const data = await res.json();

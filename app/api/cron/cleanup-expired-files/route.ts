@@ -36,9 +36,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error: any) {
     console.error("[Cron API] Error in cleanup job:", error);
-    return NextResponse.json(
-      { error: "Cleanup job failed" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Cleanup job failed" }, { status: 500 });
   }
 }
