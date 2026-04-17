@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/prisma";
+import {
+  deriveExternalEventId,
+  isUniqueConstraintError,
+} from "@/lib/webhook-idempotency";
 
 /**
  * POST /api/webhooks/myob - Receive webhook events from MYOB
@@ -148,38 +152,26 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Check for duplicate events (MYOB may send duplicates)
-        const existingEvent = await prisma.webhookEvent.findFirst({
-          where: {
-            provider: "MYOB",
-            integrationId: integration.id,
-            payload: {
-              path: ["ResourceUID"],
-              equals: event.ResourceUID,
+        // RA-1265: atomic idempotency via P2002 on (provider, externalEventId)
+        try {
+          const webhookEvent = await prisma.webhookEvent.create({
+            data: {
+              provider: "MYOB",
+              integrationId: integration.id,
+              eventType: standardEventType,
+              payload: event,
+              signature,
+              externalEventId:
+                (event as { ResourceUID?: string }).ResourceUID ||
+                deriveExternalEventId(event),
+              status: "PENDING",
             },
-            createdAt: {
-              gte: new Date(Date.now() - 60 * 60 * 1000), // Last hour
-            },
-          },
-        });
-
-        if (existingEvent) {
-          continue;
+          });
+          queuedEvents.push(webhookEvent.id);
+        } catch (err) {
+          if (isUniqueConstraintError(err)) continue;
+          throw err;
         }
-
-        // Create webhook event record
-        const webhookEvent = await prisma.webhookEvent.create({
-          data: {
-            provider: "MYOB",
-            integrationId: integration.id,
-            eventType: standardEventType,
-            payload: event,
-            signature,
-            status: "PENDING",
-          },
-        });
-
-        queuedEvents.push(webhookEvent.id);
       } catch (error) {
         console.error(`[MYOB Webhook] Failed to queue event:`, error);
         // Continue processing other events

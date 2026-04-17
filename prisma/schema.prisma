@@ -998,6 +998,13 @@ model WebhookEvent {
   integrationId String
   integration   Integration         @relation(fields: [integrationId], references: [id], onDelete: Cascade)
 
+  /// RA-1265 / RA-1219: external event ID from the provider (e.g.
+  /// Xero event-id, QBO eventNotifications[].dataChangeEvent.entities[].id,
+  /// MYOB Event.EventID, ServiceM8 event_uuid). Combined with `provider`
+  /// to form a unique idempotency key so retries are rejected by P2002
+  /// at insert time instead of racy findFirst-then-create checks.
+  externalEventId String?
+
   eventType String // invoice.paid, invoice.updated, customer.created, payment.created, etc.
   payload   Json // Full webhook payload
   signature String? // Webhook signature for verification
@@ -1010,6 +1017,7 @@ model WebhookEvent {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([provider, externalEventId])
   @@index([provider, eventType])
   @@index([status, createdAt])
   @@index([integrationId, status])
