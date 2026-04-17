@@ -30,10 +30,27 @@ export async function GET(request: NextRequest) {
       where.status = status;
     }
 
+    // Explicit select (CLAUDE.md rule 4) — excludes heavy @db.Text JSON blobs
+    // (answers, autoPopulatedFields, standardsReferences, equipmentRecommendations)
+    // that the list view does not render. Detail route returns the full payload.
     const [sessions, total] = await Promise.all([
       prisma.interviewSession.findMany({
         where,
-        include: {
+        select: {
+          id: true,
+          status: true,
+          startedAt: true,
+          completedAt: true,
+          abandonedAt: true,
+          totalQuestionsAsked: true,
+          totalAnswersGiven: true,
+          estimatedTimeMinutes: true,
+          actualTimeMinutes: true,
+          userTierLevel: true,
+          technicianExperience: true,
+          reportId: true,
+          createdAt: true,
+          updatedAt: true,
           formTemplate: {
             select: { id: true, name: true, formType: true, category: true },
           },
