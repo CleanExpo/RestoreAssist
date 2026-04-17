@@ -17,8 +17,8 @@ vi.mock("next-auth", () => ({
 
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
+vi.mock("@/lib/prisma", () => {
+  const mockPrisma = {
     integration: {
       findFirst: vi.fn(),
     },
@@ -27,10 +27,19 @@ vi.mock("@/lib/prisma", () => ({
       findFirst: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      upsert: vi.fn(),
       deleteMany: vi.fn(),
     },
-  },
-}));
+    // $transaction delegates to the callback with the same Prisma client mock
+    $transaction: vi.fn(async (arg: unknown) => {
+      if (typeof arg === "function") {
+        return (arg as (tx: unknown) => Promise<unknown>)(mockPrisma);
+      }
+      return arg;
+    }),
+  };
+  return { prisma: mockPrisma };
+});
 
 const mockClearCache = vi.fn();
 vi.mock("@/lib/integrations/xero/account-code-resolver", () => ({
@@ -56,6 +65,9 @@ const mockUpdateMapping = prisma.xeroAccountCodeMapping.update as ReturnType<
 >;
 const mockDeleteManyMapping = prisma.xeroAccountCodeMapping
   .deleteMany as ReturnType<typeof vi.fn>;
+const mockUpsertMapping = prisma.xeroAccountCodeMapping.upsert as ReturnType<
+  typeof vi.fn
+>;
 
 const USER_ID = "user_123";
 const INTEGRATION_ID = "integ_xero_abc";
@@ -169,11 +181,10 @@ describe("PUT /api/xero-account-mapping", () => {
     expect(res.status).toBe(409);
   });
 
-  it("creates a new mapping when none exists + clears cache", async () => {
+  it("upserts a non-null category mapping via Prisma composite unique", async () => {
     mockGetServerSession.mockResolvedValue(authedSession());
     mockFindFirstIntegration.mockResolvedValue({ id: INTEGRATION_ID });
-    mockFindFirstMapping.mockResolvedValue(null);
-    mockCreateMapping.mockResolvedValue({
+    mockUpsertMapping.mockResolvedValue({
       id: "m-new",
       integrationId: INTEGRATION_ID,
       category: "LABOUR",
@@ -189,16 +200,23 @@ describe("PUT /api/xero-account-mapping", () => {
 
     expect(res.status).toBe(200);
     expect(body.data.accountCode).toBe("400");
-    expect(mockCreateMapping).toHaveBeenCalledOnce();
-    expect(mockUpdateMapping).not.toHaveBeenCalled();
+    expect(mockUpsertMapping).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          integrationId_category: {
+            integrationId: INTEGRATION_ID,
+            category: "LABOUR",
+          },
+        },
+      }),
+    );
     expect(mockClearCache).toHaveBeenCalledWith(INTEGRATION_ID);
   });
 
-  it("updates existing mapping + clears cache", async () => {
+  it("upserts: update branch preserves taxType when already exists", async () => {
     mockGetServerSession.mockResolvedValue(authedSession());
     mockFindFirstIntegration.mockResolvedValue({ id: INTEGRATION_ID });
-    mockFindFirstMapping.mockResolvedValue({ id: "m-existing" });
-    mockUpdateMapping.mockResolvedValue({
+    mockUpsertMapping.mockResolvedValue({
       id: "m-existing",
       integrationId: INTEGRATION_ID,
       category: "LABOUR",
@@ -212,14 +230,11 @@ describe("PUT /api/xero-account-mapping", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(mockUpdateMapping).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "m-existing" } }),
-    );
-    expect(mockCreateMapping).not.toHaveBeenCalled();
+    expect(mockUpsertMapping).toHaveBeenCalledOnce();
     expect(mockClearCache).toHaveBeenCalledWith(INTEGRATION_ID);
   });
 
-  it("accepts category=null for per-integration default", async () => {
+  it("accepts category=null — Serializable tx + findFirst+create path", async () => {
     mockGetServerSession.mockResolvedValue(authedSession());
     mockFindFirstIntegration.mockResolvedValue({ id: INTEGRATION_ID });
     mockFindFirstMapping.mockResolvedValue(null);
@@ -240,9 +255,11 @@ describe("PUT /api/xero-account-mapping", () => {
         data: expect.objectContaining({ category: null }),
       }),
     );
+    // Non-null upsert should NOT be called for null-category path
+    expect(mockUpsertMapping).not.toHaveBeenCalled();
   });
 
-  it("maps '__default__' sentinel to null category", async () => {
+  it("maps '__default__' sentinel to null category (tx path)", async () => {
     mockGetServerSession.mockResolvedValue(authedSession());
     mockFindFirstIntegration.mockResolvedValue({ id: INTEGRATION_ID });
     mockFindFirstMapping.mockResolvedValue(null);
@@ -262,6 +279,27 @@ describe("PUT /api/xero-account-mapping", () => {
         data: expect.objectContaining({ category: null }),
       }),
     );
+  });
+
+  it("null-category update path: finds existing row and updates (no duplicate row)", async () => {
+    mockGetServerSession.mockResolvedValue(authedSession());
+    mockFindFirstIntegration.mockResolvedValue({ id: INTEGRATION_ID });
+    mockFindFirstMapping.mockResolvedValue({ id: "m-existing-null" });
+    mockUpdateMapping.mockResolvedValue({
+      id: "m-existing-null",
+      integrationId: INTEGRATION_ID,
+      category: null,
+      accountCode: "270",
+      taxType: "OUTPUT",
+      description: null,
+    });
+
+    await PUT(makeReq({ category: null, accountCode: "270" }));
+
+    expect(mockUpdateMapping).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "m-existing-null" } }),
+    );
+    expect(mockCreateMapping).not.toHaveBeenCalled();
   });
 });
 

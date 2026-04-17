@@ -37,6 +37,71 @@ async function getActiveXeroIntegration(userId: string) {
   });
 }
 
+interface MappingUpsertData {
+  accountCode: string;
+  taxType: string;
+  description: string | null;
+}
+
+/**
+ * Atomic upsert for XeroAccountCodeMapping.
+ *
+ * Non-null category: relies on the composite unique @@unique([integrationId, category])
+ * which Postgres enforces natively.
+ *
+ * Null category: Postgres treats NULLs as distinct in unique indexes, so findFirst+create
+ * is a TOCTOU race. Wrap in a Serializable transaction; Postgres SSI will detect the
+ * conflict and abort one of the concurrent attempts with P2034 — retry once.
+ */
+async function upsertMapping(
+  integrationId: string,
+  category: string | null,
+  data: MappingUpsertData,
+) {
+  if (category !== null) {
+    // Composite unique handles dedup at DB level — no race
+    return prisma.xeroAccountCodeMapping.upsert({
+      where: {
+        integrationId_category: { integrationId, category },
+      },
+      create: { integrationId, category, ...data },
+      update: data,
+    });
+  }
+
+  // Null-category path — Serializable isolation + one retry on serialization failure
+  const MAX_ATTEMPTS = 2;
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      return await prisma.$transaction(
+        async (tx) => {
+          const existing = await tx.xeroAccountCodeMapping.findFirst({
+            where: { integrationId, category: null },
+            select: { id: true },
+          });
+          if (existing) {
+            return tx.xeroAccountCodeMapping.update({
+              where: { id: existing.id },
+              data,
+            });
+          }
+          return tx.xeroAccountCodeMapping.create({
+            data: { integrationId, category: null, ...data },
+          });
+        },
+        { isolationLevel: "Serializable" },
+      );
+    } catch (err) {
+      lastErr = err;
+      // Prisma surfaces Postgres serialization failure as P2034. Retry once.
+      const code = (err as { code?: string })?.code;
+      if (code !== "P2034" || attempt === MAX_ATTEMPTS) throw err;
+    }
+  }
+  throw lastErr;
+}
+
 export async function GET(_request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -49,8 +114,19 @@ export async function GET(_request: NextRequest) {
       return NextResponse.json({ data: [], hasIntegration: false });
     }
 
+    // CLAUDE.md rule 4: explicit select + take on every findMany
     const mappings = await prisma.xeroAccountCodeMapping.findMany({
       where: { integrationId: integration.id },
+      select: {
+        id: true,
+        integrationId: true,
+        category: true,
+        accountCode: true,
+        taxType: true,
+        description: true,
+        createdAt: true,
+        updatedAt: true,
+      },
       orderBy: { category: "asc" },
       take: 200,
     });
@@ -130,25 +206,11 @@ export async function PUT(request: NextRequest) {
           : null,
     };
 
-    // Composite unique (integrationId, category) doesn't work with nullable
-    // category in Prisma, so we check existence first and create/update manually.
-    const existing = await prisma.xeroAccountCodeMapping.findFirst({
-      where: { integrationId: integration.id, category },
-      select: { id: true },
-    });
-
-    const mapping = existing
-      ? await prisma.xeroAccountCodeMapping.update({
-          where: { id: existing.id },
-          data,
-        })
-      : await prisma.xeroAccountCodeMapping.create({
-          data: {
-            integrationId: integration.id,
-            category,
-            ...data,
-          },
-        });
+    // Atomic upsert. Non-null categories use Prisma's composite unique (atomic at DB level).
+    // Null category requires a Serializable transaction because Postgres treats NULLs as
+    // distinct in the default @@unique([integrationId, category]) index, so findFirst+create
+    // is otherwise a TOCTOU race under concurrent requests.
+    const mapping = await upsertMapping(integration.id, category, data);
 
     clearAccountCodeCache(integration.id);
 
