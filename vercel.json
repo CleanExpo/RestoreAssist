@@ -4,6 +4,7 @@
     { "path": "/api/cron/advance-workflows", "schedule": "*/5 * * * *" },
     { "path": "/api/cron/dead-letter-review", "schedule": "*/15 * * * *" },
     { "path": "/api/cron/cleanup", "schedule": "0 3 * * *" },
+    { "path": "/api/cron/trial-reminders", "schedule": "0 8 * * *" },
     { "path": "/api/cron/brand-ambassador", "schedule": "0 8 * * 0" },
     { "path": "/api/cron/design-system-onboarding", "schedule": "0 23 * * *" },
     { "path": "/api/cron/scout", "schedule": "0 23 * * 0" },
