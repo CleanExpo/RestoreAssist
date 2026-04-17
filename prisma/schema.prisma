@@ -900,6 +900,9 @@ model CostItem {
   updatedAt   DateTime    @updatedAt
   libraryId   String
   library     CostLibrary @relation(fields: [libraryId], references: [id], onDelete: Cascade)
+
+  // Back-reference: line items that were sourced from or promoted to this catalog entry
+  estimateLineItems EstimateLineItem[]
 }
 
 enum IntegrationStatus {
@@ -1176,10 +1179,16 @@ model EstimateLineItem {
   // Ordering
   displayOrder Int @default(0)
 
+  // Catalog linkage: if set, this line item was sourced from (or promoted to)
+  // a persistent CostItem in the user's CostLibrary. Enables reuse across jobs.
+  sourceCostItemId String?
+  sourceCostItem   CostItem? @relation(fields: [sourceCostItemId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([estimateId])
+  @@index([sourceCostItemId])
   @@index([category])
 }
 
