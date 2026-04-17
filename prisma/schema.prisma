@@ -1120,6 +1120,10 @@ model Estimate {
   complianceStatement String? @db.Text
   disclaimer          String? @db.Text
 
+  // RA-876: JSON blob for flexible per-estimate state — e.g. dismissedWarnings for
+  // billing completeness checks. Format: { dismissedWarnings?: string[], ... }
+  metadata String? @db.Text
+
   // Approval & Versioning
   approverName      String?
   approverRole      String?
