@@ -141,6 +141,9 @@ model User {
   createdInvites UserInvite[] @relation("InvitesCreatedBy")
   managedInvites UserInvite[] @relation("InvitesManagedBy")
 
+  // Churn feedback captured on cancellation
+  cancellationFeedback CancellationFeedback[]
+
   // Reports assigned to this user (as Manager or Admin)
   assignedReportsAsManager Report[] @relation("ReportManager")
   assignedReportsAsAdmin   Report[] @relation("ReportAdmin")
@@ -3043,6 +3046,28 @@ model PropertyLookup {
 // ============================================
 // STRIPE WEBHOOK EVENT LOGGING
 // ============================================
+
+/// Captures the reason a user gave when cancelling their subscription.
+/// Written once per cancel action — used for churn analytics and to
+/// inform product priorities (e.g. "missing feature X = 40% of cancels").
+/// RA-1243.
+model CancellationFeedback {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  reason  String // too_expensive | not_using | missing_feature | switching | other
+  comment String? @db.Text
+
+  subscriptionPlan String? // snapshot at time of cancel
+  tenureDays       Int? // days between signup and cancel
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([reason])
+  @@index([createdAt])
+}
 
 // Tracks all Stripe webhook events for audit and idempotency
 model StripeWebhookEvent {
