@@ -68,8 +68,12 @@ export default function SignupPage() {
       return;
     }
 
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters");
+    // RA-1258: NIST SP 800-63B and OWASP 2024 both recommend min 12.
+    // 8-char floor let truly weak passwords through. A 12-char floor
+    // without composition requirements is better than 8-char + special
+    // chars per modern guidance.
+    if (password.length < 12) {
+      setError("Password must be at least 12 characters");
       setIsLoading(false);
       return;
     }

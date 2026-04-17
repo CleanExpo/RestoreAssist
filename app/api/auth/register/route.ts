@@ -50,9 +50,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (typeof password !== "string" || password.length < 8) {
+    // RA-1258: raise floor to 12 chars per NIST SP 800-63B / OWASP 2024.
+    if (typeof password !== "string" || password.length < 12) {
       return NextResponse.json(
-        { error: "Password must be at least 8 characters" },
+        { error: "Password must be at least 12 characters" },
         { status: 400 },
       );
     }
