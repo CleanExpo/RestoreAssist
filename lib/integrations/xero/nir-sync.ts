@@ -13,7 +13,19 @@
 
 import { markIntegrationError, logSync } from "../oauth-handler";
 import { getValidXeroToken, getXeroTenantId } from "./token-manager";
-import { formatABN } from "../xero";
+
+/**
+ * RA-870: Format an 11-digit ABN to Xero TaxNumber format (XX XXX XXX XXX).
+ * Returns null if the input is not a valid 11-digit ABN.
+ * Inlined from xero.ts to avoid Turbopack circular import resolution
+ * (xero.ts → xero/token-manager.ts → xero/nir-sync.ts → xero.ts).
+ */
+function formatABN(abn: string | null | undefined): string | null {
+  if (!abn) return null;
+  const digits = abn.replace(/\D/g, "");
+  if (digits.length !== 11) return null;
+  return `${digits.slice(0, 2)} ${digits.slice(2, 5)} ${digits.slice(5, 8)} ${digits.slice(8, 11)}`;
+}
 
 export interface NIRScopeItem {
   description: string;
