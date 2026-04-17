@@ -1620,6 +1620,12 @@ model Inspection {
   drNrpgJobSync    DrNrpgJobSync?
   dryingGoalRecord DryingGoalRecord?
 
+  // RA-1132a: AI Live Teacher sessions
+  liveTeacherSessions LiveTeacherSession[]
+
+  // RA-1136a: Make-Safe P0 compliance gate
+  makeSafeActions MakeSafeAction[]
+
   @@index([userId])
   @@index([status])
   @@index([inspectionDate])
@@ -4831,4 +4837,100 @@ model InvoiceSyncJob {
   @@unique([invoiceId, provider], name: "invoiceId_provider")
   @@index([status, priority, createdAt])
   @@index([invoiceId])
+}
+
+// ─── RA-1132a: AI Live Teacher ───────────────────────────────────────────────
+// On-device (Gemma 3n) + cloud (Claude) hybrid coaching sessions during
+// inspection. Captures token accounting, standards citations (IICRC S500,
+// AS/NZS 4849.1, AS/NZS 4360, NZBS E2/E3), tool calls, and user overrides.
+
+model LiveTeacherSession {
+  id                String   @id @default(cuid())
+  inspectionId      String
+  inspection        Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  userId            String
+  startedAt         DateTime @default(now())
+  endedAt           DateTime?
+  modelUsedLocal    String?  // "gemma-3n-4b"
+  modelUsedCloud    String?  // "claude-opus-4-7"
+  totalInputTokens  Int      @default(0)
+  totalOutputTokens Int      @default(0)
+  totalCostAudCents Int      @default(0)
+  jurisdiction      String   // "AU" | "NZ"
+  deviceOs          String   // "ios" | "android" | "web"
+  hadLidar          Boolean  @default(false)
+  utterances        TeacherUtterance[]
+  toolCalls         TeacherToolCall[]
+
+  @@index([inspectionId])
+  @@index([userId, startedAt])
+}
+
+model TeacherUtterance {
+  id             String   @id @default(cuid())
+  sessionId      String
+  session        LiveTeacherSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  turnIndex      Int
+  role           String   // "user" | "assistant" | "system"
+  content        String
+  clauseRefs     String[] // ["S500:2025 §10.5.4"]
+  confidence     Float?   // 0..1
+  userOverride   Boolean  @default(false)
+  overrideReason String?
+  ranOnDevice    Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  @@index([sessionId, turnIndex])
+}
+
+model TeacherToolCall {
+  id           String   @id @default(cuid())
+  sessionId    String
+  session      LiveTeacherSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  utteranceId  String?
+  toolName     String
+  args         Json
+  result       Json?
+  error        String?
+  durationMs   Int?
+  createdAt    DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([toolName])
+}
+
+model StandardsChunk {
+  id           String  @id @default(cuid())
+  standard     String  // "IICRC_S500" | "AS_NZS_4849_1" | "AS_NZS_4360" | "NZBS_E2" | "NZBS_E3"
+  edition      String
+  clause       String
+  title        String
+  text         String
+  jurisdiction String  // "AU" | "NZ" | "BOTH"
+  // embedding vector(1536) — added via migration raw SQL (pgvector)
+
+  @@unique([standard, edition, clause])
+  @@index([standard, jurisdiction])
+}
+
+// ─── RA-1136a: Make-Safe Compliance Gate ─────────────────────────────────────
+// P0 hazard controls (power, gas, mould containment, water stop, occupant
+// briefing). One row per (inspection, action) — unique constraint enforces
+// idempotency so the gate can flip completed=true without creating duplicates.
+
+model MakeSafeAction {
+  id                String   @id @default(cuid())
+  inspectionId      String
+  inspection        Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  action            String   // "power_isolated" | "gas_isolated" | "mould_containment" | "water_stopped" | "occupant_briefing"
+  applicable        Boolean  @default(true)
+  completed         Boolean  @default(false)
+  completedAt       DateTime?
+  completedByUserId String?
+  notes             String?  // e.g. occupant briefing content
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([inspectionId, action])
+  @@index([inspectionId])
 }
