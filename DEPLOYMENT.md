@@ -12,12 +12,10 @@ python3 scripts/verify_deploy.py
 
 ### Required Variables
 
-| Variable             | Where to get it                                     | Notes                        |
-| -------------------- | --------------------------------------------------- | ---------------------------- |
-| `VERCEL_TOKEN`       | Vercel → Account Settings → Tokens → Create         | Scope: read-only deployments |
-| `VERCEL_PROJECT_ID`  | Vercel → Project → Settings → General → Project ID  | e.g. `prj_xxxxxxxxxxxx`      |
-| `RAILWAY_TOKEN`      | Railway → Account Settings → Tokens → Create        | Scope: read                  |
-| `RAILWAY_SERVICE_ID` | Railway → Project → Service → Settings → Service ID | UUID format                  |
+| Variable            | Where to get it                                    | Notes                        |
+| ------------------- | -------------------------------------------------- | ---------------------------- |
+| `VERCEL_TOKEN`      | Vercel → Account Settings → Tokens → Create        | Scope: read-only deployments |
+| `VERCEL_PROJECT_ID` | Vercel → Project → Settings → General → Project ID | e.g. `prj_xxxxxxxxxxxx`      |
 
 ### Optional Variables
 
@@ -30,9 +28,6 @@ python3 scripts/verify_deploy.py
 
 **Local development:** Add to `.env.local` (never committed).
 
-**Railway (pi-ceo backend):** Railway dashboard → Project → Service → Variables.
-This is where the CI smoke-prod job reads them from.
-
 **GitHub Actions:** Repository → Settings → Secrets and variables → Actions.
 
 ---
@@ -42,13 +37,11 @@ This is where the CI smoke-prod job reads them from.
 The `deploy-check` workflow runs `verify_deploy.py` after every merge to `main`.
 It requires these GitHub Actions secrets:
 
-| Secret               | Description                    |
-| -------------------- | ------------------------------ |
-| `VERCEL_TOKEN`       | Vercel API token               |
-| `VERCEL_PROJECT_ID`  | Vercel project ID              |
-| `VERCEL_TEAM_ID`     | Vercel team ID (if applicable) |
-| `RAILWAY_TOKEN`      | Railway API token              |
-| `RAILWAY_SERVICE_ID` | Railway service ID             |
+| Secret              | Description                    |
+| ------------------- | ------------------------------ |
+| `VERCEL_TOKEN`      | Vercel API token               |
+| `VERCEL_PROJECT_ID` | Vercel project ID              |
+| `VERCEL_TEAM_ID`    | Vercel team ID (if applicable) |
 
 Workflow file: `.github/workflows/deploy-check.yml`
 
@@ -63,16 +56,6 @@ Vercel project: `dashboard-unite-group.vercel.app`
 All application secrets (Supabase, Stripe, Anthropic, etc.) are managed in the
 Vercel dashboard → Project → Settings → Environment Variables.
 Do not add them here — `.env.example` is the authoritative list of required variables.
-
----
-
-## Railway Deployment (Pi-CEO Backend)
-
-The Pi-CEO pipeline runner is deployed on Railway.
-
-Service: `pi-ceo` in the `unite-hub` project.
-
-For Railway-specific env vars (beyond the parity checker), see the Railway dashboard directly.
 
 ---
 
