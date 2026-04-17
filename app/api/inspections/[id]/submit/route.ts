@@ -10,6 +10,7 @@ import {
 import { determineScopeItems } from "@/lib/nir-scope-determination";
 import { estimateCosts } from "@/lib/nir-cost-estimation";
 import { validateTieredCompletion } from "@/lib/nir-tiered-completion";
+import { checkMakeSafeGate } from "@/lib/compliance/make-safe-gate";
 import { checkScopeVariationGate } from "@/lib/compliance/scope-variation-gate";
 
 // POST - Submit inspection for processing
@@ -117,13 +118,30 @@ export async function POST(
       );
     }
 
+    // ── RA-1136a: Make-Safe gate ────────────────────────────────────────────────
+    // ICA Code of Practice §3.1 · AS/NZS 1170.0 · WHS Regulations 2011
+    // All applicable hazard-control actions must be completed before submission.
+    const makeSafeResult = await checkMakeSafeGate(id);
+    if (!makeSafeResult.canSubmit) {
+      return NextResponse.json(
+        {
+          error: "Make-Safe checklist incomplete",
+          blockers: makeSafeResult.blockers,
+        },
+        { status: 422 },
+      );
+    }
+
     // ── RA-1136b: Scope Variation compliance gate ──────────────────────────────
     // Block submission if any scope variations are still PENDING approval.
     // Implements ICA Code of Practice §5.
     const variationGate = await checkScopeVariationGate(id);
     if (!variationGate.canSubmit) {
       return NextResponse.json(
-        { error: "Scope variations pending approval", blockers: variationGate.blockers },
+        {
+          error: "Scope variations pending approval",
+          blockers: variationGate.blockers,
+        },
         { status: 422 },
       );
     }
