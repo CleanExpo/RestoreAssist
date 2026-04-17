@@ -4725,9 +4725,14 @@ model AscoraIntegration {
   userId            String      @unique
   user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   apiKey            String
+  /// RA-1270: HMAC secret for inbound webhook verification. Nullable so
+  /// existing integrations keep working — users opt in to webhooks by
+  /// setting this via the integration settings UI.
+  webhookSecret     String?
   baseUrl           String      @default("https://api.ascora.com.au")
   isActive          Boolean     @default(true)
   lastSyncAt        DateTime?
+  lastWebhookAt     DateTime?
   totalJobsImported Int         @default(0)
   jobs              AscoraJob[]
   createdAt         DateTime    @default(now())
