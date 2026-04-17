@@ -10,6 +10,7 @@ import {
 import { determineScopeItems } from "@/lib/nir-scope-determination";
 import { estimateCosts } from "@/lib/nir-cost-estimation";
 import { validateTieredCompletion } from "@/lib/nir-tiered-completion";
+import { checkScopeVariationGate } from "@/lib/compliance/scope-variation-gate";
 
 // POST - Submit inspection for processing
 export async function POST(
@@ -113,6 +114,17 @@ export async function POST(
       console.warn(
         "CLAIM-003 auto-detection failed (non-blocking):",
         pilotError,
+      );
+    }
+
+    // ── RA-1136b: Scope Variation compliance gate ──────────────────────────────
+    // Block submission if any scope variations are still PENDING approval.
+    // Implements ICA Code of Practice §5.
+    const variationGate = await checkScopeVariationGate(id);
+    if (!variationGate.canSubmit) {
+      return NextResponse.json(
+        { error: "Scope variations pending approval", blockers: variationGate.blockers },
+        { status: 422 },
       );
     }
 
