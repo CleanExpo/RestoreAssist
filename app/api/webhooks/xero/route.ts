@@ -171,13 +171,16 @@ export async function POST(request: NextRequest) {
       eventIds: queuedEvents,
     });
   } catch (error) {
+    // RA-1269: return 500 so Xero retries. The previous 200-on-error
+    // silently dropped invoice/payment events during transient DB
+    // outages, desyncing invoice state with no way to recover. Xero
+    // retries up to ~5× over 24h — that window recovers most blips.
+    // Only return 200 once we've persisted the event to the queue
+    // (which the normal path does above).
     console.error("[Xero Webhook] Error processing webhook:", error);
-
-    // Return 200 to prevent Xero from retrying on our errors
-    // Log the error for manual investigation
     return NextResponse.json(
       { success: false, error: "Internal server error" },
-      { status: 200 },
+      { status: 500 },
     );
   }
 }
