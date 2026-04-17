@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { headers } from "next/headers";
 import Stripe from "stripe";
 import { SubscriptionStatus } from "@prisma/client";
+import { sendSubscriptionActivatedEmail } from "@/lib/email";
 
 /**
  * Best-effort human-readable plan name from a Stripe Subscription.
@@ -159,6 +160,39 @@ export async function POST(request: NextRequest) {
               creditsRemaining: 999999, // Unlimited for paid plans
             },
           });
+
+          // RA-1261: send branded activation receipt. Best-effort — never
+          // block the webhook response on email delivery. Look up the user
+          // we just matched so we have their email + name for the email.
+          try {
+            const user = await prisma.user.findFirst({
+              where,
+              select: { id: true, name: true, email: true },
+            });
+            if (user?.email) {
+              const amountTotal = session.amount_total ?? 0;
+              const baseUrl =
+                process.env.NEXTAUTH_URL ?? "https://restoreassist.app";
+              void sendSubscriptionActivatedEmail({
+                recipientEmail: user.email,
+                recipientName: user.name ?? "there",
+                planName: subscriptionPlan ?? "Restore Assist",
+                amount: amountTotal / 100, // Stripe amounts are in cents
+                currency: (session.currency ?? "aud").toUpperCase(),
+                invoiceUrl:
+                  typeof session.invoice === "string"
+                    ? null // Would need a second Stripe call to resolve to hosted URL
+                    : (session.invoice?.hosted_invoice_url ?? null),
+                dashboardUrl: `${baseUrl}/dashboard`,
+                nextBillingDate: subscriptionEndsAt,
+              });
+            }
+          } catch (err) {
+            console.error(
+              "[Stripe] Activation email lookup/send failed (non-fatal):",
+              err,
+            );
+          }
         }
         break;
       }

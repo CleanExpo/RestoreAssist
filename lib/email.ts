@@ -1025,3 +1025,97 @@ This is an automated email from Restore Assist. Please do not reply to this emai
     return null;
   }
 }
+
+// ── Subscription Activated (Branded Receipt) Email — RA-1261 ──
+
+export interface SubscriptionActivatedEmailData {
+  recipientEmail: string;
+  recipientName: string;
+  planName: string;
+  amount: number;
+  currency: string;
+  invoiceUrl?: string | null;
+  dashboardUrl: string;
+  nextBillingDate?: Date | null;
+}
+
+/**
+ * RA-1261: Branded "Subscription activated" receipt sent on
+ * checkout.session.completed. Stripe's native receipt is bare + off-brand.
+ */
+export async function sendSubscriptionActivatedEmail(
+  data: SubscriptionActivatedEmailData,
+) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn(
+      "⚠️ [EMAIL] Email service is not configured, skipping activation email",
+    );
+    return null;
+  }
+
+  const fromEmail =
+    process.env.RESEND_FROM_EMAIL || "Restore Assist <onboarding@resend.dev>";
+
+  const amountFormatted = new Intl.NumberFormat("en-AU", {
+    style: "currency",
+    currency: data.currency || "AUD",
+  }).format(data.amount);
+
+  const nextBillingLine = data.nextBillingDate
+    ? `<p style="color: #6b7280; font-size: 14px; margin: 4px 0;">Next billing date: <strong>${data.nextBillingDate.toLocaleDateString(
+        "en-AU",
+        { day: "numeric", month: "long", year: "numeric" },
+      )}</strong></p>`
+    : "";
+
+  const invoiceButton = data.invoiceUrl
+    ? `<a href="${data.invoiceUrl}" style="display: inline-block; border: 1px solid #d1d5db; color: #374151; text-decoration: none; padding: 12px 24px; border-radius: 10px; font-weight: 500; font-size: 14px; margin-left: 12px;">Download invoice</a>`
+    : "";
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8fafc;">
+        <div style="background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%); padding: 40px 30px; border-radius: 16px 16px 0 0; text-align: center;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 30px; font-weight: 700;">You're in 🎉</h1>
+          <p style="color: rgba(255, 255, 255, 0.95); margin: 8px 0 0; font-size: 16px;">Welcome to ${data.planName}</p>
+        </div>
+        <div style="background: #ffffff; border-radius: 0 0 16px 16px; padding: 40px;">
+          <p style="font-size: 16px; margin-bottom: 20px;">Hi ${data.recipientName},</p>
+          <p style="color: #374151; font-size: 15px; margin-bottom: 24px;">Your subscription is now active. Here's a summary — keep it for your records.</p>
+          <div style="border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin: 20px 0;">
+            <p style="margin: 0 0 4px; color: #6b7280; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Plan</p>
+            <p style="margin: 0 0 12px; font-size: 18px; font-weight: 600; color: #111827;">${data.planName}</p>
+            <p style="margin: 0 0 4px; color: #6b7280; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Amount charged</p>
+            <p style="margin: 0 0 12px; font-size: 20px; font-weight: 700; color: #059669;">${amountFormatted}</p>
+            ${nextBillingLine}
+          </div>
+          <div style="text-align: center; margin: 32px 0 8px;">
+            <a href="${data.dashboardUrl}" style="display: inline-block; background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-weight: 600; font-size: 15px;">Open dashboard</a>
+            ${invoiceButton}
+          </div>
+          <p style="color: #6b7280; font-size: 13px; margin-top: 32px; text-align: center;">Questions? Reply to this email — we read every one.</p>
+        </div>
+        <p style="color: #9ca3af; font-size: 12px; text-align: center; margin-top: 16px;">Restore Assist · Australia's compliance platform for water damage restoration</p>
+      </body>
+    </html>
+  `;
+
+  try {
+    const { Resend } = await import("resend");
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    const result = await resend.emails.send({
+      from: fromEmail,
+      to: data.recipientEmail,
+      subject: `Welcome to ${data.planName} — your receipt`,
+      html,
+    });
+    return result;
+  } catch (error: any) {
+    console.error(
+      "❌ [EMAIL] Failed to send subscription activated email:",
+      error?.message,
+    );
+    return null;
+  }
+}
