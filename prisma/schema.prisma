@@ -1635,6 +1635,9 @@ model Inspection {
   // RA-1140: WHS incident tracking
   whsIncidents WHSIncident[]
 
+  // RA-1131: Auto-SWMS draft
+  swmsDraft SwmsDraft?
+
   @@index([userId])
   @@index([status])
   @@index([inspectionDate])
@@ -5014,9 +5017,29 @@ model ScopeVariation {
   status              String     @default("PENDING") // "PENDING" | "APPROVED" | "REJECTED" | "AUTO_APPROVED"
   autoApprovalRule    String? // e.g. "DELTA_UNDER_10_PERCENT"
   notes               String?
+
+  // RA-1131: auto-decision fields (nullable — backfill-safe for existing rows)
+  autoDecision        String?    // "auto-approved" | "needs-adjuster" | "needs-insurer"
+  autoDecisionReason  String?
+  autoDecisionAt      DateTime?
+
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
 
   @@index([inspectionId, createdAt])
   @@index([status])
+}
+
+// RA-1131: SWMS Draft — auto-generated Safe Work Method Statement per inspection
+model SwmsDraft {
+  id               String      @id @default(cuid())
+  inspectionId     String      @unique
+  inspection       Inspection  @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  contentJson      String      @db.Text // Serialised SwmsDraft object from lib/swms/auto-generator.ts
+  signedAt         DateTime?
+  signedByUserId   String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@index([inspectionId])
 }
