@@ -65,7 +65,10 @@ export function useSketchSnap({
    * Clears guides when `null` is passed.
    */
   const showGuides = useCallback(
-    (from: { x: number; y: number } | null, to: { x: number; y: number } | null) => {
+    (
+      from: { x: number; y: number } | null,
+      to: { x: number; y: number } | null,
+    ) => {
       if (!from || !to) {
         guidesRef.current = [];
         onGuides?.([]);

@@ -24,7 +24,9 @@ type RouteContext = { params: Promise<{ id: string }> };
 async function authorise(request: NextRequest, inspectionId: string) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+    return {
+      error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+    };
   }
 
   const rateLimited = await applyRateLimit(request, {
@@ -41,7 +43,10 @@ async function authorise(request: NextRequest, inspectionId: string) {
   });
   if (!inspection) {
     return {
-      error: NextResponse.json({ error: "Inspection not found" }, { status: 404 }),
+      error: NextResponse.json(
+        { error: "Inspection not found" },
+        { status: 404 },
+      ),
     };
   }
 
@@ -76,7 +81,10 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ data: actions });
   } catch (err) {
     console.error("[make-safe GET]", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -98,7 +106,9 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
 
     if (!action || !(MAKE_SAFE_ACTIONS as readonly string[]).includes(action)) {
       return NextResponse.json(
-        { error: `Invalid action. Must be one of: ${MAKE_SAFE_ACTIONS.join(", ")}` },
+        {
+          error: `Invalid action. Must be one of: ${MAKE_SAFE_ACTIONS.join(", ")}`,
+        },
         { status: 400 },
       );
     }
@@ -148,7 +158,10 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ data: result }, { status: 200 });
   } catch (err) {
     console.error("[make-safe POST]", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -205,7 +218,9 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
         const transitioningToCompleted = !wasCompleted && nowCompleted;
 
         return prisma.makeSafeAction.upsert({
-          where: { inspectionId_action: { inspectionId: id, action: item.action } },
+          where: {
+            inspectionId_action: { inspectionId: id, action: item.action },
+          },
           create: {
             inspectionId: id,
             action: item.action,
@@ -216,7 +231,9 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
             notes: item.notes ?? null,
           },
           update: {
-            ...(item.applicable !== undefined && { applicable: item.applicable }),
+            ...(item.applicable !== undefined && {
+              applicable: item.applicable,
+            }),
             ...(item.completed !== undefined && {
               completed: item.completed,
               ...(transitioningToCompleted && {
@@ -241,6 +258,9 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ data: results });
   } catch (err) {
     console.error("[make-safe PATCH]", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

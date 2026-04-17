@@ -132,7 +132,8 @@ export function evaluateVariation(
   if (variation.isStructural) {
     return {
       decision: "needs-insurer",
-      reason: "Structural damage variation requires insurer sign-off (S500:2025 §7.1).",
+      reason:
+        "Structural damage variation requires insurer sign-off (S500:2025 §7.1).",
       thresholdsApplied,
     };
   }
@@ -141,7 +142,8 @@ export function evaluateVariation(
   if (isCat3(variation.waterCategory)) {
     return {
       decision: "needs-insurer",
-      reason: "Category 3 water contamination variation requires insurer sign-off (S500:2025 §7.3).",
+      reason:
+        "Category 3 water contamination variation requires insurer sign-off (S500:2025 §7.3).",
       thresholdsApplied,
     };
   }

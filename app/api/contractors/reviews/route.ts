@@ -164,8 +164,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const subRatings = [qualityRating, timelinessRating, communicationRating, valueRating];
-    const allRatings = [overallRating, ...subRatings.filter((r) => r !== undefined)];
+    const subRatings = [
+      qualityRating,
+      timelinessRating,
+      communicationRating,
+      valueRating,
+    ];
+    const allRatings = [
+      overallRating,
+      ...subRatings.filter((r) => r !== undefined),
+    ];
     if (allRatings.some((r) => r < 1 || r > 5)) {
       return NextResponse.json(
         { error: "Rating must be between 1 and 5" },
