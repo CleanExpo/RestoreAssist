@@ -17,6 +17,8 @@ import {
   ArrowRight,
   Activity,
   GitBranch,
+  MessageSquare,
+  Plug,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo } from "react";
@@ -180,6 +182,9 @@ export default function DashboardPage() {
     return `${Math.floor(diffInMinutes / 1440)}d ago`;
   };
 
+  // RA-1262: quick actions aligned with the TRUE NORTH vision — get
+  // new users onto the core "AI-assisted tech does a job" loop ASAP.
+  // Settings moved to header dropdown (user can still reach via sidebar).
   const quickActions = [
     {
       title: "Create New Report",
@@ -189,25 +194,25 @@ export default function DashboardPage() {
       href: "/dashboard/reports/new",
     },
     {
-      title: "View Templates",
-      description: "Browse IICRC compliant templates",
-      icon: FileText,
+      title: "Start Guided Interview",
+      description: "Let AI carry the Smart — IICRC S500 compliant",
+      icon: MessageSquare,
       color: "from-emerald-500 to-teal-500",
-      href: "/dashboard/form-templates",
+      href: "/dashboard/interviews/new",
     },
     {
-      title: "Analytics",
-      description: "Track your reporting performance",
-      icon: BarChart3,
+      title: "Connect Xero",
+      description: "Sync invoices + payments automatically",
+      icon: Plug,
       color: "from-purple-500 to-pink-500",
-      href: "/dashboard/analytics",
+      href: "/dashboard/integrations",
     },
     {
-      title: "Settings",
-      description: "Configure your preferences",
+      title: "Add Client",
+      description: "Manage contacts and job history",
       icon: Users,
       color: "from-orange-500 to-red-500",
-      href: "/dashboard/settings",
+      href: "/dashboard/clients",
     },
   ];
 
