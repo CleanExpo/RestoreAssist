@@ -18,6 +18,7 @@ import {
   retrieveRelevantStandards,
   buildStandardsContextPrompt,
 } from "./standards-retrieval";
+import { describeClause } from "./reports/clause-descriptions";
 
 interface BusinessInfo {
   businessName?: string | null;
@@ -108,6 +109,8 @@ interface ScopeItem {
   description: string;
   justification: string;
   standardReference: string;
+  /** Optional IICRC/AS-NZS/NZBS clause reference, e.g. "S500:2025 §7.1" */
+  clauseRef?: string;
 }
 
 /**
@@ -296,7 +299,16 @@ export async function generateForensicReportPDF(
     scopeAreas,
   });
 
-  // PAGE 4: Authorisation & Terms
+  // PAGE 4: Standards Compliance Index
+  const pageCompliance = pdfDoc.addPage([595.28, 841.89]);
+  await renderComplianceIndexPage(pageCompliance, {
+    helvetica,
+    helveticaBold,
+    colors: { darkBlue, black, white, lightGray, darkGray },
+    scopeItems,
+  });
+
+  // PAGE 5: Authorisation & Terms
   const page4 = pdfDoc.addPage([595.28, 841.89]);
   await renderPage4(page4, {
     pdfDoc,
@@ -330,6 +342,8 @@ export async function generateForensicReportPDF(
     } else if (index === 2) {
       sectionTitle = "Data Evidence & Project Management";
     } else if (index === 3) {
+      sectionTitle = "Standards Compliance Index";
+    } else if (index === 4) {
       sectionTitle = "Authorisation & Terms";
     }
 
@@ -896,6 +910,29 @@ async function renderPage2(
       });
       stdY -= 10;
     });
+
+    // Clause reference — small grey annotation below standard reference
+    if (item.clauseRef) {
+      const clauseLabel = `[${item.clauseRef}]`;
+      const clauseLines = wrapText(
+        clauseLabel,
+        colWidths.standard - 10,
+        helvetica,
+        7,
+      );
+      let clauseY = stdY - 2;
+      clauseLines.forEach((line: string) => {
+        page.drawText(sanitizeTextForPDF(line), {
+          x: colX,
+          y: clauseY,
+          size: 7,
+          font: helvetica,
+          color: rgb(0.5, 0.5, 0.5),
+          maxWidth: colWidths.standard - 10,
+        });
+        clauseY -= 9;
+      });
+    }
 
     yPosition -= rowHeight + 2;
   });
@@ -1552,6 +1589,119 @@ async function renderPage3(
     });
 
     yPosition -= rowHeight + 2;
+  });
+}
+
+/**
+ * Render Standards Compliance Index page.
+ * Lists every distinct clauseRef cited across scope items, sorted alphabetically,
+ * with a brief description from the clause-descriptions lookup.
+ */
+async function renderComplianceIndexPage(
+  page: PDFPage,
+  options: {
+    helvetica: PDFFont;
+    helveticaBold: PDFFont;
+    colors: {
+      darkBlue: RGB;
+      black: RGB;
+      white: RGB;
+      lightGray: RGB;
+      darkGray: RGB;
+    };
+    scopeItems: ScopeItem[];
+  },
+): Promise<void> {
+  const { helvetica, helveticaBold, colors, scopeItems } = options;
+  const { width, height } = page.getSize();
+  const margin = 50;
+  let yPosition = height - margin;
+
+  // ── Heading ──────────────────────────────────────────────────────────────
+  page.drawText("Standards Compliance Index", {
+    x: margin,
+    y: yPosition,
+    size: 18,
+    font: helveticaBold,
+    color: colors.darkBlue,
+  });
+  yPosition -= 28;
+
+  // ── Sub-heading ───────────────────────────────────────────────────────────
+  const subHeading =
+    "Every scope item, classification, and hazard finding in this report is cited to the following standards.";
+  const subLines = wrapText(subHeading, width - 2 * margin, helvetica, 10);
+  subLines.forEach((line: string) => {
+    page.drawText(sanitizeTextForPDF(line), {
+      x: margin,
+      y: yPosition,
+      size: 10,
+      font: helvetica,
+      color: colors.darkGray,
+      maxWidth: width - 2 * margin,
+    });
+    yPosition -= 14;
+  });
+  yPosition -= 10;
+
+  // ── Divider line ─────────────────────────────────────────────────────────
+  page.drawLine({
+    start: { x: margin, y: yPosition },
+    end: { x: width - margin, y: yPosition },
+    thickness: 1,
+    color: colors.darkBlue,
+  });
+  yPosition -= 16;
+
+  // ── Collect distinct clause refs from scope items ─────────────────────────
+  const clauseSet = new Set<string>();
+  // Always include core S500:2025 references
+  clauseSet.add("S500:2025 §7.1");
+  clauseSet.add("S500:2025 §10.1");
+  scopeItems.forEach((item) => {
+    if (item.clauseRef) clauseSet.add(item.clauseRef.trim());
+  });
+  const clauses = Array.from(clauseSet).sort();
+
+  // ── Bullet list ───────────────────────────────────────────────────────────
+  clauses.forEach((clauseRef) => {
+    if (yPosition < margin + 60) return; // guard against page overflow
+    const description = describeClause(clauseRef);
+    const bulletText = `\u2022  [${clauseRef}]  ${description}`;
+    const bulletLines = wrapText(
+      bulletText,
+      width - 2 * margin - 10,
+      helvetica,
+      10,
+    );
+    bulletLines.forEach((line: string, li: number) => {
+      page.drawText(sanitizeTextForPDF(line), {
+        x: margin + (li === 0 ? 0 : 12),
+        y: yPosition,
+        size: 10,
+        font: helvetica,
+        color: colors.black,
+        maxWidth: width - 2 * margin - 10,
+      });
+      yPosition -= 14;
+    });
+    yPosition -= 4;
+  });
+
+  // ── Standard metadata footer ──────────────────────────────────────────────
+  const footerY = margin + 20;
+  const footerText =
+    "Prepared per AS-IICRC S500:2025 (Australian edition) published by Standards Australia + IICRC + RIA Australasia.";
+  const footerLines = wrapText(footerText, width - 2 * margin, helvetica, 8);
+  footerLines.forEach((line: string, fi: number) => {
+    page.drawText(sanitizeTextForPDF(line), {
+      x: margin,
+      y: footerY - fi * 11,
+      size: 8,
+      font: helvetica,
+      color: rgb(0.45, 0.45, 0.45),
+      maxWidth: width - 2 * margin,
+    });
   });
 }
 
