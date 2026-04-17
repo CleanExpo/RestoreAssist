@@ -165,6 +165,14 @@ export async function PUT(
   }
 }
 
+/**
+ * RA-1267 / CLAUDE.md rule 18: PATCH alias.
+ * PUT is preserved for backwards compatibility with existing dashboard
+ * code; PATCH is the REST-correct verb for partial updates and is what
+ * new code should use. Both delegate to the same handler.
+ */
+export const PATCH = PUT;
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
