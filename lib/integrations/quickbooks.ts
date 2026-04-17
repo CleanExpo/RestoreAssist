@@ -6,6 +6,7 @@
  */
 
 import { Integration } from "@prisma/client";
+import { type Country, getGstTreatment } from "../gst-rules";
 
 interface QuickBooksInvoice {
   Line: Array<{
@@ -50,12 +51,17 @@ interface QuickBooksInvoiceResponse {
 }
 
 /**
- * Sync invoice to QuickBooks
+ * Sync invoice to QuickBooks.
+ *
+ * @param country - Billing jurisdiction. Defaults to "AU" (GST tax rate name).
+ *   Pass "NZ" for "GST NZ" tax rate name. Upstream source: Organization.country (RA-1120).
  */
 export async function syncInvoiceToQuickBooks(
   invoice: any,
   integration: Integration,
+  country: Country = "AU",
 ) {
+  const gst = getGstTreatment(country);
   if (!integration.accessToken) {
     throw new Error("No access token available for QuickBooks");
   }
@@ -89,7 +95,7 @@ export async function syncInvoiceToQuickBooks(
           Qty: item.quantity,
           UnitPrice: parseFloat(unitPrice.toFixed(2)),
           ...(item.gstRate > 0 && {
-            TaxCodeRef: { value: "TAX" }, // Taxable
+            TaxCodeRef: { value: gst.qboTaxRateName }, // AU: "GST", NZ: "GST NZ"
           }),
         },
       };
@@ -118,7 +124,7 @@ export async function syncInvoiceToQuickBooks(
       SalesItemLineDetail: {
         Qty: 1,
         UnitPrice: invoice.shippingAmount / 100,
-        TaxCodeRef: { value: "TAX" },
+        TaxCodeRef: { value: gst.qboTaxRateName }, // AU: "GST", NZ: "GST NZ"
       },
     });
   }
