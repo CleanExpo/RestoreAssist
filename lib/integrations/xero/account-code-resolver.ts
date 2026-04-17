@@ -189,9 +189,13 @@ async function loadMappings(integrationId: string): Promise<CachedMappings> {
   };
 
   try {
+    // CLAUDE.md rule 4: every findMany requires an explicit take.
+    // 500 is well above realistic ceiling (6 canonical + any custom client categories)
+    // yet bounds memory + cache size if a runaway mapping accidentally inserts junk rows.
     const rows = await prisma.xeroAccountCodeMapping.findMany({
       where: { integrationId },
       select: { category: true, accountCode: true, taxType: true },
+      take: 500,
     });
 
     for (const r of rows) {
