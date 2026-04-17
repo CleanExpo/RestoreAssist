@@ -65,7 +65,8 @@ export async function GET(_request: NextRequest) {
       },
       counts: {
         pending: countsByStatus.PENDING ?? 0,
-        processed: countsByStatus.PROCESSED ?? 0,
+        processing: countsByStatus.PROCESSING ?? 0,
+        completed: countsByStatus.COMPLETED ?? 0,
         skipped: countsByStatus.SKIPPED ?? 0,
         failed: countsByStatus.FAILED ?? 0,
       },
