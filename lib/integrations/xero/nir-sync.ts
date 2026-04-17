@@ -11,9 +11,9 @@
  *   XERO_ACCOUNT_WATER=200  XERO_ACCOUNT_FIRE=201  XERO_ACCOUNT_MOULD=202
  */
 
-import { getTokens, markIntegrationError, logSync } from "../oauth-handler";
-import { XeroClient } from "./client";
-import { prisma } from "@/lib/prisma";
+import { markIntegrationError, logSync } from "../oauth-handler";
+import { getValidXeroToken, getXeroTenantId } from "./token-manager";
+import { formatABN } from "../xero";
 
 export interface NIRScopeItem {
   description: string;
@@ -32,6 +32,7 @@ export interface NIRJobPayload {
   clientEmail?: string;
   clientPhone?: string;
   clientAddress?: string;
+  clientABN?: string; // RA-870: ABN → Xero Contact.TaxNumber for ATO reporting
   propertyAddress: string;
   reportNumber: string;
   damageType: "WATER" | "FIRE" | "MOULD" | "GENERAL";
@@ -76,24 +77,9 @@ export async function syncNIRJobToXero(
   xeroInvoiceNumber: string;
   status: string;
 }> {
-  const tokens = await getTokens(integrationId);
-  if (!tokens.accessToken) throw new Error("Xero not connected");
-
-  const integration = await prisma.integration.findUnique({
-    where: { id: integrationId },
-    select: { tenantId: true },
-  });
-  if (!integration?.tenantId)
-    throw new Error("Xero tenant ID missing. Re-connect.");
-
-  let accessToken = tokens.accessToken;
-  if (tokens.isExpired && tokens.refreshToken) {
-    const client = new XeroClient(integrationId, integration.tenantId);
-    await client.refreshAccessToken();
-    const freshTokens = await getTokens(integrationId);
-    if (!freshTokens.accessToken) throw new Error("Xero token refresh failed");
-    accessToken = freshTokens.accessToken;
-  }
+  // RA-868: Centralised token + tenant lookup (throws XeroTokenError on failure)
+  const accessToken = await getValidXeroToken(integrationId);
+  const tenantId = await getXeroTenantId(integrationId);
 
   const accountCode = getAccountCode(job.damageType);
   const dueDate = new Date(job.reportDate);
@@ -131,6 +117,8 @@ export async function syncNIRJobToXero(
       ...(job.clientPhone && {
         Phones: [{ PhoneType: "DEFAULT", PhoneNumber: job.clientPhone }],
       }),
+      // RA-870: Map client ABN to Xero TaxNumber for ATO reporting
+      ...(formatABN(job.clientABN) && { TaxNumber: formatABN(job.clientABN) }),
     },
     Date: formatDate(job.reportDate),
     DueDate: formatDate(dueDate),
@@ -145,7 +133,7 @@ export async function syncNIRJobToXero(
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
-      "Xero-tenant-id": integration.tenantId,
+      "Xero-tenant-id": tenantId,
       "Content-Type": "application/json",
       Accept: "application/json",
     },
