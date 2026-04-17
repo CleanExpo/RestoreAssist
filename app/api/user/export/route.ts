@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
       }),
       prisma.report.findMany({
         where: { userId: session.user.id },
+        take: 10000, // CLAUDE.md rule 4 — export cap
         include: {
           client: {
             select: {
@@ -62,6 +63,7 @@ export async function GET(request: NextRequest) {
       }),
       prisma.client.findMany({
         where: { userId: session.user.id },
+        take: 10000, // CLAUDE.md rule 4
         select: {
           id: true,
           name: true,
@@ -76,6 +78,7 @@ export async function GET(request: NextRequest) {
       }),
       (prisma.inspection as any).findMany({
         where: { userId: session.user.id },
+        take: 10000, // CLAUDE.md rule 4
         include: {
           affectedAreas: true,
           moistureReadings: true,
@@ -85,6 +88,7 @@ export async function GET(request: NextRequest) {
       }),
       prisma.estimate.findMany({
         where: { userId: session.user.id },
+        take: 10000, // CLAUDE.md rule 4
         include: {
           lineItems: true,
         },

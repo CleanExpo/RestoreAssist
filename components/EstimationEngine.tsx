@@ -46,6 +46,10 @@ import {
   BookmarkCheck,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import {
+  LineItemLibraryPicker,
+  type LibraryPickItem,
+} from "@/components/estimation/LineItemLibraryPicker";
 
 interface EstimationEngineProps {
   reportId: string;
@@ -921,31 +925,56 @@ export default function EstimationEngine({
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold text-white">Line Items</h3>
-        <Button
-          onClick={() => {
-            const newItem = {
-              code: `CUST-${estimateData.lineItems.length + 1}`,
-              category: LINE_ITEM_CATEGORIES[0],
-              description: "",
-              qty: 1,
-              unit: "hours",
-              rate: 0,
-              formula: "",
-              subtotal: 0,
-              isScopeLinked: false,
-              isEstimatorAdded: true,
-              displayOrder: estimateData.lineItems.length,
-            };
-            setEstimateData((prev) => ({
-              ...prev,
-              lineItems: [...prev.lineItems, newItem],
-            }));
-          }}
-          className="bg-cyan-600 hover:bg-cyan-700"
-        >
-          <Plus className="mr-2" size={16} />
-          Add Line Item
-        </Button>
+        <div className="flex gap-2">
+          <LineItemLibraryPicker
+            onPick={(picked: LibraryPickItem) => {
+              const newItem = {
+                code: `LIB-${estimateData.lineItems.length + 1}`,
+                category: picked.category,
+                description: picked.description,
+                qty: 1,
+                unit: picked.unit,
+                rate: picked.rate,
+                formula: "",
+                subtotal: picked.rate,
+                isScopeLinked: false,
+                isEstimatorAdded: true,
+                displayOrder: estimateData.lineItems.length,
+                sourceCostItemId: picked.id,
+              };
+              setEstimateData((prev) => ({
+                ...prev,
+                lineItems: [...prev.lineItems, newItem],
+              }));
+              toast.success(`Added "${picked.description}" from library`);
+            }}
+          />
+          <Button
+            onClick={() => {
+              const newItem = {
+                code: `CUST-${estimateData.lineItems.length + 1}`,
+                category: LINE_ITEM_CATEGORIES[0],
+                description: "",
+                qty: 1,
+                unit: "hours",
+                rate: 0,
+                formula: "",
+                subtotal: 0,
+                isScopeLinked: false,
+                isEstimatorAdded: true,
+                displayOrder: estimateData.lineItems.length,
+              };
+              setEstimateData((prev) => ({
+                ...prev,
+                lineItems: [...prev.lineItems, newItem],
+              }));
+            }}
+            className="bg-cyan-600 hover:bg-cyan-700"
+          >
+            <Plus className="mr-2" size={16} />
+            Add Line Item
+          </Button>
+        </div>
       </div>
 
       <div className="border border-slate-700 rounded-lg overflow-hidden">
