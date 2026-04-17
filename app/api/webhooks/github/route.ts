@@ -118,6 +118,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ data: "ignored" });
   }
 
+  // RA-1274: dedupe GitHub redeliveries on the x-github-delivery header.
+  // Without this, GitHub's retry-on-5xx behaviour would re-call Anthropic
+  // for the same commits (duplicate billing) and potentially create
+  // duplicate notification rows if the version derivation drifted.
+  const deliveryId = req.headers.get("x-github-delivery");
+  if (deliveryId) {
+    const existingDelivery = await (prisma as any).appRelease.findUnique({
+      where: { githubDeliveryId: deliveryId },
+      select: { id: true },
+    });
+    if (existingDelivery) {
+      return NextResponse.json({ data: "duplicate delivery — skipped" });
+    }
+  }
+
   let payload: {
     ref?: string;
     after?: string;
@@ -146,14 +161,25 @@ export async function POST(req: NextRequest) {
 
   // Create the release record immediately with placeholder notes so we can
   // return 200 before the AI call (prevents GitHub's 10-second timeout).
-  const release = await prisma.appRelease.create({
-    data: {
-      version,
-      title: `Version ${version}`,
-      notes: "Release notes generating…",
-      commitSha,
-    },
-  });
+  // RA-1274: persist the delivery ID too so later redeliveries short-circuit.
+  let release;
+  try {
+    release = await (prisma as any).appRelease.create({
+      data: {
+        version,
+        title: `Version ${version}`,
+        notes: "Release notes generating…",
+        commitSha,
+        githubDeliveryId: deliveryId || null,
+      },
+    });
+  } catch (err: any) {
+    // P2002 on githubDeliveryId OR version — redelivery race, just ack.
+    if (err?.code === "P2002") {
+      return NextResponse.json({ data: "race dedup — skipped" });
+    }
+    throw err;
+  }
 
   // Fire-and-forget: generate real notes + fan-out notifications in background.
   // Failures are logged but must never block the webhook response.
@@ -191,7 +217,10 @@ export async function POST(req: NextRequest) {
         });
       }
     } catch (err) {
-      console.error("[github-webhook] Background release-notes job failed:", err);
+      console.error(
+        "[github-webhook] Background release-notes job failed:",
+        err,
+      );
     }
   })();
 

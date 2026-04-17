@@ -4096,6 +4096,12 @@ model AppRelease {
   title     String
   notes     String   @db.Text
   commitSha String?
+
+  /// RA-1274: GitHub's `x-github-delivery` header. Used as an idempotency
+  /// key so redelivered pushes don't re-call Anthropic or create duplicate
+  /// Release rows. Nullable because legacy rows have none.
+  githubDeliveryId String?  @unique
+
   mergedAt  DateTime @default(now())
   createdAt DateTime @default(now())
   seenBy    UserReleaseSeen[]
