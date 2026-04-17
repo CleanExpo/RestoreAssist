@@ -2,20 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { verifyAdminFromDb } from "@/lib/admin-auth";
 import { PRICING_CONFIG } from "@/lib/pricing";
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // Only admins can see billing overview
-    if (session.user.role !== "ADMIN") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const auth = await verifyAdminFromDb(session);
+    if (auth.response) return auth.response;
 
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -66,6 +60,7 @@ export async function GET(request: NextRequest) {
           trialEndsAt: true,
           createdAt: true,
         },
+        take: 1000, // CLAUDE.md rule 4
       }),
 
       // Users who canceled in last 30 days

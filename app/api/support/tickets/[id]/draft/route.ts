@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { verifyAdminFromDb } from "@/lib/admin-auth";
 import Anthropic from "@anthropic-ai/sdk";
 
 interface RouteContext {
@@ -31,10 +32,8 @@ function getAnthropicClient(): Anthropic {
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
     const session = await getServerSession(authOptions);
-
-    if (!session?.user?.id || session.user.role !== "ADMIN") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const auth = await verifyAdminFromDb(session);
+    if (auth.response) return auth.response;
 
     const { id } = await context.params;
 

@@ -93,6 +93,7 @@ export async function GET(request: NextRequest) {
       const orgUsers = await prisma.user.findMany({
         where: { organizationId: currentUser.organizationId },
         select: { id: true },
+        take: 500, // CLAUDE.md rule 4
       });
       where.userId = { in: orgUsers.map((u) => u.id) };
     }

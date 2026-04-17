@@ -186,6 +186,7 @@ export async function GET(request: NextRequest) {
     // Fetch all reports with estimates
     const reports = await prisma.report.findMany({
       where,
+      take: 5000, // CLAUDE.md rule 4
       include: {
         estimates: {
           take: 1,
@@ -477,6 +478,7 @@ export async function GET(request: NextRequest) {
 
     const previousReports = await prisma.report.findMany({
       where: previousPeriodFilter,
+      take: 5000, // CLAUDE.md rule 4
       include: {
         estimates: {
           take: 1,
