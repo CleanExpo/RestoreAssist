@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createHmac, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/prisma";
+import { verifyXeroWebhookSignature } from "@/lib/integrations/xero/webhook-processor";
 
 /**
  * POST /api/webhooks/xero - Receive webhook events from Xero
@@ -35,15 +35,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Compute expected signature using HMAC-SHA256
-    const expectedSignature = createHmac("sha256", webhookKey)
-      .update(rawBody)
-      .digest("base64");
-
-    const sigBuf = Buffer.from(signature, "base64");
-    const expBuf = Buffer.from(expectedSignature, "base64");
-    if (sigBuf.length !== expBuf.length || !timingSafeEqual(sigBuf, expBuf)) {
-      // Signature mismatch;
+    // RA-871: Timing-safe HMAC-SHA256 verification via shared helper
+    if (!verifyXeroWebhookSignature(rawBody, signature, webhookKey)) {
       return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
 
