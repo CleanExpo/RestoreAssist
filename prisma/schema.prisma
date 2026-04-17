@@ -1625,7 +1625,12 @@ model Inspection {
 
   // RA-1136a: Make-Safe P0 compliance gate
   makeSafeActions MakeSafeAction[]
+
+  // RA-1136b: Variation Tracking compliance gate
   scopeVariations ScopeVariation[]
+
+  // RA-1140: WHS incident tracking
+  whsIncidents WHSIncident[]
 
   @@index([userId])
   @@index([status])
@@ -1646,6 +1651,52 @@ enum InspectionStatus {
   ESTIMATED
   COMPLETED
   REJECTED
+}
+
+// RA-1140: WHS Incident Tracking (RA-80 was claimed Done but never shipped)
+model WHSIncident {
+  id           String   @id @default(cuid())
+  inspectionId String?
+  inspection   Inspection? @relation(fields: [inspectionId], references: [id], onDelete: SetNull)
+  userId       String
+
+  // Incident details — shape matches app/dashboard/whs/page.tsx WHSIncident interface
+  incidentType       String   // free text: "slip_fall" | "electrical" | "biohazard" | etc.
+  severity           String   // "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"
+  status             String   @default("OPEN") // "OPEN" | "UNDER_REVIEW" | "CLOSED" | "REQUIRES_ESCALATION"
+  incidentDate       DateTime
+  location           String?
+  injuredParty       String?
+  injuryDescription  String?  @db.Text
+  description        String?  @db.Text
+
+  correctiveActions WHSCorrectiveAction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([inspectionId])
+  @@index([userId, createdAt])
+  @@index([incidentType, severity])
+  @@index([status])
+}
+
+model WHSCorrectiveAction {
+  id         String      @id @default(cuid())
+  incidentId String
+  incident   WHSIncident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  description  String
+  assignedTo   String?
+  completed    Boolean  @default(false)
+  completedAt  DateTime?
+  dueDate      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([incidentId])
+  @@index([assignedTo, completed])
 }
 
 // Environmental Data (Temperature, Humidity, Dew Point, etc.)
@@ -1684,6 +1735,12 @@ model MoistureReading {
   // Additional Context
   notes    String? @db.Text
   photoUrl String? // Link to photo if available
+
+  // RA-1141: Device metadata for BLE / cloud / OCR ingest
+  unit         String? // "PERCENT_MC" | "WME" | "RH" | "CELSIUS"
+  deviceVendor String? // e.g. "Delmhorst"
+  deviceModel  String? // e.g. "Navigator Pro"
+  source       String? @default("manual") // "ble" | "cloud" | "ocr" | "manual"
 
   recordedAt DateTime @default(now())
   createdAt  DateTime @default(now())
@@ -1743,6 +1800,9 @@ model ScopeItem {
   // System Determination
   autoDetermined Boolean @default(false) // True if system auto-added this
   justification  String? @db.Text // Why this item is required (IICRC/building code reference)
+
+  // RA-1142: IICRC / building-code clause citation (e.g. "S500:2025 §7.1")
+  clauseRef String? // stops JSON-in-justification hack; unblocks RA-1131 PDF citations
 
   // Status
   isRequired Boolean @default(true)
@@ -4936,22 +4996,23 @@ model MakeSafeAction {
   @@index([inspectionId])
 }
 
+// RA-1136b: Scope Variation — ICA Code of Practice §5 + Insurance Contracts Act 1984
 model ScopeVariation {
-  id                  String   @id @default(cuid())
+  id                  String     @id @default(cuid())
   inspectionId        String
   inspection          Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
   reason              String
-  authorisationSource String
-  authorisationRef    String?
-  costDeltaCents      Int
-  costDeltaPercent    Float?
+  authorisationSource String // "insurer_email" | "customer_signature" | "internal_manager" | "adjuster_approval"
+  authorisationRef    String? // email ref, signature ID, etc.
+  costDeltaCents      Int // positive = scope increase; negative = scope reduction
+  costDeltaPercent    Float? // calculated vs baseline estimate
   approvedByUserId    String
-  approvedAt          DateTime @default(now())
-  status              String   @default("PENDING")
-  autoApprovalRule    String?
+  approvedAt          DateTime   @default(now())
+  status              String     @default("PENDING") // "PENDING" | "APPROVED" | "REJECTED" | "AUTO_APPROVED"
+  autoApprovalRule    String? // e.g. "DELTA_UNDER_10_PERCENT"
   notes               String?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
 
   @@index([inspectionId, createdAt])
   @@index([status])

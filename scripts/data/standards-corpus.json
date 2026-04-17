@@ -1,0 +1,202 @@
+[
+  {
+    "standard": "IICRC_S500",
+    "edition": "2025",
+    "clause": "3.1",
+    "title": "S500 — Scope and application of the standard",
+    "jurisdiction": "AU",
+    "summary": "Covers the overall scope of water damage restoration work covered by the standard, including the types of structures, occupancies, and water loss events to which it applies. Establishes the standard as a reference for professional restoration practice and defines the boundaries of its authority relative to other codes."
+  },
+  {
+    "standard": "IICRC_S500",
+    "edition": "2025",
+    "clause": "3.2",
+    "title": "S500 — Definitions of key restoration terms",
+    "jurisdiction": "AU",
+    "summary": "Provides normative definitions for terminology used throughout the standard, including water category classifications, structural materials, affected areas, and occupant exposure risk levels. Consistent terminology underpins correct field classification decisions and documentation."
+  },
+  {
+    "standard": "IICRC_S500",
+    "edition": "2025",
+    "clause": "7.1",
+    "title": "S500 — General health and safety obligations for restorers",
+    "jurisdiction": "AU",
+    "summary": "Establishes baseline occupational health and safety requirements for restoration personnel during water damage mitigation work. Covers personal protective equipment selection, hazard identification, site access control, and communication of safety risks to occupants and other trades on site."
+  },
+  {
+    "standard": "IICRC_S500",
+    "edition": "2025",
+    "clause": "7.3",
+    "title": "S500 — Electrical hazard management during water intrusion",
+    "jurisdiction": "AU",
+    "summary": "Addresses the assessment and control of electrical hazards that arise when water contacts electrical systems or equipment. Requires confirmation that power is de-energised by a qualified electrician before restoration personnel enter affected areas, and documents conditions under which work may resume."
+  },
+  {
+    "standard": "IICRC_S500",
+    "edition": "2025",
+    "clause": "7.5",
+    "title": "S500 — Mould and microbial risk during water damage response",
+    "jurisdiction": "AU",
+    "summary": "Describes conditions under which mould amplification is likely to occur during water damage events and the precautionary measures restorers must apply. Includes time-based thresholds for initiating containment, personal protective equipment requirements, and criteria for escalating to full mould remediation protocols."
+  },
+  {
+    "standard": "IICRC_S500",
+    "edition": "2025",
+    "clause": "10.1",
+    "title": "S500 — Water category classification framework",
+    "jurisdiction": "AU",
+    "summary": "Introduces the three-category system for classifying water by contamination level: Category 1 (clean source), Category 2 (significant contamination), and Category 3 (grossly contaminated). Category assignment drives all subsequent decisions about personal protective equipment, material retention, and drying protocols."
+  },
+  {
+    "standard": "IICRC_S500",
+    "edition": "2025",
+    "clause": "10.5",
+    "title": "S500 — Category 2 water — greywater characteristics and response",
+    "jurisdiction": "AU",
+    "summary": "Defines the sources, characteristics, and contamination thresholds that classify a water loss as Category 2. Covers greywater from appliances, overflow from toilet bowls without faecal matter, and similar sources. Sets out minimum response measures including protective equipment and the conditions under which materials may be retained rather than removed."
+  },
+  {
+    "standard": "IICRC_S500",
+    "edition": "2025",
+    "clause": "12.1",
+    "title": "S500 — Drying system design principles",
+    "jurisdiction": "AU",
+    "summary": "Covers the scientific basis for psychrometric drying in water damage restoration, including the role of temperature, humidity, and airflow in evaporation. Provides the framework for designing drying systems using dehumidifiers, air movers, and supplemental heat so that structural materials reach acceptable moisture targets within defined timeframes."
+  },
+  {
+    "standard": "AS_NZS_4849_1",
+    "edition": "2019",
+    "clause": "4.2",
+    "title": "AS/NZS 4849.1 — Moisture content thresholds for timber framing",
+    "jurisdiction": "AU",
+    "summary": "Specifies acceptable equilibrium moisture content ranges for structural and non-structural timber elements in buildings. Provides reference values used to determine when affected timber framing has been sufficiently dried following a water loss event before encapsulation or reinstatement of lining materials is appropriate."
+  },
+  {
+    "standard": "AS_NZS_4849_1",
+    "edition": "2019",
+    "clause": "5.1",
+    "title": "AS/NZS 4849.1 — Measurement methods for building material moisture",
+    "jurisdiction": "AU",
+    "summary": "Describes approved methods for measuring moisture content in building materials, including pin-type and non-invasive meter types, reference scales, and calibration requirements. Distinguishes between surface and bulk moisture readings and provides guidance on interpreting results in the context of restoration drying goals."
+  },
+  {
+    "standard": "AS_NZS_4849_1",
+    "edition": "2019",
+    "clause": "6.3",
+    "title": "AS/NZS 4849.1 — Moisture limits for plasterboard and sheet linings",
+    "jurisdiction": "AU",
+    "summary": "Sets out moisture thresholds for plasterboard (gypsum board) and other sheet lining materials beyond which the material is considered structurally compromised or a mould risk. Provides restorers with reference values to determine whether in-situ drying is feasible or whether removal and replacement is required."
+  },
+  {
+    "standard": "AS_NZS_4849_1",
+    "edition": "2019",
+    "clause": "7.1",
+    "title": "AS/NZS 4849.1 — Documentation requirements for moisture mapping",
+    "jurisdiction": "AU",
+    "summary": "Specifies the documentation standards for recording moisture readings during and after water damage restoration. Covers floor plan mapping, measurement point notation, date-and-time stamps, instrument identification, and the format of moisture logs to be retained as part of the project record."
+  },
+  {
+    "standard": "AS_NZS_4360",
+    "edition": "2004",
+    "clause": "4.1",
+    "title": "AS/NZS 4360 — Risk management process overview",
+    "jurisdiction": "AU",
+    "summary": "Describes the overall risk management process framework, including context establishment, risk identification, analysis, evaluation, treatment, monitoring, and communication. Provides a systematic approach applicable to restoration businesses assessing operational, liability, and environmental risks during water damage projects."
+  },
+  {
+    "standard": "AS_NZS_4360",
+    "edition": "2004",
+    "clause": "5.3",
+    "title": "AS/NZS 4360 — Risk analysis and likelihood-consequence matrix",
+    "jurisdiction": "AU",
+    "summary": "Covers qualitative and semi-quantitative methods for analysing identified risks, including likelihood rating scales and consequence severity categories. The likelihood-consequence matrix provides a structured basis for prioritising risks encountered in water damage restoration environments such as occupant health impacts and secondary property damage."
+  },
+  {
+    "standard": "AS_NZS_4360",
+    "edition": "2004",
+    "clause": "6.1",
+    "title": "AS/NZS 4360 — Risk treatment options and selection criteria",
+    "jurisdiction": "AU",
+    "summary": "Sets out the range of risk treatment strategies available, including avoiding, reducing, transferring, and accepting risk. Provides criteria for selecting appropriate treatments based on risk level and cost-benefit analysis, relevant to restoration contractors making decisions about site safety, subcontractor engagement, and insurance obligations."
+  },
+  {
+    "standard": "AS_NZS_3000",
+    "edition": "2018",
+    "clause": "1.6",
+    "title": "AS/NZS 3000 — Electrical installations — scope in wet locations",
+    "jurisdiction": "AU",
+    "summary": "Defines the scope of the wiring rules as they apply to wet and damp locations, including areas affected by water ingress. Relevant to restoration contractors who must understand which electrical installation work requires a licensed electrician and what safe clearance distances apply before restoration equipment can be operated."
+  },
+  {
+    "standard": "AS_NZS_3000",
+    "edition": "2018",
+    "clause": "4.4",
+    "title": "AS/NZS 3000 — Protection against electric shock in wet areas",
+    "jurisdiction": "AU",
+    "summary": "Covers requirements for residual current devices and earthing arrangements in wet or flooded areas. Establishes minimum protection standards relevant when restoration drying equipment or power tools are operated in water-damaged environments, and defines conditions that must be verified before energising temporary electrical supplies."
+  },
+  {
+    "standard": "AS_NZS_3000",
+    "edition": "2018",
+    "clause": "7.3",
+    "title": "AS/NZS 3000 — Inspection and testing of electrical installations post-flood",
+    "jurisdiction": "AU",
+    "summary": "Describes testing and inspection obligations for electrical installations that have been exposed to flooding or water intrusion. Requires testing by a licensed electrician to confirm insulation resistance and continuity before the installation is re-energised. Directly relevant to restoration project handover and occupant re-entry clearance."
+  },
+  {
+    "standard": "NZBS_E2",
+    "edition": "2004",
+    "clause": "3.1",
+    "title": "NZBS E2 — External moisture — design requirements for cladding systems",
+    "jurisdiction": "NZ",
+    "summary": "Sets out performance requirements for building cladding systems to manage external moisture loads from rain, wind-driven rain, and surface water. Establishes the basis for assessing whether existing cladding failure contributed to a water damage event and informs remediation scope in New Zealand projects."
+  },
+  {
+    "standard": "NZBS_E2",
+    "edition": "2004",
+    "clause": "4.2",
+    "title": "NZBS E2 — Acceptable solutions for external wall drainage",
+    "jurisdiction": "NZ",
+    "summary": "Describes acceptable solution details for drained and ventilated external wall cavities. Provides restorers with reference benchmarks for identifying non-compliant cladding installations that may have contributed to moisture ingress, supporting scope documentation for insurance and remediation reporting purposes."
+  },
+  {
+    "standard": "NZBS_E2",
+    "edition": "2004",
+    "clause": "6.1",
+    "title": "NZBS E2 — Verification method for cladding system performance",
+    "jurisdiction": "NZ",
+    "summary": "Covers the verification pathway for demonstrating that cladding system designs meet the external moisture performance requirements. Relevant to restoration engineers and building surveyors who must assess whether post-remediation cladding reinstatement restores compliance with the New Zealand Building Code."
+  },
+  {
+    "standard": "NZBS_E3",
+    "edition": "2004",
+    "clause": "2.1",
+    "title": "NZBS E3 — Internal moisture sources and condensation control",
+    "jurisdiction": "NZ",
+    "summary": "Identifies the primary sources of internal moisture generation in occupied buildings and sets performance requirements for controlling condensation on surfaces and within building elements. Provides context for distinguishing water damage from chronic moisture accumulation and condensation damage in restoration assessments."
+  },
+  {
+    "standard": "NZBS_E3",
+    "edition": "2004",
+    "clause": "3.2",
+    "title": "NZBS E3 — Ventilation requirements to manage internal humidity",
+    "jurisdiction": "NZ",
+    "summary": "Specifies minimum ventilation provisions for habitable rooms, wet areas, and roof spaces to control internal moisture levels. Relevant to restoration projects where drying systems must be designed in the context of existing building ventilation capacity, and where post-drying ventilation adequacy must be confirmed before close-up."
+  },
+  {
+    "standard": "NADCA_ACR",
+    "edition": "2021",
+    "clause": "5.1",
+    "title": "NADCA ACR 2021 — HVAC system contamination assessment following water damage",
+    "jurisdiction": "BOTH",
+    "summary": "Covers the assessment protocol for HVAC systems exposed to water damage or elevated moisture during a building water loss event. Describes inspection methods, sampling criteria, and the threshold conditions under which HVAC cleaning or component replacement is required before system re-operation. Applicable to both Australian and New Zealand projects."
+  },
+  {
+    "standard": "NADCA_ACR",
+    "edition": "2021",
+    "clause": "7.3",
+    "title": "NADCA ACR 2021 — HVAC duct cleaning procedures and verification",
+    "jurisdiction": "BOTH",
+    "summary": "Specifies the cleaning methods, equipment standards, and post-cleaning verification procedures for HVAC ductwork affected by water damage or microbial contamination. Defines the visual inspection and particle count criteria that confirm cleaning efficacy before the system is returned to service in water-damaged buildings."
+  }
+]
