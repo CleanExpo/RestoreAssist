@@ -1,4 +1,36 @@
-// State detection and regulatory framework utilities
+// State / region / country detection and regulatory framework utilities.
+//
+// RestoreAssist is an AU + NZ platform. AU detection is the long-standing
+// default and MUST NOT change behaviour. NZ support is additive — callers
+// opt in by passing `countryHint: "NZ"` when they know the address is NZ
+// (e.g. a tenant flagged as NZ, or an address captured with country = NZ).
+//
+// Without a hint, `detectCountry` is conservative:
+//   - Returns "AU" when the postcode falls in any AU range (preserves the
+//     existing default — AU is the majority of traffic).
+//   - Returns "NZ" only when the postcode is NZ-unique (i.e. not also a
+//     valid AU postcode).
+//   - Returns null when the postcode matches neither.
+//
+// Callers that cannot tolerate ambiguity should always pass `countryHint`.
+
+export type Country = "AU" | "NZ";
+
+export type NZRegion =
+  | "Northland"
+  | "Auckland"
+  | "Waikato"
+  | "BayOfPlenty"
+  | "Gisborne"
+  | "HawkesBay"
+  | "Taranaki"
+  | "ManawatuWhanganui"
+  | "Wellington"
+  | "TasmanNelsonMarlborough"
+  | "WestCoast"
+  | "Canterbury"
+  | "Otago"
+  | "Southland";
 
 export interface StateInfo {
   code: string;
@@ -39,11 +71,62 @@ const POSTCODE_RANGES: { [key: string]: number[][] } = {
   NT: [[800, 999]],
 };
 
-export function detectStateFromPostcode(postcode: string): string | null {
-  if (!postcode) return null;
+// NZ region postcode ranges (4 digits, NZ Post). Several ranges overlap
+// each other (e.g. Canterbury subsumes Tasman/Nelson/Marlborough and the
+// West Coast); `detectNZRegion` resolves by scanning narrower regions
+// first so the more specific match wins.
+const NZ_POSTCODE_RANGES: { region: NZRegion; ranges: number[][] }[] = [
+  { region: "Northland", ranges: [[100, 299]] },
+  { region: "Auckland", ranges: [[600, 2699]] },
+  { region: "BayOfPlenty", ranges: [[3000, 3199]] },
+  { region: "Waikato", ranges: [[3200, 3999]] },
+  { region: "Gisborne", ranges: [[4000, 4099]] },
+  { region: "HawkesBay", ranges: [[4100, 4299]] },
+  { region: "Taranaki", ranges: [[4300, 4399]] },
+  { region: "ManawatuWhanganui", ranges: [[4400, 4999]] },
+  { region: "Wellington", ranges: [[5000, 6999]] },
+  // Tasman/Nelson/Marlborough and West Coast both sit inside the broader
+  // 7000-7999 band that Canterbury also claims; list the narrower ones
+  // first so they win before falling back to Canterbury.
+  { region: "TasmanNelsonMarlborough", ranges: [[7000, 7299]] },
+  { region: "WestCoast", ranges: [[7800, 7899]] },
+  { region: "Canterbury", ranges: [[7300, 7999]] },
+  { region: "Otago", ranges: [[9000, 9499]] },
+  { region: "Southland", ranges: [[9500, 9999]] },
+];
 
-  const numericPostcode = parseInt(postcode.replace(/\D/g, ""));
-  if (isNaN(numericPostcode)) return null;
+function parsePostcode(postcode: string): number | null {
+  if (!postcode) return null;
+  const numeric = parseInt(postcode.replace(/\D/g, ""), 10);
+  return Number.isNaN(numeric) ? null : numeric;
+}
+
+function isInAURange(numeric: number): boolean {
+  for (const ranges of Object.values(POSTCODE_RANGES)) {
+    for (const [min, max] of ranges) {
+      if (numeric >= min && numeric <= max) return true;
+    }
+  }
+  return false;
+}
+
+function isInNZRange(numeric: number): boolean {
+  for (const { ranges } of NZ_POSTCODE_RANGES) {
+    for (const [min, max] of ranges) {
+      if (numeric >= min && numeric <= max) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Detects the Australian state/territory for a postcode. AU-only behaviour
+ * — unchanged since the platform launched. For NZ detection use
+ * `detectNZRegion`; for multi-country routing use `detectCountry`.
+ */
+export function detectStateFromPostcode(postcode: string): string | null {
+  const numericPostcode = parsePostcode(postcode);
+  if (numericPostcode === null) return null;
 
   for (const [state, ranges] of Object.entries(POSTCODE_RANGES)) {
     for (const [min, max] of ranges) {
@@ -53,6 +136,56 @@ export function detectStateFromPostcode(postcode: string): string | null {
     }
   }
 
+  return null;
+}
+
+/**
+ * Detects the country ("AU" or "NZ") from a postcode. If `countryHint` is
+ * provided, it is trusted and the postcode is validated against that
+ * country's ranges (returns the hint on match, otherwise null).
+ *
+ * Without a hint, AU takes precedence: any postcode that falls in an AU
+ * range returns "AU" (preserves existing behaviour for the AU majority).
+ * Postcodes that only match an NZ range return "NZ". If neither country
+ * matches, returns null.
+ */
+export function detectCountry(
+  postcode: string,
+  countryHint?: Country,
+): Country | null {
+  const numeric = parsePostcode(postcode);
+  if (numeric === null) return null;
+
+  if (countryHint === "AU") {
+    return isInAURange(numeric) ? "AU" : null;
+  }
+  if (countryHint === "NZ") {
+    return isInNZRange(numeric) ? "NZ" : null;
+  }
+
+  if (isInAURange(numeric)) return "AU";
+  if (isInNZRange(numeric)) return "NZ";
+  return null;
+}
+
+/**
+ * Detects the NZ region for a postcode. Returns null if the postcode is
+ * not in any NZ range. Note: many NZ postcodes overlap AU ranges (e.g.
+ * 3000–3999 is valid in both Australia and NZ); callers that want to
+ * guard against AU postcodes should use `detectCountry(postcode, "NZ")`
+ * first.
+ */
+export function detectNZRegion(postcode: string): NZRegion | null {
+  const numeric = parsePostcode(postcode);
+  if (numeric === null) return null;
+
+  for (const { region, ranges } of NZ_POSTCODE_RANGES) {
+    for (const [min, max] of ranges) {
+      if (numeric >= min && numeric <= max) {
+        return region;
+      }
+    }
+  }
   return null;
 }
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sanitizeString } from "@/lib/sanitize";
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
       });
       const reportIds = clientReports.map((r: { id: string }) => r.id);
 
-      const where: any = {
+      const where: Prisma.InspectionWhereInput = {
         userId: session.user.id,
         reportId: { in: reportIds },
       };
@@ -132,7 +133,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Build where clause
-    const where: any = { userId: session.user.id };
+    const where: Prisma.InspectionWhereInput = { userId: session.user.id };
 
     // Status filter — support "active" alias (not COMPLETED/REJECTED)
     if (status) {
@@ -179,7 +180,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Build orderBy clause
-    const orderBy: any = {};
+    const orderBy: Prisma.InspectionOrderByWithRelationInput = {};
     if (
       sortBy === "createdAt" ||
       sortBy === "submittedAt" ||

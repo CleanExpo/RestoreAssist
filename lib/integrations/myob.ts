@@ -6,6 +6,7 @@
  */
 
 import { Integration } from "@prisma/client";
+import { type Country, getGstTreatment } from "../gst-rules";
 
 interface MYOBInvoice {
   Number: string;
@@ -68,12 +69,17 @@ interface MYOBCustomer {
 }
 
 /**
- * Sync invoice to MYOB
+ * Sync invoice to MYOB.
+ *
+ * @param country - Billing jurisdiction. Defaults to "AU" (GST tax code).
+ *   Pass "NZ" for GST15 tax code. Upstream source: Organization.country (RA-1120).
  */
 export async function syncInvoiceToMYOB(
   invoice: any,
   integration: Integration,
+  country: Country = "AU",
 ) {
+  const gst = getGstTreatment(country);
   if (!integration.accessToken) {
     throw new Error("No access token available for MYOB");
   }
@@ -108,7 +114,7 @@ export async function syncInvoiceToMYOB(
     Quantity: item.quantity,
     UnitPrice: item.unitPrice / 100, // Unit price excluding GST
     ...(item.gstRate > 0 && {
-      TaxCode: { UID: "GST" }, // Will be resolved by MYOB
+      TaxCode: { UID: gst.myobTaxCode }, // Resolved by MYOB — AU: "GST", NZ: "GST15"
     }),
   }));
 
@@ -141,7 +147,7 @@ export async function syncInvoiceToMYOB(
     ...(invoice.shippingAmount &&
       invoice.shippingAmount > 0 && {
         Freight: invoice.shippingAmount / 100,
-        FreightTaxCode: { UID: "GST" },
+        FreightTaxCode: { UID: gst.myobTaxCode },
       }),
   };
 
