@@ -11,6 +11,7 @@
 import { markIntegrationError, logSync } from "../oauth-handler";
 import { getValidXeroToken, getXeroTenantId } from "./token-manager";
 import { resolveAccountCodes } from "./account-code-resolver";
+import { getGSTTreatment } from "../../gst-treatment-rules";
 
 /**
  * RA-870: Format an 11-digit ABN to Xero TaxNumber format (XX XXX XXX XXX).
@@ -99,6 +100,12 @@ export async function syncNIRJobToXero(
         accountCode: "200",
         taxType: "OUTPUT",
       };
+      // RA-875: ATO-correct GST treatment per category.
+      // - OUTPUT treatments respect the resolver's taxType (allows country/override variants)
+      // - EXEMPT / INPUT / NONE use the ATO treatment directly — category rule overrides
+      const treatment = getGSTTreatment(item.category);
+      const taxType =
+        treatment.taxType === "OUTPUT" ? resolved.taxType : treatment.taxType;
       return {
         Description: item.iicrcRef
           ? `${item.description} (${item.category}) [${item.iicrcRef}]`
@@ -106,8 +113,7 @@ export async function syncNIRJobToXero(
         Quantity: item.quantity,
         UnitAmount: cents(item.unitPriceExGST),
         AccountCode: resolved.accountCode,
-        // Preserve item-level 0% GST pathway (non-taxable items stay "NONE")
-        TaxType: item.gstRate === 10 ? resolved.taxType : "NONE",
+        TaxType: taxType,
         LineAmount: cents(item.subtotalExGST),
       };
     }),

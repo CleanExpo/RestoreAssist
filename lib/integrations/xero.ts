@@ -8,6 +8,7 @@
 import { Integration } from "@prisma/client";
 import { getValidXeroToken } from "./xero/token-manager";
 import { type Country, getGstTreatment } from "../gst-rules";
+import { getGSTTreatment } from "../gst-treatment-rules";
 
 interface XeroInvoice {
   Type: "ACCREC"; // Accounts Receivable (customer invoice)
@@ -93,14 +94,21 @@ export async function syncInvoiceToXero(
     InvoiceNumber: invoice.invoiceNumber,
     ...(invoice.customerABN && { Reference: `ABN: ${invoice.customerABN}` }),
     Status: xeroStatus,
-    LineItems: invoice.lineItems.map((item: any) => ({
-      Description:
-        item.description + (item.category ? ` (${item.category})` : ""),
-      Quantity: item.quantity,
-      UnitAmount: (item.unitPrice / 100).toFixed(2), // Convert cents to dollars
-      TaxType: item.gstRate > 0 ? gst.xeroTaxType : "NONE",
-      LineAmount: (item.subtotal / 100).toFixed(2), // Subtotal excluding GST
-    })),
+    LineItems: invoice.lineItems.map((item: any) => {
+      // RA-875: Category-based GST treatment per ATO GSTR 2000/10.
+      // OUTPUT classes use country-specific Xero tax type; EXEMPT/INPUT/NONE use ATO rule.
+      const treatment = getGSTTreatment(item.category);
+      const taxType =
+        treatment.taxType === "OUTPUT" ? gst.xeroTaxType : treatment.taxType;
+      return {
+        Description:
+          item.description + (item.category ? ` (${item.category})` : ""),
+        Quantity: item.quantity,
+        UnitAmount: (item.unitPrice / 100).toFixed(2),
+        TaxType: taxType,
+        LineAmount: (item.subtotal / 100).toFixed(2),
+      };
+    }),
     CurrencyCode: invoice.currency || "AUD",
   };
 
