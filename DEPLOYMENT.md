@@ -73,3 +73,11 @@ The Pi-CEO pipeline runner is deployed on Railway.
 Service: `pi-ceo` in the `unite-hub` project.
 
 For Railway-specific env vars (beyond the parity checker), see the Railway dashboard directly.
+
+---
+
+### NZ tenant setup
+
+1. Set `Organization.country = "NZ"` for NZ-based tenants via Prisma Studio or a migration script.
+2. Run `npx tsx prisma/seed-insurer-profiles-nz.ts` after migrating to seed the 7 NZ insurer profiles.
+3. Users in NZ organisations will automatically see NZD currency and en-NZ date formatting once the locale helper (`lib/locale/format.ts`) is wired into the session context.

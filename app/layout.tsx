@@ -37,6 +37,9 @@ export const metadata: Metadata = {
     title: BRAND.meta.title,
     description: BRAND.meta.ogDescription,
     type: "website",
+    // TODO RA-1120: locale should flow from Organization.country once per-tenant
+    // session data includes it. Use getLocale(org.country) from @/lib/locale/format.
+    // For now, defaults to en_AU.
     locale: "en_AU",
     siteName: "Restore Assist",
     images: [

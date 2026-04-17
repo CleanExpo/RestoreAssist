@@ -712,6 +712,9 @@ model Organization {
   storageProvider StorageProviderType @default(SUPABASE)
   storageBucketUrl String?            // For BYOS — S3/GCS/Azure bucket endpoint
 
+  // RA-1120: NZ locale support — "AU" | "NZ"
+  country String @default("AU")
+
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 }
