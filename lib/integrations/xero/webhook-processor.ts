@@ -89,12 +89,12 @@ export async function processXeroWebhookBatch(
       const payload = event.payload as XeroWebhookPayload;
       const eventType = event.eventType; // normalised in webhook route
 
-      if (
-        eventType === "invoice.updated" ||
-        eventType === "invoice.created"
-      ) {
+      if (eventType === "invoice.updated" || eventType === "invoice.created") {
         await handleInvoiceUpdated(payload, event.integrationId);
-      } else if (eventType === "invoice.paid" || eventType === "payment.created") {
+      } else if (
+        eventType === "invoice.paid" ||
+        eventType === "payment.created"
+      ) {
         await handleInvoicePaid(payload, event.integrationId);
       } else {
         // Unrecognised event type — skip cleanly, no retry needed
@@ -134,7 +134,9 @@ async function handleInvoiceUpdated(
 ): Promise<void> {
   const xeroInvoiceId = payload.resourceId;
   if (!xeroInvoiceId) {
-    throw new Error("invoice.updated event missing resourceId (Xero InvoiceID)");
+    throw new Error(
+      "invoice.updated event missing resourceId (Xero InvoiceID)",
+    );
   }
 
   // Find the local invoice by its externalInvoiceId (set when originally synced to Xero)
@@ -166,11 +168,20 @@ async function handleInvoicePaid(
   payload: XeroWebhookPayload,
   integrationId: string,
 ): Promise<void> {
-  const xeroInvoiceId = payload.resourceId;
-  if (!xeroInvoiceId) {
-    // For payment.created the resourceId is the PaymentID — fetch invoice via Xero API
+  // RA-1277: payment.created events ALWAYS have a resourceId (it's the
+  // PaymentID, not the InvoiceID). The old gate `if (!resourceId)` never
+  // fired, so every payment.created event was mistakenly treated as
+  // invoice.paid and tried to match a local invoice on PaymentID ==
+  // externalInvoiceId — which silently no-op'd (no match) or, worse,
+  // matched the wrong invoice. Dispatch by resourceType instead.
+  if (payload.resourceType === "PAYMENT") {
     await handlePaymentCreated(payload, integrationId);
     return;
+  }
+
+  const xeroInvoiceId = payload.resourceId;
+  if (!xeroInvoiceId) {
+    throw new Error("invoice.paid event missing resourceId (Xero InvoiceID)");
   }
 
   const invoice = await prisma.invoice.findFirst({
@@ -213,7 +224,9 @@ async function handlePaymentCreated(
 ): Promise<void> {
   const paymentId = payload.resourceId;
   if (!paymentId) {
-    throw new Error("payment.created event missing resourceId (Xero PaymentID)");
+    throw new Error(
+      "payment.created event missing resourceId (Xero PaymentID)",
+    );
   }
 
   const integration = await prisma.integration.findUnique({
