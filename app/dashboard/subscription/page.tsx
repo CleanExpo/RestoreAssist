@@ -39,6 +39,7 @@ export default function SubscriptionPage() {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
   const [canceling, setCanceling] = useState(false);
+  const [openingPortal, setOpeningPortal] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [reactivating, setReactivating] = useState(false);
   const [pricingLoading, setPricingLoading] = useState<string | null>(null);
@@ -113,6 +114,35 @@ export default function SubscriptionPage() {
   // gave users no exit survey and gave us no churn signal.
   const handleCancelSubscription = () => {
     setShowCancelDialog(true);
+  };
+
+  // RA-1245: "Update Payment Method" and "Download Invoices" both redirect
+  // to the Stripe Customer Portal — one session handles card updates,
+  // invoice PDFs, and billing address changes in a single PCI-compliant
+  // surface. Same endpoint used by the PAST_DUE banner in #255.
+  const openBillingPortal = async () => {
+    setOpeningPortal(true);
+    try {
+      const res = await fetch("/api/subscription/portal", { method: "POST" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `Portal returned ${res.status}`);
+      }
+      const { url } = await res.json();
+      if (url) {
+        window.location.href = url;
+      } else {
+        throw new Error("Portal did not return a URL");
+      }
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Unable to open billing portal. Please try again.",
+      );
+    } finally {
+      setOpeningPortal(false);
+    }
   };
 
   const handleReactivateSubscription = async () => {
@@ -315,14 +345,26 @@ export default function SubscriptionPage() {
                 </button>
               )}
 
-              <button className="w-full px-4 py-3 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors flex items-center justify-center gap-2">
+              {/* RA-1245: both buttons open the Stripe Customer Portal via
+                  POST /api/subscription/portal — same endpoint the PAST_DUE
+                  banner uses. Portal session handles card updates, invoice
+                  downloads, and billing address changes in one surface. */}
+              <button
+                onClick={openBillingPortal}
+                disabled={openingPortal}
+                className="w-full px-4 py-3 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
                 <CreditCard className="w-4 h-4" />
-                Update Payment Method
+                {openingPortal ? "Opening…" : "Update Payment Method"}
               </button>
 
-              <button className="w-full px-4 py-3 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors flex items-center justify-center gap-2">
+              <button
+                onClick={openBillingPortal}
+                disabled={openingPortal}
+                className="w-full px-4 py-3 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
                 <Download className="w-4 h-4" />
-                Download Invoices
+                {openingPortal ? "Opening…" : "Download Invoices"}
               </button>
             </div>
           </div>
