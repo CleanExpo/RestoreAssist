@@ -116,6 +116,7 @@ export async function GET(request: NextRequest) {
           gte: startDate,
         },
       },
+      take: 5000, // CLAUDE.md rule 4
       select: {
         id: true,
         status: true,

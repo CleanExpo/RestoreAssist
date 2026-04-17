@@ -101,6 +101,7 @@ export async function GET(request: NextRequest) {
           gte: ninetyDaysAgo,
         },
       },
+      take: 5000, // CLAUDE.md rule 4
       include: {
         estimates: {
           take: 1,

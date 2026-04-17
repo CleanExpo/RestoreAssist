@@ -61,6 +61,7 @@ export async function POST(request: NextRequest) {
           lte: toDate,
         },
       },
+      take: 10000, // CLAUDE.md rule 4 — export is higher-cap than list views
       include: {
         estimates: {
           take: 1,
