@@ -16,6 +16,7 @@ import { checkNzMoistureGate } from "@/lib/compliance/nz-moisture-gate";
 import { checkSafeworkGate } from "@/lib/compliance/safework-notification-gate";
 import { checkNzbsGate } from "@/lib/compliance/nzbs-compliance-gate";
 import { detectMoistureTrendAnomalies } from "@/lib/compliance/moisture-trend-anomaly";
+import { detectDuplicateJob } from "@/lib/compliance/duplicate-detector";
 
 // POST - Submit inspection for processing
 export async function POST(
@@ -165,6 +166,8 @@ export async function POST(
     // Per IICRC S500:2025 moisture monitoring concern zone (>20% on Day 3+).
     const moistureTrendResult = await detectMoistureTrendAnomalies(id);
 
+    const duplicateCheck = await detectDuplicateJob(id);
+
     // ── RA-1136e: NZBS E2/E3 compliance (NZ only) ──────────────────────────────
     // BLOCKING for NZ-jurisdiction inspections; no-op for AU (pending RA-1120).
     const nzbsGate = await checkNzbsGate(id);
@@ -283,6 +286,10 @@ export async function POST(
           severity: a.severity,
           message: a.message,
         })),
+      }),
+      ...(duplicateCheck.hasDuplicates && {
+        duplicateCandidates: duplicateCheck.candidates,
+        mergeSuggestion: duplicateCheck.mergeSuggestion,
       }),
     });
   } catch (error) {
