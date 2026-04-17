@@ -11,10 +11,21 @@
  *   XERO_ACCOUNT_WATER=200  XERO_ACCOUNT_FIRE=201  XERO_ACCOUNT_MOULD=202
  */
 
-import { getTokens, markIntegrationError, logSync } from "../oauth-handler";
-import { XeroClient } from "./client";
-import { formatABN } from "../xero";
-import { prisma } from "@/lib/prisma";
+import { markIntegrationError, logSync } from "../oauth-handler";
+import { getValidXeroToken, getXeroTenantId } from "./token-manager";
+
+/**
+ * RA-870: Format an 11-digit ABN to Xero TaxNumber format (XX XXX XXX XXX).
+ * Returns null if the input is not a valid 11-digit ABN.
+ * Inlined from xero.ts to avoid Turbopack circular import resolution
+ * (xero.ts → xero/token-manager.ts → xero/nir-sync.ts → xero.ts).
+ */
+function formatABN(abn: string | null | undefined): string | null {
+  if (!abn) return null;
+  const digits = abn.replace(/\D/g, "");
+  if (digits.length !== 11) return null;
+  return `${digits.slice(0, 2)} ${digits.slice(2, 5)} ${digits.slice(5, 8)} ${digits.slice(8, 11)}`;
+}
 
 export interface NIRScopeItem {
   description: string;
@@ -78,24 +89,9 @@ export async function syncNIRJobToXero(
   xeroInvoiceNumber: string;
   status: string;
 }> {
-  const tokens = await getTokens(integrationId);
-  if (!tokens.accessToken) throw new Error("Xero not connected");
-
-  const integration = await prisma.integration.findUnique({
-    where: { id: integrationId },
-    select: { tenantId: true },
-  });
-  if (!integration?.tenantId)
-    throw new Error("Xero tenant ID missing. Re-connect.");
-
-  let accessToken = tokens.accessToken;
-  if (tokens.isExpired && tokens.refreshToken) {
-    const client = new XeroClient(integrationId, integration.tenantId);
-    await client.refreshAccessToken();
-    const freshTokens = await getTokens(integrationId);
-    if (!freshTokens.accessToken) throw new Error("Xero token refresh failed");
-    accessToken = freshTokens.accessToken;
-  }
+  // RA-868: Centralised token + tenant lookup (throws XeroTokenError on failure)
+  const accessToken = await getValidXeroToken(integrationId);
+  const tenantId = await getXeroTenantId(integrationId);
 
   const accountCode = getAccountCode(job.damageType);
   const dueDate = new Date(job.reportDate);
@@ -149,7 +145,7 @@ export async function syncNIRJobToXero(
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
-      "Xero-tenant-id": integration.tenantId,
+      "Xero-tenant-id": tenantId,
       "Content-Type": "application/json",
       Accept: "application/json",
     },
