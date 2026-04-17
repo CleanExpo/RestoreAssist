@@ -44,8 +44,8 @@ export async function GET(
       return redirectWithError("Missing code or state", providerParam);
     }
 
-    // Validate state
-    const stateData = validateOAuthState(state);
+    // Validate state (RA-1285: now async — DB-backed one-time-use nonce)
+    const stateData = await validateOAuthState(state);
     if (!stateData) {
       return redirectWithError("Invalid or expired state", providerParam);
     }

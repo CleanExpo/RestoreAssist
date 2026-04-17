@@ -3119,6 +3119,25 @@ enum WebhookEventStatus {
   SKIPPED // For duplicate events
 }
 
+/// RA-1285: one-time-use OAuth state nonce for CSRF protection.
+/// Prior implementation encoded state as a base64 JSON payload that
+/// wasn't stored anywhere — the `nonce` field was generated but never
+/// validated, so replay attacks within the 10-min window were possible.
+/// Now: we store the nonce here on `generateOAuthState`, look it up on
+/// callback, and delete it after use. TTL cleanup via cron.
+model OAuthStateNonce {
+  id        String   @id @default(cuid())
+  nonce     String   @unique
+  userId    String
+  provider  String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  usedAt    DateTime?
+
+  @@index([expiresAt])
+  @@index([userId, provider])
+}
+
 // ============================================
 // In-App Notification System
 // ============================================
