@@ -163,33 +163,59 @@ export async function logSync(
 /**
  * OAuth state generation and validation
  */
-export function generateOAuthState(userId: string, provider: string): string {
-  const stateData = {
-    userId,
-    provider,
-    timestamp: Date.now(),
-    nonce: crypto.randomBytes(16).toString("hex"),
-  };
-  return Buffer.from(JSON.stringify(stateData)).toString("base64url");
+/**
+ * RA-1285: OAuth state generation now persists the nonce to DB so it can
+ * be validated once + invalidated on use. Previous impl encoded state as
+ * base64 JSON with the nonce never looked up — replay attacks within the
+ * 10-min TTL were possible. Now: generate → store → callback looks up
+ * by nonce → marks used → rejects second use.
+ */
+export async function generateOAuthState(
+  userId: string,
+  provider: string,
+): Promise<string> {
+  const nonce = crypto.randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min TTL
+
+  await (prisma as any).oAuthStateNonce.create({
+    data: { nonce, userId, provider, expiresAt },
+  });
+
+  // The nonce IS the state — no JSON payload required. userId and
+  // provider are resolved from the DB row on callback.
+  return nonce;
 }
 
-export function validateOAuthState(state: string): {
+export async function validateOAuthState(state: string): Promise<{
   userId: string;
   provider: string;
-  timestamp: number;
-  nonce: string;
-} | null {
+} | null> {
   try {
-    const decoded = Buffer.from(state, "base64url").toString("utf8");
-    const data = JSON.parse(decoded);
+    // One-shot: findUnique → check expiry + usedAt → mark used. Using
+    // updateMany with a usedAt=null guard makes it atomic; count 0
+    // means someone else already consumed it (or it was invalid).
+    const row = (await (prisma as any).oAuthStateNonce.findUnique({
+      where: { nonce: state },
+    })) as {
+      userId: string;
+      provider: string;
+      expiresAt: Date;
+      usedAt: Date | null;
+    } | null;
 
-    // State expires after 10 minutes
-    if (Date.now() - data.timestamp > 10 * 60 * 1000) {
+    if (!row || row.usedAt || row.expiresAt < new Date()) {
       return null;
     }
 
-    return data;
-  } catch {
+    const result = await (prisma as any).oAuthStateNonce.updateMany({
+      where: { nonce: state, usedAt: null },
+      data: { usedAt: new Date() },
+    });
+    if (result.count === 0) return null; // race: used by another callback
+
+    return { userId: row.userId, provider: row.provider };
+  } catch (err) {
+    console.error("[oauth-handler] validateOAuthState error:", err);
     return null;
   }
 }
