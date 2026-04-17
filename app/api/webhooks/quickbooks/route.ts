@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/prisma";
+import {
+  deriveExternalEventId,
+  isUniqueConstraintError,
+} from "@/lib/webhook-idempotency";
 
 /**
  * POST /api/webhooks/quickbooks - Receive webhook events from QuickBooks
@@ -126,36 +130,24 @@ export async function POST(request: NextRequest) {
             continue;
           }
 
-          // Check for duplicate events
-          const existingEvent = await prisma.webhookEvent.findFirst({
-            where: {
-              provider: "QUICKBOOKS",
-              integrationId: integration.id,
-              payload: {
-                path: ["id"],
-                equals: entity.id,
+          // RA-1265: atomic idempotency via P2002 on (provider, externalEventId)
+          let webhookEvent;
+          try {
+            webhookEvent = await prisma.webhookEvent.create({
+              data: {
+                provider: "QUICKBOOKS",
+                integrationId: integration.id,
+                eventType,
+                payload: entity,
+                signature,
+                externalEventId: deriveExternalEventId(entity),
+                status: "PENDING",
               },
-              createdAt: {
-                gte: new Date(Date.now() - 60 * 60 * 1000), // Last hour
-              },
-            },
-          });
-
-          if (existingEvent) {
-            continue;
+            });
+          } catch (err) {
+            if (isUniqueConstraintError(err)) continue;
+            throw err;
           }
-
-          // Create webhook event record
-          const webhookEvent = await prisma.webhookEvent.create({
-            data: {
-              provider: "QUICKBOOKS",
-              integrationId: integration.id,
-              eventType,
-              payload: entity,
-              signature,
-              status: "PENDING",
-            },
-          });
 
           queuedEvents.push(webhookEvent.id);
         } catch (error) {

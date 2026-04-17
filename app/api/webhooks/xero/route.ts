@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyXeroWebhookSignature } from "@/lib/integrations/xero/webhook-processor";
+import {
+  deriveExternalEventId,
+  isUniqueConstraintError,
+} from "@/lib/webhook-idempotency";
 
 /**
  * POST /api/webhooks/xero - Receive webhook events from Xero
@@ -127,37 +131,30 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Check for duplicate events (Xero may send duplicates)
-        const existingEvent = await prisma.webhookEvent.findFirst({
-          where: {
-            provider: "XERO",
-            integrationId: integration.id,
-            payload: {
-              equals: event,
+        // RA-1265: atomic idempotency via (provider, externalEventId) unique
+        // index + P2002. Previous findFirst-then-create was racy and lost
+        // idempotency after a 1-hour window.
+        try {
+          const webhookEvent = await prisma.webhookEvent.create({
+            data: {
+              provider: "XERO",
+              integrationId: integration.id,
+              eventType,
+              payload: event,
+              signature,
+              externalEventId: deriveExternalEventId(event),
+              status: "PENDING",
             },
-            createdAt: {
-              gte: new Date(Date.now() - 60 * 60 * 1000), // Last hour
-            },
-          },
-        });
-
-        if (existingEvent) {
-          continue;
+          });
+          queuedEvents.push(webhookEvent.id);
+        } catch (err) {
+          if (isUniqueConstraintError(err)) {
+            // Duplicate — already processed/queued. Skip silently.
+            continue;
+          }
+          console.error(`[Xero Webhook] Failed to queue event:`, err);
+          // Continue processing other events
         }
-
-        // Create webhook event record
-        const webhookEvent = await prisma.webhookEvent.create({
-          data: {
-            provider: "XERO",
-            integrationId: integration.id,
-            eventType,
-            payload: event,
-            signature,
-            status: "PENDING",
-          },
-        });
-
-        queuedEvents.push(webhookEvent.id);
       } catch (error) {
         console.error(`[Xero Webhook] Failed to queue event:`, error);
         // Continue processing other events
