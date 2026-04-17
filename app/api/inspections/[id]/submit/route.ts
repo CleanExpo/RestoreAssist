@@ -12,6 +12,9 @@ import { estimateCosts } from "@/lib/nir-cost-estimation";
 import { validateTieredCompletion } from "@/lib/nir-tiered-completion";
 import { checkMakeSafeGate } from "@/lib/compliance/make-safe-gate";
 import { checkScopeVariationGate } from "@/lib/compliance/scope-variation-gate";
+import { checkNzMoistureGate } from "@/lib/compliance/nz-moisture-gate";
+import { checkSafeworkGate } from "@/lib/compliance/safework-notification-gate";
+import { checkNzbsGate } from "@/lib/compliance/nzbs-compliance-gate";
 
 // POST - Submit inspection for processing
 export async function POST(
@@ -146,6 +149,28 @@ export async function POST(
       );
     }
 
+    // ── RA-1136c: AS/NZS 4849.1 moisture advisory ──────────────────────────────
+    // WARN-ONLY — does not block submission.
+    const moistureResult = await checkNzMoistureGate(id);
+
+    // ── RA-1136d: SafeWork notification trigger ─────────────────────────────────
+    // WARN-ONLY — surfaces actionable regulator notifications in the response.
+    const safeworkResult = await checkSafeworkGate(id);
+
+    // ── RA-1136e: NZBS E2/E3 compliance (NZ only) ──────────────────────────────
+    // BLOCKING for NZ-jurisdiction inspections; no-op for AU (pending RA-1120).
+    const nzbsGate = await checkNzbsGate(id);
+    if (!nzbsGate.canSubmit) {
+      return NextResponse.json(
+        {
+          error: "NZBS clauses not addressed",
+          blockers: nzbsGate.blockers,
+          requiredClauses: nzbsGate.requiredClauses,
+        },
+        { status: 422 },
+      );
+    }
+
     // Atomic CAS — ensures only one concurrent submit wins; prevents duplicate child record creation
     const submitGuard = await prisma.inspection.updateMany({
       where: { id, userId: session.user.id, status: "DRAFT" },
@@ -234,6 +259,14 @@ export async function POST(
       }),
       ...(tieredResult.warnings.length > 0 && {
         warnings: tieredResult.warnings,
+      }),
+      // RA-1136c: AS/NZS 4849.1 moisture advisories (warn-only)
+      ...(moistureResult.warnings.length > 0 && {
+        moistureWarnings: moistureResult.warnings,
+      }),
+      // RA-1136d: SafeWork regulator notifications (warn-only)
+      ...(safeworkResult.notifications.length > 0 && {
+        safeworkNotifications: safeworkResult.notifications,
       }),
     });
   } catch (error) {
