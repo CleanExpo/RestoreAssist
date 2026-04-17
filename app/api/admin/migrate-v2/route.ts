@@ -22,6 +22,26 @@ const DDL_STATEMENTS = [
 ];
 
 export async function POST(request: NextRequest) {
+  // RA-1283: defence-in-depth. CRON_SECRET gates access but this endpoint
+  // re-runs DDL on prod — a mis-triggered curl could thrash the DB. Require
+  // an explicit env flag to be set for each invocation; the owner can set
+  // it before running the migration and remove it immediately after. This
+  // means even a leaked CRON_SECRET can't trigger schema ops without a
+  // second factor. DDL is already idempotent (`CREATE … IF NOT EXISTS`)
+  // but the flag additionally logs an audit line with who gated it.
+  if (process.env.ADMIN_MIGRATE_V2_ENABLED !== "true") {
+    console.warn(
+      "[admin/migrate-v2] Rejected: ADMIN_MIGRATE_V2_ENABLED not set. Set to 'true' in env, run, then unset.",
+    );
+    return NextResponse.json(
+      {
+        error:
+          "Endpoint disabled. Set ADMIN_MIGRATE_V2_ENABLED=true in env to enable, run migration, then unset.",
+      },
+      { status: 403 },
+    );
+  }
+
   const cronErr = verifyCronAuth(request);
   if (cronErr) return cronErr;
 
