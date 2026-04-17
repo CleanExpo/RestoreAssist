@@ -5,14 +5,12 @@
  * - NIR scope items → Xero line items (quantity, unit price, AU GST)
  * - NIR client → Xero Contact (create or match by name/email/ABN)
  * - NIR report reference → Xero invoice reference field
- * - Damage type (WATER/FIRE/MOULD) → configurable Xero account code
- *
- * Account codes (env vars, defaults shown):
- *   XERO_ACCOUNT_WATER=200  XERO_ACCOUNT_FIRE=201  XERO_ACCOUNT_MOULD=202
+ * - Line item category → Xero account code via account-code-resolver (RA-869)
  */
 
 import { markIntegrationError, logSync } from "../oauth-handler";
 import { getValidXeroToken, getXeroTenantId } from "./token-manager";
+import { resolveAccountCodes } from "./account-code-resolver";
 
 /**
  * RA-870: Format an 11-digit ABN to Xero TaxNumber format (XX XXX XXX XXX).
@@ -61,19 +59,6 @@ export interface NIRJobPayload {
   notes?: string;
 }
 
-function getAccountCode(damageType: NIRJobPayload["damageType"]): string {
-  switch (damageType) {
-    case "WATER":
-      return process.env.XERO_ACCOUNT_WATER || "200";
-    case "FIRE":
-      return process.env.XERO_ACCOUNT_FIRE || "201";
-    case "MOULD":
-      return process.env.XERO_ACCOUNT_MOULD || "202";
-    default:
-      return process.env.XERO_ACCOUNT_GENERAL || "200";
-  }
-}
-
 function formatDate(d: Date): string {
   return d.toISOString().split("T")[0];
 }
@@ -93,21 +78,39 @@ export async function syncNIRJobToXero(
   const accessToken = await getValidXeroToken(integrationId);
   const tenantId = await getXeroTenantId(integrationId);
 
-  const accountCode = getAccountCode(job.damageType);
+  // RA-869: Per-category account code routing (cached per integration, 5-min TTL).
+  // Supports client-configured mappings in XeroAccountCodeMapping; falls back to
+  // built-in defaults for canonical categories (LABOUR/EQUIPMENT/MATERIALS/
+  // SUBCONTRACTOR/PRELIMS/CONTENTS) and global default otherwise.
+  const resolvedCodes = await resolveAccountCodes(
+    integrationId,
+    job.scopeItems.map((item, idx) => ({
+      id: `scope-${idx}`,
+      category: item.category,
+    })),
+  );
+
   const dueDate = new Date(job.reportDate);
   dueDate.setDate(dueDate.getDate() + 14);
 
   const lineItems = [
-    ...job.scopeItems.map((item) => ({
-      Description: item.iicrcRef
-        ? `${item.description} (${item.category}) [${item.iicrcRef}]`
-        : `${item.description} (${item.category})`,
-      Quantity: item.quantity,
-      UnitAmount: cents(item.unitPriceExGST),
-      AccountCode: accountCode,
-      TaxType: item.gstRate === 10 ? "OUTPUT" : "NONE",
-      LineAmount: cents(item.subtotalExGST),
-    })),
+    ...job.scopeItems.map((item, idx) => {
+      const resolved = resolvedCodes.get(`scope-${idx}`) ?? {
+        accountCode: "200",
+        taxType: "OUTPUT",
+      };
+      return {
+        Description: item.iicrcRef
+          ? `${item.description} (${item.category}) [${item.iicrcRef}]`
+          : `${item.description} (${item.category})`,
+        Quantity: item.quantity,
+        UnitAmount: cents(item.unitPriceExGST),
+        AccountCode: resolved.accountCode,
+        // Preserve item-level 0% GST pathway (non-taxable items stay "NONE")
+        TaxType: item.gstRate === 10 ? resolved.taxType : "NONE",
+        LineAmount: cents(item.subtotalExGST),
+      };
+    }),
     ...(job.technician
       ? [
           {
