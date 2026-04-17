@@ -1625,6 +1625,7 @@ model Inspection {
 
   // RA-1136a: Make-Safe P0 compliance gate
   makeSafeActions MakeSafeAction[]
+  scopeVariations ScopeVariation[]
 
   @@index([userId])
   @@index([status])
@@ -4933,4 +4934,25 @@ model MakeSafeAction {
 
   @@unique([inspectionId, action])
   @@index([inspectionId])
+}
+
+model ScopeVariation {
+  id                  String   @id @default(cuid())
+  inspectionId        String
+  inspection          Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  reason              String
+  authorisationSource String
+  authorisationRef    String?
+  costDeltaCents      Int
+  costDeltaPercent    Float?
+  approvedByUserId    String
+  approvedAt          DateTime @default(now())
+  status              String   @default("PENDING")
+  autoApprovalRule    String?
+  notes               String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([inspectionId, createdAt])
+  @@index([status])
 }
