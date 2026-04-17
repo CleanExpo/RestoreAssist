@@ -258,6 +258,7 @@ model Client {
   contactPerson String?
   notes         String?                  @db.Text
   status        ClientStatus             @default(ACTIVE)
+  isSample      Boolean                  @default(false) // RA-1239: seeded demo row
   createdAt     DateTime                 @default(now())
   updatedAt     DateTime                 @updatedAt
   userId        String
@@ -486,6 +487,7 @@ model Report {
   hazardType      String
   insuranceType   String
   totalCost       Float?
+  isSample        Boolean      @default(false) // RA-1239: seeded demo row
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
   userId          String

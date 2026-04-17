@@ -6,6 +6,7 @@ import { sanitizeString } from "@/lib/sanitize";
 import { validateCsrf } from "@/lib/csrf";
 import { sendWelcomeEmail } from "@/lib/email";
 import { notifyWelcome } from "@/lib/notifications";
+import { seedDemoDataForNewUser } from "@/lib/demo-data";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
 
 const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.app";
@@ -94,6 +95,8 @@ export async function POST(request: NextRequest) {
         trialCredits: 30,
       }).catch((err) => console.error("[Register] Welcome email failed:", err));
       notifyWelcome(user.id);
+      // RA-1239: seed demo data so trial users don't land on an empty dashboard
+      seedDemoDataForNewUser(user.id).catch(() => {});
       const reqCtx = extractRequestContext(request);
       logSecurityEvent({
         eventType: "ACCOUNT_REGISTERED",
@@ -147,6 +150,8 @@ export async function POST(request: NextRequest) {
         trialCredits: 30,
       }).catch((err) => console.error("[Register] Welcome email failed:", err));
       notifyWelcome(updatedUser.id);
+      // RA-1239: seed demo data so trial users don't land on an empty dashboard
+      seedDemoDataForNewUser(updatedUser.id).catch(() => {});
       const reqCtx = extractRequestContext(request);
       logSecurityEvent({
         eventType: "ACCOUNT_REGISTERED",
