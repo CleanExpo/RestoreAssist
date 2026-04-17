@@ -178,11 +178,13 @@ export async function POST(request: NextRequest) {
         // Don't set creditsRemaining for active subscriptions - they use monthly limits
       };
 
-      // Grant signup bonus (10 reports) if first subscription
-      // Note: signupBonusApplied field will be set after migration is run
+      // Grant signup bonus (10 reports) if first subscription.
+      // Writing signupBonusApplied=true prevents the +10 being re-granted on
+      // every subsequent /verify-subscription call (the bug before this fix).
       if (isFirstSubscription) {
         const currentAddonReports = userBefore?.addonReports || 0;
         updateData.addonReports = currentAddonReports + 10;
+        updateData.signupBonusApplied = true;
       }
 
       // Update user subscription in database

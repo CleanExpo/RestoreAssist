@@ -3,6 +3,7 @@ import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import { headers } from "next/headers";
 import Stripe from "stripe";
+import { SubscriptionStatus } from "@prisma/client";
 
 export async function POST(request: NextRequest) {
   const body = await request.text();
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
         // Retrieve the full subscription to get the real current_period_end.
         const session = event.data.object as Stripe.Checkout.Session;
 
-        if (session.mode === "subscription" && session.customer_email) {
+        if (session.mode === "subscription") {
           const subscriptionId = session.subscription;
           if (!subscriptionId || typeof subscriptionId !== "string") {
             console.error(
@@ -77,6 +78,14 @@ export async function POST(request: NextRequest) {
             );
             break;
           }
+
+          // Prefer metadata.userId (set by /api/create-checkout-session).
+          // Fall back to stripeCustomerId match then email for older sessions.
+          // session.customer_email is frequently null when `customer:` is passed
+          // to checkout.sessions.create — the previous keying silently no-op'd.
+          const metadataUserId = session.metadata?.userId ?? null;
+          const customerId =
+            typeof session.customer === "string" ? session.customer : null;
 
           // Retrieve full subscription for accurate period end date
           const subscription =
@@ -88,11 +97,27 @@ export async function POST(request: NextRequest) {
             (subscription.items.data[0]?.current_period_end ?? 0) * 1000,
           );
 
+          const where = metadataUserId
+            ? { id: metadataUserId }
+            : customerId
+              ? { stripeCustomerId: customerId }
+              : session.customer_email
+                ? { email: session.customer_email }
+                : null;
+
+          if (!where) {
+            console.error(
+              "[Stripe] checkout.session.completed: no identifier to match user",
+              session.id,
+            );
+            break;
+          }
+
           await prisma.user.updateMany({
-            where: { email: session.customer_email },
+            where,
             data: {
               subscriptionStatus: "ACTIVE",
-              stripeCustomerId: session.customer as string,
+              stripeCustomerId: customerId ?? undefined,
               subscriptionId: subscriptionId,
               subscriptionEndsAt,
               nextBillingDate: subscriptionEndsAt,
@@ -134,11 +159,26 @@ export async function POST(request: NextRequest) {
           (updatedSubscription.items.data[0]?.current_period_end ?? 0) * 1000,
         );
 
+        // Map full Stripe status spectrum → our internal enum.
+        // Previous code collapsed everything non-"active" to CANCELED which
+        // lost PAST_DUE / UNPAID distinctions and blocked dunning recovery.
+        const statusMap: Record<string, SubscriptionStatus> = {
+          active: SubscriptionStatus.ACTIVE,
+          trialing: SubscriptionStatus.TRIAL,
+          past_due: SubscriptionStatus.PAST_DUE,
+          unpaid: SubscriptionStatus.PAST_DUE,
+          canceled: SubscriptionStatus.CANCELED,
+          incomplete: SubscriptionStatus.TRIAL,
+          incomplete_expired: SubscriptionStatus.EXPIRED,
+          paused: SubscriptionStatus.CANCELED,
+        };
+        const mappedStatus =
+          statusMap[updatedSubscription.status] ?? SubscriptionStatus.CANCELED;
+
         await prisma.user.updateMany({
           where: { subscriptionId: updatedSubscription.id },
           data: {
-            subscriptionStatus:
-              updatedSubscription.status === "active" ? "ACTIVE" : "CANCELED",
+            subscriptionStatus: mappedStatus,
             subscriptionEndsAt: updatedEndsAt,
             nextBillingDate: updatedEndsAt,
           },
