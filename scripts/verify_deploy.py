@@ -143,12 +143,17 @@ def get_railway_sha(token: str, service_id: str) -> str | None:
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 def main() -> int:
-    # Collect credentials — fail fast with clear messages if missing
+    # Vercel is required — every project here deploys to Vercel.
     vercel_token = env_required("VERCEL_TOKEN")
     vercel_project_id = env_required("VERCEL_PROJECT_ID")
-    railway_token = env_required("RAILWAY_TOKEN")
-    railway_service_id = env_required("RAILWAY_SERVICE_ID")
     vercel_team_id = env_optional("VERCEL_TEAM_ID")
+
+    # Railway is OPTIONAL — RestoreAssist is Vercel-only; the Railway step
+    # was copy-pasted from a different repo's template. Only run the Railway
+    # parity check when both secrets are present.
+    railway_token = env_optional("RAILWAY_TOKEN")
+    railway_service_id = env_optional("RAILWAY_SERVICE_ID")
+    railway_enabled = bool(railway_token and railway_service_id)
 
     try:
         local_sha = get_local_sha()
@@ -174,19 +179,22 @@ def main() -> int:
         print(f"[ERROR] Vercel check failed: {e}", file=sys.stderr)
         drift_detected = True
 
-    # ── Railway check ─────────────────────────────────────────────────────────
-    try:
-        railway_sha = get_railway_sha(railway_token, railway_service_id)
-        if railway_sha is None:
-            print("[WARN] Railway: could not determine deployed SHA — skipping comparison.")
-        elif railway_sha.startswith(local_sha[:8]) or local_sha.startswith(railway_sha[:8]):
-            print(f"Railway:     {railway_sha} ✓ (parity)")
-        else:
-            print(f"Railway:     {railway_sha} ✗ DRIFT DETECTED (expected {local_sha[:12]})")
+    # ── Railway check (only when configured) ────────────────────────────────
+    if not railway_enabled:
+        print("Railway:     skipped (RAILWAY_TOKEN / RAILWAY_SERVICE_ID not set)")
+    else:
+        try:
+            railway_sha = get_railway_sha(railway_token, railway_service_id)
+            if railway_sha is None:
+                print("[WARN] Railway: could not determine deployed SHA — skipping comparison.")
+            elif railway_sha.startswith(local_sha[:8]) or local_sha.startswith(railway_sha[:8]):
+                print(f"Railway:     {railway_sha} ✓ (parity)")
+            else:
+                print(f"Railway:     {railway_sha} ✗ DRIFT DETECTED (expected {local_sha[:12]})")
+                drift_detected = True
+        except RuntimeError as e:
+            print(f"[ERROR] Railway check failed: {e}", file=sys.stderr)
             drift_detected = True
-    except RuntimeError as e:
-        print(f"[ERROR] Railway check failed: {e}", file=sys.stderr)
-        drift_detected = True
 
     if drift_detected:
         print("\n[FAIL] Deployment drift detected. Investigate before merging.", file=sys.stderr)
