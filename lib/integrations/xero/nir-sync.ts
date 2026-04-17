@@ -5,16 +5,26 @@
  * - NIR scope items → Xero line items (quantity, unit price, AU GST)
  * - NIR client → Xero Contact (create or match by name/email/ABN)
  * - NIR report reference → Xero invoice reference field
- * - Damage type (WATER/FIRE/MOULD) → configurable Xero account code
- *
- * Account codes (env vars, defaults shown):
- *   XERO_ACCOUNT_WATER=200  XERO_ACCOUNT_FIRE=201  XERO_ACCOUNT_MOULD=202
+ * - Line item category → Xero account code via account-code-resolver (RA-869)
  */
 
-import { getTokens, markIntegrationError, logSync } from "../oauth-handler";
-import { XeroClient } from "./client";
-import { formatABN } from "../xero";
-import { prisma } from "@/lib/prisma";
+import { markIntegrationError, logSync } from "../oauth-handler";
+import { getValidXeroToken, getXeroTenantId } from "./token-manager";
+import { resolveAccountCodes } from "./account-code-resolver";
+import { getGSTTreatment } from "../../gst-treatment-rules";
+
+/**
+ * RA-870: Format an 11-digit ABN to Xero TaxNumber format (XX XXX XXX XXX).
+ * Returns null if the input is not a valid 11-digit ABN.
+ * Inlined from xero.ts to avoid Turbopack circular import resolution
+ * (xero.ts → xero/token-manager.ts → xero/nir-sync.ts → xero.ts).
+ */
+function formatABN(abn: string | null | undefined): string | null {
+  if (!abn) return null;
+  const digits = abn.replace(/\D/g, "");
+  if (digits.length !== 11) return null;
+  return `${digits.slice(0, 2)} ${digits.slice(2, 5)} ${digits.slice(5, 8)} ${digits.slice(8, 11)}`;
+}
 
 export interface NIRScopeItem {
   description: string;
@@ -50,19 +60,6 @@ export interface NIRJobPayload {
   notes?: string;
 }
 
-function getAccountCode(damageType: NIRJobPayload["damageType"]): string {
-  switch (damageType) {
-    case "WATER":
-      return process.env.XERO_ACCOUNT_WATER || "200";
-    case "FIRE":
-      return process.env.XERO_ACCOUNT_FIRE || "201";
-    case "MOULD":
-      return process.env.XERO_ACCOUNT_MOULD || "202";
-    default:
-      return process.env.XERO_ACCOUNT_GENERAL || "200";
-  }
-}
-
 function formatDate(d: Date): string {
   return d.toISOString().split("T")[0];
 }
@@ -78,40 +75,48 @@ export async function syncNIRJobToXero(
   xeroInvoiceNumber: string;
   status: string;
 }> {
-  const tokens = await getTokens(integrationId);
-  if (!tokens.accessToken) throw new Error("Xero not connected");
+  // RA-868: Centralised token + tenant lookup (throws XeroTokenError on failure)
+  const accessToken = await getValidXeroToken(integrationId);
+  const tenantId = await getXeroTenantId(integrationId);
 
-  const integration = await prisma.integration.findUnique({
-    where: { id: integrationId },
-    select: { tenantId: true },
-  });
-  if (!integration?.tenantId)
-    throw new Error("Xero tenant ID missing. Re-connect.");
+  // RA-869: Per-category account code routing (cached per integration, 5-min TTL).
+  // Supports client-configured mappings in XeroAccountCodeMapping; falls back to
+  // built-in defaults for canonical categories (LABOUR/EQUIPMENT/MATERIALS/
+  // SUBCONTRACTOR/PRELIMS/CONTENTS) and global default otherwise.
+  const resolvedCodes = await resolveAccountCodes(
+    integrationId,
+    job.scopeItems.map((item, idx) => ({
+      id: `scope-${idx}`,
+      category: item.category,
+    })),
+  );
 
-  let accessToken = tokens.accessToken;
-  if (tokens.isExpired && tokens.refreshToken) {
-    const client = new XeroClient(integrationId, integration.tenantId);
-    await client.refreshAccessToken();
-    const freshTokens = await getTokens(integrationId);
-    if (!freshTokens.accessToken) throw new Error("Xero token refresh failed");
-    accessToken = freshTokens.accessToken;
-  }
-
-  const accountCode = getAccountCode(job.damageType);
   const dueDate = new Date(job.reportDate);
   dueDate.setDate(dueDate.getDate() + 14);
 
   const lineItems = [
-    ...job.scopeItems.map((item) => ({
-      Description: item.iicrcRef
-        ? `${item.description} (${item.category}) [${item.iicrcRef}]`
-        : `${item.description} (${item.category})`,
-      Quantity: item.quantity,
-      UnitAmount: cents(item.unitPriceExGST),
-      AccountCode: accountCode,
-      TaxType: item.gstRate === 10 ? "OUTPUT" : "NONE",
-      LineAmount: cents(item.subtotalExGST),
-    })),
+    ...job.scopeItems.map((item, idx) => {
+      const resolved = resolvedCodes.get(`scope-${idx}`) ?? {
+        accountCode: "200",
+        taxType: "OUTPUT",
+      };
+      // RA-875: ATO-correct GST treatment per category.
+      // - OUTPUT treatments respect the resolver's taxType (allows country/override variants)
+      // - EXEMPT / INPUT / NONE use the ATO treatment directly — category rule overrides
+      const treatment = getGSTTreatment(item.category);
+      const taxType =
+        treatment.taxType === "OUTPUT" ? resolved.taxType : treatment.taxType;
+      return {
+        Description: item.iicrcRef
+          ? `${item.description} (${item.category}) [${item.iicrcRef}]`
+          : `${item.description} (${item.category})`,
+        Quantity: item.quantity,
+        UnitAmount: cents(item.unitPriceExGST),
+        AccountCode: resolved.accountCode,
+        TaxType: taxType,
+        LineAmount: cents(item.subtotalExGST),
+      };
+    }),
     ...(job.technician
       ? [
           {
@@ -149,7 +154,7 @@ export async function syncNIRJobToXero(
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
-      "Xero-tenant-id": integration.tenantId,
+      "Xero-tenant-id": tenantId,
       "Content-Type": "application/json",
       Accept: "application/json",
     },

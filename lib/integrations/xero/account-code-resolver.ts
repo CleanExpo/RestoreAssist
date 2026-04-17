@@ -2,129 +2,313 @@
  * RA-869: Xero Account Code Resolver
  *
  * Resolves the correct Xero account code and tax type for each line item
- * on an invoice before syncing to Xero. Uses per-integration mappings stored
- * in the XeroAccountCodeMapping table (RA-848 schema migration).
+ * on an invoice before syncing to Xero. Replaces the coarse single-code-per-invoice
+ * approach (tied to damage type) with per-category routing. Enables proper
+ * P&L breakdown by cost category in Xero.
  *
  * Resolution priority (highest to lowest):
- *   1. InvoiceLineItem.xeroAccountCode — explicit per-item override
- *   2. XeroAccountCodeMapping matching the line item's category
- *   3. XeroAccountCodeMapping with category = null (default fallback)
- *   4. Built-in defaults (hardcoded safe values for Australian GST)
+ *   1. InvoiceLineItem.xeroAccountCode — explicit per-item override (validated)
+ *   2. XeroAccountCodeMapping row matching the line item's category
+ *   3. XeroAccountCodeMapping with category = null (per-integration default)
+ *   4. Built-in defaults (hardcoded codes 200–205 per canonical category)
+ *   5. Global fallback (200 — general income)
+ *
+ * Performance:
+ *   - Per-integration mapping set is cached in-process for 5 minutes.
+ *   - Cache has an LRU bound (100 integrations) to prevent unbounded growth.
+ *   - Batch resolver (resolveAccountCodes) performs a single DB round-trip.
  *
  * Never throws — always returns a valid account code / tax type pair.
- * Failure to resolve is not a reason to block an invoice sync.
- *
- * NOTE: Requires RA-848 migration (`npx prisma migrate dev --name billing_v2_xero_account_mappings`)
- * to be run before XeroAccountCodeMapping queries will work.
+ * A failure to resolve never blocks an invoice sync.
  */
 
 import { prisma } from "@/lib/prisma";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+/**
+ * Canonical line item categories for Xero account routing.
+ * Raw category strings from user data are normalised to one of these via
+ * {@link normalizeCategory} before lookup.
+ */
+export type LineItemCategory =
+  | "LABOUR"
+  | "EQUIPMENT"
+  | "MATERIALS"
+  | "SUBCONTRACTOR"
+  | "PRELIMS"
+  | "CONTENTS";
+
+/**
+ * Accepted for future extension — the current schema doesn't scope mappings
+ * by damage type, so this parameter is accepted but unused.
+ */
+export type DamageType = "WATER" | "FIRE" | "MOULD" | "STORM" | "GENERAL";
 
 export interface ResolvedAccountCode {
   accountCode: string;
   taxType: string;
 }
 
+// ─── Built-in defaults ────────────────────────────────────────────────────────
+
 /**
- * Built-in defaults by category — used when no mapping row exists.
- * Account codes are illustrative Xero defaults for Australian businesses.
- * Operators should configure their own via XeroAccountCodeMapping to match
- * their actual chart of accounts.
+ * Default Xero account codes per canonical category.
+ * Operators should configure their own overrides via XeroAccountCodeMapping.
  */
-const DEFAULT_CODE_BY_CATEGORY: Record<string, ResolvedAccountCode> = {
-  Labour: { accountCode: "200", taxType: "OUTPUT" },
-  labor: { accountCode: "200", taxType: "OUTPUT" },
-  Equipment: { accountCode: "630", taxType: "OUTPUT" },
-  equipment: { accountCode: "630", taxType: "OUTPUT" },
-  Materials: { accountCode: "300", taxType: "OUTPUT" },
-  materials: { accountCode: "300", taxType: "OUTPUT" },
-  Chemical: { accountCode: "300", taxType: "OUTPUT" },
-  chemical: { accountCode: "300", taxType: "OUTPUT" },
-  Subcontractor: { accountCode: "489", taxType: "OUTPUT" },
-  subcontractor: { accountCode: "489", taxType: "OUTPUT" },
-  Travel: { accountCode: "493", taxType: "OUTPUT" },
-  travel: { accountCode: "493", taxType: "OUTPUT" },
-  Disposal: { accountCode: "461", taxType: "OUTPUT" },
-  disposal: { accountCode: "461", taxType: "OUTPUT" },
+const DEFAULT_CODES: Record<LineItemCategory, string> = {
+  LABOUR: "200",
+  EQUIPMENT: "201",
+  MATERIALS: "202",
+  SUBCONTRACTOR: "203",
+  PRELIMS: "204",
+  CONTENTS: "205",
 };
 
-const GLOBAL_DEFAULT: ResolvedAccountCode = {
-  accountCode: "200", // General income — safe fallback
+const GLOBAL_FALLBACK: ResolvedAccountCode = {
+  accountCode: "200",
   taxType: "OUTPUT",
 };
 
-/**
- * Resolve account code and tax type for a single line item.
- *
- * @param integrationId  Xero Integration row ID (used to scope mapping lookup)
- * @param category       InvoiceLineItem.category (may be null)
- * @param xeroAccountCodeOverride  InvoiceLineItem.xeroAccountCode (may be null — explicit override)
- */
-export async function resolveAccountCode(
-  integrationId: string,
-  category: string | null | undefined,
-  xeroAccountCodeOverride?: string | null,
-): Promise<ResolvedAccountCode> {
-  // Priority 1: explicit per-item override
-  if (xeroAccountCodeOverride) {
-    return { accountCode: xeroAccountCodeOverride, taxType: "OUTPUT" };
-  }
+// ─── Category normalisation ───────────────────────────────────────────────────
 
-  // Priority 2 + 3: DB lookup — category-specific first, then default (null category)
+/**
+ * Maps raw category strings (case-insensitive, legacy names) to canonical
+ * {@link LineItemCategory}. Returns null if the input doesn't match any known category.
+ */
+const CATEGORY_ALIASES: Record<string, LineItemCategory> = {
+  labour: "LABOUR",
+  labor: "LABOUR",
+  equipment: "EQUIPMENT",
+  materials: "MATERIALS",
+  chemical: "MATERIALS", // legacy scope-item category
+  subcontractor: "SUBCONTRACTOR",
+  subcontractors: "SUBCONTRACTOR",
+  prelims: "PRELIMS",
+  preliminaries: "PRELIMS",
+  contents: "CONTENTS",
+};
+
+export function normalizeCategory(
+  raw: string | null | undefined,
+): LineItemCategory | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  // Already canonical (exact uppercase match)
+  if (trimmed in DEFAULT_CODES) return trimmed as LineItemCategory;
+  return CATEGORY_ALIASES[trimmed.toLowerCase()] ?? null;
+}
+
+// ─── Validation ───────────────────────────────────────────────────────────────
+
+const XERO_NUMERIC_CODE_RE = /^\d{3,4}$/;
+const XERO_GUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Accepts a 3- or 4-digit numeric account code or a Xero GUID.
+ * Matches the formats the Xero Accounts API returns.
+ */
+export function isValidXeroAccountCode(code: string): boolean {
+  return XERO_NUMERIC_CODE_RE.test(code) || XERO_GUID_RE.test(code);
+}
+
+// ─── LRU + TTL cache ──────────────────────────────────────────────────────────
+
+interface CachedMappings {
+  /**
+   * DB mappings keyed by the exact category string stored in
+   * XeroAccountCodeMapping.category. Case-sensitive — the caller's raw string
+   * must match what the user configured in the UI. This supports arbitrary
+   * client-defined categories beyond the 6 canonical ones.
+   */
+  byRawCategory: Map<string, ResolvedAccountCode>;
+  /**
+   * Same mappings, but keyed by lower-cased category string — allows
+   * case-insensitive fallback (e.g. "Labour" line item matches "labour" mapping).
+   */
+  byLowerCategory: Map<string, ResolvedAccountCode>;
+  /**
+   * Mappings keyed by normalised canonical category — allows legacy/varied
+   * category names in line items to hit user-configured mappings for canonical ones.
+   */
+  byCanonical: Map<LineItemCategory, ResolvedAccountCode>;
+  /**
+   * The row with category = null — per-integration default.
+   */
+  defaultOverride: ResolvedAccountCode | null;
+  expiresAt: number;
+}
+
+const CACHE_TTL_MS = 5 * 60 * 1000;
+const CACHE_MAX_ENTRIES = 100;
+const mappingCache = new Map<string, CachedMappings>();
+
+function getCached(integrationId: string): CachedMappings | null {
+  const cached = mappingCache.get(integrationId);
+  if (!cached) return null;
+  if (Date.now() > cached.expiresAt) {
+    mappingCache.delete(integrationId);
+    return null;
+  }
+  // Refresh LRU position: delete + reinsert => most-recently-used
+  mappingCache.delete(integrationId);
+  mappingCache.set(integrationId, cached);
+  return cached;
+}
+
+function setCache(integrationId: string, entry: CachedMappings): void {
+  if (mappingCache.size >= CACHE_MAX_ENTRIES) {
+    // Evict least-recently-used (first key — Map preserves insertion order)
+    const oldest = mappingCache.keys().next().value;
+    if (oldest) mappingCache.delete(oldest);
+  }
+  mappingCache.set(integrationId, entry);
+}
+
+/**
+ * Clear the resolver's in-memory cache.
+ * Callers: admin endpoint that updates mappings; unit tests between cases.
+ */
+export function clearAccountCodeCache(integrationId?: string): void {
+  if (integrationId) mappingCache.delete(integrationId);
+  else mappingCache.clear();
+}
+
+async function loadMappings(integrationId: string): Promise<CachedMappings> {
+  const cached = getCached(integrationId);
+  if (cached) return cached;
+
+  const entry: CachedMappings = {
+    byRawCategory: new Map(),
+    byLowerCategory: new Map(),
+    byCanonical: new Map(),
+    defaultOverride: null,
+    expiresAt: Date.now() + CACHE_TTL_MS,
+  };
+
   try {
-    const mappings = await prisma.xeroAccountCodeMapping.findMany({
-      where: {
-        integrationId,
-        category: category
-          ? { in: [category, null as unknown as string] }
-          : null,
-      },
-      orderBy: [
-        // category-specific rows (non-null) sort before null (default) rows
-        { category: "asc" },
-      ],
+    // CLAUDE.md rule 4: every findMany requires an explicit take.
+    // 500 is well above realistic ceiling (6 canonical + any custom client categories)
+    // yet bounds memory + cache size if a runaway mapping accidentally inserts junk rows.
+    const rows = await prisma.xeroAccountCodeMapping.findMany({
+      where: { integrationId },
+      select: { category: true, accountCode: true, taxType: true },
+      take: 500,
     });
 
-    // Prefer exact category match over null-category default
-    const exact = mappings.find(
-      (m) => m.category !== null && m.category === category,
-    );
-    const fallback = mappings.find((m) => m.category === null);
-    const match = exact ?? fallback;
-
-    if (match) {
-      return { accountCode: match.accountCode, taxType: match.taxType };
+    for (const r of rows) {
+      // Skip invalid codes rather than propagate — log for ops visibility
+      if (!isValidXeroAccountCode(r.accountCode)) {
+        console.warn(
+          `[Xero AccountCodeResolver] Invalid account code "${r.accountCode}" in mapping for integration ${integrationId} — skipping`,
+        );
+        continue;
+      }
+      const resolved: ResolvedAccountCode = {
+        accountCode: r.accountCode,
+        taxType: r.taxType,
+      };
+      if (r.category === null) {
+        entry.defaultOverride = resolved;
+      } else {
+        // Store under all three lookup paths to support flexible category
+        // matching (exact, case-insensitive, canonical).
+        entry.byRawCategory.set(r.category, resolved);
+        entry.byLowerCategory.set(r.category.toLowerCase(), resolved);
+        const normalized = normalizeCategory(r.category);
+        if (normalized) entry.byCanonical.set(normalized, resolved);
+      }
     }
   } catch (err) {
-    // DB error (e.g. migration not yet run) — degrade to built-in defaults
     console.warn(
-      `[Xero AccountCodeResolver] DB lookup failed for integration ${integrationId} — using built-in defaults. Error: ${
+      `[Xero AccountCodeResolver] DB lookup failed for integration ${integrationId} — using built-in defaults. ${
         err instanceof Error ? err.message : String(err)
       }`,
     );
   }
 
-  // Priority 4: built-in defaults
-  if (category) {
-    const builtIn = DEFAULT_CODE_BY_CATEGORY[category];
-    if (builtIn) return builtIn;
+  setCache(integrationId, entry);
+  return entry;
+}
 
-    // Case-insensitive match on built-in defaults
-    const caseInsensitive = Object.entries(DEFAULT_CODE_BY_CATEGORY).find(
-      ([key]) => key.toLowerCase() === category.toLowerCase(),
-    );
-    if (caseInsensitive) return caseInsensitive[1];
-  }
+// ─── Public API ───────────────────────────────────────────────────────────────
 
-  return GLOBAL_DEFAULT;
+export interface ResolveAccountCodeParams {
+  integrationId: string;
+  lineItemCategory: LineItemCategory | string | null | undefined;
+  damageType?: DamageType; // accepted for future extension; not currently used
+  xeroAccountCodeOverride?: string | null;
 }
 
 /**
- * Resolve account codes for a batch of line items in a single DB round-trip.
- * Fetches all mappings for the integration once, then resolves each item locally.
+ * Resolve account code + tax type for a single line item.
+ * Uses the in-process 5-min TTL cache; first call per integration hits the DB.
  *
- * @param integrationId  Xero Integration row ID
- * @param lineItems      Array of { id, category, xeroAccountCode } — minimal projection
+ * Lookup priority:
+ *   1. Explicit per-item override (if valid)
+ *   2. Exact DB match on the raw category string (supports client-custom categories)
+ *   3. Case-insensitive DB match on the raw category
+ *   4. DB match on the normalised canonical category (maps "Labour"↔"LABOUR" etc.)
+ *   5. Per-integration default (null-category row)
+ *   6. Built-in default for a canonical category
+ *   7. Global fallback (200 OUTPUT)
+ */
+export async function resolveAccountCode(
+  params: ResolveAccountCodeParams,
+): Promise<ResolvedAccountCode> {
+  if (
+    params.xeroAccountCodeOverride &&
+    isValidXeroAccountCode(params.xeroAccountCodeOverride)
+  ) {
+    return { accountCode: params.xeroAccountCodeOverride, taxType: "OUTPUT" };
+  }
+
+  const raw =
+    typeof params.lineItemCategory === "string"
+      ? params.lineItemCategory.trim()
+      : null;
+
+  const cache = await loadMappings(params.integrationId);
+
+  // 2. Exact raw match — supports arbitrary client-configured categories
+  if (raw && cache.byRawCategory.has(raw)) {
+    return cache.byRawCategory.get(raw)!;
+  }
+
+  // 3. Case-insensitive raw match
+  if (raw && cache.byLowerCategory.has(raw.toLowerCase())) {
+    return cache.byLowerCategory.get(raw.toLowerCase())!;
+  }
+
+  const normalized =
+    raw !== null
+      ? normalizeCategory(raw)
+      : typeof params.lineItemCategory !== "string"
+        ? (params.lineItemCategory ?? null)
+        : null;
+
+  // 4. Canonical category DB match
+  if (normalized && cache.byCanonical.has(normalized)) {
+    return cache.byCanonical.get(normalized)!;
+  }
+
+  // 5. Per-integration default
+  if (cache.defaultOverride) return cache.defaultOverride;
+
+  // 6. Built-in default for canonical category
+  if (normalized) {
+    return { accountCode: DEFAULT_CODES[normalized], taxType: "OUTPUT" };
+  }
+
+  // 7. Global fallback
+  return GLOBAL_FALLBACK;
+}
+
+/**
+ * Batch variant — resolves codes for many line items with a single DB round-trip.
+ * Returns a Map keyed by line-item id (or undefined if the caller didn't supply one).
  */
 export async function resolveAccountCodes(
   integrationId: string,
@@ -134,48 +318,11 @@ export async function resolveAccountCodes(
     xeroAccountCode?: string | null;
   }>,
 ): Promise<Map<string | undefined, ResolvedAccountCode>> {
+  const cache = await loadMappings(integrationId);
   const result = new Map<string | undefined, ResolvedAccountCode>();
 
-  // Fetch all mappings for this integration once
-  let mappings: Array<{
-    category: string | null;
-    accountCode: string;
-    taxType: string;
-  }> = [];
-
-  try {
-    mappings = await prisma.xeroAccountCodeMapping.findMany({
-      where: { integrationId },
-      select: { category: true, accountCode: true, taxType: true },
-    });
-  } catch (err) {
-    console.warn(
-      `[Xero AccountCodeResolver] Batch DB lookup failed — using built-in defaults. Error: ${
-        err instanceof Error ? err.message : String(err)
-      }`,
-    );
-  }
-
-  // Build lookup maps from DB results
-  const categoryMap = new Map<string, ResolvedAccountCode>();
-  let defaultMapping: ResolvedAccountCode | undefined;
-
-  for (const m of mappings) {
-    const resolved: ResolvedAccountCode = {
-      accountCode: m.accountCode,
-      taxType: m.taxType,
-    };
-    if (m.category === null) {
-      defaultMapping = resolved;
-    } else {
-      categoryMap.set(m.category, resolved);
-    }
-  }
-
-  // Resolve each line item
   for (const item of lineItems) {
-    // Priority 1: explicit override
-    if (item.xeroAccountCode) {
+    if (item.xeroAccountCode && isValidXeroAccountCode(item.xeroAccountCode)) {
       result.set(item.id, {
         accountCode: item.xeroAccountCode,
         taxType: "OUTPUT",
@@ -183,34 +330,39 @@ export async function resolveAccountCodes(
       continue;
     }
 
-    const cat = item.category ?? null;
+    const raw = item.category?.trim() ?? null;
 
-    // Priority 2: exact category match from DB
-    if (cat && categoryMap.has(cat)) {
-      result.set(item.id, categoryMap.get(cat)!);
+    // Exact raw, then case-insensitive — supports arbitrary custom categories
+    if (raw && cache.byRawCategory.has(raw)) {
+      result.set(item.id, cache.byRawCategory.get(raw)!);
+      continue;
+    }
+    if (raw && cache.byLowerCategory.has(raw.toLowerCase())) {
+      result.set(item.id, cache.byLowerCategory.get(raw.toLowerCase())!);
       continue;
     }
 
-    // Priority 3: null (default) mapping from DB
-    if (defaultMapping) {
-      result.set(item.id, defaultMapping);
+    const normalized = normalizeCategory(raw);
+
+    if (normalized && cache.byCanonical.has(normalized)) {
+      result.set(item.id, cache.byCanonical.get(normalized)!);
       continue;
     }
 
-    // Priority 4: built-in defaults
-    if (cat) {
-      const builtIn =
-        DEFAULT_CODE_BY_CATEGORY[cat] ??
-        Object.entries(DEFAULT_CODE_BY_CATEGORY).find(
-          ([key]) => key.toLowerCase() === cat.toLowerCase(),
-        )?.[1];
-      if (builtIn) {
-        result.set(item.id, builtIn);
-        continue;
-      }
+    if (cache.defaultOverride) {
+      result.set(item.id, cache.defaultOverride);
+      continue;
     }
 
-    result.set(item.id, GLOBAL_DEFAULT);
+    if (normalized) {
+      result.set(item.id, {
+        accountCode: DEFAULT_CODES[normalized],
+        taxType: "OUTPUT",
+      });
+      continue;
+    }
+
+    result.set(item.id, GLOBAL_FALLBACK);
   }
 
   return result;
