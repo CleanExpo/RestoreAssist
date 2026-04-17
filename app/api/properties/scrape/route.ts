@@ -18,6 +18,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { applyRateLimit } from "@/lib/rate-limiter";
 import {
   parseOnTheHouseHTML,
   parseOnTheHouseSearchResults,
@@ -63,6 +64,19 @@ export async function POST(req: NextRequest) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  // RA-1281: throttle outbound scraping to OnTheHouse + domain.com.au.
+  // Without this, a UI loop or malicious session can hammer the upstream
+  // and get our IP range banned. Cache hits short-circuit before the
+  // scrape; this limit only bites on cache misses. 6/min/user is enough
+  // for real inspection batching and safely under any reasonable TOS.
+  const rateLimited = await applyRateLimit(req, {
+    windowMs: 60_000,
+    maxRequests: 6,
+    prefix: "properties:scrape",
+    key: session.user.id,
+  });
+  if (rateLimited) return rateLimited;
 
   let body: Record<string, unknown>;
   try {
