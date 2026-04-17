@@ -11,9 +11,38 @@
  * All events are marked COMPLETED or FAILED — never left in PROCESSING indefinitely.
  */
 
+import { createHmac, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { queueInvoiceSync } from "@/lib/integrations/sync-queue";
 import { getValidXeroToken } from "./token-manager";
+
+/**
+ * RA-871: Verify a Xero webhook HMAC-SHA256 signature (timing-safe).
+ *
+ * @param rawBody  The raw request body as UTF-8 string (do NOT parse JSON first).
+ * @param signatureHeader The value of the `x-xero-signature` header (base64).
+ * @param webhookKey The shared secret from the Xero Developer portal.
+ * @returns true iff the signature matches; false for any error path.
+ */
+export function verifyXeroWebhookSignature(
+  rawBody: string,
+  signatureHeader: string | null | undefined,
+  webhookKey: string | null | undefined,
+): boolean {
+  if (!signatureHeader || !webhookKey) return false;
+  try {
+    const expected = createHmac("sha256", webhookKey)
+      .update(rawBody)
+      .digest("base64");
+    const sigBuf = Buffer.from(signatureHeader, "base64");
+    const expBuf = Buffer.from(expected, "base64");
+    if (sigBuf.length !== expBuf.length) return false;
+    return timingSafeEqual(sigBuf, expBuf);
+  } catch {
+    // Malformed base64 or other buffer error — treat as invalid
+    return false;
+  }
+}
 
 interface XeroWebhookPayload {
   eventType?: string;
