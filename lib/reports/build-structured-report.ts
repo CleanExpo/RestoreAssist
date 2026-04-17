@@ -767,7 +767,7 @@ export function buildStructuredBasicReport(data: {
         endDate: report.phase1EndDate
           ? new Date(report.phase1EndDate).toISOString()
           : null,
-        description: "Make-safe",
+        description: "Stabilisation (Make-Safe)",
       },
       phase2: {
         startDate: report.phase2StartDate

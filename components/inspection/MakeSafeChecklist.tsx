@@ -147,7 +147,7 @@ export function MakeSafeChecklist({ inspectionId }: MakeSafeChecklistProps) {
       }
 
       toast({
-        title: "Make-Safe checklist saved",
+        title: "Stabilisation checklist saved",
         description: `Compliance status: ${complianceStatus}`,
       });
     } catch (err) {
@@ -178,14 +178,14 @@ export function MakeSafeChecklist({ inspectionId }: MakeSafeChecklistProps) {
   if (error) {
     return (
       <div className="rounded-lg border border-destructive p-4 text-destructive text-sm">
-        Failed to load Make-Safe checklist: {error}
+        Failed to load Stabilisation checklist: {error}
       </div>
     );
   }
 
   return (
     <section
-      aria-label="Make-Safe Compliance Checklist"
+      aria-label="Stabilisation (Make-Safe) Compliance Checklist"
       className="rounded-lg border overflow-hidden"
     >
       {/* Header */}
@@ -195,7 +195,7 @@ export function MakeSafeChecklist({ inspectionId }: MakeSafeChecklistProps) {
       >
         <div>
           <h2 className="text-base font-semibold text-white">
-            Make-Safe Checklist
+            Stabilisation (Make-Safe) Checklist
           </h2>
           <p className="text-xs text-white/70 mt-0.5">
             ICA Code of Practice §3.1 · AS/NZS 1170.0 · WHS Regulations 2011
@@ -295,7 +295,7 @@ export function MakeSafeChecklist({ inspectionId }: MakeSafeChecklistProps) {
           disabled={saving}
           style={{ backgroundColor: "#8A6B4E" }}
           className="text-white hover:opacity-90"
-          aria-label="Save Make-Safe checklist"
+          aria-label="Save Stabilisation checklist"
         >
           {saving ? "Saving…" : "Save Checklist"}
         </Button>

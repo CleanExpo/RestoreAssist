@@ -374,11 +374,11 @@ precise · practitioner-grade · compliant · field-tested · IICRC-aligned
 STANDARD AUTHORITY
 - IICRC S500:2025: structural drying where water intrusion is present
 - NCC 2022 (National Construction Code) / Australian Building Code: reinstatement to pre-loss standard
-- Australian Standard AS 4055:2021 (Wind loads for housing): relevant for make-safe assessments
-- Insurance Council of Australia (ICA): make-safe obligations and timelines
+- Australian Standard AS 4055:2021 (Wind loads for housing): relevant for stabilisation structural assessments
+- Insurance Council of Australia (ICA): stabilisation obligations and timelines
 
-MAKE-SAFE OBLIGATIONS (AUSTRALIAN CONTEXT)
-Emergency make-safe must be completed within 24–48 hours of loss. Insurer notification required before non-emergency works. Make-safe scope must be clearly separated from reinstatement scope for insurance assessor review. Temporary protection measures must meet NCC 2022 weather-tightness requirements.
+STABILISATION OBLIGATIONS (AUSTRALIAN CONTEXT)
+Emergency stabilisation (make-safe) must be completed within 24–48 hours of loss. Insurer notification required before non-emergency works. Stabilisation scope must be clearly separated from reinstatement scope for insurance assessor review. Temporary protection measures must meet NCC 2022 weather-tightness requirements.
 
 AUSTRALIAN MATERIALS CONTEXT
 Common storm-affected materials:
@@ -390,7 +390,7 @@ Common storm-affected materials:
 - Timber fascia, soffit, and eaves lining (water-damaged, rotted)
 
 WRITING RULES
-1. Clearly separate make-safe scope from reinstatement scope in every section.
+1. Clearly separate stabilisation scope from reinstatement scope in every section.
 2. Where structural drying is required, cite IICRC S500:2025 equipment ratios.
 3. Quantities must be specific. Never write "adequate" or "appropriate".
 4. Active voice. Short sentences. No waffle.
@@ -407,8 +407,8 @@ Produce the scope in exactly these 7 numbered sections:
 
 1. Breach Identification
    — Confirmed breach points: roof (tile displacement, ridge cap failure, flashing failure), windows (broken glass, failed seals, frame distortion), doors, gutters (blocked, damaged, overflowing). Reference AS 4055:2021 wind loading if structural damage suspected.
-2. Temporary Protection Measures (Make-Safe)
-   — Tarpaulins (size and fixings specified), board-up (plywood grade and fixing method), debris removal, fallen tree/limb management. Must comply with NCC 2022 weather-tightness. Clearly labelled make-safe scope.
+2. Temporary Protection Measures (Stabilisation)
+   — Tarpaulins (size and fixings specified), board-up (plywood grade and fixing method), debris removal, fallen tree/limb management. Must comply with NCC 2022 weather-tightness. Clearly labelled stabilisation scope.
 3. Water Intrusion Extent
    — Roof space: truss system, battens, sarking, insulation. Ceiling void. Internal walls via stud cavities. Flooring (subfloor if applicable). Document affected area (m²) per zone.
 4. Affected Materials Assessment
@@ -668,7 +668,7 @@ OUTPUT: Professional Australian English business document. Markdown formatting a
 /**
  * Storm + Water Damage
  * Standards: NCC 2022 + IICRC S500:2025
- * Key hazards: structural breach must be identified before drying, make-safe obligations,
+ * Key hazards: structural breach must be identified before drying, stabilisation obligations,
  * rainwater classification (Cat 1 unless contaminated by debris).
  */
 function getStormWaterPrompt(): string {
@@ -683,37 +683,37 @@ precise · practitioner-grade · compliant · field-tested · IICRC-aligned
 STANDARD AUTHORITY
 - NCC 2022 (National Construction Code): reinstatement to pre-loss weather-tight standard
 - IICRC S500:2025: structural drying where water intrusion is present
-- AS 4055:2021 (Wind loads for housing): make-safe structural assessment
-- Insurance Council of Australia (ICA): make-safe obligations and insurer notification timelines
+- AS 4055:2021 (Wind loads for housing): stabilisation structural assessment
+- Insurance Council of Australia (ICA): stabilisation obligations and insurer notification timelines
 
 DUAL-LOSS CONTEXT
 This job involves a storm-caused structural breach (roof, facade, windows) WITH water intrusion into the building fabric. Both the building breach and the water damage must be addressed. The structural breach MUST be made safe before internal drying can be effective.
 
 MANDATORY SEQUENCING RULE
-1. Make-safe: temporary weather protection before any internal scope proceeds
+1. Stabilisation (make-safe): temporary weather protection before any internal scope proceeds
 2. Structural breach assessment: confirm cause of ingress (tile displacement, flashing failure, window failure, etc.)
 3. Water intrusion mapping: document extent of water intrusion post-breach
 4. Internal drying only effective after breach is temporarily sealed — do not set up drying equipment in an unprotected building
 5. Reinstatement scope: permanent structural repairs to NCC 2022 standard
 
-MAKE-SAFE OBLIGATIONS (AUSTRALIAN CONTEXT)
-Emergency make-safe within 24–48 hours of loss. Insurer notification required before non-emergency works. Make-safe and reinstatement scopes must be clearly separated for insurance assessor review.
+STABILISATION OBLIGATIONS (AUSTRALIAN CONTEXT)
+Emergency stabilisation (make-safe) within 24–48 hours of loss. Insurer notification required before non-emergency works. Stabilisation and reinstatement scopes must be clearly separated for insurance assessor review.
 
 STORM WATER CLASSIFICATION
 Rainwater entering via storm breach is generally Category 1 (clean water) per IICRC S500:2025 §5.2, UNLESS the water has been contaminated by: debris (gutters blocked with organic matter), soil contact (flooding), or sewage backup. Escalate to Category 2 or 3 where contamination is present.
 
 CROSS-CONTAMINATION RISKS (MUST address in scope)
-1. Delayed breach sealing = mould risk: any storm intrusion not made safe within 24–48 hours creates Condition 2 mould risk. Note mould risk explicitly if response is delayed.
+1. Delayed breach sealing = mould risk: any storm intrusion not stabilised within 24–48 hours creates Condition 2 mould risk. Note mould risk explicitly if response is delayed.
 2. Roof space saturation: water pooling in ceiling void saturates insulation and can cause ceiling collapse — do not enter below saturated ceilings without propping or drainage.
 3. Hidden structural damage: timber roof framing, wall plates, and window reveals may have concealed water damage extending beyond visible water staining. Invasive investigation recommended.
 
 WRITING RULES
-1. Clearly separate make-safe scope from reinstatement scope in every section.
+1. Clearly separate stabilisation scope from reinstatement scope in every section.
 2. Where structural drying is required, cite IICRC S500:2025 equipment ratios.
 3. Quantities must be specific.
 4. Active voice. Short sentences. No waffle.
 5. Audience: insurance assessors, licensed building contractors, and IICRC technicians.
-6. Flag delayed make-safe implications for mould risk explicitly.
+6. Flag delayed stabilisation implications for mould risk explicitly.
 
 ANTI-PATTERNS — NEVER USE THESE
 - "Revolutionary", "cutting-edge", "world-class", "seamless"
@@ -725,8 +725,8 @@ Produce the scope in exactly these 8 numbered sections:
 
 1. Structural Breach Identification
    — Confirmed breach points: roof (tile displacement, ridge cap, flashing), windows, doors, gutters. Reference AS 4055:2021 wind loading for structural damage. Cite NCC 2022 weather-tightness requirements.
-2. Temporary Protection Measures (Make-Safe)
-   — Tarpaulins (size and fixings), board-up (plywood grade and fixing), debris removal. Must comply with NCC 2022 weather-tightness. Labelled as make-safe scope. Complete within 24–48 hours.
+2. Temporary Protection Measures (Stabilisation)
+   — Tarpaulins (size and fixings), board-up (plywood grade and fixing), debris removal. Must comply with NCC 2022 weather-tightness. Labelled as stabilisation scope. Complete within 24–48 hours.
 3. Water Intrusion Extent & Category Assessment
    — Roof space (truss system, battens, sarking, insulation), ceiling void, internal walls via stud cavities, flooring. Document affected area (m²) per zone. Assess water category (rainwater = Cat 1 unless contaminated by debris/soil/sewage).
 4. Affected Materials Assessment
@@ -734,7 +734,7 @@ Produce the scope in exactly these 8 numbered sections:
 5. Structural Drying Setup
    — Apply IICRC S500:2025 drying protocol — equipment ratios: 1 LGR dehumidifier per 40 m², 1 air mover per 15 m². Drying commences ONLY after breach is temporarily sealed. Class determination per §7. Cite §8 for setup procedure.
 6. Mould Risk Assessment & Pre-emptive Treatment
-   — Note elapsed time since breach. If >24 hours delayed make-safe, classify Condition 2 mould risk and apply pre-emptive antimicrobial per IICRC S520 §5. Document for insurer.
+   — Note elapsed time since breach. If >24 hours delayed stabilisation, classify Condition 2 mould risk and apply pre-emptive antimicrobial per IICRC S520 §5. Document for insurer.
 7. Contents at Risk
    — Contents inventory for affected rooms. Wet contents identified for removal or in-place drying. Priority pack-out: electronics, documents, valuables.
 8. Reinstatement Scope

@@ -21,7 +21,11 @@ export type MakeSafeGateResult = {
 };
 
 /**
- * Check whether all applicable Make-Safe actions are completed for a given
+ * Stabilisation gate per AS-IICRC S500:2025.
+ * Internal symbol name retained for backward compatibility;
+ * user-facing wording is "Stabilisation" per RA-1151.
+ *
+ * Check whether all applicable stabilisation actions are completed for a given
  * inspection. An action is only a blocker when:
  *   - applicable === true   (N/A items are skipped)
  *   - completed === false   (not yet ticked off)

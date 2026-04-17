@@ -128,7 +128,7 @@ export async function POST(
     if (!makeSafeResult.canSubmit) {
       return NextResponse.json(
         {
-          error: "Make-Safe checklist incomplete",
+          error: "Stabilisation checklist incomplete — required per AS-IICRC S500:2025",
           blockers: makeSafeResult.blockers,
         },
         { status: 422 },

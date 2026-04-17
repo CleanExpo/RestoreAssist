@@ -2246,7 +2246,7 @@ function buildTimelineData(
       (p1End.getTime() - p1Start.getTime()) / (1000 * 60 * 60 * 24),
     );
     phases.push({
-      name: "Phase 1: Make-safe",
+      name: "Phase 1: Stabilisation (Make-Safe)",
       startDate: p1Start,
       endDate: p1End,
       duration: duration,
@@ -2337,12 +2337,12 @@ function buildTimelineData(
 
     // Only create phases if we have an estimate from actual data
     if (estimatedDays) {
-      const p1Duration = Math.ceil(estimatedDays * 0.2); // 20% for make-safe
+      const p1Duration = Math.ceil(estimatedDays * 0.2); // 20% for stabilisation
       const p2Duration = Math.ceil(estimatedDays * 0.6); // 60% for remediation
       const p3Duration = Math.ceil(estimatedDays * 0.2); // 20% for verification
 
       phases.push({
-        name: "Phase 1: Make-safe",
+        name: "Phase 1: Stabilisation (Make-Safe)",
         startDate: startDate,
         endDate: new Date(
           startDate.getTime() + p1Duration * 24 * 60 * 60 * 1000,

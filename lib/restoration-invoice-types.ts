@@ -434,7 +434,7 @@ export const RESTORATION_INVOICE_TYPES: RestorationInvoiceTypeConfig[] = [
     defaultLineItems: [
       {
         description:
-          "Emergency Response & Tarping — Make-safe, roof tarping, board-up to prevent further water ingress",
+          "Emergency Response & Tarping — Stabilisation activities per AS-IICRC S500:2025, roof tarping, board-up to prevent further water ingress",
         qty: "1",
         unit: "EA",
         rate: "620.00",

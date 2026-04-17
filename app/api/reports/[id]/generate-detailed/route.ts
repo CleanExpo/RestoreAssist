@@ -516,7 +516,7 @@ export async function POST(
       },
       { label: "Photos Taken:", value: "Yes", checkbox: true },
       {
-        label: "Make Safe Completed:",
+        label: "Stabilisation Completed:",
         value: report.safetyHazards ? "Yes" : "No",
         checkbox: true,
       },

@@ -261,7 +261,7 @@ export default function InitialDataEntryForm({
       id: 10,
       title: "Timeline Estimation",
       icon: Clock,
-      description: "Phase dates for make-safe, remediation, and verification",
+      description: "Phase dates for stabilisation (make-safe), remediation, and verification",
       requiredFields: [],
     },
     {
@@ -4288,7 +4288,7 @@ export default function InitialDataEntryForm({
               {/* Phase 1 */}
               <div>
                 <h4 className="text-xs font-semibold mb-2 text-neutral-700 dark:text-neutral-300">
-                  Phase 1: Make-safe
+                  Phase 1: Stabilisation (Make-Safe)
                 </h4>
                 <div className="space-y-2">
                   <div>
