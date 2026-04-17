@@ -67,3 +67,14 @@ store-assets/
 
 # Local Claude skills (may contain API keys)
 .claude/skills/
+
+# Session artifacts
+commit_msg_*.txt
+pr_body_*.txt
+create_pr_*.bat
+verify-settings.png
+proxy.ts
+
+# Local tooling
+.omx/
+.superpowers/

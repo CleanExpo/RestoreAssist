@@ -1620,6 +1620,18 @@ model Inspection {
   drNrpgJobSync    DrNrpgJobSync?
   dryingGoalRecord DryingGoalRecord?
 
+  // RA-1132a: AI Live Teacher sessions
+  liveTeacherSessions LiveTeacherSession[]
+
+  // RA-1136a: Make-Safe P0 compliance gate
+  makeSafeActions MakeSafeAction[]
+
+  // RA-1136b: Variation Tracking compliance gate
+  scopeVariations ScopeVariation[]
+
+  // RA-1140: WHS incident tracking
+  whsIncidents WHSIncident[]
+
   @@index([userId])
   @@index([status])
   @@index([inspectionDate])
@@ -1639,6 +1651,52 @@ enum InspectionStatus {
   ESTIMATED
   COMPLETED
   REJECTED
+}
+
+// RA-1140: WHS Incident Tracking (RA-80 was claimed Done but never shipped)
+model WHSIncident {
+  id           String   @id @default(cuid())
+  inspectionId String?
+  inspection   Inspection? @relation(fields: [inspectionId], references: [id], onDelete: SetNull)
+  userId       String
+
+  // Incident details — shape matches app/dashboard/whs/page.tsx WHSIncident interface
+  incidentType       String   // free text: "slip_fall" | "electrical" | "biohazard" | etc.
+  severity           String   // "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"
+  status             String   @default("OPEN") // "OPEN" | "UNDER_REVIEW" | "CLOSED" | "REQUIRES_ESCALATION"
+  incidentDate       DateTime
+  location           String?
+  injuredParty       String?
+  injuryDescription  String?  @db.Text
+  description        String?  @db.Text
+
+  correctiveActions WHSCorrectiveAction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([inspectionId])
+  @@index([userId, createdAt])
+  @@index([incidentType, severity])
+  @@index([status])
+}
+
+model WHSCorrectiveAction {
+  id         String      @id @default(cuid())
+  incidentId String
+  incident   WHSIncident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  description  String
+  assignedTo   String?
+  completed    Boolean  @default(false)
+  completedAt  DateTime?
+  dueDate      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([incidentId])
+  @@index([assignedTo, completed])
 }
 
 // Environmental Data (Temperature, Humidity, Dew Point, etc.)
@@ -1677,6 +1735,12 @@ model MoistureReading {
   // Additional Context
   notes    String? @db.Text
   photoUrl String? // Link to photo if available
+
+  // RA-1141: Device metadata for BLE / cloud / OCR ingest
+  unit         String? // "PERCENT_MC" | "WME" | "RH" | "CELSIUS"
+  deviceVendor String? // e.g. "Delmhorst"
+  deviceModel  String? // e.g. "Navigator Pro"
+  source       String? @default("manual") // "ble" | "cloud" | "ocr" | "manual"
 
   recordedAt DateTime @default(now())
   createdAt  DateTime @default(now())
@@ -1736,6 +1800,9 @@ model ScopeItem {
   // System Determination
   autoDetermined Boolean @default(false) // True if system auto-added this
   justification  String? @db.Text // Why this item is required (IICRC/building code reference)
+
+  // RA-1142: IICRC / building-code clause citation (e.g. "S500:2025 §7.1")
+  clauseRef String? // stops JSON-in-justification hack; unblocks RA-1131 PDF citations
 
   // Status
   isRequired Boolean @default(true)
@@ -4831,4 +4898,122 @@ model InvoiceSyncJob {
   @@unique([invoiceId, provider], name: "invoiceId_provider")
   @@index([status, priority, createdAt])
   @@index([invoiceId])
+}
+
+// ─── RA-1132a: AI Live Teacher ───────────────────────────────────────────────
+// On-device (Gemma 3n) + cloud (Claude) hybrid coaching sessions during
+// inspection. Captures token accounting, standards citations (IICRC S500,
+// AS/NZS 4849.1, AS/NZS 4360, NZBS E2/E3), tool calls, and user overrides.
+
+model LiveTeacherSession {
+  id                String   @id @default(cuid())
+  inspectionId      String
+  inspection        Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  userId            String
+  startedAt         DateTime @default(now())
+  endedAt           DateTime?
+  modelUsedLocal    String?  // "gemma-3n-4b"
+  modelUsedCloud    String?  // "claude-opus-4-7"
+  totalInputTokens  Int      @default(0)
+  totalOutputTokens Int      @default(0)
+  totalCostAudCents Int      @default(0)
+  jurisdiction      String   // "AU" | "NZ"
+  deviceOs          String   // "ios" | "android" | "web"
+  hadLidar          Boolean  @default(false)
+  utterances        TeacherUtterance[]
+  toolCalls         TeacherToolCall[]
+
+  @@index([inspectionId])
+  @@index([userId, startedAt])
+}
+
+model TeacherUtterance {
+  id             String   @id @default(cuid())
+  sessionId      String
+  session        LiveTeacherSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  turnIndex      Int
+  role           String   // "user" | "assistant" | "system"
+  content        String
+  clauseRefs     String[] // ["S500:2025 §10.5.4"]
+  confidence     Float?   // 0..1
+  userOverride   Boolean  @default(false)
+  overrideReason String?
+  ranOnDevice    Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  @@index([sessionId, turnIndex])
+}
+
+model TeacherToolCall {
+  id           String   @id @default(cuid())
+  sessionId    String
+  session      LiveTeacherSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  utteranceId  String?
+  toolName     String
+  args         Json
+  result       Json?
+  error        String?
+  durationMs   Int?
+  createdAt    DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([toolName])
+}
+
+model StandardsChunk {
+  id           String  @id @default(cuid())
+  standard     String  // "IICRC_S500" | "AS_NZS_4849_1" | "AS_NZS_4360" | "NZBS_E2" | "NZBS_E3"
+  edition      String
+  clause       String
+  title        String
+  text         String
+  jurisdiction String  // "AU" | "NZ" | "BOTH"
+  // embedding vector(1536) — added via migration raw SQL (pgvector)
+
+  @@unique([standard, edition, clause])
+  @@index([standard, jurisdiction])
+}
+
+// ─── RA-1136a: Make-Safe Compliance Gate ─────────────────────────────────────
+// P0 hazard controls (power, gas, mould containment, water stop, occupant
+// briefing). One row per (inspection, action) — unique constraint enforces
+// idempotency so the gate can flip completed=true without creating duplicates.
+
+model MakeSafeAction {
+  id                String   @id @default(cuid())
+  inspectionId      String
+  inspection        Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  action            String   // "power_isolated" | "gas_isolated" | "mould_containment" | "water_stopped" | "occupant_briefing"
+  applicable        Boolean  @default(true)
+  completed         Boolean  @default(false)
+  completedAt       DateTime?
+  completedByUserId String?
+  notes             String?  // e.g. occupant briefing content
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([inspectionId, action])
+  @@index([inspectionId])
+}
+
+// RA-1136b: Scope Variation — ICA Code of Practice §5 + Insurance Contracts Act 1984
+model ScopeVariation {
+  id                  String     @id @default(cuid())
+  inspectionId        String
+  inspection          Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  reason              String
+  authorisationSource String // "insurer_email" | "customer_signature" | "internal_manager" | "adjuster_approval"
+  authorisationRef    String? // email ref, signature ID, etc.
+  costDeltaCents      Int // positive = scope increase; negative = scope reduction
+  costDeltaPercent    Float? // calculated vs baseline estimate
+  approvedByUserId    String
+  approvedAt          DateTime   @default(now())
+  status              String     @default("PENDING") // "PENDING" | "APPROVED" | "REJECTED" | "AUTO_APPROVED"
+  autoApprovalRule    String? // e.g. "DELTA_UNDER_10_PERCENT"
+  notes               String?
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  @@index([inspectionId, createdAt])
+  @@index([status])
 }
