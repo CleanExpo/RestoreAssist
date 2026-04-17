@@ -49,10 +49,12 @@ export async function POST(request: NextRequest) {
       (err as { code: string }).code === "P2002"
     ) {
       // Mark as SKIPPED in the audit table for visibility
-      await prisma.stripeWebhookEvent.updateMany({
-        where: { stripeEventId: event.id },
-        data: { status: "SKIPPED", processedAt: new Date() },
-      }).catch(() => {});
+      await prisma.stripeWebhookEvent
+        .updateMany({
+          where: { stripeEventId: event.id },
+          data: { status: "SKIPPED", processedAt: new Date() },
+        })
+        .catch(() => {});
       return NextResponse.json({ received: true });
     }
     // Any other DB error — still attempt processing (don't block on audit table)
@@ -200,9 +202,20 @@ export async function POST(request: NextRequest) {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
         const invoiceId = paymentIntent.metadata?.invoiceId;
 
+        // RA-1139: Missing invoiceId → 400 so Stripe retries and ops are alerted.
+        // (Previously was a silent break → 200, causing Stripe to stop retrying.)
         if (!invoiceId) {
-          // Not a RestoreAssist invoice payment — skip silently
-          break;
+          console.error(
+            "[stripe-webhook] payment_intent.succeeded missing invoiceId metadata",
+            {
+              eventId: event.id,
+              paymentIntentId: paymentIntent.id,
+            },
+          );
+          return NextResponse.json(
+            { error: "Missing invoiceId metadata" },
+            { status: 400 },
+          );
         }
 
         // Idempotency guard — don't double-update if already reconciled
@@ -211,7 +224,25 @@ export async function POST(request: NextRequest) {
           select: { status: true },
         });
 
-        if (existingInvoice?.status === "PAID") {
+        // RA-1139: Orphaned invoiceId — Invoice row not found.
+        // Return 200 to stop Stripe retrying (orphaned data won't self-heal),
+        // but log critically so ops can investigate.
+        if (!existingInvoice) {
+          console.error(
+            "[stripe-webhook] orphaned invoiceId — Invoice row not found",
+            {
+              eventId: event.id,
+              invoiceId,
+              paymentIntentId: paymentIntent.id,
+            },
+          );
+          return NextResponse.json({
+            received: true,
+            warning: "orphaned_invoice_id",
+          });
+        }
+
+        if (existingInvoice.status === "PAID") {
           break;
         }
 
@@ -235,24 +266,28 @@ export async function POST(request: NextRequest) {
     }
 
     // Mark event as processed
-    await prisma.stripeWebhookEvent.updateMany({
-      where: { stripeEventId: event.id },
-      data: { status: "COMPLETED", processedAt: new Date() },
-    }).catch(() => {
-      // Non-fatal — audit update failure doesn't block the response
-    });
+    await prisma.stripeWebhookEvent
+      .updateMany({
+        where: { stripeEventId: event.id },
+        data: { status: "COMPLETED", processedAt: new Date() },
+      })
+      .catch(() => {
+        // Non-fatal — audit update failure doesn't block the response
+      });
 
     return NextResponse.json({ received: true });
   } catch (error) {
     // Mark event as failed for retry visibility
-    await prisma.stripeWebhookEvent.updateMany({
-      where: { stripeEventId: event.id },
-      data: {
-        status: "FAILED",
-        errorMessage:
-          error instanceof Error ? error.message : "Unknown error",
-      },
-    }).catch(() => {});
+    await prisma.stripeWebhookEvent
+      .updateMany({
+        where: { stripeEventId: event.id },
+        data: {
+          status: "FAILED",
+          errorMessage:
+            error instanceof Error ? error.message : "Unknown error",
+        },
+      })
+      .catch(() => {});
 
     return NextResponse.json(
       { error: "Webhook processing failed" },

@@ -1,3 +1,7 @@
+import Anthropic from "@anthropic-ai/sdk";
+import { z } from "zod";
+// TODO RA-1087: import { logAiUsage } from "@/lib/ai-usage"; — module does not yet exist
+
 export type ClaimType =
   | "water_damage"
   | "fire_smoke"
@@ -9,9 +13,75 @@ export interface ClassificationResult {
   claimType: ClaimType;
   damageCategory?: number; // 1-3, water damage only
   damageClass?: number; // 1-4, water damage only
-  confidence: "high" | "medium" | "low";
+  /**
+   * @deprecated RA-1115: rule-based stage returns "unclear" only — prior
+   * heuristic (input-length) was misleading. True LLM confidence lands in
+   * RA-1126. Vector stage retains "high" | "medium" pending that work.
+   */
+  confidence: "high" | "medium" | "low" | "unclear";
   reasoning: string; // Human-readable explanation shown in UI
+  /**
+   * RA-1126: Numeric confidence from LLM classifier (0.0–1.0).
+   * Present only when llmClassify was used; absent for ruleBasedClassify results.
+   */
+  llmConfidence?: number;
+  /**
+   * RA-1126: IICRC S500:2025 clause references from LLM classifier.
+   * e.g. ["S500:2025 §10.5.4"]
+   */
+  clauseRefs?: string[];
+  /**
+   * RA-1126: Whether the LLM classifier recommends human review.
+   * Set to true when llmConfidence < 0.7 or the situation is ambiguous.
+   */
+  humanReviewRequired?: boolean;
 }
+
+// ---------------------------------------------------------------------------
+// Zod schema for LLM-structured output (internal — not exported)
+// ---------------------------------------------------------------------------
+const ClassificationSchema = z.object({
+  claimType: z.enum(["water", "fire", "mould", "storm", "biohazard"]),
+  category: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+  class: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
+  confidence: z.number().min(0).max(1),
+  reasoning: z.string().min(20).max(500),
+  clauseRefs: z.array(z.string()),
+  humanReviewRequired: z.boolean(),
+});
+
+type LlmClassification = z.infer<typeof ClassificationSchema>;
+
+/** Maps the LLM's simpler claim type vocabulary to the app's ClaimType union. */
+function mapLlmClaimType(llmType: LlmClassification["claimType"]): ClaimType {
+  switch (llmType) {
+    case "water":
+      return "water_damage";
+    case "fire":
+      return "fire_smoke";
+    case "mould":
+      return "mould";
+    case "storm":
+      return "storm";
+    case "biohazard":
+      // Biohazard has no direct equivalent — map to water_damage with note.
+      // humanReviewRequired will be set by the LLM in these cases.
+      return "water_damage";
+    default:
+      return "water_damage";
+  }
+}
+
+/** Converts a numeric confidence (0–1) to the string union used by the UI. */
+function confidenceBand(value: number): "high" | "medium" | "low" {
+  if (value >= 0.85) return "high";
+  if (value >= 0.7) return "medium";
+  return "low";
+}
+
+// ---------------------------------------------------------------------------
+// Stage 1: Rule-based classifier — fast, free, works offline.
+// ---------------------------------------------------------------------------
 
 /**
  * Stage 1: Rule-based classification — fast, free, works offline.
@@ -98,9 +168,6 @@ export function ruleBasedClassify(input: {
     }
   }
 
-  const confidence: "high" | "medium" | "low" =
-    text.length > 50 ? "medium" : text.length > 20 ? "low" : "low";
-
   const reasoning = [
     typeReasoning,
     categoryReasoning,
@@ -113,10 +180,16 @@ export function ruleBasedClassify(input: {
     claimType,
     damageCategory,
     damageClass,
-    confidence,
+    // RA-1115: input length is not a confidence signal — stopgap until RA-1126
+    // replaces rule-based stage with real LLM confidence.
+    confidence: "unclear",
     reasoning,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Stage 2: Vector-based classification (when historical job store is populated).
+// ---------------------------------------------------------------------------
 
 /**
  * Stage 2: Vector-based classification (when historical job store is populated).
@@ -174,5 +247,135 @@ export async function vectorClassify(input: {
     };
   } catch {
     return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Stage 3: LLM classifier — Claude Opus 4.7 via Anthropic SDK (RA-1126).
+// ---------------------------------------------------------------------------
+
+const SYSTEM_PROMPT = `You are an IICRC S500:2025-certified water damage classifier for Australian and New Zealand restoration contractors.
+
+Given inspection data, return JSON with:
+- claimType (water/fire/mould/storm/biohazard)
+- category (1, 2, or 3 per S500:2025 §10.5)
+- class (1-4 per S500:2025 §10.6)
+- confidence (0.0-1.0)
+- reasoning (20-500 chars, cite clauses)
+- clauseRefs (array of "S500:2025 §X.Y.Z" citations)
+- humanReviewRequired (true if confidence < 0.7 or ambiguous)
+
+Australian English spelling (mould, not mold). If jurisdiction is "NZ", additionally consider NZBS E2/E3.`;
+
+/**
+ * Stage 3: LLM classification using Claude Opus 4.7.
+ *
+ * Falls back to ruleBasedClassify when:
+ * - The Anthropic API call fails for any reason
+ * - The LLM response does not parse as valid JSON
+ * - The parsed JSON fails Zod validation
+ *
+ * The returned ClassificationResult is compatible with all existing consumers.
+ * Additional fields (llmConfidence, clauseRefs, humanReviewRequired) are optional
+ * and ignored by consumers that don't use them.
+ */
+export async function llmClassify(input: {
+  description: string;
+  notes?: string;
+  averageMoistureReading?: number;
+  location?: string;
+  jurisdiction?: "AU" | "NZ";
+}): Promise<ClassificationResult> {
+  try {
+    const client = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+    });
+
+    const userContent = JSON.stringify({
+      description: input.description,
+      ...(input.notes !== undefined && { notes: input.notes }),
+      ...(input.averageMoistureReading !== undefined && {
+        averageMoistureReading: input.averageMoistureReading,
+      }),
+      ...(input.location !== undefined && { location: input.location }),
+      jurisdiction: input.jurisdiction ?? "AU",
+    });
+
+    const response = await client.messages.create({
+      model: "claude-opus-4-7",
+      max_tokens: 1024,
+      thinking: { type: "adaptive" },
+      system: SYSTEM_PROMPT,
+      messages: [
+        {
+          role: "user",
+          content: `Input:\n${userContent}\n\nReturn only valid JSON matching the schema described. No markdown fences.`,
+        },
+      ],
+    });
+
+    // Extract the text block from the response
+    const textBlock = response.content.find((b) => b.type === "text");
+    if (!textBlock || textBlock.type !== "text") {
+      console.warn(
+        "[llmClassify] No text block in response — falling back to ruleBasedClassify",
+      );
+      return ruleBasedClassify(input);
+    }
+
+    // Strip any accidental markdown fences the model might emit
+    const rawJson = textBlock.text
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/\s*```$/i, "")
+      .trim();
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(rawJson);
+    } catch {
+      console.warn(
+        "[llmClassify] JSON.parse failed — falling back to ruleBasedClassify",
+      );
+      return ruleBasedClassify(input);
+    }
+
+    const validated = ClassificationSchema.safeParse(parsed);
+    if (!validated.success) {
+      console.warn(
+        "[llmClassify] Zod validation failed:",
+        validated.error.flatten(),
+        "— falling back to ruleBasedClassify",
+      );
+      return ruleBasedClassify(input);
+    }
+
+    const llm = validated.data;
+
+    // Enforce humanReviewRequired when confidence is below threshold
+    const humanReviewRequired = llm.humanReviewRequired || llm.confidence < 0.7;
+
+    // TODO RA-1087: logAiUsage({ model: "claude-opus-4-7", usage: response.usage, feature: "llmClassify" });
+
+    const claimType = mapLlmClaimType(llm.claimType);
+
+    return {
+      claimType,
+      // Only emit damageCategory/damageClass for water-type claims
+      ...(claimType === "water_damage" && {
+        damageCategory: llm.category,
+        damageClass: llm.class,
+      }),
+      confidence: confidenceBand(llm.confidence),
+      reasoning: llm.reasoning,
+      llmConfidence: llm.confidence,
+      clauseRefs: llm.clauseRefs,
+      humanReviewRequired,
+    };
+  } catch (err) {
+    console.error(
+      "[llmClassify] Unexpected error — falling back to ruleBasedClassify:",
+      err,
+    );
+    return ruleBasedClassify(input);
   }
 }

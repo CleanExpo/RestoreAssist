@@ -130,9 +130,10 @@ function parseFromNextData(
   const floorPlanImages: string[] = [];
   const propertyImages: string[] = [];
 
-  const mediaArray = (
-    listing.media ?? listing.images ?? listing.photos ?? listing.photoUrls
-  ) as unknown[] | undefined;
+  const mediaArray = (listing.media ??
+    listing.images ??
+    listing.photos ??
+    listing.photoUrls) as unknown[] | undefined;
 
   if (Array.isArray(mediaArray)) {
     for (const item of mediaArray) {
@@ -146,8 +147,14 @@ function parseFromNextData(
               | undefined);
       if (!rawUrl || typeof rawUrl !== "string") continue;
       const url = rawUrl.startsWith("//") ? "https:" + rawUrl : rawUrl;
-      const mediaType = ((m.type ?? m.mediaType ?? m.category) as string | undefined)?.toLowerCase() ?? "";
-      if (/floor.?plan|floorplan/i.test(mediaType) || /floor.?plan|floorplan/i.test(url)) {
+      const mediaType =
+        (
+          (m.type ?? m.mediaType ?? m.category) as string | undefined
+        )?.toLowerCase() ?? "";
+      if (
+        /floor.?plan|floorplan/i.test(mediaType) ||
+        /floor.?plan|floorplan/i.test(url)
+      ) {
         floorPlanImages.push(url);
       } else {
         propertyImages.push(url);
@@ -188,9 +195,7 @@ function parseFromNextData(
  * { "@type": "QuantitativeValue", "unitText": "sqm", "value": 85 }.
  * This helper always returns a plain number or undefined.
  */
-function coerceSchemaNumber(
-  v: unknown,
-): number | undefined {
+function coerceSchemaNumber(v: unknown): number | undefined {
   if (typeof v === "number") return isNaN(v) ? undefined : v;
   if (typeof v === "string") {
     const n = parseFloat(v.replace(/,/g, ""));
@@ -271,10 +276,7 @@ export function parseOnTheHouseHTML(
   // so the HTML-fallback regex gets a chance to provide a better answer.
   const clamp = (v: number | undefined, max: number): number | undefined =>
     v !== undefined && v <= max ? v : undefined;
-const clamp = (
-    v: number | undefined,
-    max: number,
-  ): number | undefined => (v !== undefined && v <= max ? v : undefined);  const merged = {
+  const merged = {
     ...rawMerged,
     bedrooms: clamp(rawMerged.bedrooms, 20),
     bathrooms: clamp(rawMerged.bathrooms, 15),
@@ -338,7 +340,10 @@ const clamp = (
   const seenFP = new Set<string>();
   const floorPlanImages: string[] = [];
   for (const u of [...(merged.floorPlanImages ?? []), ...htmlFloorPlanImages]) {
-    if (!seenFP.has(u)) { seenFP.add(u); floorPlanImages.push(u); }
+    if (!seenFP.has(u)) {
+      seenFP.add(u);
+      floorPlanImages.push(u);
+    }
   }
 
   // General property images — Next.js data first, then HTML fallback
@@ -354,7 +359,10 @@ const clamp = (
   const seenPI = new Set<string>(floorPlanImages); // don't duplicate floor plan urls
   const propertyImages: string[] = [];
   for (const u of [...(merged.propertyImages ?? []), ...htmlPropertyImages]) {
-    if (!seenPI.has(u)) { seenPI.add(u); propertyImages.push(u); }
+    if (!seenPI.has(u)) {
+      seenPI.add(u);
+      propertyImages.push(u);
+    }
     if (propertyImages.length >= 24) break;
   }
 
