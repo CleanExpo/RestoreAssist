@@ -42,6 +42,8 @@ import {
   Trash2,
   Edit2,
   ChevronRight,
+  Bookmark,
+  BookmarkCheck,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -862,6 +864,59 @@ export default function EstimationEngine({
     </div>
   );
 
+  // Promote a custom line item into the user's reusable CostLibrary so it
+  // appears on future estimates without re-typing. Sets sourceCostItemId on
+  // the row so the bookmark icon flips to "saved".
+  const handleSaveLineItemToLibrary = async (index: number) => {
+    const item = estimateData.lineItems[index];
+    if (!item || !item.description || !item.category || !(item.rate > 0))
+      return;
+
+    // Optimistic UI
+    setEstimateData((prev) => {
+      const newItems = [...prev.lineItems];
+      newItems[index] = { ...newItems[index], _savingToLibrary: true };
+      return { ...prev, lineItems: newItems };
+    });
+
+    try {
+      const res = await fetch("/api/cost-libraries/promote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          category: item.category,
+          description: item.description,
+          rate: Number(item.rate),
+          unit: item.unit || "ea",
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const { item: saved, created } = await res.json();
+      setEstimateData((prev) => {
+        const newItems = [...prev.lineItems];
+        newItems[index] = {
+          ...newItems[index],
+          sourceCostItemId: saved.id,
+          _savingToLibrary: false,
+        };
+        return { ...prev, lineItems: newItems };
+      });
+      toast.success(
+        created
+          ? "Saved to library — available on future estimates"
+          : "Library item updated",
+      );
+    } catch (err) {
+      console.error("Failed to save line item to library:", err);
+      setEstimateData((prev) => {
+        const newItems = [...prev.lineItems];
+        newItems[index] = { ...newItems[index], _savingToLibrary: false };
+        return { ...prev, lineItems: newItems };
+      });
+      toast.error("Failed to save to library");
+    }
+  };
+
   const renderLineItemsTab = () => (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -1064,6 +1119,35 @@ export default function EstimationEngine({
                 </TableCell>
                 <TableCell>
                   <div className="flex space-x-2">
+                    {/* Save-to-library: only for custom (estimator-added) items
+                        that haven't already been promoted to the catalog */}
+                    {item.isEstimatorAdded &&
+                      !item.isScopeLinked &&
+                      item.description &&
+                      item.rate > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleSaveLineItemToLibrary(index)}
+                          className={
+                            item.sourceCostItemId
+                              ? "text-emerald-400 hover:text-emerald-300"
+                              : "text-slate-400 hover:text-cyan-300"
+                          }
+                          disabled={item._savingToLibrary}
+                          title={
+                            item.sourceCostItemId
+                              ? "Saved to library — reusable on future estimates"
+                              : "Save to library for reuse on future estimates"
+                          }
+                        >
+                          {item.sourceCostItemId ? (
+                            <BookmarkCheck size={14} />
+                          ) : (
+                            <Bookmark size={14} />
+                          )}
+                        </Button>
+                      )}
                     <Button
                       variant="ghost"
                       size="sm"
