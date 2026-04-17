@@ -122,6 +122,7 @@ export default function NewInterviewPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchTemplates();
@@ -130,25 +131,50 @@ export default function NewInterviewPage() {
   const fetchTemplates = async () => {
     try {
       setLoading(true);
+      setFetchError(null);
       const response = await fetch("/api/form-templates");
-      if (response.ok) {
-        const data = await response.json();
-        const tpls = data.templates || [];
-        setTemplates(tpls);
-        if (tpls.length > 0) {
-          setSelectedTemplate(tpls[0].id);
-        }
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => ({}));
+        throw new Error(
+          errBody.error || `Templates API returned ${response.status}`,
+        );
+      }
+      const data = await response.json();
+      const tpls = data.templates || [];
+      setTemplates(tpls);
+      if (tpls.length > 0) {
+        setSelectedTemplate(tpls[0].id);
+      } else {
+        // /api/form-templates auto-seeds defaults when the user has none.
+        // An empty array here means the seed failed — surface it so the
+        // user can retry instead of staring at a greyed-out Start button.
+        setFetchError(
+          "No interview templates were found or created for your account. Please retry or contact support.",
+        );
       }
     } catch (error) {
       console.error("Error fetching templates:", error);
+      setFetchError(
+        error instanceof Error
+          ? error.message
+          : "Unable to load interview templates",
+      );
     } finally {
       setLoading(false);
     }
   };
 
   const handleStart = () => {
+    if (fetchError) {
+      toast.error(fetchError);
+      return;
+    }
     if (!selectedTemplate) {
-      toast.error("Please select a form template");
+      if (loading) {
+        toast.error("Still loading templates — please wait a moment");
+      } else {
+        toast.error("Please select a form template");
+      }
       return;
     }
 
@@ -331,9 +357,15 @@ export default function NewInterviewPage() {
             <Loader2 className="animate-spin text-cyan-500" size={24} />
           </div>
         ) : templates.length === 0 ? (
-          <div className="p-4 rounded-xl border border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-900/10 text-sm text-amber-700 dark:text-amber-400">
-            No form templates available. Create a form template first, or the
-            interview will use the default question set.
+          <div className="p-4 rounded-xl border border-red-200 dark:border-red-800/50 bg-red-50/50 dark:bg-red-900/10 text-sm text-red-700 dark:text-red-400 space-y-2">
+            <div>{fetchError ?? "No form templates available."}</div>
+            <button
+              type="button"
+              onClick={fetchTemplates}
+              className="text-xs underline hover:text-red-600 dark:hover:text-red-300"
+            >
+              Retry loading templates
+            </button>
           </div>
         ) : (
           <div className="space-y-2 max-h-[300px] overflow-y-auto">
@@ -373,7 +405,13 @@ export default function NewInterviewPage() {
       <div className="pt-4 border-t border-neutral-200 dark:border-slate-700">
         <button
           onClick={handleStart}
-          disabled={starting || (!selectedTemplate && templates.length > 0)}
+          disabled={
+            starting ||
+            loading ||
+            !selectedTemplate ||
+            templates.length === 0 ||
+            !!fetchError
+          }
           className={cn(
             "w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-medium text-white transition-all duration-200",
             starting
