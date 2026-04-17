@@ -13,36 +13,36 @@
  *   const rate = await lookupRate(prisma, { userId, field: 'masterQualifiedNormalHours', region: 'QLD' })
  */
 
-import type { PrismaClient } from '@prisma/client'
-import { NRPG_RATE_RANGES } from '@/lib/nrpg-rate-ranges'
+import type { PrismaClient } from "@prisma/client";
+import { NRPG_RATE_RANGES } from "@/lib/nrpg-rate-ranges";
 
 // -------------------------------------------------------
 // Types
 // -------------------------------------------------------
 
-export type RateSource = 'CompanyConfig' | 'CostDatabase' | 'NRPGFallback'
+export type RateSource = "CompanyConfig" | "CostDatabase" | "NRPGFallback";
 
 export interface RateLookupResult {
-  value: number
-  source: RateSource
-  field: string
-  unit?: string
-  label?: string
+  value: number;
+  source: RateSource;
+  field: string;
+  unit?: string;
+  label?: string;
 }
 
 export interface RateLookupInput {
-  userId: string
-  field: string
+  userId: string;
+  field: string;
   /** AU state code e.g. 'QLD', 'NSW'. Falls back to national average if not found. */
-  region?: string
+  region?: string;
 }
 
 export interface MultiplierSet {
-  afterHours: number
-  saturday: number
-  sunday: number
-  publicHoliday: number
-  projectManagementPercent: number
+  afterHours: number;
+  saturday: number;
+  sunday: number;
+  publicHoliday: number;
+  projectManagementPercent: number;
 }
 
 // -------------------------------------------------------
@@ -66,24 +66,30 @@ const HARDCODED_FALLBACKS: Record<string, number> = {
   mobilisationFee: 250,
   wasteDisposalPerBinRate: 85,
   photoDocumentationFee: 75,
-}
+};
 
 /** Returns the NRPG midpoint for a field, or undefined if not in NRPG_RATE_RANGES. */
 function nrpgMidpoint(field: string): number | undefined {
-  const range = NRPG_RATE_RANGES[field]
-  if (!range) return undefined
-  return (range.min + range.max) / 2
+  const range = NRPG_RATE_RANGES[field];
+  if (!range) return undefined;
+  return (range.min + range.max) / 2;
 }
 
 /** Resolve the final fallback value for a field (NRPG midpoint → hardcoded → undefined). */
 function resolveFallback(field: string): number | undefined {
-  return nrpgMidpoint(field) ?? HARDCODED_FALLBACKS[field]
+  return nrpgMidpoint(field) ?? HARDCODED_FALLBACKS[field];
 }
 
 /** Build a RateLookupResult from an NRPG fallback. */
 function nrpgResult(field: string, value: number): RateLookupResult {
-  const meta = NRPG_RATE_RANGES[field]
-  return { value, source: 'NRPGFallback', field, unit: meta?.unit, label: meta?.label }
+  const meta = NRPG_RATE_RANGES[field];
+  return {
+    value,
+    source: "NRPGFallback",
+    field,
+    unit: meta?.unit,
+    label: meta?.label,
+  };
 }
 
 // -------------------------------------------------------
@@ -101,15 +107,23 @@ export async function lookupRate(
   prisma: PrismaClient,
   input: RateLookupInput,
 ): Promise<RateLookupResult | null> {
-  const { userId, field, region } = input
+  const { userId, field, region } = input;
 
   // --- Priority 1: CompanyPricingConfig ---
-  const config = await prisma.companyPricingConfig.findUnique({ where: { userId } })
+  const config = await prisma.companyPricingConfig.findUnique({
+    where: { userId },
+  });
   if (config) {
-    const value = (config as Record<string, unknown>)[field]
-    if (typeof value === 'number') {
-      const meta = NRPG_RATE_RANGES[field]
-      return { value, source: 'CompanyConfig', field, unit: meta?.unit, label: meta?.label }
+    const value = (config as Record<string, unknown>)[field];
+    if (typeof value === "number") {
+      const meta = NRPG_RATE_RANGES[field];
+      return {
+        value,
+        source: "CompanyConfig",
+        field,
+        unit: meta?.unit,
+        label: meta?.label,
+      };
     }
   }
 
@@ -117,23 +131,35 @@ export async function lookupRate(
   if (region) {
     const regional = await prisma.costDatabase.findFirst({
       where: { itemType: field, isActive: true, region },
-    })
+    });
     if (regional) {
-      return { value: regional.averageRate, source: 'CostDatabase', field, unit: regional.unit, label: regional.description }
+      return {
+        value: regional.averageRate,
+        source: "CostDatabase",
+        field,
+        unit: regional.unit,
+        label: regional.description,
+      };
     }
   }
   const national = await prisma.costDatabase.findFirst({
     where: { itemType: field, isActive: true, region: null },
-  })
+  });
   if (national) {
-    return { value: national.averageRate, source: 'CostDatabase', field, unit: national.unit, label: national.description }
+    return {
+      value: national.averageRate,
+      source: "CostDatabase",
+      field,
+      unit: national.unit,
+      label: national.description,
+    };
   }
 
   // --- Priority 3: NRPG fallback ---
-  const fallback = resolveFallback(field)
-  if (fallback !== undefined) return nrpgResult(field, fallback)
+  const fallback = resolveFallback(field);
+  if (fallback !== undefined) return nrpgResult(field, fallback);
 
-  return null
+  return null;
 }
 
 // -------------------------------------------------------
@@ -152,24 +178,32 @@ export async function lookupRates(
   fields: string[],
   region?: string,
 ): Promise<Record<string, RateLookupResult>> {
-  const result: Record<string, RateLookupResult> = {}
-  const unresolved: string[] = []
+  const result: Record<string, RateLookupResult> = {};
+  const unresolved: string[] = [];
 
   // Priority 1 — single CompanyPricingConfig read
-  const config = await prisma.companyPricingConfig.findUnique({ where: { userId } })
+  const config = await prisma.companyPricingConfig.findUnique({
+    where: { userId },
+  });
   for (const field of fields) {
     if (config) {
-      const value = (config as Record<string, unknown>)[field]
-      if (typeof value === 'number') {
-        const meta = NRPG_RATE_RANGES[field]
-        result[field] = { value, source: 'CompanyConfig', field, unit: meta?.unit, label: meta?.label }
-        continue
+      const value = (config as Record<string, unknown>)[field];
+      if (typeof value === "number") {
+        const meta = NRPG_RATE_RANGES[field];
+        result[field] = {
+          value,
+          source: "CompanyConfig",
+          field,
+          unit: meta?.unit,
+          label: meta?.label,
+        };
+        continue;
       }
     }
-    unresolved.push(field)
+    unresolved.push(field);
   }
 
-  if (unresolved.length === 0) return result
+  if (unresolved.length === 0) return result;
 
   // Priority 2 — bulk CostDatabase read (regional + national in one query)
   const costRows = await prisma.costDatabase.findMany({
@@ -178,30 +212,36 @@ export async function lookupRates(
       isActive: true,
       OR: region ? [{ region }, { region: null }] : [{ region: null }],
     },
-  })
+  });
 
   // Build map: itemType → best row (regional preferred over national)
-  const costMap = new Map<string, typeof costRows[0]>()
+  const costMap = new Map<string, (typeof costRows)[0]>();
   for (const row of costRows) {
-    const existing = costMap.get(row.itemType)
+    const existing = costMap.get(row.itemType);
     // Regional (non-null region) beats national (null region)
     if (!existing || (row.region !== null && existing.region === null)) {
-      costMap.set(row.itemType, row)
+      costMap.set(row.itemType, row);
     }
   }
 
   for (const field of unresolved) {
-    const row = costMap.get(field)
+    const row = costMap.get(field);
     if (row) {
-      result[field] = { value: row.averageRate, source: 'CostDatabase', field, unit: row.unit, label: row.description }
-      continue
+      result[field] = {
+        value: row.averageRate,
+        source: "CostDatabase",
+        field,
+        unit: row.unit,
+        label: row.description,
+      };
+      continue;
     }
     // Priority 3 — NRPG fallback
-    const fallback = resolveFallback(field)
-    if (fallback !== undefined) result[field] = nrpgResult(field, fallback)
+    const fallback = resolveFallback(field);
+    if (fallback !== undefined) result[field] = nrpgResult(field, fallback);
   }
 
-  return result
+  return result;
 }
 
 // -------------------------------------------------------
@@ -216,24 +256,18 @@ export async function lookupMultipliers(
   prisma: PrismaClient,
   userId: string,
 ): Promise<MultiplierSet> {
-  const config = await prisma.companyPricingConfig.findUnique({
-    where: { userId },
-    select: {
-      afterHoursMultiplier: true,
-      saturdayMultiplier: true,
-      sundayMultiplier: true,
-      publicHolidayMultiplier: true,
-      projectManagementPercent: true,
-    },
-  })
-
+  // CompanyPricingConfig does not yet have multiplier columns — fall back to
+  // NRPG hard-coded defaults. The DB query is intentionally omitted here; when
+  // the schema is extended to include per-company multiplier overrides this
+  // function should be updated to read from the config row.
+  void prisma; // suppress unused-variable warning until schema has multiplier cols
   return {
-    afterHours:              config?.afterHoursMultiplier      ?? HARDCODED_FALLBACKS.afterHoursMultiplier,
-    saturday:                config?.saturdayMultiplier         ?? HARDCODED_FALLBACKS.saturdayMultiplier,
-    sunday:                  config?.sundayMultiplier           ?? HARDCODED_FALLBACKS.sundayMultiplier,
-    publicHoliday:           config?.publicHolidayMultiplier    ?? HARDCODED_FALLBACKS.publicHolidayMultiplier,
-    projectManagementPercent: config?.projectManagementPercent  ?? HARDCODED_FALLBACKS.projectManagementPercent,
-  }
+    afterHours: HARDCODED_FALLBACKS.afterHoursMultiplier,
+    saturday: HARDCODED_FALLBACKS.saturdayMultiplier,
+    sunday: HARDCODED_FALLBACKS.sundayMultiplier,
+    publicHoliday: HARDCODED_FALLBACKS.publicHolidayMultiplier,
+    projectManagementPercent: HARDCODED_FALLBACKS.projectManagementPercent,
+  };
 }
 
 // -------------------------------------------------------
@@ -247,7 +281,7 @@ export async function lookupMultipliers(
  * @example applyMultiplier(115, 1.5) → 172.50
  */
 export function applyMultiplier(baseRate: number, multiplier: number): number {
-  return parseFloat((baseRate * multiplier).toFixed(2))
+  return parseFloat((baseRate * multiplier).toFixed(2));
 }
 
 /**
@@ -255,6 +289,9 @@ export function applyMultiplier(baseRate: number, multiplier: number): number {
  *
  * @example addProjectManagement(1000, 8.0) → 1080.00
  */
-export function addProjectManagement(subtotal: number, pmPercent: number): number {
-  return parseFloat((subtotal * (1 + pmPercent / 100)).toFixed(2))
+export function addProjectManagement(
+  subtotal: number,
+  pmPercent: number,
+): number {
+  return parseFloat((subtotal * (1 + pmPercent / 100)).toFixed(2));
 }

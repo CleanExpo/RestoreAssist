@@ -7,6 +7,7 @@
 
 import { Integration } from "@prisma/client";
 import { getValidXeroToken } from "./xero/token-manager";
+import { type Country, getGstTreatment } from "../gst-rules";
 
 interface XeroInvoice {
   Type: "ACCREC"; // Accounts Receivable (customer invoice)
@@ -46,12 +47,17 @@ interface XeroInvoiceResponse {
 }
 
 /**
- * Sync invoice to Xero
+ * Sync invoice to Xero.
+ *
+ * @param country - Billing jurisdiction. Defaults to "AU" (10% GST / OUTPUT).
+ *   Pass "NZ" for 15% GST (OUTPUT2). Upstream source: Organization.country (RA-1120).
  */
 export async function syncInvoiceToXero(
   invoice: any,
   integration: Integration,
+  country: Country = "AU",
 ) {
+  const gst = getGstTreatment(country);
   if (!integration.accessToken) {
     throw new Error("No access token available for Xero");
   }
@@ -92,7 +98,7 @@ export async function syncInvoiceToXero(
         item.description + (item.category ? ` (${item.category})` : ""),
       Quantity: item.quantity,
       UnitAmount: (item.unitPrice / 100).toFixed(2), // Convert cents to dollars
-      TaxType: item.gstRate === 10 ? "OUTPUT" : "NONE", // Australian GST
+      TaxType: item.gstRate > 0 ? gst.xeroTaxType : "NONE",
       LineAmount: (item.subtotal / 100).toFixed(2), // Subtotal excluding GST
     })),
     CurrencyCode: invoice.currency || "AUD",
@@ -104,9 +110,9 @@ export async function syncInvoiceToXero(
       Description: "Discount",
       Quantity: 1,
       UnitAmount: -(invoice.discountAmount / 100).toFixed(2),
-      // RA-870: Discounts reduce taxable income — must use OUTPUT, not NONE.
+      // RA-870: Discounts reduce taxable income — must use OUTPUT/OUTPUT2, not NONE.
       // NONE would overstate net GST payable in Xero P&L reports.
-      TaxType: "OUTPUT",
+      TaxType: gst.xeroTaxType,
       LineAmount: -(invoice.discountAmount / 100).toFixed(2),
     });
   }
@@ -117,7 +123,7 @@ export async function syncInvoiceToXero(
       Description: "Shipping & Delivery",
       Quantity: 1,
       UnitAmount: parseFloat((invoice.shippingAmount / 100).toFixed(2)),
-      TaxType: "OUTPUT",
+      TaxType: gst.xeroTaxType,
       LineAmount: parseFloat((invoice.shippingAmount / 100).toFixed(2)),
     });
   }
@@ -168,7 +174,9 @@ export async function syncInvoiceToXero(
           },
         );
         const updateData = await updateResponse.json().catch(() => ({}));
-        const updated = updateData?.Invoices?.[0] as XeroInvoiceResponse | undefined;
+        const updated = updateData?.Invoices?.[0] as
+          | XeroInvoiceResponse
+          | undefined;
         if (!updated) {
           throw new Error(
             `Xero 409 update failed for InvoiceID ${existingId}: ${JSON.stringify(updateData)}`,
@@ -203,7 +211,9 @@ export async function syncInvoiceToXero(
       } catch (refreshErr) {
         throw new Error(
           `Xero token refresh failed (integration ${integration.id}): ${
-            refreshErr instanceof Error ? refreshErr.message : String(refreshErr)
+            refreshErr instanceof Error
+              ? refreshErr.message
+              : String(refreshErr)
           }`,
         );
       }
@@ -216,7 +226,9 @@ export async function syncInvoiceToXero(
     // Queue will exhaust retries and set status FAILED; error message is the audit trail.
     if (response.status === 400 || response.status === 404) {
       const detail =
-        errorData?.ValidationErrors?.map((e: { Message: string }) => e.Message).join("; ") ??
+        errorData?.ValidationErrors?.map(
+          (e: { Message: string }) => e.Message,
+        ).join("; ") ??
         errorData?.Detail ??
         response.statusText;
       throw new Error(
