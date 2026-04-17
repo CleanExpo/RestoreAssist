@@ -10,6 +10,7 @@ import {
 import { determineScopeItems } from "@/lib/nir-scope-determination";
 import { estimateCosts } from "@/lib/nir-cost-estimation";
 import { validateTieredCompletion } from "@/lib/nir-tiered-completion";
+import { checkMakeSafeGate } from "@/lib/compliance/make-safe-gate";
 
 // POST - Submit inspection for processing
 export async function POST(
@@ -113,6 +114,17 @@ export async function POST(
       console.warn(
         "CLAIM-003 auto-detection failed (non-blocking):",
         pilotError,
+      );
+    }
+
+    // ── RA-1136a: Make-Safe gate ────────────────────────────────────────────────
+    // ICA Code of Practice §3.1 · AS/NZS 1170.0 · WHS Regulations 2011
+    // All applicable hazard-control actions must be completed before submission.
+    const makeSafeResult = await checkMakeSafeGate(id);
+    if (!makeSafeResult.canSubmit) {
+      return NextResponse.json(
+        { error: "Make-Safe checklist incomplete", blockers: makeSafeResult.blockers },
+        { status: 422 },
       );
     }
 
