@@ -348,9 +348,6 @@ export async function POST(request: NextRequest) {
 
     // RA-786: do not leak error.message to clients
     console.error("bulk-duplicate failed:", error);
-    return NextResponse.json(
-      { error: "Duplication failed" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Duplication failed" }, { status: 500 });
   }
 }

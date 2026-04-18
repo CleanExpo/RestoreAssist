@@ -349,121 +349,121 @@ export default function InvoicesPage() {
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
           {/* RA-918: overflow-x-auto enables horizontal scroll on narrow viewports */}
           <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-slate-50 dark:bg-slate-700/50">
-              <tr>
-                <th className="px-4 py-3 text-left w-10">
-                  {deletableInvoices.length > 0 ? (
-                    <input
-                      type="checkbox"
-                      checked={allDeletableSelected}
-                      onChange={toggleSelectAllDeletable}
-                      className="rounded border-slate-300 dark:border-slate-600 text-cyan-600 focus:ring-cyan-500"
-                      aria-label="Select all deletable invoices"
-                    />
-                  ) : null}
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Invoice
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Customer
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Date
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Due Date
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Amount
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-              {invoices.map((invoice) => (
-                <tr
-                  key={invoice.id}
-                  className={`hover:bg-slate-50 dark:hover:bg-slate-700/30 cursor-pointer ${selectedIds.has(invoice.id) ? "bg-cyan-500/5 dark:bg-cyan-500/10" : ""}`}
-                  onClick={() =>
-                    router.push(`/dashboard/invoices/${invoice.id}`)
-                  }
-                >
-                  <td
-                    className="px-4 py-4 whitespace-nowrap w-10"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {canDeleteInvoice(invoice) ? (
+            <table className="w-full">
+              <thead className="bg-slate-50 dark:bg-slate-700/50">
+                <tr>
+                  <th className="px-4 py-3 text-left w-10">
+                    {deletableInvoices.length > 0 ? (
                       <input
                         type="checkbox"
-                        checked={selectedIds.has(invoice.id)}
-                        onChange={() => toggleSelect(invoice.id, invoice)}
+                        checked={allDeletableSelected}
+                        onChange={toggleSelectAllDeletable}
                         className="rounded border-slate-300 dark:border-slate-600 text-cyan-600 focus:ring-cyan-500"
-                        aria-label={`Select ${invoice.invoiceNumber}`}
-                        onClick={(e) => e.stopPropagation()}
+                        aria-label="Select all deletable invoices"
                       />
                     ) : null}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-slate-900 dark:text-white">
-                      {invoice.invoiceNumber}
-                    </div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400">
-                      {invoice._count.lineItems} items
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-slate-900 dark:text-white">
-                      {invoice.customerName}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
-                    {new Date(invoice.invoiceDate).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
-                    {new Date(invoice.dueDate).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-slate-900 dark:text-white">
-                      ${(invoice.totalIncGST / 100).toFixed(2)}
-                    </div>
-                    {invoice.amountPaid > 0 && (
-                      <div className="text-xs text-green-600 dark:text-green-400">
-                        ${(invoice.amountPaid / 100).toFixed(2)} paid
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {getStatusBadge({
-                      status: invoice.status,
-                      dueDate: invoice.dueDate,
-                      amountDue: invoice.amountDue,
-                    })}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        window.open(
-                          `/api/invoices/${invoice.id}/pdf`,
-                          "_blank",
-                        );
-                      }}
-                      className="text-cyan-500 hover:text-cyan-600"
-                    >
-                      <Download className="h-5 w-5" />
-                    </button>
-                  </td>
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    Invoice
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    Customer
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    Date
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    Due Date
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    Amount
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                {invoices.map((invoice) => (
+                  <tr
+                    key={invoice.id}
+                    className={`hover:bg-slate-50 dark:hover:bg-slate-700/30 cursor-pointer ${selectedIds.has(invoice.id) ? "bg-cyan-500/5 dark:bg-cyan-500/10" : ""}`}
+                    onClick={() =>
+                      router.push(`/dashboard/invoices/${invoice.id}`)
+                    }
+                  >
+                    <td
+                      className="px-4 py-4 whitespace-nowrap w-10"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {canDeleteInvoice(invoice) ? (
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(invoice.id)}
+                          onChange={() => toggleSelect(invoice.id, invoice)}
+                          className="rounded border-slate-300 dark:border-slate-600 text-cyan-600 focus:ring-cyan-500"
+                          aria-label={`Select ${invoice.invoiceNumber}`}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      ) : null}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-slate-900 dark:text-white">
+                        {invoice.invoiceNumber}
+                      </div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">
+                        {invoice._count.lineItems} items
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-slate-900 dark:text-white">
+                        {invoice.customerName}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
+                      {new Date(invoice.invoiceDate).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
+                      {new Date(invoice.dueDate).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-slate-900 dark:text-white">
+                        ${(invoice.totalIncGST / 100).toFixed(2)}
+                      </div>
+                      {invoice.amountPaid > 0 && (
+                        <div className="text-xs text-green-600 dark:text-green-400">
+                          ${(invoice.amountPaid / 100).toFixed(2)} paid
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {getStatusBadge({
+                        status: invoice.status,
+                        dueDate: invoice.dueDate,
+                        amountDue: invoice.amountDue,
+                      })}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.open(
+                            `/api/invoices/${invoice.id}/pdf`,
+                            "_blank",
+                          );
+                        }}
+                        className="text-cyan-500 hover:text-cyan-600"
+                      >
+                        <Download className="h-5 w-5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
