@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyCronAuth } from "@/lib/cron/auth";
+import { runCronJob } from "@/lib/cron/runner";
 import { runBrandAmbassador } from "@/lib/cron/brand-ambassador";
 
 /**
@@ -10,13 +11,14 @@ import { runBrandAmbassador } from "@/lib/cron/brand-ambassador";
  * and delivers them to Telegram for CEO review before posting.
  *
  * Idempotent — safe to retry; already-delivered weeks are skipped.
+ * RA-1315: wrapped in runCronJob for overlap protection + audit trail.
  */
 export async function GET(request: NextRequest) {
   const authError = verifyCronAuth(request);
   if (authError) return authError;
 
   try {
-    const result = await runBrandAmbassador();
+    const result = await runCronJob("brand-ambassador", runBrandAmbassador);
 
     return NextResponse.json({
       success: true,
