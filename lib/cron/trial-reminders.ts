@@ -18,12 +18,22 @@ import type { CronJobResult } from "./runner";
  * in the overnight customer-journey audit.
  */
 
-const WINDOW_HOURS = 24; // fire if trial ends within this window of the target day
-
-type Window = { days: number; label: "3-day" | "1-day" };
+// RA-1364 — the old implementation used a ±12h window centred on
+// `now + days*24h` (UTC). That missed AU users whose trialEndsAt fell
+// more than 12h after the cron's target instant, because the window
+// closed before the user's actual expiry. Example: cron at 08:00 UTC
+// with a user whose trialEndsAt is 23:00 UTC on the target day → 15h
+// after target → outside ±12h window → no email ever sent.
+//
+// Fix: switch to a FORWARD-LOOKING 24h window sized to match the cron's
+// daily cadence, so adjacent runs cover the full timeline without gaps:
+//   1-day:  [now,         now + 24h]
+//   3-day:  [now + 2d,    now + 3d]
+// Any TZ / DST drift is absorbed by the aligned 24h window.
+type Window = { daysStart: number; daysEnd: number; label: "3-day" | "1-day" };
 const WINDOWS: Window[] = [
-  { days: 3, label: "3-day" },
-  { days: 1, label: "1-day" },
+  { daysStart: 2, daysEnd: 3, label: "3-day" },
+  { daysStart: 0, daysEnd: 1, label: "1-day" },
 ];
 
 export async function sendTrialReminders(): Promise<CronJobResult> {
@@ -34,12 +44,9 @@ export async function sendTrialReminders(): Promise<CronJobResult> {
   const perWindow: Record<string, number> = {};
 
   for (const win of WINDOWS) {
-    // Target: trial ends exactly `days` from now, within ±12h.
-    const target = new Date(now.getTime() + win.days * 24 * 60 * 60 * 1000);
-    const from = new Date(
-      target.getTime() - (WINDOW_HOURS / 2) * 60 * 60 * 1000,
-    );
-    const to = new Date(target.getTime() + (WINDOW_HOURS / 2) * 60 * 60 * 1000);
+    const dayMs = 24 * 60 * 60 * 1000;
+    const from = new Date(now.getTime() + win.daysStart * dayMs);
+    const to = new Date(now.getTime() + win.daysEnd * dayMs);
 
     const candidates = await prisma.user.findMany({
       where: {
