@@ -87,9 +87,11 @@ export async function queueInvoiceSync(
  * Fetch and process the next batch of PENDING jobs (priority-ordered).
  * Called by the sync-invoices cron route.
  */
-export async function processNextBatch(options: {
-  maxJobs?: number;
-} = {}): Promise<{ processed: number; failed: number; remaining: number }> {
+export async function processNextBatch(
+  options: {
+    maxJobs?: number;
+  } = {},
+): Promise<{ processed: number; failed: number; remaining: number }> {
   const { maxJobs = 20 } = options;
 
   // Fetch PENDING jobs ordered by priority (HIGH first) then age (oldest first)
@@ -175,7 +177,11 @@ async function _processJob(
     // Mark completed
     await prisma.invoiceSyncJob.update({
       where: { id: job.id },
-      data: { status: "COMPLETED", completedAt: new Date(), errorMessage: null },
+      data: {
+        status: "COMPLETED",
+        completedAt: new Date(),
+        errorMessage: null,
+      },
     });
 
     // Audit trail

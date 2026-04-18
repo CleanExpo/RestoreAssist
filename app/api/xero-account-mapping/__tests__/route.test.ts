@@ -161,9 +161,7 @@ describe("PUT /api/xero-account-mapping", () => {
   it("returns 400 when accountCode format invalid", async () => {
     mockGetServerSession.mockResolvedValue(authedSession());
 
-    const res = await PUT(
-      makeReq({ category: "LABOUR", accountCode: "XX" }),
-    );
+    const res = await PUT(makeReq({ category: "LABOUR", accountCode: "XX" }));
 
     expect(res.status).toBe(400);
     const body = await res.json();
@@ -174,9 +172,7 @@ describe("PUT /api/xero-account-mapping", () => {
     mockGetServerSession.mockResolvedValue(authedSession());
     mockFindFirstIntegration.mockResolvedValue(null);
 
-    const res = await PUT(
-      makeReq({ category: "LABOUR", accountCode: "400" }),
-    );
+    const res = await PUT(makeReq({ category: "LABOUR", accountCode: "400" }));
 
     expect(res.status).toBe(409);
   });
@@ -193,9 +189,7 @@ describe("PUT /api/xero-account-mapping", () => {
       description: null,
     });
 
-    const res = await PUT(
-      makeReq({ category: "LABOUR", accountCode: "400" }),
-    );
+    const res = await PUT(makeReq({ category: "LABOUR", accountCode: "400" }));
     const body = await res.json();
 
     expect(res.status).toBe(200);
@@ -225,9 +219,7 @@ describe("PUT /api/xero-account-mapping", () => {
       description: null,
     });
 
-    const res = await PUT(
-      makeReq({ category: "LABOUR", accountCode: "410" }),
-    );
+    const res = await PUT(makeReq({ category: "LABOUR", accountCode: "410" }));
 
     expect(res.status).toBe(200);
     expect(mockUpsertMapping).toHaveBeenCalledOnce();

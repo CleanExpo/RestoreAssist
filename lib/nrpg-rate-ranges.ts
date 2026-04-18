@@ -239,6 +239,92 @@ export const NRPG_RATE_RANGES: Record<string, NRPGRateRange> = {
     unit: "%",
     label: "Project Management (%)",
   },
+
+  // Service & Equipment Rates — RA-861 additions (all-in national AU averages)
+  rateNegativeAirMachine: {
+    min: 85,
+    max: 185,
+    unit: "$/day",
+    label: "Negative Air Machine (Service)",
+  },
+  rateHEPAVacuum: {
+    min: 45,
+    max: 95,
+    unit: "$/day",
+    label: "HEPA Vacuum (Service)",
+  },
+  rateOzoneGenerator: {
+    min: 75,
+    max: 165,
+    unit: "$/day",
+    label: "Ozone Generator",
+  },
+  rateHydroxylUnit: {
+    min: 85,
+    max: 175,
+    unit: "$/day",
+    label: "Hydroxyl Unit",
+  },
+  rateMouldRemediation: {
+    min: 65,
+    max: 145,
+    unit: "$/hr",
+    label: "Mould Remediation",
+  },
+  rateFireRestoration: {
+    min: 85,
+    max: 195,
+    unit: "$/hr",
+    label: "Fire Restoration",
+  },
+  rateStormWaterExtraction: {
+    min: 55,
+    max: 125,
+    unit: "$/hr",
+    label: "Storm Water Extraction",
+  },
+  rateBiohazardClean: {
+    min: 95,
+    max: 225,
+    unit: "$/hr",
+    label: "Biohazard Clean",
+  },
+  rateMobilisation: {
+    min: 150,
+    max: 450,
+    unit: "$",
+    label: "Mobilisation",
+  },
+  rateMonitoring: {
+    min: 35,
+    max: 85,
+    unit: "$/hr",
+    label: "Monitoring",
+  },
+  rateWasteDisposal: {
+    min: 45,
+    max: 125,
+    unit: "$/hr",
+    label: "Waste Disposal",
+  },
+  rateContentsPack: {
+    min: 35,
+    max: 85,
+    unit: "$/hr",
+    label: "Contents Pack",
+  },
+  rateContentsClean: {
+    min: 45,
+    max: 115,
+    unit: "$/hr",
+    label: "Contents Clean",
+  },
+  rateDehumidifierLarge: {
+    min: 95,
+    max: 215,
+    unit: "$/day",
+    label: "Dehumidifier (Large)",
+  },
 };
 
 /** Check whether a rate value falls within the NRPG range for a given field. */

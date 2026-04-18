@@ -312,5 +312,20 @@ function getDefaultPricingConfig() {
     administrationFee: 250.0,
     callOutFee: 150.0,
     thermalCameraUseCostPerAssessment: 75.0,
+    // RA-861: NRPG midpoints for new service rate fields
+    rateNegativeAirMachine: 135.0,
+    rateHEPAVacuum: 70.0,
+    rateOzoneGenerator: 120.0,
+    rateHydroxylUnit: 130.0,
+    rateMouldRemediation: 105.0,
+    rateFireRestoration: 140.0,
+    rateStormWaterExtraction: 90.0,
+    rateBiohazardClean: 160.0,
+    rateMobilisation: 300.0,
+    rateMonitoring: 60.0,
+    rateWasteDisposal: 85.0,
+    rateContentsPack: 60.0,
+    rateContentsClean: 80.0,
+    rateDehumidifierLarge: 155.0,
   };
 }

@@ -147,7 +147,15 @@ interface PinMarkerProps {
   onRemove: () => void;
 }
 
-function PinMarker({ pin, info, isEditing, onEdit, onClose, onUpdate, onRemove }: PinMarkerProps) {
+function PinMarker({
+  pin,
+  info,
+  isEditing,
+  onEdit,
+  onClose,
+  onUpdate,
+  onRemove,
+}: PinMarkerProps) {
   return (
     <div
       data-pin={pin.id}
@@ -157,7 +165,10 @@ function PinMarker({ pin, info, isEditing, onEdit, onClose, onUpdate, onRemove }
       {/* Pin dot */}
       <button
         type="button"
-        onClick={(e) => { e.stopPropagation(); onEdit(); }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onEdit();
+        }}
         title={`${info.label} — ${pin.wme}% WME`}
         className={cn(
           "w-8 h-8 rounded-full border-2 border-white/80 shadow-lg",
@@ -199,7 +210,9 @@ function PinMarker({ pin, info, isEditing, onEdit, onClose, onUpdate, onRemove }
                 max={100}
                 step={0.5}
                 value={pin.wme}
-                onChange={(e) => onUpdate({ wme: parseFloat(e.target.value) || 0 })}
+                onChange={(e) =>
+                  onUpdate({ wme: parseFloat(e.target.value) || 0 })
+                }
                 className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white focus:outline-none focus:ring-1 focus:ring-cyan-400"
               />
             </div>
@@ -209,18 +222,24 @@ function PinMarker({ pin, info, isEditing, onEdit, onClose, onUpdate, onRemove }
               <label className="block text-white/50 mb-1">Material</label>
               <select
                 value={pin.material}
-                onChange={(e) => onUpdate({ material: e.target.value as MaterialTypeId })}
+                onChange={(e) =>
+                  onUpdate({ material: e.target.value as MaterialTypeId })
+                }
                 className="w-full px-2 py-1.5 rounded-lg bg-[#0d1b2e] border border-white/10 text-white focus:outline-none focus:ring-1 focus:ring-cyan-400"
               >
                 {MATERIAL_TYPES.map((m) => (
-                  <option key={m.id} value={m.id}>{m.label}</option>
+                  <option key={m.id} value={m.id}>
+                    {m.label}
+                  </option>
                 ))}
               </select>
             </div>
 
             {/* Note */}
             <div>
-              <label className="block text-white/50 mb-1">Note (optional)</label>
+              <label className="block text-white/50 mb-1">
+                Note (optional)
+              </label>
               <input
                 type="text"
                 value={pin.note ?? ""}
@@ -235,7 +254,10 @@ function PinMarker({ pin, info, isEditing, onEdit, onClose, onUpdate, onRemove }
               className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-medium"
               style={{ backgroundColor: info.color + "20", color: info.color }}
             >
-              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: info.color }} />
+              <span
+                className="w-2 h-2 rounded-full flex-shrink-0"
+                style={{ backgroundColor: info.color }}
+              />
               {info.label} — {info.description}
             </div>
 
@@ -250,9 +272,7 @@ function PinMarker({ pin, info, isEditing, onEdit, onClose, onUpdate, onRemove }
             </button>
           </div>
           {/* Arrow */}
-          <div
-            className="w-2 h-2 rotate-45 bg-[#1C2E47] border-r border-b border-white/10 mx-auto -mt-1"
-          />
+          <div className="w-2 h-2 rotate-45 bg-[#1C2E47] border-r border-b border-white/10 mx-auto -mt-1" />
         </div>
       )}
     </div>

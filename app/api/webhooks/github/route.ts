@@ -191,7 +191,10 @@ export async function POST(req: NextRequest) {
         });
       }
     } catch (err) {
-      console.error("[github-webhook] Background release-notes job failed:", err);
+      console.error(
+        "[github-webhook] Background release-notes job failed:",
+        err,
+      );
     }
   })();
 
