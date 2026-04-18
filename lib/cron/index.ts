@@ -12,3 +12,4 @@ export { runScoutAgent } from "./scout-agent";
 export type { ScoutAgentResult } from "./scout-agent";
 export { runBoardMeeting } from "./board-meeting";
 export type { BoardMeetingResult } from "./board-meeting";
+export { refreshGoogleTokens } from "./google-token-refresh";
