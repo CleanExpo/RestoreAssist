@@ -190,6 +190,7 @@ model User {
   ascoraIntegration AscoraIntegration?
   drNrpgIntegration DrNrpgIntegration?
   historicalJobs    HistoricalJob[]
+  deviceSigningKeys DeviceSigningKey[]
 }
 
 model Feedback {
@@ -5380,4 +5381,40 @@ model Authorisation {
   @@index([subjectContractorId])
   @@index([status])
   @@index([expiresAt])
+}
+
+// ─── RA-1386 (Board M-10): Device signing keys ────────────────────────────────
+// One row per device-scoped Ed25519 keypair used to sign C2PA-style photo
+// manifests and in-house e-signature payloads (M-18b). The public key is
+// registered on enrolment; the private key never leaves the device.
+//
+// Manifests reference the key by `publicKeyId` (short identifier); the server
+// looks up the matching row to verify signatures.
+//
+// Spec: PC3's M-10-c2pa-manifest-spec.md (pending PR).
+
+model DeviceSigningKey {
+  id String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Short identifier referenced by manifests (e.g. first 16 chars of a UUID)
+  publicKeyId String @unique
+
+  // Ed25519 public key in PEM
+  publicKeyPem String @db.Text
+
+  // Device context
+  deviceUuid     String?
+  devicePlatform String? // "ios" | "android" | "web" | "capacitor"
+
+  // Lifecycle
+  createdAt  DateTime  @default(now())
+  revokedAt  DateTime?
+  lastUsedAt DateTime?
+
+  @@index([userId])
+  @@index([publicKeyId])
+  @@index([revokedAt])
 }
