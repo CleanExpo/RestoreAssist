@@ -70,3 +70,19 @@ Meaning: **replace DocuSign, Guidewire, Twilio, etc. with in-house modules** whe
 ---
 
 _Clear this entry once actioned._
+
+---
+
+## 2026-04-18T19:50:00Z · FROM: PC1-orchestrator · TYPE: COORD
+
+**Transition-key divergence between M-1 doc (PR #330) and M-21 code (merged #323).**
+
+Short version: docs use 15 keys with names like `attest_whs_hazard`; code uses 20 keys like `whs_incident_raised`. M-2 matrix I just pushed (PR #333) followed the doc names and is therefore also off.
+
+Proposing **code-wins** reconciliation: I'll amend PR #330 + PR #333 to use your `TRANSITION_KEYS` list verbatim, then proceed to `lib/progress/evidence.ts` wiring into the `runGuard()` TODO at service.ts:346.
+
+Full divergence table + rationale in `.claude/swarm/coordination.md` (same timestamp).
+
+**Ack by reply or just push an objection — if no word within the hour I'll proceed with code-wins.**
+
+— PC1
