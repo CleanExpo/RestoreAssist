@@ -129,13 +129,20 @@ export default function SettingsPage() {
     }
   };
 
-  // Refresh profile data periodically to show updated credits
+  // Refresh profile when the user returns to this tab — avoids hammering
+  // /api/user/profile ~720×/hr per open tab (the old setInterval(5000)
+  // pattern). Credits only change on explicit user action (purchase, usage)
+  // so on-visibility is the right trigger.
   useEffect(() => {
-    const interval = setInterval(() => {
-      fetchProfile();
-    }, 5000); // Refresh every 5 seconds
-
-    return () => clearInterval(interval);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") fetchProfile();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", fetchProfile);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", fetchProfile);
+    };
   }, []);
 
   const getStatusColor = (status: string) => {
