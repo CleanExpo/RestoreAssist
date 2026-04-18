@@ -206,7 +206,7 @@ export default function SignupPage() {
                   1. Start Creating Reports (Free Tier Available)
                 </p>
                 <p className="text-slate-400">
-                  Get started immediately with 3 free report credits. Create
+                  Get started immediately with 30 free report credits. Create
                   basic reports right away!
                 </p>
               </div>

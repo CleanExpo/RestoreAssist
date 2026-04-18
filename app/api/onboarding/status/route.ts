@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     // Get effective subscription (Admin's for Managers/Technicians, own for Admins)
     const effectiveSub = await getEffectiveSubscription(session.user.id);
 
-    // Subscription is no longer required for onboarding - users get 3 free credits to start
+    // Subscription is no longer required for onboarding - users get 30 free credits to start
     // Use effective subscription for team members
     const hasActiveSubscription = effectiveSub?.subscriptionStatus === "ACTIVE";
 
