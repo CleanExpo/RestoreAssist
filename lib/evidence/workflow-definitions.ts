@@ -597,7 +597,8 @@ const WORKFLOW_CLANDESTINE: WorkflowTemplate = {
 const WORKFLOW_MAKE_SAFE: WorkflowTemplate = {
   jobType: "MAKE_SAFE",
   label: "Stabilisation Only",
-  description: "Emergency stabilisation (make-safe) — no full restoration scope.",
+  description:
+    "Emergency stabilisation (make-safe) — no full restoration scope.",
   steps: [
     STEP_SITE_ARRIVAL,
     STEP_CLIENT_AUTHORITY,

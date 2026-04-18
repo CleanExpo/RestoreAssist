@@ -93,8 +93,9 @@ interface ListResponse {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function XeroMappingPage() {
-  const { data, loading, error, refetch } =
-    useFetch<ListResponse>("/api/xero-account-mapping");
+  const { data, loading, error, refetch } = useFetch<ListResponse>(
+    "/api/xero-account-mapping",
+  );
 
   const mappingsByCategory = useMemo(() => {
     const m = new Map<string, MappingRow>();
@@ -136,7 +137,9 @@ export default function XeroMappingPage() {
       {!loading && !error && hasIntegration && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-[#1C2E47]">Canonical Categories</CardTitle>
+            <CardTitle className="text-[#1C2E47]">
+              Canonical Categories
+            </CardTitle>
             <CardDescription>
               These six categories cover most line items. Save an override below
               to route them to a different account in your Xero chart of

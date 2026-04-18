@@ -9,8 +9,8 @@
  *   const config = await getOrCreateConfig(prisma, userId)
  */
 
-import type { PrismaClient, CompanyPricingConfig } from '@prisma/client'
-import { NRPG_RATE_RANGES, validateRateInRange } from '@/lib/nrpg-rate-ranges'
+import type { PrismaClient, CompanyPricingConfig } from "@prisma/client";
+import { NRPG_RATE_RANGES, validateRateInRange } from "@/lib/nrpg-rate-ranges";
 
 // -------------------------------------------------------
 // Types
@@ -22,27 +22,27 @@ import { NRPG_RATE_RANGES, validateRateInRange } from '@/lib/nrpg-rate-ranges'
  */
 export type PricingConfigInput = Omit<
   CompanyPricingConfig,
-  'id' | 'userId' | 'createdAt' | 'updatedAt'
->
+  "id" | "userId" | "createdAt" | "updatedAt"
+>;
 
-export type PricingConfigUpdateInput = Partial<PricingConfigInput>
+export type PricingConfigUpdateInput = Partial<PricingConfigInput>;
 
 export interface ValidationError {
-  field: string
-  message: string
-  value: number
-  min: number
-  max: number
+  field: string;
+  message: string;
+  value: number;
+  min: number;
+  max: number;
 }
 
 export interface ValidationResult {
-  valid: boolean
-  errors: ValidationError[]
+  valid: boolean;
+  errors: ValidationError[];
 }
 
 export interface UpdateResult {
-  config: CompanyPricingConfig
-  validation: ValidationResult
+  config: CompanyPricingConfig;
+  validation: ValidationResult;
 }
 
 // -------------------------------------------------------
@@ -51,8 +51,8 @@ export interface UpdateResult {
 
 /** Midpoint of a NRPG min/max range. Returns 0 if field not in NRPG_RATE_RANGES. */
 function mid(field: string): number {
-  const r = NRPG_RATE_RANGES[field]
-  return r ? (r.min + r.max) / 2 : 0
+  const r = NRPG_RATE_RANGES[field];
+  return r ? (r.min + r.max) / 2 : 0;
 }
 
 /**
@@ -62,58 +62,58 @@ function mid(field: string): number {
 export function getNRPGDefaults(): PricingConfigInput {
   return {
     // Labour — Master Qualified Technician
-    masterQualifiedNormalHours: mid('masterQualifiedNormalHours'),
-    masterQualifiedSaturday:    mid('masterQualifiedSaturday'),
-    masterQualifiedSunday:      mid('masterQualifiedSunday'),
+    masterQualifiedNormalHours: mid("masterQualifiedNormalHours"),
+    masterQualifiedSaturday: mid("masterQualifiedSaturday"),
+    masterQualifiedSunday: mid("masterQualifiedSunday"),
 
     // Labour — Qualified Technician
-    qualifiedTechnicianNormalHours: mid('qualifiedTechnicianNormalHours'),
-    qualifiedTechnicianSaturday:    mid('qualifiedTechnicianSaturday'),
-    qualifiedTechnicianSunday:      mid('qualifiedTechnicianSunday'),
+    qualifiedTechnicianNormalHours: mid("qualifiedTechnicianNormalHours"),
+    qualifiedTechnicianSaturday: mid("qualifiedTechnicianSaturday"),
+    qualifiedTechnicianSunday: mid("qualifiedTechnicianSunday"),
 
     // Labour — Labourer
-    labourerNormalHours: mid('labourerNormalHours'),
-    labourerSaturday:    mid('labourerSaturday'),
-    labourerSunday:      mid('labourerSunday'),
+    labourerNormalHours: mid("labourerNormalHours"),
+    labourerSaturday: mid("labourerSaturday"),
+    labourerSunday: mid("labourerSunday"),
 
     // Equipment Daily Rental Rates
-    airMoverAxialDailyRate:           mid('airMoverAxialDailyRate'),
-    airMoverCentrifugalDailyRate:     mid('airMoverCentrifugalDailyRate'),
-    dehumidifierLGRDailyRate:         mid('dehumidifierLGRDailyRate'),
-    dehumidifierDesiccantDailyRate:   mid('dehumidifierDesiccantDailyRate'),
-    afdUnitLargeDailyRate:            mid('afdUnitLargeDailyRate'),
-    extractionTruckMountedHourlyRate: mid('extractionTruckMountedHourlyRate'),
-    extractionElectricHourlyRate:     mid('extractionElectricHourlyRate'),
-    injectionDryingSystemDailyRate:   mid('injectionDryingSystemDailyRate'),
+    airMoverAxialDailyRate: mid("airMoverAxialDailyRate"),
+    airMoverCentrifugalDailyRate: mid("airMoverCentrifugalDailyRate"),
+    dehumidifierLGRDailyRate: mid("dehumidifierLGRDailyRate"),
+    dehumidifierDesiccantDailyRate: mid("dehumidifierDesiccantDailyRate"),
+    afdUnitLargeDailyRate: mid("afdUnitLargeDailyRate"),
+    extractionTruckMountedHourlyRate: mid("extractionTruckMountedHourlyRate"),
+    extractionElectricHourlyRate: mid("extractionElectricHourlyRate"),
+    injectionDryingSystemDailyRate: mid("injectionDryingSystemDailyRate"),
 
     // Chemical Treatment Rates
-    antimicrobialTreatmentRate:    mid('antimicrobialTreatmentRate'),
-    mouldRemediationTreatmentRate: mid('mouldRemediationTreatmentRate'),
-    biohazardTreatmentRate:        mid('biohazardTreatmentRate'),
+    antimicrobialTreatmentRate: mid("antimicrobialTreatmentRate"),
+    mouldRemediationTreatmentRate: mid("mouldRemediationTreatmentRate"),
+    biohazardTreatmentRate: mid("biohazardTreatmentRate"),
 
     // Fees
-    administrationFee:                 mid('administrationFee'),
-    callOutFee:                        mid('callOutFee'),
-    thermalCameraUseCostPerAssessment: mid('thermalCameraUseCostPerAssessment'),
+    administrationFee: mid("administrationFee"),
+    callOutFee: mid("callOutFee"),
+    thermalCameraUseCostPerAssessment: mid("thermalCameraUseCostPerAssessment"),
 
     // Custom JSON fields
     customFields: null,
 
     // RA-848 optional equipment rates (null = not yet configured)
     negativeAirMachineDailyRate: null,
-    hepaVacuumDailyRate:         null,
-    monitoringVisitDailyRate:    null,
-    mobilisationFee:             null,
-    wasteDisposalPerBinRate:     null,
-    photoDocumentationFee:       null,
+    hepaVacuumDailyRate: null,
+    monitoringVisitDailyRate: null,
+    mobilisationFee: null,
+    wasteDisposalPerBinRate: null,
+    photoDocumentationFee: null,
 
     // RA-848 multipliers (NRPG standard defaults)
-    afterHoursMultiplier:      1.5,
-    saturdayMultiplier:        1.5,
-    sundayMultiplier:          2.0,
-    publicHolidayMultiplier:   2.5,
-    projectManagementPercent:  8.0,
-  }
+    afterHoursMultiplier: 1.5,
+    saturdayMultiplier: 1.5,
+    sundayMultiplier: 2.0,
+    publicHolidayMultiplier: 2.5,
+    projectManagementPercent: 8.0,
+  };
 }
 
 // -------------------------------------------------------
@@ -125,13 +125,16 @@ export function getNRPGDefaults(): PricingConfigInput {
  * Only fields present in NRPG_RATE_RANGES are range-checked.
  * null / undefined values and non-numeric fields are skipped.
  */
-export function validatePricingConfig(data: PricingConfigUpdateInput): ValidationResult {
-  const errors: ValidationError[] = []
+export function validatePricingConfig(
+  data: PricingConfigUpdateInput,
+): ValidationResult {
+  const errors: ValidationError[] = [];
 
   for (const [field, value] of Object.entries(data)) {
-    if (value === null || value === undefined || typeof value !== 'number') continue
+    if (value === null || value === undefined || typeof value !== "number")
+      continue;
 
-    const check = validateRateInRange(field, value)
+    const check = validateRateInRange(field, value);
     if (check && !check.valid) {
       errors.push({
         field,
@@ -139,11 +142,11 @@ export function validatePricingConfig(data: PricingConfigUpdateInput): Validatio
         value,
         min: check.min,
         max: check.max,
-      })
+      });
     }
   }
 
-  return { valid: errors.length === 0, errors }
+  return { valid: errors.length === 0, errors };
 }
 
 // -------------------------------------------------------
@@ -159,12 +162,14 @@ export async function getOrCreateConfig(
   prisma: PrismaClient,
   userId: string,
 ): Promise<CompanyPricingConfig> {
-  const existing = await prisma.companyPricingConfig.findUnique({ where: { userId } })
-  if (existing) return existing
+  const existing = await prisma.companyPricingConfig.findUnique({
+    where: { userId },
+  });
+  if (existing) return existing;
 
   return prisma.companyPricingConfig.create({
     data: { userId, ...getNRPGDefaults() },
-  })
+  });
 }
 
 /**
@@ -175,7 +180,7 @@ export async function getConfig(
   prisma: PrismaClient,
   userId: string,
 ): Promise<CompanyPricingConfig | null> {
-  return prisma.companyPricingConfig.findUnique({ where: { userId } })
+  return prisma.companyPricingConfig.findUnique({ where: { userId } });
 }
 
 /**
@@ -188,20 +193,20 @@ export async function updateConfig(
   userId: string,
   data: PricingConfigUpdateInput,
 ): Promise<UpdateResult> {
-  const validation = validatePricingConfig(data)
+  const validation = validatePricingConfig(data);
 
   if (!validation.valid) {
-    const detail = validation.errors.map((e) => `  • ${e.message}`).join('\n')
-    throw new Error(`NRPG validation failed for userId=${userId}:\n${detail}`)
+    const detail = validation.errors.map((e) => `  • ${e.message}`).join("\n");
+    throw new Error(`NRPG validation failed for userId=${userId}:\n${detail}`);
   }
 
   const config = await prisma.companyPricingConfig.upsert({
-    where:  { userId },
+    where: { userId },
     update: data,
     create: { userId, ...getNRPGDefaults(), ...data },
-  })
+  });
 
-  return { config, validation }
+  return { config, validation };
 }
 
 /**
@@ -213,10 +218,10 @@ export async function resetToDefaults(
   userId: string,
 ): Promise<CompanyPricingConfig> {
   return prisma.companyPricingConfig.upsert({
-    where:  { userId },
+    where: { userId },
     update: getNRPGDefaults(),
     create: { userId, ...getNRPGDefaults() },
-  })
+  });
 }
 
 /**
@@ -227,20 +232,31 @@ export async function resetToDefaults(
 export async function getRatesSummary(
   prisma: PrismaClient,
   userId: string,
-): Promise<{ field: string; value: number; unit: string; label: string; inRange: boolean }[] | null> {
-  const config = await prisma.companyPricingConfig.findUnique({ where: { userId } })
-  if (!config) return null
+): Promise<
+  | {
+      field: string;
+      value: number;
+      unit: string;
+      label: string;
+      inRange: boolean;
+    }[]
+  | null
+> {
+  const config = await prisma.companyPricingConfig.findUnique({
+    where: { userId },
+  });
+  if (!config) return null;
 
   return Object.entries(NRPG_RATE_RANGES).map(([field, meta]) => {
-    const value = (config as Record<string, unknown>)[field]
-    const numValue = typeof value === 'number' ? value : 0
-    const check = validateRateInRange(field, numValue)
+    const value = (config as Record<string, unknown>)[field];
+    const numValue = typeof value === "number" ? value : 0;
+    const check = validateRateInRange(field, numValue);
     return {
       field,
-      value:   numValue,
-      unit:    meta.unit,
-      label:   meta.label,
+      value: numValue,
+      unit: meta.unit,
+      label: meta.label,
       inRange: check?.valid ?? true,
-    }
-  })
+    };
+  });
 }

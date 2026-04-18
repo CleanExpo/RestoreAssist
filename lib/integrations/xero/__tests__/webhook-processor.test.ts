@@ -42,11 +42,17 @@ import {
   verifyXeroWebhookSignature,
 } from "../webhook-processor";
 
-const mockFindManyEvents = prisma.webhookEvent.findMany as ReturnType<typeof vi.fn>;
+const mockFindManyEvents = prisma.webhookEvent.findMany as ReturnType<
+  typeof vi.fn
+>;
 const mockUpdateEvent = prisma.webhookEvent.update as ReturnType<typeof vi.fn>;
-const mockFindFirstInvoice = prisma.invoice.findFirst as ReturnType<typeof vi.fn>;
+const mockFindFirstInvoice = prisma.invoice.findFirst as ReturnType<
+  typeof vi.fn
+>;
 const mockUpdateInvoice = prisma.invoice.update as ReturnType<typeof vi.fn>;
-const mockFindUniqueIntegration = prisma.integration.findUnique as ReturnType<typeof vi.fn>;
+const mockFindUniqueIntegration = prisma.integration.findUnique as ReturnType<
+  typeof vi.fn
+>;
 const mockQueueInvoiceSync = queueInvoiceSync as ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
@@ -65,13 +71,19 @@ describe("verifyXeroWebhookSignature", () => {
   });
 
   it("returns false for a wrong signature", () => {
-    const wrong = createHmac("sha256", "different-key").update(body).digest("base64");
+    const wrong = createHmac("sha256", "different-key")
+      .update(body)
+      .digest("base64");
     expect(verifyXeroWebhookSignature(body, wrong, KEY)).toBe(false);
   });
 
   it("returns false when body is tampered", () => {
     expect(
-      verifyXeroWebhookSignature('{"events":[{"tampered":true}]}', validSig, KEY),
+      verifyXeroWebhookSignature(
+        '{"events":[{"tampered":true}]}',
+        validSig,
+        KEY,
+      ),
     ).toBe(false);
   });
 
@@ -88,7 +100,9 @@ describe("verifyXeroWebhookSignature", () => {
   });
 
   it("returns false for malformed base64 signature (no throw)", () => {
-    expect(verifyXeroWebhookSignature(body, "!!!not-base64!!!", KEY)).toBe(false);
+    expect(verifyXeroWebhookSignature(body, "!!!not-base64!!!", KEY)).toBe(
+      false,
+    );
   });
 
   it("returns false when signature length differs from expected", () => {
@@ -111,7 +125,10 @@ describe("processXeroWebhookBatch — invoice.updated", () => {
         integration: { id: "integ-1" },
       },
     ]);
-    mockFindFirstInvoice.mockResolvedValue({ id: "local-inv-1", userId: "u-1" });
+    mockFindFirstInvoice.mockResolvedValue({
+      id: "local-inv-1",
+      userId: "u-1",
+    });
     mockQueueInvoiceSync.mockResolvedValue(undefined);
 
     const result = await processXeroWebhookBatch(10);

@@ -24,14 +24,20 @@ const mockFindUnique = vi.mocked(prisma.inspection.findUnique);
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-function makeInspection(overrides: Partial<{
-  id: string;
-  propertyPostcode: string;
-  propertyYearBuilt: number | null;
-  makeSafeActions: { action: string; applicable: boolean; completed: boolean }[];
-  affectedAreas: { category: string; affectedSquareFootage: number }[];
-  whsIncidents: { incidentType: string }[];
-}> = {}) {
+function makeInspection(
+  overrides: Partial<{
+    id: string;
+    propertyPostcode: string;
+    propertyYearBuilt: number | null;
+    makeSafeActions: {
+      action: string;
+      applicable: boolean;
+      completed: boolean;
+    }[];
+    affectedAreas: { category: string; affectedSquareFootage: number }[];
+    whsIncidents: { incidentType: string }[];
+  }> = {},
+) {
   return {
     id: "insp-001",
     propertyPostcode: "4000", // QLD default
@@ -41,9 +47,7 @@ function makeInspection(overrides: Partial<{
       { action: "gas_isolated", applicable: false, completed: false },
       { action: "mould_containment", applicable: false, completed: false },
     ],
-    affectedAreas: [
-      { category: "1", affectedSquareFootage: 50 },
-    ],
+    affectedAreas: [{ category: "1", affectedSquareFootage: 50 }],
     whsIncidents: [],
     ...overrides,
   };
@@ -121,7 +125,10 @@ describe("generateSwmsDraft", () => {
       // resolves to NSW (conservative fallback per lib/state-detection.ts design).
       // We verify the function returns a WHS ref without throwing.
       mockFindUnique.mockResolvedValue(
-        makeInspection({ propertyPostcode: "1010", propertyYearBuilt: 2005 }) as never,
+        makeInspection({
+          propertyPostcode: "1010",
+          propertyYearBuilt: 2005,
+        }) as never,
       );
       const draft = await generateSwmsDraft("insp-001");
       expect(draft.stateWhsRefs.length).toBeGreaterThan(0);
@@ -226,9 +233,9 @@ describe("generateSwmsDraft", () => {
         (h) => h.category === "asbestos_risk",
       );
       expect(asbestosHazard).toBeDefined();
-      expect(
-        asbestosHazard!.clauseRefs.some((r) => r.includes("§7.1")),
-      ).toBe(true);
+      expect(asbestosHazard!.clauseRefs.some((r) => r.includes("§7.1"))).toBe(
+        true,
+      );
     });
 
     it("asbestos_risk hazard is HIGH risk", async () => {

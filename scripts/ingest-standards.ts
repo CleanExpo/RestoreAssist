@@ -61,7 +61,7 @@ export class OpenAIEmbeddingProvider implements EmbeddingProvider {
     if (!response.ok) {
       const body = await response.text();
       throw new Error(
-        `OpenAI embeddings API error ${response.status}: ${body}`
+        `OpenAI embeddings API error ${response.status}: ${body}`,
       );
     }
 
@@ -123,7 +123,7 @@ export function formatPgvector(embedding: number[]): string {
 export async function upsertChunk(
   prisma: PrismaClient,
   entry: CorpusEntry,
-  embedding: number[]
+  embedding: number[],
 ): Promise<void> {
   const id = randomUUID();
   const text = `${entry.title}\n\n${entry.summary}`;
@@ -153,7 +153,7 @@ export async function upsertChunk(
 async function main(): Promise<void> {
   const corpusPath = path.resolve(
     path.dirname(new URL(import.meta.url).pathname),
-    "data/standards-corpus.json"
+    "data/standards-corpus.json",
   );
 
   const apiKey = process.env.OPENAI_API_KEY ?? "";
@@ -172,7 +172,7 @@ async function main(): Promise<void> {
     const text = `${entry.title}\n\n${entry.summary}`;
     try {
       process.stdout.write(
-        `[${i + 1}/${entries.length}] Embedding ${entry.standard} §${entry.clause} ... `
+        `[${i + 1}/${entries.length}] Embedding ${entry.standard} §${entry.clause} ... `,
       );
       const embedding = await provider.embed(text);
       await upsertChunk(prisma, entry, embedding);
@@ -190,14 +190,17 @@ async function main(): Promise<void> {
   console.log(
     `\nDone: ${succeeded} upserted, ${failed} failed.\n` +
       `Estimated embedding cost: ~${entries.length} entries × ~150 tokens = ` +
-      `${totalTokenEstimate.toLocaleString()} tokens ≈ $${costUsd.toFixed(6)} USD`
+      `${totalTokenEstimate.toLocaleString()} tokens ≈ $${costUsd.toFixed(6)} USD`,
   );
 
   if (failed > 0) process.exit(1);
 }
 
 // Run only when executed directly (not imported in tests)
-if (process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/\\/g, "/"))) {
+if (
+  process.argv[1] &&
+  import.meta.url.endsWith(process.argv[1].replace(/\\/g, "/"))
+) {
   main().catch((err) => {
     console.error("Fatal:", err);
     process.exit(1);
