@@ -455,7 +455,99 @@ export default function ClientsPage() {
               "bg-white dark:bg-slate-800/30",
             )}
           >
-            <div className="overflow-x-auto">
+            {/* RA-1217 — mobile card layout below sm breakpoint.
+                The 7-column clients table was horizontally-scrolling on phones.
+                Field techs reviewing client history on-site now get a stacked
+                card per client. Desktop/tablet retains the table below. */}
+            <div className="sm:hidden space-y-3 p-4">
+              {filteredClients.length === 0 ? (
+                <div className="text-center py-8 text-neutral-600 dark:text-slate-400">
+                  {searchTerm || statusFilter
+                    ? "No clients found matching your criteria"
+                    : "No clients found. Add your first client to get started."}
+                </div>
+              ) : (
+                filteredClients.map((client) => {
+                  const fromReport = (client as ClientWithReportFlag)._isFromReport;
+                  const statusClass =
+                    client.status === "ACTIVE"
+                      ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                      : client.status === "INACTIVE"
+                      ? "bg-amber-500/20 text-amber-600 dark:text-amber-400"
+                      : client.status === "PROSPECT"
+                      ? "bg-blue-500/20 text-blue-600 dark:text-blue-400"
+                      : "bg-neutral-200 dark:bg-slate-500/20 text-neutral-600 dark:text-slate-400";
+                  const NameWrap = fromReport
+                    ? ({ children }: { children: React.ReactNode }) => (
+                        <span className="text-cyan-500 dark:text-cyan-400">
+                          {children}
+                        </span>
+                      )
+                    : ({ children }: { children: React.ReactNode }) => (
+                        <Link
+                          href={`/dashboard/clients/${client.id}`}
+                          className="text-cyan-500 dark:text-cyan-400 hover:underline"
+                        >
+                          {children}
+                        </Link>
+                      );
+                  return (
+                    <div
+                      key={client.id}
+                      className={cn(
+                        "rounded-xl border p-4",
+                        "border-neutral-200 dark:border-slate-700/50",
+                        "bg-white dark:bg-slate-900/50",
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium text-neutral-900 dark:text-white truncate">
+                            <NameWrap>{client.name}</NameWrap>
+                          </div>
+                          {client.company && (
+                            <div className="text-xs text-neutral-500 dark:text-slate-500 truncate mt-0.5">
+                              {client.company}
+                            </div>
+                          )}
+                          {fromReport && (
+                            <div className="text-xs text-amber-500 dark:text-amber-400 mt-0.5">
+                              From Report
+                            </div>
+                          )}
+                        </div>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 ${statusClass}`}
+                        >
+                          {client.status}
+                        </span>
+                      </div>
+                      <div className="text-sm text-neutral-600 dark:text-slate-400 truncate">
+                        {client.email}
+                      </div>
+                      {client.phone && (
+                        <div className="text-sm text-neutral-600 dark:text-slate-400 truncate">
+                          {client.phone}
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between gap-3 mt-3 pt-3 border-t border-neutral-100 dark:border-slate-800 text-xs">
+                        <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-600 dark:text-blue-400 font-medium">
+                          {client.reportsCount || 0} reports
+                        </span>
+                        <span className="font-medium text-cyan-600 dark:text-cyan-400">
+                          ${client.totalRevenue ? client.totalRevenue.toLocaleString() : "0"}
+                        </span>
+                        <span className="text-neutral-500 dark:text-slate-500 truncate">
+                          {client.lastJob || "No jobs yet"}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="hidden sm:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr
