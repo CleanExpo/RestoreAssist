@@ -72,7 +72,7 @@ describe("resolveAccountCode", () => {
       xeroAccountCodeOverride: "NOT_A_VALID_CODE",
     });
 
-    expect(r).toEqual({ accountCode: "200", taxType: "OUTPUT" }); // built-in LABOUR
+    expect(r).toEqual({ accountCode: "310", taxType: "OUTPUT" }); // built-in LABOUR (RA-854)
   });
 
   it("returns DB override for exact raw category match (client-custom category)", async () => {
@@ -132,7 +132,7 @@ describe("resolveAccountCode", () => {
     expect(r).toEqual({ accountCode: "260", taxType: "OUTPUT" });
   });
 
-  it("returns built-in default (LABOUR→200) when category is canonical and no DB row", async () => {
+  it("returns built-in default (LABOUR→310) when category is canonical and no DB row", async () => {
     mockFindMany.mockResolvedValue([]);
 
     const r = await resolveAccountCode({
@@ -140,18 +140,23 @@ describe("resolveAccountCode", () => {
       lineItemCategory: "LABOUR",
     });
 
-    expect(r).toEqual({ accountCode: "200", taxType: "OUTPUT" });
+    expect(r).toEqual({ accountCode: "310", taxType: "OUTPUT" }); // RA-854
   });
 
-  it("returns all 6 canonical built-in defaults correctly", async () => {
+  it("returns all canonical built-in defaults correctly (RA-854)", async () => {
     mockFindMany.mockResolvedValue([]);
 
     const expected: Array<[string, string]> = [
-      ["LABOUR", "200"],
-      ["EQUIPMENT", "201"],
-      ["MATERIALS", "202"],
-      ["SUBCONTRACTOR", "203"],
-      ["PRELIMS", "204"],
+      ["LABOUR", "310"],
+      ["EQUIPMENT", "320"],
+      ["CHEMICALS", "330"],
+      ["MATERIALS", "330"],
+      ["SUBCONTRACTOR", "340"],
+      ["ADMIN", "350"],
+      ["COMPLIANCE", "350"],
+      ["WASTE", "330"],
+      ["TRAVEL", "360"],
+      ["PRELIMS", "310"],
       ["CONTENTS", "205"],
     ];
 
@@ -187,7 +192,7 @@ describe("resolveAccountCode", () => {
       lineItemCategory: "LABOUR",
     });
 
-    expect(r).toEqual({ accountCode: "200", taxType: "OUTPUT" }); // built-in
+    expect(r).toEqual({ accountCode: "310", taxType: "OUTPUT" }); // built-in (RA-854)
   });
 
   it("degrades to built-in defaults when DB query throws", async () => {
@@ -198,7 +203,7 @@ describe("resolveAccountCode", () => {
       lineItemCategory: "EQUIPMENT",
     });
 
-    expect(r).toEqual({ accountCode: "201", taxType: "OUTPUT" });
+    expect(r).toEqual({ accountCode: "320", taxType: "OUTPUT" }); // RA-854
   });
 });
 
@@ -306,9 +311,9 @@ describe("isValidXeroAccountCode", () => {
   });
 
   it("accepts Xero GUIDs", () => {
-    expect(
-      isValidXeroAccountCode("297c2dc5-cc47-4afd-8ec8-74990b8761e9"),
-    ).toBe(true);
+    expect(isValidXeroAccountCode("297c2dc5-cc47-4afd-8ec8-74990b8761e9")).toBe(
+      true,
+    );
   });
 
   it("rejects other formats", () => {

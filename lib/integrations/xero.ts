@@ -9,6 +9,7 @@ import { Integration } from "@prisma/client";
 import { getValidXeroToken } from "./xero/token-manager";
 import { type Country, getGstTreatment } from "../gst-rules";
 import { getGSTTreatment } from "../gst-treatment-rules";
+import { resolveAccountCodes } from "./xero/account-code-resolver";
 
 interface XeroInvoice {
   Type: "ACCREC"; // Accounts Receivable (customer invoice)
@@ -70,6 +71,17 @@ export async function syncInvoiceToXero(
   // Map invoice status to Xero status
   const xeroStatus = mapInvoiceStatusToXero(invoice.status);
 
+  // RA-854: Per-category account code routing (single DB round-trip, 5-min cache).
+  // Supports explicit per-item overrides, user-configured mappings, and system defaults.
+  const resolvedCodes = await resolveAccountCodes(
+    integration.id,
+    invoice.lineItems.map((item: any, idx: number) => ({
+      id: `item-${idx}`,
+      category: item.category,
+      xeroAccountCode: item.xeroAccountCode,
+    })),
+  );
+
   // Prepare Xero invoice payload
   const xeroInvoice: XeroInvoice = {
     Type: "ACCREC",
@@ -94,17 +106,26 @@ export async function syncInvoiceToXero(
     InvoiceNumber: invoice.invoiceNumber,
     ...(invoice.customerABN && { Reference: `ABN: ${invoice.customerABN}` }),
     Status: xeroStatus,
-    LineItems: invoice.lineItems.map((item: any) => {
+    LineItems: invoice.lineItems.map((item: any, idx: number) => {
+      const resolved = resolvedCodes.get(`item-${idx}`);
       // RA-875: Category-based GST treatment per ATO GSTR 2000/10.
-      // OUTPUT classes use country-specific Xero tax type; EXEMPT/INPUT/NONE use ATO rule.
+      // OUTPUT class: use country-specific tax type (NZ=OUTPUT2) unless user
+      // has explicitly configured a non-OUTPUT taxType in their mapping.
+      // EXEMPT/INPUT/NONE: ATO rule overrides — never use the resolver's taxType.
       const treatment = getGSTTreatment(item.category);
+      const resolvedTaxType = resolved?.taxType;
       const taxType =
-        treatment.taxType === "OUTPUT" ? gst.xeroTaxType : treatment.taxType;
+        treatment.taxType === "OUTPUT"
+          ? resolvedTaxType && resolvedTaxType !== "OUTPUT"
+            ? resolvedTaxType
+            : gst.xeroTaxType
+          : treatment.taxType;
       return {
         Description:
           item.description + (item.category ? ` (${item.category})` : ""),
         Quantity: item.quantity,
         UnitAmount: (item.unitPrice / 100).toFixed(2),
+        AccountCode: resolved?.accountCode,
         TaxType: taxType,
         LineAmount: (item.subtotal / 100).toFixed(2),
       };

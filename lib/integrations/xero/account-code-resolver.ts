@@ -34,8 +34,13 @@ import { prisma } from "@/lib/prisma";
 export type LineItemCategory =
   | "LABOUR"
   | "EQUIPMENT"
+  | "CHEMICALS"
   | "MATERIALS"
   | "SUBCONTRACTOR"
+  | "ADMIN"
+  | "COMPLIANCE"
+  | "WASTE"
+  | "TRAVEL"
   | "PRELIMS"
   | "CONTENTS";
 
@@ -54,14 +59,20 @@ export interface ResolvedAccountCode {
 
 /**
  * Default Xero account codes per canonical category.
- * Operators should configure their own overrides via XeroAccountCodeMapping.
+ * Each code can be overridden per-deployment via environment variables.
+ * Operators can also configure per-integration overrides via XeroAccountCodeMapping.
  */
 const DEFAULT_CODES: Record<LineItemCategory, string> = {
-  LABOUR: "200",
-  EQUIPMENT: "201",
-  MATERIALS: "202",
-  SUBCONTRACTOR: "203",
-  PRELIMS: "204",
+  LABOUR: process.env.XERO_ACCOUNT_LABOUR || "310",
+  EQUIPMENT: process.env.XERO_ACCOUNT_EQUIPMENT || "320",
+  CHEMICALS: process.env.XERO_ACCOUNT_CHEMICALS || "330",
+  MATERIALS: process.env.XERO_ACCOUNT_MATERIALS || "330",
+  SUBCONTRACTOR: process.env.XERO_ACCOUNT_SUBS || "340",
+  ADMIN: process.env.XERO_ACCOUNT_ADMIN || "350",
+  COMPLIANCE: process.env.XERO_ACCOUNT_COMPLIANCE || "350",
+  WASTE: process.env.XERO_ACCOUNT_WASTE || "330",
+  TRAVEL: process.env.XERO_ACCOUNT_TRAVEL || "360",
+  PRELIMS: process.env.XERO_ACCOUNT_PRELIMS || "310",
   CONTENTS: "205",
 };
 
@@ -80,10 +91,17 @@ const CATEGORY_ALIASES: Record<string, LineItemCategory> = {
   labour: "LABOUR",
   labor: "LABOUR",
   equipment: "EQUIPMENT",
+  chemicals: "CHEMICALS",
   materials: "MATERIALS",
   chemical: "MATERIALS", // legacy scope-item category
   subcontractor: "SUBCONTRACTOR",
   subcontractors: "SUBCONTRACTOR",
+  admin: "ADMIN",
+  administration: "ADMIN",
+  compliance: "COMPLIANCE",
+  waste: "WASTE",
+  "waste disposal": "WASTE",
+  travel: "TRAVEL",
   prelims: "PRELIMS",
   preliminaries: "PRELIMS",
   contents: "CONTENTS",
