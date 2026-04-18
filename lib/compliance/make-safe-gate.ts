@@ -51,12 +51,18 @@ export async function checkMakeSafeGate(
 
     if (!row) {
       // Row never created — treat as applicable + incomplete
-      blockers.push({ action, label: MAKE_SAFE_ACTION_LABELS[action] ?? action });
+      blockers.push({
+        action,
+        label: MAKE_SAFE_ACTION_LABELS[action] ?? action,
+      });
       continue;
     }
 
     if (row.applicable && !row.completed) {
-      blockers.push({ action, label: MAKE_SAFE_ACTION_LABELS[action] ?? action });
+      blockers.push({
+        action,
+        label: MAKE_SAFE_ACTION_LABELS[action] ?? action,
+      });
     }
   }
 

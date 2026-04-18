@@ -16,13 +16,7 @@
  * State persistence: auto-saves to /api/inspections/[id]/sketches on change.
  */
 
-import {
-  useState,
-  useRef,
-  useCallback,
-  useEffect,
-  useId,
-} from "react";
+import { useState, useRef, useCallback, useEffect, useId } from "react";
 import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 import { Loader2, Save, Check, FileDown, Ruler } from "lucide-react";
@@ -51,12 +45,20 @@ const SketchCanvas = dynamic(() => import("./SketchCanvas"), {
 
 // ─── Room colours ──────────────────────────────────────────
 const ROOM_COLORS = [
-  { fill: "rgba(59,130,246,0.10)",  stroke: "#3b82f6", label: "Living / Common" },
-  { fill: "rgba(16,185,129,0.10)",  stroke: "#10b981", label: "Bedroom" },
-  { fill: "rgba(245,158,11,0.10)",  stroke: "#f59e0b", label: "Kitchen" },
-  { fill: "rgba(236,72,153,0.10)",  stroke: "#ec4899", label: "Bathroom / WC" },
-  { fill: "rgba(139,92,246,0.10)",  stroke: "#8b5cf6", label: "Garage / Utility" },
-  { fill: "rgba(239,68,68,0.10)",   stroke: "#ef4444", label: "Damage Zone" },
+  {
+    fill: "rgba(59,130,246,0.10)",
+    stroke: "#3b82f6",
+    label: "Living / Common",
+  },
+  { fill: "rgba(16,185,129,0.10)", stroke: "#10b981", label: "Bedroom" },
+  { fill: "rgba(245,158,11,0.10)", stroke: "#f59e0b", label: "Kitchen" },
+  { fill: "rgba(236,72,153,0.10)", stroke: "#ec4899", label: "Bathroom / WC" },
+  {
+    fill: "rgba(139,92,246,0.10)",
+    stroke: "#8b5cf6",
+    label: "Garage / Utility",
+  },
+  { fill: "rgba(239,68,68,0.10)", stroke: "#ef4444", label: "Damage Zone" },
 ];
 
 // ─── Floor data ────────────────────────────────────────────
@@ -117,7 +119,10 @@ export function SketchEditorV2({
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [exportingPdf, setExportingPdf] = useState(false);
-  const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
+  const [historyState, setHistoryState] = useState({
+    canUndo: false,
+    canRedo: false,
+  });
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -129,7 +134,7 @@ export function SketchEditorV2({
       try {
         const res = await fetch(`/api/inspections/${inspectionId}/sketches`);
         if (!res.ok || cancelled) return;
-        const { sketches } = await res.json() as {
+        const { sketches } = (await res.json()) as {
           sketches: Array<{
             id: string;
             floorNumber: number;
@@ -154,7 +159,8 @@ export function SketchEditorV2({
             backgroundUrl: s.backgroundImageUrl ?? null,
             backgroundOpacity: 0.35,
             scaleConfig:
-              (s.sketchData as Record<string, unknown> | null)?.scaleConfig as ScaleConfig | null ?? null,
+              ((s.sketchData as Record<string, unknown> | null)
+                ?.scaleConfig as ScaleConfig | null) ?? null,
           };
           return floorData;
         });
@@ -173,8 +179,10 @@ export function SketchEditorV2({
         // Fail silently — editor starts with empty canvas
       }
     })();
-    return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inspectionId]);
 
   const activeFloor = floorsData[activeIdx];
@@ -241,17 +249,20 @@ export function SketchEditorV2({
   }, [activeFloor, scheduleSave]);
 
   // ── Zoom ────────────────────────────────────────────────
-  const applyZoom = useCallback((factor: number) => {
-    const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
-      getZoom: () => number;
-      setZoom: (z: number) => void;
-      renderAll: () => void;
-    } | null;
-    if (!fc) return;
-    const z = Math.max(0.3, Math.min(4, fc.getZoom() * factor));
-    fc.setZoom(z);
-    fc.renderAll();
-  }, [activeFloor]);
+  const applyZoom = useCallback(
+    (factor: number) => {
+      const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
+        getZoom: () => number;
+        setZoom: (z: number) => void;
+        renderAll: () => void;
+      } | null;
+      if (!fc) return;
+      const z = Math.max(0.3, Math.min(4, fc.getZoom() * factor));
+      fc.setZoom(z);
+      fc.renderAll();
+    },
+    [activeFloor],
+  );
 
   const handleZoomReset = useCallback(() => {
     const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
@@ -279,7 +290,12 @@ export function SketchEditorV2({
       floor: {
         id: `${uid}-f${newFloorNum}`,
         floorNumber: newFloorNum,
-        floorLabel: newFloorNum === 1 ? "First Floor" : newFloorNum === 2 ? "Second Floor" : `Floor ${newFloorNum}`,
+        floorLabel:
+          newFloorNum === 1
+            ? "First Floor"
+            : newFloorNum === 2
+              ? "Second Floor"
+              : `Floor ${newFloorNum}`,
       },
       canvasRef: makeFabricCanvas(),
       moisturePins: [],
@@ -291,21 +307,29 @@ export function SketchEditorV2({
     setActiveIdx(floorsData.length);
   }, [floorsData, uid]);
 
-  const handleRemoveFloor = useCallback((idx: number) => {
-    if (floorsData.length <= 1) return;
-    setFloorsData((prev) => prev.filter((_, i) => i !== idx));
-    setActiveIdx((prev) => Math.min(prev, floorsData.length - 2));
-  }, [floorsData]);
+  const handleRemoveFloor = useCallback(
+    (idx: number) => {
+      if (floorsData.length <= 1) return;
+      setFloorsData((prev) => prev.filter((_, i) => i !== idx));
+      setActiveIdx((prev) => Math.min(prev, floorsData.length - 2));
+    },
+    [floorsData],
+  );
 
   // ── Background ──────────────────────────────────────────
-  const handleApplyBackground = useCallback((url: string, opacity: number) => {
-    setFloorsData((prev) =>
-      prev.map((fd, i) =>
-        i === activeIdx ? { ...fd, backgroundUrl: url, backgroundOpacity: opacity } : fd,
-      ),
-    );
-    scheduleSave();
-  }, [activeIdx, scheduleSave]);
+  const handleApplyBackground = useCallback(
+    (url: string, opacity: number) => {
+      setFloorsData((prev) =>
+        prev.map((fd, i) =>
+          i === activeIdx
+            ? { ...fd, backgroundUrl: url, backgroundOpacity: opacity }
+            : fd,
+        ),
+      );
+      scheduleSave();
+    },
+    [activeIdx, scheduleSave],
+  );
 
   const handleClearBackground = useCallback(() => {
     setFloorsData((prev) =>
@@ -320,7 +344,9 @@ export function SketchEditorV2({
   const handleMoisturePinsChange = useCallback(
     (pins: MoisturePin[]) => {
       setFloorsData((prev) =>
-        prev.map((fd, i) => (i === activeIdx ? { ...fd, moisturePins: pins } : fd)),
+        prev.map((fd, i) =>
+          i === activeIdx ? { ...fd, moisturePins: pins } : fd,
+        ),
       );
       scheduleSave();
     },
@@ -331,7 +357,9 @@ export function SketchEditorV2({
   const handleCalibrate = useCallback(
     (config: ScaleConfig) => {
       setFloorsData((prev) =>
-        prev.map((fd, i) => (i === activeIdx ? { ...fd, scaleConfig: config } : fd)),
+        prev.map((fd, i) =>
+          i === activeIdx ? { ...fd, scaleConfig: config } : fd,
+        ),
       );
       scheduleSave();
     },
@@ -343,19 +371,21 @@ export function SketchEditorV2({
     if (exportingPdf) return;
     setExportingPdf(true);
     try {
-      const floorPayload = floorsData.map((fd) => {
-        const canvas = fd.canvasRef.current;
-        const fc = canvas?.getFabricCanvas() as {
-          toDataURL: (opts: object) => string;
-          toJSON: () => object;
-        } | null;
-        if (!fc) return null;
-        return {
-          label: fd.floor.floorLabel,
-          pngDataUrl: fc.toDataURL({ format: "png", multiplier: 2 }),
-          fabricJson: fc.toJSON(),
-        };
-      }).filter(Boolean);
+      const floorPayload = floorsData
+        .map((fd) => {
+          const canvas = fd.canvasRef.current;
+          const fc = canvas?.getFabricCanvas() as {
+            toDataURL: (opts: object) => string;
+            toJSON: () => object;
+          } | null;
+          if (!fc) return null;
+          return {
+            label: fd.floor.floorLabel,
+            pngDataUrl: fc.toDataURL({ format: "png", multiplier: 2 }),
+            fabricJson: fc.toJSON(),
+          };
+        })
+        .filter(Boolean);
 
       if (!floorPayload.length) return;
       const res = await fetch(`/api/inspections/${inspectionId}/sketches/pdf`, {
@@ -437,7 +467,11 @@ export function SketchEditorV2({
               ) : savedAt ? (
                 <span className="flex items-center gap-1 justify-end text-emerald-400">
                   <Check size={11} />
-                  Saved {savedAt.toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit" })}
+                  Saved{" "}
+                  {savedAt.toLocaleTimeString("en-AU", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
                 </span>
               ) : null}
             </span>
@@ -474,7 +508,10 @@ export function SketchEditorV2({
       />
 
       {/* ── Canvas area ────────────────────────────────────── */}
-      <div className="relative flex-1 overflow-hidden" style={{ minHeight: height }}>
+      <div
+        className="relative flex-1 overflow-hidden"
+        style={{ minHeight: height }}
+      >
         {floorsData.map((fd, idx) => (
           <div
             key={fd.floor.id}
@@ -495,7 +532,8 @@ export function SketchEditorV2({
               onModified={() => {
                 scheduleSave();
                 const c = fd.canvasRef.current;
-                if (c) setHistoryState({ canUndo: c.canUndo, canRedo: c.canRedo });
+                if (c)
+                  setHistoryState({ canUndo: c.canUndo, canRedo: c.canRedo });
               }}
               className="w-full h-full"
             />
@@ -524,10 +562,20 @@ export function SketchEditorV2({
               renderAll: () => void;
             } | null;
             if (!fc) return;
-            const obj = fc.getObjects().find(
-              (o) => ((o as Record<string, unknown>).data as Record<string, unknown> | undefined)?.id === id,
-            );
-            if (obj) { fc.remove(obj); fc.renderAll(); }
+            const obj = fc
+              .getObjects()
+              .find(
+                (o) =>
+                  (
+                    (o as Record<string, unknown>).data as
+                      | Record<string, unknown>
+                      | undefined
+                  )?.id === id,
+              );
+            if (obj) {
+              fc.remove(obj);
+              fc.renderAll();
+            }
             setSelectedObj(null);
             scheduleSave();
           }}
@@ -537,9 +585,16 @@ export function SketchEditorV2({
               renderAll: () => void;
             } | null;
             if (!fc) return;
-            const obj = fc.getObjects().find(
-              (o) => ((o as Record<string, unknown>).data as Record<string, unknown> | undefined)?.id === id,
-            ) as Record<string, unknown> | undefined;
+            const obj = fc
+              .getObjects()
+              .find(
+                (o) =>
+                  (
+                    (o as Record<string, unknown>).data as
+                      | Record<string, unknown>
+                      | undefined
+                  )?.id === id,
+              ) as Record<string, unknown> | undefined;
             if (obj?.data) (obj.data as Record<string, unknown>).label = label;
             fc.renderAll();
             scheduleSave();
@@ -550,10 +605,20 @@ export function SketchEditorV2({
               renderAll: () => void;
             } | null;
             if (!fc) return;
-            const obj = fc.getObjects().find(
-              (o) => ((o as Record<string, unknown>).data as Record<string, unknown> | undefined)?.id === id,
-            ) as Record<string, unknown> | undefined;
-            if (obj) { (obj as Record<string, unknown>).fill = fill; (obj as Record<string, unknown>).stroke = stroke; }
+            const obj = fc
+              .getObjects()
+              .find(
+                (o) =>
+                  (
+                    (o as Record<string, unknown>).data as
+                      | Record<string, unknown>
+                      | undefined
+                  )?.id === id,
+              ) as Record<string, unknown> | undefined;
+            if (obj) {
+              (obj as Record<string, unknown>).fill = fill;
+              (obj as Record<string, unknown>).stroke = stroke;
+            }
             fc.renderAll();
             scheduleSave();
           }}
