@@ -146,10 +146,20 @@ describe("blockers", () => {
 
 describe("warnings", () => {
   it("NO_MONITORING_ITEMS on multi-day job without monitoring", () => {
-    const r = checkBillingCompleteness(base({ estimatedDuration: 3, lineItems: [
-      { category: "Labour", description: "Tech", qty: 10, subtotal: 1000 },
-      { category: "Prelims", description: "Mobilisation", qty: 1, subtotal: 200 },
-    ] }));
+    const r = checkBillingCompleteness(
+      base({
+        estimatedDuration: 3,
+        lineItems: [
+          { category: "Labour", description: "Tech", qty: 10, subtotal: 1000 },
+          {
+            category: "Prelims",
+            description: "Mobilisation",
+            qty: 1,
+            subtotal: 200,
+          },
+        ],
+      }),
+    );
     expect(r.warnings.map((w) => w.code)).toContain("NO_MONITORING_ITEMS");
   });
 
@@ -295,16 +305,12 @@ describe("dismissal metadata", () => {
         ],
       }),
     );
-    const monitoring = r.warnings.find(
-      (w) => w.code === "NO_MONITORING_ITEMS",
-    );
+    const monitoring = r.warnings.find((w) => w.code === "NO_MONITORING_ITEMS");
     expect(monitoring?.dismissed).toBe(true);
   });
 
   it("malformed metadata JSON does not throw — treats as no dismissals", () => {
-    const r = checkBillingCompleteness(
-      base({ metadata: "not-json" }),
-    );
+    const r = checkBillingCompleteness(base({ metadata: "not-json" }));
     expect(r).toBeTruthy();
   });
 
