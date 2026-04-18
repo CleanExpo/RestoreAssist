@@ -87,7 +87,10 @@ export async function POST(request: NextRequest) {
       select: { id: true },
     });
 
-    return NextResponse.json({ data: { sessionId: liveSession.id } }, { status: 201 });
+    return NextResponse.json(
+      { data: { sessionId: liveSession.id } },
+      { status: 201 },
+    );
   } catch (error) {
     console.error("[live-teacher/session POST]", error);
     return NextResponse.json(

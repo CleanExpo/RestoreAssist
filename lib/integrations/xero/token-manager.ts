@@ -23,8 +23,7 @@ export class XeroTokenError extends Error {
   public readonly integrationId: string;
 
   constructor(integrationId: string, cause: unknown) {
-    const reason =
-      cause instanceof Error ? cause.message : String(cause);
+    const reason = cause instanceof Error ? cause.message : String(cause);
     super(`Xero token error for integration ${integrationId}: ${reason}`);
     this.name = "XeroTokenError";
     this.integrationId = integrationId;
@@ -44,11 +43,16 @@ export class XeroTokenError extends Error {
  * - Proactively refreshes if token expires within 5 minutes
  * - Throws XeroTokenError if the integration is disconnected or refresh fails
  */
-export async function getValidXeroToken(integrationId: string): Promise<string> {
+export async function getValidXeroToken(
+  integrationId: string,
+): Promise<string> {
   const tokens = await getTokens(integrationId);
 
   if (!tokens.accessToken) {
-    throw new XeroTokenError(integrationId, "No access token — integration disconnected");
+    throw new XeroTokenError(
+      integrationId,
+      "No access token — integration disconnected",
+    );
   }
 
   // Proactive refresh: if token expires in less than 5 minutes, refresh now
@@ -77,13 +81,18 @@ export async function getValidXeroToken(integrationId: string): Promise<string> 
         select: { tenantId: true },
       });
 
-      const client = new XeroClient(integrationId, integration?.tenantId ?? undefined);
+      const client = new XeroClient(
+        integrationId,
+        integration?.tenantId ?? undefined,
+      );
       await client.refreshAccessToken();
 
       // Re-fetch the freshly stored token
       const fresh = await getTokens(integrationId);
       if (!fresh.accessToken) {
-        throw new Error("refreshAccessToken() completed but token still missing");
+        throw new Error(
+          "refreshAccessToken() completed but token still missing",
+        );
       }
 
       return fresh.accessToken;

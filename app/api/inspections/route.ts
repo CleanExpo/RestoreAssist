@@ -140,7 +140,8 @@ export async function GET(request: NextRequest) {
       if (status === "active") {
         where.status = { notIn: ["COMPLETED", "REJECTED"] };
       } else {
-        where.status = status.toUpperCase() as Prisma.InspectionWhereInput["status"];
+        where.status =
+          status.toUpperCase() as Prisma.InspectionWhereInput["status"];
       }
     }
 

@@ -31,7 +31,9 @@ const ALLOWED_STATUSES = [
 type EstimateStatus = (typeof ALLOWED_STATUSES)[number];
 
 function isEstimateStatus(v: unknown): v is EstimateStatus {
-  return typeof v === "string" && (ALLOWED_STATUSES as readonly string[]).includes(v);
+  return (
+    typeof v === "string" && (ALLOWED_STATUSES as readonly string[]).includes(v)
+  );
 }
 
 export async function PATCH(
@@ -88,7 +90,10 @@ export async function PATCH(
     });
 
     if (!estimate) {
-      return NextResponse.json({ error: "Estimate not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Estimate not found" },
+        { status: 404 },
+      );
     }
 
     if (estimate.userId !== session.user.id) {
