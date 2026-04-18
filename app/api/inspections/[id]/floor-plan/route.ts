@@ -156,6 +156,24 @@ export async function PUT(
       );
     }
 
+    // RA-1339: reject non-https or non-Cloudinary URLs. Previously any
+    // `javascript:` / `data:` / attacker-hosted URL landed in
+    // floorPlanImageUrl and was rendered, giving stored XSS on view.
+    try {
+      const parsed = new URL(imageUrl);
+      if (
+        parsed.protocol !== "https:" ||
+        parsed.hostname !== "res.cloudinary.com"
+      ) {
+        return NextResponse.json(
+          { error: "Invalid image URL" },
+          { status: 400 },
+        );
+      }
+    } catch {
+      return NextResponse.json({ error: "Invalid image URL" }, { status: 400 });
+    }
+
     // Update inspection with floor plan URL
     await prisma.inspection.update({
       where: { id },
