@@ -96,6 +96,21 @@ export interface CompanyPricingRates {
   administrationFee: number;
   callOutFee: number;
   thermalCameraUseCostPerAssessment: number;
+  // RA-861: optional until RA-848 schema migration is deployed
+  rateNegativeAirMachine?: number;
+  rateHEPAVacuum?: number;
+  rateOzoneGenerator?: number;
+  rateHydroxylUnit?: number;
+  rateMouldRemediation?: number;
+  rateFireRestoration?: number;
+  rateStormWaterExtraction?: number;
+  rateBiohazardClean?: number;
+  rateMobilisation?: number;
+  rateMonitoring?: number;
+  rateWasteDisposal?: number;
+  rateContentsPack?: number;
+  rateContentsClean?: number;
+  rateDehumidifierLarge?: number;
 }
 
 // ─── SCOPE → NRPG MAPPING ────────────────────────────────────────────────────
@@ -223,6 +238,96 @@ const SCOPE_ITEM_NRPG_CONFIG: Record<string, ScopeItemNRPGConfig> = {
     nrpgField: "thermalCameraUseCostPerAssessment",
     defaultRate: midpoint("thermalCameraUseCostPerAssessment"),
     unit: "assessment",
+    category: "Other",
+  },
+
+  // ── RA-861: Equipment (daily) ──────────────────────────────────────────────
+  negative_air_machine: {
+    nrpgField: "rateNegativeAirMachine",
+    defaultRate: midpoint("rateNegativeAirMachine"),
+    unit: "day",
+    category: "Equipment",
+  },
+  hepa_vacuum: {
+    nrpgField: "rateHEPAVacuum",
+    defaultRate: midpoint("rateHEPAVacuum"),
+    unit: "day",
+    category: "Equipment",
+  },
+  ozone_generator: {
+    nrpgField: "rateOzoneGenerator",
+    defaultRate: midpoint("rateOzoneGenerator"),
+    unit: "day",
+    category: "Equipment",
+  },
+  hydroxyl_unit: {
+    nrpgField: "rateHydroxylUnit",
+    defaultRate: midpoint("rateHydroxylUnit"),
+    unit: "day",
+    category: "Equipment",
+  },
+  dehumidifier_large: {
+    nrpgField: "rateDehumidifierLarge",
+    defaultRate: midpoint("rateDehumidifierLarge"),
+    unit: "day",
+    category: "Equipment",
+  },
+
+  // ── RA-861: Labour/services (hourly) ──────────────────────────────────────
+  mould_remediation: {
+    nrpgField: "rateMouldRemediation",
+    defaultRate: midpoint("rateMouldRemediation"),
+    unit: "hr",
+    category: "Labour",
+  },
+  fire_restoration: {
+    nrpgField: "rateFireRestoration",
+    defaultRate: midpoint("rateFireRestoration"),
+    unit: "hr",
+    category: "Labour",
+  },
+  storm_water_extraction: {
+    nrpgField: "rateStormWaterExtraction",
+    defaultRate: midpoint("rateStormWaterExtraction"),
+    unit: "hr",
+    category: "Labour",
+  },
+  biohazard_clean: {
+    nrpgField: "rateBiohazardClean",
+    defaultRate: midpoint("rateBiohazardClean"),
+    unit: "hr",
+    category: "Labour",
+  },
+  contents_pack: {
+    nrpgField: "rateContentsPack",
+    defaultRate: midpoint("rateContentsPack"),
+    unit: "hr",
+    category: "Labour",
+  },
+  contents_clean: {
+    nrpgField: "rateContentsClean",
+    defaultRate: midpoint("rateContentsClean"),
+    unit: "hr",
+    category: "Labour",
+  },
+
+  // ── RA-861: Fees & monitoring ──────────────────────────────────────────────
+  mobilisation: {
+    nrpgField: "rateMobilisation",
+    defaultRate: midpoint("rateMobilisation"),
+    unit: "$",
+    category: "Other",
+  },
+  monitoring: {
+    nrpgField: "rateMonitoring",
+    defaultRate: midpoint("rateMonitoring"),
+    unit: "hr",
+    category: "Other",
+  },
+  waste_disposal: {
+    nrpgField: "rateWasteDisposal",
+    defaultRate: midpoint("rateWasteDisposal"),
+    unit: "hr",
     category: "Other",
   },
 
