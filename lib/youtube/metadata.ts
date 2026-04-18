@@ -87,7 +87,7 @@ export function generateYouTubeMetadata(params: {
 
   descriptionParts.push("");
   descriptionParts.push(
-    "🚀 Start your free trial — 3 free reports, no credit card required",
+    "🚀 Start your free trial — 30 free reports, no credit card required",
   );
   descriptionParts.push("👉 https://restoreassist.app");
 
