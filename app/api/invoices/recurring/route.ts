@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { withIdempotency } from "@/lib/idempotency";
 
 function nextDateFromFrequency(start: Date, frequency: string): Date {
   const d = new Date(start);
@@ -57,100 +58,113 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const userId = session.user.id;
 
-    const body = await request.json();
-    const {
-      templateName,
-      description,
-      clientId,
-      customerName,
-      customerEmail,
-      customerPhone,
-      customerAddress,
-      frequency,
-      startDate,
-      endDate,
-      lineItems,
-      dueInDays,
-      terms,
-      notes,
-    } = body;
-
-    if (
-      !templateName ||
-      !customerName ||
-      !customerEmail ||
-      !frequency ||
-      !startDate
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "templateName, customerName, customerEmail, frequency, and startDate are required",
-        },
-        { status: 422 },
-      );
-    }
-
-    const start = new Date(startDate);
-    const nextInvoiceDate = nextDateFromFrequency(start, frequency);
-
-    const items: Array<{
-      description: string;
-      quantity: number;
-      unitPrice: number;
-      gstRate?: number;
-    }> = Array.isArray(lineItems) ? lineItems : [];
-
-    const subtotalExGST = items.reduce(
-      (sum, item) => sum + Math.round(item.quantity * item.unitPrice),
-      0,
-    );
-    const gstAmount = items.reduce(
-      (sum, item) =>
-        sum +
-        Math.round(
-          item.quantity * item.unitPrice * ((item.gstRate ?? 10) / 100),
-        ),
-      0,
-    );
-    const totalIncGST = subtotalExGST + gstAmount;
-
-    const recurringInvoice = await prisma.recurringInvoice.create({
-      data: {
+  // RA-1266: Idempotency-Key prevents duplicate recurring-template creation
+  // (which would then spawn duplicate invoices on every cycle).
+  return withIdempotency(request, userId, async (rawBody) => {
+    try {
+      let body: any;
+      try {
+        body = rawBody ? JSON.parse(rawBody) : {};
+      } catch {
+        return NextResponse.json(
+          { error: "Invalid JSON body" },
+          { status: 400 },
+        );
+      }
+      const {
         templateName,
-        description: description || null,
-        userId: session.user.id,
-        clientId: clientId || null,
+        description,
+        clientId,
         customerName,
         customerEmail,
-        customerPhone: customerPhone || null,
-        customerAddress: customerAddress || null,
+        customerPhone,
+        customerAddress,
         frequency,
-        startDate: start,
-        endDate: endDate ? new Date(endDate) : null,
-        nextInvoiceDate,
-        subtotalExGST,
-        gstAmount,
-        totalIncGST,
-        lineItemsTemplate: items,
-        dueInDays: dueInDays ?? 30,
-        terms: terms || null,
-        notes: notes || null,
-        status: "ACTIVE",
-      },
-    });
+        startDate,
+        endDate,
+        lineItems,
+        dueInDays,
+        terms,
+        notes,
+      } = body;
 
-    return NextResponse.json({ recurringInvoice }, { status: 201 });
-  } catch {
-    return NextResponse.json(
-      { error: "Failed to create recurring invoice" },
-      { status: 500 },
-    );
-  }
+      if (
+        !templateName ||
+        !customerName ||
+        !customerEmail ||
+        !frequency ||
+        !startDate
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "templateName, customerName, customerEmail, frequency, and startDate are required",
+          },
+          { status: 422 },
+        );
+      }
+
+      const start = new Date(startDate);
+      const nextInvoiceDate = nextDateFromFrequency(start, frequency);
+
+      const items: Array<{
+        description: string;
+        quantity: number;
+        unitPrice: number;
+        gstRate?: number;
+      }> = Array.isArray(lineItems) ? lineItems : [];
+
+      const subtotalExGST = items.reduce(
+        (sum, item) => sum + Math.round(item.quantity * item.unitPrice),
+        0,
+      );
+      const gstAmount = items.reduce(
+        (sum, item) =>
+          sum +
+          Math.round(
+            item.quantity * item.unitPrice * ((item.gstRate ?? 10) / 100),
+          ),
+        0,
+      );
+      const totalIncGST = subtotalExGST + gstAmount;
+
+      const recurringInvoice = await prisma.recurringInvoice.create({
+        data: {
+          templateName,
+          description: description || null,
+          userId,
+          clientId: clientId || null,
+          customerName,
+          customerEmail,
+          customerPhone: customerPhone || null,
+          customerAddress: customerAddress || null,
+          frequency,
+          startDate: start,
+          endDate: endDate ? new Date(endDate) : null,
+          nextInvoiceDate,
+          subtotalExGST,
+          gstAmount,
+          totalIncGST,
+          lineItemsTemplate: items,
+          dueInDays: dueInDays ?? 30,
+          terms: terms || null,
+          notes: notes || null,
+          status: "ACTIVE",
+        },
+      });
+
+      return NextResponse.json({ recurringInvoice }, { status: 201 });
+    } catch {
+      return NextResponse.json(
+        { error: "Failed to create recurring invoice" },
+        { status: 500 },
+      );
+    }
+  });
 }
