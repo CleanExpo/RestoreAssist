@@ -12,12 +12,20 @@ import { cn } from "@/lib/utils";
 import { Trash2, X } from "lucide-react";
 
 const ROOM_COLORS = [
-  { fill: "rgba(59,130,246,0.10)",  stroke: "#3b82f6", label: "Living / Common" },
-  { fill: "rgba(16,185,129,0.10)",  stroke: "#10b981", label: "Bedroom" },
-  { fill: "rgba(245,158,11,0.10)",  stroke: "#f59e0b", label: "Kitchen" },
-  { fill: "rgba(236,72,153,0.10)",  stroke: "#ec4899", label: "Bathroom / WC" },
-  { fill: "rgba(139,92,246,0.10)",  stroke: "#8b5cf6", label: "Garage / Utility" },
-  { fill: "rgba(239,68,68,0.10)",   stroke: "#ef4444", label: "Damage Zone" },
+  {
+    fill: "rgba(59,130,246,0.10)",
+    stroke: "#3b82f6",
+    label: "Living / Common",
+  },
+  { fill: "rgba(16,185,129,0.10)", stroke: "#10b981", label: "Bedroom" },
+  { fill: "rgba(245,158,11,0.10)", stroke: "#f59e0b", label: "Kitchen" },
+  { fill: "rgba(236,72,153,0.10)", stroke: "#ec4899", label: "Bathroom / WC" },
+  {
+    fill: "rgba(139,92,246,0.10)",
+    stroke: "#8b5cf6",
+    label: "Garage / Utility",
+  },
+  { fill: "rgba(239,68,68,0.10)", stroke: "#ef4444", label: "Damage Zone" },
 ];
 
 export interface SelectedObject {
@@ -89,7 +97,10 @@ export function SketchSelectionPanel({
             onBlur={(e) => onLabelChange?.(selected.id, e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
-                onLabelChange?.(selected.id, (e.target as HTMLInputElement).value);
+                onLabelChange?.(
+                  selected.id,
+                  (e.target as HTMLInputElement).value,
+                );
               }
             }}
             className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white placeholder:text-white/30 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-400"

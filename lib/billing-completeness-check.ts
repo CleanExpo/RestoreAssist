@@ -91,13 +91,7 @@ const MOULD_CLEARANCE_KEYWORDS = [
   "air sample",
 ];
 const CONTENTS_KEYWORDS = ["contents", "pack out", "pack-out", "pack in"];
-const EQUIPMENT_KEYWORDS = [
-  "dehumidifier",
-  "air mover",
-  "lgr",
-  "afd",
-  "hepa",
-];
+const EQUIPMENT_KEYWORDS = ["dehumidifier", "air mover", "lgr", "afd", "hepa"];
 
 function lineMatches(
   items: EstimateForCheck["lineItems"],
@@ -121,9 +115,7 @@ function countEquipmentUnits(items: EstimateForCheck["lineItems"]): number {
 
 // ─── Dismissal metadata ───────────────────────────────────────────────────────
 
-function parseDismissed(
-  metadata: string | null | undefined,
-): Set<WarningCode> {
+function parseDismissed(metadata: string | null | undefined): Set<WarningCode> {
   if (!metadata) return new Set();
   try {
     const obj = JSON.parse(metadata) as { dismissedWarnings?: unknown };
@@ -166,9 +158,7 @@ function checkZeroTotal(e: EstimateForCheck): BillingBlocker | null {
   return null;
 }
 
-function checkMissingMobilisation(
-  e: EstimateForCheck,
-): BillingBlocker | null {
+function checkMissingMobilisation(e: EstimateForCheck): BillingBlocker | null {
   const days = e.estimatedDuration ?? 0;
   if (days >= 2 && !lineMatches(e.lineItems, MOBILISATION_KEYWORDS)) {
     return {
@@ -179,9 +169,7 @@ function checkMissingMobilisation(
   return null;
 }
 
-function checkFireNoSmokeTreatment(
-  e: EstimateForCheck,
-): BillingBlocker | null {
+function checkFireNoSmokeTreatment(e: EstimateForCheck): BillingBlocker | null {
   if (
     e.scope?.scopeType === "FIRE" &&
     !lineMatches(e.lineItems, SMOKE_TREATMENT_KEYWORDS)

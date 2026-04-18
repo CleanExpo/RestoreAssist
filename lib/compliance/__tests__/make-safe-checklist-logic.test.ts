@@ -102,8 +102,18 @@ describe("MakeSafeChecklist — state helpers", () => {
   describe("rowsToState()", () => {
     it("hydrates completed status from API rows", () => {
       const rows: MakeSafeRow[] = [
-        { action: "power_isolated", applicable: true, completed: true, notes: "done" },
-        { action: "gas_isolated", applicable: false, completed: false, notes: null },
+        {
+          action: "power_isolated",
+          applicable: true,
+          completed: true,
+          notes: "done",
+        },
+        {
+          action: "gas_isolated",
+          applicable: false,
+          completed: false,
+          notes: null,
+        },
       ];
 
       const state = rowsToState(rows);
@@ -135,7 +145,12 @@ describe("MakeSafeChecklist — state helpers", () => {
 
     it("returns all 5 actions even when API returns fewer rows", () => {
       const rows: MakeSafeRow[] = [
-        { action: "power_isolated", applicable: true, completed: true, notes: null },
+        {
+          action: "power_isolated",
+          applicable: true,
+          completed: true,
+          notes: null,
+        },
       ];
 
       const state = rowsToState(rows);

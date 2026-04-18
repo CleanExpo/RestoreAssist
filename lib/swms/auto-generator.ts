@@ -226,7 +226,8 @@ export async function generateSwmsDraft(
     hazards.push(BIOLOGICAL_HAZARD);
   }
 
-  const hasMould = inspection.affectedAreas.some((a) => a.category === "3") ||
+  const hasMould =
+    inspection.affectedAreas.some((a) => a.category === "3") ||
     inspection.makeSafeActions.some(
       (a) => a.action === "mould_containment" && a.applicable,
     );
@@ -248,7 +249,10 @@ export async function generateSwmsDraft(
   }
 
   // ── Asbestos risk: pre-1990 building ──────────────────────────────────────
-  if (inspection.propertyYearBuilt != null && inspection.propertyYearBuilt < 1990) {
+  if (
+    inspection.propertyYearBuilt != null &&
+    inspection.propertyYearBuilt < 1990
+  ) {
     hazards.push(ASBESTOS_RISK_HAZARD);
   }
 
