@@ -692,6 +692,10 @@ model Report {
   @@index([clientId, createdAt])
   @@index([includeRegulatoryCitations]) // Index for efficient filtering
   @@index([workspaceId])
+
+  // RA-1381 (M-5) — Progress framework one-to-one back-relation. Populated when
+  // a ClaimProgress row is linked to this Report.
+  progress ClaimProgress?
 }
 
 enum Role {
@@ -1665,6 +1669,9 @@ model Inspection {
   @@index([workspaceId])
   @@index([userId, createdAt])
   @@index([userId, status])
+
+  // RA-1381 (M-5) — Progress framework one-to-one back-relation.
+  progress ClaimProgress?
 }
 
 enum InspectionStatus {
@@ -5061,4 +5068,149 @@ model SwmsDraft {
   updatedAt        DateTime    @updatedAt
 
   @@index([inspectionId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RA-1381 (M-5) — Progress Framework: Stage-Gated Claim Lifecycle
+//
+// Epic: RA-1376 · Board: 2026-04-18 · Phase A silent infrastructure.
+// Additive only — no existing columns touched.
+//
+// See: .claude/board-2026-04-18/progress-framework.md (15 states + transitions)
+//      .claude/board-2026-04-18/progress-principles.md (8 constraints)
+//
+// Principles enforced in schema:
+//   #2 Append-only audit — Transition + Attestation never UPDATEd/DELETEd outside
+//      ClaimProgress cascade (DB triggers TBD in follow-up migration).
+//   #6 Immutable attestation — ProgressAttestation has no updatedAt; corrections
+//      create a new row via supersedesId.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum ClaimState {
+  INTAKE
+  STABILISATION_ACTIVE
+  WHS_HOLD
+  STABILISATION_COMPLETE
+  SCOPE_DRAFT
+  SCOPE_APPROVED
+  DRYING_ACTIVE
+  VARIATION_REVIEW
+  DRYING_CERTIFIED
+  CLOSEOUT
+  INVOICE_ISSUED
+  INVOICE_PAID
+  DISPUTED
+  CLOSED
+  WITHDRAWN
+}
+
+// Single row per claim. Linked 1-1 to a Report and/or Inspection (at least one
+// required by service-layer invariant; schema itself permits either orphan to
+// allow backfill via M-20 cron).
+model ClaimProgress {
+  id                               String      @id @default(cuid())
+  state                            ClaimState  @default(INTAKE)
+  version                          Int         @default(0) // Optimistic-lock counter incremented on every transition
+
+  // Optional 1-1 links — exactly one SHOULD be set at create time; both can be
+  // set after M-20 backfill associates legacy rows.
+  reportId                         String?     @unique
+  report                           Report?     @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  inspectionId                     String?     @unique
+  inspection                       Inspection? @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  // M-6: per-claim carrier variation threshold override. Null = workspace default.
+  carrierVariationThresholdPercent Int?
+
+  // M-20 Principal amendment: manager must confirm backfilled state before
+  // any autonomous transition fires. Flag is set by the backfill cron.
+  managerReviewFlag                Boolean     @default(false)
+
+  createdAt                        DateTime    @default(now())
+  updatedAt                        DateTime    @updatedAt
+
+  transitions                      ProgressTransition[]
+  attestations                     ProgressAttestation[]
+
+  @@index([state])
+  @@index([managerReviewFlag])
+}
+
+// Append-only log of every state change. Rows MUST NOT be UPDATEd/DELETEd
+// outside a ClaimProgress cascade delete. Corrections create a new row
+// referencing the prior via supersedesId (principle 2).
+model ProgressTransition {
+  id                 String          @id @default(cuid())
+  claimProgressId    String
+  claimProgress      ClaimProgress   @relation(fields: [claimProgressId], references: [id], onDelete: Cascade)
+
+  fromState          ClaimState
+  toState            ClaimState
+  transitionKey      String          // attest_stabilisation / submit_scope / commence_drying / etc.
+
+  // Actor + authorisation snapshot at moment of transition.
+  actorUserId        String
+  actorRole          String          // Role string at time of action (may differ from current user role)
+
+  // Idempotency + optimistic lock.
+  idempotencyKey     String          @unique
+  fromVersion        Int             // ClaimProgress.version read when transition attempted
+
+  // Principle 2: corrections reference the prior row via supersedesId.
+  supersedesId       String?         @unique
+  supersedes         ProgressTransition?  @relation("TransitionSupersedes", fields: [supersedesId], references: [id], onDelete: SetNull)
+  supersededBy       ProgressTransition?  @relation("TransitionSupersedes")
+
+  // Attestations produced as part of this transition.
+  attestations       ProgressAttestation[]
+
+  // Audit fields.
+  notes              String?         @db.Text
+  createdAt          DateTime        @default(now())
+
+  @@index([claimProgressId, createdAt])
+  @@index([toState])
+  @@index([actorUserId, createdAt])
+}
+
+// Append-only evidence record tied to a transition. Immutable once written.
+// body + signature + hash fields are final; corrections create a new row via
+// supersedesId (principle 2/6).
+model ProgressAttestation {
+  id                 String          @id @default(cuid())
+  claimProgressId    String
+  claimProgress      ClaimProgress   @relation(fields: [claimProgressId], references: [id], onDelete: Cascade)
+
+  transitionId       String?
+  transition         ProgressTransition? @relation(fields: [transitionId], references: [id], onDelete: SetNull)
+
+  // Attestor identity at moment of signing (role snapshot).
+  attestorUserId     String
+  attestorRole       String          // ADMIN / MANAGER / TECHNICIAN / LABOUR_HIRE / SUBCONTRACTOR / JUNIOR_TECHNICIAN
+
+  // Evidence kind — what attest_* transition produced this record.
+  evidenceKey        String          // whs_controls / scope_of_works / drying_log / photo_manifest / invoice / ...
+
+  // Signed body (JSON) + cryptographic signature (principle 1 chain-of-custody).
+  bodyJson           String          @db.Text
+  signatureSha256    String          // SHA-256 of bodyJson + attestor hash + UTC timestamp
+
+  // C2PA-style photo manifest fields (principle 1). Optional because not every
+  // evidenceKey is a photo; when present, server verifies at export time (M-10).
+  manifestJson       String?         @db.Text
+
+  // Principle 6: immutable once written. Logical-withdraw via withdrawnAt +
+  // supersedesId on a replacement row — never physical UPDATE/DELETE.
+  withdrawnAt        DateTime?
+  withdrawnReason    String?
+  supersedesId       String?         @unique
+  supersedes         ProgressAttestation?  @relation("AttestationSupersedes", fields: [supersedesId], references: [id], onDelete: SetNull)
+  supersededBy       ProgressAttestation?  @relation("AttestationSupersedes")
+
+  createdAt          DateTime        @default(now())
+
+  @@index([claimProgressId, evidenceKey])
+  @@index([attestorUserId, createdAt])
+  @@index([transitionId])
+  @@index([withdrawnAt])
 }
