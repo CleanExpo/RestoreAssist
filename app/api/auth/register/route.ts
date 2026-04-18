@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { applyRateLimit } from "@/lib/rate-limiter";
+import { applyRateLimit, getClientIp } from "@/lib/rate-limiter";
 import { sanitizeString } from "@/lib/sanitize";
 import { validateCsrf } from "@/lib/csrf";
 import { sendWelcomeEmail } from "@/lib/email";
 import { notifyWelcome } from "@/lib/notifications";
 import { seedDemoDataForNewUser } from "@/lib/demo-data";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
+import { verifyTurnstile } from "@/lib/turnstile";
 
 const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.app";
 
@@ -33,13 +34,23 @@ export async function POST(request: NextRequest) {
     }
     const name = sanitizeString(body.name, 200);
     const email = sanitizeString(body.email, 320);
-    const { password, acceptedTerms } = body;
+    const { password, acceptedTerms, turnstileToken } = body;
 
     if (!name || !email || !password) {
       return NextResponse.json(
         { error: "Name, email, and password are required" },
         { status: 400 },
       );
+    }
+
+    // RA-1286: CAPTCHA gate on the public signup endpoint. Soft-allows
+    // when TURNSTILE_SECRET_KEY is unset (dev / staging).
+    const captcha = await verifyTurnstile(
+      typeof turnstileToken === "string" ? turnstileToken : null,
+      getClientIp(request),
+    );
+    if (!captcha.ok) {
+      return NextResponse.json({ error: captcha.reason }, { status: 400 });
     }
 
     // RA-1255: ToS + Privacy acceptance mandatory for new email signups.
