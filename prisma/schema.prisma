@@ -1606,7 +1606,9 @@ model Inspection {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  environmentalData EnvironmentalData?
+  // RA-1383 (Board M-7 item 4): EnvironmentalData is now a time-series — one
+  // reading per 24h per chamber. Back-relation flipped to one-to-many.
+  environmentalData EnvironmentalData[]
   moistureReadings  MoistureReading[]
   affectedAreas     AffectedArea[]
   scopeItems        ScopeItem[]
@@ -1614,7 +1616,7 @@ model Inspection {
   costEstimates     CostEstimate[]
   auditLogs         AuditLog[]
   photos            InspectionPhoto[]
-  usageEvents       UsageEvent[]       @relation("usageEvents")
+  usageEvents       UsageEvent[]        @relation("usageEvents")
 
   // AI Assistant Tier (Phase 1 - Metering)
   totalUsageCost Float @default(0) // Cached total cost for this inspection
@@ -1688,7 +1690,8 @@ model Inspection {
   swmsDraft SwmsDraft?
 
   // RA-1381 (Board M-5): Progress framework back-relation
-  claimProgress ClaimProgress?
+  claimProgress  ClaimProgress?
+  authorisations Authorisation[]
 
   @@index([userId])
   @@index([status])
@@ -1759,8 +1762,11 @@ model WHSCorrectiveAction {
 
 // Environmental Data (Temperature, Humidity, Dew Point, etc.)
 model EnvironmentalData {
+  // RA-1383 (Board M-7 item 4): converted to time-series. Removed the
+  // @unique constraint on inspectionId so multiple readings can be stored
+  // per inspection (one per 24h per chamber per Ops Director paper §3).
   id           String     @id @default(cuid())
-  inspectionId String     @unique
+  inspectionId String
   inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
 
   // Environmental Measurements
@@ -1776,6 +1782,9 @@ model EnvironmentalData {
   recordedAt DateTime @default(now())
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+
+  @@index([inspectionId])
+  @@index([inspectionId, recordedAt])
 }
 
 // Moisture Readings (Location-specific measurements)
@@ -1800,6 +1809,14 @@ model MoistureReading {
   deviceModel  String? // e.g. "Navigator Pro"
   source       String? @default("manual") // "ble" | "cloud" | "ocr" | "manual"
 
+  // RA-1383 (Board M-7 item 3): Ops Director §3 war-story fix.
+  // `isBaseline` true = reading from an unaffected area (dry-standard reference).
+  // `isMonitoringPoint` true = fixed monitoring point tracked across the job.
+  // Enables guard functions to verify baseline captured before scope approved
+  // and monitoring-point discipline across drying stage.
+  isBaseline        Boolean @default(false)
+  isMonitoringPoint Boolean @default(false)
+
   recordedAt DateTime @default(now())
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -1807,6 +1824,8 @@ model MoistureReading {
   @@index([inspectionId])
   @@index([surfaceType])
   @@index([inspectionId, recordedAt])
+  @@index([inspectionId, isBaseline])
+  @@index([inspectionId, isMonitoringPoint])
 }
 
 // Affected Areas (Room/Zone with Category/Class)
@@ -5296,4 +5315,60 @@ enum ClaimState {
   DISPUTED
   CLOSED
   WITHDRAWN
+}
+
+// ─── RA-1383 (Board M-7 item 5): Engagement-time licence/insurance verification ─
+// Ops Director §5 red line: "licence/insurance verification at time of
+// engagement, not once at onboarding." This model captures a fresh check
+// each time a subcontractor/labour-hire is engaged to a specific job.
+//
+// App-layer usage: before a ScopeVariation or MakeSafeAction can be attributed
+// to a subcontractor, Authorisation.verifiedAt must be within the last 14
+// days AND expiresAt (licence/insurance expiry) must be in the future.
+
+model Authorisation {
+  id String @id @default(cuid())
+
+  // Engagement context
+  inspectionId String?
+  inspection   Inspection? @relation(fields: [inspectionId], references: [id], onDelete: SetNull)
+  userId       String // verifying party (admin/manager who ran the check)
+
+  // Subject of verification
+  subjectUserId        String? // internal user being engaged
+  subjectContractorId  String? // external contractor
+  subjectCompanyName   String
+  subjectAbn           String?
+  subjectLicenceNumber String?
+  subjectLicenceState  String? // QLD | NSW | VIC | WA | SA | NT | TAS | ACT
+  subjectLicenceClass  String? // e.g. "QBCC Completed Builder" or "Restoration"
+
+  // Insurance
+  publicLiabilityInsurer      String?
+  publicLiabilityPolicyNumber String?
+  publicLiabilityCoverAmount  Decimal? @db.Decimal(12, 2)
+
+  workCoverPolicyNumber String?
+
+  // Verification
+  verifiedAt         DateTime @default(now())
+  verifiedMethod     String // "DOCUMENT_UPLOAD" | "API_CHECK" | "PHONE_VERIFIED" | "VISUAL_INSPECTION"
+  verifiedDocumentId String? // pointer to uploaded proof
+
+  // Expiry — licence and/or insurance expiry (whichever earlier)
+  expiresAt DateTime?
+
+  // Status
+  status String @default("VALID") // "VALID" | "EXPIRED" | "REVOKED" | "PENDING_RECHECK"
+
+  notes String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([inspectionId])
+  @@index([userId])
+  @@index([subjectContractorId])
+  @@index([status])
+  @@index([expiresAt])
 }
