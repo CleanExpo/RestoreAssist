@@ -40,19 +40,19 @@ model Session {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String    @unique
-  emailVerified DateTime?
-  image         String?
-  password      String?
-  role          Role      @default(USER)
+  id              String    @id @default(cuid())
+  name            String?
+  email           String    @unique
+  emailVerified   DateTime?
+  image           String?
+  password        String?
+  role            Role      @default(USER)
   /// RA-1255: timestamp of ToS + Privacy Policy acceptance.
   /// Required for AU consumer law compliance. Null for legacy users
   /// (back-filled lazily via a "re-accept" prompt if ever needed).
   acceptedTermsAt DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   // Organisation & team hierarchy
   organizationId String?
@@ -183,7 +183,7 @@ model User {
   releaseSeen UserReleaseSeen[]
 
   // RA-412: Multi-tenant workspace memberships
-  ownedWorkspaces  Workspace[]       @relation("WorkspaceOwner")
+  ownedWorkspaces      Workspace[]       @relation("WorkspaceOwner")
   workspaceMemberships WorkspaceMember[] @relation("WorkspaceMemberships")
 
   // V2: Ascora + DR-NRPG integrations
@@ -193,16 +193,16 @@ model User {
 }
 
 model Feedback {
-  id           String   @id @default(cuid())
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  rating       Int?     // 1-5 or null
-  whatDoing    String?  @db.Text // What were you trying to do?
-  whatHappened String?  @db.Text // What happened? / Suggestion
-  page         String?  // Optional: page/URL when submitted
+  rating       Int? // 1-5 or null
+  whatDoing    String? @db.Text // What were you trying to do?
+  whatHappened String? @db.Text // What happened? / Suggestion
+  page         String? // Optional: page/URL when submitted
 
-  createdAt    DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([userId])
   @@index([createdAt])
@@ -210,20 +210,20 @@ model Feedback {
 
 // Australian restoration documentation (tax invoices, estimates) — specific legal wording
 model RestorationDocument {
-  id              String   @id @default(cuid())
-  userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  reportId        String?
-  report          Report?  @relation(fields: [reportId], references: [id], onDelete: SetNull)
+  id       String  @id @default(cuid())
+  userId   String
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reportId String?
+  report   Report? @relation(fields: [reportId], references: [id], onDelete: SetNull)
 
-  documentType    String   // "RESTORATION_INVOICE", "ESTIMATE", etc.
-  documentNumber  String   // e.g. INV-2026-0001
-  title           String?  // Optional display title
+  documentType   String // "RESTORATION_INVOICE", "ESTIMATE", etc.
+  documentNumber String // e.g. INV-2026-0001
+  title          String? // Optional display title
 
-  data            Json     // Full form payload for re-render and edit
+  data Json // Full form payload for re-render and edit
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([reportId])
@@ -253,20 +253,20 @@ model PasswordResetToken {
 }
 
 model Client {
-  id            String                   @id @default(cuid())
+  id            String       @id @default(cuid())
   name          String
   email         String
   phone         String?
   address       String?
   company       String?
   contactPerson String?
-  notes         String?                  @db.Text
-  status        ClientStatus             @default(ACTIVE)
-  isSample      Boolean                  @default(false) // RA-1239: seeded demo row
-  createdAt     DateTime                 @default(now())
-  updatedAt     DateTime                 @updatedAt
+  notes         String?      @db.Text
+  status        ClientStatus @default(ACTIVE)
+  isSample      Boolean      @default(false) // RA-1239: seeded demo row
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
   userId        String
-  user          User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // RA-413: workspace scoping
   workspaceId String?
@@ -281,9 +281,9 @@ model Client {
   invoices          Invoice[]          @relation("ClientInvoices")
   recurringInvoices RecurringInvoice[] @relation("ClientRecurringInvoices")
 
+  @@unique([userId, email])
   @@index([search_vector], type: Gin)
   @@index([userId, name])
-  @@unique([userId, email])
   @@index([userId, createdAt])
   @@index([workspaceId])
 }
@@ -694,6 +694,10 @@ model Report {
   workspaceId String?
   workspace   Workspace? @relation("ReportWorkspace", fields: [workspaceId], references: [id], onDelete: SetNull)
 
+  // RA-1381 (Board M-5): Progress framework orchestrator — one-to-one.
+  // Purely back-relation; no column on Report. ClaimProgress.reportId is the FK owner.
+  claimProgress ClaimProgress?
+
   @@index([search_vector], type: Gin)
   @@index([userId, createdAt])
   @@index([userId, hazardType])
@@ -710,22 +714,22 @@ enum Role {
 }
 
 model Organization {
-  id        String       @id @default(cuid())
-  name      String
-  ownerId   String
-  owner     User         @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  members   User[]
-  invites   UserInvite[]
+  id      String       @id @default(cuid())
+  name    String
+  ownerId String
+  owner   User         @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members User[]
+  invites UserInvite[]
 
   // RA-408: Pluggable storage abstraction (BYOE)
-  storageProvider StorageProviderType @default(SUPABASE)
-  storageBucketUrl String?            // For BYOS — S3/GCS/Azure bucket endpoint
+  storageProvider  StorageProviderType @default(SUPABASE)
+  storageBucketUrl String? // For BYOS — S3/GCS/Azure bucket endpoint
 
   // RA-1120: NZ locale support — "AU" | "NZ"
   country String @default("AU")
 
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model UserInvite {
@@ -865,10 +869,10 @@ model Integration {
   updatedAt DateTime @updatedAt
 
   // Relations
-  externalClients    ExternalClient[]
-  externalJobs       ExternalJob[]
-  syncLogs           IntegrationSyncLog[]
-  webhookEvents      WebhookEvent[]
+  externalClients     ExternalClient[]
+  externalJobs        ExternalJob[]
+  syncLogs            IntegrationSyncLog[]
+  webhookEvents       WebhookEvent[]
   xeroAccountMappings XeroAccountCodeMapping[] @relation("IntegrationXeroMappings")
 
   @@unique([userId, provider])
@@ -1039,7 +1043,7 @@ model XeroAccountCodeMapping {
   // Mapping key: line item category → Xero account code
   // category: null = default rule applied when no category-specific mapping exists
   category    String? // Matches InvoiceLineItem.category (e.g. "Labour", "Equipment", "Materials")
-  accountCode String  // Xero account code string (e.g. "200", "400", "461", "630")
+  accountCode String // Xero account code string (e.g. "200", "400", "461", "630")
   taxType     String  @default("OUTPUT") // Xero tax type for this category
   description String? // Optional: human-readable account name for display in UI
 
@@ -1644,8 +1648,8 @@ model Inspection {
   propertyLookupCache PropertyLookup?
 
   // Sprint G: Inspection Intelligence — Evidence & Workflow
-  evidenceItems       EvidenceItem[]
-  inspectionWorkflow  InspectionWorkflow?
+  evidenceItems      EvidenceItem[]
+  inspectionWorkflow InspectionWorkflow?
 
   // Sprint H: Contents manifest AI draft (RA-405)
   contentsManifestDraft String? @db.Text // JSON: ContentsManifestDraft
@@ -1683,6 +1687,9 @@ model Inspection {
   // RA-1131: Auto-SWMS draft
   swmsDraft SwmsDraft?
 
+  // RA-1381 (Board M-5): Progress framework back-relation
+  claimProgress ClaimProgress?
+
   @@index([userId])
   @@index([status])
   @@index([inspectionDate])
@@ -1706,20 +1713,20 @@ enum InspectionStatus {
 
 // RA-1140: WHS Incident Tracking (RA-80 was claimed Done but never shipped)
 model WHSIncident {
-  id           String   @id @default(cuid())
+  id           String      @id @default(cuid())
   inspectionId String?
   inspection   Inspection? @relation(fields: [inspectionId], references: [id], onDelete: SetNull)
   userId       String
 
   // Incident details — shape matches app/dashboard/whs/page.tsx WHSIncident interface
-  incidentType       String   // free text: "slip_fall" | "electrical" | "biohazard" | etc.
-  severity           String   // "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"
-  status             String   @default("OPEN") // "OPEN" | "UNDER_REVIEW" | "CLOSED" | "REQUIRES_ESCALATION"
-  incidentDate       DateTime
-  location           String?
-  injuredParty       String?
-  injuryDescription  String?  @db.Text
-  description        String?  @db.Text
+  incidentType      String // free text: "slip_fall" | "electrical" | "biohazard" | etc.
+  severity          String // "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"
+  status            String   @default("OPEN") // "OPEN" | "UNDER_REVIEW" | "CLOSED" | "REQUIRES_ESCALATION"
+  incidentDate      DateTime
+  location          String?
+  injuredParty      String?
+  injuryDescription String?  @db.Text
+  description       String?  @db.Text
 
   correctiveActions WHSCorrectiveAction[]
 
@@ -1737,11 +1744,11 @@ model WHSCorrectiveAction {
   incidentId String
   incident   WHSIncident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
 
-  description  String
-  assignedTo   String?
-  completed    Boolean  @default(false)
-  completedAt  DateTime?
-  dueDate      DateTime?
+  description String
+  assignedTo  String?
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  dueDate     DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2162,21 +2169,21 @@ model InspectionPhoto {
   // --- RA-446: IICRC S500:2025 Label Schema Fields ---
   // Spec: PROJECTS/RestoreAssist/INSPECTION-IMAGE-SCHEMA.md §6
   // Types: types/inspection-photo-labels.ts
-  damageCategory            String?   // Enum: CAT_1 | CAT_2 | CAT_3
-  damageClass               String?   // Enum: CLASS_1 | CLASS_2 | CLASS_3 | CLASS_4
-  s500SectionRef            String?   // Pattern: §XX.X — IICRC S500:2025 section reference
-  roomType                  String?   // Enum: KITCHEN | BATHROOM | LAUNDRY | ...
-  moistureSource            String?   // Enum: FLEXI_HOSE | PIPE_BURST | ...
-  affectedMaterial          String[]  // Multi-select AU building materials (min 1 when labelled)
-  surfaceOrientation        String?   // Enum: FLOOR | WALL_LOWER | CEILING | ...
-  damageExtentEstimate      String?   // Enum: SPOT | PARTIAL | MAJORITY | FULL | UNCERTAIN
-  equipmentVisible          Boolean   @default(false)
-  secondaryDamageIndicators String[]  // Multi-select; ASBESTOS_SUSPECT triggers stop-work modal
-  photoStage                String?   // Enum: PRE_WORK | DURING_WORK | MONITORING | POST_WORK | REINSTATEMENT
-  captureAngle              String?   // Enum: STRAIGHT_ON | OBLIQUE | OVERHEAD | MACRO | WIDE
-  labelledBy                String    @default("HUMAN_TECH")
-  technicianNotes           String?   @db.Text
-  moistureReadingLink       String?   // Soft FK to MoistureReading.id (no enforced constraint)
+  damageCategory            String? // Enum: CAT_1 | CAT_2 | CAT_3
+  damageClass               String? // Enum: CLASS_1 | CLASS_2 | CLASS_3 | CLASS_4
+  s500SectionRef            String? // Pattern: §XX.X — IICRC S500:2025 section reference
+  roomType                  String? // Enum: KITCHEN | BATHROOM | LAUNDRY | ...
+  moistureSource            String? // Enum: FLEXI_HOSE | PIPE_BURST | ...
+  affectedMaterial          String[] // Multi-select AU building materials (min 1 when labelled)
+  surfaceOrientation        String? // Enum: FLOOR | WALL_LOWER | CEILING | ...
+  damageExtentEstimate      String? // Enum: SPOT | PARTIAL | MAJORITY | FULL | UNCERTAIN
+  equipmentVisible          Boolean  @default(false)
+  secondaryDamageIndicators String[] // Multi-select; ASBESTOS_SUSPECT triggers stop-work modal
+  photoStage                String? // Enum: PRE_WORK | DURING_WORK | MONITORING | POST_WORK | REINSTATEMENT
+  captureAngle              String? // Enum: STRAIGHT_ON | OBLIQUE | OVERHEAD | MACRO | WIDE
+  labelledBy                String   @default("HUMAN_TECH")
+  technicianNotes           String?  @db.Text
+  moistureReadingLink       String? // Soft FK to MoistureReading.id (no enforced constraint)
   // --- End RA-446 Label Schema Fields ---
 
   createdAt DateTime @default(now())
@@ -2184,10 +2191,10 @@ model InspectionPhoto {
 
   @@index([inspectionId])
   @@index([timestamp])
-  @@index([inspectionId, timestamp])  // photo gallery: WHERE inspectionId=? ORDER BY timestamp DESC
-  @@index([roomType])                 // RA-448 evidence screen filter
-  @@index([damageCategory])           // RA-448 evidence screen filter
-  @@index([photoStage])               // RA-448 evidence screen filter
+  @@index([inspectionId, timestamp]) // photo gallery: WHERE inspectionId=? ORDER BY timestamp DESC
+  @@index([roomType]) // RA-448 evidence screen filter
+  @@index([damageCategory]) // RA-448 evidence screen filter
+  @@index([photoStage]) // RA-448 evidence screen filter
 }
 
 model ChatMessage {
@@ -2828,11 +2835,11 @@ model InterviewSession {
 
   // Optional link to a Report (when started from reports listing)
   reportId String?
-  report   Report?   @relation(fields: [reportId], references: [id], onDelete: SetNull)
+  report   Report? @relation(fields: [reportId], references: [id], onDelete: SetNull)
 
   // Relations
-  user              User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  formTemplate      FormTemplate               @relation(fields: [formTemplateId], references: [id], onDelete: Cascade)
+  user              User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  formTemplate      FormTemplate                @relation(fields: [formTemplateId], references: [id], onDelete: Cascade)
   responses         InterviewResponse[]
   standardsMappings InterviewStandardsMapping[]
 
@@ -3130,12 +3137,12 @@ enum WebhookEventStatus {
 /// Now: we store the nonce here on `generateOAuthState`, look it up on
 /// callback, and delete it after use. TTL cleanup via cron.
 model OAuthStateNonce {
-  id        String   @id @default(cuid())
-  nonce     String   @unique
+  id        String    @id @default(cuid())
+  nonce     String    @unique
   userId    String
   provider  String
   expiresAt DateTime
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
   usedAt    DateTime?
 
   @@index([expiresAt])
@@ -3349,9 +3356,9 @@ model CronJobRun {
 
 /// Records each gate-check evaluation for confidence-weighted autonomy decisions
 model GateCheck {
-  id          String   @id @default(cuid())
-  projectKey  String // e.g., "restoreassist", "scope-quality", "report-builder"
-  taskId      String? // Linear issue ID if applicable
+  id           String   @id @default(cuid())
+  projectKey   String // e.g., "restoreassist", "scope-quality", "report-builder"
+  taskId       String? // Linear issue ID if applicable
   /// Overall quality score 0–100
   qualityScore Int
   /// Confidence in the quality assessment 0–100
@@ -3915,10 +3922,8 @@ model PaymentReminder {
  * PilotObservation — stores individual data points collected during the
  * Phase 2 pilot. Each observation contributes evidence toward promoting
  * a HYPOTHESIS claim in lib/nir-evidence-architecture.ts to VALIDATED.
- *
  * Promotion is always manual (via a code PR) — this table provides the
  * evidence trail and readiness evaluation that informs that decision.
- *
  * Foreign keys are stored as plain strings (no Prisma @relation) to
  * avoid modifying the large User and Inspection models in this migration.
  */
@@ -4059,19 +4064,19 @@ enum ExternalSyncStatus {
 // ============================================
 
 model ScopeTemplate {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   name        String
-  description String?  @db.Text
-  claimType   String?  // water_damage | fire_damage | mould_remediation | storm_damage | general
+  description String? @db.Text
+  claimType   String? // water_damage | fire_damage | mould_remediation | storm_damage | general
 
   // Line items stored as JSON array
-  items       String?  @db.Text // JSON: Array<{ id, description, unit, quantity, iicrcRef? }>
+  items String? @db.Text // JSON: Array<{ id, description, unit, quantity, iicrcRef? }>
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([claimType])
@@ -4096,7 +4101,7 @@ model SupportTicket {
   // low | normal | high | urgent
   priority String @default("normal")
   // open | in_progress | resolved | closed
-  status String @default("open")
+  status   String @default("open")
 
   responseDraft String?   @db.Text // Claude-generated response draft
   resolvedAt    DateTime?
@@ -4114,19 +4119,19 @@ model SupportTicket {
 // ============================================
 
 model AppRelease {
-  id        String   @id @default(cuid())
-  version   String   @unique
+  id        String  @id @default(cuid())
+  version   String  @unique
   title     String
-  notes     String   @db.Text
+  notes     String  @db.Text
   commitSha String?
 
   /// RA-1274: GitHub's `x-github-delivery` header. Used as an idempotency
   /// key so redelivered pushes don't re-call Anthropic or create duplicate
   /// Release rows. Nullable because legacy rows have none.
-  githubDeliveryId String?  @unique
+  githubDeliveryId String? @unique
 
-  mergedAt  DateTime @default(now())
-  createdAt DateTime @default(now())
+  mergedAt  DateTime          @default(now())
+  createdAt DateTime          @default(now())
   seenBy    UserReleaseSeen[]
 
   @@index([createdAt])
@@ -4144,7 +4149,6 @@ model UserReleaseSeen {
   @@index([userId])
 }
 
-
 // ============================================
 // Sprint G: Inspection Intelligence — Evidence Schema
 // 17 evidence classes with chain-of-custody metadata
@@ -4153,31 +4157,31 @@ model UserReleaseSeen {
 
 // 17 evidence classes covering all restoration inspection documentation needs
 enum EvidenceClass {
-  MOISTURE_READING        // Moisture meter readings (pin/pinless)
-  THERMAL_IMAGE           // Thermal/infrared camera captures
-  AMBIENT_ENVIRONMENTAL   // Temperature, humidity, dew point readings
-  PHOTO_DAMAGE            // Photos of visible damage
-  PHOTO_EQUIPMENT         // Photos of deployed equipment
-  PHOTO_PROGRESS          // Progress/drying verification photos
-  PHOTO_COMPLETION        // Final completion/restoration photos
-  VIDEO_WALKTHROUGH       // Video documentation of affected areas
-  FLOOR_PLAN              // Annotated floor plans / sketches
-  SCOPE_DOCUMENT          // Scope of works documentation
-  LAB_RESULT              // Lab analysis results (mould, asbestos, contamination)
-  AUTHORITY_FORM          // Authority to proceed / client sign-off
-  EQUIPMENT_LOG           // Equipment deployment and runtime logs
-  TECHNICIAN_NOTE         // Field technician written observations
-  VOICE_MEMO              // Transcribed voice notes from field
-  THIRD_PARTY_REPORT      // External specialist reports (structural, electrical)
-  COMPLIANCE_CERTIFICATE  // IICRC/regulatory compliance certificates
-  AFFECTED_CONTENTS       // Photos of household/commercial contents for insurance claims (RA-405)
+  MOISTURE_READING // Moisture meter readings (pin/pinless)
+  THERMAL_IMAGE // Thermal/infrared camera captures
+  AMBIENT_ENVIRONMENTAL // Temperature, humidity, dew point readings
+  PHOTO_DAMAGE // Photos of visible damage
+  PHOTO_EQUIPMENT // Photos of deployed equipment
+  PHOTO_PROGRESS // Progress/drying verification photos
+  PHOTO_COMPLETION // Final completion/restoration photos
+  VIDEO_WALKTHROUGH // Video documentation of affected areas
+  FLOOR_PLAN // Annotated floor plans / sketches
+  SCOPE_DOCUMENT // Scope of works documentation
+  LAB_RESULT // Lab analysis results (mould, asbestos, contamination)
+  AUTHORITY_FORM // Authority to proceed / client sign-off
+  EQUIPMENT_LOG // Equipment deployment and runtime logs
+  TECHNICIAN_NOTE // Field technician written observations
+  VOICE_MEMO // Transcribed voice notes from field
+  THIRD_PARTY_REPORT // External specialist reports (structural, electrical)
+  COMPLIANCE_CERTIFICATE // IICRC/regulatory compliance certificates
+  AFFECTED_CONTENTS // Photos of household/commercial contents for insurance claims (RA-405)
 }
 
 // Evidence item review status — for submission gate filtering
 enum EvidenceItemStatus {
-  ACTIVE    // Normal — counts toward submission requirements
-  FLAGGED   // Flagged for review — still counts but needs attention
-  REJECTED  // Rejected — does NOT count toward submission requirements
+  ACTIVE // Normal — counts toward submission requirements
+  FLAGGED // Flagged for review — still counts but needs attention
+  REJECTED // Rejected — does NOT count toward submission requirements
 }
 
 // Workflow step status for guided capture state machine
@@ -4185,8 +4189,8 @@ enum WorkflowStepStatus {
   NOT_STARTED
   IN_PROGRESS
   COMPLETED
-  SKIPPED       // Requires ExceptionReason
-  BLOCKED       // Waiting on external dependency
+  SKIPPED // Requires ExceptionReason
+  BLOCKED // Waiting on external dependency
 }
 
 // Evidence item — individual piece of evidence with chain-of-custody
@@ -4197,30 +4201,30 @@ model EvidenceItem {
 
   // Evidence classification
   evidenceClass EvidenceClass
-  title         String        // Short description e.g. "Kitchen moisture reading — north wall"
+  title         String // Short description e.g. "Kitchen moisture reading — north wall"
   description   String?       @db.Text // Detailed notes
 
   // Chain of custody — WHO captured WHAT, WHEN, WHERE, with WHAT device
-  capturedById   String        // User ID of the person who captured this evidence
-  capturedByName String        // Denormalised name for audit trail immutability
-  capturedAt     DateTime      @default(now()) // When the evidence was captured in the field
-  capturedLat    Float?        // GPS latitude at capture
-  capturedLng    Float?        // GPS longitude at capture
-  deviceId       String?       // Device identifier (phone IMEI, meter serial, etc.)
-  deviceType     String?       // "iPhone 15 Pro", "Tramex MRH III", "FLIR C5"
+  capturedById   String // User ID of the person who captured this evidence
+  capturedByName String // Denormalised name for audit trail immutability
+  capturedAt     DateTime @default(now()) // When the evidence was captured in the field
+  capturedLat    Float? // GPS latitude at capture
+  capturedLng    Float? // GPS longitude at capture
+  deviceId       String? // Device identifier (phone IMEI, meter serial, etc.)
+  deviceType     String? // "iPhone 15 Pro", "Tramex MRH III", "FLIR C5"
 
   // Storage
-  fileUrl        String?       // Supabase Storage URL for file-based evidence
-  fileName       String?       // Original filename for file-based evidence (e.g. "kitchen-damage.jpg")
-  fileMimeType   String?       // MIME type of the stored file
-  fileSizeBytes  Int?          // File size for storage tracking
-  thumbnailUrl   String?       // Auto-generated thumbnail for photos/videos
+  fileUrl       String? // Supabase Storage URL for file-based evidence
+  fileName      String? // Original filename for file-based evidence (e.g. "kitchen-damage.jpg")
+  fileMimeType  String? // MIME type of the stored file
+  fileSizeBytes Int? // File size for storage tracking
+  thumbnailUrl  String? // Auto-generated thumbnail for photos/videos
 
   // Location context
-  roomName       String?       // Room/area name where evidence was captured (e.g. "Kitchen")
+  roomName String? // Room/area name where evidence was captured (e.g. "Kitchen")
 
   // Structured data (JSON) — for readings, measurements, structured results
-  structuredData String?       @db.Text // JSON: { value: 42, unit: "%WME", material: "drywall" }
+  structuredData String? @db.Text // JSON: { value: 42, unit: "%WME", material: "drywall" }
 
   // Workflow linkage
   workflowStepId String?
@@ -4230,13 +4234,13 @@ model EvidenceItem {
   affectedAreaId String?
 
   // Integrity
-  hashSha256     String?       // SHA-256 hash of the original file for tamper detection
-  isVerified     Boolean       @default(false) // Admin/office has verified this evidence
-  verifiedById   String?       // Who verified it
-  verifiedAt     DateTime?     // When it was verified
+  hashSha256   String? // SHA-256 hash of the original file for tamper detection
+  isVerified   Boolean   @default(false) // Admin/office has verified this evidence
+  verifiedById String? // Who verified it
+  verifiedAt   DateTime? // When it was verified
 
   // Review status — controls submission gate filtering
-  status          EvidenceItemStatus @default(ACTIVE) // RA-401: submission gate filter
+  status EvidenceItemStatus @default(ACTIVE) // RA-401: submission gate filter
 
   // Exception handling — if this evidence replaces a required but unobtainable item
   exceptionReason ExceptionReason?
@@ -4260,19 +4264,19 @@ model InspectionWorkflow {
   inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
 
   // Workflow configuration
-  jobType         String        // water, mould, fire, sewage, storm, impact, vandalism, etc.
-  experienceLevel String        @default("APPRENTICE") // APPRENTICE | EXPERIENCED
+  jobType         String // water, mould, fire, sewage, storm, impact, vandalism, etc.
+  experienceLevel String @default("APPRENTICE") // APPRENTICE | EXPERIENCED
 
   // State machine
-  currentStepOrder Int          @default(0) // Which step the technician is currently on
-  totalSteps       Int          @default(0) // Total steps in this workflow
-  completedSteps   Int          @default(0) // How many steps are done
-  skippedSteps     Int          @default(0) // How many steps were skipped (with exception)
+  currentStepOrder Int @default(0) // Which step the technician is currently on
+  totalSteps       Int @default(0) // Total steps in this workflow
+  completedSteps   Int @default(0) // How many steps are done
+  skippedSteps     Int @default(0) // How many steps were skipped (with exception)
 
   // Submission gate
-  isReadyToSubmit  Boolean      @default(false) // All mandatory evidence collected
-  submissionScore  Float?       // 0-100 completeness percentage
-  lastValidatedAt  DateTime?    // When the submission gate last ran
+  isReadyToSubmit Boolean   @default(false) // All mandatory evidence collected
+  submissionScore Float? // 0-100 completeness percentage
+  lastValidatedAt DateTime? // When the submission gate last ran
 
   // Timestamps
   startedAt   DateTime?
@@ -4294,21 +4298,21 @@ model WorkflowStep {
   workflow   InspectionWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
 
   // Step definition
-  stepOrder       Int               // Sequential order within the workflow
-  stepKey         String            // Machine-readable key e.g. "initial_moisture_survey"
-  stepTitle       String            // Human-readable title e.g. "Initial Moisture Survey"
-  stepDescription String?           @db.Text // Full instructions (verbose for apprentice mode)
-  stepDescriptionShort String?      // Condensed instructions (for experienced mode)
+  stepOrder            Int // Sequential order within the workflow
+  stepKey              String // Machine-readable key e.g. "initial_moisture_survey"
+  stepTitle            String // Human-readable title e.g. "Initial Moisture Survey"
+  stepDescription      String? @db.Text // Full instructions (verbose for apprentice mode)
+  stepDescriptionShort String? // Condensed instructions (for experienced mode)
 
   // Evidence requirements
-  requiredEvidenceClasses  String   @db.Text // JSON array: ["MOISTURE_READING", "PHOTO_DAMAGE"]
-  optionalEvidenceClasses  String?  @db.Text // JSON array: ["THERMAL_IMAGE", "VIDEO_WALKTHROUGH"]
-  minimumEvidenceCount     Int      @default(1) // Minimum pieces of evidence to complete step
-  isMandatory              Boolean  @default(true) // If false, step can be skipped without exception
+  requiredEvidenceClasses String  @db.Text // JSON array: ["MOISTURE_READING", "PHOTO_DAMAGE"]
+  optionalEvidenceClasses String? @db.Text // JSON array: ["THERMAL_IMAGE", "VIDEO_WALKTHROUGH"]
+  minimumEvidenceCount    Int     @default(1) // Minimum pieces of evidence to complete step
+  isMandatory             Boolean @default(true) // If false, step can be skipped without exception
 
   // Risk escalation
-  riskTier         Int     @default(1) // 1=standard, 2=elevated, 3=critical (triggers extra evidence)
-  escalationNote   String? @db.Text    // Why this step has elevated risk
+  riskTier       Int     @default(1) // 1=standard, 2=elevated, 3=critical (triggers extra evidence)
+  escalationNote String? @db.Text // Why this step has elevated risk
 
   // Status
   status      WorkflowStepStatus @default(NOT_STARTED)
@@ -4334,10 +4338,10 @@ model ExceptionReason {
   evidenceItem   EvidenceItem @relation(fields: [evidenceItemId], references: [id], onDelete: Cascade)
 
   // Exception details
-  reasonCode    String    // ACCESS_DENIED, EQUIPMENT_UNAVAILABLE, SAFETY_HAZARD, CLIENT_REFUSED, OTHER
-  reasonText    String    @db.Text // Free-text explanation
-  approvedById  String?   // Admin who approved the exception (null = pending)
-  approvedAt    DateTime? // When exception was approved
+  reasonCode   String // ACCESS_DENIED, EQUIPMENT_UNAVAILABLE, SAFETY_HAZARD, CLIENT_REFUSED, OTHER
+  reasonText   String    @db.Text // Free-text explanation
+  approvedById String? // Admin who approved the exception (null = pending)
+  approvedAt   DateTime? // When exception was approved
 
   // Notification
   notifiedAdminAt DateTime? // When office was alerted about the exception
@@ -4377,20 +4381,20 @@ enum WorkspaceMemberStatus {
 
 // Workspace — top-level multi-tenant unit (one per business entity)
 model Workspace {
-  id   String          @id @default(cuid())
+  id   String @id @default(cuid())
   name String
-  slug String          @unique // URL-safe identifier e.g. "acme-restoration"
+  slug String @unique // URL-safe identifier e.g. "acme-restoration"
 
   // Ownership & billing
   ownerId              String
-  owner                User              @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
-  status               WorkspaceStatus   @default(PROVISIONING)
-  stripeCustomerId     String?           @unique
-  stripeSubscriptionId String?           @unique
+  owner                User            @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  status               WorkspaceStatus @default(PROVISIONING)
+  stripeCustomerId     String?         @unique
+  stripeSubscriptionId String?         @unique
 
   // Relations
-  members     WorkspaceMember[]
-  roles       WorkspaceRole[]
+  members WorkspaceMember[]
+  roles   WorkspaceRole[]
 
   // RA-413: scoped customer data
   clients       Client[]       @relation("ClientWorkspace")
@@ -4445,9 +4449,9 @@ model WorkspaceMember {
 // WorkspaceRole — named role within a workspace (or system-wide if workspaceId is null)
 model WorkspaceRole {
   id          String     @id @default(cuid())
-  workspaceId String?    // null = system role (Owner, Manager, Technician)
+  workspaceId String? // null = system role (Owner, Manager, Technician)
   workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  name        String     // e.g. "Owner", "Manager", "Technician", "Auditor"
+  name        String // e.g. "Owner", "Manager", "Technician", "Auditor"
   description String?
   isSystem    Boolean    @default(false) // System roles cannot be deleted
 
@@ -4468,7 +4472,7 @@ model Permission {
   id          String           @id @default(cuid())
   key         String           @unique // e.g. 'membership.invite', 'workspace.settings', 'reports.create'
   description String?
-  category    String           // e.g. 'membership', 'workspace', 'reporting', 'ai'
+  category    String // e.g. 'membership', 'workspace', 'reporting', 'ai'
   roles       RolePermission[]
 
   createdAt DateTime @default(now())
@@ -4544,24 +4548,24 @@ model MediaAsset {
   workspace    Workspace  @relation("WorkspaceMediaAssets", fields: [workspaceId], references: [id], onDelete: Cascade)
   inspectionId String
   inspection   Inspection @relation("InspectionMediaAssets", fields: [inspectionId], references: [id], onDelete: Cascade)
-  evidenceId   String?    // Links to EvidenceItem if uploaded through evidence flow
+  evidenceId   String? // Links to EvidenceItem if uploaded through evidence flow
 
   // File identity
   originalFilename String
-  mimeType         String  // e.g. "image/jpeg", "video/mp4", "image/heic"
-  fileSize         Int     // bytes
-  storagePath      String  // Path in Supabase Storage
+  mimeType         String // e.g. "image/jpeg", "video/mp4", "image/heic"
+  fileSize         Int // bytes
+  storagePath      String // Path in Supabase Storage
 
   // GPS
   latitude  Float?
   longitude Float?
   altitude  Float?
-  accuracy  Float?  // metres
+  accuracy  Float? // metres
 
   // Timestamps
   capturedAt DateTime? // From EXIF DateTimeOriginal
   uploadedAt DateTime  @default(now())
-  timezone   String?   // e.g. "Australia/Sydney"
+  timezone   String? // e.g. "Australia/Sydney"
 
   // Device
   deviceMake  String? // e.g. "Apple"
@@ -4572,14 +4576,14 @@ model MediaAsset {
   // Image dimensions
   width       Int?
   height      Int?
-  orientation Int?    // EXIF orientation tag (1-8)
+  orientation Int? // EXIF orientation tag (1-8)
   colorSpace  String?
   dpiX        Float?
   dpiY        Float?
 
   // Camera settings
-  focalLength  Float?  // mm
-  aperture     Float?  // f-number
+  focalLength  Float? // mm
+  aperture     Float? // f-number
   exposureTime String? // e.g. "1/125"
   iso          Int?
   flash        Boolean?
@@ -4596,7 +4600,7 @@ model MediaAsset {
 
   // RA-418: SEO/AEO structured data
   altText   String? // AI-generated SEO-optimised alt text
-  seoJsonLd Json?   // Cached schema.org/ImageObject JSON-LD
+  seoJsonLd Json? // Cached schema.org/ImageObject JSON-LD
 
   // RA-417: cataloging tags
   tags MediaAssetTag[] @relation("MediaAssetTags")
@@ -4659,18 +4663,18 @@ model ProviderConnection {
 // AiUsageLog — immutable per-call AI usage record (token tracking, cost, latency)
 // Separate from UsageEvent (billing metering) — this is the granular AI call log
 model AiUsageLog {
-  id          String     @id @default(cuid())
+  id          String    @id @default(cuid())
   workspaceId String
-  workspace   Workspace  @relation("WorkspaceAiUsageLogs", fields: [workspaceId], references: [id], onDelete: Cascade)
-  memberId    String?    // WorkspaceMember.id — null for system-initiated calls
+  workspace   Workspace @relation("WorkspaceAiUsageLogs", fields: [workspaceId], references: [id], onDelete: Cascade)
+  memberId    String? // WorkspaceMember.id — null for system-initiated calls
 
-  provider  AiProvider
-  model     String     // e.g. "claude-opus-4-5", "gpt-4o", "gemma-3-27b-it"
-  taskType  String     // AiTaskType from model-router.ts
+  provider AiProvider
+  model    String // e.g. "claude-opus-4-5", "gpt-4o", "gemma-3-27b-it"
+  taskType String // AiTaskType from model-router.ts
 
   // Token accounting
-  inputTokens     Int
-  outputTokens    Int
+  inputTokens      Int
+  outputTokens     Int
   estimatedCostUsd Float
 
   // Performance
@@ -4697,18 +4701,18 @@ model AiUsageLog {
 // replaces per-request Google Drive downloads.
 
 model IicrcChunk {
-  id          String   @id @default(cuid())
-  standard    String   // e.g. "S500", "S520", "S700"
-  edition     String   // e.g. "2025"
-  section     String   // e.g. "§7.1", "§12.3"
-  heading     String   // e.g. "Damage Classification Class 1"
-  content     String   @db.Text
-  contentHash String   @unique
+  id          String                       @id @default(cuid())
+  standard    String // e.g. "S500", "S520", "S700"
+  edition     String // e.g. "2025"
+  section     String // e.g. "§7.1", "§12.3"
+  heading     String // e.g. "Damage Classification Class 1"
+  content     String                       @db.Text
+  contentHash String                       @unique
   pageNumber  Int?
   embedding   Unsupported("vector(1536)")?
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([standard, edition])
   @@index([section])
@@ -4736,13 +4740,13 @@ model ClaimSketch {
 }
 
 model SketchAnnotation {
-  id        String     @id @default(cuid())
+  id        String      @id @default(cuid())
   sketchId  String
   sketch    ClaimSketch @relation(fields: [sketchId], references: [id], onDelete: Cascade)
   type      String
   data      Json
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
 
   @@index([sketchId])
 }
@@ -4864,24 +4868,24 @@ model DrNrpgIntegration {
 }
 
 model DrNrpgJobSync {
-  id              String            @id @default(cuid())
+  id              String             @id @default(cuid())
   integrationId   String
-  integration     DrNrpgIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
-  inspectionId    String?           @unique
-  inspection      Inspection?       @relation(fields: [inspectionId], references: [id], onDelete: SetNull)
-  drNrpgJobId     String            @unique
+  integration     DrNrpgIntegration  @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  inspectionId    String?            @unique
+  inspection      Inspection?        @relation(fields: [inspectionId], references: [id], onDelete: SetNull)
+  drNrpgJobId     String             @unique
   claimNumber     String
   insurer         String?
   policyHolder    String?
   propertyAddress String?
   lossType        String?
-  status          String            @default("dispatched")
-  lastEventAt     DateTime          @default(now())
+  status          String             @default("dispatched")
+  lastEventAt     DateTime           @default(now())
   lastEventType   String?
   syncErrors      Json?
   webhookLogs     DrNrpgWebhookLog[]
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
 
   @@index([integrationId])
   @@index([status])
@@ -4935,7 +4939,7 @@ model HistoricalJob {
   id            String    @id @default(cuid())
   tenantId      String
   user          User      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  source        String    // "ascora", "manual"
+  source        String // "ascora", "manual"
   externalId    String
   jobNumber     String
   jobName       String
@@ -4968,9 +4972,9 @@ model HistoricalJob {
 
 model BrandAmbassadorPost {
   id          String   @id @default(cuid())
-  projectKey  String   // e.g. "restore-assist", "disaster-recovery"
-  isoWeek     Int      // ISO week number 1–53
-  year        Int      // Calendar year
+  projectKey  String // e.g. "restore-assist", "disaster-recovery"
+  isoWeek     Int // ISO week number 1–53
+  year        Int // Calendar year
   deliveredAt DateTime @default(now())
   draft       String   @db.Text // The generated draft (audit trail)
 
@@ -4986,16 +4990,16 @@ model BrandAmbassadorPost {
 // Keyed by (invoiceId, provider) with a unique constraint for deduplication.
 
 model InvoiceSyncJob {
-  id         String @id @default(cuid())
-  invoiceId  String
-  provider   String // IntegrationProvider value stored as string
-  priority   String @default("NORMAL") // HIGH | NORMAL | LOW
-  status     String @default("PENDING") // PENDING | PROCESSING | COMPLETED | FAILED
-  retryCount Int    @default(0)
+  id           String  @id @default(cuid())
+  invoiceId    String
+  provider     String // IntegrationProvider value stored as string
+  priority     String  @default("NORMAL") // HIGH | NORMAL | LOW
+  status       String  @default("PENDING") // PENDING | PROCESSING | COMPLETED | FAILED
+  retryCount   Int     @default(0)
   errorMessage String? @db.Text
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   completedAt DateTime?
 
   @@unique([invoiceId, provider], name: "invoiceId_provider")
@@ -5009,20 +5013,20 @@ model InvoiceSyncJob {
 // AS/NZS 4849.1, AS/NZS 4360, NZBS E2/E3), tool calls, and user overrides.
 
 model LiveTeacherSession {
-  id                String   @id @default(cuid())
+  id                String             @id @default(cuid())
   inspectionId      String
-  inspection        Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  inspection        Inspection         @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
   userId            String
-  startedAt         DateTime @default(now())
+  startedAt         DateTime           @default(now())
   endedAt           DateTime?
-  modelUsedLocal    String?  // "gemma-3n-4b"
-  modelUsedCloud    String?  // "claude-opus-4-7"
-  totalInputTokens  Int      @default(0)
-  totalOutputTokens Int      @default(0)
-  totalCostAudCents Int      @default(0)
-  jurisdiction      String   // "AU" | "NZ"
-  deviceOs          String   // "ios" | "android" | "web"
-  hadLidar          Boolean  @default(false)
+  modelUsedLocal    String? // "gemma-3n-4b"
+  modelUsedCloud    String? // "claude-opus-4-7"
+  totalInputTokens  Int                @default(0)
+  totalOutputTokens Int                @default(0)
+  totalCostAudCents Int                @default(0)
+  jurisdiction      String // "AU" | "NZ"
+  deviceOs          String // "ios" | "android" | "web"
+  hadLidar          Boolean            @default(false)
   utterances        TeacherUtterance[]
   toolCalls         TeacherToolCall[]
 
@@ -5031,46 +5035,46 @@ model LiveTeacherSession {
 }
 
 model TeacherUtterance {
-  id             String   @id @default(cuid())
+  id             String             @id @default(cuid())
   sessionId      String
   session        LiveTeacherSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   turnIndex      Int
-  role           String   // "user" | "assistant" | "system"
+  role           String // "user" | "assistant" | "system"
   content        String
   clauseRefs     String[] // ["S500:2025 §10.5.4"]
-  confidence     Float?   // 0..1
-  userOverride   Boolean  @default(false)
+  confidence     Float? // 0..1
+  userOverride   Boolean            @default(false)
   overrideReason String?
-  ranOnDevice    Boolean  @default(false)
-  createdAt      DateTime @default(now())
+  ranOnDevice    Boolean            @default(false)
+  createdAt      DateTime           @default(now())
 
   @@index([sessionId, turnIndex])
 }
 
 model TeacherToolCall {
-  id           String   @id @default(cuid())
-  sessionId    String
-  session      LiveTeacherSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  utteranceId  String?
-  toolName     String
-  args         Json
-  result       Json?
-  error        String?
-  durationMs   Int?
-  createdAt    DateTime @default(now())
+  id          String             @id @default(cuid())
+  sessionId   String
+  session     LiveTeacherSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  utteranceId String?
+  toolName    String
+  args        Json
+  result      Json?
+  error       String?
+  durationMs  Int?
+  createdAt   DateTime           @default(now())
 
   @@index([sessionId])
   @@index([toolName])
 }
 
 model StandardsChunk {
-  id           String  @id @default(cuid())
-  standard     String  // "IICRC_S500" | "AS_NZS_4849_1" | "AS_NZS_4360" | "NZBS_E2" | "NZBS_E3"
+  id           String @id @default(cuid())
+  standard     String // "IICRC_S500" | "AS_NZS_4849_1" | "AS_NZS_4360" | "NZBS_E2" | "NZBS_E3"
   edition      String
   clause       String
   title        String
   text         String
-  jurisdiction String  // "AU" | "NZ" | "BOTH"
+  jurisdiction String // "AU" | "NZ" | "BOTH"
   // embedding vector(1536) — added via migration raw SQL (pgvector)
 
   @@unique([standard, edition, clause])
@@ -5083,17 +5087,17 @@ model StandardsChunk {
 // idempotency so the gate can flip completed=true without creating duplicates.
 
 model MakeSafeAction {
-  id                String   @id @default(cuid())
+  id                String     @id @default(cuid())
   inspectionId      String
   inspection        Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-  action            String   // "power_isolated" | "gas_isolated" | "mould_containment" | "water_stopped" | "occupant_briefing"
-  applicable        Boolean  @default(true)
-  completed         Boolean  @default(false)
+  action            String // "power_isolated" | "gas_isolated" | "mould_containment" | "water_stopped" | "occupant_briefing"
+  applicable        Boolean    @default(true)
+  completed         Boolean    @default(false)
   completedAt       DateTime?
   completedByUserId String?
-  notes             String?  // e.g. occupant briefing content
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  notes             String? // e.g. occupant briefing content
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
 
   @@unique([inspectionId, action])
   @@index([inspectionId])
@@ -5116,12 +5120,12 @@ model ScopeVariation {
   notes               String?
 
   // RA-1131: auto-decision fields (nullable — backfill-safe for existing rows)
-  autoDecision        String?    // "auto-approved" | "needs-adjuster" | "needs-insurer"
-  autoDecisionReason  String?
-  autoDecisionAt      DateTime?
+  autoDecision       String? // "auto-approved" | "needs-adjuster" | "needs-insurer"
+  autoDecisionReason String?
+  autoDecisionAt     DateTime?
 
-  createdAt           DateTime   @default(now())
-  updatedAt           DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([inspectionId, createdAt])
   @@index([status])
@@ -5129,14 +5133,167 @@ model ScopeVariation {
 
 // RA-1131: SWMS Draft — auto-generated Safe Work Method Statement per inspection
 model SwmsDraft {
-  id               String      @id @default(cuid())
-  inspectionId     String      @unique
-  inspection       Inspection  @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-  contentJson      String      @db.Text // Serialised SwmsDraft object from lib/swms/auto-generator.ts
-  signedAt         DateTime?
-  signedByUserId   String?
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
+  id             String     @id @default(cuid())
+  inspectionId   String     @unique
+  inspection     Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  contentJson    String     @db.Text // Serialised SwmsDraft object from lib/swms/auto-generator.ts
+  signedAt       DateTime?
+  signedByUserId String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 
   @@index([inspectionId])
+}
+
+// ─── RA-1381 (Board M-5): Progress Framework ──────────────────────────────────
+// Stage-gated claim lifecycle orchestrator. Sits above existing mini-state-
+// machines (Report.status, Inspection.status, Estimate.status, etc.) without
+// replacing them. Additive — no existing model columns change.
+//
+// Design ref: .claude/board-2026-04-18/05-software-architect.md §4
+// Contract ref: .claude/board-2026-04-18/00-board-minutes.md §5
+
+/// ClaimProgress — one row per claim job. Anchored to Report (the canonical
+/// claim entity). One-to-one. Current state is the authoritative claim state.
+model ClaimProgress {
+  id String @id @default(cuid())
+
+  // Canonical anchor — every ClaimProgress belongs to exactly one Report
+  reportId String @unique
+  report   Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  // Optional denormalised inspection link for guard queries without join
+  inspectionId String?     @unique
+  inspection   Inspection? @relation(fields: [inspectionId], references: [id], onDelete: SetNull)
+
+  // State machine
+  currentState  ClaimState  @default(INTAKE)
+  previousState ClaimState?
+
+  // Optimistic locking — incremented on every transition. Stale writes rejected.
+  version Int @default(0)
+
+  // Assigned actors (denormalised for fast permission checks; see permissions.ts)
+  primaryTechnicianId String?
+  primaryManagerId    String?
+  accountingUserId    String?
+  carrierContactEmail String?
+  legalUserId         String?
+
+  // Per-carrier variation threshold (Board M-6: default 20%, configurable)
+  carrierVariationThresholdPercent Int? // null → use system default of 20
+
+  // Metadata
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  closedAt  DateTime?
+
+  // Relations
+  transitions  ProgressTransition[]
+  attestations ProgressAttestation[]
+
+  @@index([currentState])
+  @@index([primaryManagerId])
+  @@index([primaryTechnicianId])
+  @@index([createdAt])
+}
+
+/// ProgressTransition — append-only event log. Every state change is a row.
+/// Never UPDATEd, never DELETEd — forms the immutable audit trail that
+/// survives subpoena (Legal Paper §4 chain-of-custody requirement).
+model ProgressTransition {
+  id              String        @id @default(cuid())
+  claimProgressId String
+  claimProgress   ClaimProgress @relation(fields: [claimProgressId], references: [id], onDelete: Cascade)
+
+  // Event semantics
+  transitionKey String // e.g. "start_stabilisation"
+  fromState     ClaimState
+  toState       ClaimState
+
+  // Actor — snapshot of identity at time of transition (user role can change;
+  // audit must remain immutable)
+  actorUserId String
+  actorRole   String
+  actorName   String
+  actorIp     String?
+
+  // Evidence snapshot — JSON of entityType+entityId pairs verified at guard
+  // time. Recreatable later from DB state, but snapshotted here for audit
+  // defence ("at the moment we advanced, these rows existed and satisfied").
+  guardSnapshot Json
+
+  // Integration receipts (fire-and-forget fan-out; stored for reconciliation)
+  integrationReceipts Json? // { xero?: "inv_xxx", docusign?: "env_xxx", ... }
+
+  // Tamper-evidence — hash of (claimProgressId + fromState + toState + actorUserId + transitionedAt).
+  // Computed at write time; verified on read for integrity checks.
+  integrityHash String
+
+  // DB-default timestamp — never caller-provided (prevents backdating)
+  transitionedAt DateTime @default(now())
+
+  // Attestations recorded for this specific transition
+  attestations ProgressAttestation[]
+
+  @@index([claimProgressId, transitionedAt])
+  @@index([actorUserId])
+  @@index([transitionKey])
+  @@index([transitionedAt])
+}
+
+/// ProgressAttestation — a named party's sign-off on a transition. Used for
+/// dual-sign (technician + manager countersign), carrier acceptance, and
+/// legal clearance. Immutable after creation.
+model ProgressAttestation {
+  id              String              @id @default(cuid())
+  claimProgressId String
+  claimProgress   ClaimProgress       @relation(fields: [claimProgressId], references: [id], onDelete: Cascade)
+  transitionId    String?
+  transition      ProgressTransition? @relation(fields: [transitionId], references: [id], onDelete: SetNull)
+
+  // Who attested (denormalised — name/email can change, attestation must not)
+  attestorUserId String
+  attestorRole   String
+  attestorName   String
+  attestorEmail  String
+
+  // What they attested to
+  attestationType String // "TECHNICIAN_SIGN_OFF" | "MANAGER_COUNTERSIGN" | "CARRIER_ACCEPT" | "LEGAL_CLEAR" | "CUSTOMER_SIGN_OFF" | "LABOUR_HIRE_SELF"
+  attestationNote String? @db.Text
+
+  // DocuSign reference (external) — retained for legacy DocuSign flows.
+  // In-house e-signature replacement (per Principal directive) will populate
+  // signatureDataUrl + integrityHash instead.
+  docusignEnvelopeId String?
+  docusignStatus     String? // "sent" | "completed" | "declined"
+
+  // In-house e-signature fields
+  signatureDataUrl String? @db.Text // Base64 drawn signature (SVG or PNG)
+  integrityHash    String // Hash of attestor identity + timestamp + claimProgressId
+
+  attestedAt DateTime @default(now())
+
+  @@index([claimProgressId])
+  @@index([transitionId])
+  @@index([attestorUserId])
+  @@index([attestationType])
+}
+
+enum ClaimState {
+  INTAKE
+  STABILISATION_ACTIVE
+  WHS_HOLD
+  STABILISATION_COMPLETE
+  SCOPE_DRAFT
+  SCOPE_APPROVED
+  DRYING_ACTIVE
+  VARIATION_REVIEW
+  DRYING_CERTIFIED
+  CLOSEOUT
+  INVOICE_ISSUED
+  INVOICE_PAID
+  DISPUTED
+  CLOSED
+  WITHDRAWN
 }
