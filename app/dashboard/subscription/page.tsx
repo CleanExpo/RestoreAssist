@@ -39,6 +39,12 @@ export default function SubscriptionPage() {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
   const [canceling, setCanceling] = useState(false);
+  // RA-1252: status-aware hero copy when there's no Stripe subscription
+  const [userStatus, setUserStatus] = useState<{
+    subscriptionStatus?: string;
+    creditsRemaining?: number;
+    trialEndsAt?: string | null;
+  } | null>(null);
   const [openingPortal, setOpeningPortal] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [reactivating, setReactivating] = useState(false);
@@ -48,6 +54,19 @@ export default function SubscriptionPage() {
 
   useEffect(() => {
     fetchSubscription();
+    // RA-1252: load user status for status-specific copy when Stripe sub is null
+    fetch("/api/user/profile")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.profile) {
+          setUserStatus({
+            subscriptionStatus: data.profile.subscriptionStatus,
+            creditsRemaining: data.profile.creditsRemaining,
+            trialEndsAt: data.profile.trialEndsAt,
+          });
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const fetchSubscription = async (forceRefresh = false) => {
@@ -311,12 +330,30 @@ export default function SubscriptionPage() {
                 </div>
 
                 {subscription.cancelAtPeriodEnd && (
-                  <div className="flex items-center gap-2 text-sm text-yellow-400">
-                    <AlertCircle className="w-4 h-4" />
-                    <span>
-                      Subscription will cancel at the end of the current period
-                    </span>
-                  </div>
+                  <>
+                    <div className="flex items-center gap-2 text-sm text-yellow-400">
+                      <AlertCircle className="w-4 h-4" />
+                      <span>
+                        Subscription will cancel at the end of the current
+                        period. You keep full access until{" "}
+                        {formatDate(subscription.currentPeriodEnd)}.
+                      </span>
+                    </div>
+                    {/* RA-1250: surface data export before lock-out */}
+                    <div className="flex items-center gap-2 text-sm text-slate-400">
+                      <Download className="w-4 h-4" />
+                      <a
+                        href="/api/user/export"
+                        className="underline hover:text-cyan-300"
+                        download
+                      >
+                        Export your data
+                      </a>
+                      <span>
+                        — we retain canceled-account data for 90 days.
+                      </span>
+                    </div>
+                  </>
                 )}
               </div>
             </div>
@@ -403,19 +440,61 @@ export default function SubscriptionPage() {
         </div>
       ) : (
         <div className="space-y-8">
-          {/* No Subscription Header */}
-          <div className="text-center py-8">
-            <div className="w-16 h-16 bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
-              <CreditCard className="w-8 h-8 text-slate-400" />
-            </div>
-            <h2 className="text-2xl font-semibold text-white mb-2">
-              No Active Subscription
-            </h2>
-            <p className="text-slate-400">
-              You're currently on the free trial. Choose a plan below to unlock
-              all features.
-            </p>
-          </div>
+          {/* RA-1252: status-specific hero copy instead of hard-coded "free trial" */}
+          {(() => {
+            const status = userStatus?.subscriptionStatus;
+            const creditsLine =
+              typeof userStatus?.creditsRemaining === "number"
+                ? ` · ${userStatus.creditsRemaining} credits remaining`
+                : "";
+            const trialDaysLeft = userStatus?.trialEndsAt
+              ? Math.max(
+                  0,
+                  Math.ceil(
+                    (new Date(userStatus.trialEndsAt).getTime() - Date.now()) /
+                      (1000 * 60 * 60 * 24),
+                  ),
+                )
+              : null;
+
+            let title = "No Active Subscription";
+            let body = "Choose a plan below to unlock all features.";
+
+            if (status === "TRIAL") {
+              title =
+                trialDaysLeft !== null && trialDaysLeft > 0
+                  ? `${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left on your trial`
+                  : "Your trial has ended";
+              body =
+                trialDaysLeft && trialDaysLeft > 0
+                  ? `Pick a plan to keep your data and AI features when the trial ends${creditsLine}.`
+                  : `Upgrade now to restore access${creditsLine}.`;
+            } else if (status === "EXPIRED") {
+              title = "Subscription expired";
+              body =
+                "Upgrade to restore AI features. Your data is preserved for 90 days after expiry — export below if needed.";
+            } else if (status === "CANCELED") {
+              title = "Welcome back";
+              body =
+                "Your previous subscription was cancelled. Pick up where you left off by choosing a plan below.";
+            } else if (status === "PAST_DUE") {
+              title = "Payment failed";
+              body =
+                "Your last charge didn't go through. Update your payment method below to restore access.";
+            }
+
+            return (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CreditCard className="w-8 h-8 text-slate-400" />
+                </div>
+                <h2 className="text-2xl font-semibold text-white mb-2">
+                  {title}
+                </h2>
+                <p className="text-slate-400">{body}</p>
+              </div>
+            );
+          })()}
 
           {/* Pricing Cards */}
           <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
