@@ -290,5 +290,107 @@ When in doubt: over-communicate in the coordination log. A 10-line note costs no
 
 ---
 
-**Version:** 1.0 · 2026-04-18 · Authored by Senior Orchestrator (PC1) on RestoreAssist sandbox branch
+## 14. Pulling peer work safely (start-of-turn ritual)
+
+Added after the M-6 `base=main` incident on 2026-04-18. Every swarm, every turn.
+
+### 14.1 Before you start any work
+
+```bash
+git fetch --all --prune                              # fetch ALL branches, not just sandbox
+git log origin/sandbox --oneline -10                  # see peer work on sandbox
+git log origin/main --not origin/sandbox --oneline    # catch PRs that landed on main by mistake
+```
+
+Then check Linear for active `[CLAIM]` comments. **Linear is authoritative; git is evidence.**
+
+### 14.2 Creating your working branch
+
+Always branch from the **freshest** `origin/sandbox`, never from a stale local `sandbox`:
+
+```bash
+git checkout -b <SWARM_ID>/feat/ra-NNNN-description origin/sandbox
+```
+
+### 14.3 If sandbox moves while you work (mid-turn rebase)
+
+This WILL happen when a peer merges before you. Safe cycle:
+
+```bash
+git stash push -u -m "wip"
+git fetch origin sandbox
+git rebase origin/sandbox
+# On conflict:
+#   - resolve manually → git add <files> → git rebase --continue
+#   - OR if your incoming commit should win on a coord file:
+#       git checkout --theirs <path>     # --theirs = your INCOMING commit during rebase
+#       git add <path>
+#       git rebase --continue
+git stash pop
+git push --force-with-lease              # NEVER plain --force
+```
+
+`--force-with-lease` refuses to clobber if a peer pushed to your branch in the gap; plain `--force` will overwrite their work silently.
+
+### 14.4 Pulling a peer's open PR for local test
+
+```bash
+gh pr checkout NNN                 # checks out the PR branch locally
+# ...test / review...
+git checkout <your-branch>          # return to your work
+
+# or cherry-pick a specific commit
+git fetch origin <peer-branch>
+git cherry-pick <sha>
+```
+
+### 14.5 When a peer PR landed on the wrong base (e.g. main instead of sandbox)
+
+Reconciliation pattern — exactly what PR #326 did for M-6:
+
+```bash
+git fetch origin main
+git checkout -b coord/backport-<thing> origin/sandbox
+git cherry-pick <sha-from-main>
+pnpm type-check && npx vitest run <relevant-dir>
+gh pr create --base sandbox --title "coord: backport ..." --body "Reconciles main→sandbox after a base=main PR"
+```
+
+### 14.6 The four prevention rules (tape above your monitor)
+
+| Rule                                                | Why                                              |
+| --------------------------------------------------- | ------------------------------------------------ |
+| `git fetch --all --prune` at the top of every turn  | Catches peer work on any branch                  |
+| Always `gh pr create --base sandbox` explicitly     | Stops the `base=main` default from biting        |
+| Always `git push --force-with-lease`                | Protects peer work if they pushed to your branch |
+| Always `git stash push -u` before `git checkout -b` | Avoids "unstaged changes block checkout"         |
+
+### 14.7 Emergency recovery (if git is wedged)
+
+```bash
+git rebase --abort                  # or --skip / --continue
+git merge --abort
+git cherry-pick --abort
+
+git reflog | head -20               # every HEAD move logged for 90 days
+git reset --hard <sha-from-reflog>  # time-travel
+
+git stash list
+git stash show -p stash@{N}
+git stash pop stash@{N}
+```
+
+Never `git reset --hard origin/sandbox` without reading what it discards first.
+
+### 14.8 The one thing NOT to do
+
+**Never `git pull` without `--rebase`.** Plain `git pull` creates merge commits that pollute history and confuse the swarm log. One-time per machine:
+
+```bash
+git config --global pull.rebase true
+```
+
+---
+
+**Version:** 1.1 · 2026-04-18 · §14 added by PC1 after the M-6 `base=main` incident
 **Amendments:** require both operators' acknowledgement in `coordination.md`
