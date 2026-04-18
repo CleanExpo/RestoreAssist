@@ -33,11 +33,23 @@ export async function POST(request: NextRequest) {
     }
     const name = sanitizeString(body.name, 200);
     const email = sanitizeString(body.email, 320);
-    const { password } = body;
+    const { password, acceptedTerms } = body;
 
     if (!name || !email || !password) {
       return NextResponse.json(
         { error: "Name, email, and password are required" },
+        { status: 400 },
+      );
+    }
+
+    // RA-1255: ToS + Privacy acceptance mandatory for new email signups.
+    // Server-side re-check — don't trust just the client-side guard.
+    if (acceptedTerms !== true) {
+      return NextResponse.json(
+        {
+          error:
+            "You must accept the Terms of Service and Privacy Policy to create an account",
+        },
         { status: 400 },
       );
     }
@@ -86,7 +98,9 @@ export async function POST(request: NextRequest) {
           trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           quickFillCreditsRemaining: 30,
           totalQuickFillUsed: 0,
-        },
+          // RA-1255: cast needed until Prisma client regenerates in Vercel build
+          acceptedTermsAt: new Date() as any,
+        } as any,
       });
       sendWelcomeEmail({
         recipientEmail: email,
@@ -179,7 +193,9 @@ export async function POST(request: NextRequest) {
           trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           quickFillCreditsRemaining: 30,
           totalQuickFillUsed: 0,
-        },
+          // RA-1255: cast needed until Prisma client regenerates in Vercel build
+          acceptedTermsAt: new Date() as any,
+        } as any,
       });
       sendWelcomeEmail({
         recipientEmail: email,
