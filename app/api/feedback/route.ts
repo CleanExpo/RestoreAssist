@@ -9,48 +9,63 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { withIdempotency } from "@/lib/idempotency";
 
 export async function POST(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const rateLimited = await applyRateLimit(request, {
-      maxRequests: 10,
-      prefix: "feedback-submit",
-      key: session.user.id,
-    });
-    if (rateLimited) return rateLimited;
-
-    const body = await request.json();
-    const { rating, whatDoing, whatHappened, page } = body;
-
-    const feedback = await prisma.feedback.create({
-      data: {
-        userId: session.user.id,
-        rating:
-          typeof rating === "number" && rating >= 1 && rating <= 5
-            ? rating
-            : null,
-        whatDoing:
-          typeof whatDoing === "string" ? whatDoing.slice(0, 2000) : null,
-        whatHappened:
-          typeof whatHappened === "string" ? whatHappened.slice(0, 5000) : null,
-        page: typeof page === "string" ? page.slice(0, 500) : null,
-      },
-    });
-
-    return NextResponse.json({ id: feedback.id, success: true });
-  } catch (error: unknown) {
-    // RA-786: do not leak error.message to clients
-    console.error("Feedback POST error:", error);
-    return NextResponse.json(
-      { error: "Failed to submit feedback" },
-      { status: 500 },
-    );
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const userId = session.user.id;
+
+  const rateLimited = await applyRateLimit(request, {
+    maxRequests: 10,
+    prefix: "feedback-submit",
+    key: userId,
+  });
+  if (rateLimited) return rateLimited;
+
+  // RA-1266: stop duplicate feedback rows when the client retries.
+  return withIdempotency(request, userId, async (rawBody) => {
+    try {
+      let body: any;
+      try {
+        body = rawBody ? JSON.parse(rawBody) : {};
+      } catch {
+        return NextResponse.json(
+          { error: "Invalid JSON body" },
+          { status: 400 },
+        );
+      }
+      const { rating, whatDoing, whatHappened, page } = body;
+
+      const feedback = await prisma.feedback.create({
+        data: {
+          userId,
+          rating:
+            typeof rating === "number" && rating >= 1 && rating <= 5
+              ? rating
+              : null,
+          whatDoing:
+            typeof whatDoing === "string" ? whatDoing.slice(0, 2000) : null,
+          whatHappened:
+            typeof whatHappened === "string"
+              ? whatHappened.slice(0, 5000)
+              : null,
+          page: typeof page === "string" ? page.slice(0, 500) : null,
+        },
+      });
+
+      return NextResponse.json({ id: feedback.id, success: true });
+    } catch (error: unknown) {
+      // RA-786: do not leak error.message to clients
+      console.error("Feedback POST error:", error);
+      return NextResponse.json(
+        { error: "Failed to submit feedback" },
+        { status: 500 },
+      );
+    }
+  });
 }
 
 export async function GET(request: NextRequest) {
