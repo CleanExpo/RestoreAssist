@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { applyRateLimit } from "@/lib/rate-limiter";
+import { applyRateLimit, getClientIp } from "@/lib/rate-limiter";
 import { generateResetCode, storeResetCode } from "@/lib/password-reset-store";
 import { sendPasswordResetEmail } from "@/lib/email";
 import { sanitizeString } from "@/lib/sanitize";
 import { validateCsrf } from "@/lib/csrf";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
+import { verifyTurnstile } from "@/lib/turnstile";
 
 // POST - Send password reset verification code
 export async function POST(request: NextRequest) {
@@ -23,9 +24,17 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const email = sanitizeString(body.email, 320).toLowerCase();
+    const turnstileToken =
+      typeof body.turnstileToken === "string" ? body.turnstileToken : null;
 
     if (!email) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
+    }
+
+    // RA-1286: CAPTCHA gate. Soft-allow when TURNSTILE_SECRET_KEY unset.
+    const captcha = await verifyTurnstile(turnstileToken, getClientIp(request));
+    if (!captcha.ok) {
+      return NextResponse.json({ error: captcha.reason }, { status: 400 });
     }
 
     // RA-1341: also rate-limit per target email so IP rotation (residential
