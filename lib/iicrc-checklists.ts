@@ -220,47 +220,99 @@ export const IICRC_CHECKLISTS: ChecklistTemplate[] = [
     ],
   },
   {
-    id: "fire-smoke",
-    name: "Fire & Smoke",
+    id: "fire-smoke-s700",
+    name: "Fire & Smoke — IICRC S700",
     category: "fire",
     description:
-      "Fire and smoke damage remediation per IICRC S700. Includes structural cleaning and odour control.",
+      "Fire and smoke damage remediation per IICRC S700:2015. Covers structural cleaning, odour control, contents, and air quality.",
     items: [
       {
-        itemType: "assess_char_damage",
-        description: "Assess and document structural char damage",
-        quantity: 1,
-        unit: "job",
-        justification: "IICRC S700:2015 §6 — Fire damage assessment",
-      },
-      {
-        itemType: "dry_ice_blast",
-        description: "Dry ice blast or HEPA vacuum char residue from structure",
-        quantity: null,
-        unit: "sqm",
-        justification: "IICRC S700:2015 §7.2 — Char cleaning",
-      },
-      {
-        itemType: "ozone_treatment",
-        description: "Ozone treatment for smoke odour elimination (unoccupied)",
-        quantity: 1,
-        unit: "job",
-        justification: "IICRC S700:2015 §8 — Odour control",
-      },
-      {
-        itemType: "content_pack_out",
-        description: "Pack out and inventory all salvageable contents",
-        quantity: 1,
-        unit: "job",
-        justification: "IICRC S700:2015 §5 — Content management",
-      },
-      {
-        itemType: "soda_blast",
+        itemType: "hepa_vacuum_surfaces",
         description:
-          "Soda blast or chemical sponge wipe all smoke-affected surfaces",
+          "HEPA vacuum all smoke-affected surfaces to remove dry soot and particulate",
         quantity: null,
-        unit: "sqm",
-        justification: "IICRC S700:2015 §7.3 — Surface cleaning",
+        unit: "m²",
+        justification: "IICRC S700:2015 §6.2 — Dry soil removal",
+      },
+      {
+        itemType: "soot_removal",
+        description:
+          "Soot removal via dry ice blasting (heavy smoke) or chemical sponge wipe (light/medium)",
+        quantity: null,
+        unit: "m²",
+        justification: "IICRC S700:2015 §6.1 — Soot and char residue removal",
+      },
+      {
+        itemType: "smoke_odour_treatment",
+        description:
+          "Smoke odour treatment — ozone generation or hydroxyl unit (unoccupied structure)",
+        quantity: null,
+        unit: "m²",
+        justification:
+          "IICRC S700:2015 §6.3 — Smoke odour elimination. Ozone treatment requires unoccupied premises.",
+      },
+      {
+        itemType: "encapsulation_smoke_surfaces",
+        description:
+          "Encapsulate smoke-affected surfaces to seal residual soot and odour (medium/heavy smoke)",
+        quantity: null,
+        unit: "m²",
+        justification:
+          "IICRC S700:2015 §6.4 — Encapsulation of smoke-affected structural surfaces",
+      },
+      {
+        itemType: "thermal_fogging",
+        description:
+          "Thermal fogging of structural cavities to neutralise embedded smoke odour (medium/heavy smoke)",
+        quantity: null,
+        unit: "m²",
+        justification:
+          "IICRC S700:2015 §7.2 — Thermal fogging for odour neutralisation",
+      },
+      {
+        itemType: "gross_debris_removal",
+        description:
+          "Remove gross debris and fire-damaged materials prior to cleaning",
+        quantity: null,
+        unit: "m²",
+        justification:
+          "IICRC S700:2015 §5.2 — Pre-cleaning gross debris removal",
+      },
+      {
+        itemType: "contents_pack_out",
+        description:
+          "Itemised contents inventory and pack-out of salvageable items",
+        quantity: 1,
+        unit: "job",
+        justification:
+          "IICRC S760:2015 §4.1 — Contents inventory and pack-out protocol",
+      },
+      {
+        itemType: "ozone_chamber_treatment",
+        description:
+          "Ozone chamber treatment for salvageable contents to eliminate embedded smoke odour",
+        quantity: 1,
+        unit: "job",
+        justification:
+          "IICRC S700:2015 §8.1 — Ozone chamber treatment for salvageable contents",
+      },
+      {
+        itemType: "afd_deployment",
+        description:
+          "Deploy air filtration devices (AFD) during remediation to capture airborne particulate",
+        quantity: null,
+        unit: "days",
+        justification:
+          "IICRC S700:2015 §9.1 — Air filtration device deployment during remediation",
+      },
+      {
+        itemType: "clearance_air_quality_test",
+        description:
+          "Independent clearance air quality test post-remediation (subcontractor pass-through)",
+        quantity: 1,
+        unit: "test",
+        justification:
+          "IICRC S700:2015 §10.2 — Post-remediation clearance air quality testing",
       },
     ],
   },
