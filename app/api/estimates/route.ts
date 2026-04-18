@@ -45,6 +45,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Tenancy check — the report must belong to the caller (RA-1362)
+    const report = await prisma.report.findFirst({
+      where: { id: reportId, userId: session.user.id },
+      select: { id: true },
+    });
+    if (!report) {
+      return NextResponse.json({ error: "Report not found" }, { status: 404 });
+    }
+
     // Verify prisma.estimate exists
     if (!prisma || typeof prisma.estimate === "undefined") {
       console.error(
