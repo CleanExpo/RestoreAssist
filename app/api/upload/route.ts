@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { uploadToCloudinary } from "@/lib/cloudinary";
+import { applyRateLimit } from "@/lib/rate-limiter";
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,6 +11,18 @@ export async function POST(request: NextRequest) {
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // RA-1316: upload endpoint was uncapped. A compromised session could
+    // drive arbitrary Cloudinary spend. 60 uploads / 15 min / user is
+    // generous for real field-tech photo batching (dozens per inspection)
+    // while bounding blast radius on abuse.
+    const rateLimited = await applyRateLimit(request, {
+      windowMs: 15 * 60 * 1000,
+      maxRequests: 60,
+      prefix: "upload",
+      key: session.user.id,
+    });
+    if (rateLimited) return rateLimited;
 
     const formData = await request.formData();
     const file = formData.get("file") as File;
