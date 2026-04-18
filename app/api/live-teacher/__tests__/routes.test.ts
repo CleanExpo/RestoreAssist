@@ -44,9 +44,16 @@ const mockUtteranceCount = vi.fn();
 const mockUtteranceFindMany = vi.fn();
 const mockToolCallFindMany = vi.fn();
 const mockInspectionFindFirst = vi.fn();
+const mockUserFindUnique = vi.fn().mockResolvedValue({
+  subscriptionStatus: "ACTIVE",
+  lifetimeAccess: false,
+});
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    user: {
+      findUnique: (...args: unknown[]) => mockUserFindUnique(...args),
+    },
     inspection: {
       findFirst: (...args: unknown[]) => mockInspectionFindFirst(...args),
     },

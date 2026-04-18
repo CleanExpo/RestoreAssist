@@ -995,7 +995,12 @@ export default function ClientsPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">
+                <label
+                  className={cn(
+                    "block text-sm font-medium mb-2",
+                    "text-neutral-700 dark:text-slate-300",
+                  )}
+                >
                   Address
                 </label>
                 <input
@@ -1005,11 +1010,24 @@ export default function ClientsPage() {
                     setFormData({ ...formData, address: e.target.value })
                   }
                   placeholder="Enter address"
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className={cn(
+                    "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
+                    "bg-white dark:bg-slate-700/50",
+                    "border-neutral-300 dark:border-slate-600",
+                    "text-neutral-900 dark:text-white",
+                    "placeholder-neutral-500 dark:placeholder-slate-500",
+                  )}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Notes</label>
+                <label
+                  className={cn(
+                    "block text-sm font-medium mb-2",
+                    "text-neutral-700 dark:text-slate-300",
+                  )}
+                >
+                  Notes
+                </label>
                 <textarea
                   value={formData.notes}
                   onChange={(e) =>
@@ -1146,7 +1164,12 @@ export default function ClientsPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">
+                <label
+                  className={cn(
+                    "block text-sm font-medium mb-2",
+                    "text-neutral-700 dark:text-slate-300",
+                  )}
+                >
                   Address
                 </label>
                 <input
@@ -1156,11 +1179,24 @@ export default function ClientsPage() {
                     setFormData({ ...formData, address: e.target.value })
                   }
                   placeholder="Enter address"
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className={cn(
+                    "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
+                    "bg-white dark:bg-slate-700/50",
+                    "border-neutral-300 dark:border-slate-600",
+                    "text-neutral-900 dark:text-white",
+                    "placeholder-neutral-500 dark:placeholder-slate-500",
+                  )}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Notes</label>
+                <label
+                  className={cn(
+                    "block text-sm font-medium mb-2",
+                    "text-neutral-700 dark:text-slate-300",
+                  )}
+                >
+                  Notes
+                </label>
                 <textarea
                   value={formData.notes}
                   onChange={(e) =>

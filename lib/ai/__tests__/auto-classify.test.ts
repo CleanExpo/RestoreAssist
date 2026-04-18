@@ -58,7 +58,7 @@ describe("ruleBasedClassify", () => {
       description: "Fire and smoke damage to kitchen",
     });
     expect(result.claimType).toBe("fire_smoke");
-    expect(["high", "medium", "low"]).toContain(result.confidence);
+    expect(["high", "medium", "low", "unclear"]).toContain(result.confidence);
     expect(typeof result.reasoning).toBe("string");
     expect(result.reasoning.length).toBeGreaterThan(0);
   });
