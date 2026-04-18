@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { embedText, findSimilarJobs } from "@/lib/ai/embeddings";
 
 export interface SimilarJob {
   id: string;
@@ -124,31 +125,22 @@ export async function retrieveSimilarJobs(options: {
 }): Promise<RAGContext> {
   const { tenantId, claimType, limit = 5 } = options;
 
-  // buildQueryText is used for future pgvector embedding path
-  void buildQueryText(options);
-
   let similar: SimilarJob[] = [];
 
   // Try pgvector similarity search if vectors exist
   try {
-    const vectorResult = await prisma.$queryRawUnsafe<SimilarJob[]>(
-      `
-      SELECT id, "claimType", "waterCategory", "waterClass",
-             suburb, state, description, "jobName",
-             "totalExTax", "itemCount", "equipmentCount",
-             0.5 AS distance
-      FROM "HistoricalJob"
-      WHERE "tenantId" = $1
-        AND "claimType" = $2
-        AND "embeddedAt" IS NOT NULL
-      ORDER BY "completedDate" DESC NULLS LAST
-      LIMIT $3
-    `,
+    const queryText = buildQueryText(options);
+    const provider = (
+      process.env.OPENAI_API_KEY ? "openai" : "hash-fallback"
+    ) as "openai" | "hash-fallback";
+    const apiKey = process.env.OPENAI_API_KEY ?? "";
+    const queryVector = await embedText(queryText, provider, apiKey);
+    similar = await findSimilarJobs({
+      queryVector,
       tenantId,
       claimType,
       limit,
-    );
-    similar = vectorResult;
+    });
   } catch {
     // pgvector not ready — try text fallback
     similar = await retrieveSimilarJobsTextFallback({
