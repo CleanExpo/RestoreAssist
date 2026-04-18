@@ -6,30 +6,17 @@
     "orientation": "portrait",
     "scheme": "restoreassist",
     "userInterfaceStyle": "dark",
-<<<<<<< HEAD
-=======
     "icon": "./assets/icon.png",
     "splash": {
       "image": "./assets/splash.png",
       "backgroundColor": "#050505"
     },
->>>>>>> feat/ra-384-mobile-scaffold
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.restoreassist.app"
     },
     "android": {
       "adaptiveIcon": {
-<<<<<<< HEAD
-        "backgroundColor": "#050505"
-      },
-      "package": "com.restoreassist.app"
-    },
-    "plugins": [
-      "expo-router",
-      "expo-sqlite"
-    ]
-=======
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#050505"
       },
@@ -52,6 +39,5 @@
       }
     },
     "owner": "phill_mcgurk"
->>>>>>> feat/ra-384-mobile-scaffold
   }
 }
