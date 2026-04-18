@@ -13,6 +13,9 @@ vi.mock("@/lib/prisma", () => ({
     scopeItem: {
       create: vi.fn(),
     },
+    wHSIncident: {
+      create: vi.fn(),
+    },
     inspection: {
       findUnique: vi.fn(),
     },
@@ -31,6 +34,7 @@ const mockPrisma = prisma as {
   moistureReading: { create: ReturnType<typeof vi.fn> };
   inspectionPhoto: { create: ReturnType<typeof vi.fn> };
   scopeItem: { create: ReturnType<typeof vi.fn> };
+  wHSIncident: { create: ReturnType<typeof vi.fn> };
   inspection: { findUnique: ReturnType<typeof vi.fn> };
 };
 
@@ -127,7 +131,7 @@ describe("fillScopeItem", () => {
       description: "Remove and dispose of water-damaged carpet",
       quantity: 25,
       unit: "sqm",
-      justification: "S500:2025 §7.1",
+      clauseRef: "S500:2025 §7.1",
     });
 
     const result = await fillScopeItem({
@@ -148,19 +152,28 @@ describe("fillScopeItem", () => {
 // ─── 5. flagWhsHazard ────────────────────────────────────────────────────────
 
 describe("flagWhsHazard", () => {
-  it("returns queued status with validated hazard payload (WHSIncident model pending migration)", async () => {
+  it("persists a WHSIncident and returns the created incident summary", async () => {
+    const createdAt = new Date("2026-04-18T00:00:00Z");
+    mockPrisma.wHSIncident.create.mockResolvedValue({
+      id: "whs-1",
+      incidentType: "asbestos",
+      severity: "CRITICAL",
+      createdAt,
+    });
+
     const result = await flagWhsHazard({
       inspectionId: "insp-1",
       hazardType: "asbestos",
-      severity: "critical",
+      severity: "CRITICAL",
       controls: ["stop-work", "notify-regulator", "barrier-tape"],
       source: "teacher_proactive",
     });
 
-    expect(result.status).toBe("queued");
-    expect(result.hazard.hazardType).toBe("asbestos");
-    expect(result.hazard.severity).toBe("critical");
-    expect(result.hazard.controls).toContain("stop-work");
+    expect(mockPrisma.wHSIncident.create).toHaveBeenCalledOnce();
+    expect(result.id).toBe("whs-1");
+    expect(result.incidentType).toBe("asbestos");
+    expect(result.severity).toBe("CRITICAL");
+    expect(result.createdAt).toEqual(createdAt);
   });
 });
 
