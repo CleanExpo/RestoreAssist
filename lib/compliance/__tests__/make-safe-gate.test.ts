@@ -35,11 +35,7 @@ import { checkMakeSafeGate } from "../make-safe-gate";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function makeRow(
-  action: string,
-  applicable: boolean,
-  completed: boolean,
-) {
+function makeRow(action: string, applicable: boolean, completed: boolean) {
   return { action, applicable, completed };
 }
 
@@ -72,9 +68,9 @@ describe("checkMakeSafeGate", () => {
   it("returns blockers for incomplete applicable items", async () => {
     mockFindMany.mockResolvedValueOnce([
       makeRow("power_isolated", true, true),
-      makeRow("gas_isolated", true, false),    // <-- blocker
+      makeRow("gas_isolated", true, false), // <-- blocker
       makeRow("mould_containment", true, true),
-      makeRow("water_stopped", true, false),   // <-- blocker
+      makeRow("water_stopped", true, false), // <-- blocker
       makeRow("occupant_briefing", true, true),
     ]);
 
@@ -89,8 +85,8 @@ describe("checkMakeSafeGate", () => {
   it("does not block on N/A (applicable=false) items even if incomplete", async () => {
     mockFindMany.mockResolvedValueOnce([
       makeRow("power_isolated", true, true),
-      makeRow("gas_isolated", false, false),       // N/A — must not block
-      makeRow("mould_containment", false, false),  // N/A — must not block
+      makeRow("gas_isolated", false, false), // N/A — must not block
+      makeRow("mould_containment", false, false), // N/A — must not block
       makeRow("water_stopped", true, true),
       makeRow("occupant_briefing", true, true),
     ]);

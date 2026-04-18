@@ -5,22 +5,25 @@
 
 ## Current Session (2026-04-14) — Track 3
 
-| Issue  | Fix | Status |
-| ------ | --- | ------ |
-| RA-910 | `sync-invoices/route.ts` — replaced inline string comparison with `verifyCronAuth` (timing-safe) | Done |
-| RA-922 | `authority-forms/templates/route.ts` — added `getServerSession` auth check | Done |
-| RA-919 | `reports/[id]/pdf/route.ts` — added `applyRateLimit` (10 req / 5 min) | Done |
-| RA-912 | `webhooks/github/route.ts` — create AppRelease immediately, fire-and-forget AI notes + notifications | Done |
-| RA-911 | `lib/cron/brand-ambassador.ts` — created file with idempotency guard via `BrandAmbassadorPost` Prisma model | Done |
-| RA-902 | `lib/integrations/sync-queue.ts` — replaced in-memory array with `InvoiceSyncJob` Prisma-backed queue | Done |
-| RA-914 | `lib/hooks/useFetch.ts` — created; migrated 4 priority dashboard pages | Done |
+| Issue  | Fix                                                                                                         | Status |
+| ------ | ----------------------------------------------------------------------------------------------------------- | ------ |
+| RA-910 | `sync-invoices/route.ts` — replaced inline string comparison with `verifyCronAuth` (timing-safe)            | Done   |
+| RA-922 | `authority-forms/templates/route.ts` — added `getServerSession` auth check                                  | Done   |
+| RA-919 | `reports/[id]/pdf/route.ts` — added `applyRateLimit` (10 req / 5 min)                                       | Done   |
+| RA-912 | `webhooks/github/route.ts` — create AppRelease immediately, fire-and-forget AI notes + notifications        | Done   |
+| RA-911 | `lib/cron/brand-ambassador.ts` — created file with idempotency guard via `BrandAmbassadorPost` Prisma model | Done   |
+| RA-902 | `lib/integrations/sync-queue.ts` — replaced in-memory array with `InvoiceSyncJob` Prisma-backed queue       | Done   |
+| RA-914 | `lib/hooks/useFetch.ts` — created; migrated 4 priority dashboard pages                                      | Done   |
 
 ### Schema changes (migration required)
+
 Two new models added to `prisma/schema.prisma`:
+
 - `BrandAmbassadorPost` — idempotency dedup for weekly Telegram delivery
 - `InvoiceSyncJob` — durable invoice sync queue (replaces in-memory array)
 
 **After merging, run:**
+
 ```
 npx prisma migrate dev --name track3_brand_ambassador_invoice_sync_queue
 pnpm prisma:generate
@@ -28,6 +31,7 @@ pnpm type-check
 ```
 
 ### Git state
+
 - **Branch:** `sandbox`
 - **PR:** #180 (sandbox → main, open)
 - All Track 3 changes committed in this session
@@ -641,6 +645,7 @@ Audited production: `restoreassist-okzjr4l3g-unite-group.vercel.app` (latest Pro
 ## 2026-04-13 17:44 — Session End
 
 ## 2026-04-13 17:46 — Session End
+
 ## 2026-04-16 23:18 — Session End
 
 ## 2026-04-17 14:41 — Session End
@@ -652,3 +657,5 @@ Audited production: `restoreassist-okzjr4l3g-unite-group.vercel.app` (latest Pro
 ## 2026-04-17 14:47 — Session End
 
 ## 2026-04-17 14:48 — Session End
+
+## 2026-04-18 05:36 — Session End

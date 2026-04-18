@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
 
       await prisma.$executeRawUnsafe(
         `UPDATE "HistoricalJob"
-         SET embedding = $1::vector, "embeddedAt" = NOW()
+         SET "embeddingVector" = $1::vector, "embeddedAt" = NOW()
          WHERE id = $2`,
         vectorLiteral,
         job.id,
