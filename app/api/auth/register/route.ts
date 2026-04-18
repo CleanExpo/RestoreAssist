@@ -70,6 +70,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // RA-1340: hash password FIRST so the duplicate-email path takes the
+    // same ~250ms bcrypt cost as the create path. Previously the hash only
+    // ran after the uniqueness check — a ~250ms timing oracle revealed
+    // whether an email was registered, even with a generic error message.
+    const hashedPassword = await bcrypt.hash(password, 12);
+
     const existingUser = await prisma.user.findUnique({
       where: { email },
     });
@@ -79,8 +85,6 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
-
-    const hashedPassword = await bcrypt.hash(password, 12);
 
     // All registrations create an ADMIN user with their own organisation
     const canCreateOrganization = Boolean(prisma.organization?.create);
