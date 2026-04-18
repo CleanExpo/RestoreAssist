@@ -101,6 +101,32 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // RA-1347: if the caller supplied `url` directly, only accept it when
+  // it's an OnTheHouse or domain.com.au URL. Otherwise we'd SSRF a
+  // server-side HTTPS GET at an attacker-chosen host (internal Supabase,
+  // localhost, cloud metadata IMDS on non-Vercel infra).
+  if (directUrl) {
+    try {
+      const parsed = new URL(directUrl);
+      const isOth =
+        parsed.protocol === "https:" &&
+        (parsed.hostname === "www.onthehouse.com.au" ||
+          parsed.hostname === "onthehouse.com.au");
+      const isDomain =
+        parsed.protocol === "https:" &&
+        (parsed.hostname === "www.domain.com.au" ||
+          parsed.hostname === "domain.com.au");
+      if (!isOth && !isDomain) {
+        return NextResponse.json(
+          { error: "url must be on onthehouse.com.au or domain.com.au" },
+          { status: 400 },
+        );
+      }
+    } catch {
+      return NextResponse.json({ error: "Invalid url" }, { status: 400 });
+    }
+  }
+
   const normAddress = address?.toUpperCase().trim();
   const normPostcode = postcode?.trim();
 
