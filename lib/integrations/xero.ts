@@ -165,7 +165,8 @@ export async function syncInvoiceToXero(
         console.log(
           `[Xero] Invoice already exists (${existingId}), switching to full update path`,
         );
-        // PUT the complete invoice payload to the existing Xero InvoiceID
+        // POST the complete invoice payload to the existing Xero InvoiceID.
+        // Xero uses POST (not PUT) for both create and update on /Invoices/{InvoiceID}.
         const updateResponse = await fetch(
           `https://api.xero.com/api.xro/2.0/Invoices/${existingId}`,
           {
@@ -181,13 +182,19 @@ export async function syncInvoiceToXero(
             }),
           },
         );
+        if (!updateResponse.ok) {
+          const updateErrorData = await updateResponse.json().catch(() => ({}));
+          throw new Error(
+            `Xero update failed (${updateResponse.status}) for InvoiceID ${existingId}: ${JSON.stringify(updateErrorData)}`,
+          );
+        }
         const updateData = await updateResponse.json().catch(() => ({}));
         const updated = updateData?.Invoices?.[0] as
           | XeroInvoiceResponse
           | undefined;
         if (!updated) {
           throw new Error(
-            `Xero 409 update failed for InvoiceID ${existingId}: ${JSON.stringify(updateData)}`,
+            `Xero update returned empty response for InvoiceID ${existingId}: ${JSON.stringify(updateData)}`,
           );
         }
         return {
