@@ -168,6 +168,52 @@ export async function GET(request: NextRequest) {
       overallStatus = "degraded";
     }
 
+    // Check 6: DR-NRPG integration freshness (RA-1287)
+    // The DrNrpgIntegration model uses a long-lived API key; the daily
+    // dr-nrpg-liveness cron pings it and updates lastSyncAt. If the last
+    // successful probe is older than 48h, surface as degraded so the user
+    // is aware before silent dispatch failure compounds.
+    const drNrpg = await (prisma as any).drNrpgIntegration.findUnique({
+      where: { userId: session.user.id },
+      select: { isActive: true, lastSyncAt: true, updatedAt: true },
+    });
+
+    if (drNrpg) {
+      const lastSync: Date | null = drNrpg.lastSyncAt ?? null;
+      const ageMs = lastSync
+        ? Date.now() - lastSync.getTime()
+        : Number.POSITIVE_INFINITY;
+      const stale = ageMs > 48 * 60 * 60 * 1000;
+      const inactive = !drNrpg.isActive;
+
+      const status: "pass" | "warn" | "fail" = inactive
+        ? "fail"
+        : stale
+          ? "warn"
+          : "pass";
+      const msg = inactive
+        ? "DR-NRPG integration is deactivated (liveness cron auth failure)"
+        : stale
+          ? `DR-NRPG last synced >${Math.floor(ageMs / 3_600_000)}h ago`
+          : "DR-NRPG integration is fresh";
+
+      checks.push({
+        name: "DR-NRPG Liveness",
+        status,
+        message: msg,
+        details: {
+          isActive: drNrpg.isActive,
+          lastSyncAt: lastSync,
+        },
+      });
+
+      if (inactive && overallStatus !== "unhealthy") {
+        overallStatus = "unhealthy";
+      } else if (stale && overallStatus === "healthy") {
+        overallStatus = "degraded";
+      }
+    }
+
     return NextResponse.json({
       status: overallStatus,
       checks,
