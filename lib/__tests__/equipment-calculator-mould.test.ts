@@ -140,8 +140,12 @@ describe("calculateMouldEquipment — ratios (IICRC S520)", () => {
       affectedAreaM2: 60,
       condition: "CONDITION_3",
     });
-    const c2Nam = c2.equipmentList.find((i) => i.type === "negative_air_machine");
-    const c3Nam = c3.equipmentList.find((i) => i.type === "negative_air_machine");
+    const c2Nam = c2.equipmentList.find(
+      (i) => i.type === "negative_air_machine",
+    );
+    const c3Nam = c3.equipmentList.find(
+      (i) => i.type === "negative_air_machine",
+    );
     expect(c3Nam!.quantity).toBeGreaterThanOrEqual(c2Nam!.quantity);
   });
 });

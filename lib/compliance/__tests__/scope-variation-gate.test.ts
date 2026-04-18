@@ -35,7 +35,11 @@ describe("checkScopeVariationGate", () => {
 
   it("returns canSubmit: false with one blocker when 1 pending variation exists", async () => {
     mockFindMany.mockResolvedValueOnce([
-      { id: "var-1", reason: "Additional mould remediation", costDeltaCents: 45000 },
+      {
+        id: "var-1",
+        reason: "Additional mould remediation",
+        costDeltaCents: 45000,
+      },
     ] as any);
 
     const result = await checkScopeVariationGate("insp-002");
@@ -60,9 +64,15 @@ describe("checkScopeVariationGate", () => {
     expect(result.canSubmit).toBe(false);
     expect(result.pendingCount).toBe(3);
     expect(result.blockers).toHaveLength(3);
-    expect(result.blockers[0]).toBe("Variation pending approval: Scope change A (delta: $100.00)");
-    expect(result.blockers[1]).toBe("Variation pending approval: Scope change B (delta: $200.00)");
-    expect(result.blockers[2]).toBe("Variation pending approval: Scope change C (delta: $300.00)");
+    expect(result.blockers[0]).toBe(
+      "Variation pending approval: Scope change A (delta: $100.00)",
+    );
+    expect(result.blockers[1]).toBe(
+      "Variation pending approval: Scope change B (delta: $200.00)",
+    );
+    expect(result.blockers[2]).toBe(
+      "Variation pending approval: Scope change C (delta: $300.00)",
+    );
   });
 
   it("returns canSubmit: true when all variations are APPROVED (pending query returns empty)", async () => {

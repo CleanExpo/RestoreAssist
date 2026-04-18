@@ -235,15 +235,20 @@ function Step({
   active: boolean;
 }) {
   return (
-    <div className={cn("flex items-start gap-2.5 text-xs", active ? "text-white" : "text-white/40")}>
+    <div
+      className={cn(
+        "flex items-start gap-2.5 text-xs",
+        active ? "text-white" : "text-white/40",
+      )}
+    >
       <span
         className={cn(
           "flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold border",
           done
             ? "bg-cyan-500 border-cyan-400 text-white"
             : active
-            ? "border-cyan-400 text-cyan-400"
-            : "border-white/20",
+              ? "border-cyan-400 text-cyan-400"
+              : "border-white/20",
         )}
       >
         {done ? <Check size={10} /> : num}

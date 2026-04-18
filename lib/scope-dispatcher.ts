@@ -73,9 +73,7 @@ function findChecklist(id: string): ChecklistTemplate | null {
   return IICRC_CHECKLISTS.find((c) => c.id === id) ?? null;
 }
 
-function findByCategory(
-  category: ChecklistCategory,
-): ChecklistTemplate[] {
+function findByCategory(category: ChecklistCategory): ChecklistTemplate[] {
   return IICRC_CHECKLISTS.filter((c) => c.category === category);
 }
 
@@ -133,9 +131,10 @@ function dispatchMould(): ChecklistTemplate {
   return t;
 }
 
-function dispatchStorm(
-  withWaterIngress: boolean | null | undefined,
-): { primary: ChecklistTemplate; secondary: ChecklistTemplate[] } {
+function dispatchStorm(withWaterIngress: boolean | null | undefined): {
+  primary: ChecklistTemplate;
+  secondary: ChecklistTemplate[];
+} {
   const wind = findChecklist("storm-wind-damage");
   if (!wind) {
     throw new Error("[scope-dispatcher] storm-wind-damage checklist missing");

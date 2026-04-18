@@ -57,7 +57,9 @@ export function useMutation<TResponse = unknown, TBody = unknown>(
         });
 
         if (!res.ok) {
-          const errData = await res.json().catch(() => ({ error: res.statusText }));
+          const errData = await res
+            .json()
+            .catch(() => ({ error: res.statusText }));
           const message = errData?.error ?? `Request failed: ${res.status}`;
           setError(message);
           return null;

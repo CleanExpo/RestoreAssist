@@ -150,7 +150,10 @@ function buildItem(
     type,
     label: LABEL[type],
     quantity,
-    iicrcRatio: ratio > 0 ? `1 per ${ratio}m²` : `${quantity} unit${quantity !== 1 ? "s" : ""}`,
+    iicrcRatio:
+      ratio > 0
+        ? `1 per ${ratio}m²`
+        : `${quantity} unit${quantity !== 1 ? "s" : ""}`,
     iicrcReference: iicrcRef,
     justification:
       customJustification ??
@@ -258,10 +261,7 @@ export function calculateFireEquipment(
 
   // ─── Totals ─────────────────────────────────────────────────────────────────
 
-  const totalAmps = items.reduce(
-    (sum, i) => sum + i.estimatedAmpsTotal,
-    0,
-  );
+  const totalAmps = items.reduce((sum, i) => sum + i.estimatedAmpsTotal, 0);
 
   // AS/NZS 3012:2019 continuous-load rule: 80% of circuit rating
   // Recommend one 20A circuit per 16A continuous load (20 × 0.8 = 16A)
