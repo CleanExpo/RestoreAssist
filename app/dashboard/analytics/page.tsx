@@ -33,8 +33,15 @@ import {
 } from "recharts";
 import toast from "react-hot-toast";
 import { cn } from "@/lib/utils";
+import type { ComponentProps, ComponentType } from "react";
 
-const TooltipAny = Tooltip as any;
+// RA-1209: Recharts `Tooltip` props don't type `className`, though the
+// underlying div accepts it. Narrow typed escape hatch replaces the
+// previous `as any` — still type-checks all other props.
+type TooltipWithClassProps = ComponentProps<typeof Tooltip> & {
+  className?: string;
+};
+const TooltipAny = Tooltip as unknown as ComponentType<TooltipWithClassProps>;
 
 import { useSession } from "next-auth/react";
 import AnalyticsFilters, {
@@ -1295,9 +1302,12 @@ export default function AnalyticsPage() {
                           color: "#111827",
                         }}
                         className="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200"
-                        formatter={(value: any, name?: string) => {
-                          if (name === "revenue")
-                            return [`$${value.toLocaleString()}`, "Revenue"];
+                        formatter={(value, name) => {
+                          if (String(name) === "revenue")
+                            return [
+                              `$${Number(value).toLocaleString()}`,
+                              "Revenue",
+                            ];
                           return [value, "Reports"];
                         }}
                       />
