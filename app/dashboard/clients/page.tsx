@@ -468,15 +468,16 @@ export default function ClientsPage() {
                 </div>
               ) : (
                 filteredClients.map((client) => {
-                  const fromReport = (client as ClientWithReportFlag)._isFromReport;
+                  const fromReport = (client as ClientWithReportFlag)
+                    ._isFromReport;
                   const statusClass =
                     client.status === "ACTIVE"
                       ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
                       : client.status === "INACTIVE"
-                      ? "bg-amber-500/20 text-amber-600 dark:text-amber-400"
-                      : client.status === "PROSPECT"
-                      ? "bg-blue-500/20 text-blue-600 dark:text-blue-400"
-                      : "bg-neutral-200 dark:bg-slate-500/20 text-neutral-600 dark:text-slate-400";
+                        ? "bg-amber-500/20 text-amber-600 dark:text-amber-400"
+                        : client.status === "PROSPECT"
+                          ? "bg-blue-500/20 text-blue-600 dark:text-blue-400"
+                          : "bg-neutral-200 dark:bg-slate-500/20 text-neutral-600 dark:text-slate-400";
                   const NameWrap = fromReport
                     ? ({ children }: { children: React.ReactNode }) => (
                         <span className="text-cyan-500 dark:text-cyan-400">
@@ -535,7 +536,10 @@ export default function ClientsPage() {
                           {client.reportsCount || 0} reports
                         </span>
                         <span className="font-medium text-cyan-600 dark:text-cyan-400">
-                          ${client.totalRevenue ? client.totalRevenue.toLocaleString() : "0"}
+                          $
+                          {client.totalRevenue
+                            ? client.totalRevenue.toLocaleString()
+                            : "0"}
                         </span>
                         <span className="text-neutral-500 dark:text-slate-500 truncate">
                           {client.lastJob || "No jobs yet"}
@@ -995,7 +999,12 @@ export default function ClientsPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">
+                <label
+                  className={cn(
+                    "block text-sm font-medium mb-2",
+                    "text-neutral-700 dark:text-slate-300",
+                  )}
+                >
                   Address
                 </label>
                 <input
@@ -1005,11 +1014,24 @@ export default function ClientsPage() {
                     setFormData({ ...formData, address: e.target.value })
                   }
                   placeholder="Enter address"
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className={cn(
+                    "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
+                    "bg-white dark:bg-slate-700/50",
+                    "border-neutral-300 dark:border-slate-600",
+                    "text-neutral-900 dark:text-white",
+                    "placeholder-neutral-500 dark:placeholder-slate-500",
+                  )}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Notes</label>
+                <label
+                  className={cn(
+                    "block text-sm font-medium mb-2",
+                    "text-neutral-700 dark:text-slate-300",
+                  )}
+                >
+                  Notes
+                </label>
                 <textarea
                   value={formData.notes}
                   onChange={(e) =>
@@ -1146,7 +1168,12 @@ export default function ClientsPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">
+                <label
+                  className={cn(
+                    "block text-sm font-medium mb-2",
+                    "text-neutral-700 dark:text-slate-300",
+                  )}
+                >
                   Address
                 </label>
                 <input
@@ -1156,11 +1183,24 @@ export default function ClientsPage() {
                     setFormData({ ...formData, address: e.target.value })
                   }
                   placeholder="Enter address"
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className={cn(
+                    "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
+                    "bg-white dark:bg-slate-700/50",
+                    "border-neutral-300 dark:border-slate-600",
+                    "text-neutral-900 dark:text-white",
+                    "placeholder-neutral-500 dark:placeholder-slate-500",
+                  )}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Notes</label>
+                <label
+                  className={cn(
+                    "block text-sm font-medium mb-2",
+                    "text-neutral-700 dark:text-slate-300",
+                  )}
+                >
+                  Notes
+                </label>
                 <textarea
                   value={formData.notes}
                   onChange={(e) =>
