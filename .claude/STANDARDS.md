@@ -114,6 +114,21 @@ String-interpolating a plain `whereClause` variable (e.g. `WHERE ${whereClause}`
 
 All external syncs are fire-and-forget via the orchestrator pattern (canonical: `lib/integrations/nir-sync-orchestrator.ts`). Failures log to `IntegrationSyncLog` and queue to dead-letter for retry. Never await sync inside a user-facing request handler.
 
+## Progress Framework (RA-1376)
+
+The stage-gated claim lifecycle adds its own invariants above the general standards. Full spec:
+
+- `.claude/board-2026-04-18/progress-framework.md` — the 15 states, transition keys, terminology
+- `.claude/board-2026-04-18/progress-principles.md` — 8 engineering constraints
+- `CLAUDE.md` rules 21–28 — the enforceable summary
+
+**When touching any `lib/progress/**`, `app/api/progress/**`, `components/Progress*` surface:**
+
+- Read `.claude/board-2026-04-18/progress-principles.md` before writing code.
+- `ProgressTransition` and `ProgressAttestation` are append-only — never `UPDATE`/`DELETE` outside `ClaimProgress` cascade.
+- Every transition goes through `lib/progress/service.ts` — never call Prisma directly for state changes.
+- Evidence guards return `{ ok: false, missing: string[] }` — surface the missing list to the UI, never a generic "failed".
+
 ## Patterns to Avoid
 
 | Pattern                              | Why                                                       | Do instead                                         |

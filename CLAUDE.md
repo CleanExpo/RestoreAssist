@@ -55,6 +55,19 @@ TypeScript / Next.js 15 App Router compliance platform for Australian water dama
 19. Secrets in `.env.local` only (never committed) — reference `.env.example` for full variable list
 20. Read source files before modifying — 120+ Prisma models, 800+ files; never assume structure
 
+### Progress Framework (Epic RA-1376 · Board 2026-04-18 · Motion M-4)
+
+Non-negotiable engineering constraints on every `lib/progress/**` and related surface. Reviews reject PRs that regress any. Full rationale: `.claude/board-2026-04-18/progress-principles.md`.
+
+21. **Cryptographic chain-of-custody** — every evidence file carries a C2PA-style manifest (SHA-256 + UTC + GPS + device + user hash), generated at capture, verified at read
+22. **Append-only audit** — `ProgressTransition` and `ProgressAttestation` are never UPDATEd or DELETEd outside `ClaimProgress` cascade; corrections use `supersedesId`
+23. **Evidence-gated promotion** — a transition fails with `{ ok: false, missing: string[] }` if any `required=true` Stage × Evidence matrix entry (M-2) is unattached
+24. **Offline-first** — attestor captures + queues transitions offline; reconnect flushes with idempotent keys so replays never double-submit
+25. **Role-based disclosure** — `canPerformTransition(role, state, transitionKey)` gates both server-side enforcement and client-side `<TransitionButton>` render; Junior Technician is evidence-only (M-16)
+26. **Immutable attestation** — once a `ProgressAttestation` is written, body/signature/hashes are final; deletions are logical (`withdrawnAt`), never physical
+27. **Deterministic integration fan-out** — at most one outbound event per (`transitionId`, `integrationKey`); retries and replays are idempotent
+28. **Engagement-time licence verification** — IICRC / WHS / state licences verified against `Authorisation` (M-7) at the moment a user is attached to an attestation, NOT at login
+
 ## Reference Files
 
 Before structural changes or new features, read:
