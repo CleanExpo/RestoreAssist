@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useFetch } from "@/lib/hooks/useFetch";
 import toast from "react-hot-toast";
 import Link from "next/link";
@@ -32,9 +33,42 @@ import type { ReportWithSessionData } from "@/lib/session-types";
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   // Only fetch once the session is confirmed authenticated
   const isAuthed = status === "authenticated";
+
+  // RA-1251 — first-time signup redirect.
+  // signup/google-signin send `?welcome=1` but the param was previously
+  // ignored. Now: on first render after signup, if onboarding isn't complete,
+  // push users to the dedicated /dashboard/onboarding checklist instead of
+  // dropping them on the main dashboard where the setup guide is only
+  // reachable via the sidebar.
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    const isWelcome = searchParams?.get("welcome") === "1";
+    if (!isWelcome) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/onboarding/status", { credentials: "include" });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        if (data && data.isComplete === false) {
+          // Strip the welcome param so a refresh/back doesn't bounce again.
+          router.replace("/dashboard/onboarding");
+        }
+      } catch {
+        // Silent — the welcome toast still fires from the other effect.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [status, searchParams, router]);
 
   const { data: reportsRaw, loading: reportsLoading } = useFetch<{
     reports: ReportWithSessionData[];
