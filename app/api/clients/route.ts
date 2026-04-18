@@ -16,8 +16,13 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search");
     const status = searchParams.get("status");
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "10");
+    // RA-1307 — bound pagination so ?page=-1 or ?limit=1e9 can't force
+    // negative skip (Prisma throws) or unbounded result sets (OOM risk).
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1") || 1);
+    const limit = Math.min(
+      100,
+      Math.max(1, parseInt(searchParams.get("limit") || "10") || 10),
+    );
     const skip = (page - 1) * limit;
 
     const where: any = {
