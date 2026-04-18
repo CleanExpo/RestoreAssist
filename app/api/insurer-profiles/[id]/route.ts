@@ -63,14 +63,30 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     const { id } = await params;
     const body = await request.json();
 
-    // Strip immutable fields
-    const {
-      id: _id,
-      createdAt: _c,
-      isSystemProfile: _s,
-      slug: _slug,
-      ...updates
-    } = body;
+    // RA-1338: allowlist editable fields. Previously `...updates` spread
+    // accepted any body key, allowing mass-assignment to fields like
+    // isActive, updatedBy, or any newly-added relation FK.
+    const EDITABLE_FIELDS = [
+      "name",
+      "aliases",
+      "requiredEvidenceClasses",
+      "preferredEvidenceClasses",
+      "minPhotoCount",
+      "reportFormat",
+      "requiresSignedScope",
+      "requiresThirdPartyScope",
+      "preferredInvoiceFormat",
+      "gstRegistrationRequired",
+      "claimsEmailDomain",
+      "portalUrl",
+      "specialInstructions",
+      "iicrcComplianceNote",
+      "isActive",
+    ] as const;
+    const updates: Record<string, unknown> = {};
+    for (const key of EDITABLE_FIELDS) {
+      if (key in body) updates[key] = body[key];
+    }
 
     const profile = await (prisma as any).insurerProfile.update({
       where: { id },
