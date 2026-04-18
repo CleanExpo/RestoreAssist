@@ -201,10 +201,26 @@ export default function TermsPage() {
               access poses a risk to the platform, other users, or the public.
             </p>
             <p className="mt-2">
-              On termination your data is retained for up to 90 days to allow
-              you to export it. After that period we may permanently delete your
-              data, subject to any retention we are legally required to
-              maintain.
+              On termination we give you a 90-day export window during which
+              your data remains accessible for download. After that export
+              window closes, we retain your data only for as long as the
+              applicable statutory retention period requires — this can range
+              from 6 years (general contractual records) to 10 years (VIC
+              domestic building) to indefinite (dust-disease exposure records).
+              See the{" "}
+              <a
+                href="/privacy#retention"
+                className="text-cyan-600 hover:underline"
+              >
+                Privacy Policy retention table
+              </a>{" "}
+              for the full class-by-class schedule.
+            </p>
+            <p className="mt-2">
+              We destroy personal information once the longest applicable
+              retention period for your records has expired. Some records
+              (notably building-defect, WHS, and dust-disease exposure) may
+              outlive your account closure by many years.
             </p>
           </section>
 
