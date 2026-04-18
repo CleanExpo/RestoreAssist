@@ -188,10 +188,14 @@ export async function POST(request: NextRequest) {
     }).catch((err) =>
       console.error("[google-signin] Welcome email failed:", err),
     );
-    notifyWelcome(newUser.id);
+    notifyWelcome(newUser.id).catch((err) =>
+      console.error("[google-signin] notifyWelcome failed:", err),
+    );
 
     // RA-1239: demo data seed so Google signups don't land on empty dashboard
-    seedDemoDataForNewUser(newUser.id).catch(() => {});
+    seedDemoDataForNewUser(newUser.id).catch((err) =>
+      console.error("[google-signin] seedDemoDataForNewUser failed:", err),
+    );
 
     return NextResponse.json({
       ...newUser,
