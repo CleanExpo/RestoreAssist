@@ -169,7 +169,7 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
-              5. Data storage and security
+              5. Data storage, security, and retention
             </h2>
             <p>
               Data is stored on servers located in Australia or the United
@@ -177,10 +177,154 @@ export default function PrivacyPage() {
               encrypted connections (HTTPS), encrypted data at rest, and access
               controls. Passwords are never stored in plaintext.
             </p>
+            <p className="mt-3">
+              We apply a <strong>class-based retention schedule</strong>: the
+              legal basis and minimum retention period depend on what the data
+              records. We retain each class for no longer than required by the
+              applicable legislation.
+            </p>
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full text-sm border border-neutral-300 dark:border-neutral-700">
+                <thead className="bg-neutral-100 dark:bg-neutral-800">
+                  <tr>
+                    <th className="text-left p-2 border-b border-neutral-300 dark:border-neutral-700">
+                      Record class
+                    </th>
+                    <th className="text-left p-2 border-b border-neutral-300 dark:border-neutral-700">
+                      Retention period
+                    </th>
+                    <th className="text-left p-2 border-b border-neutral-300 dark:border-neutral-700">
+                      Legal basis
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="p-2 border-b border-neutral-200 dark:border-neutral-800">
+                      Claim financial records (invoices, payments, scope-of-works, carrier authorisations)
+                    </td>
+                    <td className="p-2 border-b border-neutral-200 dark:border-neutral-800">
+                      7 years after claim closure
+                    </td>
+                    <td className="p-2 border-b border-neutral-200 dark:border-neutral-800">
+                      Income Tax Assessment Act 1997 (Cth) s&nbsp;262A; ATO recordkeeping; A New Tax System (GST) Act 1999
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="p-2 border-b border-neutral-200 dark:border-neutral-800">
+                      Contract records (customer agreements, carrier-authorisation instruments)
+                    </td>
+                    <td className="p-2 border-b border-neutral-200 dark:border-neutral-800">
+                      6 years after end of contract (7 years in VIC/SA)
+                    </td>
+                    <td className="p-2 border-b border-neutral-200 dark:border-neutral-800">
+                      State Limitation Acts (limitation period for contract claims)
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="p-2 border-b border-neutral-200 dark:border-neutral-800">
+                      WHS incident records (non-hazardous-substance)
+                    </td>
+                    <td className="p-2 border-b border-neutral-200 dark:border-neutral-800">
+                      5 years after incident
+                    </td>
+                    <td className="p-2 border-b border-neutral-200 dark:border-neutral-800">
+                      Work Health and Safety Regulation 2011 (general duty)
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="p-2 border-b border-neutral-200 dark:border-neutral-800">
+                      WHS records involving hazardous substances (incl. asbestos, mould health exposure)
+                    </td>
+                    <td className="p-2 border-b border-neutral-200 dark:border-neutral-800">
+                      30 years after last exposure
+                    </td>
+                    <td className="p-2 border-b border-neutral-200 dark:border-neutral-800">
+                      WHS Regulation 2011 – hazardous-substance health monitoring rules
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="p-2 border-b border-neutral-200 dark:border-neutral-800">
+                      Photographs and moisture readings attached to a claim (C2PA-manifested attestations)
+                    </td>
+                    <td className="p-2 border-b border-neutral-200 dark:border-neutral-800">
+                      Follows the parent claim&rsquo;s class (minimum 7 years)
+                    </td>
+                    <td className="p-2 border-b border-neutral-200 dark:border-neutral-800">
+                      Evidentiary integrity for Income Tax &amp; contract limitation periods
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="p-2 border-b border-neutral-200 dark:border-neutral-800">
+                      Disputed claims (invoice disputed or under legal process)
+                    </td>
+                    <td className="p-2 border-b border-neutral-200 dark:border-neutral-800">
+                      Held until dispute fully resolved, then retained per the applicable class above
+                    </td>
+                    <td className="p-2 border-b border-neutral-200 dark:border-neutral-800">
+                      Litigation hold; evidentiary preservation duty
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="p-2 border-b border-neutral-200 dark:border-neutral-800">
+                      Customer personal information (name, email, phone) not attached to a claim
+                    </td>
+                    <td className="p-2 border-b border-neutral-200 dark:border-neutral-800">
+                      Duration of account + 12 months after closure
+                    </td>
+                    <td className="p-2 border-b border-neutral-200 dark:border-neutral-800">
+                      Australian Privacy Principle 11.2 (destroy / de-identify when no longer needed)
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="p-2 border-b border-neutral-200 dark:border-neutral-800">
+                      Marketing consent records and opt-outs
+                    </td>
+                    <td className="p-2 border-b border-neutral-200 dark:border-neutral-800">
+                      7 years after last use
+                    </td>
+                    <td className="p-2 border-b border-neutral-200 dark:border-neutral-800">
+                      Spam Act 2003 (Cth); Privacy Act 1988 (Cth)
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="p-2 border-b border-neutral-200 dark:border-neutral-800">
+                      Application security and access logs
+                    </td>
+                    <td className="p-2 border-b border-neutral-200 dark:border-neutral-800">
+                      12 months
+                    </td>
+                    <td className="p-2 border-b border-neutral-200 dark:border-neutral-800">
+                      Australian Privacy Principle 11.1 (security); incident-investigation window
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="p-2">
+                      Product telemetry (aggregated usage analytics, raw events)
+                    </td>
+                    <td className="p-2">
+                      Raw: 30 days. Aggregated: 24 months.
+                    </td>
+                    <td className="p-2">
+                      Australian Privacy Principle 11.2; de-identification
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-3">
+              Where a record would otherwise be deleted under this schedule but
+              is subject to an active legal process, statutory investigation, or
+              unresolved dispute, we retain it until the process concludes. This
+              is required by our evidentiary-preservation obligations and
+              overrides the timetable above.
+            </p>
             <p className="mt-2">
-              Inspection data and photographs are retained for the duration of
-              your subscription and for up to 7 years following account closure
-              to comply with Australian business record-keeping obligations.
+              You can request deletion of your personal data under Section 7. We
+              will honour deletion requests to the extent permitted by the
+              retention requirements above; data we are legally required to
+              retain will be held until its retention period expires, after
+              which it is destroyed or de-identified.
             </p>
           </section>
 
