@@ -60,6 +60,9 @@ export async function POST(request: NextRequest) {
     maxRequests: 20,
     prefix: "ai-vision",
     key: session.user.id,
+    // RA-1319: Anthropic vision calls are expensive — fail-closed on Upstash
+    // outage rather than letting in-memory per-instance caps multiply.
+    failClosedOnUpstashError: true,
   });
   if (rateLimited) return rateLimited;
 
