@@ -47,6 +47,10 @@ model User {
   image         String?
   password      String?
   role          Role      @default(USER)
+  /// RA-1255: timestamp of ToS + Privacy Policy acceptance.
+  /// Required for AU consumer law compliance. Null for legacy users
+  /// (back-filled lazily via a "re-accept" prompt if ever needed).
+  acceptedTermsAt DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

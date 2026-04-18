@@ -6,6 +6,11 @@ import { applyRateLimit } from "@/lib/rate-limiter";
 import { sanitizeString } from "@/lib/sanitize";
 import { validateCsrf } from "@/lib/csrf";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
+import { sendWelcomeEmail } from "@/lib/email";
+import { notifyWelcome } from "@/lib/notifications";
+import { seedDemoDataForNewUser } from "@/lib/demo-data";
+
+const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.app";
 
 /** Generate a time-limited HMAC token proving the user just authenticated via Google */
 function generateGoogleAuthToken(email: string): string {
@@ -170,6 +175,23 @@ export async function POST(request: NextRequest) {
       ...reqCtx,
       details: { isNewUser: true },
     }).catch(() => {});
+
+    // RA-1254: Google OAuth new-signups previously skipped the welcome
+    // email that email+password signups get — the template existed but
+    // was only called from /api/auth/register.
+    sendWelcomeEmail({
+      recipientEmail: userEmail,
+      recipientName: name || userEmail.split("@")[0] || "there",
+      loginUrl: `${APP_URL}/login`,
+      trialDays: 30,
+      trialCredits: 30,
+    }).catch((err) =>
+      console.error("[google-signin] Welcome email failed:", err),
+    );
+    notifyWelcome(newUser.id);
+
+    // RA-1239: demo data seed so Google signups don't land on empty dashboard
+    seedDemoDataForNewUser(newUser.id).catch(() => {});
 
     return NextResponse.json({
       ...newUser,
