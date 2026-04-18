@@ -306,9 +306,9 @@ describe("isValidXeroAccountCode", () => {
   });
 
   it("accepts Xero GUIDs", () => {
-    expect(
-      isValidXeroAccountCode("297c2dc5-cc47-4afd-8ec8-74990b8761e9"),
-    ).toBe(true);
+    expect(isValidXeroAccountCode("297c2dc5-cc47-4afd-8ec8-74990b8761e9")).toBe(
+      true,
+    );
   });
 
   it("rejects other formats", () => {

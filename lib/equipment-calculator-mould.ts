@@ -23,10 +23,7 @@ export type MouldCondition = "CONDITION_2" | "CONDITION_3";
  * - FULL: 6-sided containment with negative-air + decon chamber
  * - SOURCE_CONTROL: small polybag enclosure for single item / small area
  */
-export type ContainmentLevel =
-  | "SOURCE_CONTROL"
-  | "LIMITED"
-  | "FULL";
+export type ContainmentLevel = "SOURCE_CONTROL" | "LIMITED" | "FULL";
 
 export type MouldEquipmentType =
   | "negative_air_machine"
@@ -162,11 +159,7 @@ function buildItem(
 export function calculateMouldEquipment(
   input: MouldEquipmentCalculatorInput,
 ): MouldEquipmentCalculatorResult {
-  const {
-    condition,
-    floorCount = 1,
-    ambientRelativeHumidity = 60,
-  } = input;
+  const { condition, floorCount = 1, ambientRelativeHumidity = 60 } = input;
   const areaM2 = input.affectedAreaM2 * floorCount;
   const containment = input.containment ?? selectContainment(areaM2, condition);
   const items: MouldEquipmentLineItem[] = [];

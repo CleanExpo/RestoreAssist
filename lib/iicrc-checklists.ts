@@ -12,7 +12,12 @@ export interface ChecklistItem {
  * - storm — ANZRP storm-damage best practice (water ingress, wind, debris)
  * - biohazard — IICRC S540 (trauma scene), CDC/OHS blood-borne pathogens
  */
-export type ChecklistCategory = "water" | "fire" | "mould" | "storm" | "biohazard";
+export type ChecklistCategory =
+  | "water"
+  | "fire"
+  | "mould"
+  | "storm"
+  | "biohazard";
 
 export interface ChecklistTemplate {
   id: string;
@@ -470,8 +475,7 @@ export const IICRC_CHECKLISTS: ChecklistTemplate[] = [
           "Post-remediation swab + ATP testing before releasing to occupant",
         quantity: 1,
         unit: "job",
-        justification:
-          "IICRC S500:2025 §13 — Post-Cat-3 verification",
+        justification: "IICRC S500:2025 §13 — Post-Cat-3 verification",
       },
     ],
   },
@@ -528,13 +532,11 @@ export const IICRC_CHECKLISTS: ChecklistTemplate[] = [
           "Dispose of biohazard waste via licensed medical-waste contractor — retain manifest",
         quantity: 1,
         unit: "job",
-        justification:
-          "NSW EPA Clinical Waste Policy / equivalent state reg",
+        justification: "NSW EPA Clinical Waste Policy / equivalent state reg",
       },
       {
         itemType: "odour_remediation",
-        description:
-          "Deploy ozone or hydroxyl treatment for residual odours",
+        description: "Deploy ozone or hydroxyl treatment for residual odours",
         quantity: null,
         unit: "days",
         justification: "IICRC S540:2017 §8 — Odour control",

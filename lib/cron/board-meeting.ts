@@ -30,11 +30,9 @@ import Anthropic from "@anthropic-ai/sdk";
 const RA_TEAM_ID =
   process.env.LINEAR_RA_TEAM_ID ?? "a8a52f07-63cf-4ece-9ad2-3e3bd3c15673";
 const SCOUT_LABEL_ID =
-  process.env.LINEAR_SCOUT_LABEL_ID ??
-  "2e3fcf07-9a7a-4477-9e4b-fcbb9f5b7f5c";
+  process.env.LINEAR_SCOUT_LABEL_ID ?? "2e3fcf07-9a7a-4477-9e4b-fcbb9f5b7f5c";
 const RA_TODO_STATE_ID =
-  process.env.LINEAR_RA_TODO_STATE_ID ??
-  "285c7d2f-d5f4-4ae1-8e3a-bc96c9aaf130";
+  process.env.LINEAR_RA_TODO_STATE_ID ?? "285c7d2f-d5f4-4ae1-8e3a-bc96c9aaf130";
 
 // ---------------------------------------------------------------------------
 // Linear query helpers
@@ -55,7 +53,8 @@ async function linearQuery<T>(query: string, variables?: object): Promise<T> {
 
   if (!res.ok) throw new Error(`Linear API error: ${res.status}`);
   const json = (await res.json()) as { data: T; errors?: unknown[] };
-  if (json.errors) throw new Error(`Linear GraphQL errors: ${JSON.stringify(json.errors)}`);
+  if (json.errors)
+    throw new Error(`Linear GraphQL errors: ${JSON.stringify(json.errors)}`);
   return json.data;
 }
 
@@ -77,7 +76,12 @@ async function gatherIntelligence(): Promise<IntelligenceBrief> {
   // Fetch high-priority open issues (P1-P2)
   const issuesData = await linearQuery<{
     issues: {
-      nodes: Array<{ id: string; identifier: string; title: string; priority: number }>;
+      nodes: Array<{
+        id: string;
+        identifier: string;
+        title: string;
+        priority: number;
+      }>;
     };
   }>(`{
     issues(filter: {
@@ -90,7 +94,9 @@ async function gatherIntelligence(): Promise<IntelligenceBrief> {
   }`);
 
   // Fetch recent scout findings (created in last 7 days)
-  const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const oneWeekAgo = new Date(
+    Date.now() - 7 * 24 * 60 * 60 * 1000,
+  ).toISOString();
   const scoutData = await linearQuery<{
     issues: { nodes: Array<{ id: string; identifier: string; title: string }> };
   }>(`{
@@ -270,7 +276,10 @@ async function createLinearActionItems(
       `);
       created++;
     } catch {
-      console.error("[board-meeting] Failed to create action item:", item.title);
+      console.error(
+        "[board-meeting] Failed to create action item:",
+        item.title,
+      );
     }
   }
 
@@ -290,9 +299,7 @@ async function sendTelegramSummary(
   if (!botToken || !chatId) return;
 
   // Extract just the DECISION section for the Telegram message
-  const decisionMatch = memo.match(
-    /DECISION\s*\n([\s\S]*?)(?:\nRATIONALE|$)/i,
-  );
+  const decisionMatch = memo.match(/DECISION\s*\n([\s\S]*?)(?:\nRATIONALE|$)/i);
   const decision = decisionMatch
     ? decisionMatch[1].trim().slice(0, 500)
     : "See Linear for full memo.";
@@ -307,18 +314,15 @@ async function sendTelegramSummary(
     `Scout findings: ${intel.scoutFindings.length} this week`,
   ].join("\n");
 
-  await fetch(
-    `https://api.telegram.org/bot${botToken}/sendMessage`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text: message,
-        parse_mode: "Markdown",
-      }),
-    },
-  );
+  await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text: message,
+      parse_mode: "Markdown",
+    }),
+  });
 }
 
 async function storeMemoAsLinearDoc(

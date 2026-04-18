@@ -117,9 +117,7 @@ async function deliverDraftForApproval(
 
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(
-      `Telegram API error ${res.status}: ${body.slice(0, 200)}`,
-    );
+    throw new Error(`Telegram API error ${res.status}: ${body.slice(0, 200)}`);
   }
 }
 

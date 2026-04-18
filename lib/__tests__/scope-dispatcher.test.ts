@@ -144,9 +144,7 @@ describe("dispatchScope — multi-loss", () => {
     const ids = r.all.map((c) => c.id);
     expect(ids).toContain("storm-water-ingress");
     expect(ids).toContain("mould-remediation");
-    expect(r.categories).toEqual(
-      expect.arrayContaining(["storm", "mould"]),
-    );
+    expect(r.categories).toEqual(expect.arrayContaining(["storm", "mould"]));
   });
 
   it("deduplicates — primary not repeated in secondary", () => {

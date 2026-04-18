@@ -71,7 +71,9 @@ describe("calculateFireEquipment — ratios (round up)", () => {
       affectedAreaM2: 75,
       severity: "MODERATE",
     });
-    const scrubber = r.equipmentList.find((i) => i.type === "air_scrubber_hepa");
+    const scrubber = r.equipmentList.find(
+      (i) => i.type === "air_scrubber_hepa",
+    );
     expect(scrubber?.quantity).toBe(1);
   });
 
@@ -80,7 +82,9 @@ describe("calculateFireEquipment — ratios (round up)", () => {
       affectedAreaM2: 76,
       severity: "MODERATE",
     });
-    const scrubber = r.equipmentList.find((i) => i.type === "air_scrubber_hepa");
+    const scrubber = r.equipmentList.find(
+      (i) => i.type === "air_scrubber_hepa",
+    );
     expect(scrubber?.quantity).toBe(2);
   });
 
@@ -105,8 +109,12 @@ describe("calculateFireEquipment — multi-floor scaling", () => {
       severity: "MODERATE",
       floorCount: 3,
     });
-    const singleAs = singleFloor.equipmentList.find((i) => i.type === "air_scrubber_hepa");
-    const multiAs = multiFloor.equipmentList.find((i) => i.type === "air_scrubber_hepa");
+    const singleAs = singleFloor.equipmentList.find(
+      (i) => i.type === "air_scrubber_hepa",
+    );
+    const multiAs = multiFloor.equipmentList.find(
+      (i) => i.type === "air_scrubber_hepa",
+    );
     expect(multiAs!.quantity).toBeGreaterThan(singleAs!.quantity);
   });
 });

@@ -1,0 +1,170 @@
+{
+  "epic": {
+    "id": "e28853e7-a523-404b-b240-de9f1a8b7be1",
+    "identifier": "RA-1376",
+    "url": "https://linear.app/unite-group/issue/RA-1376/ra-progress-stage-gated-claim-lifecycle-board-approved-framework",
+    "title": "RA-Progress: Stage-Gated Claim Lifecycle (Board-Approved Framework)"
+  },
+  "tickets": [
+    {
+      "motion": "M-1",
+      "owner": "PC1",
+      "id": "52c490a8-f527-4f83-a246-1f69bb2f010c",
+      "identifier": "RA-1377",
+      "url": "https://linear.app/unite-group/issue/RA-1377/progress-m-1-adopt-unified-15-state-progress-framework",
+      "title": "Adopt unified 15-state Progress framework"
+    },
+    {
+      "motion": "M-2",
+      "owner": "PC1",
+      "id": "0ba83fda-cfaa-47c8-9f69-aa37cfef15bb",
+      "identifier": "RA-1378",
+      "url": "https://linear.app/unite-group/issue/RA-1378/progress-m-2-adopt-stage-required-evidence-matrix-as-data-contract",
+      "title": "Adopt Stage × Required Evidence matrix as data contract"
+    },
+    {
+      "motion": "M-3",
+      "owner": "PC1",
+      "id": "5effccb7-3a8f-45ba-8932-71642ee0fa28",
+      "identifier": "RA-1379",
+      "url": "https://linear.app/unite-group/issue/RA-1379/progress-m-3-adopt-raci-matrix-as-authorisation-contract",
+      "title": "Adopt RACI matrix as authorisation contract"
+    },
+    {
+      "motion": "M-4",
+      "owner": "PC1",
+      "id": "fb6a5d7a-16a1-44d9-a02d-cc1b7f2ab5c3",
+      "identifier": "RA-1380",
+      "url": "https://linear.app/unite-group/issue/RA-1380/progress-m-4-adopt-8-foundational-principles-as-engineering",
+      "title": "Adopt 8 foundational principles as engineering constraints"
+    },
+    {
+      "motion": "M-5",
+      "owner": "PC1",
+      "id": "422e7fd4-2409-4ea2-877d-73e6877f3c3c",
+      "identifier": "RA-1381",
+      "url": "https://linear.app/unite-group/issue/RA-1381/progress-m-5-add-claimprogress-progresstransition-progressattestation",
+      "title": "Add ClaimProgress + ProgressTransition + ProgressAttestation Prisma models (additive)"
+    },
+    {
+      "motion": "M-6",
+      "owner": "PC1",
+      "id": "dc417b49-e811-47ad-be8b-579a1bfc4ca1",
+      "identifier": "RA-1382",
+      "url": "https://linear.app/unite-group/issue/RA-1382/progress-m-6-carrier-variation-threshold-20percent-aud-2500-with-per",
+      "title": "Carrier variation threshold 20% / AUD 2500 with per-carrier override"
+    },
+    {
+      "motion": "M-7",
+      "owner": "PC1",
+      "id": "fcd27721-6a1e-4bb4-825f-68149256a7dd",
+      "identifier": "RA-1383",
+      "url": "https://linear.app/unite-group/issue/RA-1383/progress-m-7-six-schema-tightenings-from-ops-director-war-stories",
+      "title": "Six schema tightenings from Ops Director war stories"
+    },
+    {
+      "motion": "M-8",
+      "owner": "Either",
+      "id": "76975be0-5bcf-46ab-b258-6d167f69de00",
+      "identifier": "RA-1384",
+      "url": "https://linear.app/unite-group/issue/RA-1384/progress-m-8-revise-privacy-5-retention-schedule-to-class-based-per",
+      "title": "Revise /privacy §5 retention schedule to class-based per board minutes §7"
+    },
+    {
+      "motion": "M-9",
+      "owner": "Either",
+      "id": "ff17d28a-82f3-439c-acd6-3f7bf46c49a5",
+      "identifier": "RA-1385",
+      "url": "https://linear.app/unite-group/issue/RA-1385/progress-m-9-revise-terms-10-90-day-deletion-to-honour-limitation",
+      "title": "Revise /terms §10 90-day deletion to honour limitation-period retention"
+    },
+    {
+      "motion": "M-10",
+      "owner": "PC2",
+      "id": "4a1c1d17-39d0-41fc-b8f6-6f707494d719",
+      "identifier": "RA-1386",
+      "url": "https://linear.app/unite-group/issue/RA-1386/progress-m-10-c2pa-style-photo-manifest-sha-256-utc-gps-device-user",
+      "title": "C2PA-style photo manifest (SHA-256 + UTC + GPS + device + user hash)"
+    },
+    {
+      "motion": "M-11",
+      "owner": "PC1",
+      "id": "3ecca9e4-8ce3-4d38-9931-3a3f79cd789f",
+      "identifier": "RA-1387",
+      "url": "https://linear.app/unite-group/issue/RA-1387/progress-m-11-progress-stages-drive-gstfinance-events-per-board",
+      "title": "Progress stages drive GST/finance events per board minutes §5.2"
+    },
+    {
+      "motion": "M-13",
+      "owner": "PC2",
+      "id": "ea6102f1-4f0d-46ad-97ff-f8a9d8a8183e",
+      "identifier": "RA-1388",
+      "url": "https://linear.app/unite-group/issue/RA-1388/progress-m-13-labour-hire-per-job-attestation-hours-sg-12percent",
+      "title": "Labour-hire per-job attestation (hours, SG 12%, portable LSL, award, induction)"
+    },
+    {
+      "motion": "M-14",
+      "owner": "PC2",
+      "id": "4c7e4771-96da-4826-ae9e-ba43aef17e4b",
+      "identifier": "RA-1389",
+      "url": "https://linear.app/unite-group/issue/RA-1389/progress-m-14-16-gate-hardsoftaudit-classification-from-ux-paper",
+      "title": "16-gate hard/soft/audit classification from UX paper"
+    },
+    {
+      "motion": "M-15",
+      "owner": "PC2",
+      "id": "281e3c73-742e-4407-89ee-43d1f6576715",
+      "identifier": "RA-1390",
+      "url": "https://linear.app/unite-group/issue/RA-1390/progress-m-15-monthly-5percent-override-governance-review-telemetry",
+      "title": "Monthly 5% override governance review (telemetry-fed)"
+    },
+    {
+      "motion": "M-16",
+      "owner": "PC2",
+      "id": "c845489a-5993-4ffb-8cba-22dfbc4f67ef",
+      "identifier": "RA-1391",
+      "url": "https://linear.app/unite-group/issue/RA-1391/progress-m-16-ring-fence-junior-technician-role-evidence-only-no",
+      "title": "Ring-fence Junior Technician role — evidence-only, no transitions"
+    },
+    {
+      "motion": "M-17",
+      "owner": "PC2",
+      "id": "2cdba85d-81c3-4c75-8b07-260fcc7dd572",
+      "identifier": "RA-1392",
+      "url": "https://linear.app/unite-group/issue/RA-1392/progress-m-17-telemetry-ship-blocker-8-events-4-funnels-2-board-kpis",
+      "title": "Telemetry ship-blocker (8 events, 4 funnels, 2 board KPIs)"
+    },
+    {
+      "motion": "M-18",
+      "owner": "Either",
+      "id": "3d313c56-1207-43c6-b3cc-12f7f25081a3",
+      "identifier": "RA-1393",
+      "url": "https://linear.app/unite-group/issue/RA-1393/progress-m-18-carrier-integration-working-group-guidewire-docusign",
+      "title": "Carrier integration working group (Guidewire + DocuSign procurement)"
+    },
+    {
+      "motion": "M-19",
+      "owner": "PC1",
+      "id": "f53fe118-801b-4916-b2bc-c94ec1298bdc",
+      "identifier": "RA-1394",
+      "url": "https://linear.app/unite-group/issue/RA-1394/progress-m-19-stabilisation-authority-packet-prototype-guidewire-tier",
+      "title": "Stabilisation Authority Packet prototype (Guidewire + Tier-2 pilot)"
+    },
+    {
+      "motion": "M-20",
+      "owner": "PC1",
+      "id": "1023fde5-8335-4fd5-ae27-1c943510490e",
+      "identifier": "RA-1395",
+      "url": "https://linear.app/unite-group/issue/RA-1395/progress-m-20-backfill-strategy-for-in-flight-jobs-manager-review-flag",
+      "title": "Backfill strategy for in-flight jobs + manager-review-flag (Principal amendment)"
+    },
+    {
+      "motion": "M-21",
+      "owner": "PC1",
+      "id": "dcbf873f-6fe6-4792-99d6-0d46869a029a",
+      "identifier": "RA-1396",
+      "url": "https://linear.app/unite-group/issue/RA-1396/progress-m-21-sprint-1-umbrella-foundation-schema-service-layer-2-api",
+      "title": "Sprint 1 umbrella: foundation (schema + service layer + 2 API routes + tests)"
+    }
+  ]
+}

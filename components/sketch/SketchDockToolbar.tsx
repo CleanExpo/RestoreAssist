@@ -49,16 +49,21 @@ export interface SketchDockToolbarProps {
   className?: string;
 }
 
-const TOOLS: { mode: ToolMode; Icon: React.ElementType; label: string; shortcut: string }[] = [
-  { mode: "select",   Icon: MousePointer2, label: "Select",       shortcut: "V" },
-  { mode: "room",     Icon: Square,        label: "Room",         shortcut: "R" },
-  { mode: "line",     Icon: Minus,         label: "Wall",         shortcut: "L" },
-  { mode: "freehand", Icon: Pencil,        label: "Freehand",     shortcut: "P" },
-  { mode: "text",     Icon: Type,          label: "Label",        shortcut: "T" },
-  { mode: "arrow",    Icon: ArrowUpRight,  label: "Arrow",        shortcut: "A" },
-  { mode: "measure",  Icon: Ruler,         label: "Measure",      shortcut: "M" },
-  { mode: "photo",    Icon: Droplets,      label: "Moisture Pin", shortcut: "D" },
-  { mode: "pan",      Icon: Hand,          label: "Pan",          shortcut: "H" },
+const TOOLS: {
+  mode: ToolMode;
+  Icon: React.ElementType;
+  label: string;
+  shortcut: string;
+}[] = [
+  { mode: "select", Icon: MousePointer2, label: "Select", shortcut: "V" },
+  { mode: "room", Icon: Square, label: "Room", shortcut: "R" },
+  { mode: "line", Icon: Minus, label: "Wall", shortcut: "L" },
+  { mode: "freehand", Icon: Pencil, label: "Freehand", shortcut: "P" },
+  { mode: "text", Icon: Type, label: "Label", shortcut: "T" },
+  { mode: "arrow", Icon: ArrowUpRight, label: "Arrow", shortcut: "A" },
+  { mode: "measure", Icon: Ruler, label: "Measure", shortcut: "M" },
+  { mode: "photo", Icon: Droplets, label: "Moisture Pin", shortcut: "D" },
+  { mode: "pan", Icon: Hand, label: "Pan", shortcut: "H" },
 ];
 
 const STORAGE_KEY = "sketch-dock-position";
@@ -100,13 +105,12 @@ export function SketchDockToolbar({
   // ── Keyboard shortcuts ───────────────────────────────────
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (
-        e.target !== document.body &&
-        e.target !== document.documentElement
-      )
+      if (e.target !== document.body && e.target !== document.documentElement)
         return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
-      const tool = TOOLS.find((t) => t.shortcut.toLowerCase() === e.key.toLowerCase());
+      const tool = TOOLS.find(
+        (t) => t.shortcut.toLowerCase() === e.key.toLowerCase(),
+      );
       if (tool && !readonly) {
         onToolChange(tool.mode);
         e.preventDefault();
@@ -168,9 +172,9 @@ export function SketchDockToolbar({
     "select-none",
     isVertical ? "flex-col rounded-2xl" : "flex-row rounded-2xl",
     dock === "bottom" && "bottom-4 left-1/2 -translate-x-1/2",
-    dock === "top"    && "top-4 left-1/2 -translate-x-1/2",
-    dock === "left"   && "left-4 top-1/2 -translate-y-1/2",
-    dock === "right"  && "right-4 top-1/2 -translate-y-1/2",
+    dock === "top" && "top-4 left-1/2 -translate-x-1/2",
+    dock === "left" && "left-4 top-1/2 -translate-y-1/2",
+    dock === "right" && "right-4 top-1/2 -translate-y-1/2",
     isDragging && "opacity-70",
     className,
   );
@@ -196,15 +200,16 @@ export function SketchDockToolbar({
       <div className={dividerCls} />
 
       {/* Tool buttons */}
-      {!readonly && TOOLS.map(({ mode, Icon, label, shortcut }) => (
-        <ToolBtn
-          key={mode}
-          active={toolMode === mode}
-          onClick={() => onToolChange(mode)}
-          label={`${label} (${shortcut})`}
-          Icon={Icon}
-        />
-      ))}
+      {!readonly &&
+        TOOLS.map(({ mode, Icon, label, shortcut }) => (
+          <ToolBtn
+            key={mode}
+            active={toolMode === mode}
+            onClick={() => onToolChange(mode)}
+            label={`${label} (${shortcut})`}
+            Icon={Icon}
+          />
+        ))}
 
       {readonly && (
         <ToolBtn
@@ -237,9 +242,24 @@ export function SketchDockToolbar({
 
       <div className={dividerCls} />
 
-      <ToolBtn active={false} onClick={onZoomIn}    label="Zoom In"    Icon={ZoomIn} />
-      <ToolBtn active={false} onClick={onZoomOut}   label="Zoom Out"   Icon={ZoomOut} />
-      <ToolBtn active={false} onClick={onZoomReset} label="Fit Canvas" Icon={Maximize2} />
+      <ToolBtn
+        active={false}
+        onClick={onZoomIn}
+        label="Zoom In"
+        Icon={ZoomIn}
+      />
+      <ToolBtn
+        active={false}
+        onClick={onZoomOut}
+        label="Zoom Out"
+        Icon={ZoomOut}
+      />
+      <ToolBtn
+        active={false}
+        onClick={onZoomReset}
+        label="Fit Canvas"
+        Icon={Maximize2}
+      />
 
       {!readonly && (
         <>
@@ -268,7 +288,14 @@ interface ToolBtnProps {
   danger?: boolean;
 }
 
-function ToolBtn({ active, onClick, disabled, label, Icon, danger }: ToolBtnProps) {
+function ToolBtn({
+  active,
+  onClick,
+  disabled,
+  label,
+  Icon,
+  danger,
+}: ToolBtnProps) {
   return (
     <button
       type="button"
@@ -283,8 +310,8 @@ function ToolBtn({ active, onClick, disabled, label, Icon, danger }: ToolBtnProp
         active
           ? "bg-cyan-500 text-white shadow-md shadow-cyan-500/30"
           : danger
-          ? "text-rose-400 hover:bg-rose-500/20 hover:text-rose-300"
-          : "text-white/60 hover:bg-white/10 hover:text-white",
+            ? "text-rose-400 hover:bg-rose-500/20 hover:text-rose-300"
+            : "text-white/60 hover:bg-white/10 hover:text-white",
         disabled && "opacity-30 cursor-not-allowed",
       )}
     >

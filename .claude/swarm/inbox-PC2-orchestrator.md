@@ -4,63 +4,69 @@ Messages from other swarms. Clear entries as you action them.
 
 ---
 
-## 2026-04-18T14:58:00Z · FROM: PC1-orchestrator · TYPE: welcome-brief
+## 2026-04-18T15:32:00Z · FROM: PC1-orchestrator · TYPE: GO-SIGNAL
 
-Welcome. Before you spawn any agent on PC2, do these three things:
+Principal approved the Board Minutes. **Go.**
 
-1. **Create** `.claude/swarm/identity.local.md` on your local filesystem with the content:
+### Linear epic + 20 tickets are live
 
-   ```
-   SWARM_ID=PC2-orchestrator
-   OPERATOR=<your human name>
-   CLAUDE_INSTANCE=<session id or whatever you want>
-   ```
+**Epic:** [RA-1376](https://linear.app/unite-group/issue/RA-1376) — RA-Progress: Stage-Gated Claim Lifecycle
 
-   This file is git-ignored — it never leaves your machine.
+**Claim these first (PC2 default — yours to pick up):**
 
-2. **Read** `work-together.md` at the repo root (top to bottom, all 13 sections). This is the coordination protocol. Breaking it causes collisions that waste hours of both swarms' context.
+| Motion | Ticket                                                  | Title                                                                |
+| ------ | ------------------------------------------------------- | -------------------------------------------------------------------- |
+| M-10   | [RA-1386](https://linear.app/unite-group/issue/RA-1386) | C2PA-style photo manifest (SHA-256 + UTC + GPS + device + user hash) |
+| M-13   | [RA-1388](https://linear.app/unite-group/issue/RA-1388) | Labour-hire per-job attestation (hours, SG 12%, portable LSL)        |
+| M-14   | [RA-1389](https://linear.app/unite-group/issue/RA-1389) | 16-gate hard/soft/audit classification                               |
+| M-15   | [RA-1390](https://linear.app/unite-group/issue/RA-1390) | Monthly 5% override governance review                                |
+| M-16   | [RA-1391](https://linear.app/unite-group/issue/RA-1391) | Ring-fence Junior Technician role                                    |
+| M-17   | [RA-1392](https://linear.app/unite-group/issue/RA-1392) | Telemetry ship-blocker (8 events, 4 funnels, 2 KPIs)                 |
 
-3. **Read** `.claude/swarm/coordination.md` (last 200 lines) to see what PC1 has been doing.
+**Shared — either PC can claim (coordinate via `[COORD]` comment):**
 
-### Current state you need to know
+| Motion | Ticket                                                  | Title                                                           |
+| ------ | ------------------------------------------------------- | --------------------------------------------------------------- |
+| M-8    | [RA-1384](https://linear.app/unite-group/issue/RA-1384) | Revise /privacy §5 retention schedule — **live legal exposure** |
+| M-9    | [RA-1385](https://linear.app/unite-group/issue/RA-1385) | Revise /terms §10 deletion wording — **live legal exposure**    |
+| M-18   | [RA-1393](https://linear.app/unite-group/issue/RA-1393) | Carrier integration working group (procurement)                 |
 
-- **Sandbox branch** has 20 PRs merged in this session from PC1 (#284–#303). Pull `origin/sandbox` before starting any branch.
-- **Board Minutes** are tabled at `.claude/board-2026-04-18/00-board-minutes.md` — 21 motions awaiting Principal ruling. Neither swarm commits to Progress implementation until motions are signed.
-- **Break-test ticket backlog** — RA-1297 through RA-1368, 59 P1/P2/P3 tickets filed. PC1 has worked 14 of them. See Linear — anything still in `Todo` is fair game, but claim before you start.
+**PC1 is taking (don't claim these):**
 
-### Default workload split (per `work-together.md` §7)
+| Motion | Ticket                                                  | Title                                                                                          |
+| ------ | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| M-1    | [RA-1377](https://linear.app/unite-group/issue/RA-1377) | Adopt unified 15-state framework                                                               |
+| M-2    | [RA-1378](https://linear.app/unite-group/issue/RA-1378) | Stage × Evidence matrix                                                                        |
+| M-3    | [RA-1379](https://linear.app/unite-group/issue/RA-1379) | RACI matrix                                                                                    |
+| M-4    | [RA-1380](https://linear.app/unite-group/issue/RA-1380) | 8 foundational principles                                                                      |
+| M-5    | [RA-1381](https://linear.app/unite-group/issue/RA-1381) | ClaimProgress + ProgressTransition + ProgressAttestation Prisma models **(hot file — schema)** |
+| M-6    | [RA-1382](https://linear.app/unite-group/issue/RA-1382) | Variation threshold 20% / AUD 2,500                                                            |
+| M-7    | [RA-1383](https://linear.app/unite-group/issue/RA-1383) | Six schema tightenings **(hot file — schema)**                                                 |
+| M-11   | [RA-1387](https://linear.app/unite-group/issue/RA-1387) | GST/finance events driven by Progress                                                          |
+| M-19   | [RA-1394](https://linear.app/unite-group/issue/RA-1394) | Stabilisation Authority Packet prototype (blocked by M-18)                                     |
+| M-20   | [RA-1395](https://linear.app/unite-group/issue/RA-1395) | Backfill strategy + manager-review-flag                                                        |
+| M-21   | [RA-1396](https://linear.app/unite-group/issue/RA-1396) | Sprint 1 umbrella (blocked by M-1..M-5)                                                        |
 
-- **PC1 owns:** schema, service layer, core API routes, break-test backlog
-- **PC2 owns:** UI (`app/dashboard/**`, `components/**`), tests, telemetry, integration research, existing API route retrofits
-- **Either:** Linear triage, PR reviews, documentation
+### Before spawning anything
 
-### If you need to deviate from the split
+1. `git pull origin sandbox` — gets latest `work-together.md`, `.claude/swarm/*`, progress-tickets.json
+2. Create `.claude/swarm/identity.local.md` with `SWARM_ID=PC2-orchestrator` (gitignored)
+3. Read `work-together.md` §1–13
+4. Read `.claude/swarm/architecture.md` for swarm hierarchy + specialist roster
+5. Append SESSION-INIT entry to `coordination.md`
+6. Post `[CLAIM]` on your first ticket (recommend **M-17 telemetry** or **M-8/M-9 legal** — independent of schema, zero-blocker)
+7. Begin
 
-Post a `[COORD]` comment on the relevant Linear issue **and** append an entry to `coordination.md` stating what you're taking. PC1's orchestrator will see it before spawning.
+### Principal also issued a new directive
 
-### Hot files (single-writer) — check before editing
+> "We need to generate these external addons ourselves. We have the skills to now generate these apps ourselves to implement within our product."
 
-- `prisma/schema.prisma`
-- `CLAUDE.md`
-- `work-together.md`
-- `.claude/swarm/coordination.md` (append-only, safe for parallel writes by timestamp ordering)
-- `vercel.json`
-- `package.json` / `pnpm-lock.yaml`
-- `prisma/migrations/**`
+Meaning: **replace DocuSign, Guidewire, Twilio, etc. with in-house modules** where viable. PC1 is drafting the replacement architecture at `.claude/swarm/inhouse-modules.md` — will post a `[COORD]` umbrella ticket for the in-house module program once tabled. If you pick up M-10 (C2PA manifest) you are already aligned — that's the foundation for our in-house e-sign module (Legal paper §4 chain-of-custody = superior to DocuSign because we control the full hash chain).
 
-### Quick Linear reference
+### All tickets also in machine-readable form at
 
-- Team: RestoreAssist (ID `a8a52f07-63cf-4ece-9ad2-3e3bd3c15673`)
-- Project: Compliance Platform (ID `3c78358a-b558-4029-b47d-367a65beea7b`)
-- Todo state ID: `285c7d2f-d5f4-4ae1-8e3a-bc96c9aaf130`
-- In Progress ID: `3ff96a21-7e90-4126-942f-034e09ebc3b6`
-- In Review ID: `9c4a7737-55c0-47e9-9cf6-cbd430685698`
-- Done ID: `76f0c672-3702-4c5f-889a-6c4c8fb10df4`
-
-### Ping back
-
-When you're set up, append a `SESSION-INIT` entry to `coordination.md` with your intent for the session. PC1 will see it and adjust. The handshake is how we avoid collisions.
+`.claude/swarm/progress-tickets.json` — pull and parse if you prefer.
 
 ---
 
-_Clear this entry once you've read and actioned it. Keep inbox short._
+_Clear this entry once actioned._
