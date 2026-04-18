@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sanitizeString } from "@/lib/sanitize";
 import { randomBytes } from "crypto";
+import { withIdempotency } from "@/lib/idempotency";
 
 // GET - Get inspections (optionally filtered by reportId, with pagination and search)
 export async function GET(request: NextRequest) {
@@ -140,7 +141,8 @@ export async function GET(request: NextRequest) {
       if (status === "active") {
         where.status = { notIn: ["COMPLETED", "REJECTED"] };
       } else {
-        where.status = status.toUpperCase() as Prisma.InspectionWhereInput["status"];
+        where.status =
+          status.toUpperCase() as Prisma.InspectionWhereInput["status"];
       }
     }
 
@@ -260,121 +262,135 @@ export async function GET(request: NextRequest) {
 
 // POST - Create new inspection
 export async function POST(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
+  const session = await getServerSession(authOptions);
 
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const userId = session.user.id;
 
-    const body = await request.json();
-
-    // Validate required fields
-    if (!body.propertyAddress || !body.propertyAddress.trim()) {
-      return NextResponse.json(
-        { error: "Property address is required" },
-        { status: 400 },
-      );
-    }
-
-    if (!body.propertyPostcode || !body.propertyPostcode.trim()) {
-      return NextResponse.json(
-        { error: "Property postcode is required" },
-        { status: 400 },
-      );
-    }
-
-    // Validate reportId if provided
-    if (body.reportId) {
-      const report = await prisma.report.findUnique({
-        where: { id: body.reportId },
-        select: { id: true, userId: true },
-      });
-
-      if (!report) {
-        return NextResponse.json(
-          { error: "Report not found" },
-          { status: 404 },
-        );
-      }
-
-      // Verify the report belongs to the user
-      if (report.userId !== session.user.id) {
-        return NextResponse.json(
-          { error: "Unauthorized: Report does not belong to user" },
-          { status: 403 },
-        );
-      }
-    }
-
-    // Generate inspection number (NIR-YYYY-MM-XXXXXX format).
-    // Previous implementation used Date.now() + Math.random() which collides under
-    // concurrent requests in the same millisecond. randomBytes(3) gives 2^24 (16M)
-    // unique values per month with no shared state or clock dependency.
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const sequence = randomBytes(3).toString("hex").toUpperCase(); // 6 hex chars
-    const inspectionNumber = `NIR-${year}-${month}-${sequence}`;
-
-    // Create inspection
-    const inspection = await prisma.inspection.create({
-      data: {
-        inspectionNumber,
-        propertyAddress: sanitizeString(body.propertyAddress, 500),
-        propertyPostcode: sanitizeString(body.propertyPostcode, 20),
-        technicianName: body.technicianName
-          ? sanitizeString(body.technicianName, 200)
-          : null,
-        ...(body.lossDescription &&
-          ({
-            lossDescription: sanitizeString(body.lossDescription, 2000),
-          } as any)),
-        reportId: body.reportId || null, // Link to report if provided
-        userId: session.user.id,
-        status: "DRAFT",
-      },
-      include: {
-        environmentalData: true,
-        moistureReadings: true,
-        affectedAreas: true,
-        scopeItems: true,
-      },
-    });
-
-    // Create audit log (optional - don't fail if this fails)
+  // RA-1266: Idempotency-Key prevents duplicate inspections — a technician
+  // on flaky mobile data who retries a submit shouldn't end up with two
+  // inspections for the same job (causes invoice/scope chaos downstream).
+  return withIdempotency(request, userId, async (rawBody) => {
     try {
-      await prisma.auditLog.create({
+      let body: any;
+      try {
+        body = rawBody ? JSON.parse(rawBody) : {};
+      } catch {
+        return NextResponse.json(
+          { error: "Invalid JSON body" },
+          { status: 400 },
+        );
+      }
+
+      // Validate required fields
+      if (!body.propertyAddress || !body.propertyAddress.trim()) {
+        return NextResponse.json(
+          { error: "Property address is required" },
+          { status: 400 },
+        );
+      }
+
+      if (!body.propertyPostcode || !body.propertyPostcode.trim()) {
+        return NextResponse.json(
+          { error: "Property postcode is required" },
+          { status: 400 },
+        );
+      }
+
+      // Validate reportId if provided
+      if (body.reportId) {
+        const report = await prisma.report.findUnique({
+          where: { id: body.reportId },
+          select: { id: true, userId: true },
+        });
+
+        if (!report) {
+          return NextResponse.json(
+            { error: "Report not found" },
+            { status: 404 },
+          );
+        }
+
+        // Verify the report belongs to the user
+        if (report.userId !== userId) {
+          return NextResponse.json(
+            { error: "Unauthorized: Report does not belong to user" },
+            { status: 403 },
+          );
+        }
+      }
+
+      // Generate inspection number (NIR-YYYY-MM-XXXXXX format).
+      // Previous implementation used Date.now() + Math.random() which collides under
+      // concurrent requests in the same millisecond. randomBytes(3) gives 2^24 (16M)
+      // unique values per month with no shared state or clock dependency.
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, "0");
+      const sequence = randomBytes(3).toString("hex").toUpperCase(); // 6 hex chars
+      const inspectionNumber = `NIR-${year}-${month}-${sequence}`;
+
+      // Create inspection
+      const inspection = await prisma.inspection.create({
         data: {
-          inspectionId: inspection.id,
-          action: "Inspection created",
-          entityType: "Inspection",
-          entityId: inspection.id,
-          userId: session.user.id,
-          changes: JSON.stringify({
-            propertyAddress: inspection.propertyAddress,
-            propertyPostcode: inspection.propertyPostcode,
-          }),
+          inspectionNumber,
+          propertyAddress: sanitizeString(body.propertyAddress, 500),
+          propertyPostcode: sanitizeString(body.propertyPostcode, 20),
+          technicianName: body.technicianName
+            ? sanitizeString(body.technicianName, 200)
+            : null,
+          ...(body.lossDescription &&
+            ({
+              lossDescription: sanitizeString(body.lossDescription, 2000),
+            } as any)),
+          reportId: body.reportId || null, // Link to report if provided
+          userId,
+          status: "DRAFT",
+        },
+        include: {
+          environmentalData: true,
+          moistureReadings: true,
+          affectedAreas: true,
+          scopeItems: true,
         },
       });
-    } catch (auditError) {
-      // Log but don't fail the request if audit log creation fails
-      console.error("Error creating audit log (non-critical):", auditError);
+
+      // Create audit log (optional - don't fail if this fails)
+      try {
+        await prisma.auditLog.create({
+          data: {
+            inspectionId: inspection.id,
+            action: "Inspection created",
+            entityType: "Inspection",
+            entityId: inspection.id,
+            userId,
+            changes: JSON.stringify({
+              propertyAddress: inspection.propertyAddress,
+              propertyPostcode: inspection.propertyPostcode,
+            }),
+          },
+        });
+      } catch (auditError) {
+        // Log but don't fail the request if audit log creation fails
+        console.error("Error creating audit log (non-critical):", auditError);
+      }
+
+      return NextResponse.json({ inspection }, { status: 201 });
+    } catch (error: any) {
+      console.error("Error creating inspection:", error);
+      console.error("Error details:", {
+        message: error.message,
+        code: error.code,
+        meta: error.meta,
+      });
+
+      // RA-786: do not leak error.message / error.code to clients
+      return NextResponse.json(
+        { error: "Internal server error" },
+        { status: 500 },
+      );
     }
-
-    return NextResponse.json({ inspection }, { status: 201 });
-  } catch (error: any) {
-    console.error("Error creating inspection:", error);
-    console.error("Error details:", {
-      message: error.message,
-      code: error.code,
-      meta: error.meta,
-    });
-
-    // RA-786: do not leak error.message / error.code to clients
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
-  }
+  });
 }
