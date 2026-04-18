@@ -163,6 +163,13 @@ export async function applyRateLimit(
     maxRequests?: number;
     prefix?: string;
     key?: string;
+    /**
+     * RA-1319: when true, an Upstash outage returns 429 instead of falling
+     * back to in-memory. Use on AI-cost-sensitive endpoints where the
+     * per-instance in-memory cap multiplied by cold-start instance count
+     * would blow the Anthropic budget.
+     */
+    failClosedOnUpstashError?: boolean;
   } = {},
 ): Promise<NextResponse | null> {
   const {
@@ -170,6 +177,7 @@ export async function applyRateLimit(
     maxRequests = 5,
     prefix = "api",
     key: customKey,
+    failClosedOnUpstashError = false,
   } = opts;
   const rateLimitKey = customKey
     ? `${prefix}:${customKey}`
@@ -189,10 +197,13 @@ export async function applyRateLimit(
       }
       return null;
     } catch {
-      // Redis error — fall through to in-memory
+      // Redis error — fall through to in-memory unless caller opted in to fail-closed
       console.warn(
         "[rate-limiter] Upstash Redis error, falling back to in-memory",
       );
+      if (failClosedOnUpstashError) {
+        return build429(maxRequests, 60);
+      }
     }
   }
 

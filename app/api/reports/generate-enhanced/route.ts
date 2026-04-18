@@ -50,11 +50,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Rate limit: 10 enhanced report generations per 15 minutes per user
+    // Rate limit: 10 enhanced report generations per 15 minutes per user.
+    // RA-1319: fail-closed on Upstash outage — this endpoint bills Anthropic
+    // tokens and must not silently fall back to per-instance in-memory caps.
     const rateLimited = await applyRateLimit(request, {
       maxRequests: 10,
       prefix: "gen-enhanced",
       key: session.user.id,
+      failClosedOnUpstashError: true,
     });
     if (rateLimited) return rateLimited;
 
