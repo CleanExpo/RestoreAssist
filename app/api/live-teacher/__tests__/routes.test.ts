@@ -29,7 +29,11 @@ vi.mock("@/lib/rate-limiter", () => ({
 // Mock admin-auth
 // ---------------------------------------------------------------------------
 vi.mock("@/lib/admin-auth", () => ({
-  verifyAdminFromDb: vi.fn().mockResolvedValue({ user: { id: "admin-1", role: "ADMIN", organizationId: null } }),
+  verifyAdminFromDb: vi
+    .fn()
+    .mockResolvedValue({
+      user: { id: "admin-1", role: "ADMIN", organizationId: null },
+    }),
 }));
 
 // ---------------------------------------------------------------------------
@@ -98,11 +102,15 @@ describe("POST /api/live-teacher/session", () => {
     mockGetServerSession.mockResolvedValue(null);
 
     const { POST } = await import("../session/route");
-    const req = makeRequest("POST", "http://localhost/api/live-teacher/session", {
-      inspectionId: "insp-1",
-      jurisdiction: "AU",
-      deviceOs: "web",
-    });
+    const req = makeRequest(
+      "POST",
+      "http://localhost/api/live-teacher/session",
+      {
+        inspectionId: "insp-1",
+        jurisdiction: "AU",
+        deviceOs: "web",
+      },
+    );
 
     const res = await POST(req);
     expect(res.status).toBe(401);
@@ -118,11 +126,15 @@ describe("POST /api/live-teacher/session", () => {
     mockSessionCreate.mockResolvedValue({ id: "sess-abc-123" });
 
     const { POST } = await import("../session/route");
-    const req = makeRequest("POST", "http://localhost/api/live-teacher/session", {
-      inspectionId: "insp-1",
-      jurisdiction: "AU",
-      deviceOs: "web",
-    });
+    const req = makeRequest(
+      "POST",
+      "http://localhost/api/live-teacher/session",
+      {
+        inspectionId: "insp-1",
+        jurisdiction: "AU",
+        deviceOs: "web",
+      },
+    );
 
     const res = await POST(req);
     expect(res.status).toBe(201);
@@ -157,8 +169,8 @@ describe("POST /api/live-teacher/turn", () => {
     mockSessionFindFirst.mockResolvedValue({ id: "sess-1", userId: "user-1" });
     mockUtteranceCount.mockResolvedValue(0);
     mockUtteranceCreate
-      .mockResolvedValueOnce({ id: "utt-user-1" })   // user turn
-      .mockResolvedValueOnce({ id: "utt-asst-1" });  // assistant turn
+      .mockResolvedValueOnce({ id: "utt-user-1" }) // user turn
+      .mockResolvedValueOnce({ id: "utt-asst-1" }); // assistant turn
 
     const { POST } = await import("../turn/route");
     const req = makeRequest("POST", "http://localhost/api/live-teacher/turn", {
@@ -201,13 +213,20 @@ describe("GET /api/live-teacher/audit/[sessionId]", () => {
     // verifyAdminFromDb returns a forbidden response for non-admin
     const { verifyAdminFromDb } = await import("@/lib/admin-auth");
     vi.mocked(verifyAdminFromDb).mockResolvedValue({
-      response: new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 }),
+      response: new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403,
+      }),
     });
 
     const { GET } = await import("../audit/[sessionId]/route");
-    const req = makeRequest("GET", "http://localhost/api/live-teacher/audit/sess-1");
+    const req = makeRequest(
+      "GET",
+      "http://localhost/api/live-teacher/audit/sess-1",
+    );
 
-    const res = await GET(req, { params: Promise.resolve({ sessionId: "sess-1" }) });
+    const res = await GET(req, {
+      params: Promise.resolve({ sessionId: "sess-1" }),
+    });
     expect(res.status).toBe(403);
     const json = await res.json();
     expect(json.error).toBe("Forbidden");

@@ -29,9 +29,10 @@ export function px2ToM2(px2: number, pxPerMetre = 100): number {
 }
 
 /** Centroid of a polygon (for label placement) */
-export function centroid(
-  points: ReadonlyArray<{ x: number; y: number }>,
-): { x: number; y: number } {
+export function centroid(points: ReadonlyArray<{ x: number; y: number }>): {
+  x: number;
+  y: number;
+} {
   let cx = 0;
   let cy = 0;
   for (const p of points) {

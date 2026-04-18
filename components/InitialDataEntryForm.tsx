@@ -261,7 +261,8 @@ export default function InitialDataEntryForm({
       id: 10,
       title: "Timeline Estimation",
       icon: Clock,
-      description: "Phase dates for stabilisation (make-safe), remediation, and verification",
+      description:
+        "Phase dates for stabilisation (make-safe), remediation, and verification",
       requiredFields: [],
     },
     {

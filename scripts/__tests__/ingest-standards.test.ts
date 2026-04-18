@@ -18,7 +18,7 @@ import {
 
 const CORPUS_PATH = path.resolve(
   __dirname,
-  "../../scripts/data/standards-corpus.json"
+  "../../scripts/data/standards-corpus.json",
 );
 
 const FIXED_VECTOR = Array.from({ length: 1536 }, (_, i) => i / 1536);

@@ -101,7 +101,13 @@ export function useFetch<T>(
     }
 
     // Extract hook-specific keys so they are not passed to fetch()
-    const { skip: _skip, optimisticData: _opt, dedupe: _ded, retryCount: _rc, ...fetchInit } = opts ?? {};
+    const {
+      skip: _skip,
+      optimisticData: _opt,
+      dedupe: _ded,
+      retryCount: _rc,
+      ...fetchInit
+    } = opts ?? {};
     const maxRetries = opts?.retryCount ?? 0;
 
     const attemptFetch = (attempt: number): void => {
