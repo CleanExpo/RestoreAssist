@@ -271,7 +271,11 @@ export default function ProfessionalDocumentViewer({
             "td",
             "th",
           ],
-          ALLOWED_ATTR: ["class", "style"],
+          // RA-1346: style attr removed from allowlist — attacker-controlled
+          // report content (AI output, pasted insurer notes) could embed CSS
+          // positioning for overlay/clickjack or `background:url(beacon)`
+          // exfil. Structural classes are still available.
+          ALLOWED_ATTR: ["class"],
         })
       : formatContent(content);
 
