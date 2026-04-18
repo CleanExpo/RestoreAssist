@@ -34,7 +34,8 @@ export type EquipmentType =
   | "lgr_dehumidifier"
   | "air_scrubber"
   | "negative_air_machine"
-  | "hepa_vacuum";
+  | "hepa_vacuum"
+  | "air_filtration_device";
 
 export interface EquipmentCalculatorInput {
   affectedAreaM2: number;
@@ -97,6 +98,7 @@ const AMPS: Record<EquipmentType, number> = {
   air_scrubber: 3.0, // 500-700 CFM average
   negative_air_machine: 9.0, // typically 8-12A
   hepa_vacuum: 10.0, // commercial HEPA vacuum
+  air_filtration_device: 3.5, // AFD 400-600 CFM average
 };
 
 // Suggested model labels (display only)
@@ -106,6 +108,7 @@ const SUGGESTED_MODEL: Record<EquipmentType, string> = {
   air_scrubber: "500 CFM Air Scrubber (HEPA)",
   negative_air_machine: "Negative Air Machine w/ HEPA",
   hepa_vacuum: "Commercial HEPA Vacuum",
+  air_filtration_device: "Air Filtration Device (AFD) 400–600 CFM",
 };
 
 // ============================================================
@@ -130,6 +133,7 @@ function buildItem(
     air_scrubber: "Air Scrubber (HEPA)",
     negative_air_machine: "Negative Air Machine",
     hepa_vacuum: "HEPA Vacuum",
+    air_filtration_device: "Air Filtration Device (AFD)",
   };
   const amps = AMPS[type];
   return {
@@ -272,5 +276,117 @@ export function calculateEquipment(
     recommendedCircuits,
     summary,
     iicrcClassification,
+  };
+}
+
+// ============================================================
+// S520 Mould Equipment Calculator
+// ============================================================
+
+// Mould equipment ratios per IICRC S520:2015
+const MOULD_NEGATIVE_AIR_RATIO_M2_PER_UNIT = 50; // §7.4 — 1 per 50m²
+const MOULD_HEPA_VACUUM_RATIO_M2_PER_UNIT = 75; // §8.2 — 1 per 75m²
+const MOULD_AFD_RATIO_M2_PER_UNIT = 100; // §8.4 — 1 per 100m²
+
+export interface MouldEquipmentInput {
+  /** Total mould-affected area in m² */
+  mouldAffectedAreaM2: number;
+}
+
+export interface MouldEquipmentResult {
+  equipmentList: EquipmentLineItem[];
+  totalEstimatedAmps: number;
+  /** AS/NZS 3012:2019: total load must not exceed 80% of circuit rating */
+  circuitLoadWarning?: string;
+  /** Recommended minimum number of 20A circuits */
+  recommendedCircuits: number;
+  summary: string;
+}
+
+/**
+ * Calculate IICRC S520:2015-compliant equipment for a mould remediation job.
+ *
+ * Ratios per S520:2015:
+ *   Negative air machine — 1 per 50m²  (§7.4)
+ *   HEPA vacuum          — 1 per 75m²  (§8.2)
+ *   Air filtration device (AFD) — 1 per 100m² (§8.4)
+ *
+ * All quantities rounded up per IICRC convention; minimum 1 of each type.
+ */
+export function calculateMouldEquipment(
+  input: MouldEquipmentInput,
+): MouldEquipmentResult {
+  const { mouldAffectedAreaM2 } = input;
+  const items: EquipmentLineItem[] = [];
+
+  // Negative air machine — S520:2015 §7.4
+  const negAirQty = Math.max(
+    1,
+    calcQty(mouldAffectedAreaM2, MOULD_NEGATIVE_AIR_RATIO_M2_PER_UNIT),
+  );
+  items.push(
+    buildItem(
+      "negative_air_machine",
+      negAirQty,
+      MOULD_NEGATIVE_AIR_RATIO_M2_PER_UNIT,
+      mouldAffectedAreaM2,
+      "IICRC S520:2015 §7.4",
+    ),
+  );
+
+  // HEPA vacuum — S520:2015 §8.2
+  const hepaVacQty = Math.max(
+    1,
+    calcQty(mouldAffectedAreaM2, MOULD_HEPA_VACUUM_RATIO_M2_PER_UNIT),
+  );
+  items.push(
+    buildItem(
+      "hepa_vacuum",
+      hepaVacQty,
+      MOULD_HEPA_VACUUM_RATIO_M2_PER_UNIT,
+      mouldAffectedAreaM2,
+      "IICRC S520:2015 §8.2",
+    ),
+  );
+
+  // Air Filtration Device (AFD) — S520:2015 §8.4
+  const afdQty = Math.max(
+    1,
+    calcQty(mouldAffectedAreaM2, MOULD_AFD_RATIO_M2_PER_UNIT),
+  );
+  items.push(
+    buildItem(
+      "air_filtration_device",
+      afdQty,
+      MOULD_AFD_RATIO_M2_PER_UNIT,
+      mouldAffectedAreaM2,
+      "IICRC S520:2015 §8.4",
+    ),
+  );
+
+  // Electrical load check — AS/NZS 3012:2019 80% rule
+  const totalAmps = parseFloat(
+    items.reduce((sum, e) => sum + e.estimatedAmpsTotal, 0).toFixed(2),
+  );
+  const maxAmpsPerCircuit = 16; // 20A × 80%
+  const recommendedCircuits = Math.ceil(totalAmps / maxAmpsPerCircuit);
+
+  let circuitLoadWarning: string | undefined;
+  if (totalAmps > maxAmpsPerCircuit) {
+    circuitLoadWarning =
+      `Total estimated load ${totalAmps}A exceeds AS/NZS 3012:2019 80% continuous-load rule ` +
+      `(16A max per 20A circuit). Use ${recommendedCircuits} separate circuits minimum. ` +
+      `Confirm circuit breaker ratings on-site before energising equipment.`;
+  }
+
+  const summaryParts = items.map((e) => `${e.quantity}× ${e.label}`);
+  const summary = `IICRC S520:2015 Mould Equipment: ${summaryParts.join(" + ")}`;
+
+  return {
+    equipmentList: items,
+    totalEstimatedAmps: totalAmps,
+    circuitLoadWarning,
+    recommendedCircuits,
+    summary,
   };
 }
