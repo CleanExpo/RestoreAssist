@@ -9,6 +9,7 @@
     { "path": "/api/cron/design-system-onboarding", "schedule": "0 23 * * *" },
     { "path": "/api/cron/scout", "schedule": "0 23 * * 0" },
     { "path": "/api/cron/board-meeting", "schedule": "0 0 * * 2" },
-    { "path": "/api/cron/backfill-progress", "schedule": "0 4 * * *" }
+    { "path": "/api/cron/backfill-progress", "schedule": "0 4 * * *" },
+    { "path": "/api/cron/winback", "schedule": "0 9 * * *" }
   ]
 }
