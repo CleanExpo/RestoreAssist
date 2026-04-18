@@ -5125,17 +5125,17 @@ model MakeSafeAction {
 
 // RA-1136b: Scope Variation — ICA Code of Practice §5 + Insurance Contracts Act 1984
 model ScopeVariation {
-  id                  String     @id @default(cuid())
+  id                  String              @id @default(cuid())
   inspectionId        String
-  inspection          Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  inspection          Inspection          @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
   reason              String
-  authorisationSource String // "insurer_email" | "customer_signature" | "internal_manager" | "adjuster_approval"
+  authorisationSource AuthorisationSource
   authorisationRef    String? // email ref, signature ID, etc.
   costDeltaCents      Int // positive = scope increase; negative = scope reduction
   costDeltaPercent    Float? // calculated vs baseline estimate
   approvedByUserId    String
-  approvedAt          DateTime   @default(now())
-  status              String     @default("PENDING") // "PENDING" | "APPROVED" | "REJECTED" | "AUTO_APPROVED"
+  approvedAt          DateTime            @default(now())
+  status              String              @default("PENDING") // "PENDING" | "APPROVED" | "REJECTED" | "AUTO_APPROVED"
   autoApprovalRule    String? // e.g. "DELTA_UNDER_10_PERCENT"
   notes               String?
 
@@ -5417,4 +5417,27 @@ model DeviceSigningKey {
   @@index([userId])
   @@index([publicKeyId])
   @@index([revokedAt])
+}
+
+// ─── RA-1383 v2 (Board M-7 item 2): ScopeVariation.authorisationSource enum ─
+// Converted from free-form string to enum. Existing API-layer validator
+// (VALID_AUTHORISATION_SOURCES) gets retired; Prisma now guarantees the
+// constraint at schema level.
+//
+// Values include both the 4 legacy values (pre-RA-1383) AND the 5 board-proposed
+// values from Board paper 01 for future use (e.g. M-19 stabilisation packet).
+
+enum AuthorisationSource {
+  // Legacy values — existing rows map to these (UPPERCASE of lowercase string)
+  INSURER_EMAIL
+  CUSTOMER_SIGNATURE
+  INTERNAL_MANAGER
+  ADJUSTER_APPROVAL
+
+  // Board-proposed values (Ops Director paper §3)
+  CARRIER_EMAIL
+  CARRIER_PORTAL
+  DOCUSIGN
+  PHONE_THEN_EMAIL_FOLLOWUP
+  EMERGENCY_SELF
 }

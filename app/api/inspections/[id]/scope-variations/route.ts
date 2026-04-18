@@ -20,14 +20,33 @@ import { verifyAdminFromDb } from "@/lib/admin-auth";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { evaluateVariation } from "@/lib/compliance/variation-auto-approve";
 
+// RA-1383 v2: authorisationSource is now a Prisma enum. Accept both the
+// legacy lowercase strings (for backward compat with existing clients)
+// and the canonical UPPERCASE enum values. Normalise to UPPERCASE before
+// persisting.
 const VALID_AUTHORISATION_SOURCES = [
-  "insurer_email",
-  "customer_signature",
-  "internal_manager",
-  "adjuster_approval",
+  "INSURER_EMAIL",
+  "CUSTOMER_SIGNATURE",
+  "INTERNAL_MANAGER",
+  "ADJUSTER_APPROVAL",
+  "CARRIER_EMAIL",
+  "CARRIER_PORTAL",
+  "DOCUSIGN",
+  "PHONE_THEN_EMAIL_FOLLOWUP",
+  "EMERGENCY_SELF",
 ] as const;
 
 type AuthorisationSource = (typeof VALID_AUTHORISATION_SOURCES)[number];
+
+function normaliseAuthorisationSource(
+  raw: unknown,
+): AuthorisationSource | null {
+  if (typeof raw !== "string") return null;
+  const upper = raw.trim().toUpperCase();
+  return (VALID_AUTHORISATION_SOURCES as readonly string[]).includes(upper)
+    ? (upper as AuthorisationSource)
+    : null;
+}
 
 // ── GET ───────────────────────────────────────────────────────────────────────
 
@@ -143,7 +162,8 @@ export async function POST(
       );
     }
 
-    if (!VALID_AUTHORISATION_SOURCES.includes(authorisationSource as AuthorisationSource)) {
+    const normalisedSource = normaliseAuthorisationSource(authorisationSource);
+    if (!normalisedSource) {
       return NextResponse.json(
         {
           error: `authorisationSource must be one of: ${VALID_AUTHORISATION_SOURCES.join(", ")}`,
@@ -152,7 +172,10 @@ export async function POST(
       );
     }
 
-    if (typeof costDeltaCents !== "number" || !Number.isInteger(costDeltaCents)) {
+    if (
+      typeof costDeltaCents !== "number" ||
+      !Number.isInteger(costDeltaCents)
+    ) {
       return NextResponse.json(
         { error: "costDeltaCents must be an integer" },
         { status: 400 },
@@ -164,7 +187,8 @@ export async function POST(
     const autoResult = evaluateVariation(
       {
         costDeltaCents,
-        costDeltaPercent: typeof costDeltaPercent === "number" ? costDeltaPercent : null,
+        costDeltaPercent:
+          typeof costDeltaPercent === "number" ? costDeltaPercent : null,
         waterCategory: typeof waterCategory === "string" ? waterCategory : null,
         isStructural: typeof isStructural === "boolean" ? isStructural : null,
       },
@@ -181,14 +205,17 @@ export async function POST(
       data: {
         inspectionId: id,
         reason: reason.trim(),
-        authorisationSource,
+        authorisationSource: normalisedSource,
         authorisationRef: authorisationRef ?? null,
         costDeltaCents,
-        costDeltaPercent: typeof costDeltaPercent === "number" ? costDeltaPercent : null,
+        costDeltaPercent:
+          typeof costDeltaPercent === "number" ? costDeltaPercent : null,
         approvedByUserId: session.user.id,
         status: statusFromDecision,
         autoApprovalRule:
-          autoResult.decision === "auto-approved" ? "RA1131_RULES_ENGINE" : null,
+          autoResult.decision === "auto-approved"
+            ? "RA1131_RULES_ENGINE"
+            : null,
         notes: notes ?? null,
         autoDecision: autoResult.decision,
         autoDecisionReason: autoResult.reason,
