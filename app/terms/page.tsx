@@ -201,10 +201,24 @@ export default function TermsPage() {
               access poses a risk to the platform, other users, or the public.
             </p>
             <p className="mt-2">
-              On termination your data is retained for up to 90 days to allow
-              you to export it. After that period we may permanently delete your
-              data, subject to any retention we are legally required to
-              maintain.
+              On termination we offer a <strong>90-day export window</strong>{" "}
+              during which you can download your data via the Subscription page.
+              This 90 days is the export window only, not a guarantee of
+              deletion at day&nbsp;91.
+            </p>
+            <p className="mt-2">
+              After the export window, data is{" "}
+              <strong>retained or destroyed according to the class-based
+              retention schedule in our{" "}
+              <a href="/privacy" className="text-cyan-600 hover:underline">
+                Privacy Policy §5
+              </a></strong>. Records that we are required by law to retain
+              (for example, claim financial records under the Income Tax
+              Assessment Act, work-health-and-safety incident records, or any
+              record under active litigation hold) are held for the period
+              specified in that schedule, then destroyed or de-identified.
+              Records that have no legal retention requirement are destroyed
+              after the export window closes.
             </p>
           </section>
 
