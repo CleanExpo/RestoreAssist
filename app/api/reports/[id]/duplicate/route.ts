@@ -42,28 +42,11 @@ export async function POST(
       return NextResponse.json({ error: "Report not found" }, { status: 404 });
     }
 
-    // For trial users, deduct credits
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: {
-        subscriptionStatus: true,
-        creditsRemaining: true,
-        totalCreditsUsed: true,
-      },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-
-    // Deduct credits and track usage for team hierarchy
-    const { deductCreditsAndTrackUsage } = await import("@/lib/report-limits");
-    await deductCreditsAndTrackUsage(session.user.id);
-
     // Generate new report number
     const newReportNumber = `WD-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
 
-    // Create duplicate report with updated fields
+    // RA-1298: create first, deduct second. Previously a post-deduct
+    // report.create failure wasted the user's credit.
     const duplicatedReport = await prisma.report.create({
       data: {
         // Basic fields
@@ -141,6 +124,17 @@ export async function POST(
         },
       },
     });
+
+    try {
+      const { deductCreditsAndTrackUsage } =
+        await import("@/lib/report-limits");
+      await deductCreditsAndTrackUsage(session.user.id);
+    } catch (creditError) {
+      console.error("[duplicate] Credit deduction failed after report create", {
+        reportId: duplicatedReport.id,
+        error: creditError,
+      });
+    }
 
     return NextResponse.json(duplicatedReport, { status: 201 });
   } catch (error) {
