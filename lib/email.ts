@@ -1119,3 +1119,91 @@ export async function sendSubscriptionActivatedEmail(
     return null;
   }
 }
+
+// ─── RA-1242: Win-back email for cancelled users ──────────────────────────────
+
+export interface WinbackEmailData {
+  recipientEmail: string;
+  recipientName: string;
+  resubscribeUrl: string;
+  /** Days since subscription ended — used in copy. */
+  daysSinceExpired: number;
+}
+
+export async function sendWinbackEmail(data: WinbackEmailData) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn(
+      "[email] RESEND_API_KEY not set — skipping win-back email send",
+    );
+    return null;
+  }
+  const fromEmail =
+    process.env.RESEND_FROM_EMAIL || "Restore Assist <onboarding@resend.dev>";
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>We miss you at Restore Assist</title>
+      </head>
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8fafc;">
+        <div style="background: linear-gradient(135deg, #1C2E47 0%, #8A6B4E 100%); padding: 40px 30px; border-radius: 16px 16px 0 0; text-align: center;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 30px; font-weight: 700;">We miss you</h1>
+          <p style="color: rgba(255, 255, 255, 0.9); margin: 10px 0 0; font-size: 16px;">Your RestoreAssist account is still here</p>
+        </div>
+
+        <div style="background: #ffffff; border-radius: 0 0 16px 16px; padding: 40px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+          <p style="font-size: 18px; margin-bottom: 24px;">Hi ${data.recipientName},</p>
+
+          <p style="color: #374151; font-size: 16px; line-height: 1.8; margin-bottom: 24px;">
+            It's been ${data.daysSinceExpired} days since your RestoreAssist subscription ended. Your account, reports, and client data are all still safe — we haven't touched a thing.
+          </p>
+
+          <p style="color: #374151; font-size: 16px; line-height: 1.8; margin-bottom: 24px;">
+            Since you left, we've shipped a lot: the new Progress framework that stage-gates every claim from make-safe through to invoice, carrier-ready audit bundles with cryptographic evidence, and a drying-certification workflow that keeps your IICRC S500:2025 compliance watertight.
+          </p>
+
+          <p style="color: #374151; font-size: 16px; line-height: 1.8; margin-bottom: 32px;">
+            If water-damage work crosses your desk again, come back in one click. Everything's where you left it.
+          </p>
+
+          <div style="text-align: center; margin: 35px 0;">
+            <a href="${data.resubscribeUrl}" style="display: inline-block; background: linear-gradient(135deg, #1C2E47 0%, #8A6B4E 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 8px 16px rgba(28, 46, 71, 0.3);">
+              Restart my subscription
+            </a>
+          </div>
+
+          <div style="border-top: 1px solid #e2e8f0; padding-top: 25px; margin-top: 30px;">
+            <p style="color: #64748b; font-size: 14px; line-height: 1.6; margin: 0 0 12px 0;">
+              Not coming back? That's OK — reply to this email with any feedback and we'll stop sending these. No sales pitches, just curious.
+            </p>
+          </div>
+        </div>
+
+        <div style="text-align: center; color: #94a3b8; font-size: 12px; margin-top: 30px; padding: 20px;">
+          <p style="margin: 5px 0;">This is a one-time win-back email from Restore Assist.</p>
+          <p style="margin: 10px 0 0 0; color: #cbd5e1;">© ${new Date().getFullYear()} Restore Assist. All rights reserved.</p>
+        </div>
+      </body>
+    </html>
+  `;
+
+  try {
+    const result = await getResendClient().emails.send({
+      from: fromEmail,
+      to: data.recipientEmail,
+      subject: "We miss you at RestoreAssist",
+      html,
+    });
+    console.log(
+      "✅ [EMAIL] Win-back email sent successfully:",
+      result.data?.id,
+    );
+    return result;
+  } catch (error: any) {
+    console.error("❌ [EMAIL] Failed to send win-back email:", error?.message);
+    throw error;
+  }
+}
