@@ -15,11 +15,11 @@ export async function POST(request: NextRequest) {
     if (csrfError) return csrfError;
 
     // Rate limit: 3 attempts per 15 minutes per IP
-    const rateLimited = await applyRateLimit(request, {
+    const ipLimited = await applyRateLimit(request, {
       maxRequests: 3,
       prefix: "forgot-password",
     });
-    if (rateLimited) return rateLimited;
+    if (ipLimited) return ipLimited;
 
     const body = await request.json();
     const email = sanitizeString(body.email, 320).toLowerCase();
@@ -27,6 +27,16 @@ export async function POST(request: NextRequest) {
     if (!email) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
+
+    // RA-1341: also rate-limit per target email so IP rotation (residential
+    // proxies) can't bypass the 3/IP cap to brute-force a single account.
+    const emailLimited = await applyRateLimit(request, {
+      maxRequests: 5,
+      windowMs: 60 * 60 * 1000,
+      prefix: "forgot-password:email",
+      key: email,
+    });
+    if (emailLimited) return emailLimited;
 
     // Check if user exists
     const user = await prisma.user.findUnique({
