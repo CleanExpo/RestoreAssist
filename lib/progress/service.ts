@@ -340,12 +340,12 @@ function computeIntegrityHash(args: {
 }
 
 /**
- * Minimal guard for Sprint-1. Returns passed=true with an empty snapshot for
- * every transition so the service layer is exercised end-to-end. Real
- * per-transition guards land in a follow-up PR that maps board minutes §5.2
- * Stage × Required Evidence contract (M-2) onto this function.
+ * Per-transition guard dispatcher (Board M-2). Looks up the registered
+ * guard for the transition key and runs it against the live prisma client.
+ * Guards implement the Stage × Required Evidence matrix from Board
+ * minutes §5.2 — see lib/progress/guards/ for the 20 per-key handlers.
  */
-async function runGuard(_ctx: {
+async function runGuard(ctx: {
   claimProgressId: string;
   reportId: string;
   inspectionId: string | null;
@@ -357,8 +357,9 @@ async function runGuard(_ctx: {
   reason?: string;
   snapshot: Record<string, unknown>;
 }> {
-  // Sprint-1 stub. M-2 follow-up wires per-transition evidence checks.
-  return { passed: true, snapshot: {} };
+  const { guardFor } = await import("./guards");
+  const guard = guardFor(ctx.key);
+  return guard(prisma, ctx);
 }
 
 async function dispatchIntegrations(
