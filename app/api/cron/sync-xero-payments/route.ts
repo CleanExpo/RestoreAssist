@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyCronAuth } from "@/lib/cron/auth";
+import { runCronJob } from "@/lib/cron/runner";
 import { getValidXeroToken } from "@/lib/integrations/xero/token-manager";
 import { processXeroWebhookBatch } from "@/lib/integrations/xero/webhook-processor";
 
@@ -22,6 +23,20 @@ export async function GET(request: NextRequest) {
   const authError = verifyCronAuth(request);
   if (authError) return authError;
 
+  // RA-1315: wrap in runCronJob so parallel 4h-cron invocations (e.g. during
+  // a slow Xero poll) don't both reconcile the same invoices.
+  const jobResult = await runCronJob("sync-xero-payments", async () => {
+    return await syncXeroPaymentsOnce();
+  });
+
+  return NextResponse.json({
+    success: true,
+    ...jobResult,
+    timestamp: new Date().toISOString(),
+  });
+}
+
+async function syncXeroPaymentsOnce() {
   const stats = {
     webhookEventsProcessed: 0,
     webhookEventsFailed: 0,
@@ -105,7 +120,9 @@ export async function GET(request: NextRequest) {
               );
               continue;
             }
-            throw new Error(`Xero API ${res.status} for invoice ${invoice.externalInvoiceId}`);
+            throw new Error(
+              `Xero API ${res.status} for invoice ${invoice.externalInvoiceId}`,
+            );
           }
 
           const data = await res.json();
@@ -147,11 +164,10 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({
-    success: true,
-    stats,
-    timestamp: new Date().toISOString(),
-  });
+  return {
+    itemsProcessed: stats.webhookEventsProcessed + stats.invoicesMarkedPaid,
+    metadata: stats,
+  };
 }
 
 /**
