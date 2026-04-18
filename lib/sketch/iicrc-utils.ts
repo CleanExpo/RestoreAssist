@@ -76,14 +76,14 @@ export function getClassInfo(cls: IicrClass): IicrClassInfo {
 // ── Material types (IICRC S500:2021 §7.1) ────────────────────
 
 export const MATERIAL_TYPES = [
-  { id: "timber_floor",   label: "Timber Floor",     dryTargetWme: 12 },
-  { id: "carpet",         label: "Carpet",           dryTargetWme: 14 },
-  { id: "plasterboard",   label: "Plasterboard",     dryTargetWme: 16 },
-  { id: "concrete",       label: "Concrete Slab",    dryTargetWme: 14 },
-  { id: "brick",          label: "Brick / Masonry",  dryTargetWme: 16 },
-  { id: "insulation",     label: "Insulation",       dryTargetWme: 18 },
-  { id: "tile",           label: "Tile / Grout",     dryTargetWme: 14 },
-  { id: "other",          label: "Other",            dryTargetWme: 16 },
+  { id: "timber_floor", label: "Timber Floor", dryTargetWme: 12 },
+  { id: "carpet", label: "Carpet", dryTargetWme: 14 },
+  { id: "plasterboard", label: "Plasterboard", dryTargetWme: 16 },
+  { id: "concrete", label: "Concrete Slab", dryTargetWme: 14 },
+  { id: "brick", label: "Brick / Masonry", dryTargetWme: 16 },
+  { id: "insulation", label: "Insulation", dryTargetWme: 18 },
+  { id: "tile", label: "Tile / Grout", dryTargetWme: 14 },
+  { id: "other", label: "Other", dryTargetWme: 16 },
 ] as const;
 
 export type MaterialTypeId = (typeof MATERIAL_TYPES)[number]["id"];
@@ -97,7 +97,7 @@ export function getMaterialType(id: MaterialTypeId) {
 /** Recommended equipment counts per m² (IICRC S500:2021 §8.3) */
 export const IICRC_EQUIPMENT_RATIOS = {
   dehumidifier: 40, // 1 per 40 m²
-  airMover: 15,     // 1 per 15 m²
+  airMover: 15, // 1 per 15 m²
   airScrubber: 100, // 1 per 100 m²
 } as const;
 

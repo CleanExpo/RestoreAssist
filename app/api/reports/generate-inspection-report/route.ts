@@ -139,7 +139,10 @@ export async function POST(request: NextRequest) {
         };
       } catch (error: any) {
         // RA-786: do not leak error.message to clients
-        console.error("Generate-inspection-report: Anthropic key error:", error);
+        console.error(
+          "Generate-inspection-report: Anthropic key error:",
+          error,
+        );
         return NextResponse.json(
           {
             error:

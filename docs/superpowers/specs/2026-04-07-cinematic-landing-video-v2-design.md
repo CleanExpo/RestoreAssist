@@ -243,7 +243,7 @@ Logo source: `staticFile("logo.png")` via Remotion's asset system (copies from `
 | 5 – Compliance | _"Built for Australian law. IICRC S500, S520, and S700 standards are automatically applied. State-specific regulatory triggers fire based on job location. Every inspection builds a court-ready evidence register."_ |
 | 6 – Scope      | _"AI generates your complete scope of works in seconds. Every item is IICRC-cited, evidence-linked, and ready for the insurer. What used to take two hours now takes thirty seconds."_                                |
 | 7 – Stats      | _"Over two hours saved per inspection. One hundred percent IICRC-compliant reports. Coverage across all eight Australian states. RestoreAssist is how professional restoration businesses operate."_                  |
-| 8 – CTA        | _"Start your free trial today. No credit card required. Three full reports, completely free. Visit restoreassist.app and get your first job documented in under ten minutes."_                                     |
+| 8 – CTA        | _"Start your free trial today. No credit card required. Three full reports, completely free. Visit restoreassist.app and get your first job documented in under ten minutes."_                                        |
 
 ### 7.3 Background Music
 

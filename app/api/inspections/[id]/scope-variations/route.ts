@@ -143,7 +143,11 @@ export async function POST(
       );
     }
 
-    if (!VALID_AUTHORISATION_SOURCES.includes(authorisationSource as AuthorisationSource)) {
+    if (
+      !VALID_AUTHORISATION_SOURCES.includes(
+        authorisationSource as AuthorisationSource,
+      )
+    ) {
       return NextResponse.json(
         {
           error: `authorisationSource must be one of: ${VALID_AUTHORISATION_SOURCES.join(", ")}`,
@@ -152,7 +156,10 @@ export async function POST(
       );
     }
 
-    if (typeof costDeltaCents !== "number" || !Number.isInteger(costDeltaCents)) {
+    if (
+      typeof costDeltaCents !== "number" ||
+      !Number.isInteger(costDeltaCents)
+    ) {
       return NextResponse.json(
         { error: "costDeltaCents must be an integer" },
         { status: 400 },
@@ -164,7 +171,8 @@ export async function POST(
     const autoResult = evaluateVariation(
       {
         costDeltaCents,
-        costDeltaPercent: typeof costDeltaPercent === "number" ? costDeltaPercent : null,
+        costDeltaPercent:
+          typeof costDeltaPercent === "number" ? costDeltaPercent : null,
         waterCategory: typeof waterCategory === "string" ? waterCategory : null,
         isStructural: typeof isStructural === "boolean" ? isStructural : null,
       },
@@ -184,11 +192,14 @@ export async function POST(
         authorisationSource,
         authorisationRef: authorisationRef ?? null,
         costDeltaCents,
-        costDeltaPercent: typeof costDeltaPercent === "number" ? costDeltaPercent : null,
+        costDeltaPercent:
+          typeof costDeltaPercent === "number" ? costDeltaPercent : null,
         approvedByUserId: session.user.id,
         status: statusFromDecision,
         autoApprovalRule:
-          autoResult.decision === "auto-approved" ? "RA1131_RULES_ENGINE" : null,
+          autoResult.decision === "auto-approved"
+            ? "RA1131_RULES_ENGINE"
+            : null,
         notes: notes ?? null,
         autoDecision: autoResult.decision,
         autoDecisionReason: autoResult.reason,

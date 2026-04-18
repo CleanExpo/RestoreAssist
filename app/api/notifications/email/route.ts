@@ -136,8 +136,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const baseUrl =
-        process.env.NEXTAUTH_URL ?? "https://restoreassist.app";
+      const baseUrl = process.env.NEXTAUTH_URL ?? "https://restoreassist.app";
 
       switch (event) {
         case "inspection_submitted":
