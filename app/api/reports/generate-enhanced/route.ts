@@ -50,11 +50,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Rate limit: 10 enhanced report generations per 15 minutes per user
+    // Rate limit: 10 enhanced report generations per 15 minutes per user.
+    // RA-1319: fail-closed on Upstash outage — this endpoint bills Anthropic
+    // tokens and must not silently fall back to per-instance in-memory caps.
     const rateLimited = await applyRateLimit(request, {
       maxRequests: 10,
       prefix: "gen-enhanced",
       key: session.user.id,
+      failClosedOnUpstashError: true,
     });
     if (rateLimited) return rateLimited;
 
@@ -108,6 +111,24 @@ export async function POST(request: NextRequest) {
         },
         { status: 402 },
       );
+    }
+
+    // RA-1298: pre-check credits BEFORE the Anthropic call so a zero-credit
+    // user does not burn tokens we have to eat. Actual atomic deduct happens
+    // AFTER prisma.report.create succeeds, so a post-AI DB failure does not
+    // waste the user's credit either.
+    if (!reportId) {
+      const { canCreateReport } = await import("@/lib/report-limits");
+      const canCreate = await canCreateReport(session.user.id);
+      if (!canCreate.allowed) {
+        return NextResponse.json(
+          {
+            error: canCreate.reason || "No credits remaining",
+            upgradeRequired: true,
+          },
+          { status: 402 },
+        );
+      }
     }
 
     // Get API key (required for all users in Integrations; trial has unlimited reports during 30-day period)
@@ -413,11 +434,9 @@ Format the response as a well-structured professional report with clear sections
         },
       });
     } else {
-      // Create new report - deduct credits and track usage
-      const { deductCreditsAndTrackUsage } =
-        await import("@/lib/report-limits");
-      await deductCreditsAndTrackUsage(session.user.id);
-
+      // Create new report first; deduct credit only after it lands.
+      // RA-1298: previously deducted then created, so a post-deduct create
+      // failure wasted the user's credit with nothing to show for it.
       savedReport = await prisma.report.create({
         data: {
           title: `WD-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`,
@@ -439,6 +458,17 @@ Format the response as a well-structured professional report with clear sections
           }),
         },
       });
+
+      try {
+        const { deductCreditsAndTrackUsage } =
+          await import("@/lib/report-limits");
+        await deductCreditsAndTrackUsage(session.user.id);
+      } catch (creditError) {
+        console.error(
+          "[generate-enhanced] Credit deduction failed after report create",
+          { reportId: savedReport.id, error: creditError },
+        );
+      }
     }
 
     return NextResponse.json({

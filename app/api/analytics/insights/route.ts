@@ -111,6 +111,7 @@ export async function GET(request: NextRequest) {
           userId: targetUserId,
           createdAt: { gte: startDate, lte: endDate },
         },
+        take: 5000, // CLAUDE.md rule 4
         include: baseInclude,
       }),
       prisma.report.findMany({
@@ -118,6 +119,7 @@ export async function GET(request: NextRequest) {
           userId: targetUserId,
           createdAt: { gte: previousStartDate, lt: startDate },
         },
+        take: 5000, // CLAUDE.md rule 4
         include: baseInclude,
       }),
     ]);

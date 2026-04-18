@@ -25,13 +25,6 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!canChangeRole(session.user.role)) {
-      return NextResponse.json(
-        { error: "Only Admins can change member roles" },
-        { status: 403 },
-      );
-    }
-
     const { id: memberId } = await params;
 
     // Prevent changing own role
@@ -56,11 +49,18 @@ export async function PATCH(
       );
     }
 
-    // Get the current user's organization
+    // Re-verify role from DB — JWT role can be stale (CLAUDE.md rule 3)
     const currentUser = await prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { organizationId: true },
+      select: { role: true, organizationId: true },
     });
+
+    if (!canChangeRole(currentUser?.role)) {
+      return NextResponse.json(
+        { error: "Only Admins can change member roles" },
+        { status: 403 },
+      );
+    }
 
     if (!currentUser?.organizationId) {
       return NextResponse.json(
@@ -133,20 +133,20 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!canRemoveMember(session.user.role)) {
+    const { id: memberId } = await params;
+
+    // Re-verify role from DB — JWT role can be stale (CLAUDE.md rule 3)
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, organizationId: true },
+    });
+
+    if (!canRemoveMember(currentUser?.role)) {
       return NextResponse.json(
         { error: "Only Admins can remove team members" },
         { status: 403 },
       );
     }
-
-    const { id: memberId } = await params;
-
-    // Get the current user's organization
-    const currentUser = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { organizationId: true },
-    });
 
     if (!currentUser?.organizationId) {
       return NextResponse.json(

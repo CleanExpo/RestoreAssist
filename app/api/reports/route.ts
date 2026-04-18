@@ -126,45 +126,37 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check and use credits directly
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: {
-        subscriptionStatus: true,
-        creditsRemaining: true,
-        totalCreditsUsed: true,
-      },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-
-    // Check if user has enough credits (only for trial users)
-    if (
-      user.subscriptionStatus === "TRIAL" &&
-      (user.creditsRemaining ?? 0) < 1
-    ) {
+    const { canCreateReport, deductCreditsAndTrackUsage } =
+      await import("@/lib/report-limits");
+    const canCreate = await canCreateReport(session.user.id);
+    if (!canCreate.allowed) {
       return NextResponse.json(
         {
           error:
+            canCreate.reason ||
             "Insufficient credits. Please upgrade your plan to create more reports.",
           upgradeRequired: true,
-          creditsRemaining: user.creditsRemaining,
         },
         { status: 402 },
       );
     }
 
-    // Update credits (only for trial users)
-    if (user.subscriptionStatus === "TRIAL") {
-      await prisma.user.update({
-        where: { id: session.user.id },
-        data: {
-          creditsRemaining: Math.max(0, (user.creditsRemaining ?? 0) - 1),
-          totalCreditsUsed: (user.totalCreditsUsed ?? 0) + 1,
-        },
-      });
+    try {
+      await deductCreditsAndTrackUsage(session.user.id);
+    } catch (creditError) {
+      if (
+        creditError instanceof Error &&
+        creditError.message === "INSUFFICIENT_CREDITS"
+      ) {
+        return NextResponse.json(
+          {
+            error: "No credits remaining. Please subscribe to continue.",
+            upgradeRequired: true,
+          },
+          { status: 402 },
+        );
+      }
+      throw creditError;
     }
 
     // Generate report number if not provided

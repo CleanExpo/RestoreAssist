@@ -93,7 +93,10 @@ function getUsdToAudCents(): number {
   return 155;
 }
 
-function computeCostAudCents(inputTokens: number, outputTokens: number): number {
+function computeCostAudCents(
+  inputTokens: number,
+  outputTokens: number,
+): number {
   const usdToAudCents = getUsdToAudCents();
   const costUsd =
     inputTokens * PRICE_INPUT_USD_PER_TOKEN +
@@ -196,9 +199,11 @@ export async function invokeClaudeCloud(
     // claude-opus-4-7 does not support temperature/top_p — omit those params.
     // The model string is passed as a plain string; SDK typings may lag behind
     // the actual model release cadence.
-    response = await (anthropic.messages.create as (
-      params: Anthropic.MessageCreateParamsNonStreaming,
-    ) => Promise<Anthropic.Message>)({
+    response = await (
+      anthropic.messages.create as (
+        params: Anthropic.MessageCreateParamsNonStreaming,
+      ) => Promise<Anthropic.Message>
+    )({
       model: "claude-opus-4-7" as string,
       max_tokens: 512,
       system: SYSTEM_PROMPT,

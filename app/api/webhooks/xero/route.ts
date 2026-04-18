@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyXeroWebhookSignature } from "@/lib/integrations/xero/webhook-processor";
+import {
+  deriveExternalEventId,
+  isUniqueConstraintError,
+} from "@/lib/webhook-idempotency";
 
 /**
  * POST /api/webhooks/xero - Receive webhook events from Xero
@@ -127,37 +131,30 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Check for duplicate events (Xero may send duplicates)
-        const existingEvent = await prisma.webhookEvent.findFirst({
-          where: {
-            provider: "XERO",
-            integrationId: integration.id,
-            payload: {
-              equals: event,
+        // RA-1265: atomic idempotency via (provider, externalEventId) unique
+        // index + P2002. Previous findFirst-then-create was racy and lost
+        // idempotency after a 1-hour window.
+        try {
+          const webhookEvent = await prisma.webhookEvent.create({
+            data: {
+              provider: "XERO",
+              integrationId: integration.id,
+              eventType,
+              payload: event,
+              signature,
+              externalEventId: deriveExternalEventId(event),
+              status: "PENDING",
             },
-            createdAt: {
-              gte: new Date(Date.now() - 60 * 60 * 1000), // Last hour
-            },
-          },
-        });
-
-        if (existingEvent) {
-          continue;
+          });
+          queuedEvents.push(webhookEvent.id);
+        } catch (err) {
+          if (isUniqueConstraintError(err)) {
+            // Duplicate — already processed/queued. Skip silently.
+            continue;
+          }
+          console.error(`[Xero Webhook] Failed to queue event:`, err);
+          // Continue processing other events
         }
-
-        // Create webhook event record
-        const webhookEvent = await prisma.webhookEvent.create({
-          data: {
-            provider: "XERO",
-            integrationId: integration.id,
-            eventType,
-            payload: event,
-            signature,
-            status: "PENDING",
-          },
-        });
-
-        queuedEvents.push(webhookEvent.id);
       } catch (error) {
         console.error(`[Xero Webhook] Failed to queue event:`, error);
         // Continue processing other events
@@ -171,13 +168,16 @@ export async function POST(request: NextRequest) {
       eventIds: queuedEvents,
     });
   } catch (error) {
+    // RA-1269: return 500 so Xero retries. The previous 200-on-error
+    // silently dropped invoice/payment events during transient DB
+    // outages, desyncing invoice state with no way to recover. Xero
+    // retries up to ~5× over 24h — that window recovers most blips.
+    // Only return 200 once we've persisted the event to the queue
+    // (which the normal path does above).
     console.error("[Xero Webhook] Error processing webhook:", error);
-
-    // Return 200 to prevent Xero from retrying on our errors
-    // Log the error for manual investigation
     return NextResponse.json(
       { success: false, error: "Internal server error" },
-      { status: 200 },
+      { status: 500 },
     );
   }
 }

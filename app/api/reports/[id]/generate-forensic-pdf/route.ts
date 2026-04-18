@@ -23,9 +23,11 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Rate limit: 10 forensic PDF generations per 15 minutes per user
+    // RA-1272: tightened from 10/15min to 5/hour. Forensic PDF generates
+    // via AI + heavy pdf-lib layout — both CPU and Anthropic-cost heavy.
     const rateLimited = await applyRateLimit(request, {
-      maxRequests: 10,
+      windowMs: 60 * 60 * 1000,
+      maxRequests: 5,
       prefix: "gen-forensic",
       key: session.user.id,
     });

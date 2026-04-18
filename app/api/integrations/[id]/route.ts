@@ -21,6 +21,16 @@ export async function GET(
         id,
         userId: session.user.id,
       },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        icon: true,
+        provider: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
 
     if (!integration) {

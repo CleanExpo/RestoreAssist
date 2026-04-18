@@ -45,6 +45,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Tenancy check — the report must belong to the caller (RA-1362)
+    const report = await prisma.report.findFirst({
+      where: { id: reportId, userId: session.user.id },
+      select: { id: true },
+    });
+    if (!report) {
+      return NextResponse.json({ error: "Report not found" }, { status: 404 });
+    }
+
     // Verify prisma.estimate exists
     if (!prisma || typeof prisma.estimate === "undefined") {
       console.error(
@@ -128,8 +137,9 @@ export async function POST(request: NextRequest) {
               isEstimatorAdded: item.isEstimatorAdded !== false,
               displayOrder: item.displayOrder || 0,
               createdBy: session.user.id,
-              modifiedBy: item.modifiedBy || null,
+              modifiedBy: session.user.id,
               changeReason: item.changeReason || null,
+              sourceCostItemId: item.sourceCostItemId || null,
             })),
           },
         },
@@ -158,8 +168,9 @@ export async function POST(request: NextRequest) {
               isEstimatorAdded: item.isEstimatorAdded !== false,
               displayOrder: item.displayOrder || 0,
               createdBy: session.user.id,
-              modifiedBy: item.modifiedBy || null,
+              modifiedBy: session.user.id,
               changeReason: item.changeReason || null,
+              sourceCostItemId: item.sourceCostItemId || null,
             })),
           },
         },

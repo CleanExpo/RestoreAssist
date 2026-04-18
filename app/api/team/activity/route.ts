@@ -34,10 +34,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.user.role !== "ADMIN" && session.user.role !== "MANAGER") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
     const searchParams = request.nextUrl.searchParams;
     const limit = Math.min(parseInt(searchParams.get("limit") || "25"), 100);
     const page = Math.max(parseInt(searchParams.get("page") || "1"), 1);
@@ -49,10 +45,15 @@ export async function GET(request: NextRequest) {
     const days = Math.min(Math.max(parseInt(dateRange, 10) || 30, 7), 90);
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
+    // CLAUDE.md rule 3: re-validate role from DB, not JWT claim
     const currentUser = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: { organizationId: true, role: true },
     });
+
+    if (currentUser?.role !== "ADMIN" && currentUser?.role !== "MANAGER") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     if (!currentUser?.organizationId) {
       return NextResponse.json({
@@ -73,6 +74,7 @@ export async function GET(request: NextRequest) {
     const teamMembers = await prisma.user.findMany({
       where: { organizationId: currentUser.organizationId, ...roleCondition },
       select: { id: true, name: true, email: true, role: true },
+      take: 500, // CLAUDE.md rule 4: bound all findMany
     });
 
     let memberIds = teamMembers.map((m) => m.id);

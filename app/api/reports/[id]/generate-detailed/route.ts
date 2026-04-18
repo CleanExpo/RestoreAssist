@@ -18,9 +18,14 @@ export async function POST(
 
     const userId = session.user.id;
 
-    // Rate limit: 10 detailed report generations per 15 minutes per user
+    // RA-1272: tightened from 10/15min to 5/hour. This path calls
+    // Claude (multi-thousand tokens) + pdf-lib generation — multi-second
+    // CPU + AI cost per invocation. 5/hour is plenty for a realistic
+    // tech generating up to 40/day across 8 working hours with batch
+    // headroom; a scripted loop hits the ceiling fast.
     const rateLimited = await applyRateLimit(request, {
-      maxRequests: 10,
+      windowMs: 60 * 60 * 1000,
+      maxRequests: 5,
       prefix: "gen-detailed",
       key: userId,
     });

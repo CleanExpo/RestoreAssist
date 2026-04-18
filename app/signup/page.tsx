@@ -34,6 +34,8 @@ export default function SignupPage() {
   const [error, setError] = useState("");
   const [shouldRedirect, setShouldRedirect] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
+  // RA-1255: ToS + Privacy acceptance required for AU consumer law compliance
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -68,8 +70,19 @@ export default function SignupPage() {
       return;
     }
 
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters");
+    // RA-1258: NIST SP 800-63B and OWASP 2024 both recommend min 12.
+    // 8-char floor let truly weak passwords through. A 12-char floor
+    // without composition requirements is better than 8-char + special
+    // chars per modern guidance.
+    if (password.length < 12) {
+      setError("Password must be at least 12 characters");
+      setIsLoading(false);
+      return;
+    }
+
+    // RA-1255: block submission until ToS + Privacy accepted
+    if (!acceptedTerms) {
+      setError("Please agree to the Terms of Service and Privacy Policy");
       setIsLoading(false);
       return;
     }
@@ -87,6 +100,7 @@ export default function SignupPage() {
           signupType: accountType,
           inviteToken:
             accountType === "technician" ? inviteToken.trim() : undefined,
+          acceptedTerms: true, // server re-validates and stamps timestamp
         }),
       });
 
@@ -426,10 +440,40 @@ export default function SignupPage() {
               </motion.div>
             )}
 
+            {/* RA-1255: ToS + Privacy Policy acceptance */}
+            <label className="flex items-start gap-2 text-sm text-slate-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={acceptedTerms}
+                onChange={(e) => setAcceptedTerms(e.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-slate-600 bg-slate-800 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-slate-900"
+                required
+              />
+              <span>
+                I agree to the{" "}
+                <Link
+                  href="/terms"
+                  target="_blank"
+                  className="text-cyan-400 hover:text-cyan-300 underline"
+                >
+                  Terms of Service
+                </Link>{" "}
+                and{" "}
+                <Link
+                  href="/privacy"
+                  target="_blank"
+                  className="text-cyan-400 hover:text-cyan-300 underline"
+                >
+                  Privacy Policy
+                </Link>
+                .
+              </span>
+            </label>
+
             {/* Submit Button */}
             <motion.button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || !acceptedTerms}
               className="w-full py-3 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl font-medium text-white hover:shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}

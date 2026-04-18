@@ -69,7 +69,15 @@ export async function GET(request: NextRequest) {
     );
     const skip = (page - 1) * limit;
 
-    const isAdmin = session.user.role === "ADMIN";
+    // CLAUDE.md rule 3: re-validate role from DB for org-wide data access
+    let isAdmin = false;
+    if (inbox) {
+      const dbUser = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { role: true },
+      });
+      isAdmin = dbUser?.role === "ADMIN";
+    }
     const canViewInbox = isAdmin;
 
     if (inbox && canViewInbox) {

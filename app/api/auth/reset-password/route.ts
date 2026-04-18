@@ -17,11 +17,11 @@ export async function POST(request: NextRequest) {
     if (csrfError) return csrfError;
 
     // Rate limit: 5 attempts per 15 minutes per IP
-    const rateLimited = await applyRateLimit(request, {
+    const ipLimited = await applyRateLimit(request, {
       maxRequests: 5,
       prefix: "reset-password",
     });
-    if (rateLimited) return rateLimited;
+    if (ipLimited) return ipLimited;
 
     const body = await request.json();
     const email = sanitizeString(body.email, 320).toLowerCase();
@@ -34,6 +34,16 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
+
+    // RA-1341: second limit per target email so IP rotation can't grind
+    // through code guesses for a specific account.
+    const emailLimited = await applyRateLimit(request, {
+      maxRequests: 10,
+      windowMs: 60 * 60 * 1000,
+      prefix: "reset-password:email",
+      key: email,
+    });
+    if (emailLimited) return emailLimited;
 
     if (newPassword.length < MIN_PASSWORD_LENGTH) {
       return NextResponse.json(

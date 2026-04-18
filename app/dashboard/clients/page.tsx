@@ -534,7 +534,14 @@ export default function ClientsPage() {
                     >
                       Last Job
                     </th>
-                    {/* <th className="text-left py-4 px-6 text-slate-400 font-medium">Actions</th> */}
+                    <th
+                      className={cn(
+                        "text-left py-4 px-6 font-medium",
+                        "text-neutral-700 dark:text-slate-400",
+                      )}
+                    >
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -659,24 +666,27 @@ export default function ClientsPage() {
                         >
                           {client.lastJob || "—"}
                         </td>
-                        {/* <td className="py-4 px-6">
+                        <td className="py-4 px-6">
                           <div className="flex items-center gap-2">
                             <Link href={`/dashboard/clients/${client.id}`}>
-                              <button className="p-1 hover:bg-slate-700 rounded transition-colors" title="View">
+                              <button
+                                className="p-1 hover:bg-neutral-100 dark:hover:bg-slate-700 rounded transition-colors"
+                                title="View"
+                              >
                                 <Eye size={16} />
                               </button>
                             </Link>
-                            <button 
+                            <button
                               onClick={() => openEditModal(client)}
-                              className="p-1 hover:bg-slate-700 rounded transition-colors" 
+                              className="p-1 hover:bg-neutral-100 dark:hover:bg-slate-700 rounded transition-colors"
                               title="Edit"
                             >
                               <Edit size={16} />
                             </button>
-                            <button 
+                            <button
                               onClick={() => duplicateClient(client.id)}
                               disabled={duplicating === client.id}
-                              className="p-1 hover:bg-slate-700 rounded transition-colors disabled:opacity-50" 
+                              className="p-1 hover:bg-neutral-100 dark:hover:bg-slate-700 rounded transition-colors disabled:opacity-50"
                               title="Duplicate"
                             >
                               {duplicating === client.id ? (
@@ -687,13 +697,13 @@ export default function ClientsPage() {
                             </button>
                             <button
                               onClick={() => openDeleteModal(client)}
-                              className="p-1 hover:bg-slate-700 rounded transition-colors"
+                              className="p-1 hover:bg-neutral-100 dark:hover:bg-slate-700 rounded transition-colors"
                               title="Delete"
                             >
                               <Trash2 size={16} className="text-rose-400" />
                             </button>
                           </div>
-                        </td> */}
+                        </td>
                       </tr>
                     ))
                   )}

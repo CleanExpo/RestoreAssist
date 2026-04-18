@@ -36,6 +36,7 @@ export async function GET() {
         createdAt: true,
         processedAt: true,
       },
+      take: 5000, // CLAUDE.md rule 4
     });
 
     let avgDryingDays = 0;

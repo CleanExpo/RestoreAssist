@@ -42,8 +42,14 @@ import {
   Trash2,
   Edit2,
   ChevronRight,
+  Bookmark,
+  BookmarkCheck,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import {
+  LineItemLibraryPicker,
+  type LibraryPickItem,
+} from "@/components/estimation/LineItemLibraryPicker";
 
 interface EstimationEngineProps {
   reportId: string;
@@ -862,35 +868,113 @@ export default function EstimationEngine({
     </div>
   );
 
+  // Promote a custom line item into the user's reusable CostLibrary so it
+  // appears on future estimates without re-typing. Sets sourceCostItemId on
+  // the row so the bookmark icon flips to "saved".
+  const handleSaveLineItemToLibrary = async (index: number) => {
+    const item = estimateData.lineItems[index];
+    if (!item || !item.description || !item.category || !(item.rate > 0))
+      return;
+
+    // Optimistic UI
+    setEstimateData((prev) => {
+      const newItems = [...prev.lineItems];
+      newItems[index] = { ...newItems[index], _savingToLibrary: true };
+      return { ...prev, lineItems: newItems };
+    });
+
+    try {
+      const res = await fetch("/api/cost-libraries/promote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          category: item.category,
+          description: item.description,
+          rate: Number(item.rate),
+          unit: item.unit || "ea",
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const { item: saved, created } = await res.json();
+      setEstimateData((prev) => {
+        const newItems = [...prev.lineItems];
+        newItems[index] = {
+          ...newItems[index],
+          sourceCostItemId: saved.id,
+          _savingToLibrary: false,
+        };
+        return { ...prev, lineItems: newItems };
+      });
+      toast.success(
+        created
+          ? "Saved to library — available on future estimates"
+          : "Library item updated",
+      );
+    } catch (err) {
+      console.error("Failed to save line item to library:", err);
+      setEstimateData((prev) => {
+        const newItems = [...prev.lineItems];
+        newItems[index] = { ...newItems[index], _savingToLibrary: false };
+        return { ...prev, lineItems: newItems };
+      });
+      toast.error("Failed to save to library");
+    }
+  };
+
   const renderLineItemsTab = () => (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold text-white">Line Items</h3>
-        <Button
-          onClick={() => {
-            const newItem = {
-              code: `CUST-${estimateData.lineItems.length + 1}`,
-              category: LINE_ITEM_CATEGORIES[0],
-              description: "",
-              qty: 1,
-              unit: "hours",
-              rate: 0,
-              formula: "",
-              subtotal: 0,
-              isScopeLinked: false,
-              isEstimatorAdded: true,
-              displayOrder: estimateData.lineItems.length,
-            };
-            setEstimateData((prev) => ({
-              ...prev,
-              lineItems: [...prev.lineItems, newItem],
-            }));
-          }}
-          className="bg-cyan-600 hover:bg-cyan-700"
-        >
-          <Plus className="mr-2" size={16} />
-          Add Line Item
-        </Button>
+        <div className="flex gap-2">
+          <LineItemLibraryPicker
+            onPick={(picked: LibraryPickItem) => {
+              const newItem = {
+                code: `LIB-${estimateData.lineItems.length + 1}`,
+                category: picked.category,
+                description: picked.description,
+                qty: 1,
+                unit: picked.unit,
+                rate: picked.rate,
+                formula: "",
+                subtotal: picked.rate,
+                isScopeLinked: false,
+                isEstimatorAdded: true,
+                displayOrder: estimateData.lineItems.length,
+                sourceCostItemId: picked.id,
+              };
+              setEstimateData((prev) => ({
+                ...prev,
+                lineItems: [...prev.lineItems, newItem],
+              }));
+              toast.success(`Added "${picked.description}" from library`);
+            }}
+          />
+          <Button
+            onClick={() => {
+              const newItem = {
+                code: `CUST-${estimateData.lineItems.length + 1}`,
+                category: LINE_ITEM_CATEGORIES[0],
+                description: "",
+                qty: 1,
+                unit: "hours",
+                rate: 0,
+                formula: "",
+                subtotal: 0,
+                isScopeLinked: false,
+                isEstimatorAdded: true,
+                displayOrder: estimateData.lineItems.length,
+              };
+              setEstimateData((prev) => ({
+                ...prev,
+                lineItems: [...prev.lineItems, newItem],
+              }));
+            }}
+            className="bg-cyan-600 hover:bg-cyan-700"
+          >
+            <Plus className="mr-2" size={16} />
+            Add Line Item
+          </Button>
+        </div>
       </div>
 
       <div className="border border-slate-700 rounded-lg overflow-hidden">
@@ -1064,6 +1148,35 @@ export default function EstimationEngine({
                 </TableCell>
                 <TableCell>
                   <div className="flex space-x-2">
+                    {/* Save-to-library: only for custom (estimator-added) items
+                        that haven't already been promoted to the catalog */}
+                    {item.isEstimatorAdded &&
+                      !item.isScopeLinked &&
+                      item.description &&
+                      item.rate > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleSaveLineItemToLibrary(index)}
+                          className={
+                            item.sourceCostItemId
+                              ? "text-emerald-400 hover:text-emerald-300"
+                              : "text-slate-400 hover:text-cyan-300"
+                          }
+                          disabled={item._savingToLibrary}
+                          title={
+                            item.sourceCostItemId
+                              ? "Saved to library — reusable on future estimates"
+                              : "Save to library for reuse on future estimates"
+                          }
+                        >
+                          {item.sourceCostItemId ? (
+                            <BookmarkCheck size={14} />
+                          ) : (
+                            <Bookmark size={14} />
+                          )}
+                        </Button>
+                      )}
                     <Button
                       variant="ghost"
                       size="sm"

@@ -105,8 +105,8 @@ export async function POST(
       });
     }
 
-    // Generate OAuth state
-    const state = generateOAuthState(session.user.id, provider);
+    // Generate OAuth state (RA-1285: now async — DB-backed nonce)
+    const state = await generateOAuthState(session.user.id, provider);
 
     // Generate PKCE if required
     let codeVerifier: string | undefined;

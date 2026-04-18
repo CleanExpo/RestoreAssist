@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/prisma";
+import {
+  deriveExternalEventId,
+  isUniqueConstraintError,
+} from "@/lib/webhook-idempotency";
 
 /**
  * POST /api/webhooks/servicem8
@@ -99,32 +103,27 @@ export async function POST(request: NextRequest) {
 
         if (!standardEventType || !entryUuid) continue;
 
-        // Deduplicate — same UUID in last hour
-        const existing = await prisma.webhookEvent.findFirst({
-          where: {
-            provider: "SERVICEM8",
-            integrationId: integration.id,
-            payload: { path: ["uuid"], equals: entryUuid },
-            createdAt: { gte: new Date(Date.now() - 60 * 60 * 1000) },
-          },
-        });
-
-        if (existing) {
-          continue;
+        // RA-1265: atomic idempotency via P2002 on (provider, externalEventId)
+        try {
+          const webhookEvent = await prisma.webhookEvent.create({
+            data: {
+              provider: "SERVICEM8",
+              integrationId: integration.id,
+              eventType: standardEventType,
+              payload: entry as Record<
+                string,
+                string | number | boolean | null
+              >,
+              signature,
+              externalEventId: entryUuid || deriveExternalEventId(entry),
+              status: "PENDING",
+            },
+          });
+          queuedEvents.push(webhookEvent.id);
+        } catch (err) {
+          if (isUniqueConstraintError(err)) continue;
+          throw err;
         }
-
-        const webhookEvent = await prisma.webhookEvent.create({
-          data: {
-            provider: "SERVICEM8",
-            integrationId: integration.id,
-            eventType: standardEventType,
-            payload: entry as Record<string, string | number | boolean | null>,
-            signature,
-            status: "PENDING",
-          },
-        });
-
-        queuedEvents.push(webhookEvent.id);
       } catch (err) {
         console.error("[ServiceM8 Webhook] Failed to queue entry:", err);
       }

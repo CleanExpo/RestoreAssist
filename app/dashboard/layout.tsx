@@ -39,6 +39,8 @@ import dynamic from "next/dynamic";
 import toast from "react-hot-toast";
 import { NotificationBell } from "@/components/notifications";
 import { WhatsNewModal } from "@/components/releases/WhatsNewModal";
+import { PastDueBanner } from "@/components/billing/PastDueBanner";
+import { CancellationCountdownBanner } from "@/components/billing/CancellationCountdownBanner";
 
 const Chatbot = dynamic(() => import("@/components/Chatbot"), { ssr: false });
 import GlobalSearch from "@/components/GlobalSearch";
@@ -535,6 +537,12 @@ export default function DashboardLayout({
               </div>
             </div>
           </header>
+
+          {/* PAST_DUE dunning banner — RA-1244 */}
+          <PastDueBanner status={subscriptionStatus} />
+
+          {/* Cancellation countdown — RA-1256 */}
+          <CancellationCountdownBanner />
 
           {/* Page Content */}
           <main

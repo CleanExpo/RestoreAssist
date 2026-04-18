@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { PRICING_CONFIG, type PricingPlan } from "@/lib/pricing";
 import toast from "react-hot-toast";
+import { CancelSubscriptionDialog } from "@/components/billing/CancelSubscriptionDialog";
 
 interface Subscription {
   id: string;
@@ -38,6 +39,14 @@ export default function SubscriptionPage() {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
   const [canceling, setCanceling] = useState(false);
+  // RA-1252: status-aware hero copy when there's no Stripe subscription
+  const [userStatus, setUserStatus] = useState<{
+    subscriptionStatus?: string;
+    creditsRemaining?: number;
+    trialEndsAt?: string | null;
+  } | null>(null);
+  const [openingPortal, setOpeningPortal] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [reactivating, setReactivating] = useState(false);
   const [pricingLoading, setPricingLoading] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -45,6 +54,19 @@ export default function SubscriptionPage() {
 
   useEffect(() => {
     fetchSubscription();
+    // RA-1252: load user status for status-specific copy when Stripe sub is null
+    fetch("/api/user/profile")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.profile) {
+          setUserStatus({
+            subscriptionStatus: data.profile.subscriptionStatus,
+            creditsRemaining: data.profile.creditsRemaining,
+            trialEndsAt: data.profile.trialEndsAt,
+          });
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const fetchSubscription = async (forceRefresh = false) => {
@@ -106,32 +128,39 @@ export default function SubscriptionPage() {
     }
   };
 
-  const handleCancelSubscription = async () => {
-    if (
-      !confirm(
-        "Are you sure you want to cancel your subscription? You will lose access to premium features at the end of your current billing period.",
-      )
-    ) {
-      return;
-    }
+  // RA-1243: cancel flow now opens a dialog that captures reason + comment
+  // before calling /api/cancel-subscription. Replaces the old confirm() which
+  // gave users no exit survey and gave us no churn signal.
+  const handleCancelSubscription = () => {
+    setShowCancelDialog(true);
+  };
 
-    setCanceling(true);
+  // RA-1245: "Update Payment Method" and "Download Invoices" both redirect
+  // to the Stripe Customer Portal — one session handles card updates,
+  // invoice PDFs, and billing address changes in a single PCI-compliant
+  // surface. Same endpoint used by the PAST_DUE banner in #255.
+  const openBillingPortal = async () => {
+    setOpeningPortal(true);
     try {
-      const response = await fetch("/api/cancel-subscription", {
-        method: "POST",
-      });
-
-      if (response.ok) {
-        toast.success("Subscription canceled successfully");
-        fetchSubscription();
-      } else {
-        toast.error("Failed to cancel subscription");
+      const res = await fetch("/api/subscription/portal", { method: "POST" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `Portal returned ${res.status}`);
       }
-    } catch (error) {
-      console.error("Error canceling subscription:", error);
-      toast.error("Failed to cancel subscription");
+      const { url } = await res.json();
+      if (url) {
+        window.location.href = url;
+      } else {
+        throw new Error("Portal did not return a URL");
+      }
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Unable to open billing portal. Please try again.",
+      );
     } finally {
-      setCanceling(false);
+      setOpeningPortal(false);
     }
   };
 
@@ -301,12 +330,30 @@ export default function SubscriptionPage() {
                 </div>
 
                 {subscription.cancelAtPeriodEnd && (
-                  <div className="flex items-center gap-2 text-sm text-yellow-400">
-                    <AlertCircle className="w-4 h-4" />
-                    <span>
-                      Subscription will cancel at the end of the current period
-                    </span>
-                  </div>
+                  <>
+                    <div className="flex items-center gap-2 text-sm text-yellow-400">
+                      <AlertCircle className="w-4 h-4" />
+                      <span>
+                        Subscription will cancel at the end of the current
+                        period. You keep full access until{" "}
+                        {formatDate(subscription.currentPeriodEnd)}.
+                      </span>
+                    </div>
+                    {/* RA-1250: surface data export before lock-out */}
+                    <div className="flex items-center gap-2 text-sm text-slate-400">
+                      <Download className="w-4 h-4" />
+                      <a
+                        href="/api/user/export"
+                        className="underline hover:text-cyan-300"
+                        download
+                      >
+                        Export your data
+                      </a>
+                      <span>
+                        — we retain canceled-account data for 90 days.
+                      </span>
+                    </div>
+                  </>
                 )}
               </div>
             </div>
@@ -335,14 +382,26 @@ export default function SubscriptionPage() {
                 </button>
               )}
 
-              <button className="w-full px-4 py-3 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors flex items-center justify-center gap-2">
+              {/* RA-1245: both buttons open the Stripe Customer Portal via
+                  POST /api/subscription/portal — same endpoint the PAST_DUE
+                  banner uses. Portal session handles card updates, invoice
+                  downloads, and billing address changes in one surface. */}
+              <button
+                onClick={openBillingPortal}
+                disabled={openingPortal}
+                className="w-full px-4 py-3 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
                 <CreditCard className="w-4 h-4" />
-                Update Payment Method
+                {openingPortal ? "Opening…" : "Update Payment Method"}
               </button>
 
-              <button className="w-full px-4 py-3 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors flex items-center justify-center gap-2">
+              <button
+                onClick={openBillingPortal}
+                disabled={openingPortal}
+                className="w-full px-4 py-3 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
                 <Download className="w-4 h-4" />
-                Download Invoices
+                {openingPortal ? "Opening…" : "Download Invoices"}
               </button>
             </div>
           </div>
@@ -381,19 +440,61 @@ export default function SubscriptionPage() {
         </div>
       ) : (
         <div className="space-y-8">
-          {/* No Subscription Header */}
-          <div className="text-center py-8">
-            <div className="w-16 h-16 bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
-              <CreditCard className="w-8 h-8 text-slate-400" />
-            </div>
-            <h2 className="text-2xl font-semibold text-white mb-2">
-              No Active Subscription
-            </h2>
-            <p className="text-slate-400">
-              You're currently on the free trial. Choose a plan below to unlock
-              all features.
-            </p>
-          </div>
+          {/* RA-1252: status-specific hero copy instead of hard-coded "free trial" */}
+          {(() => {
+            const status = userStatus?.subscriptionStatus;
+            const creditsLine =
+              typeof userStatus?.creditsRemaining === "number"
+                ? ` · ${userStatus.creditsRemaining} credits remaining`
+                : "";
+            const trialDaysLeft = userStatus?.trialEndsAt
+              ? Math.max(
+                  0,
+                  Math.ceil(
+                    (new Date(userStatus.trialEndsAt).getTime() - Date.now()) /
+                      (1000 * 60 * 60 * 24),
+                  ),
+                )
+              : null;
+
+            let title = "No Active Subscription";
+            let body = "Choose a plan below to unlock all features.";
+
+            if (status === "TRIAL") {
+              title =
+                trialDaysLeft !== null && trialDaysLeft > 0
+                  ? `${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left on your trial`
+                  : "Your trial has ended";
+              body =
+                trialDaysLeft && trialDaysLeft > 0
+                  ? `Pick a plan to keep your data and AI features when the trial ends${creditsLine}.`
+                  : `Upgrade now to restore access${creditsLine}.`;
+            } else if (status === "EXPIRED") {
+              title = "Subscription expired";
+              body =
+                "Upgrade to restore AI features. Your data is preserved for 90 days after expiry — export below if needed.";
+            } else if (status === "CANCELED") {
+              title = "Welcome back";
+              body =
+                "Your previous subscription was cancelled. Pick up where you left off by choosing a plan below.";
+            } else if (status === "PAST_DUE") {
+              title = "Payment failed";
+              body =
+                "Your last charge didn't go through. Update your payment method below to restore access.";
+            }
+
+            return (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CreditCard className="w-8 h-8 text-slate-400" />
+                </div>
+                <h2 className="text-2xl font-semibold text-white mb-2">
+                  {title}
+                </h2>
+                <p className="text-slate-400">{body}</p>
+              </div>
+            );
+          })()}
 
           {/* Pricing Cards */}
           <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
@@ -542,6 +643,13 @@ export default function SubscriptionPage() {
           </div>
         </div>
       )}
+
+      {/* RA-1243: cancel dialog with reason + comment capture */}
+      <CancelSubscriptionDialog
+        open={showCancelDialog}
+        onOpenChange={setShowCancelDialog}
+        onCancelled={() => fetchSubscription()}
+      />
     </div>
   );
 }

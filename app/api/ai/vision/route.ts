@@ -17,6 +17,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { applyRateLimit } from "@/lib/rate-limiter";
 import {
   analyseImageWithBYOK,
   type VisionAnalysisRequest,
@@ -49,6 +50,21 @@ export async function POST(request: NextRequest) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   }
+
+  // RA-1263: rate-limit BYOK vision calls. Even though the user is billed
+  // directly by their provider, a compromised session (e.g. XSS or token
+  // leak) could loop-call and exhaust their BYOK key. CLAUDE.md rule 10 —
+  // key on session.user.id, not IP.
+  const rateLimited = await applyRateLimit(request, {
+    windowMs: 60 * 1000,
+    maxRequests: 20,
+    prefix: "ai-vision",
+    key: session.user.id,
+    // RA-1319: Anthropic vision calls are expensive — fail-closed on Upstash
+    // outage rather than letting in-memory per-instance caps multiply.
+    failClosedOnUpstashError: true,
+  });
+  if (rateLimited) return rateLimited;
 
   let body: unknown;
   try {
