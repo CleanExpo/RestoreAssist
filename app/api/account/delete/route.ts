@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
         id: true,
         email: true,
         stripeCustomerId: true,
-        stripeSubscriptionId: true,
+        subscriptionId: true,
       },
     });
     if (!user) {
@@ -82,9 +82,9 @@ export async function POST(request: NextRequest) {
     // Cancel the Stripe subscription immediately so no further invoices
     // are raised. We don't unwind historical invoices — those are already
     // tax-compliant records.
-    if (user.stripeSubscriptionId) {
+    if (user.subscriptionId) {
       try {
-        await stripe.subscriptions.cancel(user.stripeSubscriptionId);
+        await stripe.subscriptions.cancel(user.subscriptionId);
       } catch (err) {
         console.error(
           "[account-delete] Stripe cancel failed (proceeding with deletion):",
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
       userId: user.id,
       email: user.email,
       ...reqCtx,
-      details: { hadSubscription: Boolean(user.stripeSubscriptionId) },
+      details: { hadSubscription: Boolean(user.subscriptionId) },
     }).catch((err) => console.error("[account-delete] audit log failed:", err));
 
     await prisma.user.delete({ where: { id: user.id } });
