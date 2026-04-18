@@ -61,18 +61,12 @@ export async function POST(
       ? sanitizeString(body.weatherConditions, 200)
       : null;
 
-    // Upsert environmental data
-    const environmentalData = await prisma.environmentalData.upsert({
-      where: { inspectionId: id },
-      update: {
-        ambientTemperature: body.ambientTemperature,
-        humidityLevel: body.humidityLevel,
-        dewPoint: body.dewPoint,
-        airCirculation: body.airCirculation ?? false,
-        weatherConditions: sanitizedWeather,
-        notes: sanitizedNotes,
-      },
-      create: {
+    // RA-1383 (Board M-7 item 4): EnvironmentalData is now a time-series.
+    // Each POST creates a new reading; the per-inspection singleton upsert
+    // pattern is no longer correct (Ops Director §3 requires one reading per
+    // chamber per 24h).
+    const environmentalData = await prisma.environmentalData.create({
+      data: {
         inspectionId: id,
         ambientTemperature: body.ambientTemperature,
         humidityLevel: body.humidityLevel,

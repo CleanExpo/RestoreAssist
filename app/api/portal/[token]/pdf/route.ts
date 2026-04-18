@@ -29,7 +29,8 @@ export async function GET(
         moistureReadings: { orderBy: { recordedAt: "asc" } },
         affectedAreas: true,
         scopeItems: { where: { isSelected: true } },
-        environmentalData: true,
+        // RA-1383 (M-7): EnvironmentalData is a time-series — use the most recent reading
+        environmentalData: { orderBy: { recordedAt: "desc" }, take: 1 },
         classifications: { orderBy: { createdAt: "desc" }, take: 1 },
         report: { select: { id: true, status: true } },
       },
@@ -268,7 +269,7 @@ export async function GET(
 
     // ── S500:2025 §12.4 — Environmental Conditions ────────────────────────
     section("IICRC S500:2025 §12.4  —  Environmental Conditions");
-    const env = inspection.environmentalData;
+    const env = inspection.environmentalData[0];
     if (env) {
       row("Ambient Temperature", `${env.ambientTemperature}°C`);
       row("Relative Humidity", `${env.humidityLevel}%`);

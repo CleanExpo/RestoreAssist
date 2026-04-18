@@ -123,7 +123,12 @@ export async function POST(
         moistureReadings: {
           orderBy: { createdAt: "desc" },
         },
-        environmentalData: true,
+        // RA-1383 (M-7): EnvironmentalData is now a time-series. Use the most
+        // recent reading for scope generation.
+        environmentalData: {
+          orderBy: { recordedAt: "desc" },
+          take: 1,
+        },
         classifications: {
           orderBy: { createdAt: "desc" },
           take: 1,
@@ -195,11 +200,11 @@ export async function POST(
       affectedAreaM2,
       affectedRooms,
       moistureReadings: moistureInputs,
-      environmentalData: inspection.environmentalData
+      environmentalData: inspection.environmentalData[0]
         ? {
-            temperature: inspection.environmentalData.ambientTemperature,
-            humidity: inspection.environmentalData.humidityLevel,
-            dewPoint: inspection.environmentalData.dewPoint ?? undefined,
+            temperature: inspection.environmentalData[0].ambientTemperature,
+            humidity: inspection.environmentalData[0].humidityLevel,
+            dewPoint: inspection.environmentalData[0].dewPoint ?? undefined,
           }
         : undefined,
       equipment: equipmentInputs,
