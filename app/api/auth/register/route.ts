@@ -109,9 +109,13 @@ export async function POST(request: NextRequest) {
         trialDays: 30,
         trialCredits: 30,
       }).catch((err) => console.error("[Register] Welcome email failed:", err));
-      notifyWelcome(user.id);
+      notifyWelcome(user.id).catch((err) =>
+        console.error("[Register] notifyWelcome failed:", err),
+      );
       // RA-1239: seed demo data so trial users don't land on an empty dashboard
-      seedDemoDataForNewUser(user.id).catch(() => {});
+      seedDemoDataForNewUser(user.id).catch((err) =>
+        console.error("[Register] seedDemoDataForNewUser failed:", err),
+      );
       const reqCtx = extractRequestContext(request);
       logSecurityEvent({
         eventType: "ACCOUNT_REGISTERED",
@@ -164,9 +168,13 @@ export async function POST(request: NextRequest) {
         trialDays: 30,
         trialCredits: 30,
       }).catch((err) => console.error("[Register] Welcome email failed:", err));
-      notifyWelcome(updatedUser.id);
+      notifyWelcome(updatedUser.id).catch((err) =>
+        console.error("[Register] notifyWelcome failed:", err),
+      );
       // RA-1239: seed demo data so trial users don't land on an empty dashboard
-      seedDemoDataForNewUser(updatedUser.id).catch(() => {});
+      seedDemoDataForNewUser(updatedUser.id).catch((err) =>
+        console.error("[Register] seedDemoDataForNewUser failed:", err),
+      );
       const reqCtx = extractRequestContext(request);
       logSecurityEvent({
         eventType: "ACCOUNT_REGISTERED",
@@ -204,7 +212,9 @@ export async function POST(request: NextRequest) {
         trialDays: 30,
         trialCredits: 30,
       }).catch((err) => console.error("[Register] Welcome email failed:", err));
-      notifyWelcome(user.id);
+      notifyWelcome(user.id).catch((err) =>
+        console.error("[Register] notifyWelcome failed:", err),
+      );
       const { password: _, ...userWithoutPassword } = user;
       return NextResponse.json(
         {
