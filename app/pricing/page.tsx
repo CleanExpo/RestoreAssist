@@ -40,9 +40,9 @@ export default function PricingPage() {
     price: "$0",
     period: "",
     description:
-      "Perfect for trying out Restore Assist. Start with 3 free reports and basic features.",
+      "Perfect for trying out Restore Assist. Start with 30 free reports and basic features.",
     features: [
-      "3 free inspection reports",
+      "30 free inspection reports",
       "Basic report type only",
       "1 Quick Fill credit (AI-powered form auto-fill)",
       "IICRC S500 compliant reports",
@@ -268,7 +268,7 @@ export default function PricingPage() {
                 '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
             }}
           >
-            Start free with 3 reports and basic features. Upgrade to unlock
+            Start free with 30 reports and basic features. Upgrade to unlock
             unlimited Quick Fill, enhanced reports, PDF uploads, and more. All
             paid plans include first month signup bonus of 10 additional
             reports.
