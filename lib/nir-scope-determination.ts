@@ -38,6 +38,8 @@ export interface ScopeItem {
   unit?: string;
   specification?: string;
   isRequired: boolean;
+  /** GST/tax treatment — INPUT = subcontractor pass-through, OUTPUT = taxable supply */
+  taxType?: "OUTPUT" | "INPUT" | "EXEMPT" | "NONE";
 }
 
 // ─── INPUT TYPES ──────────────────────────────────────────────────────────────
@@ -346,4 +348,190 @@ export function determineScopeItems(
   });
 
   return scopeItems;
+}
+
+// ─── MOULD SCOPE (S520) ───────────────────────────────────────────────────────
+
+/** IICRC S520 mould severity classification */
+export type MouldSeverity = "class1" | "class2" | "class3";
+
+export interface MouldScopeInput {
+  /** Total mould-affected area in m² */
+  mouldAffectedArea: number;
+  /**
+   * S520:2015 severity class:
+   *   class1 — light surface mould
+   *   class2 — penetrating mould (into substrate)
+   *   class3 — widespread mould (extensive penetration)
+   */
+  mouldSeverity: MouldSeverity;
+  /** True when porous mould-affected materials (drywall, insulation) require physical removal */
+  materialsToRemove: boolean;
+  /** True when the moisture source remains active — triggers structural drying (S500:2025 §7.1) */
+  moistureSourceActive: boolean;
+}
+
+/**
+ * S520:2015 deterministic scope engine for mould remediation jobs.
+ *
+ * Returns items in IICRC S520 sequence:
+ *   1. Containment  (§7.3–§7.5)
+ *   2. Remediation  (§8.2–§8.3, §9.1 or §9.3, and S500:2025 §7.1 when moisture active)
+ *   3. Air Treatment (§8.4, §12.1)
+ *   4. Waste        (§11.2) — only when materialsToRemove is true
+ *
+ * Decontamination chamber (§7.5) is added for Class 2/3 only.
+ * Encapsulation (§9.3) replaces material removal when materialsToRemove is false and severity ≥ class2.
+ * Clearance test (§12.1) carries taxType: "INPUT" — it is a subcontractor pass-through.
+ */
+export function determineMouldScopeItems(input: MouldScopeInput): ScopeItem[] {
+  const {
+    mouldAffectedArea,
+    mouldSeverity,
+    materialsToRemove,
+    moistureSourceActive,
+  } = input;
+  const items: ScopeItem[] = [];
+
+  // ── 1. Containment ─────────────────────────────────────────────────────────
+
+  items.push({
+    itemType: "containment_barrier",
+    description: "Containment barrier erection (polyethylene sheeting)",
+    justification:
+      "Physical containment required before mould remediation commences to prevent spore migration.",
+    standardReference: "IICRC S520:2015 §7.3",
+    clauseRefs: ["IICRC S520:2015 §7.3"],
+    isRequired: true,
+    quantity: mouldAffectedArea,
+    unit: "m²",
+  });
+
+  items.push({
+    itemType: "negative_air_pressure",
+    description: "Negative air pressure establishment",
+    justification:
+      "Negative pressure prevents mould spore migration to clean areas during remediation.",
+    standardReference: "IICRC S520:2015 §7.4",
+    clauseRefs: ["IICRC S520:2015 §7.4"],
+    isRequired: true,
+  });
+
+  // Decontamination chamber required for penetrating and widespread mould (Class 2/3)
+  if (mouldSeverity === "class2" || mouldSeverity === "class3") {
+    items.push({
+      itemType: "decontamination_chamber",
+      description: "Decontamination chamber setup",
+      justification:
+        "Decontamination chamber required for Class 2/3 mould to prevent cross-contamination on exit.",
+      standardReference: "IICRC S520:2015 §7.5",
+      clauseRefs: ["IICRC S520:2015 §7.5"],
+      isRequired: true,
+    });
+  }
+
+  // ── 2. Remediation ─────────────────────────────────────────────────────────
+
+  items.push({
+    itemType: "hepa_vacuum_surfaces",
+    description: "HEPA vacuuming of mould-affected surfaces",
+    justification:
+      "HEPA vacuuming removes bulk mould contamination from surfaces before wet cleaning.",
+    standardReference: "IICRC S520:2015 §8.2",
+    clauseRefs: ["IICRC S520:2015 §8.2"],
+    isRequired: true,
+    quantity: mouldAffectedArea,
+    unit: "m²",
+  });
+
+  items.push({
+    itemType: "damp_wipe_antimicrobial",
+    description: "Damp wipe with antimicrobial solution",
+    justification:
+      "Antimicrobial damp wipe eliminates residual mould contamination after HEPA vacuuming.",
+    standardReference: "IICRC S520:2015 §8.3",
+    clauseRefs: ["IICRC S520:2015 §8.3"],
+    isRequired: true,
+    quantity: mouldAffectedArea,
+    unit: "m²",
+  });
+
+  if (moistureSourceActive) {
+    items.push({
+      itemType: "structural_drying_mould",
+      description: "Structural drying (moisture source unresolved)",
+      justification:
+        "Active moisture source requires structural drying to prevent mould recurrence.",
+      standardReference: "IICRC S500:2025 §7.1",
+      clauseRefs: ["IICRC S500:2025 §7.1"],
+      isRequired: true,
+    });
+  }
+
+  if (materialsToRemove) {
+    items.push({
+      itemType: "mould_material_removal",
+      description: "Mould-affected material removal (drywall, insulation)",
+      justification:
+        "Porous materials with embedded mould require physical removal as surface cleaning is insufficient.",
+      standardReference: "IICRC S520:2015 §9.1",
+      clauseRefs: ["IICRC S520:2015 §9.1"],
+      isRequired: true,
+      quantity: mouldAffectedArea,
+      unit: "m²",
+    });
+  } else if (mouldSeverity === "class2" || mouldSeverity === "class3") {
+    // Encapsulation when full removal is not practical
+    items.push({
+      itemType: "encapsulation",
+      description: "Encapsulation (full removal not practical)",
+      justification:
+        "Encapsulation applied to Class 2/3 mould-affected surfaces where full material removal is not practical.",
+      standardReference: "IICRC S520:2015 §9.3",
+      clauseRefs: ["IICRC S520:2015 §9.3"],
+      isRequired: false,
+      quantity: mouldAffectedArea,
+      unit: "m²",
+    });
+  }
+
+  // ── 3. Air Treatment ───────────────────────────────────────────────────────
+
+  items.push({
+    itemType: "hepa_air_filtration",
+    description: "HEPA air filtration during work",
+    justification:
+      "HEPA air filtration captures airborne mould spores throughout the remediation process.",
+    standardReference: "IICRC S520:2015 §8.4",
+    clauseRefs: ["IICRC S520:2015 §8.4"],
+    isRequired: true,
+  });
+
+  // Clearance test is a subcontractor pass-through — taxType INPUT
+  items.push({
+    itemType: "clearance_air_test",
+    description: "Post-remediation clearance test (subcontractor)",
+    justification:
+      "Independent clearance test required to verify remediation meets S520 acceptance criteria.",
+    standardReference: "IICRC S520:2015 §12.1",
+    clauseRefs: ["IICRC S520:2015 §12.1"],
+    isRequired: true,
+    taxType: "INPUT",
+  });
+
+  // ── 4. Waste ───────────────────────────────────────────────────────────────
+
+  if (materialsToRemove) {
+    items.push({
+      itemType: "mould_waste_disposal",
+      description: "Bagged mould-contaminated material disposal",
+      justification:
+        "Contaminated materials must be double-bagged and disposed of per S520 waste handling requirements.",
+      standardReference: "IICRC S520:2015 §11.2",
+      clauseRefs: ["IICRC S520:2015 §11.2"],
+      isRequired: true,
+    });
+  }
+
+  return items;
 }

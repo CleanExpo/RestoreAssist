@@ -145,7 +145,9 @@ export default function ReportsPage() {
       return;
     }
     if (selectedReports.length > 25) {
-      toast.error("Maximum 25 reports per batch download. Please narrow your selection.");
+      toast.error(
+        "Maximum 25 reports per batch download. Please narrow your selection.",
+      );
       return;
     }
 
@@ -173,18 +175,24 @@ export default function ReportsPage() {
       // Use the filename from the Content-Disposition header if present
       const disposition = response.headers.get("Content-Disposition");
       const match = disposition?.match(/filename="([^"]+)"/);
-      a.download = match?.[1] ?? `RestoreAssist_PDFs_${new Date().toISOString().slice(0, 10)}.zip`;
+      a.download =
+        match?.[1] ??
+        `RestoreAssist_PDFs_${new Date().toISOString().slice(0, 10)}.zip`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
       toast.dismiss(loadingToast);
-      toast.success(`Downloaded ${selectedReports.length} report${selectedReports.length > 1 ? "s" : ""} as ZIP.`);
+      toast.success(
+        `Downloaded ${selectedReports.length} report${selectedReports.length > 1 ? "s" : ""} as ZIP.`,
+      );
     } catch (error) {
       toast.dismiss(loadingToast);
       toast.error(
-        error instanceof Error ? error.message : "Batch download failed. Please try again.",
+        error instanceof Error
+          ? error.message
+          : "Batch download failed. Please try again.",
       );
     } finally {
       setBatchDownloading(false);
@@ -362,7 +370,11 @@ export default function ReportsPage() {
           onClick={handleBatchDownload}
           disabled={batchDownloading || selectedReports.length === 0}
           className="p-2 border border-slate-700 rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          title={selectedReports.length > 0 ? `Download ${selectedReports.length} selected report(s) as ZIP` : "Select reports to download"}
+          title={
+            selectedReports.length > 0
+              ? `Download ${selectedReports.length} selected report(s) as ZIP`
+              : "Select reports to download"
+          }
         >
           {batchDownloading ? (
             <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-cyan-500" />

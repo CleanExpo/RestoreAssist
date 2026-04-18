@@ -270,7 +270,10 @@ export function MakeSafeChecklist({ inspectionId }: MakeSafeChecklistProps) {
 
               {/* Notes */}
               <div className="pl-7">
-                <Label htmlFor={notesId} className="text-xs text-muted-foreground">
+                <Label
+                  htmlFor={notesId}
+                  className="text-xs text-muted-foreground"
+                >
                   Notes
                 </Label>
                 <Textarea

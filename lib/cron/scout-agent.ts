@@ -249,8 +249,7 @@ async function fetchHNFindings(): Promise<ScoutFinding[]> {
       };
       for (const hit of data.hits?.slice(0, 2) ?? []) {
         const storyUrl =
-          hit.url ??
-          `https://news.ycombinator.com/item?id=${hit.objectID}`;
+          hit.url ?? `https://news.ycombinator.com/item?id=${hit.objectID}`;
         if (seen.has(storyUrl)) continue;
         seen.add(storyUrl);
 
@@ -378,8 +377,7 @@ async function createLinearIssue(finding: ScoutFinding): Promise<void> {
   const teamId =
     process.env.LINEAR_RA_TEAM_ID ?? "a8a52f07-63cf-4ece-9ad2-3e3bd3c15673";
   const labelId =
-    process.env.LINEAR_SCOUT_LABEL_ID ??
-    "2e3fcf07-9a7a-4477-9e4b-fcbb9f5b7f5c";
+    process.env.LINEAR_SCOUT_LABEL_ID ?? "2e3fcf07-9a7a-4477-9e4b-fcbb9f5b7f5c";
   const stateId =
     process.env.LINEAR_RA_TODO_STATE_ID ??
     "285c7d2f-d5f4-4ae1-8e3a-bc96c9aaf130";
@@ -432,9 +430,7 @@ async function createLinearIssue(finding: ScoutFinding): Promise<void> {
   });
 
   if (!res.ok) {
-    console.error(
-      `[scout-agent] Linear issue creation failed: ${res.status}`,
-    );
+    console.error(`[scout-agent] Linear issue creation failed: ${res.status}`);
   }
 }
 

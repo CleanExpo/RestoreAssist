@@ -266,46 +266,95 @@ export const IICRC_CHECKLISTS: ChecklistTemplate[] = [
   },
   {
     id: "mould-remediation",
-    name: "Mould Remediation — IICRC S520",
+    name: "Mould Remediation — IICRC S520:2015",
     category: "mould",
     description:
-      "Mould remediation protocol per IICRC S520. Containment, cleaning, and post-remediation testing required.",
+      "Full mould remediation protocol per IICRC S520:2015. Covers containment, remediation, air treatment, and waste disposal.",
     items: [
+      // ── Containment ──────────────────────────────────────────────────────────
       {
-        itemType: "containment_poly",
-        description: "Establish 6-mil poly containment with negative pressure",
-        quantity: 1,
-        unit: "job",
-        justification: "IICRC S520:2015 §6.3 — Mould containment",
-      },
-      {
-        itemType: "hepa_vacuum",
-        description: "HEPA vacuum all mould-affected surfaces",
+        itemType: "containment_barrier",
+        description: "Containment barrier erection (polyethylene sheeting)",
         quantity: null,
         unit: "sqm",
-        justification: "IICRC S520:2015 §7.1 — Surface cleaning",
+        justification: "IICRC S520:2015 §7.3 — Containment barrier erection",
       },
       {
-        itemType: "remove_porous_materials",
+        itemType: "negative_air_pressure",
+        description: "Negative air pressure establishment",
+        quantity: 1,
+        unit: "job",
+        justification: "IICRC S520:2015 §7.4 — Negative air pressure",
+      },
+      {
+        itemType: "decontamination_chamber",
+        description: "Decontamination chamber setup (Class 2/3)",
+        quantity: 1,
+        unit: "job",
+        justification: "IICRC S520:2015 §7.5 — Decontamination chamber",
+      },
+      // ── Remediation ──────────────────────────────────────────────────────────
+      {
+        itemType: "hepa_vacuum_surfaces",
+        description: "HEPA vacuuming of mould-affected surfaces",
+        quantity: null,
+        unit: "sqm",
+        justification: "IICRC S520:2015 §8.2 — HEPA vacuuming",
+      },
+      {
+        itemType: "damp_wipe_antimicrobial",
+        description: "Damp wipe with antimicrobial solution",
+        quantity: null,
+        unit: "sqm",
+        justification: "IICRC S520:2015 §8.3 — Antimicrobial damp wipe",
+      },
+      {
+        itemType: "structural_drying_mould",
+        description: "Structural drying (moisture source unresolved)",
+        quantity: 1,
+        unit: "job",
+        justification:
+          "IICRC S500:2025 §7.1 — Structural drying when moisture source active",
+      },
+      {
+        itemType: "mould_material_removal",
+        description: "Mould-affected material removal (drywall, insulation)",
+        quantity: null,
+        unit: "sqm",
+        justification: "IICRC S520:2015 §9.1 — Mould-affected material removal",
+      },
+      {
+        itemType: "encapsulation",
         description:
-          "Remove mould-impacted porous materials (drywall, insulation)",
+          "Encapsulation of mould-affected surfaces (if full removal not practical)",
         quantity: null,
         unit: "sqm",
-        justification: "IICRC S520:2015 §7.2 — Material removal",
+        justification: "IICRC S520:2015 §9.3 — Encapsulation",
       },
+      // ── Air Treatment ────────────────────────────────────────────────────────
       {
-        itemType: "apply_antimicrobial",
-        description: "Apply EPA-registered antimicrobial/fungicide",
+        itemType: "hepa_air_filtration",
+        description: "HEPA air filtration during work",
         quantity: 1,
         unit: "job",
-        justification: "IICRC S520:2015 §7.3 — Biocide application",
+        justification: "IICRC S520:2015 §8.4 — HEPA air filtration",
       },
       {
         itemType: "clearance_air_test",
-        description: "Obtain post-remediation air quality clearance test",
+        description:
+          "Post-remediation clearance test (subcontractor pass-through)",
         quantity: 1,
         unit: "job",
-        justification: "IICRC S520:2015 §8 — Post-remediation testing",
+        justification:
+          "IICRC S520:2015 §12.1 — Post-remediation clearance test",
+      },
+      // ── Waste ────────────────────────────────────────────────────────────────
+      {
+        itemType: "mould_waste_disposal",
+        description: "Bagged mould-contaminated material disposal",
+        quantity: null,
+        unit: "job",
+        justification: "IICRC S520:2015 §11.2 — Mould waste disposal",
       },
     ],
   },

@@ -159,7 +159,8 @@ function formatClaudeMessages(
         type: "image",
         source: {
           type: "base64",
-          media_type: input.mediaType as Anthropic.Base64ImageSource["media_type"],
+          media_type:
+            input.mediaType as Anthropic.Base64ImageSource["media_type"],
           data: input.data,
         },
       });

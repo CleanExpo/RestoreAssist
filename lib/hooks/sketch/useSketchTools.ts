@@ -59,7 +59,11 @@ export function useSketchTools(opts: UseSketchToolsOptions) {
     showGuides,
     clearGuides,
     roomColor = { fill: "rgba(59,130,246,0.10)", stroke: "#3b82f6" },
-    damageColor = { color: "rgba(59,130,246,0.35)", stroke: "#3b82f6", id: "water" },
+    damageColor = {
+      color: "rgba(59,130,246,0.35)",
+      stroke: "#3b82f6",
+      id: "water",
+    },
     textColor = "#1e293b",
     arrowColor = "#ef4444",
   } = opts;
@@ -223,7 +227,16 @@ export function useSketchTools(opts: UseSketchToolsOptions) {
         }
       }
     },
-    [snapPoint, roomColor, clearTemp, clearGuides, onSaveState, onModified, arrowColor, textColor],
+    [
+      snapPoint,
+      roomColor,
+      clearTemp,
+      clearGuides,
+      onSaveState,
+      onModified,
+      arrowColor,
+      textColor,
+    ],
   );
 
   const onMouseMove = useCallback(
