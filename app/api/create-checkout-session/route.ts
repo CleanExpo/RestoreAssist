@@ -25,28 +25,17 @@ export async function POST(request: NextRequest) {
     });
     if (rateLimited) return rateLimited;
 
-    // Get the base URL from the request headers (works in both dev and production)
-    // Priority: NEXTAUTH_URL env var > origin header > host header with protocol
-    let baseUrl = process.env.NEXTAUTH_URL;
-
-    if (!baseUrl) {
-      const origin = request.headers.get("origin");
-      const host = request.headers.get("host");
-
-      if (origin) {
-        // Origin is already a full URL (e.g., https://example.com)
-        baseUrl = origin;
-      } else if (host) {
-        // Construct URL from host header
-        const protocol =
-          request.headers.get("x-forwarded-proto") ||
-          (host.includes("localhost") ? "http" : "https");
-        baseUrl = `${protocol}://${host}`;
-      } else {
-        // Fallback for development
-        baseUrl = "http://localhost:3000";
-      }
-    }
+    // RA-1343: trust only NEXTAUTH_URL (or APP_URL fallback) for Stripe
+    // success/cancel URLs. Previously fell back to Host/Origin headers,
+    // which on a misconfigured deploy let an attacker supply evil.com as
+    // the Host header and receive a Stripe Checkout redirect to a
+    // look-alike success page that captures the ?session_id and pivots.
+    const baseUrl =
+      process.env.NEXTAUTH_URL ||
+      process.env.APP_URL ||
+      (process.env.NODE_ENV === "production"
+        ? "https://restoreassist.app"
+        : "http://localhost:3000");
 
     const { priceId } = await request.json();
 
