@@ -99,8 +99,7 @@ const WEBHOOK_SECRET =
  * misleading failures.
  */
 const isDeployedWithoutSecret =
-  !!process.env.PLAYWRIGHT_BASE_URL &&
-  !process.env.STRIPE_WEBHOOK_SECRET;
+  !!process.env.PLAYWRIGHT_BASE_URL && !process.env.STRIPE_WEBHOOK_SECRET;
 
 // ---------------------------------------------------------------------------
 // Tests

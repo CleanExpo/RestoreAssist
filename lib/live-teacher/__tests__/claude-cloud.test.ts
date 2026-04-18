@@ -87,7 +87,9 @@ describe("invokeClaudeCloud", () => {
       "Category 2 water (Grey Water) has a moisture reading above 20% WME [S500:2025 §10.3.2]. " +
       "Always verify with a penetrating probe meter [S500:2025 §7.1].";
 
-    anthropicMock.create.mockResolvedValueOnce(makeSuccessResponse(responseText));
+    anthropicMock.create.mockResolvedValueOnce(
+      makeSuccessResponse(responseText),
+    );
 
     const result: ClaudeCloudResult = await invokeClaudeCloud(baseInput);
 
@@ -129,7 +131,9 @@ describe("invokeClaudeCloud", () => {
     const responseText =
       "Make sure you measure in several spots across the affected area.";
 
-    anthropicMock.create.mockResolvedValueOnce(makeSuccessResponse(responseText));
+    anthropicMock.create.mockResolvedValueOnce(
+      makeSuccessResponse(responseText),
+    );
 
     const result = await invokeClaudeCloud(baseInput);
 

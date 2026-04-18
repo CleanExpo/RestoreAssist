@@ -198,10 +198,7 @@ export async function PATCH(request: NextRequest) {
 
     // RA-786: do not leak error.message to clients
     console.error("bulk-status request failed:", error);
-    return NextResponse.json(
-      { error: "Request failed" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Request failed" }, { status: 500 });
   }
 }
 

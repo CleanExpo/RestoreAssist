@@ -13,17 +13,21 @@ import {
 } from "../gst-treatment-rules";
 
 describe("getGSTTreatment — canonical 6 service categories (OUTPUT 10%)", () => {
-  const TAXABLE = ["LABOUR", "EQUIPMENT", "MATERIALS", "SUBCONTRACTOR", "PRELIMS", "CONTENTS"] as const;
+  const TAXABLE = [
+    "LABOUR",
+    "EQUIPMENT",
+    "MATERIALS",
+    "SUBCONTRACTOR",
+    "PRELIMS",
+    "CONTENTS",
+  ] as const;
 
-  it.each(TAXABLE)(
-    "%s is OUTPUT 10% taxable",
-    (category) => {
-      const t = getGSTTreatment(category);
-      expect(t.taxType).toBe("OUTPUT");
-      expect(t.rate).toBe(10);
-      expect(t.atoReference).toMatch(/GSTR 2000\/10/);
-    },
-  );
+  it.each(TAXABLE)("%s is OUTPUT 10% taxable", (category) => {
+    const t = getGSTTreatment(category);
+    expect(t.taxType).toBe("OUTPUT");
+    expect(t.rate).toBe(10);
+    expect(t.atoReference).toMatch(/GSTR 2000\/10/);
+  });
 });
 
 describe("getGSTTreatment — edge-case billing classes", () => {

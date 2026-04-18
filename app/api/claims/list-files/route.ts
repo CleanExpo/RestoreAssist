@@ -103,7 +103,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error: "Failed to list files from Google Drive",
-        details: "Please check your Google Drive credentials and folder permissions.",
+        details:
+          "Please check your Google Drive credentials and folder permissions.",
       },
       { status: 500 },
     );

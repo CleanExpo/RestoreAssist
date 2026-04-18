@@ -274,3 +274,92 @@ export function calculateEquipment(
     iicrcClassification,
   };
 }
+
+// ============================================================
+// Fire & Smoke Equipment — IICRC S700:2015
+// ============================================================
+
+export type FireEquipmentType =
+  | "ozone_generator"
+  | "hydroxyl_unit"
+  | "hepa_vacuum"
+  | "afd_unit";
+
+export interface FireEquipmentLineItem {
+  type: FireEquipmentType;
+  label: string;
+  quantity: number;
+  /** e.g. "1 per 200m²" */
+  iicrcRatio: string;
+  /** e.g. "IICRC S700:2015 §6.3" */
+  iicrcReference: string;
+  justification: string;
+}
+
+export interface FireEquipmentInput {
+  /** Total fire/smoke affected area in m² */
+  affectedAreaM2: number;
+}
+
+export interface FireEquipmentResult {
+  equipmentList: FireEquipmentLineItem[];
+  summary: string;
+}
+
+// S700:2015 equipment ratios (m² per unit)
+const FIRE_RATIOS: Record<FireEquipmentType, number> = {
+  ozone_generator: 200, // S700:2015 §6.3 — 1 per 200m²
+  hydroxyl_unit: 150, // S700:2015 §6.3 — 1 per 150m²
+  hepa_vacuum: 100, // S700:2015 §6.2 — 1 per 100m²
+  afd_unit: 150, // S700:2015 §9.1 — 1 per 150m²
+};
+
+const FIRE_LABELS: Record<FireEquipmentType, string> = {
+  ozone_generator: "Ozone Generator",
+  hydroxyl_unit: "Hydroxyl Unit",
+  hepa_vacuum: "HEPA Vacuum",
+  afd_unit: "Air Filtration Device (AFD)",
+};
+
+const FIRE_REFS: Record<FireEquipmentType, string> = {
+  ozone_generator: "IICRC S700:2015 §6.3",
+  hydroxyl_unit: "IICRC S700:2015 §6.3",
+  hepa_vacuum: "IICRC S700:2015 §6.2",
+  afd_unit: "IICRC S700:2015 §9.1",
+};
+
+/**
+ * Calculate IICRC S700:2015-compliant equipment list for a fire/smoke job.
+ * Quantities are rounded UP per IICRC convention.
+ */
+export function calculateFireEquipment(
+  input: FireEquipmentInput,
+): FireEquipmentResult {
+  const { affectedAreaM2 } = input;
+
+  const equipmentTypes: FireEquipmentType[] = [
+    "ozone_generator",
+    "hydroxyl_unit",
+    "hepa_vacuum",
+    "afd_unit",
+  ];
+
+  const equipmentList: FireEquipmentLineItem[] = equipmentTypes.map((type) => {
+    const ratio = FIRE_RATIOS[type];
+    const quantity = Math.ceil(affectedAreaM2 / ratio);
+    const label = FIRE_LABELS[type];
+    return {
+      type,
+      label,
+      quantity,
+      iicrcRatio: `1 per ${ratio}m²`,
+      iicrcReference: FIRE_REFS[type],
+      justification: `${affectedAreaM2.toFixed(1)}m² ÷ ${ratio}m² = ${quantity} ${label}${quantity !== 1 ? "s" : ""} required (IICRC rounds up)`,
+    };
+  });
+
+  const summaryParts = equipmentList.map((e) => `${e.quantity}× ${e.label}`);
+  const summary = `IICRC S700 Fire/Smoke Equipment (${affectedAreaM2}m²): ${summaryParts.join(" + ")}`;
+
+  return { equipmentList, summary };
+}
