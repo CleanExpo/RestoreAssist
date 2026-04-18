@@ -500,7 +500,112 @@ export default function ReportsPage() {
             <p className="text-slate-400">Loading reports...</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            {/* RA-1217 — mobile card layout below sm breakpoint.
+                Matches the data in the table below but stacks for phones so
+                field techs aren't horizontally-scrolling through 11 columns. */}
+            <div className="sm:hidden space-y-3 px-4 py-4">
+              {paginatedReports.length === 0 ? (
+                <div className="text-center py-8 text-slate-400">
+                  No reports found.{" "}
+                  <Link href="/dashboard/reports/new" className="text-cyan-400 hover:underline">
+                    Create your first report
+                  </Link>
+                </div>
+              ) : (
+                paginatedReports.map((report, i) => (
+                  <div
+                    key={report.id || i}
+                    className="rounded-xl border border-slate-700/50 bg-slate-900/50 p-4"
+                  >
+                    <div className="flex items-start gap-3">
+                      <button
+                        onClick={() => toggleReportSelection(report.id)}
+                        aria-label={selectedReports.includes(report.id) ? "Deselect report" : "Select report"}
+                        className="mt-1 flex-shrink-0 text-slate-400 hover:text-white transition-colors min-h-[24px] min-w-[24px]"
+                      >
+                        {selectedReports.includes(report.id) ? (
+                          <CheckSquare size={20} className="text-cyan-400" />
+                        ) : (
+                          <Square size={20} />
+                        )}
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-2">
+                          <Link
+                            href={`/dashboard/reports/${report.id}`}
+                            className="font-mono text-sm font-semibold text-cyan-400 hover:underline"
+                          >
+                            {report.reportNumber || report.id}
+                          </Link>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                              statusColors[report.status as keyof typeof statusColors] ||
+                              "bg-slate-500/20 text-slate-400"
+                            }`}
+                          >
+                            {report.status || "COMPLETED"}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-700/50 text-slate-300 flex items-center gap-1">
+                            <span>
+                              {hazardIcons[
+                                report.waterCategory as keyof typeof hazardIcons
+                              ] || "💧"}
+                            </span>
+                            {report.waterCategory || "—"}
+                          </span>
+                        </div>
+                        <div className="text-sm text-white font-medium truncate">
+                          {report.clientName || "N/A"}
+                        </div>
+                        <div className="text-xs text-slate-400 truncate mb-2">
+                          {report.propertyAddress || "No address"}
+                        </div>
+                        <div className="flex items-center gap-4 text-xs text-slate-500 flex-wrap">
+                          <span className="font-medium text-slate-300">
+                            {formatCost(report.estimatedCost)}
+                          </span>
+                          <span>{formatDate(report.createdAt)}</span>
+                          {report.policyType && <span>{report.policyType}</span>}
+                        </div>
+                        <div className="flex items-center gap-2 mt-3">
+                          <Link
+                            href={`/dashboard/reports/${report.id}`}
+                            className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-3 rounded-lg border border-slate-700 hover:bg-slate-700/50 transition-colors text-xs"
+                            aria-label="View report"
+                          >
+                            <Eye size={16} />
+                          </Link>
+                          <Link
+                            href={`/dashboard/reports/${report.id}/edit`}
+                            className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-3 rounded-lg border border-slate-700 hover:bg-slate-700/50 transition-colors text-xs"
+                            aria-label="Edit report"
+                          >
+                            <Edit size={16} />
+                          </Link>
+                          <button
+                            onClick={() => duplicateReport(report.id)}
+                            disabled={duplicating === report.id}
+                            className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-3 rounded-lg border border-slate-700 hover:bg-slate-700/50 transition-colors text-xs disabled:opacity-50"
+                            aria-label="Duplicate report"
+                          >
+                            {duplicating === report.id ? (
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cyan-500" />
+                            ) : (
+                              <Copy size={16} />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Desktop/tablet table — hidden on phone. Keeps the existing
+                11-column experience for sm+ screens unchanged. */}
+            <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-700 bg-slate-900/50">
@@ -727,7 +832,8 @@ export default function ReportsPage() {
                 )}
               </tbody>
             </table>
-          </div>
+            </div>
+          </>
         )}
       </div>
 
