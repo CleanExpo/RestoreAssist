@@ -5202,6 +5202,15 @@ model ClaimProgress {
   // Per-carrier variation threshold (Board M-6: default 20%, configurable)
   carrierVariationThresholdPercent Int? // null → use system default of 20
 
+  // RA-1395 (Board M-20, Principal amendment): flag raised when this row
+  // was created by the backfill cron so a manager must confirm the inferred
+  // state in 1-click before it's treated as canonical. Not raised for rows
+  // created by normal init flow.
+  managerReviewRequired   Boolean   @default(false)
+  managerReviewRequiredAt DateTime?
+  managerReviewedByUserId String?
+  managerReviewedAt       DateTime?
+
   // Metadata
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
