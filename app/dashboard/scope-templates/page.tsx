@@ -245,7 +245,7 @@ export default function ScopeTemplatesPage() {
           onClick={openCreate}
           className={cn(
             "inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200",
-            "bg-gradient-to-r from-blue-500 to-cyan-500 text-white",
+            "bg-gradient-to-r from-blue-600 to-cyan-600 text-white",
             "hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]",
             "active:scale-[0.98]",
           )}
@@ -341,7 +341,7 @@ export default function ScopeTemplatesPage() {
               onClick={openCreate}
               className={cn(
                 "mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200",
-                "bg-gradient-to-r from-blue-500 to-cyan-500 text-white",
+                "bg-gradient-to-r from-blue-600 to-cyan-600 text-white",
                 "hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:scale-[1.02]",
               )}
             >
@@ -519,7 +519,7 @@ export default function ScopeTemplatesPage() {
                 disabled={saving}
                 className={cn(
                   "flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200",
-                  "bg-gradient-to-r from-blue-500 to-cyan-500 text-white",
+                  "bg-gradient-to-r from-blue-600 to-cyan-600 text-white",
                   "hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:scale-[1.01]",
                   "disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100",
                 )}

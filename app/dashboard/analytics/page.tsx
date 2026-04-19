@@ -799,7 +799,7 @@ export default function AnalyticsPage() {
                             )}
                           >
                             <div
-                              className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full transition-all duration-1000"
+                              className="h-full bg-gradient-to-r from-blue-600 to-cyan-600 rounded-full transition-all duration-1000"
                               style={{ width: `${percentage}%` }}
                             />
                           </div>

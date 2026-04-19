@@ -385,7 +385,7 @@ export default function CreditNotesPage() {
         </div>
         <Button
           asChild
-          className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:opacity-90"
+          className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white hover:opacity-90"
         >
           <Link href="/dashboard/invoices/credit-notes/new">
             <Plus className="h-4 w-4" />

@@ -275,7 +275,7 @@ export default function InterviewsPage() {
           </button>
           <button
             onClick={() => router.push("/dashboard/interviews/new")}
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg font-medium hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg font-medium hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
           >
             <Plus size={18} />
             New Interview
@@ -537,7 +537,7 @@ export default function InterviewsPage() {
                     <div className="mt-2 flex items-center gap-2">
                       <div className="flex-1 h-1.5 rounded-full bg-neutral-100 dark:bg-slate-800 overflow-hidden">
                         <div
-                          className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 transition-all"
+                          className="h-full rounded-full bg-gradient-to-r from-blue-600 to-cyan-600 transition-all"
                           style={{ width: `${progress}%` }}
                         />
                       </div>
