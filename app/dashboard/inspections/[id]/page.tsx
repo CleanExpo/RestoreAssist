@@ -27,6 +27,10 @@ const ActivityTimeline = dynamic(
   () => import("@/components/inspection/ActivityTimeline"),
   { ssr: false },
 );
+const AutoClassifyPanel = dynamic(
+  () => import("@/components/inspection/AutoClassifyPanel"),
+  { ssr: false },
+);
 import {
   ArrowLeft,
   Loader2,
@@ -1764,6 +1768,15 @@ export default function InspectionDetailPage({
         {/* Classification Tab */}
         {activeTab === "classification" && (
           <div className="space-y-4 max-w-3xl">
+            {/* RA-1195: AI auto-classify (IICRC Cat/Class) — suggestion only */}
+            <AutoClassifyPanel
+              inspectionId={inspection.id}
+              onApply={(s) => {
+                toast.success(
+                  `Suggestion captured: ${s.waterCategory.replace("_", " ")} / ${s.waterClass.replace("_", " ")}. Finalise via the inspection submission flow.`,
+                );
+              }}
+            />
             {inspection.classifications.length > 0 ? (
               inspection.classifications.map((cls) => (
                 <div
