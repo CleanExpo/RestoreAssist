@@ -39,6 +39,7 @@ import dynamic from "next/dynamic";
 import toast from "react-hot-toast";
 import { NotificationBell } from "@/components/notifications";
 import { WhatsNewModal } from "@/components/releases/WhatsNewModal";
+import { ProductTour } from "@/components/onboarding/ProductTour";
 import { TrialBanner } from "@/components/TrialBanner";
 import { PastDueBanner } from "@/components/billing/PastDueBanner";
 import { CancellationCountdownBanner } from "@/components/billing/CancellationCountdownBanner";
@@ -565,6 +566,8 @@ export default function DashboardLayout({
       <Chatbot />
       {/* What's New — shown once per release after login */}
       <WhatsNewModal />
+      {/* Product tour — RA-1238, auto-fires once for new users */}
+      <ProductTour />
     </>
   );
 }
