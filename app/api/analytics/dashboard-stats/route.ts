@@ -24,30 +24,24 @@ export async function GET() {
       },
     });
 
-    // 2. Avg drying days: completed inspections in last 30d
-    //    Use processedAt (completion timestamp) - createdAt
-    const completedInspections = await prisma.inspection.findMany({
-      where: {
-        userId,
-        status: "COMPLETED",
-        processedAt: { gte: thirtyDaysAgo },
-      },
-      select: {
-        createdAt: true,
-        processedAt: true,
-      },
-      take: 5000, // CLAUDE.md rule 4
-    });
-
-    let avgDryingDays = 0;
-    if (completedInspections.length > 0) {
-      const totalDays = completedInspections.reduce((sum, insp) => {
-        if (!insp.processedAt) return sum;
-        const diffMs = insp.processedAt.getTime() - insp.createdAt.getTime();
-        return sum + diffMs / (1000 * 60 * 60 * 24);
-      }, 0);
-      avgDryingDays = totalDays / completedInspections.length;
-    }
+    // 2. Avg drying days: completed inspections in last 30d.
+    // RA-1323 — replaced findMany(take:5000) + JS reduce with a raw SQL AVG.
+    // The old path pulled up to 5000 rows × 2 timestamps per dashboard load
+    // just to compute a single scalar; at tenants with 1000+ completed
+    // inspections it hit Postgres row reader + network transfer + Node
+    // allocation on every page visit. dashboard-stats is called on every
+    // dashboard home render.
+    const avgDryingResult = await prisma.$queryRaw<
+      Array<{ avg_days: number | null }>
+    >`
+      SELECT AVG(EXTRACT(EPOCH FROM "processedAt" - "createdAt")) / 86400 AS avg_days
+      FROM "Inspection"
+      WHERE "userId" = ${userId}
+        AND "status" = 'COMPLETED'
+        AND "processedAt" >= ${thirtyDaysAgo}
+        AND "processedAt" IS NOT NULL
+    `;
+    const avgDryingDays = Number(avgDryingResult[0]?.avg_days ?? 0) || 0;
 
     // 3. Revenue MTD: sum of Invoice totalIncGST (cents) / 100 for current calendar month
     const revenueMtdResult = await prisma.invoice.aggregate({

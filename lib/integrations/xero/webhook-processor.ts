@@ -79,11 +79,20 @@ export async function processXeroWebhookBatch(
   });
 
   for (const event of events) {
-    // Mark as PROCESSING before touching it
-    await prisma.webhookEvent.update({
-      where: { id: event.id },
+    // RA-1332 — atomic claim: SELECT + UPDATE was TOCTOU-racy because two
+    // concurrent batch runs could both pick the same PENDING row before
+    // either updated it. Use updateMany with a status=PENDING guard so the
+    // transition is a single atomic CAS. If count === 0, another instance
+    // already claimed this row — skip cleanly.
+    const claim = await prisma.webhookEvent.updateMany({
+      where: { id: event.id, status: "PENDING" },
       data: { status: "PROCESSING" },
     });
+    if (claim.count === 0) {
+      // Another worker claimed this event between our SELECT and now.
+      result.skipped++;
+      continue;
+    }
 
     try {
       const payload = event.payload as XeroWebhookPayload;
