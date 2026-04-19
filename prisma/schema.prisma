@@ -1818,6 +1818,11 @@ model MoistureReading {
   isBaseline        Boolean @default(false)
   isMonitoringPoint Boolean @default(false)
 
+  // RA-1196: AI-assigned affected-area grouping label (e.g. "Master Bedroom").
+  // Lightweight text tag; deliberately not an FK to AffectedArea so grouping
+  // works before the formal AffectedArea records exist on the inspection.
+  affectedArea String?
+
   recordedAt DateTime @default(now())
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -1827,6 +1832,7 @@ model MoistureReading {
   @@index([inspectionId, recordedAt])
   @@index([inspectionId, isBaseline])
   @@index([inspectionId, isMonitoringPoint])
+  @@index([inspectionId, affectedArea])
 }
 
 // Affected Areas (Room/Zone with Category/Class)
