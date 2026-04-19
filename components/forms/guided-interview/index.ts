@@ -16,3 +16,4 @@ export { IICRCClassificationVisualizer } from "./IICRCClassificationVisualizer";
 export { InterviewCompletionSummary } from "./InterviewCompletionSummary";
 export { InterviewQuestionAnswerSummary } from "./InterviewQuestionAnswerSummary";
 export { EquipmentCostCalculatorComponent } from "./EquipmentCostCalculator";
+export { AISuggestedQuestion } from "./AISuggestedQuestion";

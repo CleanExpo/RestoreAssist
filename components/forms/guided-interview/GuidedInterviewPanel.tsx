@@ -22,6 +22,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { QuestionCard } from "./QuestionCard";
 import { ProgressRing } from "./ProgressRing";
 import { BottomActionBar } from "./BottomActionBar";
+import { AISuggestedQuestion } from "./AISuggestedQuestion";
 import type { Question } from "@/lib/interview";
 
 /**
@@ -86,6 +87,9 @@ export function GuidedInterviewPanel({
   const router = useRouter();
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
   const [lockedTier, setLockedTier] = useState<number | null>(null);
+  // RA-1199: AI-suggested follow-up answers captured as addenda, not in the
+  // rigid template flow. Appended to the final summary on complete.
+  const [aiAddenda, setAiAddenda] = useState<InterviewQuestionAnswer[]>([]);
   const [interviewState, setInterviewState] = useState<InterviewState>({
     sessionId: "",
     currentTier: 1,
@@ -855,8 +859,31 @@ export function GuidedInterviewPanel({
         answer,
       };
     });
-    onComplete(questionsAndAnswers);
-  }, [interviewState.answers, interviewState.allQuestions, onComplete]);
+    // RA-1199: append AI-suggested follow-ups the technician accepted.
+    onComplete([...questionsAndAnswers, ...aiAddenda]);
+  }, [
+    interviewState.answers,
+    interviewState.allQuestions,
+    aiAddenda,
+    onComplete,
+  ]);
+
+  /**
+   * RA-1199: accept an AI-suggested follow-up as a free-text addendum.
+   */
+  const handleAcceptAISuggestion = useCallback(
+    (s: { question: string; reasoning: string; answer: string }) => {
+      setAiAddenda((prev) => [
+        ...prev,
+        {
+          questionId: `ai-suggestion-${Date.now()}`,
+          questionText: `AI follow-up: ${s.question}`,
+          answer: s.answer,
+        },
+      ]);
+    },
+    [],
+  );
 
   /**
    * Evaluate condition for conditional shows
@@ -1164,6 +1191,28 @@ export function GuidedInterviewPanel({
                   answeredQuestions={interviewState.answeredQuestions}
                   totalQuestions={interviewState.totalQuestions}
                 />
+                {/* RA-1199: AI-suggested follow-up based on prior answers */}
+                {interviewState.sessionId &&
+                  interviewState.answeredQuestions >= 3 && (
+                    <AISuggestedQuestion
+                      sessionId={interviewState.sessionId}
+                      answeredQuestions={Array.from(
+                        interviewState.answers.entries(),
+                      ).map(([qid, answer]) => {
+                        const q = interviewState.allQuestions.find(
+                          (qq) => qq.id === qid,
+                        );
+                        return {
+                          questionText: q?.text ?? "",
+                          answer,
+                        };
+                      })}
+                      remainingQuestions={interviewState.allQuestions
+                        .filter((q) => !interviewState.answers.has(q.id))
+                        .map((q) => ({ questionText: q.text }))}
+                      onAccept={handleAcceptAISuggestion}
+                    />
+                  )}
               </div>
             )}
           </div>
