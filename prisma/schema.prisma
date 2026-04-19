@@ -111,8 +111,15 @@ model User {
   businessAddress String?
   businessLogo    String? // Cloudinary URL
   businessABN     String?
+  businessACN     String?
+  businessState   String? // AU state/territory: NSW/VIC/QLD/WA/SA/TAS/ACT/NT
   businessPhone   String?
   businessEmail   String?
+
+  // RA-1259: Google OAuth signups skip the account-type form; flag them
+  // so middleware redirects them to /onboarding/account-type until the
+  // required business fields are captured.
+  needsOnboarding Boolean @default(false)
 
   accounts             Account[]
   sessions             Session[]
