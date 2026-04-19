@@ -57,21 +57,31 @@ export async function POST(request: NextRequest) {
       where: { reportId },
     });
 
+    // RA-1366 — stamp every JSON blob with a schema version so future
+    // readers can detect legacy rows and migrate shape on the fly.
+    // Writers always emit v=1; readers without a version key treat it
+    // as v=0 (legacy). If the client already sent a `version`, keep it.
+    const SCOPE_JSON_VERSION = 1;
+    const withVersion = <T extends object>(obj: T | null | undefined) =>
+      obj ? { version: SCOPE_JSON_VERSION, ...obj } : null;
+
     const scopeData = {
       reportId,
       scopeType,
-      siteVariables: siteVariables ? JSON.stringify(siteVariables) : null,
+      siteVariables: siteVariables
+        ? JSON.stringify(withVersion(siteVariables))
+        : null,
       labourParameters: labourParameters
-        ? JSON.stringify(labourParameters)
+        ? JSON.stringify(withVersion(labourParameters))
         : null,
       equipmentParameters: equipmentParameters
-        ? JSON.stringify(equipmentParameters)
+        ? JSON.stringify(withVersion(equipmentParameters))
         : null,
       chemicalApplication: chemicalApplication
-        ? JSON.stringify(chemicalApplication)
+        ? JSON.stringify(withVersion(chemicalApplication))
         : null,
       timeCalculations: timeCalculations
-        ? JSON.stringify(timeCalculations)
+        ? JSON.stringify(withVersion(timeCalculations))
         : null,
       labourCostTotal: summary?.labourCostTotal || 0,
       equipmentCostTotal: summary?.equipmentCostTotal || 0,
