@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
 import { Resend } from "resend";
+import { withIdempotency } from "@/lib/idempotency";
 
 let resend: Resend | null = null;
 function getResendClient(): Resend {
@@ -24,107 +25,119 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const userId = session.user.id;
+  const { id: formId } = await params;
 
-    const { id: formId } = await params;
-    const body = await request.json();
-    const { signatureId } = body;
+  // RA-1266: prevent sending duplicate signature-request emails on retry.
+  return withIdempotency(request, userId, async (rawBody) => {
+    try {
+      let body: any;
+      try {
+        body = rawBody ? JSON.parse(rawBody) : {};
+      } catch {
+        return NextResponse.json(
+          { error: "Invalid JSON body" },
+          { status: 400 },
+        );
+      }
+      const { signatureId } = body;
 
-    if (!signatureId) {
-      return NextResponse.json(
-        { error: "signatureId is required" },
-        { status: 400 },
-      );
-    }
+      if (!signatureId) {
+        return NextResponse.json(
+          { error: "signatureId is required" },
+          { status: 400 },
+        );
+      }
 
-    // Verify form and permissions
-    const form = await prisma.authorityFormInstance.findUnique({
-      where: { id: formId },
-      include: {
-        template: { select: { name: true } },
-        report: {
-          select: {
-            userId: true,
-            assignedManagerId: true,
-            assignedAdminId: true,
+      // Verify form and permissions
+      const form = await prisma.authorityFormInstance.findUnique({
+        where: { id: formId },
+        include: {
+          template: { select: { name: true } },
+          report: {
+            select: {
+              userId: true,
+              assignedManagerId: true,
+              assignedAdminId: true,
+            },
           },
         },
-      },
-    });
-
-    if (!form) {
-      return NextResponse.json({ error: "Form not found" }, { status: 404 });
-    }
-
-    if (
-      form.report.userId !== session.user.id &&
-      form.report.assignedManagerId !== session.user.id &&
-      form.report.assignedAdminId !== session.user.id
-    ) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    // Get the signature record
-    const signature = await prisma.authorityFormSignature.findUnique({
-      where: { id: signatureId },
-    });
-
-    if (!signature) {
-      return NextResponse.json(
-        { error: "Signature not found" },
-        { status: 404 },
-      );
-    }
-
-    if (!signature.signatoryEmail) {
-      return NextResponse.json(
-        { error: "Signatory has no email address" },
-        { status: 400 },
-      );
-    }
-
-    if (signature.signedAt) {
-      return NextResponse.json({ error: "Already signed" }, { status: 400 });
-    }
-
-    // Generate token
-    const token = randomUUID();
-
-    // Update signature record
-    await prisma.authorityFormSignature.update({
-      where: { id: signatureId },
-      data: {
-        signatureRequestToken: token,
-        signatureRequestSent: true,
-        signatureRequestSentAt: new Date(),
-      },
-    });
-
-    // Update form status
-    if (form.status === "DRAFT") {
-      await prisma.authorityFormInstance.update({
-        where: { id: formId },
-        data: { status: "PENDING_SIGNATURES" },
       });
-    }
 
-    // Build signing URL
-    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3008";
-    const signingUrl = `${baseUrl}/sign/${token}`;
+      if (!form) {
+        return NextResponse.json({ error: "Form not found" }, { status: 404 });
+      }
 
-    // Send email
-    const fromEmail =
-      process.env.RESEND_FROM_EMAIL || "Restore Assist <onboarding@resend.dev>";
+      if (
+        form.report.userId !== userId &&
+        form.report.assignedManagerId !== userId &&
+        form.report.assignedAdminId !== userId
+      ) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
 
-    await getResendClient().emails.send({
-      from: fromEmail,
-      to: signature.signatoryEmail,
-      subject: `Signature Required: ${form.template.name} — ${form.clientName}`,
-      html: `
+      // Get the signature record
+      const signature = await prisma.authorityFormSignature.findUnique({
+        where: { id: signatureId },
+      });
+
+      if (!signature) {
+        return NextResponse.json(
+          { error: "Signature not found" },
+          { status: 404 },
+        );
+      }
+
+      if (!signature.signatoryEmail) {
+        return NextResponse.json(
+          { error: "Signatory has no email address" },
+          { status: 400 },
+        );
+      }
+
+      if (signature.signedAt) {
+        return NextResponse.json({ error: "Already signed" }, { status: 400 });
+      }
+
+      // Generate token
+      const token = randomUUID();
+
+      // Update signature record
+      await prisma.authorityFormSignature.update({
+        where: { id: signatureId },
+        data: {
+          signatureRequestToken: token,
+          signatureRequestSent: true,
+          signatureRequestSentAt: new Date(),
+        },
+      });
+
+      // Update form status
+      if (form.status === "DRAFT") {
+        await prisma.authorityFormInstance.update({
+          where: { id: formId },
+          data: { status: "PENDING_SIGNATURES" },
+        });
+      }
+
+      // Build signing URL
+      const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3008";
+      const signingUrl = `${baseUrl}/sign/${token}`;
+
+      // Send email
+      const fromEmail =
+        process.env.RESEND_FROM_EMAIL ||
+        "Restore Assist <onboarding@resend.dev>";
+
+      await getResendClient().emails.send({
+        from: fromEmail,
+        to: signature.signatoryEmail,
+        subject: `Signature Required: ${form.template.name} — ${form.clientName}`,
+        html: `
         <!DOCTYPE html>
         <html>
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
@@ -151,14 +164,15 @@ export async function POST(
         </body>
         </html>
       `,
-    });
+      });
 
-    return NextResponse.json({ success: true, token });
-  } catch (error: any) {
-    console.error("[Send Signature Request] Error:", error);
-    return NextResponse.json(
-      { error: "Failed to send signature request" },
-      { status: 500 },
-    );
-  }
+      return NextResponse.json({ success: true, token });
+    } catch (error: any) {
+      console.error("[Send Signature Request] Error:", error);
+      return NextResponse.json(
+        { error: "Failed to send signature request" },
+        { status: 500 },
+      );
+    }
+  });
 }
