@@ -67,7 +67,14 @@ def get_local_sha() -> str:
 # ── Vercel ───────────────────────────────────────────────────────────────────
 
 def get_vercel_sha(token: str, project_id: str, team_id: str) -> str | None:
-    url = f"https://api.vercel.com/v6/deployments?projectId={project_id}&limit=1&state=READY"
+    # target=production — the preview builds for every PR show up in the same
+    # project; without the filter the "latest READY" was whichever preview
+    # finished most recently, so parity always flagged as drift. We only
+    # care about what's actually serving prod traffic.
+    url = (
+        "https://api.vercel.com/v6/deployments"
+        f"?projectId={project_id}&limit=1&state=READY&target=production"
+    )
     if team_id:
         url += f"&teamId={team_id}"
     data = http_get(url, token)
