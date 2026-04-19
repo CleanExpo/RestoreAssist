@@ -68,6 +68,15 @@ export async function GET(request: NextRequest) {
       prisma.client.count({ where }),
     ]);
 
+    // RA-1204 — Open jobs are reports not yet in a terminal state. The
+    // ReportStatus enum has no CANCELLED value, so terminal = COMPLETED
+    // or ARCHIVED. openJobCount feeds the "N open" badge on the clients
+    // table so the Client Name cell previews workload at a glance;
+    // lastReportAt feeds the "Last report: 3 days ago" secondary line.
+    // Both are derived from the already-fetched reports relation — no
+    // extra query, no N+1 (CLAUDE.md rule 4).
+    const TERMINAL_REPORT_STATUSES = new Set<string>(["COMPLETED", "ARCHIVED"]);
+
     // Calculate client statistics
     const clientsWithStats = clients.map((client: (typeof clients)[number]) => {
       const totalRevenue = client.reports.reduce(
@@ -75,13 +84,22 @@ export async function GET(request: NextRequest) {
           sum + (report.totalCost || 0),
         0,
       );
-      const lastJob =
+      const lastReportAt =
         client.reports.length > 0 ? client.reports[0].createdAt : null;
+      const openJobCount = client.reports.reduce(
+        (n: number, r: { status: string }) =>
+          TERMINAL_REPORT_STATUSES.has(r.status) ? n : n + 1,
+        0,
+      );
 
       return {
         ...client,
         totalRevenue,
-        lastJob: lastJob ? new Date(lastJob).toLocaleDateString() : "Never",
+        lastJob: lastReportAt
+          ? new Date(lastReportAt).toLocaleDateString()
+          : "Never",
+        lastReportAt: lastReportAt ? lastReportAt.toISOString() : null,
+        openJobCount,
         reportsCount: client._count.reports,
       };
     });
