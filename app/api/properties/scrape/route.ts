@@ -43,9 +43,92 @@ const SCRAPE_HEADERS: Record<string, string> = {
   Pragma: "no-cache",
 };
 
+// RA-1324 — per-host circuit breaker. If a host returns 403 / 429 /
+// Cloudflare challenge HTML 3 times in a row within a 5-min window,
+// trip the breaker and stop hitting it for 30 min. This protects the
+// Vercel egress IP range from escalating bans when upstream starts
+// rejecting us (captcha, rate limit, TOS-enforcement). Per-host
+// state lives in module scope — stateless across cold starts, but
+// a warm fn instance won't keep hammering after the first trip.
+type BreakerState = {
+  consecutiveFails: number;
+  lastFailAt: number;
+  openedUntil: number; // 0 = closed; >now() = open
+};
+const HOST_BREAKER: Map<string, BreakerState> = new Map();
+const BREAKER_FAIL_THRESHOLD = 3;
+const BREAKER_FAIL_WINDOW_MS = 5 * 60 * 1000;
+const BREAKER_OPEN_DURATION_MS = 30 * 60 * 1000;
+
+function getHost(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return url;
+  }
+}
+
+function isBreakerOpen(host: string): boolean {
+  const s = HOST_BREAKER.get(host);
+  if (!s) return false;
+  return s.openedUntil > Date.now();
+}
+
+function recordBreakerOutcome(host: string, success: boolean) {
+  const now = Date.now();
+  const s = HOST_BREAKER.get(host) ?? {
+    consecutiveFails: 0,
+    lastFailAt: 0,
+    openedUntil: 0,
+  };
+  if (success) {
+    s.consecutiveFails = 0;
+    s.openedUntil = 0;
+  } else {
+    // Reset streak if the last failure was outside the window.
+    if (now - s.lastFailAt > BREAKER_FAIL_WINDOW_MS) {
+      s.consecutiveFails = 0;
+    }
+    s.consecutiveFails++;
+    s.lastFailAt = now;
+    if (s.consecutiveFails >= BREAKER_FAIL_THRESHOLD) {
+      s.openedUntil = now + BREAKER_OPEN_DURATION_MS;
+      console.warn(
+        `[scrape] Circuit breaker OPENED for ${host} after ${s.consecutiveFails} consecutive failures. Holding off until ${new Date(s.openedUntil).toISOString()}`,
+      );
+    }
+  }
+  HOST_BREAKER.set(host, s);
+}
+
+// Detect a Cloudflare / Captcha challenge page returned as 200. These
+// are sub-1KB HTML with distinctive tokens and no actual listing data.
+function isChallengePage(html: string): boolean {
+  if (!html || html.length > 10_000) return false;
+  const lower = html.toLowerCase();
+  return (
+    lower.includes("just a moment") ||
+    lower.includes("cf-browser-verification") ||
+    lower.includes("cf-challenge") ||
+    lower.includes("please verify you are human") ||
+    lower.includes("captcha") ||
+    lower.includes("attention required")
+  );
+}
+
 async function fetchHtml(
   url: string,
 ): Promise<{ html: string; status: number }> {
+  const host = getHost(url);
+
+  // Circuit breaker: short-circuit if this host is in time-out.
+  if (isBreakerOpen(host)) {
+    console.warn(
+      `[scrape] Circuit breaker OPEN for ${host} — skipping fetch, returning synthetic 503`,
+    );
+    return { html: "", status: 503 };
+  }
+
   try {
     const res = await fetch(url, {
       headers: SCRAPE_HEADERS,
@@ -53,9 +136,19 @@ async function fetchHtml(
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     const html = await res.text();
-    return { html, status: res.status };
+    const challenged = res.status === 200 && isChallengePage(html);
+    const failed =
+      res.status === 403 ||
+      res.status === 429 ||
+      res.status >= 500 ||
+      challenged;
+    recordBreakerOutcome(host, !failed);
+    // Challenge HTML → report as 403 so downstream treats it as a
+    // definite refusal rather than a "no results" false negative.
+    return { html: challenged ? "" : html, status: challenged ? 403 : res.status };
   } catch (err) {
     console.error("fetchHtml failed:", url, err);
+    recordBreakerOutcome(host, false);
     return { html: "", status: 0 };
   }
 }
