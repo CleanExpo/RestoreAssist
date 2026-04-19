@@ -21,7 +21,12 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const months = parseInt(searchParams.get("months") || "12");
+    // RA-1307 — cap months so ?months=1e9 doesn't aggregate over a gigantic
+    // range. Clamp to [1, 60] — 5 years of monthly data is the practical ceiling.
+    const months = Math.min(
+      60,
+      Math.max(1, parseInt(searchParams.get("months") || "12") || 12),
+    );
     const userIdParam = searchParams.get("userId");
 
     // Validate user access for team member analytics

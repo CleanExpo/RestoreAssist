@@ -79,6 +79,16 @@
   --font-sans: "Geist", "Geist Fallback";
   --font-mono: "Geist Mono", "Geist Mono Fallback";
 
+  /* RA-1290 item 2 — Portal brand colour tokens. These were previously
+     hardcoded as #1C2E47 / #8A6B4E / #5A6A7B in components/portal/* and
+     app/portal/page.tsx. Named tokens let Tailwind utilities like
+     `bg-brand-navy` + `text-brand-slate` replace the hex literals
+     progressively. Both light and dark theme inherit these directly
+     since the Portal is brand-themed in a single palette. */
+  --color-brand-navy: #1c2e47;     /* primary — headings, accents, strong text */
+  --color-brand-bronze: #8a6b4e;   /* secondary — CTAs, highlights, borders */
+  --color-brand-slate: #5a6a7b;    /* muted — body copy, meta text */
+
   /* Primary Colors */
   --color-slate-950: #0f172a;
   --color-slate-900: #0f172a;

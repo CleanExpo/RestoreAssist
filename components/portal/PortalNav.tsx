@@ -34,14 +34,14 @@ export default function PortalNav() {
           <div className="flex items-center gap-4">
             <Link
               href="/portal"
-              className="flex items-center gap-2 px-3 py-2 text-sm text-[#5A6A7B] hover:text-[#1C2E47] transition-colors"
+              className="flex items-center gap-2 px-3 py-3 min-h-[44px] text-sm text-[#5A6A7B] hover:text-[#1C2E47] transition-colors"
             >
               <FileText size={18} />
               <span className="hidden sm:inline">My Reports</span>
             </Link>
             <button
               onClick={handleSignOut}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-[#5A6A7B] hover:text-[#1C2E47] transition-colors"
+              className="flex items-center gap-2 px-3 py-3 min-h-[44px] text-sm text-[#5A6A7B] hover:text-[#1C2E47] transition-colors"
             >
               <LogOut size={18} />
               <span className="hidden sm:inline">Sign Out</span>

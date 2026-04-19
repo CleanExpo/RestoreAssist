@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { PrismaClient } from "@prisma/client";
+import { withIdempotency } from "@/lib/idempotency";
 
 const prisma = new PrismaClient();
 
@@ -16,8 +17,13 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search");
     const status = searchParams.get("status");
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "10");
+    // RA-1307 — bound pagination so ?page=-1 or ?limit=1e9 can't force
+    // negative skip (Prisma throws) or unbounded result sets (OOM risk).
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1") || 1);
+    const limit = Math.min(
+      100,
+      Math.max(1, parseInt(searchParams.get("limit") || "10") || 10),
+    );
     const skip = (page - 1) * limit;
 
     const where: any = {
@@ -99,49 +105,28 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
+  const session = await getServerSession(authOptions);
 
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const userId = session.user.id;
 
-    const body = await request.json();
-    const {
-      name,
-      email,
-      phone,
-      address,
-      company,
-      contactPerson,
-      notes,
-      status,
-    } = body;
-
-    if (!name || !email) {
-      return NextResponse.json(
-        { error: "Name and email are required" },
-        { status: 400 },
-      );
-    }
-
-    // Check if client with same email already exists for this user
-    const existingClient = await prisma.client.findFirst({
-      where: {
-        email,
-        userId: session.user.id,
-      },
-    });
-
-    if (existingClient) {
-      return NextResponse.json(
-        { error: "Client with this email already exists" },
-        { status: 400 },
-      );
-    }
-
-    const client = await prisma.client.create({
-      data: {
+  // RA-1266: layered with the existing email-uniqueness check — catches
+  // retries that haven't finished the first create yet (where the unique
+  // index wouldn't have fired).
+  return withIdempotency(request, userId, async (rawBody) => {
+    try {
+      let body: any;
+      try {
+        body = rawBody ? JSON.parse(rawBody) : {};
+      } catch {
+        return NextResponse.json(
+          { error: "Invalid JSON body" },
+          { status: 400 },
+        );
+      }
+      const {
         name,
         email,
         phone,
@@ -149,27 +134,58 @@ export async function POST(request: NextRequest) {
         company,
         contactPerson,
         notes,
-        status: status || "ACTIVE",
-        userId: session.user.id,
-      },
-      include: {
-        _count: {
-          select: { reports: true },
-        },
-      },
-    });
+        status,
+      } = body;
 
-    return NextResponse.json({
-      ...client,
-      totalRevenue: 0,
-      lastJob: "Never",
-      reportsCount: 0,
-    });
-  } catch (error) {
-    console.error("Error creating client:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
-  }
+      if (!name || !email) {
+        return NextResponse.json(
+          { error: "Name and email are required" },
+          { status: 400 },
+        );
+      }
+
+      const existingClient = await prisma.client.findFirst({
+        where: { email, userId },
+      });
+
+      if (existingClient) {
+        return NextResponse.json(
+          { error: "Client with this email already exists" },
+          { status: 400 },
+        );
+      }
+
+      const client = await prisma.client.create({
+        data: {
+          name,
+          email,
+          phone,
+          address,
+          company,
+          contactPerson,
+          notes,
+          status: status || "ACTIVE",
+          userId,
+        },
+        include: {
+          _count: {
+            select: { reports: true },
+          },
+        },
+      });
+
+      return NextResponse.json({
+        ...client,
+        totalRevenue: 0,
+        lastJob: "Never",
+        reportsCount: 0,
+      });
+    } catch (error) {
+      console.error("Error creating client:", error);
+      return NextResponse.json(
+        { error: "Internal server error" },
+        { status: 500 },
+      );
+    }
+  });
 }

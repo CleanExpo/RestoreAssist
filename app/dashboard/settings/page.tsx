@@ -15,6 +15,7 @@ import {
   Trash2,
   Edit,
   RefreshCw,
+  AlertTriangle,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
@@ -41,6 +42,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -59,48 +61,41 @@ export default function SettingsPage() {
       setRefreshing(true);
     }
 
+    // RA-1206 — on API failure, surface the real error rather than silently
+    // rendering a TRIAL + 3-credit stub. Session user name/email still populate
+    // the form so the user can edit contact details while we reflect the
+    // outage honestly in the subscription panel.
     try {
       const response = await fetch("/api/user/profile");
       if (response.ok) {
         const data = await response.json();
         setProfile(data.profile);
+        setProfileError(null);
         setFormData({
           name: data.profile.name || session?.user?.name || "",
           email: data.profile.email || session?.user?.email || "",
         });
       } else {
-        // Fallback to session data
-        setProfile({
-          id: session?.user?.id || "current-user",
-          name: session?.user?.name || "User Name",
-          email: session?.user?.email || "user@example.com",
-          image: session?.user?.image ?? undefined,
-          createdAt: new Date().toISOString(),
-          subscriptionStatus: "TRIAL",
-          creditsRemaining: 3,
-          totalCreditsUsed: 0,
-        });
+        setProfile(null);
+        setProfileError(
+          `Profile unavailable (HTTP ${response.status}). Subscription, credits, and billing dates can't be shown right now.`,
+        );
         setFormData({
-          name: session?.user?.name || "User Name",
-          email: session?.user?.email || "user@example.com",
+          name: session?.user?.name || "",
+          email: session?.user?.email || "",
         });
       }
     } catch (error) {
       console.error("Error fetching profile:", error);
-      // Fallback to session data
-      setProfile({
-        id: session?.user?.id || "current-user",
-        name: session?.user?.name || "User Name",
-        email: session?.user?.email || "user@example.com",
-        image: session?.user?.image ?? undefined,
-        createdAt: new Date().toISOString(),
-        subscriptionStatus: "TRIAL",
-        creditsRemaining: 3,
-        totalCreditsUsed: 0,
-      });
+      setProfile(null);
+      setProfileError(
+        `Profile unavailable: ${
+          error instanceof Error ? error.message : "network error"
+        }. Subscription, credits, and billing dates can't be shown right now.`,
+      );
       setFormData({
-        name: session?.user?.name || "User Name",
-        email: session?.user?.email || "user@example.com",
+        name: session?.user?.name || "",
+        email: session?.user?.email || "",
       });
     } finally {
       setLoading(false);
@@ -129,13 +124,20 @@ export default function SettingsPage() {
     }
   };
 
-  // Refresh profile data periodically to show updated credits
+  // Refresh profile when the user returns to this tab — avoids hammering
+  // /api/user/profile ~720×/hr per open tab (the old setInterval(5000)
+  // pattern). Credits only change on explicit user action (purchase, usage)
+  // so on-visibility is the right trigger.
   useEffect(() => {
-    const interval = setInterval(() => {
-      fetchProfile();
-    }, 5000); // Refresh every 5 seconds
-
-    return () => clearInterval(interval);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") fetchProfile();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", fetchProfile);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", fetchProfile);
+    };
   }, []);
 
   const getStatusColor = (status: string) => {
@@ -232,6 +234,28 @@ export default function SettingsPage() {
           </button>
         </div>
       </div>
+
+      {/* RA-1206 — surface profile API failure instead of silently rendering stub */}
+      {profileError && (
+        <div
+          role="alert"
+          className="flex items-start gap-3 p-4 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-200"
+        >
+          <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="font-medium mb-1">Couldn't load your profile</p>
+            <p className="text-sm opacity-90">{profileError}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => fetchProfile(true)}
+            disabled={refreshing}
+            className="flex-shrink-0 px-3 py-1.5 text-sm border border-amber-500/40 rounded-md hover:bg-amber-500/20 transition-colors disabled:opacity-50"
+          >
+            {refreshing ? "Retrying..." : "Retry"}
+          </button>
+        </div>
+      )}
 
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Profile Information */}

@@ -13,3 +13,4 @@ export type { ScoutAgentResult } from "./scout-agent";
 export { runBoardMeeting } from "./board-meeting";
 export type { BoardMeetingResult } from "./board-meeting";
 export { runDrNrpgLiveness } from "./dr-nrpg-liveness";
+export { pruneWebhookEvents } from "./prune-webhook-events";

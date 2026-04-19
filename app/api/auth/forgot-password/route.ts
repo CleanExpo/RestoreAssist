@@ -65,7 +65,14 @@ export async function POST(request: NextRequest) {
         userId: user.id,
         email,
         ...reqCtx,
-      }).catch(() => {});
+      }).catch((err) => {
+        // RA-1311 — log audit-write failure so operators see it; still
+        // non-blocking so the user flow continues.
+        console.error(
+          "[forgot-password] PASSWORD_RESET_REQUESTED audit log failed:",
+          err,
+        );
+      });
 
       // Send password reset email
       await sendPasswordResetEmail({

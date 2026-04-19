@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { callAIProvider } from "@/lib/ai-provider";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { withIdempotency } from "@/lib/idempotency";
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,7 +24,11 @@ export async function GET(request: NextRequest) {
     });
     if (rateLimited) return rateLimited;
     const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get("limit") || "50");
+    // RA-1307 — cap chat history reads so ?limit=1e9 can't exhaust memory.
+    const limit = Math.min(
+      200,
+      Math.max(1, parseInt(searchParams.get("limit") || "50") || 50),
+    );
 
     // Fetch chat history from database
     let chatMessages: any[] = [];
@@ -73,84 +78,95 @@ export async function GET(request: NextRequest) {
 const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
 
 export async function POST(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
+  const session = await getServerSession(authOptions);
 
-    if (!session?.user || !session.user.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (!session?.user || !session.user.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const userId = session.user.id;
 
-    // Rate limit: 20 AI chat messages per 15 minutes per user
-    const rateLimited = await applyRateLimit(request, {
-      maxRequests: 20,
-      prefix: "chatbot",
-      key: session.user.id,
-    });
-    if (rateLimited) return rateLimited;
+  const rateLimited = await applyRateLimit(request, {
+    maxRequests: 20,
+    prefix: "chatbot",
+    key: userId,
+  });
+  if (rateLimited) return rateLimited;
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { id: true, subscriptionStatus: true },
-    });
+  // RA-1266: chatbot burns AI provider calls — retry doubles the bill
+  // for identical conversation state.
+  return withIdempotency(request, userId, async (rawBody) => {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, subscriptionStatus: true },
+      });
 
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
+      if (!user) {
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
+      }
 
-    if (
-      !ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")
-    ) {
-      return NextResponse.json(
-        { error: "Active subscription required" },
-        { status: 402 },
-      );
-    }
+      if (
+        !ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")
+      ) {
+        return NextResponse.json(
+          { error: "Active subscription required" },
+          { status: 402 },
+        );
+      }
 
-    const body = await request.json();
-    const { messages } = body;
+      let body: any;
+      try {
+        body = rawBody ? JSON.parse(rawBody) : {};
+      } catch {
+        return NextResponse.json(
+          { error: "Invalid JSON body" },
+          { status: 400 },
+        );
+      }
+      const { messages } = body;
 
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      return NextResponse.json(
-        { error: "Messages array is required" },
-        { status: 400 },
-      );
-    }
+      if (!messages || !Array.isArray(messages) || messages.length === 0) {
+        return NextResponse.json(
+          { error: "Messages array is required" },
+          { status: 400 },
+        );
+      }
 
-    // Use ANTHROPIC_API_KEY from environment variables
-    const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
+      // Use ANTHROPIC_API_KEY from environment variables
+      const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
 
-    if (!anthropicApiKey) {
-      return NextResponse.json(
-        {
-          error:
-            "ANTHROPIC_API_KEY is not configured. Please set it in your environment variables.",
-        },
-        { status: 500 },
-      );
-    }
+      if (!anthropicApiKey) {
+        return NextResponse.json(
+          {
+            error:
+              "ANTHROPIC_API_KEY is not configured. Please set it in your environment variables.",
+          },
+          { status: 500 },
+        );
+      }
 
-    // Create integration object for Anthropic
-    const integration = {
-      id: "env-anthropic",
-      name: "Anthropic Claude (Environment)",
-      apiKey: anthropicApiKey,
-      provider: "anthropic" as const,
-    };
+      // Create integration object for Anthropic
+      const integration = {
+        id: "env-anthropic",
+        name: "Anthropic Claude (Environment)",
+        apiKey: anthropicApiKey,
+        provider: "anthropic" as const,
+      };
 
-    // Build conversation history for the AI
-    const conversationHistory = messages.map((msg: any) => ({
-      role: msg.role === "user" ? "user" : "assistant",
-      content: msg.content,
-    }));
+      // Build conversation history for the AI
+      const conversationHistory = messages.map((msg: any) => ({
+        role: msg.role === "user" ? "user" : "assistant",
+        content: msg.content,
+      }));
 
-    // Get the last user message
-    const lastUserMessage = messages[messages.length - 1]?.content || "";
+      // Get the last user message
+      const lastUserMessage = messages[messages.length - 1]?.content || "";
 
-    // Get user's name from session
-    const userName = session.user?.name || "there";
+      // Get user's name from session
+      const userName = session.user?.name || "there";
 
-    // System prompt for the chatbot
-    const systemPrompt = `You are an AI assistant specifically for Restore Assist, an Australian water damage restoration management platform. You have deep knowledge of the Restore Assist platform, its features, workflows, and capabilities. Your responses should ALWAYS be specific to Restore Assist and its actual features.
+      // System prompt for the chatbot
+      const systemPrompt = `You are an AI assistant specifically for Restore Assist, an Australian water damage restoration management platform. You have deep knowledge of the Restore Assist platform, its features, workflows, and capabilities. Your responses should ALWAYS be specific to Restore Assist and its actual features.
 
 **USER INFORMATION:**
 You are speaking with ${userName}. Use their name naturally in your responses when appropriate, but don't overuse it.
@@ -241,84 +257,83 @@ The platform uses an 8-step workflow to create reports:
 
 Remember: You are a Restore Assist expert, not a generic restoration advisor. Always be specific to the platform!`;
 
-    // Build the conversation context
-    // For Anthropic, we'll include conversation history in the system prompt
-    // For other providers, we'll include it in the main prompt
-    let conversationContext = "";
-    if (conversationHistory.length > 1) {
-      // Include previous messages for context (excluding the last user message)
-      const previousMessages = conversationHistory.slice(0, -1);
-      conversationContext = "\n\nPrevious conversation:\n";
-      previousMessages.forEach((msg: any) => {
-        conversationContext += `${msg.role === "user" ? "User" : "Assistant"}: ${msg.content}\n\n`;
+      // Build the conversation context
+      // For Anthropic, we'll include conversation history in the system prompt
+      // For other providers, we'll include it in the main prompt
+      let conversationContext = "";
+      if (conversationHistory.length > 1) {
+        // Include previous messages for context (excluding the last user message)
+        const previousMessages = conversationHistory.slice(0, -1);
+        conversationContext = "\n\nPrevious conversation:\n";
+        previousMessages.forEach((msg: any) => {
+          conversationContext += `${msg.role === "user" ? "User" : "Assistant"}: ${msg.content}\n\n`;
+        });
+      }
+
+      // Use Anthropic with conversation context in system prompt
+      const fullSystemPrompt = systemPrompt + conversationContext;
+
+      const response = await callAIProvider(integration, {
+        system: fullSystemPrompt,
+        prompt: lastUserMessage,
+        maxTokens: 4000,
+        temperature: 0.7,
       });
-    }
 
-    // Use Anthropic with conversation context in system prompt
-    const fullSystemPrompt = systemPrompt + conversationContext;
+      // Save messages to database
+      try {
+        // Check if chatMessage model exists on prisma client
+        if (!("chatMessage" in prisma)) {
+          console.warn(
+            "ChatMessage model not available. Please restart the dev server after running: npx prisma generate",
+          );
+          // Continue without saving - don't fail the request
+        } else {
+          // Save user message
+          await prisma.chatMessage.create({
+            data: {
+              userId,
+              role: "user",
+              content: lastUserMessage,
+            },
+          });
 
-    const response = await callAIProvider(integration, {
-      system: fullSystemPrompt,
-      prompt: lastUserMessage,
-      maxTokens: 4000,
-      temperature: 0.7,
-    });
-
-    // Save messages to database
-    try {
-      const userId = session.user.id;
-
-      // Check if chatMessage model exists on prisma client
-      if (!("chatMessage" in prisma)) {
-        console.warn(
-          "ChatMessage model not available. Please restart the dev server after running: npx prisma generate",
-        );
-        // Continue without saving - don't fail the request
-      } else {
-        // Save user message
-        await prisma.chatMessage.create({
-          data: {
-            userId,
-            role: "user",
-            content: lastUserMessage,
-          },
-        });
-
-        // Save assistant response
-        await prisma.chatMessage.create({
-          data: {
-            userId,
-            role: "assistant",
-            content: response,
-          },
-        });
+          // Save assistant response
+          await prisma.chatMessage.create({
+            data: {
+              userId,
+              role: "assistant",
+              content: response,
+            },
+          });
+        }
+      } catch (dbError: any) {
+        console.error("Error saving chat messages:", dbError);
+        // Log the error but don't fail the request
+        if (dbError?.code === "P2002") {
+          console.error(
+            "Unique constraint violation - message may already exist",
+          );
+        } else if (
+          dbError?.message?.includes("chatMessage") ||
+          dbError?.message?.includes("Cannot read properties")
+        ) {
+          console.error(
+            "ChatMessage model may not be available. Please restart the dev server after running: npx prisma generate",
+          );
+        }
       }
-    } catch (dbError: any) {
-      console.error("Error saving chat messages:", dbError);
-      // Log the error but don't fail the request
-      if (dbError?.code === "P2002") {
-        console.error(
-          "Unique constraint violation - message may already exist",
-        );
-      } else if (
-        dbError?.message?.includes("chatMessage") ||
-        dbError?.message?.includes("Cannot read properties")
-      ) {
-        console.error(
-          "ChatMessage model may not be available. Please restart the dev server after running: npx prisma generate",
-        );
-      }
-    }
 
-    return NextResponse.json({ response });
-  } catch (error: any) {
-    console.error("Chatbot error:", error);
-    return NextResponse.json(
-      {
-        error: "Failed to process chat message",
-        details: "Please try again or contact support if the issue persists.",
-      },
-      { status: 500 },
-    );
-  }
+      return NextResponse.json({ response });
+    } catch (error: any) {
+      console.error("Chatbot error:", error);
+      return NextResponse.json(
+        {
+          error: "Failed to process chat message",
+          details: "Please try again or contact support if the issue persists.",
+        },
+        { status: 500 },
+      );
+    }
+  });
 }
