@@ -34,9 +34,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (newPassword.length < 8) {
+    // RA-1342 — aligned to registration min (12). Matches reset-password +
+    // registration so the policy can't be bypassed by setting a weak
+    // password via change-password after registering strong.
+    if (newPassword.length < 12) {
       return NextResponse.json(
-        { error: "New password must be at least 8 characters long" },
+        { error: "New password must be at least 12 characters long" },
         { status: 400 },
       );
     }
