@@ -32,6 +32,7 @@ interface XeroInvoice {
     AccountCode?: string;
     TaxType: string;
     LineAmount: number; // Excluding tax
+    TrackingCategories?: Array<{ Name: string; Option: string }>;
   }>;
   CurrencyCode?: string;
 }
@@ -92,7 +93,6 @@ export async function syncInvoiceToXero(
     Date: formatDateForXero(invoice.invoiceDate),
     DueDate: formatDateForXero(invoice.dueDate),
     InvoiceNumber: invoice.invoiceNumber,
-    ...(invoice.customerABN && { Reference: `ABN: ${invoice.customerABN}` }),
     Status: xeroStatus,
     LineItems: invoice.lineItems.map((item: any) => {
       // RA-875: Category-based GST treatment per ATO GSTR 2000/10.
@@ -100,6 +100,10 @@ export async function syncInvoiceToXero(
       const treatment = getGSTTreatment(item.category);
       const taxType =
         treatment.taxType === "OUTPUT" ? gst.xeroTaxType : treatment.taxType;
+      // RA-855: Tracking categories let Xero reports slice by Damage Type + State
+      const tracking: Array<{ Name: string; Option: string }> = [];
+      if (invoice.damageType) tracking.push({ Name: "Damage Type", Option: invoice.damageType });
+      tracking.push({ Name: "State", Option: invoice.propertyState ?? "QLD" });
       return {
         Description:
           item.description + (item.category ? ` (${item.category})` : ""),
@@ -107,6 +111,7 @@ export async function syncInvoiceToXero(
         UnitAmount: (item.unitPrice / 100).toFixed(2),
         TaxType: taxType,
         LineAmount: (item.subtotal / 100).toFixed(2),
+        TrackingCategories: tracking,
       };
     }),
     CurrencyCode: invoice.currency || "AUD",

@@ -15,6 +15,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     webhookEvent: {
       findMany: vi.fn(),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }), // atomic claim: always succeeds in tests
       update: vi.fn(),
     },
     invoice: {
@@ -193,6 +194,7 @@ describe("processXeroWebhookBatch — invoice.paid", () => {
     mockFindFirstInvoice.mockResolvedValue({
       id: "local-inv-2",
       status: "SENT",
+      totalIncGST: 110000, // $1,100 inc GST (cents)
     });
 
     const result = await processXeroWebhookBatch(10);
@@ -201,7 +203,11 @@ describe("processXeroWebhookBatch — invoice.paid", () => {
     expect(mockUpdateInvoice).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "local-inv-2" },
-        data: expect.objectContaining({ status: "PAID" }),
+        data: expect.objectContaining({
+          status: "PAID",
+          amountPaid: 110000,
+          amountDue: 0,
+        }),
       }),
     );
   });
@@ -257,13 +263,17 @@ describe("processXeroWebhookBatch — payment.created", () => {
     mockFindFirstInvoice.mockResolvedValue({
       id: "local-inv-pc-1",
       status: "SENT",
+      totalIncGST: 110000, // $1,100 inc GST (cents)
     });
 
-    // Mock the fetch call to Xero Payments API
+    // Mock the fetch call to Xero Payments API — full payment (AmountDue: 0)
     const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue(
       new Response(
         JSON.stringify({
-          Payments: [{ Invoice: { InvoiceID: "xero-inv-pc-1" } }],
+          Payments: [{
+            Amount: 1100,
+            Invoice: { InvoiceID: "xero-inv-pc-1", AmountDue: 0 },
+          }],
         }),
         { status: 200, headers: { "Content-Type": "application/json" } },
       ),
@@ -279,7 +289,11 @@ describe("processXeroWebhookBatch — payment.created", () => {
     expect(mockUpdateInvoice).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "local-inv-pc-1" },
-        data: expect.objectContaining({ status: "PAID" }),
+        data: expect.objectContaining({
+          status: "PAID",
+          amountPaid: 110000,
+          amountDue: 0,
+        }),
       }),
     );
 

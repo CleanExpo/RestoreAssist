@@ -37,6 +37,15 @@ export interface NIRScopeItem {
   iicrcRef?: string;
 }
 
+// RA-855: Resolve account code from env var for a given damage type.
+// Applies as fallback when no category-level mapping is found.
+// Env vars: XERO_ACCOUNT_WATER, XERO_ACCOUNT_FIRE, XERO_ACCOUNT_MOULD,
+//           XERO_ACCOUNT_STORM, XERO_ACCOUNT_BIOHAZARD, XERO_ACCOUNT_CONTENTS
+function getDamageTypeAccountCode(damageType: string): string {
+  const envKey = `XERO_ACCOUNT_${damageType.toUpperCase()}`;
+  return process.env[envKey] ?? "200";
+}
+
 export interface NIRJobPayload {
   reportId: string;
   clientName: string;
@@ -45,8 +54,9 @@ export interface NIRJobPayload {
   clientAddress?: string;
   clientABN?: string; // RA-870: ABN → Xero Contact.TaxNumber for ATO reporting
   propertyAddress: string;
+  propertyState?: string; // RA-855: Australian state for Xero Tracking Category (defaults to QLD)
   reportNumber: string;
-  damageType: "WATER" | "FIRE" | "MOULD" | "GENERAL";
+  damageType: "WATER" | "FIRE" | "MOULD" | "STORM" | "BIOHAZARD" | "CONTENTS" | "GENERAL";
   waterCategory?: "1" | "2" | "3";
   waterClass?: "1" | "2" | "3" | "4";
   scopeItems: NIRScopeItem[];
@@ -94,10 +104,13 @@ export async function syncNIRJobToXero(
   const dueDate = new Date(job.reportDate);
   dueDate.setDate(dueDate.getDate() + 14);
 
+  // RA-855: Damage-type account code fallback (STORM→203, BIOHAZARD→204, etc.)
+  const damageAccountCode = getDamageTypeAccountCode(job.damageType);
+
   const lineItems = [
     ...job.scopeItems.map((item, idx) => {
       const resolved = resolvedCodes.get(`scope-${idx}`) ?? {
-        accountCode: "200",
+        accountCode: damageAccountCode,
         taxType: "OUTPUT",
       };
       // RA-875: ATO-correct GST treatment per category.
@@ -115,6 +128,11 @@ export async function syncNIRJobToXero(
         AccountCode: resolved.accountCode,
         TaxType: taxType,
         LineAmount: cents(item.subtotalExGST),
+        // RA-855: Tracking categories — Xero reports can filter by Damage Type + State
+        TrackingCategories: [
+          { Name: "Damage Type", Option: job.damageType },
+          { Name: "State", Option: job.propertyState ?? "QLD" },
+        ],
       };
     }),
     ...(job.technician
