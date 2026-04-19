@@ -74,6 +74,10 @@ const EXTERNAL_INTEGRATIONS: {
   logo: string;
   category: "bookkeeping" | "jobmanagement";
   comingSoon?: boolean;
+  // RA-1248 — OAuth + token refresh implemented in lib/integrations/<slug>/
+  // but not yet E2E-verified against a real production tenant. Signals to
+  // users that the connection may still have rough edges.
+  betaUnverified?: boolean;
 }[] = [
   // RA-1257: descriptions rewritten as outcome-led benefit blurbs. Adoption
   // is a retention lever — tell users WHY each integration matters instead
@@ -95,6 +99,7 @@ const EXTERNAL_INTEGRATIONS: {
     icon: "📊",
     logo: "/integrations/myob.svg",
     category: "bookkeeping",
+    betaUnverified: true,
   },
   {
     slug: "quickbooks",
@@ -104,6 +109,7 @@ const EXTERNAL_INTEGRATIONS: {
     icon: "📊",
     logo: "/integrations/quickbooks.svg",
     category: "bookkeeping",
+    betaUnverified: true,
   },
   {
     slug: "servicem8",
@@ -113,6 +119,7 @@ const EXTERNAL_INTEGRATIONS: {
     icon: "📋",
     logo: "/integrations/servicem8.svg",
     category: "jobmanagement",
+    betaUnverified: true,
   },
   {
     slug: "ascora",
@@ -962,6 +969,15 @@ export default function IntegrationsPage() {
                                 Soon
                               </Badge>
                             )}
+                            {integration.betaUnverified && !isConnected && (
+                              <Badge
+                                variant="outline"
+                                className="shrink-0 text-xs border-amber-400/50 text-amber-600 dark:text-amber-400"
+                                title="OAuth implemented but not yet verified against production. Connect at your own risk — please report issues."
+                              >
+                                Beta
+                              </Badge>
+                            )}
                           </div>
                           <CardDescription className="mt-0.5 text-xs leading-relaxed">
                             {integration.description}
@@ -1121,6 +1137,15 @@ export default function IntegrationsPage() {
                                 className="shrink-0 text-xs"
                               >
                                 Soon
+                              </Badge>
+                            )}
+                            {integration.betaUnverified && !isConnected && (
+                              <Badge
+                                variant="outline"
+                                className="shrink-0 text-xs border-amber-400/50 text-amber-600 dark:text-amber-400"
+                                title="OAuth implemented but not yet verified against production. Connect at your own risk — please report issues."
+                              >
+                                Beta
                               </Badge>
                             )}
                           </div>
