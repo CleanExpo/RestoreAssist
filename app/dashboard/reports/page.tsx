@@ -508,7 +508,10 @@ export default function ReportsPage() {
               {paginatedReports.length === 0 ? (
                 <div className="text-center py-8 text-slate-300">
                   No reports found.{" "}
-                  <Link href="/dashboard/reports/new" className="text-cyan-400 hover:underline">
+                  <Link
+                    href="/dashboard/reports/new"
+                    className="text-cyan-400 hover:underline"
+                  >
                     Create your first report
                   </Link>
                 </div>
@@ -521,7 +524,11 @@ export default function ReportsPage() {
                     <div className="flex items-start gap-3">
                       <button
                         onClick={() => toggleReportSelection(report.id)}
-                        aria-label={selectedReports.includes(report.id) ? "Deselect report" : "Select report"}
+                        aria-label={
+                          selectedReports.includes(report.id)
+                            ? "Deselect report"
+                            : "Select report"
+                        }
                         className="mt-1 flex-shrink-0 text-slate-400 hover:text-white transition-colors min-h-[24px] min-w-[24px]"
                       >
                         {selectedReports.includes(report.id) ? (
@@ -540,8 +547,9 @@ export default function ReportsPage() {
                           </Link>
                           <span
                             className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                              statusColors[report.status as keyof typeof statusColors] ||
-                              "bg-slate-500/20 text-slate-400"
+                              statusColors[
+                                report.status as keyof typeof statusColors
+                              ] || "bg-slate-500/20 text-slate-400"
                             }`}
                           >
                             {report.status || "COMPLETED"}
@@ -566,7 +574,9 @@ export default function ReportsPage() {
                             {formatCost(report.estimatedCost)}
                           </span>
                           <span>{formatDate(report.createdAt)}</span>
-                          {report.policyType && <span>{report.policyType}</span>}
+                          {report.policyType && (
+                            <span>{report.policyType}</span>
+                          )}
                         </div>
                         <div className="flex items-center gap-2 mt-3">
                           <Link
@@ -606,211 +616,218 @@ export default function ReportsPage() {
             {/* Desktop/tablet table — hidden on phone. Keeps the existing
                 11-column experience for sm+ screens unchanged. */}
             <div className="hidden sm:block overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-700 bg-slate-900/50">
-                  <th className="text-left py-4 px-6 text-slate-300 font-medium">
-                    <button
-                      onClick={
-                        selectedReports.length === paginatedReports.length
-                          ? clearSelection
-                          : selectAllReports
-                      }
-                      className="flex items-center gap-2 hover:text-white transition-colors"
-                    >
-                      {selectedReports.length === paginatedReports.length ? (
-                        <CheckSquare size={16} />
-                      ) : (
-                        <Square size={16} />
-                      )}
-                      Select All
-                    </button>
-                  </th>
-                  <th className="text-left py-4 px-6 text-slate-300 font-medium">
-                    Report ID
-                  </th>
-                  <th className="text-left py-4 px-6 text-slate-300 font-medium">
-                    Client
-                  </th>
-                  <th className="text-left py-4 px-6 text-slate-300 font-medium">
-                    Property
-                  </th>
-                  <th className="text-left py-4 px-6 text-slate-300 font-medium">
-                    Category
-                  </th>
-                  <th className="text-left py-4 px-6 text-slate-300 font-medium">
-                    Insurance
-                  </th>
-                  <th className="text-left py-4 px-6 text-slate-300 font-medium">
-                    Status
-                  </th>
-                  <th className="text-left py-4 px-6 text-slate-300 font-medium">
-                    Cost
-                  </th>
-                  <th className="text-left py-4 px-6 text-slate-300 font-medium">
-                    Session
-                  </th>
-                  <th className="text-left py-4 px-6 text-slate-300 font-medium">
-                    Date
-                  </th>
-                  <th className="text-left py-4 px-6 text-slate-300 font-medium">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedReports.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={11}
-                      className="py-8 text-center text-slate-300"
-                    >
-                      No reports found.{" "}
-                      <Link
-                        href="/dashboard/reports/new"
-                        className="text-cyan-400 hover:underline"
+              <table className="w-full text-sm">
+                {/* RA-1189 — sticky header so column labels persist when
+                    scrolling a long report list. backdrop-blur avoids a
+                    hard visual break when rows scroll behind it. */}
+                <thead className="sticky top-0 z-10 backdrop-blur-sm bg-slate-900/80">
+                  <tr className="border-b border-slate-700">
+                    <th className="text-left py-4 px-6 text-slate-300 font-medium">
+                      <button
+                        onClick={
+                          selectedReports.length === paginatedReports.length
+                            ? clearSelection
+                            : selectAllReports
+                        }
+                        className="flex items-center gap-2 hover:text-white transition-colors"
                       >
-                        Create your first report
-                      </Link>
-                    </td>
+                        {selectedReports.length === paginatedReports.length ? (
+                          <CheckSquare size={16} />
+                        ) : (
+                          <Square size={16} />
+                        )}
+                        Select All
+                      </button>
+                    </th>
+                    <th className="text-left py-4 px-6 text-slate-300 font-medium">
+                      Report ID
+                    </th>
+                    <th className="text-left py-4 px-6 text-slate-300 font-medium">
+                      Client
+                    </th>
+                    <th className="text-left py-4 px-6 text-slate-300 font-medium">
+                      Property
+                    </th>
+                    <th className="text-left py-4 px-6 text-slate-300 font-medium">
+                      Category
+                    </th>
+                    <th className="text-left py-4 px-6 text-slate-300 font-medium">
+                      Insurance
+                    </th>
+                    <th className="text-left py-4 px-6 text-slate-300 font-medium">
+                      Status
+                    </th>
+                    <th className="text-left py-4 px-6 text-slate-300 font-medium">
+                      Cost
+                    </th>
+                    <th className="text-left py-4 px-6 text-slate-300 font-medium">
+                      Session
+                    </th>
+                    <th className="text-left py-4 px-6 text-slate-300 font-medium">
+                      Date
+                    </th>
+                    <th className="text-left py-4 px-6 text-slate-300 font-medium">
+                      Actions
+                    </th>
                   </tr>
-                ) : (
-                  paginatedReports.map((report, i) => (
-                    <tr
-                      key={report.id || i}
-                      className="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors"
-                    >
-                      <td className="py-4 px-6">
-                        <button
-                          onClick={() => toggleReportSelection(report.id)}
-                          className="flex items-center gap-2 hover:text-white transition-colors"
-                        >
-                          {selectedReports.includes(report.id) ? (
-                            <CheckSquare size={16} className="text-cyan-400" />
-                          ) : (
-                            <Square size={16} />
-                          )}
-                        </button>
-                      </td>
-                      <td className="py-4 px-6 font-medium text-cyan-400">
+                </thead>
+                <tbody>
+                  {paginatedReports.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={11}
+                        className="py-8 text-center text-slate-300"
+                      >
+                        No reports found.{" "}
                         <Link
-                          href={`/dashboard/reports/${report.id}`}
-                          className="hover:underline"
+                          href="/dashboard/reports/new"
+                          className="text-cyan-400 hover:underline"
                         >
-                          {report.reportNumber || report.id}
+                          Create your first report
                         </Link>
                       </td>
-                      <td className="py-4 px-6">
-                        {report.clientName || "N/A"}
-                      </td>
-                      <td className="py-4 px-6 text-slate-300 text-xs">
-                        {report.propertyAddress || "N/A"}
-                      </td>
-                      <td className="py-4 px-6">
-                        <span className="flex items-center gap-2">
-                          <span>
-                            {hazardIcons[
-                              report.waterCategory as keyof typeof hazardIcons
-                            ] || "💧"}
-                          </span>
-                          {report.waterCategory || "N/A"}
-                        </span>
-                      </td>
-                      <td className="py-4 px-6 text-xs">
-                        {report.policyType || "N/A"}
-                      </td>
-                      <td className="py-4 px-6">
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[report.status as keyof typeof statusColors] || "bg-slate-500/20 text-slate-400"}`}
-                        >
-                          {report.status || "COMPLETED"}
-                        </span>
-                      </td>
-                      <td className="py-4 px-6 font-medium">
-                        {formatCost(report.estimatedCost)}
-                      </td>
-                      <td className="py-4 px-6">
-                        <div className="flex flex-col gap-1 min-w-[130px]">
-                          {/* Phase progress mini-bar */}
-                          {report.phases && report.phases.length > 0 && (
-                            <div className="flex items-center gap-1">
-                              <div className="flex gap-0.5 flex-1">
-                                {report.phases.map((p) => (
-                                  <div
-                                    key={p.phase}
-                                    title={p.label}
-                                    className={`flex-1 h-1.5 rounded-sm ${
-                                      p.completed
-                                        ? "bg-cyan-500"
-                                        : "bg-slate-700"
-                                    }`}
-                                  />
-                                ))}
-                              </div>
-                              <span className="text-xs text-slate-300 flex-shrink-0">
-                                {
-                                  report.phases.filter((p) => p.completed)
-                                    .length
-                                }
-                                /{report.phases.length}
-                              </span>
-                            </div>
-                          )}
-                          {/* Evaluator score badge */}
-                          {report.evaluatorScores != null && (
-                            <EvaluatorScoreBadge
-                              scores={report.evaluatorScores}
-                            />
-                          )}
-                          {/* Fan-out count + retry count */}
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            {(report.fanOutSessions?.length ?? 0) > 0 && (
-                              <span className="flex items-center gap-0.5 text-xs text-slate-300">
-                                <GitBranch size={10} />
-                                {report.fanOutSessions!.length}
-                              </span>
-                            )}
-                            {(report.evaluatorScores?.retryCount ?? 0) > 0 && (
-                              <span className="flex items-center gap-0.5 text-xs text-orange-400">
-                                <RefreshCw size={10} />
-                                {report.evaluatorScores!.retryCount}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-4 px-6 text-slate-300">
-                        {formatDate(report.createdAt)}
-                      </td>
-                      <td className="py-4 px-6">
-                        <div className="flex items-center gap-2">
-                          <Link
-                            href={`/dashboard/reports/${report.id}`}
-                            className="p-1 hover:bg-slate-700 rounded transition-colors"
-                            title="View"
-                          >
-                            <Eye size={16} />
-                          </Link>
-                          <Link
-                            href={`/dashboard/reports/${report.id}/edit`}
-                            className="p-1 hover:bg-slate-700 rounded transition-colors"
-                            title="Edit"
-                          >
-                            <Edit size={16} />
-                          </Link>
+                    </tr>
+                  ) : (
+                    paginatedReports.map((report, i) => (
+                      <tr
+                        key={report.id || i}
+                        className="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors"
+                      >
+                        <td className="py-4 px-6">
                           <button
-                            onClick={() => duplicateReport(report.id)}
-                            disabled={duplicating === report.id}
-                            className="p-1 hover:bg-slate-700 rounded transition-colors disabled:opacity-50"
-                            title="Duplicate"
+                            onClick={() => toggleReportSelection(report.id)}
+                            className="flex items-center gap-2 hover:text-white transition-colors"
                           >
-                            {duplicating === report.id ? (
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cyan-500"></div>
+                            {selectedReports.includes(report.id) ? (
+                              <CheckSquare
+                                size={16}
+                                className="text-cyan-400"
+                              />
                             ) : (
-                              <Copy size={16} />
+                              <Square size={16} />
                             )}
                           </button>
-                          {/* <button 
+                        </td>
+                        <td className="py-4 px-6 font-medium text-cyan-400">
+                          <Link
+                            href={`/dashboard/reports/${report.id}`}
+                            className="hover:underline"
+                          >
+                            {report.reportNumber || report.id}
+                          </Link>
+                        </td>
+                        <td className="py-4 px-6">
+                          {report.clientName || "N/A"}
+                        </td>
+                        <td className="py-4 px-6 text-slate-300 text-xs">
+                          {report.propertyAddress || "N/A"}
+                        </td>
+                        <td className="py-4 px-6">
+                          <span className="flex items-center gap-2">
+                            <span>
+                              {hazardIcons[
+                                report.waterCategory as keyof typeof hazardIcons
+                              ] || "💧"}
+                            </span>
+                            {report.waterCategory || "N/A"}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6 text-xs">
+                          {report.policyType || "N/A"}
+                        </td>
+                        <td className="py-4 px-6">
+                          <span
+                            className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[report.status as keyof typeof statusColors] || "bg-slate-500/20 text-slate-400"}`}
+                          >
+                            {report.status || "COMPLETED"}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6 font-medium">
+                          {formatCost(report.estimatedCost)}
+                        </td>
+                        <td className="py-4 px-6">
+                          <div className="flex flex-col gap-1 min-w-[130px]">
+                            {/* Phase progress mini-bar */}
+                            {report.phases && report.phases.length > 0 && (
+                              <div className="flex items-center gap-1">
+                                <div className="flex gap-0.5 flex-1">
+                                  {report.phases.map((p) => (
+                                    <div
+                                      key={p.phase}
+                                      title={p.label}
+                                      className={`flex-1 h-1.5 rounded-sm ${
+                                        p.completed
+                                          ? "bg-cyan-500"
+                                          : "bg-slate-700"
+                                      }`}
+                                    />
+                                  ))}
+                                </div>
+                                <span className="text-xs text-slate-300 flex-shrink-0">
+                                  {
+                                    report.phases.filter((p) => p.completed)
+                                      .length
+                                  }
+                                  /{report.phases.length}
+                                </span>
+                              </div>
+                            )}
+                            {/* Evaluator score badge */}
+                            {report.evaluatorScores != null && (
+                              <EvaluatorScoreBadge
+                                scores={report.evaluatorScores}
+                              />
+                            )}
+                            {/* Fan-out count + retry count */}
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {(report.fanOutSessions?.length ?? 0) > 0 && (
+                                <span className="flex items-center gap-0.5 text-xs text-slate-300">
+                                  <GitBranch size={10} />
+                                  {report.fanOutSessions!.length}
+                                </span>
+                              )}
+                              {(report.evaluatorScores?.retryCount ?? 0) >
+                                0 && (
+                                <span className="flex items-center gap-0.5 text-xs text-orange-400">
+                                  <RefreshCw size={10} />
+                                  {report.evaluatorScores!.retryCount}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-4 px-6 text-slate-300">
+                          {formatDate(report.createdAt)}
+                        </td>
+                        <td className="py-4 px-6">
+                          <div className="flex items-center gap-2">
+                            <Link
+                              href={`/dashboard/reports/${report.id}`}
+                              className="p-1 hover:bg-slate-700 rounded transition-colors"
+                              title="View"
+                            >
+                              <Eye size={16} />
+                            </Link>
+                            <Link
+                              href={`/dashboard/reports/${report.id}/edit`}
+                              className="p-1 hover:bg-slate-700 rounded transition-colors"
+                              title="Edit"
+                            >
+                              <Edit size={16} />
+                            </Link>
+                            <button
+                              onClick={() => duplicateReport(report.id)}
+                              disabled={duplicating === report.id}
+                              className="p-1 hover:bg-slate-700 rounded transition-colors disabled:opacity-50"
+                              title="Duplicate"
+                            >
+                              {duplicating === report.id ? (
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cyan-500"></div>
+                              ) : (
+                                <Copy size={16} />
+                              )}
+                            </button>
+                            {/* <button 
                             onClick={() => downloadReport(report.id)}
                             disabled={downloading === report.id}
                             className="p-1 hover:bg-slate-700 rounded transition-colors disabled:opacity-50"
@@ -825,13 +842,13 @@ export default function ReportsPage() {
                           <button className="p-1 hover:bg-slate-700 rounded transition-colors" title="More">
                             <MoreVertical size={16} />
                           </button> */}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </>
         )}
