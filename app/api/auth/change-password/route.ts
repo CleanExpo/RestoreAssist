@@ -72,7 +72,11 @@ export async function POST(request: NextRequest) {
           reason: "incorrect_current_password",
           context: "change_password",
         },
-      }).catch(() => {});
+      }).catch((err) => {
+        // RA-1311 — surface security-log write failures so operators can
+        // spot a broken logger chain; still non-blocking for the caller.
+        console.error("[change-password] security log failed:", err);
+      });
       return NextResponse.json(
         { error: "Current password is incorrect" },
         { status: 400 },
