@@ -37,6 +37,7 @@ import {
 import { checkPaymentGate } from "@/lib/workspace/payment-gate";
 import { hasPermission } from "@/lib/workspace/permissions";
 import { prisma } from "@/lib/prisma";
+import { withIdempotency } from "@/lib/idempotency";
 
 const VALID_PROVIDERS: AiProvider[] = [
   "ANTHROPIC",
@@ -83,87 +84,97 @@ export async function GET(_req: NextRequest) {
 // ─── POST — Upsert a provider connection ─────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const gate = await checkPaymentGate(session.user.id);
-    if (!gate.allowed) return gate.response;
-    const { workspace } = gate;
-
-    // Only members with workspace.settings permission may save provider keys
-    const canManage = await hasPermission(
-      session.user.id,
-      workspace.id,
-      "workspace.settings",
-    );
-    if (!canManage) {
-      return NextResponse.json(
-        {
-          error:
-            "Forbidden — only workspace owners and managers may configure AI providers",
-        },
-        { status: 403 },
-      );
-    }
-
-    const body = await req.json().catch(() => null);
-    if (!body || typeof body !== "object") {
-      return NextResponse.json(
-        { error: "Invalid request body" },
-        { status: 400 },
-      );
-    }
-
-    const { provider, apiKey } = body as Record<string, unknown>;
-
-    if (!isValidProvider(provider)) {
-      return NextResponse.json(
-        {
-          error: `Invalid provider. Must be one of: ${VALID_PROVIDERS.join(", ")}`,
-        },
-        { status: 400 },
-      );
-    }
-
-    if (!apiKey || typeof apiKey !== "string" || !apiKey.trim()) {
-      return NextResponse.json(
-        { error: "apiKey must be a non-empty string" },
-        { status: 400 },
-      );
-    }
-
-    // Basic key format sanity checks (not full validation — use /validate for that)
-    const trimmedKey = apiKey.trim();
-    if (trimmedKey.length < 20) {
-      return NextResponse.json(
-        { error: "API key appears too short — please check and try again" },
-        { status: 400 },
-      );
-    }
-
-    const member = await prisma.workspaceMember.findFirst({
-      where: { userId: session.user.id, workspaceId: workspace.id },
-      select: { id: true },
-    });
-
-    const connection = await upsertProviderConnection({
-      workspaceId: workspace.id,
-      provider,
-      plaintextApiKey: trimmedKey,
-      memberId: member?.id,
-    });
-
-    return NextResponse.json({ connection }, { status: 200 });
-  } catch (error) {
-    console.error("[POST /api/workspace/provider-connections]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const userId = session.user.id;
+
+  // RA-1266: provider credentials are sensitive — prevent duplicate
+  // write of the same key on retry.
+  return withIdempotency(req, userId, async (rawBody) => {
+    try {
+      const gate = await checkPaymentGate(userId);
+      if (!gate.allowed) return gate.response;
+      const { workspace } = gate;
+
+      // Only members with workspace.settings permission may save provider keys
+      const canManage = await hasPermission(
+        userId,
+        workspace.id,
+        "workspace.settings",
+      );
+      if (!canManage) {
+        return NextResponse.json(
+          {
+            error:
+              "Forbidden — only workspace owners and managers may configure AI providers",
+          },
+          { status: 403 },
+        );
+      }
+
+      let body: any = null;
+      try {
+        body = rawBody ? JSON.parse(rawBody) : null;
+      } catch {
+        body = null;
+      }
+      if (!body || typeof body !== "object") {
+        return NextResponse.json(
+          { error: "Invalid request body" },
+          { status: 400 },
+        );
+      }
+
+      const { provider, apiKey } = body as Record<string, unknown>;
+
+      if (!isValidProvider(provider)) {
+        return NextResponse.json(
+          {
+            error: `Invalid provider. Must be one of: ${VALID_PROVIDERS.join(", ")}`,
+          },
+          { status: 400 },
+        );
+      }
+
+      if (!apiKey || typeof apiKey !== "string" || !apiKey.trim()) {
+        return NextResponse.json(
+          { error: "apiKey must be a non-empty string" },
+          { status: 400 },
+        );
+      }
+
+      // Basic key format sanity checks (not full validation — use /validate for that)
+      const trimmedKey = apiKey.trim();
+      if (trimmedKey.length < 20) {
+        return NextResponse.json(
+          { error: "API key appears too short — please check and try again" },
+          { status: 400 },
+        );
+      }
+
+      const member = await prisma.workspaceMember.findFirst({
+        where: { userId: userId, workspaceId: workspace.id },
+        select: { id: true },
+      });
+
+      const connection = await upsertProviderConnection({
+        workspaceId: workspace.id,
+        provider,
+        plaintextApiKey: trimmedKey,
+        memberId: member?.id,
+      });
+
+      return NextResponse.json({ connection }, { status: 200 });
+    } catch (error) {
+      console.error("[POST /api/workspace/provider-connections]", error);
+      return NextResponse.json(
+        { error: "Internal server error" },
+        { status: 500 },
+      );
+    }
+  });
 }
 
 // ─── DELETE — Disable a provider connection ───────────────────────────────────
