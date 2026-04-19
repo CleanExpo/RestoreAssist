@@ -16,8 +16,70 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import toast from "react-hot-toast";
 import { cn } from "@/lib/utils";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+
+// RA-1215 — long add/edit client forms (10+ fields) previously showed
+// validation errors via react-hot-toast which disappears after 4s. Users
+// missed which field failed. Validation + server 400 field errors now
+// render inline via shadcn <FormMessage>. Network / 5xx keeps toast.
+const clientFormSchema = z.object({
+  name: z.string().trim().min(1, "Client name is required"),
+  email: z
+    .string()
+    .trim()
+    .min(1, "Email is required")
+    .email("Enter a valid email address"),
+  phone: z.string().optional().default(""),
+  address: z.string().optional().default(""),
+  company: z.string().optional().default(""),
+  contactPerson: z.string().optional().default(""),
+  notes: z.string().optional().default(""),
+  status: z.string().default("ACTIVE"),
+});
+type ClientFormValues = z.infer<typeof clientFormSchema>;
+
+const CLIENT_FORM_DEFAULTS: ClientFormValues = {
+  name: "",
+  email: "",
+  phone: "",
+  address: "",
+  company: "",
+  contactPerson: "",
+  notes: "",
+  status: "ACTIVE",
+};
+
+// Map a server error string onto the offending field when we can recognise it.
+// Returns true when a field error was set (render inline), false when caller
+// should fall back to toast (generic / unclassifiable).
+function applyServerFieldError(
+  form: ReturnType<typeof useForm<ClientFormValues>>,
+  message: string | undefined,
+): boolean {
+  if (!message) return false;
+  const m = message.toLowerCase();
+  if (m.includes("email")) {
+    form.setError("email", { type: "server", message });
+    return true;
+  }
+  if (m.includes("name")) {
+    form.setError("name", { type: "server", message });
+    return true;
+  }
+  return false;
+}
 
 type ClientWithReportFlag = Client & { _isFromReport?: boolean };
 
@@ -52,15 +114,13 @@ export default function ClientsPage() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
   const [duplicating, setDuplicating] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    address: "",
-    company: "",
-    contactPerson: "",
-    notes: "",
-    status: "ACTIVE",
+
+  // RA-1215 — shared form instance for Add + Edit modals so validation
+  // errors render inline against the offending field instead of a toast.
+  const form = useForm<ClientFormValues>({
+    resolver: zodResolver(clientFormSchema),
+    defaultValues: CLIENT_FORM_DEFAULTS,
+    mode: "onBlur",
   });
 
   // Fetch clients from API
@@ -101,54 +161,48 @@ export default function ClientsPage() {
     });
   }, [searchTerm, statusFilter, clients]);
 
-  const handleAddClient = async () => {
-    if (!formData.name || !formData.email) {
-      toast.error("Name and email are required");
-      return;
-    }
-
+  // RA-1215 — field-level (400) errors render inline via form.setError.
+  // Network / 5xx / 402-upgrade retain toast (non-field signals).
+  const handleAddClient = form.handleSubmit(async (values) => {
     try {
       const response = await fetch("/api/clients", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(values),
       });
 
       if (response.ok) {
         const newClient = await response.json();
         setClients([newClient, ...clients]);
-        setFormData({
-          name: "",
-          email: "",
-          phone: "",
-          address: "",
-          company: "",
-          contactPerson: "",
-          notes: "",
-          status: "ACTIVE",
-        });
+        form.reset(CLIENT_FORM_DEFAULTS);
         setShowAddModal(false);
         toast.success("Client added successfully");
         fetchClients(); // Refresh to get updated list
-      } else {
-        const error = await response.json();
-        if (response.status === 402 && error.upgradeRequired) {
-          // Show upgrade modal instead of error toast
-          setShowAddModal(false);
-          setShowUpgradeModal(true);
-        } else {
-          toast.error(error.error || "Failed to add client");
-        }
+        return;
       }
+
+      const error = await response.json().catch(() => ({}));
+      if (response.status === 402 && error.upgradeRequired) {
+        setShowAddModal(false);
+        setShowUpgradeModal(true);
+        return;
+      }
+      if (response.status >= 400 && response.status < 500) {
+        const message = error?.error || "Failed to add client";
+        if (!applyServerFieldError(form, message)) {
+          form.setError("root", { type: "server", message });
+        }
+        return;
+      }
+      toast.error(error?.error || "Failed to add client");
     } catch (error) {
       console.error("Error adding client:", error);
       toast.error("Failed to add client");
     }
-  };
+  });
 
-  const handleEditClient = async () => {
-    if (!selectedClient || !formData.name || !formData.email) {
-      toast.error("Name and email are required");
+  const handleEditClient = form.handleSubmit(async (values) => {
+    if (!selectedClient) {
       return;
     }
 
@@ -156,7 +210,7 @@ export default function ClientsPage() {
       const response = await fetch(`/api/clients/${selectedClient.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(values),
       });
 
       if (response.ok) {
@@ -167,15 +221,23 @@ export default function ClientsPage() {
         setShowEditModal(false);
         setSelectedClient(null);
         toast.success("Client updated successfully");
-      } else {
-        const error = await response.json();
-        toast.error(error.error || "Failed to update client");
+        return;
       }
+
+      const error = await response.json().catch(() => ({}));
+      if (response.status >= 400 && response.status < 500) {
+        const message = error?.error || "Failed to update client";
+        if (!applyServerFieldError(form, message)) {
+          form.setError("root", { type: "server", message });
+        }
+        return;
+      }
+      toast.error(error?.error || "Failed to update client");
     } catch (error) {
       console.error("Error updating client:", error);
       toast.error("Failed to update client");
     }
-  };
+  });
 
   const handleDeleteClient = async () => {
     if (!selectedClient) return;
@@ -216,6 +278,17 @@ export default function ClientsPage() {
   };
 
   const openEditModal = (client: Client) => {
+    const values: ClientFormValues = {
+      name: client.name,
+      email: client.email,
+      phone: client.phone || "",
+      address: client.address || "",
+      company: client.company || "",
+      contactPerson: client.contactPerson || "",
+      notes: client.notes || "",
+      status: client.status,
+    };
+
     // Check if this is a report-based client (can't edit directly, need to create real client)
     if ((client as ClientWithReportFlag)._isFromReport) {
       toast(
@@ -226,31 +299,13 @@ export default function ClientsPage() {
         },
       );
       // Pre-fill the form with the report client's data
-      setFormData({
-        name: client.name,
-        email: client.email,
-        phone: client.phone || "",
-        address: client.address || "",
-        company: client.company || "",
-        contactPerson: client.contactPerson || "",
-        notes: client.notes || "",
-        status: client.status,
-      });
+      form.reset(values);
       setShowAddModal(true);
       return;
     }
 
     setSelectedClient(client);
-    setFormData({
-      name: client.name,
-      email: client.email,
-      phone: client.phone || "",
-      address: client.address || "",
-      company: client.company || "",
-      contactPerson: client.contactPerson || "",
-      notes: client.notes || "",
-      status: client.status,
-    });
+    form.reset(values);
     setShowEditModal(true);
   };
 
@@ -380,7 +435,10 @@ export default function ClientsPage() {
             </div>
           )}
           <button
-            onClick={() => setShowAddModal(true)}
+            onClick={() => {
+              form.reset(CLIENT_FORM_DEFAULTS);
+              setShowAddModal(true);
+            }}
             className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 group"
           >
             <Plus
@@ -841,223 +899,224 @@ export default function ClientsPage() {
                 <X size={20} className="transition-transform duration-200" />
               </button>
             </div>
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label
-                    className={cn(
-                      "block text-sm font-medium mb-2",
-                      "text-neutral-700 dark:text-slate-300",
+            <Form {...form}>
+              <form onSubmit={handleAddClient} className="space-y-4" noValidate>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Client Name *</FormLabel>
+                        <FormControl>
+                          <input
+                            type="text"
+                            placeholder="Enter client name"
+                            className={cn(
+                              "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
+                              "bg-white dark:bg-slate-700/50",
+                              "border-neutral-300 dark:border-slate-600",
+                              "text-neutral-900 dark:text-white",
+                              "placeholder-neutral-500 dark:placeholder-slate-500",
+                            )}
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
                     )}
-                  >
-                    Client Name *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, name: e.target.value })
-                    }
-                    placeholder="Enter client name"
-                    className={cn(
-                      "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
-                      "bg-white dark:bg-slate-700/50",
-                      "border-neutral-300 dark:border-slate-600",
-                      "text-neutral-900 dark:text-white",
-                      "placeholder-neutral-500 dark:placeholder-slate-500",
+                  />
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email *</FormLabel>
+                        <FormControl>
+                          <input
+                            type="email"
+                            placeholder="Enter email address"
+                            className={cn(
+                              "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
+                              "bg-white dark:bg-slate-700/50",
+                              "border-neutral-300 dark:border-slate-600",
+                              "text-neutral-900 dark:text-white",
+                              "placeholder-neutral-500 dark:placeholder-slate-500",
+                            )}
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
                     )}
                   />
                 </div>
-                <div>
-                  <label
-                    className={cn(
-                      "block text-sm font-medium mb-2",
-                      "text-neutral-700 dark:text-slate-300",
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone</FormLabel>
+                        <FormControl>
+                          <input
+                            type="tel"
+                            placeholder="Enter phone number"
+                            className={cn(
+                              "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
+                              "bg-white dark:bg-slate-700/50",
+                              "border-neutral-300 dark:border-slate-600",
+                              "text-neutral-900 dark:text-white",
+                              "placeholder-neutral-500 dark:placeholder-slate-500",
+                            )}
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
                     )}
-                  >
-                    Email *
-                  </label>
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) =>
-                      setFormData({ ...formData, email: e.target.value })
-                    }
-                    placeholder="Enter email address"
-                    className={cn(
-                      "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
-                      "bg-white dark:bg-slate-700/50",
-                      "border-neutral-300 dark:border-slate-600",
-                      "text-neutral-900 dark:text-white",
-                      "placeholder-neutral-500 dark:placeholder-slate-500",
+                  />
+                  <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Status</FormLabel>
+                        <FormControl>
+                          <select
+                            className={cn(
+                              "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
+                              "bg-white dark:bg-slate-700/50",
+                              "border-neutral-300 dark:border-slate-600",
+                              "text-neutral-900 dark:text-white",
+                            )}
+                            {...field}
+                          >
+                            <option value="ACTIVE">Active</option>
+                            <option value="INACTIVE">Inactive</option>
+                            <option value="PROSPECT">Prospect</option>
+                            <option value="ARCHIVED">Archived</option>
+                          </select>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
                     )}
                   />
                 </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label
-                    className={cn(
-                      "block text-sm font-medium mb-2",
-                      "text-neutral-700 dark:text-slate-300",
-                    )}
+                <FormField
+                  control={form.control}
+                  name="company"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Company</FormLabel>
+                      <FormControl>
+                        <input
+                          type="text"
+                          placeholder="Enter company name"
+                          className={cn(
+                            "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
+                            "bg-white dark:bg-slate-700/50",
+                            "border-neutral-300 dark:border-slate-600",
+                            "text-neutral-900 dark:text-white",
+                            "placeholder-neutral-500 dark:placeholder-slate-500",
+                          )}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="contactPerson"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Contact Person</FormLabel>
+                      <FormControl>
+                        <input
+                          type="text"
+                          placeholder="Enter contact person name"
+                          className={cn(
+                            "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
+                            "bg-white dark:bg-slate-700/50",
+                            "border-neutral-300 dark:border-slate-600",
+                            "text-neutral-900 dark:text-white",
+                            "placeholder-neutral-500 dark:placeholder-slate-500",
+                          )}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="address"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Address</FormLabel>
+                      <FormControl>
+                        <input
+                          type="text"
+                          placeholder="Enter address"
+                          className={cn(
+                            "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
+                            "bg-white dark:bg-slate-700/50",
+                            "border-neutral-300 dark:border-slate-600",
+                            "text-neutral-900 dark:text-white",
+                            "placeholder-neutral-500 dark:placeholder-slate-500",
+                          )}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Notes</FormLabel>
+                      <FormControl>
+                        <textarea
+                          placeholder="Enter any additional notes"
+                          rows={3}
+                          className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {form.formState.errors.root && (
+                  <p className="text-destructive text-sm" role="alert">
+                    {form.formState.errors.root.message}
+                  </p>
+                )}
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddModal(false)}
+                    className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md"
                   >
-                    Phone
-                  </label>
-                  <input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) =>
-                      setFormData({ ...formData, phone: e.target.value })
-                    }
-                    placeholder="Enter phone number"
-                    className={cn(
-                      "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
-                      "bg-white dark:bg-slate-700/50",
-                      "border-neutral-300 dark:border-slate-600",
-                      "text-neutral-900 dark:text-white",
-                      "placeholder-neutral-500 dark:placeholder-slate-500",
-                    )}
-                  />
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={form.formState.isSubmitting}
+                    className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group disabled:opacity-50"
+                  >
+                    <Users className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
+                    <span>Add Client</span>
+                  </button>
                 </div>
-                <div>
-                  <label
-                    className={cn(
-                      "block text-sm font-medium mb-2",
-                      "text-neutral-700 dark:text-slate-300",
-                    )}
-                  >
-                    Status
-                  </label>
-                  <select
-                    value={formData.status}
-                    onChange={(e) =>
-                      setFormData({ ...formData, status: e.target.value })
-                    }
-                    className={cn(
-                      "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
-                      "bg-white dark:bg-slate-700/50",
-                      "border-neutral-300 dark:border-slate-600",
-                      "text-neutral-900 dark:text-white",
-                    )}
-                  >
-                    <option value="ACTIVE">Active</option>
-                    <option value="INACTIVE">Inactive</option>
-                    <option value="PROSPECT">Prospect</option>
-                    <option value="ARCHIVED">Archived</option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label
-                  className={cn(
-                    "block text-sm font-medium mb-2",
-                    "text-neutral-700 dark:text-slate-300",
-                  )}
-                >
-                  Company
-                </label>
-                <input
-                  type="text"
-                  value={formData.company}
-                  onChange={(e) =>
-                    setFormData({ ...formData, company: e.target.value })
-                  }
-                  placeholder="Enter company name"
-                  className={cn(
-                    "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
-                    "bg-white dark:bg-slate-700/50",
-                    "border-neutral-300 dark:border-slate-600",
-                    "text-neutral-900 dark:text-white",
-                    "placeholder-neutral-500 dark:placeholder-slate-500",
-                  )}
-                />
-              </div>
-              <div>
-                <label
-                  className={cn(
-                    "block text-sm font-medium mb-2",
-                    "text-neutral-700 dark:text-slate-300",
-                  )}
-                >
-                  Contact Person
-                </label>
-                <input
-                  type="text"
-                  value={formData.contactPerson}
-                  onChange={(e) =>
-                    setFormData({ ...formData, contactPerson: e.target.value })
-                  }
-                  placeholder="Enter contact person name"
-                  className={cn(
-                    "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
-                    "bg-white dark:bg-slate-700/50",
-                    "border-neutral-300 dark:border-slate-600",
-                    "text-neutral-900 dark:text-white",
-                    "placeholder-neutral-500 dark:placeholder-slate-500",
-                  )}
-                />
-              </div>
-              <div>
-                <label
-                  className={cn(
-                    "block text-sm font-medium mb-2",
-                    "text-neutral-700 dark:text-slate-300",
-                  )}
-                >
-                  Address
-                </label>
-                <input
-                  type="text"
-                  value={formData.address}
-                  onChange={(e) =>
-                    setFormData({ ...formData, address: e.target.value })
-                  }
-                  placeholder="Enter address"
-                  className={cn(
-                    "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
-                    "bg-white dark:bg-slate-700/50",
-                    "border-neutral-300 dark:border-slate-600",
-                    "text-neutral-900 dark:text-white",
-                    "placeholder-neutral-500 dark:placeholder-slate-500",
-                  )}
-                />
-              </div>
-              <div>
-                <label
-                  className={cn(
-                    "block text-sm font-medium mb-2",
-                    "text-neutral-700 dark:text-slate-300",
-                  )}
-                >
-                  Notes
-                </label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) =>
-                    setFormData({ ...formData, notes: e.target.value })
-                  }
-                  placeholder="Enter any additional notes"
-                  rows={3}
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
-                />
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => setShowAddModal(false)}
-                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleAddClient}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group"
-                >
-                  <Users className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
-                  <span>Add Client</span>
-                </button>
-              </div>
-            </div>
+              </form>
+            </Form>
           </div>
         </div>
       )}
@@ -1075,158 +1134,193 @@ export default function ClientsPage() {
                 <X size={20} />
               </button>
             </div>
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Client Name *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, name: e.target.value })
-                    }
-                    placeholder="Enter client name"
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+            <Form {...form}>
+              <form
+                onSubmit={handleEditClient}
+                className="space-y-4"
+                noValidate
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Client Name *</FormLabel>
+                        <FormControl>
+                          <input
+                            type="text"
+                            placeholder="Enter client name"
+                            className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email *</FormLabel>
+                        <FormControl>
+                          <input
+                            type="email"
+                            placeholder="Enter email address"
+                            className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Email *
-                  </label>
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) =>
-                      setFormData({ ...formData, email: e.target.value })
-                    }
-                    placeholder="Enter email address"
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone</FormLabel>
+                        <FormControl>
+                          <input
+                            type="tel"
+                            placeholder="Enter phone number"
+                            className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Status</FormLabel>
+                        <FormControl>
+                          <select
+                            className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                            {...field}
+                          >
+                            <option value="ACTIVE">Active</option>
+                            <option value="INACTIVE">Inactive</option>
+                            <option value="PROSPECT">Prospect</option>
+                            <option value="ARCHIVED">Archived</option>
+                          </select>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
                 </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Phone
-                  </label>
-                  <input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) =>
-                      setFormData({ ...formData, phone: e.target.value })
-                    }
-                    placeholder="Enter phone number"
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Status
-                  </label>
-                  <select
-                    value={formData.status}
-                    onChange={(e) =>
-                      setFormData({ ...formData, status: e.target.value })
-                    }
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                <FormField
+                  control={form.control}
+                  name="company"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Company</FormLabel>
+                      <FormControl>
+                        <input
+                          type="text"
+                          placeholder="Enter company name"
+                          className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="contactPerson"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Contact Person</FormLabel>
+                      <FormControl>
+                        <input
+                          type="text"
+                          placeholder="Enter contact person name"
+                          className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="address"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Address</FormLabel>
+                      <FormControl>
+                        <input
+                          type="text"
+                          placeholder="Enter address"
+                          className={cn(
+                            "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
+                            "bg-white dark:bg-slate-700/50",
+                            "border-neutral-300 dark:border-slate-600",
+                            "text-neutral-900 dark:text-white",
+                            "placeholder-neutral-500 dark:placeholder-slate-500",
+                          )}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Notes</FormLabel>
+                      <FormControl>
+                        <textarea
+                          placeholder="Enter any additional notes"
+                          rows={3}
+                          className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {form.formState.errors.root && (
+                  <p className="text-destructive text-sm" role="alert">
+                    {form.formState.errors.root.message}
+                  </p>
+                )}
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowEditModal(false)}
+                    className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md"
                   >
-                    <option value="ACTIVE">Active</option>
-                    <option value="INACTIVE">Inactive</option>
-                    <option value="PROSPECT">Prospect</option>
-                    <option value="ARCHIVED">Archived</option>
-                  </select>
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={form.formState.isSubmitting}
+                    className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group disabled:opacity-50"
+                  >
+                    <Edit className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
+                    <span>Update Client</span>
+                  </button>
                 </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Company
-                </label>
-                <input
-                  type="text"
-                  value={formData.company}
-                  onChange={(e) =>
-                    setFormData({ ...formData, company: e.target.value })
-                  }
-                  placeholder="Enter company name"
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Contact Person
-                </label>
-                <input
-                  type="text"
-                  value={formData.contactPerson}
-                  onChange={(e) =>
-                    setFormData({ ...formData, contactPerson: e.target.value })
-                  }
-                  placeholder="Enter contact person name"
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
-                />
-              </div>
-              <div>
-                <label
-                  className={cn(
-                    "block text-sm font-medium mb-2",
-                    "text-neutral-700 dark:text-slate-300",
-                  )}
-                >
-                  Address
-                </label>
-                <input
-                  type="text"
-                  value={formData.address}
-                  onChange={(e) =>
-                    setFormData({ ...formData, address: e.target.value })
-                  }
-                  placeholder="Enter address"
-                  className={cn(
-                    "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
-                    "bg-white dark:bg-slate-700/50",
-                    "border-neutral-300 dark:border-slate-600",
-                    "text-neutral-900 dark:text-white",
-                    "placeholder-neutral-500 dark:placeholder-slate-500",
-                  )}
-                />
-              </div>
-              <div>
-                <label
-                  className={cn(
-                    "block text-sm font-medium mb-2",
-                    "text-neutral-700 dark:text-slate-300",
-                  )}
-                >
-                  Notes
-                </label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) =>
-                    setFormData({ ...formData, notes: e.target.value })
-                  }
-                  placeholder="Enter any additional notes"
-                  rows={3}
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
-                />
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => setShowEditModal(false)}
-                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleEditClient}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group"
-                >
-                  <Edit className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
-                  <span>Update Client</span>
-                </button>
-              </div>
-            </div>
+              </form>
+            </Form>
           </div>
         </div>
       )}
