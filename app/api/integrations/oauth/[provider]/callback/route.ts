@@ -14,6 +14,7 @@ import {
 } from "@/lib/integrations/oauth-handler";
 import { createClientForIntegration } from "@/lib/integrations";
 import { isIntegrationDevMode } from "@/lib/integrations/dev-mode";
+import { track, isFirstTime } from "@/lib/analytics/track";
 
 export async function GET(
   request: NextRequest,
@@ -91,6 +92,14 @@ export async function GET(
         },
       });
 
+      // RA-1246 — first_integration_connected (first-time only)
+      if (await isFirstTime(stateData.userId, "first_integration_connected")) {
+        track(stateData.userId, "first_integration_connected", {
+          provider,
+          devMode: true,
+        }).catch(() => {});
+      }
+
       // Redirect to integrations page with success
       const baseUrl = process.env.NEXTAUTH_URL || request.nextUrl.origin;
       return NextResponse.redirect(
@@ -135,6 +144,13 @@ export async function GET(
       where: { id: integration.id },
       data: { config: null },
     });
+
+    // RA-1246 — first_integration_connected (first-time only)
+    if (await isFirstTime(stateData.userId, "first_integration_connected")) {
+      track(stateData.userId, "first_integration_connected", {
+        provider,
+      }).catch(() => {});
+    }
 
     // Redirect to integrations page with success
     return NextResponse.redirect(
