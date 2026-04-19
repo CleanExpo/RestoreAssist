@@ -79,13 +79,21 @@ export async function POST(request: NextRequest) {
       "code" in err &&
       (err as { code: string }).code === "P2002"
     ) {
-      // Mark as SKIPPED in the audit table for visibility
+      // Mark as SKIPPED in the audit table for visibility.
+      // RA-1302 — log if the audit update itself fails so operators have
+      // a trail; don't fail the webhook response (Stripe would retry and
+      // trigger another round of P2002 duplicates).
       await prisma.stripeWebhookEvent
         .updateMany({
           where: { stripeEventId: event.id },
           data: { status: "SKIPPED", processedAt: new Date() },
         })
-        .catch(() => {});
+        .catch((auditErr) => {
+          console.error(
+            `[Stripe] Audit update FAILED for duplicate event ${event.id}:`,
+            auditErr instanceof Error ? auditErr.message : auditErr,
+          );
+        });
       return NextResponse.json({ received: true });
     }
     // Any other DB error — still attempt processing (don't block on audit table)
@@ -438,17 +446,34 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ received: true });
   } catch (error) {
-    // Mark event as failed for retry visibility
+    // Mark event as failed for retry visibility.
+    // RA-1302 — if the audit update itself fails, log both errors. Otherwise
+    // operators see "Stripe retried this event 10 times" with no trail of
+    // WHY processing failed or whether the audit write also broke.
+    const processingError = error;
     await prisma.stripeWebhookEvent
       .updateMany({
         where: { stripeEventId: event.id },
         data: {
           status: "FAILED",
           errorMessage:
-            error instanceof Error ? error.message : "Unknown error",
+            processingError instanceof Error
+              ? processingError.message
+              : "Unknown error",
         },
       })
-      .catch(() => {});
+      .catch((auditErr) => {
+        console.error(
+          `[Stripe] Audit update FAILED for failed event ${event.id}. Original error:`,
+          processingError instanceof Error
+            ? processingError.message
+            : processingError,
+        );
+        console.error(
+          `[Stripe] Audit update error:`,
+          auditErr instanceof Error ? auditErr.message : auditErr,
+        );
+      });
 
     return NextResponse.json(
       { error: "Webhook processing failed" },
