@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useFetch } from "@/lib/hooks/useFetch";
+import { DeleteConfirmationDialog } from "@/components/DeleteConfirmationDialog";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -673,18 +674,36 @@ export default function ReportsPage() {
                 </thead>
                 <tbody>
                   {paginatedReports.length === 0 ? (
+                    // RA-1193 — proper empty state panel matching
+                    // dashboard/inspections pattern: icon + headline +
+                    // primary CTA, not a single line in a table cell.
                     <tr>
-                      <td
-                        colSpan={11}
-                        className="py-8 text-center text-slate-300"
-                      >
-                        No reports found.{" "}
-                        <Link
-                          href="/dashboard/reports/new"
-                          className="text-cyan-400 hover:underline"
-                        >
-                          Create your first report
-                        </Link>
+                      <td colSpan={11} className="py-16 px-6">
+                        <div className="flex flex-col items-center justify-center text-center space-y-4">
+                          <div className="rounded-full bg-slate-800/50 p-4">
+                            <GitBranch
+                              size={32}
+                              className="text-cyan-400"
+                              aria-hidden
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <h3 className="text-lg font-semibold text-white">
+                              No reports yet
+                            </h3>
+                            <p className="text-sm text-slate-400 max-w-sm">
+                              Water-damage reports appear here once you complete
+                              an inspection. Start one to generate your first
+                              IICRC-compliant report.
+                            </p>
+                          </div>
+                          <Link
+                            href="/dashboard/reports/new"
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-medium hover:from-blue-700 hover:to-cyan-700 transition-colors"
+                          >
+                            Create your first report
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   ) : (
@@ -900,53 +919,18 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      {/* Bulk Delete Modal */}
-      {showBulkDeleteModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-slate-800 rounded-lg border border-slate-700 max-w-md w-full p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-red-400">
-                Delete Selected Reports
-              </h2>
-              <button
-                onClick={() => setShowBulkDeleteModal(false)}
-                className="p-1 hover:bg-slate-700 rounded"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="space-y-4">
-              <p className="text-slate-300">
-                Are you sure you want to delete{" "}
-                <span className="font-medium text-white">
-                  {selectedReports.length}
-                </span>{" "}
-                selected report(s)? This action cannot be undone.
-              </p>
-              <div className="bg-amber-500/20 border border-amber-500/30 rounded-lg p-4">
-                <p className="text-amber-300 text-sm">
-                  ⚠️ This will permanently delete all selected reports and their
-                  associated data.
-                </p>
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => setShowBulkDeleteModal(false)}
-                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleBulkDelete}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-red-500 to-rose-500 rounded-lg font-medium hover:shadow-lg hover:shadow-red-500/50 transition-all"
-                >
-                  Delete {selectedReports.length} Report(s)
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* RA-1191 — replaced custom bulk-delete modal with shared shadcn
+          AlertDialog-based DeleteConfirmationDialog (focus trap, Esc,
+          consistent with dashboard/inspections). */}
+      <DeleteConfirmationDialog
+        open={showBulkDeleteModal}
+        onOpenChange={setShowBulkDeleteModal}
+        onConfirm={handleBulkDelete}
+        title="Delete selected reports?"
+        description="This will permanently delete the selected reports and all associated data. This action cannot be undone."
+        itemCount={selectedReports.length}
+        itemName="report"
+      />
     </div>
   );
 }
