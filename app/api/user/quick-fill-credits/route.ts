@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { withIdempotency } from "@/lib/idempotency";
 
 // GET - Check Quick Fill credits
 export async function GET(request: NextRequest) {
@@ -59,87 +60,92 @@ export async function GET(request: NextRequest) {
 
 // POST - Deduct Quick Fill credit
 export async function POST(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
+  const session = await getServerSession(authOptions);
 
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const userId = session.user.id;
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: {
-        quickFillCreditsRemaining: true,
-        totalQuickFillUsed: true,
-        subscriptionStatus: true,
-        organizationId: true,
-        role: true,
-        trialEndsAt: true,
-      },
-    });
+  // RA-1266: CRITICAL — this endpoint deducts credits. Retry without
+  // idempotency would double-deduct.
+  return withIdempotency(request, userId, async () => {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          quickFillCreditsRemaining: true,
+          totalQuickFillUsed: true,
+          subscriptionStatus: true,
+          organizationId: true,
+          role: true,
+          trialEndsAt: true,
+        },
+      });
 
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
+      if (!user) {
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
+      }
 
-    const isInvitedTeamMember =
-      !!user.organizationId &&
-      (user.role === "MANAGER" || user.role === "USER");
-    const isTrialWithinPeriod =
-      user.subscriptionStatus === "TRIAL" &&
-      (!user.trialEndsAt || new Date() <= new Date(user.trialEndsAt));
-    if (
-      user.subscriptionStatus === "ACTIVE" ||
-      isInvitedTeamMember ||
-      isTrialWithinPeriod
-    ) {
+      const isInvitedTeamMember =
+        !!user.organizationId &&
+        (user.role === "MANAGER" || user.role === "USER");
+      const isTrialWithinPeriod =
+        user.subscriptionStatus === "TRIAL" &&
+        (!user.trialEndsAt || new Date() <= new Date(user.trialEndsAt));
+      if (
+        user.subscriptionStatus === "ACTIVE" ||
+        isInvitedTeamMember ||
+        isTrialWithinPeriod
+      ) {
+        return NextResponse.json({
+          success: true,
+          creditsRemaining: null,
+          hasUnlimited: true,
+        });
+      }
+
+      const creditsRemaining = user.quickFillCreditsRemaining ?? 0;
+      if (creditsRemaining <= 0) {
+        return NextResponse.json(
+          {
+            error:
+              "No Quick Fill credits remaining. Please upgrade to continue using Quick Fill.",
+            creditsRemaining: 0,
+            requiresUpgrade: true,
+          },
+          { status: 403 },
+        );
+      }
+
+      // Deduct credit and increment usage
+      const updated = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          quickFillCreditsRemaining: {
+            decrement: 1,
+          },
+          totalQuickFillUsed: {
+            increment: 1,
+          },
+        },
+        select: {
+          quickFillCreditsRemaining: true,
+          totalQuickFillUsed: true,
+        },
+      });
+
       return NextResponse.json({
         success: true,
-        creditsRemaining: null,
-        hasUnlimited: true,
+        creditsRemaining: updated.quickFillCreditsRemaining ?? 0,
+        totalUsed: updated.totalQuickFillUsed ?? 0,
       });
-    }
-
-    const creditsRemaining = user.quickFillCreditsRemaining ?? 0;
-    if (creditsRemaining <= 0) {
+    } catch (error) {
+      console.error("Error deducting Quick Fill credit:", error);
       return NextResponse.json(
-        {
-          error:
-            "No Quick Fill credits remaining. Please upgrade to continue using Quick Fill.",
-          creditsRemaining: 0,
-          requiresUpgrade: true,
-        },
-        { status: 403 },
+        { error: "Failed to deduct credit" },
+        { status: 500 },
       );
     }
-
-    // Deduct credit and increment usage
-    const updated = await prisma.user.update({
-      where: { id: session.user.id },
-      data: {
-        quickFillCreditsRemaining: {
-          decrement: 1,
-        },
-        totalQuickFillUsed: {
-          increment: 1,
-        },
-      },
-      select: {
-        quickFillCreditsRemaining: true,
-        totalQuickFillUsed: true,
-      },
-    });
-
-    return NextResponse.json({
-      success: true,
-      creditsRemaining: updated.quickFillCreditsRemaining ?? 0,
-      totalUsed: updated.totalQuickFillUsed ?? 0,
-    });
-  } catch (error) {
-    console.error("Error deducting Quick Fill credit:", error);
-    return NextResponse.json(
-      { error: "Failed to deduct credit" },
-      { status: 500 },
-    );
-  }
+  });
 }
