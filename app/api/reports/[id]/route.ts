@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sanitizeString } from "@/lib/sanitize";
+import { parseValidDate, isInvalidDate } from "@/lib/parse-date";
 
 export async function GET(
   request: NextRequest,
@@ -251,10 +252,14 @@ export async function PUT(
         hazardType: sanitisedHazardType,
         insuranceType: sanitisedInsuranceType,
 
-        // IICRC Assessment fields
-        inspectionDate: body.inspectionDate
-          ? new Date(body.inspectionDate)
-          : existingReport.inspectionDate,
+        // IICRC Assessment fields — RA-1300 safe date parse
+        inspectionDate: (() => {
+          const parsed = parseValidDate(body.inspectionDate);
+          if (isInvalidDate(parsed)) {
+            throw new Error("INVALID_INSPECTION_DATE");
+          }
+          return parsed ?? existingReport.inspectionDate;
+        })(),
         waterCategory: body.waterCategory,
         waterClass: body.waterClass,
         sourceOfWater: body.sourceOfWater,
@@ -307,10 +312,14 @@ export async function PUT(
           ? JSON.stringify(body.insuranceData.additionalCover)
           : existingReport.additionalCover,
 
-        // Optional fields
-        completionDate: body.completionDate
-          ? new Date(body.completionDate)
-          : existingReport.completionDate,
+        // Optional fields — RA-1300 safe date parse
+        completionDate: (() => {
+          const parsed = parseValidDate(body.completionDate);
+          if (isInvalidDate(parsed)) {
+            throw new Error("INVALID_COMPLETION_DATE");
+          }
+          return parsed ?? existingReport.completionDate;
+        })(),
         totalCost: body.totalCost,
         description: sanitisedDescription,
 
@@ -356,6 +365,20 @@ export async function PUT(
 
     return NextResponse.json(updatedReport);
   } catch (error) {
+    // RA-1300 — surface bad-date errors as 400 instead of 500
+    const msg = error instanceof Error ? error.message : String(error);
+    if (msg === "INVALID_INSPECTION_DATE") {
+      return NextResponse.json(
+        { error: "Invalid inspectionDate — must be a valid ISO 8601 date string" },
+        { status: 400 },
+      );
+    }
+    if (msg === "INVALID_COMPLETION_DATE") {
+      return NextResponse.json(
+        { error: "Invalid completionDate — must be a valid ISO 8601 date string" },
+        { status: 400 },
+      );
+    }
     console.error("Error updating report:", error);
     return NextResponse.json(
       { error: "Internal server error" },
