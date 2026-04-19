@@ -736,7 +736,7 @@ export default function IntegrationsPage() {
           </Button>
           <Button
             size="sm"
-            className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0 shadow-sm"
+            className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-600 hover:to-cyan-600 text-white border-0 shadow-sm"
             onClick={() => setShowAddModal(true)}
           >
             <Plus />
@@ -868,7 +868,7 @@ export default function IntegrationsPage() {
                         <>
                           <Button
                             size="sm"
-                            className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
+                            className="flex-1 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
                             onClick={() => handleConnect(integration)}
                           >
                             Connect
@@ -1002,7 +1002,7 @@ export default function IntegrationsPage() {
                         <>
                           <Button
                             size="sm"
-                            className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0 shadow-sm"
+                            className="flex-1 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-600 hover:to-cyan-600 text-white border-0 shadow-sm"
                             onClick={() => handleSyncExternal(integration.slug)}
                             disabled={isSyncing}
                           >
@@ -1036,7 +1036,7 @@ export default function IntegrationsPage() {
                       ) : (
                         <Button
                           size="sm"
-                          className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
+                          className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
                           onClick={() =>
                             handleConnectExternal(integration.slug)
                           }
@@ -1163,7 +1163,7 @@ export default function IntegrationsPage() {
                         <>
                           <Button
                             size="sm"
-                            className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0 shadow-sm"
+                            className="flex-1 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-600 hover:to-cyan-600 text-white border-0 shadow-sm"
                             onClick={() => handleSyncExternal(integration.slug)}
                             disabled={isSyncing}
                           >
@@ -1197,7 +1197,7 @@ export default function IntegrationsPage() {
                       ) : (
                         <Button
                           size="sm"
-                          className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
+                          className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
                           onClick={() =>
                             handleConnectExternal(integration.slug)
                           }
@@ -1531,7 +1531,7 @@ export default function IntegrationsPage() {
             </Button>
             <Button
               onClick={handleSaveConnection}
-              className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
+              className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
             >
               Save Connection
             </Button>
@@ -1652,7 +1652,7 @@ export default function IntegrationsPage() {
             </Button>
             <Button
               onClick={handleAddIntegration}
-              className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
+              className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
             >
               Add Integration
             </Button>

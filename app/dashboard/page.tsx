@@ -53,7 +53,9 @@ export default function DashboardPage() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/onboarding/status", { credentials: "include" });
+        const res = await fetch("/api/onboarding/status", {
+          credentials: "include",
+        });
         if (!res.ok) return;
         const data = await res.json();
         if (cancelled) return;

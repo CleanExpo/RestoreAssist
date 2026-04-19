@@ -335,7 +335,7 @@ export default function ReportsPage() {
           )}
           <Link
             href="/dashboard/reports/new"
-            className="px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+            className="px-6 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
           >
             New Report
           </Link>
@@ -878,7 +878,7 @@ export default function ReportsPage() {
                 onClick={() => setCurrentPage(pageNum)}
                 className={`px-4 py-0 rounded-lg transition-colors text-sm ${
                   pageNum === currentPage
-                    ? "bg-gradient-to-r from-blue-500 to-cyan-500"
+                    ? "bg-gradient-to-r from-blue-600 to-cyan-600"
                     : "border border-slate-700 hover:bg-slate-800"
                 }`}
               >

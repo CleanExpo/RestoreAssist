@@ -589,7 +589,7 @@ export default function SuccessPage() {
           <div className="pt-2">
             <button
               onClick={() => setShowSetupGuide(true)}
-              className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+              className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
             >
               Start Setup Guide
               <ArrowRight className="w-4 h-4" />

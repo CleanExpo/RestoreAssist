@@ -381,7 +381,7 @@ export default function RecurringInvoicesPage() {
           </p>
         </div>
         <Link href="/dashboard/invoices/recurring/new">
-          <Button className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:opacity-90 transition-opacity">
+          <Button className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white hover:opacity-90 transition-opacity">
             <Plus className="h-4 w-4" />
             Create Recurring Invoice
           </Button>

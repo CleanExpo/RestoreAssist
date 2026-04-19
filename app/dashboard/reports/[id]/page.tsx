@@ -222,7 +222,7 @@ export default function ReportDetailPage({
                 params.set("postcode", report.propertyPostcode);
               router.push(`/dashboard/interviews/new?${params.toString()}`);
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
           >
             <MessageSquare size={18} />
             Start Interview
