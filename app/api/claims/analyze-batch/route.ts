@@ -405,12 +405,21 @@ export async function POST(request: NextRequest) {
     }
 
     // --- Non-streaming mode (backward compat) ---
-    const pdfData = await Promise.all(
-      pdfFiles.map(async (file) => {
-        const { buffer } = await downloadDriveFile(file.id);
-        return { id: file.id, name: file.name, buffer };
-      }),
-    );
+    // RA-1318 — Promise.all over all PDFs downloads every file in parallel.
+    // At 50+ PDFs (typical claim folder) × 2-5 MB each × no Drive-side
+    // rate limit = OOM + HTTP 429 from Google. Cap at 4 concurrent.
+    const DOWNLOAD_CONCURRENCY = 4;
+    const pdfData: Array<{ id: string; name: string; buffer: Buffer }> = [];
+    for (let i = 0; i < pdfFiles.length; i += DOWNLOAD_CONCURRENCY) {
+      const slice = pdfFiles.slice(i, i + DOWNLOAD_CONCURRENCY);
+      const batch = await Promise.all(
+        slice.map(async (file) => {
+          const { buffer } = await downloadDriveFile(file.id);
+          return { id: file.id, name: file.name, buffer };
+        }),
+      );
+      pdfData.push(...batch);
+    }
 
     const analysisResults = await performGapAnalysis(
       pdfData,

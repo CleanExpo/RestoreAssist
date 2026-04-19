@@ -12,173 +12,190 @@ import {
   getEquipmentDailyRate,
 } from "@/lib/equipment-matrix";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { withIdempotency } from "@/lib/idempotency";
 
 // POST - Generate Cost Estimation document
 export async function POST(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
+  const session = await getServerSession(authOptions);
 
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // Rate limit: 10 cost estimation generations per 15 minutes per user
-    const rateLimited = await applyRateLimit(request, {
-      maxRequests: 10,
-      prefix: "gen-cost",
-      key: session.user.id,
-    });
-    if (rateLimited) return rateLimited;
-
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      include: { pricingConfig: true },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-
-    // Subscription gate — CANCELED/PAST_DUE users must not run AI generation
-    const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
-    if (
-      !ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")
-    ) {
-      return NextResponse.json(
-        { error: "Active subscription required" },
-        { status: 402 },
-      );
-    }
-
-    const { reportId } = await request.json();
-
-    if (!reportId) {
-      return NextResponse.json(
-        { error: "Report ID is required" },
-        { status: 400 },
-      );
-    }
-
-    // Get the complete report with all data
-    const report = await prisma.report.findUnique({
-      where: { id: reportId, userId: user.id },
-    });
-
-    if (!report) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 });
-    }
-
-    // Get scope of works data if available
-    const scopeData = report.scopeOfWorksData
-      ? JSON.parse(report.scopeOfWorksData)
-      : null;
-
-    // Parse all stored data
-    const analysis = report.technicianReportAnalysis
-      ? JSON.parse(report.technicianReportAnalysis)
-      : null;
-    const tier1 = report.tier1Responses
-      ? JSON.parse(report.tier1Responses)
-      : null;
-    const tier2 = report.tier2Responses
-      ? JSON.parse(report.tier2Responses)
-      : null;
-    const tier3 = report.tier3Responses
-      ? JSON.parse(report.tier3Responses)
-      : null;
-
-    // Parse equipment selection data (from Equipment Tools Selection step)
-    const equipmentSelection = report.equipmentSelection
-      ? JSON.parse(report.equipmentSelection)
-      : [];
-
-    // Parse psychrometric assessment and scope areas
-    const psychrometricAssessment = report.psychrometricAssessment
-      ? JSON.parse(report.psychrometricAssessment)
-      : null;
-    const scopeAreas = report.scopeAreas ? JSON.parse(report.scopeAreas) : [];
-
-    // Get pricing configuration
-    const pricingConfig = user.pricingConfig;
-
-    if (!pricingConfig) {
-      return NextResponse.json(
-        {
-          error:
-            "Pricing configuration not found. Please configure your pricing in Settings.",
-        },
-        { status: 400 },
-      );
-    }
-
-    // Detect state
-    const stateCode = detectStateFromPostcode(report.propertyPostcode || "");
-    const stateInfo = getStateInfo(stateCode);
-
-    // Get appropriate API key based on subscription status
-    // Free users: uses ANTHROPIC_API_KEY from .env
-    // Upgraded users: uses API key from integrations
-    const { getAnthropicApiKey } = await import("@/lib/ai-provider");
-    let anthropicApiKey: string;
-    try {
-      anthropicApiKey = await getAnthropicApiKey(user.id);
-    } catch (error: any) {
-      return NextResponse.json(
-        { error: "Failed to get Anthropic API key" },
-        { status: 400 },
-      );
-    }
-
-    const anthropic = new Anthropic({
-      apiKey: anthropicApiKey,
-    });
-
-    // Build cost estimation data structure
-    const costData = buildCostEstimationData({
-      report,
-      analysis,
-      tier1,
-      tier2,
-      tier3,
-      pricingConfig,
-      stateInfo,
-      scopeData,
-      equipmentSelection,
-      psychrometricAssessment,
-      scopeAreas,
-    });
-
-    // Generate the document - build it server-side with exact values, use AI only for narrative enhancement
-    const costDocument = buildCostEstimationDocument(costData);
-
-    // Save the generated document and data
-    await prisma.report.update({
-      where: { id: reportId },
-      data: {
-        costEstimationDocument: costDocument,
-        costEstimationData: JSON.stringify(costData),
-      },
-    });
-
-    const updatedReport = await prisma.report.findUnique({
-      where: { id: reportId },
-    });
-
-    return NextResponse.json({
-      report: updatedReport,
-      costEstimation: {
-        document: costDocument,
-        data: costData,
-      },
-      message: "Cost Estimation generated successfully",
-    });
-  } catch (error) {
-    console.error("Error generating cost estimation:", error);
-    return NextResponse.json(
-      { error: "Failed to generate cost estimation" },
-      { status: 500 },
-    );
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const userId = session.user.id;
+
+  const rateLimited = await applyRateLimit(request, {
+    maxRequests: 10,
+    prefix: "gen-cost",
+    key: userId,
+  });
+  if (rateLimited) return rateLimited;
+
+  // RA-1266: AI cost-estimation generation — retry doubles AI spend and
+  // may create duplicate cost documents.
+  return withIdempotency(request, userId, async (rawBody) => {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { pricingConfig: true },
+      });
+
+      if (!user) {
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
+      }
+
+      // Subscription gate — CANCELED/PAST_DUE users must not run AI generation
+      const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
+      if (
+        !ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")
+      ) {
+        return NextResponse.json(
+          { error: "Active subscription required" },
+          { status: 402 },
+        );
+      }
+
+      let parsed: { reportId?: string } = {};
+      try {
+        parsed = rawBody ? JSON.parse(rawBody) : {};
+      } catch {
+        return NextResponse.json(
+          { error: "Invalid JSON body" },
+          { status: 400 },
+        );
+      }
+      const { reportId } = parsed;
+
+      if (!reportId) {
+        return NextResponse.json(
+          { error: "Report ID is required" },
+          { status: 400 },
+        );
+      }
+
+      // Get the complete report with all data
+      const report = await prisma.report.findUnique({
+        where: { id: reportId, userId: user.id },
+      });
+
+      if (!report) {
+        return NextResponse.json(
+          { error: "Report not found" },
+          { status: 404 },
+        );
+      }
+
+      // Get scope of works data if available
+      const scopeData = report.scopeOfWorksData
+        ? JSON.parse(report.scopeOfWorksData)
+        : null;
+
+      // Parse all stored data
+      const analysis = report.technicianReportAnalysis
+        ? JSON.parse(report.technicianReportAnalysis)
+        : null;
+      const tier1 = report.tier1Responses
+        ? JSON.parse(report.tier1Responses)
+        : null;
+      const tier2 = report.tier2Responses
+        ? JSON.parse(report.tier2Responses)
+        : null;
+      const tier3 = report.tier3Responses
+        ? JSON.parse(report.tier3Responses)
+        : null;
+
+      // Parse equipment selection data (from Equipment Tools Selection step)
+      const equipmentSelection = report.equipmentSelection
+        ? JSON.parse(report.equipmentSelection)
+        : [];
+
+      // Parse psychrometric assessment and scope areas
+      const psychrometricAssessment = report.psychrometricAssessment
+        ? JSON.parse(report.psychrometricAssessment)
+        : null;
+      const scopeAreas = report.scopeAreas ? JSON.parse(report.scopeAreas) : [];
+
+      // Get pricing configuration
+      const pricingConfig = user.pricingConfig;
+
+      if (!pricingConfig) {
+        return NextResponse.json(
+          {
+            error:
+              "Pricing configuration not found. Please configure your pricing in Settings.",
+          },
+          { status: 400 },
+        );
+      }
+
+      // Detect state
+      const stateCode = detectStateFromPostcode(report.propertyPostcode || "");
+      const stateInfo = getStateInfo(stateCode);
+
+      // Get appropriate API key based on subscription status
+      // Free users: uses ANTHROPIC_API_KEY from .env
+      // Upgraded users: uses API key from integrations
+      const { getAnthropicApiKey } = await import("@/lib/ai-provider");
+      let anthropicApiKey: string;
+      try {
+        anthropicApiKey = await getAnthropicApiKey(user.id);
+      } catch (error: any) {
+        return NextResponse.json(
+          { error: "Failed to get Anthropic API key" },
+          { status: 400 },
+        );
+      }
+
+      const anthropic = new Anthropic({
+        apiKey: anthropicApiKey,
+      });
+
+      // Build cost estimation data structure
+      const costData = buildCostEstimationData({
+        report,
+        analysis,
+        tier1,
+        tier2,
+        tier3,
+        pricingConfig,
+        stateInfo,
+        scopeData,
+        equipmentSelection,
+        psychrometricAssessment,
+        scopeAreas,
+      });
+
+      // Generate the document - build it server-side with exact values, use AI only for narrative enhancement
+      const costDocument = buildCostEstimationDocument(costData);
+
+      // Save the generated document and data
+      await prisma.report.update({
+        where: { id: reportId },
+        data: {
+          costEstimationDocument: costDocument,
+          costEstimationData: JSON.stringify(costData),
+        },
+      });
+
+      const updatedReport = await prisma.report.findUnique({
+        where: { id: reportId },
+      });
+
+      return NextResponse.json({
+        report: updatedReport,
+        costEstimation: {
+          document: costDocument,
+          data: costData,
+        },
+        message: "Cost Estimation generated successfully",
+      });
+    } catch (error) {
+      console.error("Error generating cost estimation:", error);
+      return NextResponse.json(
+        { error: "Failed to generate cost estimation" },
+        { status: 500 },
+      );
+    }
+  });
 }
 
 function buildCostEstimationData(data: {

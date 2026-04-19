@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NotificationType } from "@prisma/client";
+import { withIdempotency } from "@/lib/idempotency";
 
 const TYPE_MAP: Record<string, string> = {
   INFO: "info",
@@ -64,51 +65,64 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
-  try {
-    const session = await getServerSession(authOptions);
+export async function POST(request: NextRequest) {
+  const session = await getServerSession(authOptions);
 
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { title, message, type = "info", link } = await request.json();
-
-    if (!title || !message) {
-      return NextResponse.json(
-        { error: "Title and message are required" },
-        { status: 400 },
-      );
-    }
-
-    try {
-      const notification = await prisma.notification.create({
-        data: {
-          userId: session.user.id,
-          title,
-          message,
-          type: (REVERSE_TYPE_MAP[type] || "INFO") as NotificationType,
-          link,
-        },
-      });
-
-      return NextResponse.json({
-        notification: {
-          ...notification,
-          type: TYPE_MAP[notification.type] || "info",
-        },
-      });
-    } catch {
-      return NextResponse.json(
-        { error: "Notifications not available" },
-        { status: 503 },
-      );
-    }
-  } catch (error) {
-    console.error("Error creating notification:", error);
-    return NextResponse.json(
-      { error: "Failed to create notification" },
-      { status: 500 },
-    );
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const userId = session.user.id;
+
+  // RA-1266: dedup retried notification creations.
+  return withIdempotency(request, userId, async (rawBody) => {
+    try {
+      let parsed: any = {};
+      try {
+        parsed = rawBody ? JSON.parse(rawBody) : {};
+      } catch {
+        return NextResponse.json(
+          { error: "Invalid JSON body" },
+          { status: 400 },
+        );
+      }
+      const { title, message, type = "info", link } = parsed;
+
+      if (!title || !message) {
+        return NextResponse.json(
+          { error: "Title and message are required" },
+          { status: 400 },
+        );
+      }
+
+      try {
+        const notification = await prisma.notification.create({
+          data: {
+            userId,
+            title,
+            message,
+            type: (REVERSE_TYPE_MAP[type] || "INFO") as NotificationType,
+            link,
+          },
+        });
+
+        return NextResponse.json({
+          notification: {
+            ...notification,
+            type: TYPE_MAP[notification.type] || "info",
+          },
+        });
+      } catch {
+        return NextResponse.json(
+          { error: "Notifications not available" },
+          { status: 503 },
+        );
+      }
+    } catch (error) {
+      console.error("Error creating notification:", error);
+      return NextResponse.json(
+        { error: "Failed to create notification" },
+        { status: 500 },
+      );
+    }
+  });
 }

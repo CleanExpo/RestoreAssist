@@ -119,50 +119,65 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check for existing pending invitation
-    const existingInvitation = await prisma.portalInvitation.findFirst({
-      where: {
-        clientId,
-        status: "PENDING",
-        expiresAt: {
-          gt: new Date(),
-        },
-      },
-    });
-
-    if (existingInvitation) {
-      return NextResponse.json(
-        { error: "Active invitation already exists for this client" },
-        { status: 400 },
-      );
-    }
-
-    // Create invitation (expires in 7 days)
+    // RA-1367 — the old pattern was:
+    //   1. findFirst({ status: PENDING })
+    //   2. if exists, reject
+    //   3. create
+    // Two concurrent POSTs could both see "no existing" in step 1, both
+    // pass step 2, and both create in step 3 — duplicate PENDING invites
+    // for the same (email, clientId). Spamming the client's inbox and
+    // cluttering the dashboard.
+    //
+    // Fix: wrap the read-then-create in a $transaction with Serializable
+    // isolation. Either both steps commit together (no duplicate possible)
+    // or the losing call's transaction aborts with a P2034 conflict which
+    // we translate to the same 400 the caller would have seen anyway.
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
 
-    const invitation = await prisma.portalInvitation.create({
-      data: {
-        email: client.email,
-        clientId,
-        userId: session.user.id,
-        expiresAt,
-      },
-      include: {
-        client: {
-          select: {
-            name: true,
-            email: true,
-          },
+    let invitation;
+    try {
+      invitation = await prisma.$transaction(
+        async (tx) => {
+          const existing = await tx.portalInvitation.findFirst({
+            where: {
+              clientId,
+              status: "PENDING",
+              expiresAt: { gt: new Date() },
+            },
+          });
+          if (existing) {
+            throw new Error("DUPLICATE_INVITE");
+          }
+          return await tx.portalInvitation.create({
+            data: {
+              email: client.email,
+              clientId,
+              userId: session.user.id,
+              expiresAt,
+            },
+            include: {
+              client: {
+                select: { name: true, email: true },
+              },
+              user: {
+                select: { name: true, businessName: true },
+              },
+            },
+          });
         },
-        user: {
-          select: {
-            name: true,
-            businessName: true,
-          },
-        },
-      },
-    });
+        { isolationLevel: "Serializable" },
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg === "DUPLICATE_INVITE" || msg.includes("P2034")) {
+        return NextResponse.json(
+          { error: "Active invitation already exists for this client" },
+          { status: 400 },
+        );
+      }
+      throw err;
+    }
 
     // Send invitation email
     const baseUrl = process.env.NEXTAUTH_URL || "https://restoreassist.app";

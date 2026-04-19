@@ -94,8 +94,18 @@ export abstract class BaseIntegrationClient {
       throw new Error("No access token available");
     }
 
-    // Check if token is expired and refresh if needed
-    if (tokens.isExpired && tokens.refreshToken) {
+    // RA-1220 — proactive refresh. Previously this only refreshed AFTER the
+    // token had expired (tokens.isExpired), but expiry can race against the
+    // outbound request: token valid when getTokens() runs, expires by the time
+    // fetch() hits the provider, response = 401, user sees a failure that
+    // should have been transparent. Mirror the Xero token-manager (RA-868)
+    // pattern: refresh if token will expire within the next 5 minutes.
+    const FIVE_MINUTES_MS = 5 * 60 * 1000;
+    const needsRefresh =
+      tokens.isExpired ||
+      (tokens.tokenExpiresAt != null &&
+        tokens.tokenExpiresAt.getTime() - Date.now() < FIVE_MINUTES_MS);
+    if (needsRefresh && tokens.refreshToken) {
       await this.refreshAccessToken();
       // Re-fetch tokens after refresh
       const newTokens = await getTokens(this.integrationId);

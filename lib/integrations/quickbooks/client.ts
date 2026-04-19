@@ -11,7 +11,12 @@ import {
   getClientId,
   getClientSecret,
 } from "../base-client";
-import { getTokens, storeTokens, markIntegrationError } from "../oauth-handler";
+import {
+  getTokens,
+  storeTokens,
+  markIntegrationError,
+  disconnectIntegration,
+} from "../oauth-handler";
 import { prisma } from "@/lib/prisma";
 
 interface QuickBooksCustomer {
@@ -160,10 +165,22 @@ export class QuickBooksClient extends BaseIntegrationClient {
 
     if (!response.ok) {
       const error = await response.text();
-      await markIntegrationError(
-        this.integrationId,
-        `Token refresh failed: ${error}`,
-      );
+      // RA-1308 — 400 invalid_grant / 401 means the refresh token is
+      // permanently dead (user revoked app, reauth needed). DISCONNECT
+      // so the UI can prompt reconnect. Other failures (5xx, network)
+      // stay in ERROR so retry can recover.
+      const isTerminal =
+        response.status === 401 ||
+        response.status === 403 ||
+        (response.status === 400 && /invalid_grant/i.test(error));
+      if (isTerminal) {
+        await disconnectIntegration(this.integrationId);
+      } else {
+        await markIntegrationError(
+          this.integrationId,
+          `Token refresh failed: ${error}`,
+        );
+      }
       throw new Error(`Token refresh failed: ${error}`);
     }
 
@@ -200,7 +217,13 @@ export class QuickBooksClient extends BaseIntegrationClient {
       throw new Error("No access token available");
     }
 
-    if (tokens.isExpired && tokens.refreshToken) {
+    // RA-1220 — proactive refresh (5-min window) to mirror Xero token-manager.
+    const FIVE_MINUTES_MS = 5 * 60 * 1000;
+    const needsRefresh =
+      tokens.isExpired ||
+      (tokens.tokenExpiresAt != null &&
+        tokens.tokenExpiresAt.getTime() - Date.now() < FIVE_MINUTES_MS);
+    if (needsRefresh && tokens.refreshToken) {
       await this.refreshAccessToken();
     }
 

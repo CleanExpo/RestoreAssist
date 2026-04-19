@@ -15,6 +15,7 @@ import {
   getTokens,
   storeTokens,
   markIntegrationError,
+  disconnectIntegration,
   PROVIDER_CONFIG,
 } from "../oauth-handler";
 import { prisma } from "@/lib/prisma";
@@ -140,10 +141,20 @@ export class ServiceM8Client extends BaseIntegrationClient {
 
     if (!response.ok) {
       const error = await response.text();
-      await markIntegrationError(
-        this.integrationId,
-        `Token refresh failed: ${error}`,
-      );
+      // RA-1308 — 400 invalid_grant / 401 / 403 = terminal auth failure,
+      // user must reconnect. Other failures stay in ERROR so retry works.
+      const isTerminal =
+        response.status === 401 ||
+        response.status === 403 ||
+        (response.status === 400 && /invalid_grant/i.test(error));
+      if (isTerminal) {
+        await disconnectIntegration(this.integrationId);
+      } else {
+        await markIntegrationError(
+          this.integrationId,
+          `Token refresh failed: ${error}`,
+        );
+      }
       throw new Error(`Token refresh failed: ${error}`);
     }
 

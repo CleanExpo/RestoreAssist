@@ -213,9 +213,38 @@ async function _processJob(
     });
 
     if (newRetryCount >= maxRetries) {
+      // RA-1297 — dead-letter alerting. Without this, permanent sync
+      // failures silently rot in the DB until a customer notices missing
+      // invoices at BAS time. Emit a recognisable '[DEAD-LETTER]' prefix
+      // for log-drain-based monitoring, AND drop a user-facing Notification
+      // row so it surfaces in the dashboard's in-app notification panel.
       console.error(
-        `[Sync Queue] Job ${job.id} permanently failed after ${newRetryCount} attempts`,
+        `[DEAD-LETTER] [Sync Queue] Job ${job.id} permanently failed after ${newRetryCount} attempts — provider=${job.provider} invoice=${job.invoiceId} error=${message}`,
       );
+      // Best-effort notification — don't let alerting failure mask the
+      // original job failure we're re-throwing below.
+      try {
+        const invoice = await prisma.invoice.findUnique({
+          where: { id: job.invoiceId },
+          select: { userId: true, invoiceNumber: true },
+        });
+        if (invoice?.userId) {
+          await prisma.notification.create({
+            data: {
+              userId: invoice.userId,
+              type: "ERROR",
+              title: `${job.provider} sync failed`,
+              message: `Invoice ${invoice.invoiceNumber ?? job.invoiceId} could not be synced to ${job.provider} after ${newRetryCount} attempts. Last error: ${message.slice(0, 200)}. Check the integration status and retry from Settings → Integrations.`,
+              link: `/dashboard/invoices?highlight=${job.invoiceId}`,
+            },
+          });
+        }
+      } catch (notifyErr) {
+        console.error(
+          `[DEAD-LETTER] [Sync Queue] Failed to create user notification for job ${job.id}:`,
+          notifyErr,
+        );
+      }
     } else {
       console.log(
         `[Sync Queue] Job ${job.id} will retry (attempt ${newRetryCount}/${maxRetries})`,

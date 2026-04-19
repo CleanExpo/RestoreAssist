@@ -8,7 +8,11 @@ import { verifyResetCode } from "@/lib/password-reset-store";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
 import { verifyTurnstile } from "@/lib/turnstile";
 
-const MIN_PASSWORD_LENGTH = 8;
+// RA-1342 — aligned to registration min (12). NIST SP 800-63B §5.1.1.2
+// recommends 8 as an absolute floor, but registration enforces 12 —
+// reset/change must match or the policy is trivially bypassed by setting
+// a weak password via reset after registering with a strong one.
+const MIN_PASSWORD_LENGTH = 12;
 
 // POST - Reset password with verification code
 export async function POST(request: NextRequest) {
