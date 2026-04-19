@@ -183,23 +183,34 @@ export async function GET(request: NextRequest) {
       ...dateFilter,
     };
 
-    // Fetch all reports with estimates
+    // RA-1322 — switch to an explicit select so we transfer ~500 bytes
+    // per row instead of ~20 KB. The default `include` path pulled every
+    // column including @db.Text bodies (technicianFieldReport, moisture
+    // readings JSON, etc.) — 5000 rows × 20 KB = 100 MB resident per
+    // request, and this runs twice (current + previous period) for a
+    // 200 MB footprint. Vercel fn default is 1 GB.
+    // Only the fields actually consumed downstream are selected.
     const reports = await prisma.report.findMany({
       where,
       take: 5000, // CLAUDE.md rule 4
-      include: {
+      select: {
+        id: true,
+        createdAt: true,
+        updatedAt: true,
+        completionDate: true,
+        totalCost: true,
+        propertyAddress: true,
+        hazardType: true,
+        insuranceType: true,
+        clientName: true,
+        status: true,
         estimates: {
           take: 1,
           orderBy: { createdAt: "desc" },
-          select: {
-            totalIncGST: true,
-          },
+          select: { totalIncGST: true },
         },
         client: {
-          select: {
-            name: true,
-            company: true,
-          },
+          select: { name: true, company: true },
         },
       },
       orderBy: { createdAt: "asc" },
@@ -476,10 +487,16 @@ export async function GET(request: NextRequest) {
       },
     };
 
+    // RA-1322 — same explicit-select treatment as the primary query.
+    // Previous-period aggregation only uses dates + first-estimate value.
     const previousReports = await prisma.report.findMany({
       where: previousPeriodFilter,
       take: 5000, // CLAUDE.md rule 4
-      include: {
+      select: {
+        createdAt: true,
+        updatedAt: true,
+        completionDate: true,
+        totalCost: true,
         estimates: {
           take: 1,
           orderBy: { createdAt: "desc" },
