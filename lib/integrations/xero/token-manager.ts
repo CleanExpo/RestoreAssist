@@ -13,7 +13,12 @@
  *  5. Return a valid accessToken string
  */
 
-import { getTokens, storeTokens, markIntegrationError } from "../oauth-handler";
+import {
+  getTokens,
+  storeTokens,
+  markIntegrationError,
+  disconnectIntegration,
+} from "../oauth-handler";
 import { XeroClient } from "./client";
 import { prisma } from "@/lib/prisma";
 
@@ -97,15 +102,49 @@ export async function getValidXeroToken(
 
       return fresh.accessToken;
     } catch (err) {
-      await markIntegrationError(
-        integrationId,
-        `Token refresh failed: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      // RA-1308 — distinguish terminal auth failures (user revoked app,
+      // refresh token expired) from transient errors (network, 5xx). On
+      // terminal failure move to DISCONNECTED so the dashboard can prompt
+      // reconnect; otherwise stay in ERROR so retry can recover.
+      const msg = err instanceof Error ? err.message : String(err);
+      const isTerminal = isTerminalAuthFailure(msg);
+      if (isTerminal) {
+        await disconnectIntegration(integrationId);
+      } else {
+        await markIntegrationError(
+          integrationId,
+          `Token refresh failed: ${msg}`,
+        );
+      }
       throw new XeroTokenError(integrationId, err);
     }
   }
 
   return tokens.accessToken;
+}
+
+// ─── Terminal-auth heuristic (RA-1308) ────────────────────────────────────────
+
+/**
+ * Best-effort classification of a refresh-token error message as a
+ * terminal auth failure (user must reconnect). Matches Xero, QBO, MYOB
+ * error shapes. Conservative: anything unrecognised falls through to
+ * non-terminal (ERROR state), so the sync can retry on transient issues.
+ */
+function isTerminalAuthFailure(message: string): boolean {
+  const m = message.toLowerCase();
+  return (
+    m.includes("invalid_grant") ||
+    m.includes("invalid_client") ||
+    m.includes("unauthorized_client") ||
+    m.includes(" 401") ||
+    m.includes("http 401") ||
+    m.includes(" 403") ||
+    m.includes("http 403") ||
+    m.includes("revoked") ||
+    m.includes("token has been revoked") ||
+    m.includes("user must re-connect")
+  );
 }
 
 // ─── Tenant helper ────────────────────────────────────────────────────────────
