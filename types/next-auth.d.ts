@@ -14,6 +14,7 @@ declare module "next-auth" {
       userType?: string; // 'contractor' | 'client'
       clientId?: string | null; // For client users - the Client record ID
       contractorId?: string | null; // For client users - the contractor who owns this client
+      needsOnboarding?: boolean; // RA-1259: new Google OAuth signups need account-type capture
     };
   }
 
@@ -24,6 +25,7 @@ declare module "next-auth" {
     userType?: string;
     clientId?: string | null;
     contractorId?: string | null;
+    needsOnboarding?: boolean;
   }
 }
 
@@ -35,5 +37,6 @@ declare module "next-auth/jwt" {
     userType?: string;
     clientId?: string | null;
     contractorId?: string | null;
+    needsOnboarding?: boolean;
   }
 }
