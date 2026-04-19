@@ -81,6 +81,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { IICRC_CHECKLISTS } from "@/lib/iicrc-checklists";
+import { GroupReadingsPanel } from "@/components/inspection/GroupReadingsPanel";
 import Link from "next/link";
 
 type Tab =
@@ -1366,6 +1367,15 @@ export default function InspectionDetailPage({
                 <Plus size={14} /> Add Reading
               </button>
             </div>
+            <GroupReadingsPanel
+              inspectionId={inspection!.id}
+              readings={moistureReadings.map((r) => ({
+                id: r.id,
+                location: r.location,
+                moistureLevel: r.moistureLevel,
+              }))}
+              onApplied={() => router.refresh()}
+            />
             {showAddMoisture && (
               <div className="p-4 rounded-xl border border-cyan-200 dark:border-cyan-800/50 bg-cyan-50/30 dark:bg-cyan-900/10 space-y-3">
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
