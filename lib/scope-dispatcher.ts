@@ -147,15 +147,20 @@ function dispatchStorm(withWaterIngress: boolean | null | undefined): {
   return { primary: wind, secondary };
 }
 
-function dispatchBiohazard(
-  subtype: "sewage" | "trauma" | null | undefined,
-): ChecklistTemplate {
+function dispatchBiohazard(subtype: "sewage" | "trauma" | null | undefined): {
+  primary: ChecklistTemplate;
+  secondary: ChecklistTemplate[];
+} {
   const id = subtype === "trauma" ? "biohazard-trauma" : "biohazard-sewage";
   const t = findChecklist(id);
   if (!t) {
     throw new Error(`[scope-dispatcher] ${id} checklist missing`);
   }
-  return t;
+  // RA-877: Safe Work Australia biohazard CoP always overlays IICRC scope.
+  const secondary: ChecklistTemplate[] = [];
+  const swa = findChecklist("safe-work-biohazard");
+  if (swa) secondary.push(swa);
+  return { primary: t, secondary };
 }
 
 /**
@@ -179,10 +184,7 @@ function dispatchSingle(input: DispatchInput): {
     case "STORM":
       return dispatchStorm(input.stormWaterIngress);
     case "BIOHAZARD":
-      return {
-        primary: dispatchBiohazard(input.biohazardSubtype),
-        secondary: [],
-      };
+      return dispatchBiohazard(input.biohazardSubtype);
     case "GENERAL":
     case "MULTI_LOSS":
     default:
