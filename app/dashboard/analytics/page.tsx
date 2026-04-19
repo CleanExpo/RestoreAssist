@@ -62,6 +62,7 @@ import StatusPipeline from "./components/StatusPipeline";
 import ActivityByDay from "./components/ActivityByDay";
 import PeriodComparison from "./components/PeriodComparison";
 import InsightsMovers from "./components/InsightsMovers";
+import AINarrativeCard from "./components/AINarrativeCard";
 import { Users, UserCog, Wrench } from "lucide-react";
 
 interface AnalyticsData {
@@ -653,6 +654,19 @@ export default function AnalyticsPage() {
                 </div>
               </div>
             )}
+
+            {/* RA-1208: AI-generated "what changed this period" narrative */}
+            <div className="animate-in slide-in-from-bottom-4 duration-500 delay-50">
+              <AINarrativeCard
+                period={
+                  filters.dateRange === "90days"
+                    ? "quarter"
+                    : filters.dateRange === "ytd"
+                      ? "year"
+                      : "month"
+                }
+              />
+            </div>
 
             {/* Executive Summary - Next-level insight */}
             <div className="animate-in slide-in-from-bottom-4 duration-500 delay-75">
