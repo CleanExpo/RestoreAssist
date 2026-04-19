@@ -15,6 +15,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { IICRC_DRY_STANDARDS, getDryStandard } from "@/lib/iicrc-dry-standards";
 import { computeTargetCurve } from "@/lib/drying/target-curve";
+import { withIdempotency } from "@/lib/idempotency";
 
 // Material EMC targets for the "Drying Goal: ACHIEVED" gate
 // These map the iicrc-dry-standards.ts values into the per-material target JSON
@@ -128,107 +129,119 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 }
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const userId = session.user.id;
+  const { id: inspectionId } = await params;
 
-    const { id: inspectionId } = await params;
-    const body = await request.json();
-    const { targetCategory, targetClass } = body as {
-      targetCategory: string;
-      targetClass: string;
-    };
-
-    const VALID_TARGET_CATEGORIES = [
-      "Category 1",
-      "Category 2",
-      "Category 3",
-    ] as const;
-    const VALID_TARGET_CLASSES = [
-      "Class 1",
-      "Class 2",
-      "Class 3",
-      "Class 4",
-    ] as const;
-
-    if (
-      !VALID_TARGET_CATEGORIES.includes(
-        targetCategory as (typeof VALID_TARGET_CATEGORIES)[number],
-      )
-    ) {
-      return NextResponse.json(
-        {
-          error: `targetCategory must be one of: ${VALID_TARGET_CATEGORIES.join(", ")}`,
-        },
-        { status: 400 },
-      );
-    }
-    if (
-      !VALID_TARGET_CLASSES.includes(
-        targetClass as (typeof VALID_TARGET_CLASSES)[number],
-      )
-    ) {
-      return NextResponse.json(
-        {
-          error: `targetClass must be one of: ${VALID_TARGET_CLASSES.join(", ")}`,
-        },
-        { status: 400 },
-      );
-    }
-
-    // Verify ownership + get classification
-    const inspection = await prisma.inspection.findFirst({
-      where: { id: inspectionId, userId: session.user.id },
-      select: { id: true },
-    });
-    if (!inspection) {
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
-    }
-
-    // Use create-and-catch instead of findUnique+create to eliminate the TOCTOU
-    // race where two simultaneous POST requests both read null and both attempt create.
-    let record;
+  // RA-1266: prevents duplicate drying-goal row creation on retry.
+  return withIdempotency(request, userId, async (rawBody) => {
     try {
-      record = await (prisma as any).dryingGoalRecord.create({
-        data: {
-          inspectionId,
-          targetCategory,
-          targetClass,
-          materialTargets: buildMaterialTargets(),
-          goalAchieved: false,
-          iicrcReference: "IICRC S500:2025 §11.4",
-        },
-      });
-    } catch (err: any) {
-      if (err.code === "P2002") {
+      let body: any;
+      try {
+        body = rawBody ? JSON.parse(rawBody) : {};
+      } catch {
         return NextResponse.json(
-          {
-            error:
-              "Drying goal already initialised for this inspection. Use PUT to evaluate.",
-          },
-          { status: 409 },
+          { error: "Invalid JSON body" },
+          { status: 400 },
         );
       }
-      throw err;
-    }
+      const { targetCategory, targetClass } = body as {
+        targetCategory: string;
+        targetClass: string;
+      };
 
-    return NextResponse.json({
-      dryingGoal: record,
-      message:
-        "Drying goal initialised. POST moisture readings then PUT to evaluate.",
-    });
-  } catch (error) {
-    console.error("[drying-goal POST]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
-  }
+      const VALID_TARGET_CATEGORIES = [
+        "Category 1",
+        "Category 2",
+        "Category 3",
+      ] as const;
+      const VALID_TARGET_CLASSES = [
+        "Class 1",
+        "Class 2",
+        "Class 3",
+        "Class 4",
+      ] as const;
+
+      if (
+        !VALID_TARGET_CATEGORIES.includes(
+          targetCategory as (typeof VALID_TARGET_CATEGORIES)[number],
+        )
+      ) {
+        return NextResponse.json(
+          {
+            error: `targetCategory must be one of: ${VALID_TARGET_CATEGORIES.join(", ")}`,
+          },
+          { status: 400 },
+        );
+      }
+      if (
+        !VALID_TARGET_CLASSES.includes(
+          targetClass as (typeof VALID_TARGET_CLASSES)[number],
+        )
+      ) {
+        return NextResponse.json(
+          {
+            error: `targetClass must be one of: ${VALID_TARGET_CLASSES.join(", ")}`,
+          },
+          { status: 400 },
+        );
+      }
+
+      // Verify ownership + get classification
+      const inspection = await prisma.inspection.findFirst({
+        where: { id: inspectionId, userId },
+        select: { id: true },
+      });
+      if (!inspection) {
+        return NextResponse.json(
+          { error: "Inspection not found" },
+          { status: 404 },
+        );
+      }
+
+      // Use create-and-catch instead of findUnique+create to eliminate the TOCTOU
+      // race where two simultaneous POST requests both read null and both attempt create.
+      let record;
+      try {
+        record = await (prisma as any).dryingGoalRecord.create({
+          data: {
+            inspectionId,
+            targetCategory,
+            targetClass,
+            materialTargets: buildMaterialTargets(),
+            goalAchieved: false,
+            iicrcReference: "IICRC S500:2025 §11.4",
+          },
+        });
+      } catch (err: any) {
+        if (err.code === "P2002") {
+          return NextResponse.json(
+            {
+              error:
+                "Drying goal already initialised for this inspection. Use PUT to evaluate.",
+            },
+            { status: 409 },
+          );
+        }
+        throw err;
+      }
+
+      return NextResponse.json({
+        dryingGoal: record,
+        message:
+          "Drying goal initialised. POST moisture readings then PUT to evaluate.",
+      });
+    } catch (error) {
+      console.error("[drying-goal POST]", error);
+      return NextResponse.json(
+        { error: "Internal server error" },
+        { status: 500 },
+      );
+    }
+  });
 }
 
 export async function PUT(request: NextRequest, { params }: RouteParams) {
