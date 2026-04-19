@@ -39,6 +39,7 @@ import dynamic from "next/dynamic";
 import toast from "react-hot-toast";
 import { NotificationBell } from "@/components/notifications";
 import { WhatsNewModal } from "@/components/releases/WhatsNewModal";
+import { TrialBanner } from "@/components/TrialBanner";
 import { PastDueBanner } from "@/components/billing/PastDueBanner";
 import { CancellationCountdownBanner } from "@/components/billing/CancellationCountdownBanner";
 
@@ -537,6 +538,11 @@ export default function DashboardLayout({
               </div>
             </div>
           </header>
+
+          {/* RA-1241 — persistent trial-countdown banner. Silent unless
+              subscriptionStatus === TRIAL + daysRemaining set. Dismissible
+              per-session. Escalates amber → orange → red at ≤3d and ≤1d. */}
+          <TrialBanner />
 
           {/* PAST_DUE dunning banner — RA-1244 */}
           <PastDueBanner status={subscriptionStatus} />
