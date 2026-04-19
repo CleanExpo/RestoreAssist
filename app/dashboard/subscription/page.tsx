@@ -18,6 +18,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { PRICING_CONFIG, type PricingPlan } from "@/lib/pricing";
+import { Skeleton } from "@/components/ui/skeleton";
 import toast from "react-hot-toast";
 import { CancelSubscriptionDialog } from "@/components/billing/CancelSubscriptionDialog";
 
@@ -246,9 +247,23 @@ export default function SubscriptionPage() {
   };
 
   if (loading) {
+    // RA-1212 — skeleton mirrors the final layout so slow connections
+    // don't see a blank page after clicking Login → Subscription.
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-9 w-40" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+          <Skeleton className="h-10 w-32" />
+        </div>
+        <Skeleton className="h-40 w-full rounded-xl" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Skeleton className="h-72 w-full rounded-xl" />
+          <Skeleton className="h-72 w-full rounded-xl" />
+          <Skeleton className="h-72 w-full rounded-xl" />
+        </div>
       </div>
     );
   }
