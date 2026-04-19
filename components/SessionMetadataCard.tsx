@@ -81,12 +81,12 @@ export function EvaluatorScoreBadge({ scores }: EvaluatorScoreBadgeProps) {
   const aggregate = aggregateEvaluatorScore(scores);
   return (
     <div
-      className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium ${scoreBgColour(aggregate)} ${scoreColour(aggregate)}`}
+      className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium tabular-nums ${scoreBgColour(aggregate)} ${scoreColour(aggregate)}`}
     >
       <Star size={11} />
       <span>{aggregate}/100</span>
       {(scores.retryCount ?? 0) > 0 && (
-        <span className="flex items-center gap-0.5 text-orange-400 ml-1">
+        <span className="flex items-center gap-0.5 text-orange-400 ml-1 tabular-nums">
           <RefreshCw size={10} />
           {scores.retryCount}
         </span>
