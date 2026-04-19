@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { withIdempotency } from "@/lib/idempotency";
 
 const DOC_TYPE_INVOICE = "RESTORATION_INVOICE";
 
@@ -50,39 +51,51 @@ export async function GET(request: NextRequest) {
 
 /** POST: Create a new restoration document */
 export async function POST(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const userId = session.user.id;
 
-    const body = await request.json();
-    const { documentType, documentNumber, title, reportId, data } = body;
+  // RA-1266: prevents duplicate restoration-document rows on retry.
+  return withIdempotency(request, userId, async (rawBody) => {
+    try {
+      let body: any;
+      try {
+        body = rawBody ? JSON.parse(rawBody) : {};
+      } catch {
+        return NextResponse.json(
+          { error: "Invalid JSON body" },
+          { status: 400 },
+        );
+      }
+      const { documentType, documentNumber, title, reportId, data } = body;
 
-    if (!documentType || !documentNumber || data === undefined) {
+      if (!documentType || !documentNumber || data === undefined) {
+        return NextResponse.json(
+          { error: "documentType, documentNumber, and data are required" },
+          { status: 400 },
+        );
+      }
+
+      const doc = await prisma.restorationDocument.create({
+        data: {
+          userId,
+          reportId: reportId || null,
+          documentType: documentType,
+          documentNumber: String(documentNumber),
+          title: title || null,
+          data: data as object,
+        },
+      });
+
+      return NextResponse.json({ document: doc });
+    } catch (error) {
+      console.error("Error creating restoration document:", error);
       return NextResponse.json(
-        { error: "documentType, documentNumber, and data are required" },
-        { status: 400 },
+        { error: "Internal server error" },
+        { status: 500 },
       );
     }
-
-    const doc = await prisma.restorationDocument.create({
-      data: {
-        userId: session.user.id,
-        reportId: reportId || null,
-        documentType: documentType,
-        documentNumber: String(documentNumber),
-        title: title || null,
-        data: data as object,
-      },
-    });
-
-    return NextResponse.json({ document: doc });
-  } catch (error) {
-    console.error("Error creating restoration document:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
-  }
+  });
 }

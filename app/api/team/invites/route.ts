@@ -77,6 +77,7 @@ export async function GET() {
       createdById: true,
       managedById: true,
     },
+    take: 500, // CLAUDE.md rule 4
   });
 
   return NextResponse.json({ invites });

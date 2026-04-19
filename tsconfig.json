@@ -33,6 +33,7 @@
   "exclude": [
     "node_modules",
     "mobile/**",
+    "scripts/**",
     "**/__tests__/**",
     "**/*.test.ts",
     "**/*.test.tsx",

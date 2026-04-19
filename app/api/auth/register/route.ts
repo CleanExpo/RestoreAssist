@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { applyRateLimit } from "@/lib/rate-limiter";
+import { applyRateLimit, getClientIp } from "@/lib/rate-limiter";
 import { sanitizeString } from "@/lib/sanitize";
 import { validateCsrf } from "@/lib/csrf";
 import { sendWelcomeEmail } from "@/lib/email";
 import { notifyWelcome } from "@/lib/notifications";
+import { seedDemoDataForNewUser } from "@/lib/demo-data";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
+import { verifyTurnstile } from "@/lib/turnstile";
 
 const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.app";
 
@@ -32,11 +34,33 @@ export async function POST(request: NextRequest) {
     }
     const name = sanitizeString(body.name, 200);
     const email = sanitizeString(body.email, 320);
-    const { password } = body;
+    const { password, acceptedTerms, turnstileToken } = body;
 
     if (!name || !email || !password) {
       return NextResponse.json(
         { error: "Name, email, and password are required" },
+        { status: 400 },
+      );
+    }
+
+    // RA-1286: CAPTCHA gate on the public signup endpoint. Soft-allows
+    // when TURNSTILE_SECRET_KEY is unset (dev / staging).
+    const captcha = await verifyTurnstile(
+      typeof turnstileToken === "string" ? turnstileToken : null,
+      getClientIp(request),
+    );
+    if (!captcha.ok) {
+      return NextResponse.json({ error: captcha.reason }, { status: 400 });
+    }
+
+    // RA-1255: ToS + Privacy acceptance mandatory for new email signups.
+    // Server-side re-check — don't trust just the client-side guard.
+    if (acceptedTerms !== true) {
+      return NextResponse.json(
+        {
+          error:
+            "You must accept the Terms of Service and Privacy Policy to create an account",
+        },
         { status: 400 },
       );
     }
@@ -49,12 +73,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (typeof password !== "string" || password.length < 8) {
+    // RA-1258: raise floor to 12 chars per NIST SP 800-63B / OWASP 2024.
+    if (typeof password !== "string" || password.length < 12) {
       return NextResponse.json(
-        { error: "Password must be at least 8 characters" },
+        { error: "Password must be at least 12 characters" },
         { status: 400 },
       );
     }
+
+    // RA-1340: hash password FIRST so the duplicate-email path takes the
+    // same ~250ms bcrypt cost as the create path. Previously the hash only
+    // ran after the uniqueness check — a ~250ms timing oracle revealed
+    // whether an email was registered, even with a generic error message.
+    const hashedPassword = await bcrypt.hash(password, 12);
 
     const existingUser = await prisma.user.findUnique({
       where: { email },
@@ -65,8 +96,6 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
-
-    const hashedPassword = await bcrypt.hash(password, 12);
 
     // All registrations create an ADMIN user with their own organisation
     const canCreateOrganization = Boolean(prisma.organization?.create);
@@ -84,7 +113,9 @@ export async function POST(request: NextRequest) {
           trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           quickFillCreditsRemaining: 30,
           totalQuickFillUsed: 0,
-        },
+          // RA-1255: cast needed until Prisma client regenerates in Vercel build
+          acceptedTermsAt: new Date() as any,
+        } as any,
       });
       sendWelcomeEmail({
         recipientEmail: email,
@@ -93,7 +124,13 @@ export async function POST(request: NextRequest) {
         trialDays: 30,
         trialCredits: 30,
       }).catch((err) => console.error("[Register] Welcome email failed:", err));
-      notifyWelcome(user.id);
+      notifyWelcome(user.id).catch((err) =>
+        console.error("[Register] notifyWelcome failed:", err),
+      );
+      // RA-1239: seed demo data so trial users don't land on an empty dashboard
+      seedDemoDataForNewUser(user.id).catch((err) =>
+        console.error("[Register] seedDemoDataForNewUser failed:", err),
+      );
       const reqCtx = extractRequestContext(request);
       logSecurityEvent({
         eventType: "ACCOUNT_REGISTERED",
@@ -146,7 +183,13 @@ export async function POST(request: NextRequest) {
         trialDays: 30,
         trialCredits: 30,
       }).catch((err) => console.error("[Register] Welcome email failed:", err));
-      notifyWelcome(updatedUser.id);
+      notifyWelcome(updatedUser.id).catch((err) =>
+        console.error("[Register] notifyWelcome failed:", err),
+      );
+      // RA-1239: seed demo data so trial users don't land on an empty dashboard
+      seedDemoDataForNewUser(updatedUser.id).catch((err) =>
+        console.error("[Register] seedDemoDataForNewUser failed:", err),
+      );
       const reqCtx = extractRequestContext(request);
       logSecurityEvent({
         eventType: "ACCOUNT_REGISTERED",
@@ -161,37 +204,25 @@ export async function POST(request: NextRequest) {
         { status: 201 },
       );
     } catch (e) {
-      const user = await prisma.user.create({
-        data: {
-          name,
-          email,
-          password: hashedPassword,
-          role: "ADMIN",
-          subscriptionStatus: "TRIAL",
-          creditsRemaining: 30,
-          totalCreditsUsed: 0,
-          trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-          quickFillCreditsRemaining: 30,
-          totalQuickFillUsed: 0,
-        },
-      });
-      sendWelcomeEmail({
-        recipientEmail: email,
-        recipientName: name,
-        loginUrl: `${APP_URL}/login`,
-        trialDays: 30,
-        trialCredits: 30,
-      }).catch((err) => console.error("[Register] Welcome email failed:", err));
-      notifyWelcome(user.id);
-      const { password: _, ...userWithoutPassword } = user;
+      // RA-1305 — the previous fallback created a User-only row (no
+      // Organization, no organizationId) and returned 201 with warning
+      // text. That left an ADMIN user orphaned from any org, which
+      // NPEs downstream code that assumes `user.organization.members`
+      // etc. Worse: the user record would require manual DB cleanup
+      // before they could re-register (P2002 on email).
+      // Correct behaviour: the transaction failed → nothing was
+      // committed → return 500 and let the client retry. No orphan.
+      console.error(
+        "[Register] Organisation setup failed — returning 500, no orphan user created:",
+        e instanceof Error ? e.message : String(e),
+      );
       return NextResponse.json(
         {
-          message: "User created successfully",
-          user: userWithoutPassword,
-          warning:
-            "Organisation setup failed (migration/client not applied yet). Run `npx prisma migrate dev` then `npx prisma generate`, and restart the dev server.",
+          error: "Registration failed — please try again.",
+          detail:
+            "Organisation setup transaction aborted; no partial user was created.",
         },
-        { status: 201 },
+        { status: 500 },
       );
     }
   } catch (error: unknown) {

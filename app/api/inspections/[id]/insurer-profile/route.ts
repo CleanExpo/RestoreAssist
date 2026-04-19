@@ -15,6 +15,7 @@ import {
 import type { InsurerId } from "@/lib/insurer-profiles";
 import type { JobType } from "@/lib/evidence/workflow-definitions";
 import type { EvidenceClass } from "@/lib/types/evidence";
+import { withIdempotency } from "@/lib/idempotency";
 /**
  * [RA-406] Insurer Profile API
  * GET  — Retrieve insurer profile for an inspection (or list all profiles)
@@ -105,106 +106,113 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-
+  const userId = session.user.id;
   const { id: inspectionId } = await params;
 
-  let body: {
-    insurerId: string;
-    claimRef?: string;
-  };
+  // RA-1266: setting insurer profile triggers evidence gap analysis —
+  // retry recomputes identical analysis unnecessarily.
+  return withIdempotency(request, userId, async (rawBody) => {
+    let body: {
+      insurerId: string;
+      claimRef?: string;
+    };
 
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
-  }
+    try {
+      body = (rawBody ? JSON.parse(rawBody) : {}) as {
+        insurerId: string;
+        claimRef?: string;
+      };
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
 
-  if (!body.insurerId || !isValidInsurerId(body.insurerId)) {
-    return NextResponse.json(
-      {
-        error: `Invalid insurer ID. Valid IDs: ${Object.keys(INSURER_LABELS).join(", ")}`,
+    if (!body.insurerId || !isValidInsurerId(body.insurerId)) {
+      return NextResponse.json(
+        {
+          error: `Invalid insurer ID. Valid IDs: ${Object.keys(INSURER_LABELS).join(", ")}`,
+        },
+        { status: 400 },
+      );
+    }
+
+    const insurerId = body.insurerId as InsurerId;
+
+    // Verify inspection ownership
+    const inspection = await prisma.inspection.findFirst({
+      where: {
+        id: inspectionId,
+        userId,
       },
-      { status: 400 },
-    );
-  }
+      select: {
+        id: true,
+        jobType: true,
+        metadata: true,
+      } as any,
+    });
 
-  const insurerId = body.insurerId as InsurerId;
+    if (!inspection) {
+      return NextResponse.json(
+        { error: "Inspection not found" },
+        { status: 404 },
+      );
+    }
 
-  // Verify inspection ownership
-  const inspection = await prisma.inspection.findFirst({
-    where: {
-      id: inspectionId,
-      userId: session.user.id,
-    },
-    select: {
-      id: true,
-      jobType: true,
-      metadata: true,
-    } as any,
-  });
+    const jobType = ((inspection as any).jobType as JobType) ?? undefined;
 
-  if (!inspection) {
-    return NextResponse.json(
-      { error: "Inspection not found" },
-      { status: 404 },
-    );
-  }
+    // Update inspection metadata with insurer profile
+    const existingMetadata =
+      ((inspection as any).metadata as Record<string, unknown>) ?? {};
+    const updatedMetadata = {
+      ...existingMetadata,
+      insurerProfileId: insurerId,
+      insurerClaimRef: body.claimRef ?? existingMetadata.insurerClaimRef,
+      insurerProfileSetAt: new Date().toISOString(),
+    };
 
-  const jobType = ((inspection as any).jobType as JobType) ?? undefined;
+    await prisma.inspection.update({
+      where: { id: inspectionId },
+      data: { metadata: updatedMetadata } as any,
+    });
 
-  // Update inspection metadata with insurer profile
-  const existingMetadata =
-    ((inspection as any).metadata as Record<string, unknown>) ?? {};
-  const updatedMetadata = {
-    ...existingMetadata,
-    insurerProfileId: insurerId,
-    insurerClaimRef: body.claimRef ?? existingMetadata.insurerClaimRef,
-    insurerProfileSetAt: new Date().toISOString(),
-  };
+    // Get profile data for response
+    const profile = getInsurerProfile(insurerId);
+    const evidenceReqs = getEvidenceRequirements(insurerId, jobType);
+    const reportSections = getReportSections(insurerId, jobType);
 
-  await prisma.inspection.update({
-    where: { id: inspectionId },
-    data: { metadata: updatedMetadata } as any,
-  });
+    // Run evidence gap analysis if evidence exists
+    const evidenceCounts = await (prisma as any).inspectionEvidence.groupBy({
+      by: ["evidenceClass"],
+      where: { inspectionId },
+      _count: { id: true },
+    });
 
-  // Get profile data for response
-  const profile = getInsurerProfile(insurerId);
-  const evidenceReqs = getEvidenceRequirements(insurerId, jobType);
-  const reportSections = getReportSections(insurerId, jobType);
+    const submittedEvidence = evidenceCounts.map((e: any) => ({
+      evidenceClass: e.evidenceClass as EvidenceClass,
+      count: e._count.id,
+    }));
 
-  // Run evidence gap analysis if evidence exists
-  const evidenceCounts = await (prisma as any).inspectionEvidence.groupBy({
-    by: ["evidenceClass"],
-    where: { inspectionId },
-    _count: { id: true },
-  });
+    const missingEvidence = jobType
+      ? getMissingMandatoryEvidence(insurerId, jobType, submittedEvidence)
+      : [];
 
-  const submittedEvidence = evidenceCounts.map((e: any) => ({
-    evidenceClass: e.evidenceClass as EvidenceClass,
-    count: e._count.id,
-  }));
+    // Format claim reference if provided
+    const formattedClaimRef = body.claimRef
+      ? formatClaimReference(insurerId, body.claimRef, new Date(), "REPORT")
+      : undefined;
 
-  const missingEvidence = jobType
-    ? getMissingMandatoryEvidence(insurerId, jobType, submittedEvidence)
-    : [];
-
-  // Format claim reference if provided
-  const formattedClaimRef = body.claimRef
-    ? formatClaimReference(insurerId, body.claimRef, new Date(), "REPORT")
-    : undefined;
-
-  return NextResponse.json({
-    success: true,
-    insurerProfile: profile,
-    evidenceRequirements: evidenceReqs,
-    reportSections,
-    evidenceGapAnalysis: {
-      totalMandatory: evidenceReqs.filter((r) => r.mandatory).length,
-      totalSubmitted: submittedEvidence.length,
-      missing: missingEvidence,
-      isComplete: missingEvidence.length === 0,
-    },
-    formattedClaimRef,
-    inspectionJobType: jobType,
+    return NextResponse.json({
+      success: true,
+      insurerProfile: profile,
+      evidenceRequirements: evidenceReqs,
+      reportSections,
+      evidenceGapAnalysis: {
+        totalMandatory: evidenceReqs.filter((r) => r.mandatory).length,
+        totalSubmitted: submittedEvidence.length,
+        missing: missingEvidence,
+        isComplete: missingEvidence.length === 0,
+      },
+      formattedClaimRef,
+      inspectionJobType: jobType,
+    });
   });
 }

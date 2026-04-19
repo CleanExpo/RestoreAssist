@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import ExcelJS from "exceljs";
 import jsPDF from "jspdf";
+import { withIdempotency } from "@/lib/idempotency";
 
 interface ExportRequest {
   format: "csv" | "excel" | "pdf";
@@ -30,85 +31,98 @@ function formatDate(date: Date): string {
 }
 
 export async function POST(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
+  const session = await getServerSession(authOptions);
 
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // Rate limit: 5 analytics exports per 15 minutes per IP
-    const rateLimited = await applyRateLimit(request, {
-      maxRequests: 5,
-      prefix: "analytics-export",
-    });
-    if (rateLimited) return rateLimited;
-
-    const body: ExportRequest = await request.json();
-    const { format, dateRange, includeCharts = false } = body;
-
-    // Parse dates
-    const fromDate = new Date(dateRange.from);
-    const toDate = new Date(dateRange.to);
-    toDate.setHours(23, 59, 59, 999);
-
-    // Fetch reports for the date range
-    const reports = await prisma.report.findMany({
-      where: {
-        userId: session.user.id,
-        createdAt: {
-          gte: fromDate,
-          lte: toDate,
-        },
-      },
-      include: {
-        estimates: {
-          take: 1,
-          orderBy: { createdAt: "desc" },
-          select: {
-            totalIncGST: true,
-          },
-        },
-        client: {
-          select: {
-            name: true,
-            company: true,
-          },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    // Transform data for export
-    const exportData = reports.map((report) => ({
-      "Report ID": report.id,
-      "Created Date": formatDate(report.createdAt),
-      Title: report.title,
-      Client: report.client?.name || report.clientName,
-      "Hazard Type": report.hazardType || "-",
-      "Insurance Type": report.insuranceType || "-",
-      Status: report.status,
-      Revenue: formatCurrency(
-        report.estimates?.[0]?.totalIncGST || report.totalCost || 0,
-      ),
-    }));
-
-    if (format === "csv") {
-      return handleCSVExport(exportData);
-    } else if (format === "excel") {
-      return await handleExcelExport(exportData, reports, fromDate, toDate);
-    } else if (format === "pdf") {
-      return handlePDFExport(exportData, reports, fromDate, toDate);
-    }
-
-    return NextResponse.json({ error: "Invalid format" }, { status: 400 });
-  } catch (error) {
-    console.error("Error exporting analytics:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const userId = session.user.id;
+
+  const rateLimited = await applyRateLimit(request, {
+    maxRequests: 5,
+    prefix: "analytics-export",
+  });
+  if (rateLimited) return rateLimited;
+
+  // RA-1266: analytics export runs expensive aggregation + PDF/Excel
+  // generation. Retry returns the cached export instead of re-computing.
+  return withIdempotency(request, userId, async (rawBody) => {
+    try {
+      let body: ExportRequest;
+      try {
+        body = (rawBody ? JSON.parse(rawBody) : {}) as ExportRequest;
+      } catch {
+        return NextResponse.json(
+          { error: "Invalid JSON body" },
+          { status: 400 },
+        );
+      }
+      const { format, dateRange, includeCharts = false } = body;
+
+      // Parse dates
+      const fromDate = new Date(dateRange.from);
+      const toDate = new Date(dateRange.to);
+      toDate.setHours(23, 59, 59, 999);
+
+      // Fetch reports for the date range
+      const reports = await prisma.report.findMany({
+        where: {
+          userId,
+          createdAt: {
+            gte: fromDate,
+            lte: toDate,
+          },
+        },
+        take: 10000, // CLAUDE.md rule 4 — export is higher-cap than list views
+        include: {
+          estimates: {
+            take: 1,
+            orderBy: { createdAt: "desc" },
+            select: {
+              totalIncGST: true,
+            },
+          },
+          client: {
+            select: {
+              name: true,
+              company: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      // Transform data for export
+      const exportData = reports.map((report) => ({
+        "Report ID": report.id,
+        "Created Date": formatDate(report.createdAt),
+        Title: report.title,
+        Client: report.client?.name || report.clientName,
+        "Hazard Type": report.hazardType || "-",
+        "Insurance Type": report.insuranceType || "-",
+        Status: report.status,
+        Revenue: formatCurrency(
+          report.estimates?.[0]?.totalIncGST || report.totalCost || 0,
+        ),
+      }));
+
+      if (format === "csv") {
+        return handleCSVExport(exportData);
+      } else if (format === "excel") {
+        return await handleExcelExport(exportData, reports, fromDate, toDate);
+      } else if (format === "pdf") {
+        return handlePDFExport(exportData, reports, fromDate, toDate);
+      }
+
+      return NextResponse.json({ error: "Invalid format" }, { status: 400 });
+    } catch (error) {
+      console.error("Error exporting analytics:", error);
+      return NextResponse.json(
+        { error: "Internal server error" },
+        { status: 500 },
+      );
+    }
+  });
 }
 
 function handleCSVExport(data: Array<Record<string, string>>): NextResponse {

@@ -55,11 +55,36 @@ const ROOM_COLORS = [
 
 // ─── Damage type colours (freehand overlay) ──────────────
 const DAMAGE_TYPES = [
-  { id: "water",    label: "Water",     color: "rgba(59,130,246,0.35)",  stroke: "#3b82f6" },
-  { id: "fire",     label: "Fire",      color: "rgba(239,68,68,0.35)",   stroke: "#ef4444" },
-  { id: "mould",    label: "Mould",     color: "rgba(34,197,94,0.35)",   stroke: "#22c55e" },
-  { id: "sewage",   label: "Sewage",    color: "rgba(120,53,15,0.35)",   stroke: "#78350f" },
-  { id: "biohazard",label: "Bio Hazard",color: "rgba(234,179,8,0.35)",   stroke: "#eab308" },
+  {
+    id: "water",
+    label: "Water",
+    color: "rgba(59,130,246,0.35)",
+    stroke: "#3b82f6",
+  },
+  {
+    id: "fire",
+    label: "Fire",
+    color: "rgba(239,68,68,0.35)",
+    stroke: "#ef4444",
+  },
+  {
+    id: "mould",
+    label: "Mould",
+    color: "rgba(34,197,94,0.35)",
+    stroke: "#22c55e",
+  },
+  {
+    id: "sewage",
+    label: "Sewage",
+    color: "rgba(120,53,15,0.35)",
+    stroke: "#78350f",
+  },
+  {
+    id: "biohazard",
+    label: "Bio Hazard",
+    color: "rgba(234,179,8,0.35)",
+    stroke: "#eab308",
+  },
 ] as const;
 type DamageTypeId = (typeof DAMAGE_TYPES)[number]["id"];
 
@@ -131,7 +156,8 @@ export function SketchEditor({
   const [showGrid, setShowGrid] = useState(false);
 
   // ── Damage type (freehand mode) ──
-  const [selectedDamageType, setSelectedDamageType] = useState<DamageTypeId>("water");
+  const [selectedDamageType, setSelectedDamageType] =
+    useState<DamageTypeId>("water");
 
   // ── Save / PDF export state ──
   const [saving, setSaving] = useState(false);
@@ -251,7 +277,9 @@ export function SketchEditor({
     canvas.defaultCursor = toolMode === "pan" ? "grab" : "crosshair";
 
     if (toolMode === "freehand") {
-      const dmg = DAMAGE_TYPES.find((d) => d.id === selectedDamageType) ?? DAMAGE_TYPES[0];
+      const dmg =
+        DAMAGE_TYPES.find((d) => d.id === selectedDamageType) ??
+        DAMAGE_TYPES[0];
       canvas.freeDrawingBrush.color = dmg.color;
       canvas.freeDrawingBrush.width = 28;
     }

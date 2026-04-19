@@ -17,11 +17,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { applyRateLimit } from "@/lib/rate-limiter";
 import {
   analyseImageWithBYOK,
   type VisionAnalysisRequest,
 } from "@/lib/ai/byok-vision-client";
 import { z } from "zod";
+import { withIdempotency } from "@/lib/idempotency";
 
 // ─── Request validation ───────────────────────────────────────────────────────
 
@@ -49,40 +51,54 @@ export async function POST(request: NextRequest) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   }
+  const userId = session.user.id;
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
-  }
+  const rateLimited = await applyRateLimit(request, {
+    windowMs: 60 * 1000,
+    maxRequests: 20,
+    prefix: "ai-vision",
+    key: userId,
+    failClosedOnUpstashError: true,
+  });
+  if (rateLimited) return rateLimited;
 
-  const parsed = VisionRequestSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Validation error", details: parsed.error.flatten() },
-      { status: 422 },
-    );
-  }
-
-  const visionRequest: VisionAnalysisRequest = {
-    ...parsed.data,
-    userId: session.user.id,
-  };
-
-  try {
-    const result = await analyseImageWithBYOK(visionRequest);
-    return NextResponse.json({ data: result });
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Vision analysis failed";
-
-    // Don't expose internal errors for auth/key issues
-    if (message.includes("No AI provider") || message.includes("API key")) {
-      return NextResponse.json({ error: message }, { status: 402 });
+  // RA-1266: BYOK vision calls are expensive on the user's provider —
+  // retry without idempotency doubles the image-analysis bill for the
+  // same input.
+  return withIdempotency(request, userId, async (rawBody) => {
+    let body: unknown;
+    try {
+      body = rawBody ? JSON.parse(rawBody) : {};
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
-    console.error("[vision] Analysis error:", error);
-    return NextResponse.json({ error: "Analysis failed" }, { status: 500 });
-  }
+    const parsed = VisionRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Validation error", details: parsed.error.flatten() },
+        { status: 422 },
+      );
+    }
+
+    const visionRequest: VisionAnalysisRequest = {
+      ...parsed.data,
+      userId,
+    };
+
+    try {
+      const result = await analyseImageWithBYOK(visionRequest);
+      return NextResponse.json({ data: result });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Vision analysis failed";
+
+      if (message.includes("No AI provider") || message.includes("API key")) {
+        return NextResponse.json({ error: message }, { status: 402 });
+      }
+
+      console.error("[vision] Analysis error:", error);
+      return NextResponse.json({ error: "Analysis failed" }, { status: 500 });
+    }
+  });
 }

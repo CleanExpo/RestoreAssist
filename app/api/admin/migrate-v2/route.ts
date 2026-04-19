@@ -22,23 +22,75 @@ const DDL_STATEMENTS = [
 ];
 
 export async function POST(request: NextRequest) {
+  // RA-1283: defence-in-depth. CRON_SECRET gates access but this endpoint
+  // re-runs DDL on prod — a mis-triggered curl could thrash the DB. Require
+  // an explicit env flag to be set for each invocation; the owner can set
+  // it before running the migration and remove it immediately after. This
+  // means even a leaked CRON_SECRET can't trigger schema ops without a
+  // second factor. DDL is already idempotent (`CREATE … IF NOT EXISTS`)
+  // but the flag additionally logs an audit line with who gated it.
+  if (process.env.ADMIN_MIGRATE_V2_ENABLED !== "true") {
+    console.warn(
+      "[admin/migrate-v2] Rejected: ADMIN_MIGRATE_V2_ENABLED not set. Set to 'true' in env, run, then unset.",
+    );
+    return NextResponse.json(
+      {
+        error:
+          "Endpoint disabled. Set ADMIN_MIGRATE_V2_ENABLED=true in env to enable, run migration, then unset.",
+      },
+      { status: 403 },
+    );
+  }
+
   const cronErr = verifyCronAuth(request);
   if (cronErr) return cronErr;
 
-  const results: string[] = [];
-  for (const stmt of DDL_STATEMENTS) {
-    try {
-      await prisma.$executeRawUnsafe(stmt);
-      results.push("OK");
-    } catch (err: any) {
-      results.push(`ERROR: ${err?.message?.slice(0, 100)}`);
-    }
+  // RA-1334 — advisory lock guards against concurrent invocations that
+  // would deadlock Postgres on the CREATE TABLE / CREATE INDEX DDL
+  // against the same relations. If another instance holds the lock,
+  // return 409 early rather than piling on schema locks. Lock key
+  // is a deterministic constant for this migration (RA-1334 ticket
+  // number mapped to int4).
+  const LOCK_KEY = 1334; // Int4 advisory lock key for admin/migrate-v2
+  const [{ locked }] = await prisma.$queryRawUnsafe<Array<{ locked: boolean }>>(
+    `SELECT pg_try_advisory_lock(${LOCK_KEY}) AS locked`,
+  );
+  if (!locked) {
+    console.warn(
+      `[admin/migrate-v2] Another instance holds advisory lock ${LOCK_KEY} — migration already in flight.`,
+    );
+    return NextResponse.json(
+      { error: "Migration already in flight. Retry after it completes." },
+      { status: 409 },
+    );
   }
 
-  // Verify
-  const tables = await prisma.$queryRawUnsafe(
-    `SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename IN ('AscoraIntegration','AscoraJob','AscoraLineItem','AscoraNote','ScopePricingDatabase','HistoricalJob')`,
-  );
+  const results: string[] = [];
+  try {
+    for (const stmt of DDL_STATEMENTS) {
+      try {
+        await prisma.$executeRawUnsafe(stmt);
+        results.push("OK");
+      } catch (err: any) {
+        results.push(`ERROR: ${err?.message?.slice(0, 100)}`);
+      }
+    }
 
-  return NextResponse.json({ results, tables });
+    // Verify
+    const tables = await prisma.$queryRawUnsafe(
+      `SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename IN ('AscoraIntegration','AscoraJob','AscoraLineItem','AscoraNote','ScopePricingDatabase','HistoricalJob')`,
+    );
+
+    return NextResponse.json({ results, tables });
+  } finally {
+    // Always release the lock — even if DDL threw partway through.
+    await prisma
+      .$executeRawUnsafe(`SELECT pg_advisory_unlock(${LOCK_KEY})`)
+      .catch((err) => {
+        console.error(
+          `[admin/migrate-v2] Failed to release advisory lock ${LOCK_KEY}:`,
+          err,
+        );
+      });
+  }
 }

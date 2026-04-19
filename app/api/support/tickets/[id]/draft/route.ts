@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { verifyAdminFromDb } from "@/lib/admin-auth";
 import Anthropic from "@anthropic-ai/sdk";
+import { withIdempotency } from "@/lib/idempotency";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -29,33 +31,37 @@ function getAnthropicClient(): Anthropic {
 // ---------------------------------------------------------------------------
 
 export async function POST(request: NextRequest, context: RouteContext) {
-  try {
-    const session = await getServerSession(authOptions);
+  const session = await getServerSession(authOptions);
+  const auth = await verifyAdminFromDb(session);
+  if (auth.response) return auth.response;
+  const userId = session!.user!.id;
+  const { id } = await context.params;
 
-    if (!session?.user?.id || session.user.role !== "ADMIN") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+  // RA-1266: regenerating a draft hits Claude Haiku — idempotency spares
+  // the duplicate API cost + latency when the admin double-clicks.
+  return withIdempotency(request, userId, async () => {
+    try {
+      const ticket = await prisma.supportTicket.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          subject: true,
+          body: true,
+          category: true,
+          priority: true,
+        },
+      });
 
-    const { id } = await context.params;
+      if (!ticket) {
+        return NextResponse.json(
+          { error: "Ticket not found" },
+          { status: 404 },
+        );
+      }
 
-    const ticket = await prisma.supportTicket.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        subject: true,
-        body: true,
-        category: true,
-        priority: true,
-      },
-    });
+      const client = getAnthropicClient();
 
-    if (!ticket) {
-      return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
-    }
-
-    const client = getAnthropicClient();
-
-    const systemPrompt = `You are a customer support specialist for RestoreAssist — Australian water damage restoration software.
+      const systemPrompt = `You are a customer support specialist for RestoreAssist — Australian water damage restoration software.
 
 Generate a professional customer support response in Australian English (150-250 words).
 
@@ -68,34 +74,35 @@ The response must:
 
 Respond with only the response text — no JSON, no preamble.`;
 
-    const response = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 1024,
-      system: systemPrompt,
-      messages: [
-        {
-          role: "user",
-          content: `Category: ${ticket.category}\nPriority: ${ticket.priority}\nSubject: ${ticket.subject}\n\n${ticket.body}`,
-        },
-      ],
-    });
+      const response = await client.messages.create({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: [
+          {
+            role: "user",
+            content: `Category: ${ticket.category}\nPriority: ${ticket.priority}\nSubject: ${ticket.subject}\n\n${ticket.body}`,
+          },
+        ],
+      });
 
-    const responseDraft =
-      response.content[0].type === "text"
-        ? response.content[0].text.trim()
-        : "";
+      const responseDraft =
+        response.content[0].type === "text"
+          ? response.content[0].text.trim()
+          : "";
 
-    await prisma.supportTicket.update({
-      where: { id },
-      data: { responseDraft },
-    });
+      await prisma.supportTicket.update({
+        where: { id },
+        data: { responseDraft },
+      });
 
-    return NextResponse.json({ responseDraft });
-  } catch (error) {
-    console.error("[support/tickets/[id]/draft POST]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
-  }
+      return NextResponse.json({ responseDraft });
+    } catch (error) {
+      console.error("[support/tickets/[id]/draft POST]", error);
+      return NextResponse.json(
+        { error: "Internal server error" },
+        { status: 500 },
+      );
+    }
+  });
 }

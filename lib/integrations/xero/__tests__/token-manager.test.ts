@@ -39,7 +39,9 @@ import {
 
 const mockGetTokens = getTokens as ReturnType<typeof vi.fn>;
 const mockMarkError = markIntegrationError as ReturnType<typeof vi.fn>;
-const mockFindUnique = prisma.integration.findUnique as ReturnType<typeof vi.fn>;
+const mockFindUnique = prisma.integration.findUnique as ReturnType<
+  typeof vi.fn
+>;
 
 const INTEGRATION_ID = "integ_xero_123";
 const TENANT_ID = "tenant_abc";
@@ -126,9 +128,13 @@ describe("getValidXeroToken", () => {
       isExpired: true,
     });
     mockFindUnique.mockResolvedValue({ tenantId: TENANT_ID });
-    mockRefreshAccessToken.mockRejectedValue(new Error("Xero 401: invalid_grant"));
+    mockRefreshAccessToken.mockRejectedValue(
+      new Error("Xero 401: invalid_grant"),
+    );
 
-    await expect(getValidXeroToken(INTEGRATION_ID)).rejects.toThrow(XeroTokenError);
+    await expect(getValidXeroToken(INTEGRATION_ID)).rejects.toThrow(
+      XeroTokenError,
+    );
 
     expect(mockMarkError).toHaveBeenCalledWith(
       INTEGRATION_ID,
@@ -144,7 +150,9 @@ describe("getValidXeroToken", () => {
       isExpired: true,
     });
 
-    await expect(getValidXeroToken(INTEGRATION_ID)).rejects.toThrow(XeroTokenError);
+    await expect(getValidXeroToken(INTEGRATION_ID)).rejects.toThrow(
+      XeroTokenError,
+    );
     expect(mockRefreshAccessToken).not.toHaveBeenCalled();
   });
 
@@ -156,7 +164,9 @@ describe("getValidXeroToken", () => {
       isExpired: true,
     });
 
-    await expect(getValidXeroToken(INTEGRATION_ID)).rejects.toThrow(XeroTokenError);
+    await expect(getValidXeroToken(INTEGRATION_ID)).rejects.toThrow(
+      XeroTokenError,
+    );
     expect(mockMarkError).toHaveBeenCalledWith(
       INTEGRATION_ID,
       expect.stringContaining("no refresh token"),
@@ -179,12 +189,16 @@ describe("getXeroTenantId", () => {
   it("throws XeroTokenError when integration is missing", async () => {
     mockFindUnique.mockResolvedValue(null);
 
-    await expect(getXeroTenantId(INTEGRATION_ID)).rejects.toThrow(XeroTokenError);
+    await expect(getXeroTenantId(INTEGRATION_ID)).rejects.toThrow(
+      XeroTokenError,
+    );
   });
 
   it("throws XeroTokenError when tenant ID is null", async () => {
     mockFindUnique.mockResolvedValue({ tenantId: null });
 
-    await expect(getXeroTenantId(INTEGRATION_ID)).rejects.toThrow(XeroTokenError);
+    await expect(getXeroTenantId(INTEGRATION_ID)).rejects.toThrow(
+      XeroTokenError,
+    );
   });
 });

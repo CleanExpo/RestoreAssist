@@ -97,8 +97,27 @@ export async function POST(request: NextRequest) {
           });
 
           // Download and add each Excel file to the zip (one by one from Cloudinary)
+          // RA-1344: only refetch from allowlisted hosts (Cloudinary) to prevent
+          // server-side fetch of internal URLs via attacker-controlled excelReportUrl.
+          const isAllowedExportUrl = (u: string): boolean => {
+            try {
+              const parsed = new URL(u);
+              return (
+                parsed.protocol === "https:" &&
+                parsed.hostname === "res.cloudinary.com"
+              );
+            } catch {
+              return false;
+            }
+          };
           for (const report of reports) {
             if (report.excelReportUrl) {
+              if (!isAllowedExportUrl(report.excelReportUrl)) {
+                console.error(
+                  `[Bulk Excel Export] ✗ Rejected non-allowlisted URL for report ${report.id}`,
+                );
+                continue;
+              }
               try {
                 const response = await fetch(report.excelReportUrl);
 
@@ -156,9 +175,6 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     // RA-786: do not leak error.message to clients
     console.error("Error in bulk-export-excel-list:", error);
-    return NextResponse.json(
-      { error: "Export failed" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Export failed" }, { status: 500 });
   }
 }

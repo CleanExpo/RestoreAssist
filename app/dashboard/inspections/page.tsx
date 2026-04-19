@@ -18,6 +18,7 @@ import {
   AlertTriangle,
   Trash2,
   Download,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DeleteConfirmationDialog } from "@/components/DeleteConfirmationDialog";
@@ -521,6 +522,24 @@ export default function InspectionsPage() {
                   className="flex items-center gap-1 flex-shrink-0"
                   onClick={(e) => e.stopPropagation()}
                 >
+                  {/* RA-1194: surface NIR → Report handoff for classified/scoped inspections */}
+                  {(insp.status === "CLASSIFIED" ||
+                    insp.status === "SCOPED") && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(
+                          `/dashboard/reports/new?inspectionId=${insp.id}`,
+                        );
+                      }}
+                      className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-cyan-50 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 transition-colors"
+                      title={`Generate report from ${insp.inspectionNumber}`}
+                    >
+                      <FileText size={14} />
+                      Generate report
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={(e) => handleDeleteOne(e, insp.id)}

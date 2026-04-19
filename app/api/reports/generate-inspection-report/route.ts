@@ -22,9 +22,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Rate limit: 10 inspection report generations per 15 minutes per user
+    // RA-1329 — tightened from 10/15min (=40/hr) to 5/hour to match
+    // sibling /reports/[id]/generate-detailed (tightened under RA-1272
+    // for the same reason). Each call is a full 13-section report =
+    // multi-thousand Claude tokens ≈ AUD 0.30-1.50. Old limit let a
+    // compromised session burn AUD 12-60/hr on a single account.
     const rateLimited = await applyRateLimit(request, {
-      maxRequests: 10,
+      windowMs: 60 * 60 * 1000, // 1 hour
+      maxRequests: 5,
       prefix: "gen-inspection",
       key: session.user.id,
     });

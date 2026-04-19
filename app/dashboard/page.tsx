@@ -17,9 +17,12 @@ import {
   ArrowRight,
   Activity,
   GitBranch,
+  MessageSquare,
+  Plug,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useFetch } from "@/lib/hooks/useFetch";
 import toast from "react-hot-toast";
 import Link from "next/link";
@@ -30,9 +33,42 @@ import type { ReportWithSessionData } from "@/lib/session-types";
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   // Only fetch once the session is confirmed authenticated
   const isAuthed = status === "authenticated";
+
+  // RA-1251 — first-time signup redirect.
+  // signup/google-signin send `?welcome=1` but the param was previously
+  // ignored. Now: on first render after signup, if onboarding isn't complete,
+  // push users to the dedicated /dashboard/onboarding checklist instead of
+  // dropping them on the main dashboard where the setup guide is only
+  // reachable via the sidebar.
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    const isWelcome = searchParams?.get("welcome") === "1";
+    if (!isWelcome) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/onboarding/status", { credentials: "include" });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        if (data && data.isComplete === false) {
+          // Strip the welcome param so a refresh/back doesn't bounce again.
+          router.replace("/dashboard/onboarding");
+        }
+      } catch {
+        // Silent — the welcome toast still fires from the other effect.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [status, searchParams, router]);
 
   const { data: reportsRaw, loading: reportsLoading } = useFetch<{
     reports: ReportWithSessionData[];
@@ -180,6 +216,9 @@ export default function DashboardPage() {
     return `${Math.floor(diffInMinutes / 1440)}d ago`;
   };
 
+  // RA-1262: quick actions aligned with the TRUE NORTH vision — get
+  // new users onto the core "AI-assisted tech does a job" loop ASAP.
+  // Settings moved to header dropdown (user can still reach via sidebar).
   const quickActions = [
     {
       title: "Create New Report",
@@ -189,25 +228,25 @@ export default function DashboardPage() {
       href: "/dashboard/reports/new",
     },
     {
-      title: "View Templates",
-      description: "Browse IICRC compliant templates",
-      icon: FileText,
+      title: "Start Guided Interview",
+      description: "Let AI carry the Smart — IICRC S500 compliant",
+      icon: MessageSquare,
       color: "from-emerald-500 to-teal-500",
-      href: "/dashboard/form-templates",
+      href: "/dashboard/interviews/new",
     },
     {
-      title: "Analytics",
-      description: "Track your reporting performance",
-      icon: BarChart3,
+      title: "Connect Xero",
+      description: "Sync invoices + payments automatically",
+      icon: Plug,
       color: "from-purple-500 to-pink-500",
-      href: "/dashboard/analytics",
+      href: "/dashboard/integrations",
     },
     {
-      title: "Settings",
-      description: "Configure your preferences",
+      title: "Add Client",
+      description: "Manage contacts and job history",
       icon: Users,
       color: "from-orange-500 to-red-500",
-      href: "/dashboard/settings",
+      href: "/dashboard/clients",
     },
   ];
 
@@ -501,7 +540,7 @@ export default function DashboardPage() {
                 <div className="w-16 h-16 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-3">
                   <TrendingUp size={24} className="text-white" />
                 </div>
-                <h3 className="text-2xl font-bold text-cyan-400 mb-1">
+                <h3 className="text-2xl font-bold text-cyan-400 mb-1 tabular-nums">
                   {dashboardData.loading
                     ? "..."
                     : `${Math.round((dashboardData.totalReports / Math.max(dashboardData.totalClients, 1)) * 100)}%`}
@@ -513,7 +552,7 @@ export default function DashboardPage() {
                 <div className="w-16 h-16 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-3">
                   <CheckCircle size={24} className="text-white" />
                 </div>
-                <h3 className="text-2xl font-bold text-emerald-400 mb-1">
+                <h3 className="text-2xl font-bold text-emerald-400 mb-1 tabular-nums">
                   {dashboardData.loading
                     ? "..."
                     : `${dashboardData.recentReports.filter((r: any) => r.status !== "Draft").length}/${dashboardData.totalReports || 1}`}
@@ -525,7 +564,7 @@ export default function DashboardPage() {
                 <div className="w-16 h-16 bg-gradient-to-r from-orange-500 to-red-500 rounded-full flex items-center justify-center mx-auto mb-3">
                   <DollarSign size={24} className="text-white" />
                 </div>
-                <h3 className="text-2xl font-bold text-orange-400 mb-1">
+                <h3 className="text-2xl font-bold text-orange-400 mb-1 tabular-nums">
                   {dashboardData.loading
                     ? "..."
                     : `$${dashboardData.totalRevenue.toLocaleString()}`}

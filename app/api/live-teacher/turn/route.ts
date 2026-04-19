@@ -54,6 +54,27 @@ export async function POST(request: NextRequest) {
   });
   if (rateLimited) return rateLimited;
 
+  // RA-1280 / CLAUDE.md rule 8: subscription gate. Live Teacher is the
+  // single most expensive AI path (streaming, long turns). Without this
+  // gate, CANCELED / PAST_DUE users could drive uncapped Anthropic spend.
+  const subUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { subscriptionStatus: true, lifetimeAccess: true },
+  });
+  const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE"];
+  const hasAccess =
+    ALLOWED_SUBSCRIPTION_STATUSES.includes(subUser?.subscriptionStatus ?? "") ||
+    subUser?.lifetimeAccess === true;
+  if (!hasAccess) {
+    return new Response(
+      JSON.stringify({
+        error: "Active subscription required for Live Teacher",
+        upgradeRequired: true,
+      }),
+      { status: 402, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
   let body: TurnBody;
   try {
     body = await request.json();

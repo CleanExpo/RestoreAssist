@@ -198,10 +198,7 @@ test.describe("2 · Cross-tenant isolation", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("3 · Missing field validation", () => {
-  test.skip(
-    !process.env.E2E_USER_EMAIL,
-    "Requires E2E_USER_EMAIL env var",
-  );
+  test.skip(!process.env.E2E_USER_EMAIL, "Requires E2E_USER_EMAIL env var");
 
   test("POST /api/clients with no body → 400", async ({ request }) => {
     const session = await getSessionCookie(
@@ -345,7 +342,10 @@ test.describe("5 · Subscription gate enforcement", () => {
   );
 
   const AI_ROUTES = [
-    { path: "/api/reports/generate-question", data: { reportId: "x", context: "test" } },
+    {
+      path: "/api/reports/generate-question",
+      data: { reportId: "x", context: "test" },
+    },
     { path: "/api/reports/generate-enhanced", data: { reportId: "x" } },
     { path: "/api/reports/generate-cost-estimation", data: { reportId: "x" } },
     { path: "/api/reports/generate-scope-of-works", data: { reportId: "x" } },

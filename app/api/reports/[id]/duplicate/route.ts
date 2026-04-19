@@ -3,151 +3,157 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canCreateReport } from "@/lib/report-limits";
+import { withIdempotency } from "@/lib/idempotency";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  try {
-    const session = await getServerSession(authOptions);
+  const session = await getServerSession(authOptions);
 
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const userId = session.user.id;
+  const { id } = await params;
 
-    const { id } = await params;
+  // RA-1266: duplicating a report deducts credits — retry without idempotency
+  // would double-deduct and create two duplicates of the same source report.
+  return withIdempotency(request, userId, async () => {
+    try {
+      // Check if user can create a report
+      const canCreate = await canCreateReport(userId);
 
-    // Check if user can create a report
-    const canCreate = await canCreateReport(session.user.id);
+      if (!canCreate.allowed) {
+        return NextResponse.json(
+          {
+            error: canCreate.reason || "Cannot create report",
+            upgradeRequired: true,
+          },
+          { status: 402 },
+        );
+      }
 
-    if (!canCreate.allowed) {
-      return NextResponse.json(
-        {
-          error: canCreate.reason || "Cannot create report",
-          upgradeRequired: true,
+      // Find the original report
+      const originalReport = await prisma.report.findFirst({
+        where: {
+          id: id,
+          userId: userId,
         },
-        { status: 402 },
+      });
+
+      if (!originalReport) {
+        return NextResponse.json(
+          { error: "Report not found" },
+          { status: 404 },
+        );
+      }
+
+      // Generate new report number
+      const newReportNumber = `WD-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+
+      // RA-1298: create first, deduct second. Previously a post-deduct
+      // report.create failure wasted the user's credit.
+      const duplicatedReport = await prisma.report.create({
+        data: {
+          // Basic fields
+          title: `${originalReport.title} (Copy)`,
+          clientName: originalReport.clientName,
+          propertyAddress: originalReport.propertyAddress,
+          hazardType: originalReport.hazardType,
+          insuranceType: originalReport.insuranceType,
+          reportNumber: newReportNumber,
+          userId: userId,
+          clientId: originalReport.clientId,
+
+          // IICRC Assessment fields
+          inspectionDate: new Date(),
+          waterCategory: originalReport.waterCategory,
+          waterClass: originalReport.waterClass,
+          sourceOfWater: originalReport.sourceOfWater,
+          affectedArea: originalReport.affectedArea,
+          safetyHazards: originalReport.safetyHazards,
+
+          // Damage assessment fields
+          structuralDamage: originalReport.structuralDamage,
+          contentsDamage: originalReport.contentsDamage,
+          hvacAffected: originalReport.hvacAffected,
+          electricalHazards: originalReport.electricalHazards,
+          microbialGrowth: originalReport.microbialGrowth,
+
+          // Equipment and drying fields
+          dehumidificationCapacity: originalReport.dehumidificationCapacity,
+          airmoversCount: originalReport.airmoversCount,
+          targetHumidity: originalReport.targetHumidity,
+          targetTemperature: originalReport.targetTemperature,
+          estimatedDryingTime: originalReport.estimatedDryingTime,
+          equipmentPlacement: originalReport.equipmentPlacement,
+
+          // Monitoring data (copy JSON strings)
+          psychrometricReadings: originalReport.psychrometricReadings,
+          moistureReadings: originalReport.moistureReadings,
+
+          // Remediation data
+          safetyPlan: originalReport.safetyPlan,
+          containmentSetup: originalReport.containmentSetup,
+          decontaminationProcedures: originalReport.decontaminationProcedures,
+          postRemediationVerification:
+            originalReport.postRemediationVerification,
+
+          // Insurance data (copy JSON strings)
+          propertyCover: originalReport.propertyCover,
+          contentsCover: originalReport.contentsCover,
+          liabilityCover: originalReport.liabilityCover,
+          businessInterruption: originalReport.businessInterruption,
+          additionalCover: originalReport.additionalCover,
+
+          // Set as draft
+          status: "DRAFT",
+
+          // Optional fields
+          totalCost: null, // Reset cost for new report
+          description: originalReport.description,
+          completionDate: null, // Reset completion date
+        },
+        include: {
+          user: {
+            select: {
+              name: true,
+              email: true,
+            },
+          },
+          client: {
+            select: {
+              name: true,
+              email: true,
+              phone: true,
+              company: true,
+            },
+          },
+        },
+      });
+
+      try {
+        const { deductCreditsAndTrackUsage } =
+          await import("@/lib/report-limits");
+        await deductCreditsAndTrackUsage(userId);
+      } catch (creditError) {
+        console.error(
+          "[duplicate] Credit deduction failed after report create",
+          {
+            reportId: duplicatedReport.id,
+            error: creditError,
+          },
+        );
+      }
+
+      return NextResponse.json(duplicatedReport, { status: 201 });
+    } catch (error) {
+      console.error("Error duplicating report:", error);
+      return NextResponse.json(
+        { error: "Internal server error" },
+        { status: 500 },
       );
     }
-
-    // Find the original report
-    const originalReport = await prisma.report.findFirst({
-      where: {
-        id: id,
-        userId: session.user.id,
-      },
-    });
-
-    if (!originalReport) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 });
-    }
-
-    // For trial users, deduct credits
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: {
-        subscriptionStatus: true,
-        creditsRemaining: true,
-        totalCreditsUsed: true,
-      },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-
-    // Deduct credits and track usage for team hierarchy
-    const { deductCreditsAndTrackUsage } = await import("@/lib/report-limits");
-    await deductCreditsAndTrackUsage(session.user.id);
-
-    // Generate new report number
-    const newReportNumber = `WD-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
-
-    // Create duplicate report with updated fields
-    const duplicatedReport = await prisma.report.create({
-      data: {
-        // Basic fields
-        title: `${originalReport.title} (Copy)`,
-        clientName: originalReport.clientName,
-        propertyAddress: originalReport.propertyAddress,
-        hazardType: originalReport.hazardType,
-        insuranceType: originalReport.insuranceType,
-        reportNumber: newReportNumber,
-        userId: session.user.id,
-        clientId: originalReport.clientId,
-
-        // IICRC Assessment fields
-        inspectionDate: new Date(),
-        waterCategory: originalReport.waterCategory,
-        waterClass: originalReport.waterClass,
-        sourceOfWater: originalReport.sourceOfWater,
-        affectedArea: originalReport.affectedArea,
-        safetyHazards: originalReport.safetyHazards,
-
-        // Damage assessment fields
-        structuralDamage: originalReport.structuralDamage,
-        contentsDamage: originalReport.contentsDamage,
-        hvacAffected: originalReport.hvacAffected,
-        electricalHazards: originalReport.electricalHazards,
-        microbialGrowth: originalReport.microbialGrowth,
-
-        // Equipment and drying fields
-        dehumidificationCapacity: originalReport.dehumidificationCapacity,
-        airmoversCount: originalReport.airmoversCount,
-        targetHumidity: originalReport.targetHumidity,
-        targetTemperature: originalReport.targetTemperature,
-        estimatedDryingTime: originalReport.estimatedDryingTime,
-        equipmentPlacement: originalReport.equipmentPlacement,
-
-        // Monitoring data (copy JSON strings)
-        psychrometricReadings: originalReport.psychrometricReadings,
-        moistureReadings: originalReport.moistureReadings,
-
-        // Remediation data
-        safetyPlan: originalReport.safetyPlan,
-        containmentSetup: originalReport.containmentSetup,
-        decontaminationProcedures: originalReport.decontaminationProcedures,
-        postRemediationVerification: originalReport.postRemediationVerification,
-
-        // Insurance data (copy JSON strings)
-        propertyCover: originalReport.propertyCover,
-        contentsCover: originalReport.contentsCover,
-        liabilityCover: originalReport.liabilityCover,
-        businessInterruption: originalReport.businessInterruption,
-        additionalCover: originalReport.additionalCover,
-
-        // Set as draft
-        status: "DRAFT",
-
-        // Optional fields
-        totalCost: null, // Reset cost for new report
-        description: originalReport.description,
-        completionDate: null, // Reset completion date
-      },
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true,
-          },
-        },
-        client: {
-          select: {
-            name: true,
-            email: true,
-            phone: true,
-            company: true,
-          },
-        },
-      },
-    });
-
-    return NextResponse.json(duplicatedReport, { status: 201 });
-  } catch (error) {
-    console.error("Error duplicating report:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
-  }
+  });
 }

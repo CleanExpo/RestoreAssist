@@ -167,9 +167,9 @@ export default function PrivacyPage() {
             </ul>
           </section>
 
-          <section>
+          <section id="retention">
             <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
-              5. Data storage and security
+              5. Data storage, security, and retention
             </h2>
             <p>
               Data is stored on servers located in Australia or the United
@@ -178,9 +178,133 @@ export default function PrivacyPage() {
               controls. Passwords are never stored in plaintext.
             </p>
             <p className="mt-2">
-              Inspection data and photographs are retained for the duration of
-              your subscription and for up to 7 years following account closure
-              to comply with Australian business record-keeping obligations.
+              Retention periods vary by data class to honour the longest
+              applicable statute. A blanket 7-year policy was updated on 18
+              April 2026 to reflect obligations under state building-defect and
+              dust-disease regimes that exceed that window.
+            </p>
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full text-xs border-collapse border border-neutral-300 dark:border-neutral-700">
+                <thead className="bg-neutral-100 dark:bg-neutral-900">
+                  <tr>
+                    <th className="text-left px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                      Data class
+                    </th>
+                    <th className="text-left px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                      Minimum retention
+                    </th>
+                    <th className="text-left px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                      Statutory authority
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                      Tax invoices &amp; BAS working papers
+                    </td>
+                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                      7 years
+                    </td>
+                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                      Taxation Administration Act s.262A
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                      Payroll &amp; superannuation records
+                    </td>
+                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                      7 years
+                    </td>
+                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                      Fair Work Act s.535
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                      General contractual records
+                    </td>
+                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                      6 years
+                    </td>
+                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                      Competition and Consumer Act s.236
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                      QLD structural-defect records
+                    </td>
+                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                      6 years 6 months from practical completion
+                    </td>
+                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                      QBCC Act s.67AQ
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                      NSW building statutory warranty
+                    </td>
+                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                      6 years (major) / 2 years (minor)
+                    </td>
+                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                      Home Building Act 1989 s.18E
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                      VIC domestic building
+                    </td>
+                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                      10 years
+                    </td>
+                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                      Building Act 1993 s.134
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                      Dust-disease exposure records (asbestos, silica)
+                    </td>
+                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700 font-semibold">
+                      Indefinite
+                    </td>
+                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                      Dust Diseases Act 1942 (NSW) &amp; state analogues
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                      WHS incident records
+                    </td>
+                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                      5 years min (30+ years for exposure records)
+                    </td>
+                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                      WHS Act 2011 &amp; state variants
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                      General personal information
+                    </td>
+                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                      Until purpose satisfied or retention obligation expires
+                    </td>
+                    <td className="px-3 py-2 border border-neutral-300 dark:border-neutral-700">
+                      Privacy Act APP 11.2
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-3 text-xs text-neutral-500">
+              On request (see section 7), we will destroy personal information
+              once the longest applicable retention period has expired. Building
+              and dust-disease records may outlive account closure.
             </p>
           </section>
 

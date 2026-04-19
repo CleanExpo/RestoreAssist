@@ -6,83 +6,95 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getAnthropicApiKey } from "@/lib/ai-provider";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { createCachedSystemPrompt } from "@/lib/anthropic/features/prompt-cache";
+import { withIdempotency } from "@/lib/idempotency";
 
 export async function POST(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
+  const session = await getServerSession(authOptions);
 
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const userId = session.user.id;
 
-    // Rate limit: 30 question generations per 15 minutes per user
-    const rateLimited = await applyRateLimit(request, {
-      maxRequests: 30,
-      prefix: "gen-question",
-      key: session.user.id,
-    });
-    if (rateLimited) return rateLimited;
+  const rateLimited = await applyRateLimit(request, {
+    maxRequests: 30,
+    prefix: "gen-question",
+    key: userId,
+  });
+  if (rateLimited) return rateLimited;
 
-    const body = await request.json();
-    const { conversation } = body;
-
-    if (
-      !conversation ||
-      !Array.isArray(conversation) ||
-      conversation.length === 0
-    ) {
-      return NextResponse.json(
-        { error: "Conversation is required" },
-        { status: 400 },
-      );
-    }
-
-    const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
-
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { id: true, subscriptionStatus: true },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-
-    if (
-      !ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")
-    ) {
-      return NextResponse.json(
-        { error: "Active subscription required" },
-        { status: 402 },
-      );
-    }
-
-    // Get appropriate API key based on subscription status
-    // Free users: uses ANTHROPIC_API_KEY from .env
-    // Upgraded users: uses API key from integrations
-    let anthropicApiKey: string;
+  // RA-1266: question generation hits Anthropic (or user's BYOK) —
+  // retry doubles the AI spend.
+  return withIdempotency(request, userId, async (rawBody) => {
     try {
-      anthropicApiKey = await getAnthropicApiKey(session.user.id);
-    } catch (error: any) {
-      return NextResponse.json(
-        { error: "Failed to get Anthropic API key" },
-        { status: 400 },
-      );
-    }
+      let body: any;
+      try {
+        body = rawBody ? JSON.parse(rawBody) : {};
+      } catch {
+        return NextResponse.json(
+          { error: "Invalid JSON body" },
+          { status: 400 },
+        );
+      }
+      const { conversation } = body;
 
-    const conversationHistory = conversation.map((msg: any) => ({
-      role: msg.role === "user" ? "user" : "assistant",
-      content: msg.content,
-    }));
+      if (
+        !conversation ||
+        !Array.isArray(conversation) ||
+        conversation.length === 0
+      ) {
+        return NextResponse.json(
+          { error: "Conversation is required" },
+          { status: 400 },
+        );
+      }
 
-    const lastUserMessage =
-      conversation[conversation.length - 1]?.content || "";
-    const conversationLength = conversation.length;
+      const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
 
-    let question = "";
-    let isComplete = false;
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, subscriptionStatus: true },
+      });
 
-    const systemPrompt = `You are a professional water damage restoration assistant helping to gather information from a client about a water damage incident. 
+      if (!user) {
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
+      }
+
+      if (
+        !ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")
+      ) {
+        return NextResponse.json(
+          { error: "Active subscription required" },
+          { status: 402 },
+        );
+      }
+
+      // Get appropriate API key based on subscription status
+      // Free users: uses ANTHROPIC_API_KEY from .env
+      // Upgraded users: uses API key from integrations
+      let anthropicApiKey: string;
+      try {
+        anthropicApiKey = await getAnthropicApiKey(userId);
+      } catch (error: any) {
+        return NextResponse.json(
+          { error: "Failed to get Anthropic API key" },
+          { status: 400 },
+        );
+      }
+
+      const conversationHistory = conversation.map((msg: any) => ({
+        role: msg.role === "user" ? "user" : "assistant",
+        content: msg.content,
+      }));
+
+      const lastUserMessage =
+        conversation[conversation.length - 1]?.content || "";
+      const conversationLength = conversation.length;
+
+      let question = "";
+      let isComplete = false;
+
+      const systemPrompt = `You are a professional water damage restoration assistant helping to gather information from a client about a water damage incident. 
 
 Your role is to ask natural, conversational follow-up questions to gather all necessary information about:
 - The extent of the damage (which rooms/areas are affected)
@@ -115,92 +127,93 @@ Example responses:
 - After email: "Thank you. And finally, what is your phone number?"
 - When complete: "Thank you for providing all the information. A technician will review your case and contact you soon."`;
 
-    try {
-      const anthropic = new Anthropic({
-        apiKey: anthropicApiKey,
-      });
-
-      // Format conversation history for Anthropic
-      const formattedMessages = conversationHistory.map((msg: any) => ({
-        role: msg.role,
-        content: msg.content,
-      }));
-
-      const { tryClaudeModels } = await import("@/lib/anthropic-models");
-
-      // Use prompt caching for cost optimization (90% savings on cache hits)
-      const message = await tryClaudeModels(
-        anthropic,
-        {
-          system: [createCachedSystemPrompt(systemPrompt)],
-          max_tokens: 500,
-          messages: [
-            ...formattedMessages,
-            {
-              role: "user",
-              content:
-                "Generate the next question or conclusion as a JSON object with 'question' and 'isComplete' fields. If enough information has been gathered, set isComplete to true and provide a conclusion message.",
-            },
-          ],
-        },
-        undefined, // use default models
-        {
-          agentName: "QuestionGenerator",
-          enableCacheMetrics: true,
-        },
-      );
-
-      const responseText =
-        message.content[0].type === "text"
-          ? message.content[0].text
-          : JSON.stringify(message.content[0]);
-
       try {
-        const parsed = JSON.parse(responseText);
-        question = parsed.question || responseText;
-        isComplete = parsed.isComplete || false;
-      } catch {
-        question = responseText;
-        isComplete = conversationLength >= 6; // Auto-complete after 6 exchanges
-      }
+        const anthropic = new Anthropic({
+          apiKey: anthropicApiKey,
+        });
 
-      if (!isComplete && conversationLength >= 8) {
-        isComplete = true;
-        question =
-          question ||
-          "Thank you for providing all the information. A technician will review your case and contact you soon.";
-      }
+        // Format conversation history for Anthropic
+        const formattedMessages = conversationHistory.map((msg: any) => ({
+          role: msg.role,
+          content: msg.content,
+        }));
 
-      return NextResponse.json({
-        question,
-        isComplete,
-        integrationUsed: "Anthropic API",
-      });
-    } catch (apiError: any) {
-      // RA-786: do not leak apiError.message to clients
-      console.error("Generate-question API error:", apiError);
-      if (apiError.status === 404) {
+        const { tryClaudeModels } = await import("@/lib/anthropic-models");
+
+        // Use prompt caching for cost optimization (90% savings on cache hits)
+        const message = await tryClaudeModels(
+          anthropic,
+          {
+            system: [createCachedSystemPrompt(systemPrompt)],
+            max_tokens: 500,
+            messages: [
+              ...formattedMessages,
+              {
+                role: "user",
+                content:
+                  "Generate the next question or conclusion as a JSON object with 'question' and 'isComplete' fields. If enough information has been gathered, set isComplete to true and provide a conclusion message.",
+              },
+            ],
+          },
+          undefined, // use default models
+          {
+            agentName: "QuestionGenerator",
+            enableCacheMetrics: true,
+          },
+        );
+
+        const responseText =
+          message.content[0].type === "text"
+            ? message.content[0].text
+            : JSON.stringify(message.content[0]);
+
+        try {
+          const parsed = JSON.parse(responseText);
+          question = parsed.question || responseText;
+          isComplete = parsed.isComplete || false;
+        } catch {
+          question = responseText;
+          isComplete = conversationLength >= 6; // Auto-complete after 6 exchanges
+        }
+
+        if (!isComplete && conversationLength >= 8) {
+          isComplete = true;
+          question =
+            question ||
+            "Thank you for providing all the information. A technician will review your case and contact you soon.";
+        }
+
+        return NextResponse.json({
+          question,
+          isComplete,
+          integrationUsed: "Anthropic API",
+        });
+      } catch (apiError: any) {
+        // RA-786: do not leak apiError.message to clients
+        console.error("Generate-question API error:", apiError);
+        if (apiError.status === 404) {
+          return NextResponse.json(
+            {
+              error:
+                "Failed to connect to Anthropic API. Please check your API key and try again.",
+            },
+            { status: 500 },
+          );
+        }
+
         return NextResponse.json(
           {
             error:
-              "Failed to connect to Anthropic API. Please check your API key and try again.",
+              "Failed to generate question. Please check your API key and try again.",
           },
           { status: 500 },
         );
       }
-
+    } catch (error: any) {
       return NextResponse.json(
-        {
-          error:
-            "Failed to generate question. Please check your API key and try again.",
-        },
+        { error: "Failed to generate question" },
         { status: 500 },
       );
     }
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: "Failed to generate question" },
-      { status: 500 },
-    );
-  }
+  });
 }

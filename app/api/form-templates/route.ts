@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
         description: true,
       },
       orderBy: [{ isSystemTemplate: "desc" }, { name: "asc" }],
+      take: 200, // CLAUDE.md rule 4
     });
 
     // Auto-seed default templates for this user if they have none

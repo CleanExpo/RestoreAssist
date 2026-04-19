@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { applyRateLimit } from "@/lib/rate-limiter";
+import { applyRateLimit, getClientIp } from "@/lib/rate-limiter";
 import { generateResetCode, storeResetCode } from "@/lib/password-reset-store";
 import { sendPasswordResetEmail } from "@/lib/email";
 import { sanitizeString } from "@/lib/sanitize";
 import { validateCsrf } from "@/lib/csrf";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
+import { verifyTurnstile } from "@/lib/turnstile";
 
 // POST - Send password reset verification code
 export async function POST(request: NextRequest) {
@@ -15,18 +16,36 @@ export async function POST(request: NextRequest) {
     if (csrfError) return csrfError;
 
     // Rate limit: 3 attempts per 15 minutes per IP
-    const rateLimited = await applyRateLimit(request, {
+    const ipLimited = await applyRateLimit(request, {
       maxRequests: 3,
       prefix: "forgot-password",
     });
-    if (rateLimited) return rateLimited;
+    if (ipLimited) return ipLimited;
 
     const body = await request.json();
     const email = sanitizeString(body.email, 320).toLowerCase();
+    const turnstileToken =
+      typeof body.turnstileToken === "string" ? body.turnstileToken : null;
 
     if (!email) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
+
+    // RA-1286: CAPTCHA gate. Soft-allow when TURNSTILE_SECRET_KEY unset.
+    const captcha = await verifyTurnstile(turnstileToken, getClientIp(request));
+    if (!captcha.ok) {
+      return NextResponse.json({ error: captcha.reason }, { status: 400 });
+    }
+
+    // RA-1341: also rate-limit per target email so IP rotation (residential
+    // proxies) can't bypass the 3/IP cap to brute-force a single account.
+    const emailLimited = await applyRateLimit(request, {
+      maxRequests: 5,
+      windowMs: 60 * 60 * 1000,
+      prefix: "forgot-password:email",
+      key: email,
+    });
+    if (emailLimited) return emailLimited;
 
     // Check if user exists
     const user = await prisma.user.findUnique({
@@ -46,7 +65,14 @@ export async function POST(request: NextRequest) {
         userId: user.id,
         email,
         ...reqCtx,
-      }).catch(() => {});
+      }).catch((err) => {
+        // RA-1311 — log audit-write failure so operators see it; still
+        // non-blocking so the user flow continues.
+        console.error(
+          "[forgot-password] PASSWORD_RESET_REQUESTED audit log failed:",
+          err,
+        );
+      });
 
       // Send password reset email
       await sendPasswordResetEmail({

@@ -275,31 +275,39 @@ export async function incrementReportUsage(userId: string): Promise<void> {
 
   // Only increment for active subscribers (trial users use credits)
   if (user.subscriptionStatus === "ACTIVE") {
+    // RA-1313 — race-safe reset-or-increment. Previous read-then-update was
+    // susceptible to: Req A + Req B both see shouldReset=true, both write
+    // monthlyReportsUsed=1 → counter under-counts, user exceeds plan limit.
+    // Fix: atomic updateMany with a WHERE guard on monthlyResetDate. If
+    // the row matches (reset is due and no other caller has reset yet),
+    // count === 1 and we're done. Otherwise fall through to increment.
     const now = new Date();
-    const shouldReset =
-      !user.monthlyResetDate ||
-      (user.monthlyResetDate && now > user.monthlyResetDate);
+    const nextReset = new Date(now);
+    nextReset.setMonth(nextReset.getMonth() + 1);
+    nextReset.setDate(1);
+    nextReset.setHours(0, 0, 0, 0);
 
-    if (shouldReset) {
-      const nextReset = new Date(now);
-      nextReset.setMonth(nextReset.getMonth() + 1);
-      nextReset.setDate(1);
-      nextReset.setHours(0, 0, 0, 0);
+    const resetResult = await prisma.user.updateMany({
+      where: {
+        id: targetUserId,
+        OR: [
+          { monthlyResetDate: null },
+          { monthlyResetDate: { lt: now } },
+        ],
+      },
+      data: {
+        monthlyReportsUsed: 1,
+        monthlyResetDate: nextReset,
+      },
+    });
 
+    if (resetResult.count === 0) {
+      // Another request already did the reset (or the month hasn't rolled).
+      // Either way, a plain atomic increment is correct.
       await prisma.user.update({
         where: { id: targetUserId },
         data: {
-          monthlyReportsUsed: 1,
-          monthlyResetDate: nextReset,
-        },
-      });
-    } else {
-      await prisma.user.update({
-        where: { id: targetUserId },
-        data: {
-          monthlyReportsUsed: {
-            increment: 1,
-          },
+          monthlyReportsUsed: { increment: 1 },
         },
       });
     }
@@ -366,32 +374,34 @@ export async function deductCreditsAndTrackUsage(
       throw new Error("INSUFFICIENT_CREDITS");
     }
   } else if (admin.subscriptionStatus === "ACTIVE") {
-    // Handle active subscribers - increment monthly usage on admin's account
+    // RA-1313 — same race-safe pattern as incrementMonthlyUsage above.
+    // Two team members creating reports on the 1st of the month must not
+    // both observe shouldReset=true and clobber each other's increment.
     const now = new Date();
-    const shouldReset =
-      !admin.monthlyResetDate ||
-      (admin.monthlyResetDate && now > admin.monthlyResetDate);
+    const nextReset = new Date(now);
+    nextReset.setMonth(nextReset.getMonth() + 1);
+    nextReset.setDate(1);
+    nextReset.setHours(0, 0, 0, 0);
 
-    if (shouldReset) {
-      const nextReset = new Date(now);
-      nextReset.setMonth(nextReset.getMonth() + 1);
-      nextReset.setDate(1);
-      nextReset.setHours(0, 0, 0, 0);
+    const resetResult = await prisma.user.updateMany({
+      where: {
+        id: adminId,
+        OR: [
+          { monthlyResetDate: null },
+          { monthlyResetDate: { lt: now } },
+        ],
+      },
+      data: {
+        monthlyReportsUsed: 1,
+        monthlyResetDate: nextReset,
+      },
+    });
 
+    if (resetResult.count === 0) {
       await prisma.user.update({
         where: { id: adminId },
         data: {
-          monthlyReportsUsed: 1,
-          monthlyResetDate: nextReset,
-        },
-      });
-    } else {
-      await prisma.user.update({
-        where: { id: adminId },
-        data: {
-          monthlyReportsUsed: {
-            increment: 1,
-          },
+          monthlyReportsUsed: { increment: 1 },
         },
       });
     }

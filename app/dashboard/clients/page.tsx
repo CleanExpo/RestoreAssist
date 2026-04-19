@@ -455,7 +455,99 @@ export default function ClientsPage() {
               "bg-white dark:bg-slate-800/30",
             )}
           >
-            <div className="overflow-x-auto">
+            {/* RA-1217 — mobile card layout below sm breakpoint.
+                The 7-column clients table was horizontally-scrolling on phones.
+                Field techs reviewing client history on-site now get a stacked
+                card per client. Desktop/tablet retains the table below. */}
+            <div className="sm:hidden space-y-3 p-4">
+              {filteredClients.length === 0 ? (
+                <div className="text-center py-8 text-neutral-600 dark:text-slate-400">
+                  {searchTerm || statusFilter
+                    ? "No clients found matching your criteria"
+                    : "No clients found. Add your first client to get started."}
+                </div>
+              ) : (
+                filteredClients.map((client) => {
+                  const fromReport = (client as ClientWithReportFlag)._isFromReport;
+                  const statusClass =
+                    client.status === "ACTIVE"
+                      ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                      : client.status === "INACTIVE"
+                      ? "bg-amber-500/20 text-amber-600 dark:text-amber-400"
+                      : client.status === "PROSPECT"
+                      ? "bg-blue-500/20 text-blue-600 dark:text-blue-400"
+                      : "bg-neutral-200 dark:bg-slate-500/20 text-neutral-600 dark:text-slate-400";
+                  const NameWrap = fromReport
+                    ? ({ children }: { children: React.ReactNode }) => (
+                        <span className="text-cyan-500 dark:text-cyan-400">
+                          {children}
+                        </span>
+                      )
+                    : ({ children }: { children: React.ReactNode }) => (
+                        <Link
+                          href={`/dashboard/clients/${client.id}`}
+                          className="text-cyan-500 dark:text-cyan-400 hover:underline"
+                        >
+                          {children}
+                        </Link>
+                      );
+                  return (
+                    <div
+                      key={client.id}
+                      className={cn(
+                        "rounded-xl border p-4",
+                        "border-neutral-200 dark:border-slate-700/50",
+                        "bg-white dark:bg-slate-900/50",
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium text-neutral-900 dark:text-white truncate">
+                            <NameWrap>{client.name}</NameWrap>
+                          </div>
+                          {client.company && (
+                            <div className="text-xs text-neutral-500 dark:text-slate-500 truncate mt-0.5">
+                              {client.company}
+                            </div>
+                          )}
+                          {fromReport && (
+                            <div className="text-xs text-amber-500 dark:text-amber-400 mt-0.5">
+                              From Report
+                            </div>
+                          )}
+                        </div>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 ${statusClass}`}
+                        >
+                          {client.status}
+                        </span>
+                      </div>
+                      <div className="text-sm text-neutral-600 dark:text-slate-400 truncate">
+                        {client.email}
+                      </div>
+                      {client.phone && (
+                        <div className="text-sm text-neutral-600 dark:text-slate-400 truncate">
+                          {client.phone}
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between gap-3 mt-3 pt-3 border-t border-neutral-100 dark:border-slate-800 text-xs">
+                        <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-600 dark:text-blue-400 font-medium">
+                          {client.reportsCount || 0} reports
+                        </span>
+                        <span className="font-medium text-cyan-600 dark:text-cyan-400">
+                          ${client.totalRevenue ? client.totalRevenue.toLocaleString() : "0"}
+                        </span>
+                        <span className="text-neutral-500 dark:text-slate-500 truncate">
+                          {client.lastJob || "No jobs yet"}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="hidden sm:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr
@@ -534,7 +626,14 @@ export default function ClientsPage() {
                     >
                       Last Job
                     </th>
-                    {/* <th className="text-left py-4 px-6 text-slate-400 font-medium">Actions</th> */}
+                    <th
+                      className={cn(
+                        "text-left py-4 px-6 font-medium",
+                        "text-neutral-700 dark:text-slate-400",
+                      )}
+                    >
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -659,24 +758,27 @@ export default function ClientsPage() {
                         >
                           {client.lastJob || "—"}
                         </td>
-                        {/* <td className="py-4 px-6">
+                        <td className="py-4 px-6">
                           <div className="flex items-center gap-2">
                             <Link href={`/dashboard/clients/${client.id}`}>
-                              <button className="p-1 hover:bg-slate-700 rounded transition-colors" title="View">
+                              <button
+                                className="p-1 hover:bg-neutral-100 dark:hover:bg-slate-700 rounded transition-colors"
+                                title="View"
+                              >
                                 <Eye size={16} />
                               </button>
                             </Link>
-                            <button 
+                            <button
                               onClick={() => openEditModal(client)}
-                              className="p-1 hover:bg-slate-700 rounded transition-colors" 
+                              className="p-1 hover:bg-neutral-100 dark:hover:bg-slate-700 rounded transition-colors"
                               title="Edit"
                             >
                               <Edit size={16} />
                             </button>
-                            <button 
+                            <button
                               onClick={() => duplicateClient(client.id)}
                               disabled={duplicating === client.id}
-                              className="p-1 hover:bg-slate-700 rounded transition-colors disabled:opacity-50" 
+                              className="p-1 hover:bg-neutral-100 dark:hover:bg-slate-700 rounded transition-colors disabled:opacity-50"
                               title="Duplicate"
                             >
                               {duplicating === client.id ? (
@@ -687,13 +789,13 @@ export default function ClientsPage() {
                             </button>
                             <button
                               onClick={() => openDeleteModal(client)}
-                              className="p-1 hover:bg-slate-700 rounded transition-colors"
+                              className="p-1 hover:bg-neutral-100 dark:hover:bg-slate-700 rounded transition-colors"
                               title="Delete"
                             >
                               <Trash2 size={16} className="text-rose-400" />
                             </button>
                           </div>
-                        </td> */}
+                        </td>
                       </tr>
                     ))
                   )}
@@ -893,7 +995,12 @@ export default function ClientsPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">
+                <label
+                  className={cn(
+                    "block text-sm font-medium mb-2",
+                    "text-neutral-700 dark:text-slate-300",
+                  )}
+                >
                   Address
                 </label>
                 <input
@@ -903,11 +1010,24 @@ export default function ClientsPage() {
                     setFormData({ ...formData, address: e.target.value })
                   }
                   placeholder="Enter address"
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className={cn(
+                    "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
+                    "bg-white dark:bg-slate-700/50",
+                    "border-neutral-300 dark:border-slate-600",
+                    "text-neutral-900 dark:text-white",
+                    "placeholder-neutral-500 dark:placeholder-slate-500",
+                  )}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Notes</label>
+                <label
+                  className={cn(
+                    "block text-sm font-medium mb-2",
+                    "text-neutral-700 dark:text-slate-300",
+                  )}
+                >
+                  Notes
+                </label>
                 <textarea
                   value={formData.notes}
                   onChange={(e) =>
@@ -1044,7 +1164,12 @@ export default function ClientsPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">
+                <label
+                  className={cn(
+                    "block text-sm font-medium mb-2",
+                    "text-neutral-700 dark:text-slate-300",
+                  )}
+                >
                   Address
                 </label>
                 <input
@@ -1054,11 +1179,24 @@ export default function ClientsPage() {
                     setFormData({ ...formData, address: e.target.value })
                   }
                   placeholder="Enter address"
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
+                  className={cn(
+                    "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
+                    "bg-white dark:bg-slate-700/50",
+                    "border-neutral-300 dark:border-slate-600",
+                    "text-neutral-900 dark:text-white",
+                    "placeholder-neutral-500 dark:placeholder-slate-500",
+                  )}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Notes</label>
+                <label
+                  className={cn(
+                    "block text-sm font-medium mb-2",
+                    "text-neutral-700 dark:text-slate-300",
+                  )}
+                >
+                  Notes
+                </label>
                 <textarea
                   value={formData.notes}
                   onChange={(e) =>

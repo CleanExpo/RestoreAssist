@@ -42,11 +42,17 @@ import {
   verifyXeroWebhookSignature,
 } from "../webhook-processor";
 
-const mockFindManyEvents = prisma.webhookEvent.findMany as ReturnType<typeof vi.fn>;
+const mockFindManyEvents = prisma.webhookEvent.findMany as ReturnType<
+  typeof vi.fn
+>;
 const mockUpdateEvent = prisma.webhookEvent.update as ReturnType<typeof vi.fn>;
-const mockFindFirstInvoice = prisma.invoice.findFirst as ReturnType<typeof vi.fn>;
+const mockFindFirstInvoice = prisma.invoice.findFirst as ReturnType<
+  typeof vi.fn
+>;
 const mockUpdateInvoice = prisma.invoice.update as ReturnType<typeof vi.fn>;
-const mockFindUniqueIntegration = prisma.integration.findUnique as ReturnType<typeof vi.fn>;
+const mockFindUniqueIntegration = prisma.integration.findUnique as ReturnType<
+  typeof vi.fn
+>;
 const mockQueueInvoiceSync = queueInvoiceSync as ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
@@ -65,13 +71,19 @@ describe("verifyXeroWebhookSignature", () => {
   });
 
   it("returns false for a wrong signature", () => {
-    const wrong = createHmac("sha256", "different-key").update(body).digest("base64");
+    const wrong = createHmac("sha256", "different-key")
+      .update(body)
+      .digest("base64");
     expect(verifyXeroWebhookSignature(body, wrong, KEY)).toBe(false);
   });
 
   it("returns false when body is tampered", () => {
     expect(
-      verifyXeroWebhookSignature('{"events":[{"tampered":true}]}', validSig, KEY),
+      verifyXeroWebhookSignature(
+        '{"events":[{"tampered":true}]}',
+        validSig,
+        KEY,
+      ),
     ).toBe(false);
   });
 
@@ -88,7 +100,9 @@ describe("verifyXeroWebhookSignature", () => {
   });
 
   it("returns false for malformed base64 signature (no throw)", () => {
-    expect(verifyXeroWebhookSignature(body, "!!!not-base64!!!", KEY)).toBe(false);
+    expect(verifyXeroWebhookSignature(body, "!!!not-base64!!!", KEY)).toBe(
+      false,
+    );
   });
 
   it("returns false when signature length differs from expected", () => {
@@ -111,7 +125,10 @@ describe("processXeroWebhookBatch — invoice.updated", () => {
         integration: { id: "integ-1" },
       },
     ]);
-    mockFindFirstInvoice.mockResolvedValue({ id: "local-inv-1", userId: "u-1" });
+    mockFindFirstInvoice.mockResolvedValue({
+      id: "local-inv-1",
+      userId: "u-1",
+    });
     mockQueueInvoiceSync.mockResolvedValue(undefined);
 
     const result = await processXeroWebhookBatch(10);
@@ -210,6 +227,105 @@ describe("processXeroWebhookBatch — invoice.paid", () => {
 
     expect(result.processed).toBe(1);
     expect(mockUpdateInvoice).not.toHaveBeenCalled();
+  });
+});
+
+// ─── payment.created — RA-1277: flip Invoice.status to PAID ──────────────────
+
+describe("processXeroWebhookBatch — payment.created", () => {
+  it("resolves PaymentID → InvoiceID via Xero API and marks invoice PAID", async () => {
+    const eventDate = "2026-04-18T09:00:00.000Z";
+    mockFindManyEvents.mockResolvedValue([
+      {
+        id: "evt-pc-1",
+        provider: "XERO",
+        status: "PENDING",
+        eventType: "payment.created",
+        integrationId: "integ-1",
+        payload: {
+          resourceId: "xero-payment-abc",
+          resourceType: "PAYMENT",
+          eventDateUtc: eventDate,
+        },
+        integration: { id: "integ-1" },
+      },
+    ]);
+    mockFindUniqueIntegration.mockResolvedValue({
+      id: "integ-1",
+      tenantId: "tenant-abc",
+    });
+    mockFindFirstInvoice.mockResolvedValue({
+      id: "local-inv-pc-1",
+      status: "SENT",
+    });
+
+    // Mock the fetch call to Xero Payments API
+    const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          Payments: [{ Invoice: { InvoiceID: "xero-inv-pc-1" } }],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    const result = await processXeroWebhookBatch(10);
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringContaining("/api.xro/2.0/Payments/xero-payment-abc"),
+      expect.any(Object),
+    );
+    expect(result.processed).toBe(1);
+    expect(mockUpdateInvoice).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "local-inv-pc-1" },
+        data: expect.objectContaining({ status: "PAID" }),
+      }),
+    );
+
+    fetchSpy.mockRestore();
+  });
+
+  it("skips gracefully when PaymentID has no linked invoice", async () => {
+    mockFindManyEvents.mockResolvedValue([
+      {
+        id: "evt-pc-2",
+        provider: "XERO",
+        status: "PENDING",
+        eventType: "payment.created",
+        integrationId: "integ-1",
+        payload: {
+          resourceId: "xero-payment-standalone",
+          resourceType: "PAYMENT",
+        },
+        integration: { id: "integ-1" },
+      },
+    ]);
+    mockFindUniqueIntegration.mockResolvedValue({
+      id: "integ-1",
+      tenantId: "tenant-abc",
+    });
+    const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          Payments: [
+            {
+              /* no Invoice */
+            },
+          ],
+        }),
+        {
+          status: 200,
+        },
+      ),
+    );
+
+    const result = await processXeroWebhookBatch(10);
+
+    expect(result.processed).toBe(1);
+    expect(mockUpdateInvoice).not.toHaveBeenCalled();
+
+    fetchSpy.mockRestore();
   });
 });
 

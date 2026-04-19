@@ -17,6 +17,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { workspaceRouteAiRequest } from "@/lib/ai/workspace-byok-dispatch";
+import { withIdempotency } from "@/lib/idempotency";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -95,72 +96,75 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const userId = session.user.id;
+  const { id } = await params;
 
-    const { id } = await params;
-
-    const inspection = await prisma.inspection.findFirst({
-      where: { id, userId: session.user.id },
-      include: {
-        evidenceItems: {
-          where: { evidenceClass: "AFFECTED_CONTENTS" },
-          select: {
-            id: true,
-            fileUrl: true,
-            fileName: true,
-            title: true,
-            description: true,
-            roomName: true,
+  // RA-1266: contents-manifest generation hits AI provider (BYOK) —
+  // retry doubles AI spend on identical evidence set.
+  return withIdempotency(request, userId, async () => {
+    try {
+      const inspection = await prisma.inspection.findFirst({
+        where: { id, userId },
+        include: {
+          evidenceItems: {
+            where: { evidenceClass: "AFFECTED_CONTENTS" },
+            select: {
+              id: true,
+              fileUrl: true,
+              fileName: true,
+              title: true,
+              description: true,
+              roomName: true,
+            },
           },
         },
-      },
-    });
+      });
 
-    if (!inspection) {
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
-    }
+      if (!inspection) {
+        return NextResponse.json(
+          { error: "Inspection not found" },
+          { status: 404 },
+        );
+      }
 
-    if (!inspection.workspaceId) {
-      return NextResponse.json(
-        {
-          error:
-            "This inspection is not linked to a workspace. Configure AI Providers in Workspace Settings to use the contents manifest feature.",
-        },
-        { status: 422 },
-      );
-    }
+      if (!inspection.workspaceId) {
+        return NextResponse.json(
+          {
+            error:
+              "This inspection is not linked to a workspace. Configure AI Providers in Workspace Settings to use the contents manifest feature.",
+          },
+          { status: 422 },
+        );
+      }
 
-    const contentItems = inspection.evidenceItems.filter((e) => e.fileUrl);
+      const contentItems = inspection.evidenceItems.filter((e) => e.fileUrl);
 
-    if (contentItems.length === 0) {
-      return NextResponse.json(
-        {
-          error:
-            "No contents evidence photos found. Capture AFFECTED_CONTENTS photos in the evidence workflow first.",
-        },
-        { status: 422 },
-      );
-    }
+      if (contentItems.length === 0) {
+        return NextResponse.json(
+          {
+            error:
+              "No contents evidence photos found. Capture AFFECTED_CONTENTS photos in the evidence workflow first.",
+          },
+          { status: 422 },
+        );
+      }
 
-    // Build image list for AI context
-    const imageList = contentItems
-      .map(
-        (item, i) =>
-          `${i + 1}. ${item.title ?? item.fileName ?? "Image"} — Room: ${item.roomName ?? "Unknown"}${item.description ? ` — ${item.description}` : ""}`,
-      )
-      .join("\n");
+      // Build image list for AI context
+      const imageList = contentItems
+        .map(
+          (item, i) =>
+            `${i + 1}. ${item.title ?? item.fileName ?? "Image"} — Room: ${item.roomName ?? "Unknown"}${item.description ? ` — ${item.description}` : ""}`,
+        )
+        .join("\n");
 
-    const systemPrompt =
-      "You are an AI assistant for Australian water damage restoration. You analyse evidence photos and identify contents items for insurance claims. Always return valid JSON.";
+      const systemPrompt =
+        "You are an AI assistant for Australian water damage restoration. You analyse evidence photos and identify contents items for insurance claims. Always return valid JSON.";
 
-    const userPrompt = `You are analysing ${contentItems.length} photo(s) of household/commercial contents from a water damage restoration inspection in Australia.
+      const userPrompt = `You are analysing ${contentItems.length} photo(s) of household/commercial contents from a water damage restoration inspection in Australia.
 
 Images captured:
 ${imageList}
@@ -191,74 +195,75 @@ Rules:
 - Be conservative — better to flag for review than to guess.
 - Return ONLY valid JSON, no markdown, no explanation.`;
 
-    // Use standard tier for basic manifest, premium for detailed
-    const body = await request.json().catch(() => ({}));
-    const detailed = body?.detailed === true;
+      // Use standard tier for basic manifest, premium for detailed
+      const body = await request.json().catch(() => ({}));
+      const detailed = body?.detailed === true;
 
-    const result = await workspaceRouteAiRequest(
-      inspection.workspaceId,
-      {
-        taskType: "contents_manifest",
-        systemPrompt,
-        userPrompt,
-        maxTokens: detailed ? 8192 : 4096,
-        temperature: 0.2,
-      },
-      { memberId: session.user.id },
-    );
-
-    // Parse AI response
-    let items: ContentsManifestItem[] = [];
-    try {
-      const parsed = JSON.parse(result.text);
-      items = Array.isArray(parsed.items) ? parsed.items : [];
-    } catch {
-      console.error(
-        "[contents-manifest] Failed to parse AI JSON:",
-        result.text.substring(0, 200),
+      const result = await workspaceRouteAiRequest(
+        inspection.workspaceId,
+        {
+          taskType: "contents_manifest",
+          systemPrompt,
+          userPrompt,
+          maxTokens: detailed ? 8192 : 4096,
+          temperature: 0.2,
+        },
+        { memberId: session.user.id },
       );
+
+      // Parse AI response
+      let items: ContentsManifestItem[] = [];
+      try {
+        const parsed = JSON.parse(result.text);
+        items = Array.isArray(parsed.items) ? parsed.items : [];
+      } catch {
+        console.error(
+          "[contents-manifest] Failed to parse AI JSON:",
+          result.text.substring(0, 200),
+        );
+        return NextResponse.json(
+          { error: "AI returned an unexpected format. Please try again." },
+          { status: 502 },
+        );
+      }
+
+      const draft: ContentsManifestDraft = {
+        inspectionId: id,
+        generatedAt: new Date().toISOString(),
+        model: result.model,
+        provider: result.tier === "basic" ? "gemma" : "byok",
+        imageCount: contentItems.length,
+        items,
+        lowConfidenceCount: items.filter((i) => i.confidence < 70).length,
+        flaggedForReviewCount: items.filter((i) => i.flagForReview).length,
+        disclaimer:
+          "This manifest is AI-assisted and requires review before use in claims. All values are estimates only. Items flagged for review require manual confirmation.",
+      };
+
+      // Persist draft to inspection record
+      await prisma.inspection.update({
+        where: { id },
+        data: { contentsManifestDraft: JSON.stringify(draft) },
+      });
+
+      return NextResponse.json({ data: draft }, { status: 201 });
+    } catch (error: any) {
+      console.error("Error generating contents manifest:", error);
+
+      if (
+        error.message?.includes("API key") ||
+        error.message?.includes("Integrations")
+      ) {
+        return NextResponse.json(
+          { error: "AI integration not configured. Check API key settings." },
+          { status: 422 },
+        );
+      }
+
       return NextResponse.json(
-        { error: "AI returned an unexpected format. Please try again." },
-        { status: 502 },
+        { error: "Internal server error" },
+        { status: 500 },
       );
     }
-
-    const draft: ContentsManifestDraft = {
-      inspectionId: id,
-      generatedAt: new Date().toISOString(),
-      model: result.model,
-      provider: result.tier === "basic" ? "gemma" : "byok",
-      imageCount: contentItems.length,
-      items,
-      lowConfidenceCount: items.filter((i) => i.confidence < 70).length,
-      flaggedForReviewCount: items.filter((i) => i.flagForReview).length,
-      disclaimer:
-        "This manifest is AI-assisted and requires review before use in claims. All values are estimates only. Items flagged for review require manual confirmation.",
-    };
-
-    // Persist draft to inspection record
-    await prisma.inspection.update({
-      where: { id },
-      data: { contentsManifestDraft: JSON.stringify(draft) },
-    });
-
-    return NextResponse.json({ data: draft }, { status: 201 });
-  } catch (error: any) {
-    console.error("Error generating contents manifest:", error);
-
-    if (
-      error.message?.includes("API key") ||
-      error.message?.includes("Integrations")
-    ) {
-      return NextResponse.json(
-        { error: "AI integration not configured. Check API key settings." },
-        { status: 422 },
-      );
-    }
-
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
-  }
+  });
 }

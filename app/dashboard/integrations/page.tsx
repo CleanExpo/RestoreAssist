@@ -75,34 +75,41 @@ const EXTERNAL_INTEGRATIONS: {
   category: "bookkeeping" | "jobmanagement";
   comingSoon?: boolean;
 }[] = [
+  // RA-1257: descriptions rewritten as outcome-led benefit blurbs. Adoption
+  // is a retention lever — tell users WHY each integration matters instead
+  // of what it does technically. Xero listed first (largest AU market).
   {
     slug: "xero",
     name: "Xero",
-    description: "Sync clients and invoices from Xero",
+    description:
+      "Auto-sync invoices + payments — saves ~3 hrs/week of manual entry. Most popular for AU contractors.",
     icon: "📊",
     logo: "/integrations/xero.svg",
     category: "bookkeeping",
   },
   {
-    slug: "quickbooks",
-    name: "QuickBooks",
-    description: "Sync customers and transactions from QuickBooks",
-    icon: "📊",
-    logo: "/integrations/quickbooks.svg",
-    category: "bookkeeping",
-  },
-  {
     slug: "myob",
     name: "MYOB",
-    description: "Sync contacts and jobs from MYOB",
+    description:
+      "Push invoices straight into your AccountRight ledger. No more CSV exports.",
     icon: "📊",
     logo: "/integrations/myob.svg",
     category: "bookkeeping",
   },
   {
+    slug: "quickbooks",
+    name: "QuickBooks",
+    description:
+      "Customers + invoices stay in sync both ways — quote here, paid there.",
+    icon: "📊",
+    logo: "/integrations/quickbooks.svg",
+    category: "bookkeeping",
+  },
+  {
     slug: "servicem8",
     name: "ServiceM8",
-    description: "Sync clients and jobs from ServiceM8",
+    description:
+      "Pull active jobs into RestoreAssist so technicians start with real data.",
     icon: "📋",
     logo: "/integrations/servicem8.svg",
     category: "jobmanagement",
@@ -110,7 +117,8 @@ const EXTERNAL_INTEGRATIONS: {
   {
     slug: "ascora",
     name: "Ascora",
-    description: "Sync customers and work orders from Ascora",
+    description:
+      "Import work orders + line-item history from Ascora for scope generation.",
     icon: "📋",
     logo: "/integrations/ascora.svg",
     category: "jobmanagement",

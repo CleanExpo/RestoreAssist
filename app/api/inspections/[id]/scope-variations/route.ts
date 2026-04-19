@@ -19,15 +19,35 @@ import { prisma } from "@/lib/prisma";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { evaluateVariation } from "@/lib/compliance/variation-auto-approve";
+import { withIdempotency } from "@/lib/idempotency";
 
+// RA-1383 v2: authorisationSource is now a Prisma enum. Accept both the
+// legacy lowercase strings (for backward compat with existing clients)
+// and the canonical UPPERCASE enum values. Normalise to UPPERCASE before
+// persisting.
 const VALID_AUTHORISATION_SOURCES = [
-  "insurer_email",
-  "customer_signature",
-  "internal_manager",
-  "adjuster_approval",
+  "INSURER_EMAIL",
+  "CUSTOMER_SIGNATURE",
+  "INTERNAL_MANAGER",
+  "ADJUSTER_APPROVAL",
+  "CARRIER_EMAIL",
+  "CARRIER_PORTAL",
+  "DOCUSIGN",
+  "PHONE_THEN_EMAIL_FOLLOWUP",
+  "EMERGENCY_SELF",
 ] as const;
 
 type AuthorisationSource = (typeof VALID_AUTHORISATION_SOURCES)[number];
+
+function normaliseAuthorisationSource(
+  raw: unknown,
+): AuthorisationSource | null {
+  if (typeof raw !== "string") return null;
+  const upper = raw.trim().toUpperCase();
+  return (VALID_AUTHORISATION_SOURCES as readonly string[]).includes(upper)
+    ? (upper as AuthorisationSource)
+    : null;
+}
 
 // ── GET ───────────────────────────────────────────────────────────────────────
 
@@ -85,125 +105,147 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const userId = session.user.id;
+  const { id } = await params;
 
-    const { id } = await params;
-
-    // Ownership check — also fetch organisation country for threshold resolution
-    const inspection = await prisma.inspection.findFirst({
-      where: { id, userId: session.user.id },
-      select: {
-        id: true,
-        user: {
-          select: {
-            organization: {
-              select: { country: true },
-            },
+  // Ownership check — also fetch organisation country for threshold resolution
+  const inspection = await prisma.inspection.findFirst({
+    where: { id, userId },
+    select: {
+      id: true,
+      user: {
+        select: {
+          organization: {
+            select: { country: true },
           },
         },
       },
-    });
-    if (!inspection) {
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
-    }
-
-    const rateLimitResponse = await applyRateLimit(request, {
-      windowMs: 60_000,
-      maxRequests: 30,
-      prefix: "scope-variations",
-      key: session.user.id,
-    });
-    if (rateLimitResponse) return rateLimitResponse;
-
-    const body = await request.json();
-
-    // Validate required fields
-    const {
-      reason,
-      authorisationSource,
-      authorisationRef,
-      costDeltaCents,
-      costDeltaPercent,
-      waterCategory,
-      isStructural,
-      notes,
-    } = body;
-
-    if (!reason || typeof reason !== "string" || !reason.trim()) {
-      return NextResponse.json(
-        { error: "reason is required" },
-        { status: 400 },
-      );
-    }
-
-    if (!VALID_AUTHORISATION_SOURCES.includes(authorisationSource as AuthorisationSource)) {
-      return NextResponse.json(
-        {
-          error: `authorisationSource must be one of: ${VALID_AUTHORISATION_SOURCES.join(", ")}`,
-        },
-        { status: 400 },
-      );
-    }
-
-    if (typeof costDeltaCents !== "number" || !Number.isInteger(costDeltaCents)) {
-      return NextResponse.json(
-        { error: "costDeltaCents must be an integer" },
-        { status: 400 },
-      );
-    }
-
-    // ── RA-1131: rules-engine auto-decision ──────────────────────────────────
-    const orgCountry = inspection.user.organization?.country ?? "AU";
-    const autoResult = evaluateVariation(
-      {
-        costDeltaCents,
-        costDeltaPercent: typeof costDeltaPercent === "number" ? costDeltaPercent : null,
-        waterCategory: typeof waterCategory === "string" ? waterCategory : null,
-        isStructural: typeof isStructural === "boolean" ? isStructural : null,
-      },
-      { country: orgCountry },
-      null,
-    );
-
-    // Legacy simple gate: internal_manager + |delta| <= $100 AUD still applies
-    // Rules engine supersedes it — status maps from decision
-    const statusFromDecision =
-      autoResult.decision === "auto-approved" ? "AUTO_APPROVED" : "PENDING";
-
-    const variation = await prisma.scopeVariation.create({
-      data: {
-        inspectionId: id,
-        reason: reason.trim(),
-        authorisationSource,
-        authorisationRef: authorisationRef ?? null,
-        costDeltaCents,
-        costDeltaPercent: typeof costDeltaPercent === "number" ? costDeltaPercent : null,
-        approvedByUserId: session.user.id,
-        status: statusFromDecision,
-        autoApprovalRule:
-          autoResult.decision === "auto-approved" ? "RA1131_RULES_ENGINE" : null,
-        notes: notes ?? null,
-        autoDecision: autoResult.decision,
-        autoDecisionReason: autoResult.reason,
-        autoDecisionAt: new Date(),
-      },
-    });
-
-    return NextResponse.json({ data: variation }, { status: 201 });
-  } catch (error) {
-    console.error("[scope-variations POST]", error);
+    },
+  });
+  if (!inspection) {
     return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
+      { error: "Inspection not found" },
+      { status: 404 },
     );
   }
+
+  const rateLimitResponse = await applyRateLimit(request, {
+    windowMs: 60_000,
+    maxRequests: 30,
+    prefix: "scope-variations",
+    key: userId,
+  });
+  if (rateLimitResponse) return rateLimitResponse;
+
+  // RA-1266: scope variation is a regulated compliance record (ICA CoP §5 /
+  // ICA 1984) — must not be duplicated silently on retry.
+  return withIdempotency(request, userId, async (rawBody) => {
+    try {
+      let body: any;
+      try {
+        body = rawBody ? JSON.parse(rawBody) : {};
+      } catch {
+        return NextResponse.json(
+          { error: "Invalid JSON body" },
+          { status: 400 },
+        );
+      }
+
+      // Validate required fields
+      const {
+        reason,
+        authorisationSource,
+        authorisationRef,
+        costDeltaCents,
+        costDeltaPercent,
+        waterCategory,
+        isStructural,
+        notes,
+      } = body;
+
+      if (!reason || typeof reason !== "string" || !reason.trim()) {
+        return NextResponse.json(
+          { error: "reason is required" },
+          { status: 400 },
+        );
+      }
+
+      const normalisedSource =
+        normaliseAuthorisationSource(authorisationSource);
+      if (!normalisedSource) {
+        return NextResponse.json(
+          {
+            error: `authorisationSource must be one of: ${VALID_AUTHORISATION_SOURCES.join(", ")}`,
+          },
+          { status: 400 },
+        );
+      }
+
+      if (
+        typeof costDeltaCents !== "number" ||
+        !Number.isInteger(costDeltaCents)
+      ) {
+        return NextResponse.json(
+          { error: "costDeltaCents must be an integer" },
+          { status: 400 },
+        );
+      }
+
+      // ── RA-1131: rules-engine auto-decision ──────────────────────────────────
+      const orgCountry = inspection.user.organization?.country ?? "AU";
+      const autoResult = evaluateVariation(
+        {
+          costDeltaCents,
+          costDeltaPercent:
+            typeof costDeltaPercent === "number" ? costDeltaPercent : null,
+          waterCategory:
+            typeof waterCategory === "string" ? waterCategory : null,
+          isStructural: typeof isStructural === "boolean" ? isStructural : null,
+        },
+        { country: orgCountry },
+        null,
+      );
+
+      // Legacy simple gate: internal_manager + |delta| <= $100 AUD still applies
+      // Rules engine supersedes it — status maps from decision
+      const statusFromDecision =
+        autoResult.decision === "auto-approved" ? "AUTO_APPROVED" : "PENDING";
+
+      const variation = await prisma.scopeVariation.create({
+        data: {
+          inspectionId: id,
+          reason: reason.trim(),
+          authorisationSource: normalisedSource,
+          authorisationRef: authorisationRef ?? null,
+          costDeltaCents,
+          costDeltaPercent:
+            typeof costDeltaPercent === "number" ? costDeltaPercent : null,
+          approvedByUserId: userId,
+          status: statusFromDecision,
+          autoApprovalRule:
+            autoResult.decision === "auto-approved"
+              ? "RA1131_RULES_ENGINE"
+              : null,
+          notes: notes ?? null,
+          autoDecision: autoResult.decision,
+          autoDecisionReason: autoResult.reason,
+          autoDecisionAt: new Date(),
+        },
+      });
+
+      return NextResponse.json({ data: variation }, { status: 201 });
+    } catch (error) {
+      console.error("[scope-variations POST]", error);
+      return NextResponse.json(
+        { error: "Internal server error" },
+        { status: 500 },
+      );
+    }
+  });
 }
 
 // ── PATCH ─────────────────────────────────────────────────────────────────────

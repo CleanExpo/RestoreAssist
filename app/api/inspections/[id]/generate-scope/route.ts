@@ -123,7 +123,12 @@ export async function POST(
         moistureReadings: {
           orderBy: { createdAt: "desc" },
         },
-        environmentalData: true,
+        // RA-1383 (M-7): EnvironmentalData is now a time-series. Use the most
+        // recent reading for scope generation.
+        environmentalData: {
+          orderBy: { recordedAt: "desc" },
+          take: 1,
+        },
         classifications: {
           orderBy: { createdAt: "desc" },
           take: 1,
@@ -195,11 +200,11 @@ export async function POST(
       affectedAreaM2,
       affectedRooms,
       moistureReadings: moistureInputs,
-      environmentalData: inspection.environmentalData
+      environmentalData: inspection.environmentalData[0]
         ? {
-            temperature: inspection.environmentalData.ambientTemperature,
-            humidity: inspection.environmentalData.humidityLevel,
-            dewPoint: inspection.environmentalData.dewPoint ?? undefined,
+            temperature: inspection.environmentalData[0].ambientTemperature,
+            humidity: inspection.environmentalData[0].humidityLevel,
+            dewPoint: inspection.environmentalData[0].dewPoint ?? undefined,
           }
         : undefined,
       equipment: equipmentInputs,
@@ -234,10 +239,34 @@ export async function POST(
     let accumulatedText = "";
     let usageData: { inputTokens: number; outputTokens: number } | undefined;
 
+    // RA-1304 — track the upstream Anthropic stream + a client-disconnect
+    // flag so we can abort token generation when the client bails. Without
+    // this, the server keeps consuming tokens from Anthropic (billed) with
+    // no listener on the other end.
+    let anthropicStreamRef: Awaited<
+      ReturnType<typeof anthropic.messages.stream>
+    > | null = null;
+    let clientDisconnected = false;
+
     const stream = new ReadableStream({
+      // RA-1304 — Next.js / the runtime calls cancel() when the client
+      // disconnects (browser closes, user navigates away, network drop).
+      // Flip the flag + abort the upstream Anthropic stream. The main
+      // loop checks the flag every event and exits cleanly.
+      cancel() {
+        clientDisconnected = true;
+        try {
+          (anthropicStreamRef as any)?.abort?.();
+          console.log(
+            "[generate-scope] Client disconnected — upstream Anthropic stream aborted",
+          );
+        } catch {
+          /* best effort */
+        }
+      },
       async start(controller) {
         try {
-          const anthropicStream = await anthropic.messages.stream({
+          anthropicStreamRef = await anthropic.messages.stream({
             model,
             max_tokens: 2000,
             system: [
@@ -250,8 +279,19 @@ export async function POST(
             ],
             messages: [{ role: "user", content: userMessage }],
           });
+          const anthropicStream = anthropicStreamRef;
 
           for await (const event of anthropicStream) {
+            // Bail early if the client disconnected — saves Anthropic tokens
+            // on the remainder of the stream.
+            if (clientDisconnected) {
+              try {
+                (anthropicStream as any).abort?.();
+              } catch {
+                /* best effort */
+              }
+              break;
+            }
             if (
               event.type === "content_block_delta" &&
               event.delta.type === "text_delta"

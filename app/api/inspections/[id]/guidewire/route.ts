@@ -31,6 +31,7 @@ import {
   type NirEvidenceClearance,
 } from "@/lib/nir-guidewire-integration";
 import { getPropertyLocationFlags } from "@/lib/nir-location-services";
+import { withIdempotency } from "@/lib/idempotency";
 
 // ─── STATE DERIVATION ─────────────────────────────────────────────────────────
 
@@ -357,34 +358,44 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { id } = await params;
-    const body = (await request.json()) as {
-      policyNumber?: string;
-      insurerLossTypeCode?: string;
-    };
-    const policyNumber = body.policyNumber ?? "POL-UNKNOWN";
-    const insurerLossTypeCode = body.insurerLossTypeCode ?? "PR_WaterDamage";
-
-    return await buildResponse(
-      id,
-      session.user.id,
-      session.user.name ?? "Technician",
-      policyNumber,
-      insurerLossTypeCode,
-    );
-  } catch (error) {
-    console.error("Error generating Guidewire payload:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const userId = session.user.id;
+  const { id } = await params;
+
+  // RA-1266: Guidewire submission is a downstream integration event —
+  // idempotency prevents duplicate payload generation/submission on retry.
+  return withIdempotency(request, userId, async (rawBody) => {
+    try {
+      let body: { policyNumber?: string; insurerLossTypeCode?: string } = {};
+      try {
+        body = rawBody ? JSON.parse(rawBody) : {};
+      } catch {
+        return NextResponse.json(
+          { error: "Invalid JSON body" },
+          { status: 400 },
+        );
+      }
+      const policyNumber = body.policyNumber ?? "POL-UNKNOWN";
+      const insurerLossTypeCode = body.insurerLossTypeCode ?? "PR_WaterDamage";
+
+      return await buildResponse(
+        id,
+        userId,
+        session.user.name ?? "Technician",
+        policyNumber,
+        insurerLossTypeCode,
+      );
+    } catch (error) {
+      console.error("Error generating Guidewire payload:", error);
+      return NextResponse.json(
+        { error: "Internal server error" },
+        { status: 500 },
+      );
+    }
+  });
 }
 
 // ─── SHARED RESPONSE BUILDER ──────────────────────────────────────────────────
@@ -465,8 +476,7 @@ async function buildResponse(
       inspectionStatus: inspection.status,
       generatedAt: new Date().toISOString(),
       guidewireApiBase: "/pc/rest/v1",
-      integrationGuide:
-        "https://docs.restoreassist.app/integrations/guidewire",
+      integrationGuide: "https://docs.restoreassist.app/integrations/guidewire",
       note: "This payload is generated locally. No call is made to Guidewire. Submit claimPayload to your ClaimCenter instance using your insurer-issued OAuth 2.0 credentials.",
     },
   });

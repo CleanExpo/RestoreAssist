@@ -20,7 +20,8 @@ const COST_DATABASE_ENTRIES = [
   {
     itemType: "negativeAirMachineDailyRate",
     category: "Equipment",
-    description: "Negative Air Machine — daily rental (HEPA-filtered containment unit)",
+    description:
+      "Negative Air Machine — daily rental (HEPA-filtered containment unit)",
     unit: "$/day",
     minRate: 55,
     maxRate: 180,
@@ -44,7 +45,8 @@ const COST_DATABASE_ENTRIES = [
   {
     itemType: "monitoringVisitDailyRate",
     category: "Labor",
-    description: "Monitoring Visit — per site visit for drying progress assessment",
+    description:
+      "Monitoring Visit — per site visit for drying progress assessment",
     unit: "$/visit",
     minRate: 85,
     maxRate: 220,
@@ -56,7 +58,8 @@ const COST_DATABASE_ENTRIES = [
   {
     itemType: "mobilisationFee",
     category: "Fees",
-    description: "Mobilisation Fee — one-off charge for site setup, travel, and initial response",
+    description:
+      "Mobilisation Fee — one-off charge for site setup, travel, and initial response",
     unit: "$",
     minRate: 100,
     maxRate: 450,
@@ -68,7 +71,8 @@ const COST_DATABASE_ENTRIES = [
   {
     itemType: "wasteDisposalPerBinRate",
     category: "Materials",
-    description: "Waste Disposal — per bin (240L skip bin, includes levy and collection)",
+    description:
+      "Waste Disposal — per bin (240L skip bin, includes levy and collection)",
     unit: "$/bin",
     minRate: 280,
     maxRate: 650,
@@ -80,7 +84,8 @@ const COST_DATABASE_ENTRIES = [
   {
     itemType: "projectManagementPercent",
     category: "Fees",
-    description: "Project Management — percentage of total job cost for PM oversight",
+    description:
+      "Project Management — percentage of total job cost for PM oversight",
     unit: "%",
     minRate: 5,
     maxRate: 15,
@@ -92,7 +97,8 @@ const COST_DATABASE_ENTRIES = [
   {
     itemType: "photoDocumentationFee",
     category: "Fees",
-    description: "Photo Documentation Fee — comprehensive photographic evidence package",
+    description:
+      "Photo Documentation Fee — comprehensive photographic evidence package",
     unit: "$",
     minRate: 95,
     maxRate: 250,

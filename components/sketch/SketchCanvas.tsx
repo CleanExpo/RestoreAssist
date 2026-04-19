@@ -95,7 +95,9 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
 
     // ── Undo/Redo helpers ─────────────────────────────────────
     const saveState = useCallback(() => {
-      const canvas = fabricRef.current as { toJSON: (extras?: string[]) => object } | null;
+      const canvas = fabricRef.current as {
+        toJSON: (extras?: string[]) => object;
+      } | null;
       if (!canvas) return;
       const json = JSON.stringify(canvas.toJSON(["data"]));
       const stack = historyRef.current;
@@ -156,7 +158,9 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       ref,
       () => ({
         toJSON: () => {
-          const c = fabricRef.current as { toJSON: (extras?: string[]) => object } | null;
+          const c = fabricRef.current as {
+            toJSON: (extras?: string[]) => object;
+          } | null;
           return c?.toJSON(["data"]) ?? {};
         },
         loadFromJSON: async (data: object) => {
@@ -222,10 +226,15 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         // ── PencilBrush must be explicitly instantiated in Fabric v6 ──
         // Without this, freehand drawing silently fails (no brush object).
         const PencilBrush = (
-          fabric as { PencilBrush: new (c: unknown) => { color: string; width: number } }
+          fabric as {
+            PencilBrush: new (c: unknown) => { color: string; width: number };
+          }
         ).PencilBrush;
-        (fabricCanvas as unknown as { freeDrawingBrush: { color: string; width: number } }).freeDrawingBrush =
-          new PencilBrush(fabricCanvas);
+        (
+          fabricCanvas as unknown as {
+            freeDrawingBrush: { color: string; width: number };
+          }
+        ).freeDrawingBrush = new PencilBrush(fabricCanvas);
 
         fabricRef.current = fabricCanvas;
         const canvas = fabricCanvas as {
@@ -319,7 +328,9 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         if (backgroundImageUrl) {
           try {
             const { FabricImage } = fabric as {
-              FabricImage: { fromURL: (url: string, opts?: object) => Promise<unknown> };
+              FabricImage: {
+                fromURL: (url: string, opts?: object) => Promise<unknown>;
+              };
             };
             const isDataUrl = backgroundImageUrl.startsWith("data:");
             const opts = isDataUrl ? {} : { crossOrigin: "anonymous" };
@@ -328,11 +339,19 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
               set: (opts: object) => void;
               scaleToWidth: (w: number) => void;
             };
-            imgEl.set({ selectable: false, evented: false, opacity: backgroundImageOpacity });
+            imgEl.set({
+              selectable: false,
+              evented: false,
+              opacity: backgroundImageOpacity,
+            });
             imgEl.scaleToWidth(width);
-            (canvas as unknown as { backgroundImage: unknown }).backgroundImage = img;
+            (
+              canvas as unknown as { backgroundImage: unknown }
+            ).backgroundImage = img;
             if ("requestRenderAll" in (canvas as object)) {
-              (canvas as unknown as { requestRenderAll: () => void }).requestRenderAll();
+              (
+                canvas as unknown as { requestRenderAll: () => void }
+              ).requestRenderAll();
             } else {
               canvas.renderAll();
             }
@@ -346,7 +365,10 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
 
         // Notify parent
         onReady?.({
-          toJSON: () => (canvas as unknown as { toJSON: (e?: string[]) => object }).toJSON(["data"]),
+          toJSON: () =>
+            (canvas as unknown as { toJSON: (e?: string[]) => object }).toJSON([
+              "data",
+            ]),
           loadFromJSON: (data) =>
             new Promise((resolve) => canvas.loadFromJSON(data, resolve)),
           toDataURL: (opts) => canvas.toDataURL(opts),
@@ -416,7 +438,9 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         try {
           const fabric = await import("fabric");
           const { FabricImage } = fabric as {
-            FabricImage: { fromURL: (url: string, opts?: object) => Promise<unknown> };
+            FabricImage: {
+              fromURL: (url: string, opts?: object) => Promise<unknown>;
+            };
           };
           // Avoid crossOrigin on data URLs — it causes silent failures
           const isDataUrl = backgroundImageUrl.startsWith("data:");
@@ -426,12 +450,18 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             set: (opts: object) => void;
             scaleToWidth: (w: number) => void;
           };
-          imgEl.set({ selectable: false, evented: false, opacity: backgroundImageOpacity });
+          imgEl.set({
+            selectable: false,
+            evented: false,
+            opacity: backgroundImageOpacity,
+          });
           imgEl.scaleToWidth(width);
           canvas.backgroundImage = img;
           // v6: requestRenderAll is preferred; fall back to renderAll
           if ("requestRenderAll" in (canvas as object)) {
-            (canvas as unknown as { requestRenderAll: () => void }).requestRenderAll();
+            (
+              canvas as unknown as { requestRenderAll: () => void }
+            ).requestRenderAll();
           } else {
             canvas.renderAll();
           }

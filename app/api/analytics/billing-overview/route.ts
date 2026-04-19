@@ -2,19 +2,31 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { verifyAdminFromDb } from "@/lib/admin-auth";
 import { PRICING_CONFIG } from "@/lib/pricing";
+
+// RA-1320 — module-scope response cache. billing-overview fires 11
+// parallel queries, 3 of which groupBy/aggregate over the full User
+// table. At 100k users each admin-dashboard refresh is expensive and
+// connection-pool-heavy. Cache the response for 60s so repeated admin
+// refreshes share a single computation. Cache is stale-while-revalidate
+// would be better but this module has no Redis dependency — 60s
+// in-memory is the Pareto-optimal mitigation.
+type CachedResponse = { data: unknown; expiresAt: number };
+let cachedResponse: CachedResponse | null = null;
+const CACHE_TTL_MS = 60_000;
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
+    const auth = await verifyAdminFromDb(session);
+    if (auth.response) return auth.response;
 
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // Only admins can see billing overview
-    if (session.user.role !== "ADMIN") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    // RA-1320 — serve from cache if fresh
+    if (cachedResponse && cachedResponse.expiresAt > Date.now()) {
+      return NextResponse.json(cachedResponse.data, {
+        headers: { "X-Cache": "HIT" },
+      });
     }
 
     const now = new Date();
@@ -26,7 +38,7 @@ export async function GET(request: NextRequest) {
       subscriptionCounts,
       activeMonthly,
       activeYearly,
-      trialUsers,
+      trialsExpiringSoon,
       canceledLast30,
       addonRevenue,
       addonRevenuePrev,
@@ -58,13 +70,17 @@ export async function GET(request: NextRequest) {
         },
       }),
 
-      // Trial users with expiry info
-      prisma.user.findMany({
-        where: { subscriptionStatus: "TRIAL" },
-        select: {
-          id: true,
-          trialEndsAt: true,
-          createdAt: true,
+      // RA-1330 — previously fetched up to 1000 trial users just to
+      // count those expiring in the next 7 days. Replace with a direct
+      // count query so we transfer one scalar instead of up to 1000
+      // rows × 3 fields each on every billing-overview page load.
+      prisma.user.count({
+        where: {
+          subscriptionStatus: "TRIAL",
+          trialEndsAt: {
+            gt: now,
+            lte: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
+          },
         },
       }),
 
@@ -204,14 +220,8 @@ export async function GET(request: NextRequest) {
           ? 100
           : 0;
 
-    // Trials expiring soon (within 7 days)
-    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-    const trialsExpiringSoon = trialUsers.filter(
-      (u) =>
-        u.trialEndsAt &&
-        u.trialEndsAt <= sevenDaysFromNow &&
-        u.trialEndsAt > now,
-    ).length;
+    // Trials expiring soon (within 7 days) — resolved at fetch time by the
+    // count query above (RA-1330). Kept as a named local for readability.
 
     // Build monthly revenue trend with subscription MRR estimate
     const revenueTrend = (monthlyRevenueTrend as any[]).map((row: any) => ({
@@ -222,7 +232,7 @@ export async function GET(request: NextRequest) {
       estimatedMRR: totalMRR,
     }));
 
-    return NextResponse.json({
+    const responseBody = {
       mrr: {
         total: totalMRR,
         monthly: monthlyMRR,
@@ -276,7 +286,15 @@ export async function GET(request: NextRequest) {
       })),
       revenueTrend,
       totalUsers,
-    });
+    };
+
+    // RA-1320 — cache the computed response for 60s
+    cachedResponse = {
+      data: responseBody,
+      expiresAt: Date.now() + CACHE_TTL_MS,
+    };
+
+    return NextResponse.json(responseBody, { headers: { "X-Cache": "MISS" } });
   } catch (error) {
     console.error("Error fetching billing overview:", error);
     return NextResponse.json(
