@@ -356,7 +356,7 @@ export default function DashboardLayout({
                       className={cn(
                         "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group w-full text-left",
                         item.highlight
-                          ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-medium hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]"
+                          ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-medium hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]"
                           : cn(
                               "text-neutral-700 dark:text-slate-300",
                               "hover:bg-neutral-100 dark:hover:bg-slate-800",
@@ -392,7 +392,7 @@ export default function DashboardLayout({
                             "hover:scale-[1.02]",
                           )
                         : item.highlight
-                          ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-medium hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]"
+                          ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-medium hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]"
                           : cn(
                               "text-neutral-700 dark:text-slate-300",
                               "hover:bg-neutral-100 dark:hover:bg-slate-800",
