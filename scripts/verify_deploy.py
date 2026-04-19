@@ -67,7 +67,14 @@ def get_local_sha() -> str:
 # ── Vercel ───────────────────────────────────────────────────────────────────
 
 def get_vercel_sha(token: str, project_id: str, team_id: str) -> str | None:
-    url = f"https://api.vercel.com/v6/deployments?projectId={project_id}&limit=1&state=READY"
+    # target=production — the preview builds for every PR show up in the same
+    # project; without the filter the "latest READY" was whichever preview
+    # finished most recently, so parity always flagged as drift. We only
+    # care about what's actually serving prod traffic.
+    url = (
+        "https://api.vercel.com/v6/deployments"
+        f"?projectId={project_id}&limit=1&state=READY&target=production"
+    )
     if team_id:
         url += f"&teamId={team_id}"
     data = http_get(url, token)
@@ -166,6 +173,10 @@ def main() -> int:
     drift_detected = False
 
     # ── Vercel check ─────────────────────────────────────────────────────────
+    # RA-1166 — when VERCEL_TOKEN is expired/revoked, degrade to a loud
+    # warning instead of failing the check. Production parity isn't broken;
+    # only our ability to *verify* it is. Failing CI here blocks unrelated
+    # merges and causes false "site is down" alarms when the site is fine.
     try:
         vercel_sha = get_vercel_sha(vercel_token, vercel_project_id, vercel_team_id)
         if vercel_sha is None:
@@ -176,8 +187,19 @@ def main() -> int:
             print(f"Vercel:      {vercel_sha} ✗ DRIFT DETECTED (expected {local_sha[:12]})")
             drift_detected = True
     except RuntimeError as e:
-        print(f"[ERROR] Vercel check failed: {e}", file=sys.stderr)
-        drift_detected = True
+        msg = str(e)
+        # Token-level errors: rotate VERCEL_TOKEN (RA-1166). Don't fail CI.
+        if "403" in msg or "401" in msg or "invalidToken" in msg:
+            print(
+                "[WARN] Vercel: parity check skipped — VERCEL_TOKEN is "
+                "expired/revoked/scoped-wrong. Rotate the GitHub secret "
+                "(see RA-1166). Site deployment is unaffected; this is a "
+                "CI-gate issue only.",
+                file=sys.stderr,
+            )
+        else:
+            print(f"[ERROR] Vercel check failed: {e}", file=sys.stderr)
+            drift_detected = True
 
     # ── Railway check (only when configured) ────────────────────────────────
     if not railway_enabled:
