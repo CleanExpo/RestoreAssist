@@ -17,288 +17,293 @@ import { checkSafeworkGate } from "@/lib/compliance/safework-notification-gate";
 import { checkNzbsGate } from "@/lib/compliance/nzbs-compliance-gate";
 import { detectMoistureTrendAnomalies } from "@/lib/compliance/moisture-trend-anomaly";
 import { detectDuplicateJob } from "@/lib/compliance/duplicate-detector";
+import { withIdempotency } from "@/lib/idempotency";
 
 // POST - Submit inspection for processing
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  try {
-    const session = await getServerSession(authOptions);
+  const session = await getServerSession(authOptions);
 
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const userId = session.user.id;
+  const { id } = await params;
 
-    const { id } = await params;
+  // RA-1266: submit is a terminal transition — retry triggers duplicate
+  // classification, cost estimation, and downstream processing runs.
+  return withIdempotency(request, userId, async () => {
+    try {
+      // Get inspection with all data
+      const inspection = await prisma.inspection.findFirst({
+        where: {
+          id,
+          userId,
+        },
+        include: {
+          environmentalData: true,
+          moistureReadings: true,
+          affectedAreas: true,
+          scopeItems: true,
+          photos: true,
+        },
+      });
 
-    // Get inspection with all data
-    const inspection = await prisma.inspection.findFirst({
-      where: {
-        id,
-        userId: session.user.id,
-      },
-      include: {
-        environmentalData: true,
-        moistureReadings: true,
-        affectedAreas: true,
-        scopeItems: true,
-        photos: true,
-      },
-    });
+      if (!inspection) {
+        return NextResponse.json(
+          { error: "Inspection not found" },
+          { status: 404 },
+        );
+      }
 
-    if (!inspection) {
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
-    }
+      // ── Tiered completion validation ───────────────────────────────────────────
+      // CRITICAL fields block submission. SUPPLEMENTARY fields are flagged in the
+      // audit log and returned to the caller but do NOT block submission.
+      // This implements the field-reality spec requirement: a partial record in
+      // emergency conditions is better than no record at all.
+      // Source: lib/nir-field-reality-spec.ts → PHYSICAL_UX_REQUIREMENTS.tieredCompletion
+      const tieredResult = validateTieredCompletion({
+        propertyAddress: inspection.propertyAddress,
+        propertyPostcode: inspection.propertyPostcode,
+        inspectionDate: inspection.inspectionDate,
+        affectedAreas: inspection.affectedAreas,
+        photos: inspection.photos,
+        environmentalData: inspection.environmentalData,
+        moistureReadings: inspection.moistureReadings,
+        scopeItems: inspection.scopeItems,
+        affectedAreasWithSource: inspection.affectedAreas.map(
+          (a: { waterSource?: string | null }) => ({
+            waterSource: a.waterSource,
+          }),
+        ),
+      });
 
-    // ── Tiered completion validation ───────────────────────────────────────────
-    // CRITICAL fields block submission. SUPPLEMENTARY fields are flagged in the
-    // audit log and returned to the caller but do NOT block submission.
-    // This implements the field-reality spec requirement: a partial record in
-    // emergency conditions is better than no record at all.
-    // Source: lib/nir-field-reality-spec.ts → PHYSICAL_UX_REQUIREMENTS.tieredCompletion
-    const tieredResult = validateTieredCompletion({
-      propertyAddress: inspection.propertyAddress,
-      propertyPostcode: inspection.propertyPostcode,
-      inspectionDate: inspection.inspectionDate,
-      affectedAreas: inspection.affectedAreas,
-      photos: inspection.photos,
-      environmentalData: inspection.environmentalData,
-      moistureReadings: inspection.moistureReadings,
-      scopeItems: inspection.scopeItems,
-      affectedAreasWithSource: inspection.affectedAreas.map(
-        (a: { waterSource?: string | null }) => ({
-          waterSource: a.waterSource,
-        }),
-      ),
-    });
+      if (!tieredResult.canSubmit) {
+        return NextResponse.json(
+          {
+            error: "Inspection cannot be submitted — critical fields missing",
+            summary: tieredResult.summary,
+            missingCritical: tieredResult.missingCritical.map((f) => ({
+              field: f.fieldName,
+              label: f.label,
+              clauseRef: f.clauseRef,
+              rationale: f.rationale,
+            })),
+          },
+          { status: 400 },
+        );
+      }
 
-    if (!tieredResult.canSubmit) {
-      return NextResponse.json(
-        {
-          error: "Inspection cannot be submitted — critical fields missing",
-          summary: tieredResult.summary,
-          missingCritical: tieredResult.missingCritical.map((f) => ({
+      // ── CLAIM-003 auto-detection ────────────────────────────────────────────
+      // If the inspection was previously processed (status != DRAFT), this submission
+      // represents a re-inspection event. Record it automatically so no admin action
+      // is needed to collect CLAIM-003 pilot data.
+      const isReInspection = inspection.status !== "DRAFT";
+      try {
+        await prisma.pilotObservation.create({
+          data: {
+            claimId: "CLAIM-003",
+            observationType: "reinspection_event",
+            value: isReInspection ? 1 : 0, // 1 = re-inspection required, 0 = first submission
+            group: "nir",
+            inspectionId: id,
+            recordedByUserId: userId,
+            context: {
+              previousStatus: inspection.status,
+              derivedFrom: "submit_route_auto_detection",
+            },
+            notes: isReInspection
+              ? `Re-submission detected: inspection was previously in status ${inspection.status}`
+              : "First submission — no re-inspection required",
+          },
+        });
+      } catch (pilotError) {
+        // Pilot observation failure must never block submission
+        console.warn(
+          "CLAIM-003 auto-detection failed (non-blocking):",
+          pilotError,
+        );
+      }
+
+      // ── RA-1136a: Make-Safe gate ────────────────────────────────────────────────
+      // ICA Code of Practice §3.1 · AS/NZS 1170.0 · WHS Regulations 2011
+      // All applicable hazard-control actions must be completed before submission.
+      const makeSafeResult = await checkMakeSafeGate(id);
+      if (!makeSafeResult.canSubmit) {
+        return NextResponse.json(
+          {
+            error:
+              "Stabilisation checklist incomplete — required per AS-IICRC S500:2025",
+            blockers: makeSafeResult.blockers,
+          },
+          { status: 422 },
+        );
+      }
+
+      // ── RA-1136b: Scope Variation compliance gate ──────────────────────────────
+      // Block submission if any scope variations are still PENDING approval.
+      // Implements ICA Code of Practice §5.
+      const variationGate = await checkScopeVariationGate(id);
+      if (!variationGate.canSubmit) {
+        return NextResponse.json(
+          {
+            error: "Scope variations pending approval",
+            blockers: variationGate.blockers,
+          },
+          { status: 422 },
+        );
+      }
+
+      // ── RA-1136c: AS/NZS 4849.1 moisture advisory ──────────────────────────────
+      // WARN-ONLY — does not block submission.
+      const moistureResult = await checkNzMoistureGate(id);
+
+      // ── RA-1136d: SafeWork notification trigger ─────────────────────────────────
+      // WARN-ONLY — surfaces actionable regulator notifications in the response.
+      const safeworkResult = await checkSafeworkGate(id);
+
+      // ── RA-1131: Moisture trend anomaly detection ───────────────────────────────
+      // WARN-ONLY — flags plateau / rising / stuck-high patterns for early warning
+      // of hidden moisture sources, HVAC faults, and imminent mould risk.
+      // Per IICRC S500:2025 moisture monitoring concern zone (>20% on Day 3+).
+      const moistureTrendResult = await detectMoistureTrendAnomalies(id);
+
+      const duplicateCheck = await detectDuplicateJob(id);
+
+      // ── RA-1136e: NZBS E2/E3 compliance (NZ only) ──────────────────────────────
+      // BLOCKING for NZ-jurisdiction inspections; no-op for AU (pending RA-1120).
+      const nzbsGate = await checkNzbsGate(id);
+      if (!nzbsGate.canSubmit) {
+        return NextResponse.json(
+          {
+            error: "NZBS clauses not addressed",
+            blockers: nzbsGate.blockers,
+            requiredClauses: nzbsGate.requiredClauses,
+          },
+          { status: 422 },
+        );
+      }
+
+      // Atomic CAS — ensures only one concurrent submit wins; prevents duplicate child record creation
+      const submitGuard = await prisma.inspection.updateMany({
+        where: { id, userId: userId, status: "DRAFT" },
+        data: { status: "SUBMITTED", submittedAt: new Date() },
+      });
+      if (submitGuard.count === 0) {
+        return NextResponse.json(
+          {
+            error:
+              "Inspection has already been submitted or is not in DRAFT state.",
+          },
+          { status: 409 },
+        );
+      }
+
+      // Create audit log — includes supplementary field gaps for follow-up tracking
+      const auditNotes = [
+        "Inspection submitted for processing",
+        ...(tieredResult.missingSupplementary.length > 0
+          ? [
+              `SUPPLEMENTARY FIELDS ABSENT: ${tieredResult.missingSupplementary.map((f) => f.label).join(", ")}`,
+            ]
+          : []),
+        ...(tieredResult.warnings.length > 0
+          ? tieredResult.warnings.map((w) => `WARNING: ${w}`)
+          : []),
+      ].join(" | ");
+
+      await prisma.auditLog.create({
+        data: {
+          inspectionId: id,
+          action: auditNotes,
+          entityType: "Inspection",
+          entityId: id,
+          userId: userId,
+        },
+      });
+
+      // Process classification, scope determination, and cost estimation.
+      // Only run if enough data is present — supplementary gaps may limit processing.
+      // In production, this should be done asynchronously via a queue.
+      try {
+        await processInspectionComplete(id, inspection, userId);
+      } catch (error) {
+        console.error("Error processing inspection:", error);
+        // Don't fail the submission, but log the error
+        // In production, would retry via queue
+      }
+
+      // After successful submit — trigger integration sync (non-blocking)
+      // Only fires if the inspection is linked to a Report (reportId is nullable).
+      if (inspection.reportId) {
+        try {
+          const syncPayload = { reportId: inspection.reportId };
+          // Fire-and-forget: don't await, don't fail the submit if sync fails
+          fetch(`${process.env.NEXTAUTH_URL}/api/integrations/nir-sync`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Cookie: request.headers.get("cookie") || "",
+            },
+            body: JSON.stringify(syncPayload),
+          }).catch((err) =>
+            console.error("[NIR Sync] Auto-trigger failed:", err),
+          );
+        } catch (syncErr) {
+          console.error(
+            "[NIR Sync] Could not trigger integration sync:",
+            syncErr,
+          );
+        }
+      }
+
+      return NextResponse.json({
+        message:
+          "Inspection submitted successfully. Processing classification, scope determination, and cost estimation...",
+        inspectionId: id,
+        status: "SUBMITTED",
+        // Surface supplementary gaps and warnings to the caller (mobile app shows follow-up prompts)
+        ...(tieredResult.missingSupplementary.length > 0 && {
+          missingSupplementary: tieredResult.missingSupplementary.map((f) => ({
             field: f.fieldName,
             label: f.label,
             clauseRef: f.clauseRef,
-            rationale: f.rationale,
           })),
-        },
-        { status: 400 },
-      );
-    }
-
-    // ── CLAIM-003 auto-detection ────────────────────────────────────────────
-    // If the inspection was previously processed (status != DRAFT), this submission
-    // represents a re-inspection event. Record it automatically so no admin action
-    // is needed to collect CLAIM-003 pilot data.
-    const isReInspection = inspection.status !== "DRAFT";
-    try {
-      await prisma.pilotObservation.create({
-        data: {
-          claimId: "CLAIM-003",
-          observationType: "reinspection_event",
-          value: isReInspection ? 1 : 0, // 1 = re-inspection required, 0 = first submission
-          group: "nir",
-          inspectionId: id,
-          recordedByUserId: session.user.id,
-          context: {
-            previousStatus: inspection.status,
-            derivedFrom: "submit_route_auto_detection",
-          },
-          notes: isReInspection
-            ? `Re-submission detected: inspection was previously in status ${inspection.status}`
-            : "First submission — no re-inspection required",
-        },
+        }),
+        ...(tieredResult.warnings.length > 0 && {
+          warnings: tieredResult.warnings,
+        }),
+        // RA-1136c: AS/NZS 4849.1 moisture advisories (warn-only)
+        ...(moistureResult.warnings.length > 0 && {
+          moistureWarnings: moistureResult.warnings,
+        }),
+        // RA-1136d: SafeWork regulator notifications (warn-only)
+        ...(safeworkResult.notifications.length > 0 && {
+          safeworkNotifications: safeworkResult.notifications,
+        }),
+        // RA-1131: Moisture trend anomalies (warn-only)
+        ...(moistureTrendResult.hasAnomalies && {
+          moistureTrendAnomalies: moistureTrendResult.anomalies.map((a) => ({
+            location: a.location,
+            severity: a.severity,
+            message: a.message,
+          })),
+        }),
+        ...(duplicateCheck.hasDuplicates && {
+          duplicateCandidates: duplicateCheck.candidates,
+          mergeSuggestion: duplicateCheck.mergeSuggestion,
+        }),
       });
-    } catch (pilotError) {
-      // Pilot observation failure must never block submission
-      console.warn(
-        "CLAIM-003 auto-detection failed (non-blocking):",
-        pilotError,
-      );
-    }
-
-    // ── RA-1136a: Make-Safe gate ────────────────────────────────────────────────
-    // ICA Code of Practice §3.1 · AS/NZS 1170.0 · WHS Regulations 2011
-    // All applicable hazard-control actions must be completed before submission.
-    const makeSafeResult = await checkMakeSafeGate(id);
-    if (!makeSafeResult.canSubmit) {
-      return NextResponse.json(
-        {
-          error:
-            "Stabilisation checklist incomplete — required per AS-IICRC S500:2025",
-          blockers: makeSafeResult.blockers,
-        },
-        { status: 422 },
-      );
-    }
-
-    // ── RA-1136b: Scope Variation compliance gate ──────────────────────────────
-    // Block submission if any scope variations are still PENDING approval.
-    // Implements ICA Code of Practice §5.
-    const variationGate = await checkScopeVariationGate(id);
-    if (!variationGate.canSubmit) {
-      return NextResponse.json(
-        {
-          error: "Scope variations pending approval",
-          blockers: variationGate.blockers,
-        },
-        { status: 422 },
-      );
-    }
-
-    // ── RA-1136c: AS/NZS 4849.1 moisture advisory ──────────────────────────────
-    // WARN-ONLY — does not block submission.
-    const moistureResult = await checkNzMoistureGate(id);
-
-    // ── RA-1136d: SafeWork notification trigger ─────────────────────────────────
-    // WARN-ONLY — surfaces actionable regulator notifications in the response.
-    const safeworkResult = await checkSafeworkGate(id);
-
-    // ── RA-1131: Moisture trend anomaly detection ───────────────────────────────
-    // WARN-ONLY — flags plateau / rising / stuck-high patterns for early warning
-    // of hidden moisture sources, HVAC faults, and imminent mould risk.
-    // Per IICRC S500:2025 moisture monitoring concern zone (>20% on Day 3+).
-    const moistureTrendResult = await detectMoistureTrendAnomalies(id);
-
-    const duplicateCheck = await detectDuplicateJob(id);
-
-    // ── RA-1136e: NZBS E2/E3 compliance (NZ only) ──────────────────────────────
-    // BLOCKING for NZ-jurisdiction inspections; no-op for AU (pending RA-1120).
-    const nzbsGate = await checkNzbsGate(id);
-    if (!nzbsGate.canSubmit) {
-      return NextResponse.json(
-        {
-          error: "NZBS clauses not addressed",
-          blockers: nzbsGate.blockers,
-          requiredClauses: nzbsGate.requiredClauses,
-        },
-        { status: 422 },
-      );
-    }
-
-    // Atomic CAS — ensures only one concurrent submit wins; prevents duplicate child record creation
-    const submitGuard = await prisma.inspection.updateMany({
-      where: { id, userId: session.user.id, status: "DRAFT" },
-      data: { status: "SUBMITTED", submittedAt: new Date() },
-    });
-    if (submitGuard.count === 0) {
-      return NextResponse.json(
-        {
-          error:
-            "Inspection has already been submitted or is not in DRAFT state.",
-        },
-        { status: 409 },
-      );
-    }
-
-    // Create audit log — includes supplementary field gaps for follow-up tracking
-    const auditNotes = [
-      "Inspection submitted for processing",
-      ...(tieredResult.missingSupplementary.length > 0
-        ? [
-            `SUPPLEMENTARY FIELDS ABSENT: ${tieredResult.missingSupplementary.map((f) => f.label).join(", ")}`,
-          ]
-        : []),
-      ...(tieredResult.warnings.length > 0
-        ? tieredResult.warnings.map((w) => `WARNING: ${w}`)
-        : []),
-    ].join(" | ");
-
-    await prisma.auditLog.create({
-      data: {
-        inspectionId: id,
-        action: auditNotes,
-        entityType: "Inspection",
-        entityId: id,
-        userId: session.user.id,
-      },
-    });
-
-    // Process classification, scope determination, and cost estimation.
-    // Only run if enough data is present — supplementary gaps may limit processing.
-    // In production, this should be done asynchronously via a queue.
-    try {
-      await processInspectionComplete(id, inspection, session.user.id);
     } catch (error) {
-      console.error("Error processing inspection:", error);
-      // Don't fail the submission, but log the error
-      // In production, would retry via queue
+      console.error("Error submitting inspection:", error);
+      return NextResponse.json(
+        { error: "Internal server error" },
+        { status: 500 },
+      );
     }
-
-    // After successful submit — trigger integration sync (non-blocking)
-    // Only fires if the inspection is linked to a Report (reportId is nullable).
-    if (inspection.reportId) {
-      try {
-        const syncPayload = { reportId: inspection.reportId };
-        // Fire-and-forget: don't await, don't fail the submit if sync fails
-        fetch(`${process.env.NEXTAUTH_URL}/api/integrations/nir-sync`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Cookie: request.headers.get("cookie") || "",
-          },
-          body: JSON.stringify(syncPayload),
-        }).catch((err) =>
-          console.error("[NIR Sync] Auto-trigger failed:", err),
-        );
-      } catch (syncErr) {
-        console.error(
-          "[NIR Sync] Could not trigger integration sync:",
-          syncErr,
-        );
-      }
-    }
-
-    return NextResponse.json({
-      message:
-        "Inspection submitted successfully. Processing classification, scope determination, and cost estimation...",
-      inspectionId: id,
-      status: "SUBMITTED",
-      // Surface supplementary gaps and warnings to the caller (mobile app shows follow-up prompts)
-      ...(tieredResult.missingSupplementary.length > 0 && {
-        missingSupplementary: tieredResult.missingSupplementary.map((f) => ({
-          field: f.fieldName,
-          label: f.label,
-          clauseRef: f.clauseRef,
-        })),
-      }),
-      ...(tieredResult.warnings.length > 0 && {
-        warnings: tieredResult.warnings,
-      }),
-      // RA-1136c: AS/NZS 4849.1 moisture advisories (warn-only)
-      ...(moistureResult.warnings.length > 0 && {
-        moistureWarnings: moistureResult.warnings,
-      }),
-      // RA-1136d: SafeWork regulator notifications (warn-only)
-      ...(safeworkResult.notifications.length > 0 && {
-        safeworkNotifications: safeworkResult.notifications,
-      }),
-      // RA-1131: Moisture trend anomalies (warn-only)
-      ...(moistureTrendResult.hasAnomalies && {
-        moistureTrendAnomalies: moistureTrendResult.anomalies.map((a) => ({
-          location: a.location,
-          severity: a.severity,
-          message: a.message,
-        })),
-      }),
-      ...(duplicateCheck.hasDuplicates && {
-        duplicateCandidates: duplicateCheck.candidates,
-        mergeSuggestion: duplicateCheck.mergeSuggestion,
-      }),
-    });
-  } catch (error) {
-    console.error("Error submitting inspection:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
-  }
+  });
 }
 
 // Process complete inspection: classification, scope determination, and cost estimation
