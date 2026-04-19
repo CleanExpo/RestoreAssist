@@ -53,7 +53,9 @@ export default function DashboardPage() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/onboarding/status", { credentials: "include" });
+        const res = await fetch("/api/onboarding/status", {
+          credentials: "include",
+        });
         if (!res.ok) return;
         const data = await res.json();
         if (cancelled) return;
@@ -540,7 +542,7 @@ export default function DashboardPage() {
                 <div className="w-16 h-16 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-3">
                   <TrendingUp size={24} className="text-white" />
                 </div>
-                <h3 className="text-2xl font-bold text-cyan-400 mb-1">
+                <h3 className="text-2xl font-bold text-cyan-400 mb-1 tabular-nums">
                   {dashboardData.loading
                     ? "..."
                     : `${Math.round((dashboardData.totalReports / Math.max(dashboardData.totalClients, 1)) * 100)}%`}
@@ -552,7 +554,7 @@ export default function DashboardPage() {
                 <div className="w-16 h-16 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-3">
                   <CheckCircle size={24} className="text-white" />
                 </div>
-                <h3 className="text-2xl font-bold text-emerald-400 mb-1">
+                <h3 className="text-2xl font-bold text-emerald-400 mb-1 tabular-nums">
                   {dashboardData.loading
                     ? "..."
                     : `${dashboardData.recentReports.filter((r: any) => r.status !== "Draft").length}/${dashboardData.totalReports || 1}`}
@@ -564,7 +566,7 @@ export default function DashboardPage() {
                 <div className="w-16 h-16 bg-gradient-to-r from-orange-500 to-red-500 rounded-full flex items-center justify-center mx-auto mb-3">
                   <DollarSign size={24} className="text-white" />
                 </div>
-                <h3 className="text-2xl font-bold text-orange-400 mb-1">
+                <h3 className="text-2xl font-bold text-orange-400 mb-1 tabular-nums">
                   {dashboardData.loading
                     ? "..."
                     : `$${dashboardData.totalRevenue.toLocaleString()}`}

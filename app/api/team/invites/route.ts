@@ -339,46 +339,23 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Generate cryptographically random temporary password
-  const tempPassword = crypto
-    .randomBytes(12)
-    .toString("base64url")
-    .slice(0, 12);
-
-  const hashedPassword = await bcrypt.hash(tempPassword, 12);
-
-  // Get inviter's name
+  // RA-1249 — new-user invites now send a link to /invite/[token] rather
+  // than creating the account immediately with a temp password. This removes
+  // the plaintext-password-in-email risk and gives the invitee a proper
+  // acceptance UX where they set their own password.
   const inviter = await prisma.user.findUnique({
     where: { id: session.user.id },
     select: { name: true },
   });
-
   const inviterName = inviter?.name || "Administrator";
 
   try {
-    // Create user account immediately with temporary password
-    // Managers and Technicians don't have their own subscription/credits
-    // They use the Admin's organization credits
-    const user = await prisma.user.create({
-      data: {
-        email: email.toLowerCase(),
-        name: email.split("@")[0], // Default name from email
-        password: hashedPassword,
-        role,
-        organizationId: orgId,
-        managedById: session.user.role === "MANAGER" ? session.user.id : null,
-        // No subscription/credits - they use the Admin's organization credits
-        subscriptionStatus: null,
-        creditsRemaining: null,
-        totalCreditsUsed: 0,
-        mustChangePassword: true, // Require password change on first login
-      },
-    });
-
-    // Create invite record (marked as used since account is already created)
     const token = crypto.randomBytes(24).toString("hex");
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
+    // No User row is created yet — only the UserInvite. The invitee
+    // completes signup via /invite/[token] which creates the User and
+    // marks this invite used atomically.
     const invite = await prisma.userInvite.create({
       data: {
         token,
@@ -388,118 +365,59 @@ export async function POST(req: NextRequest) {
         createdById: session.user.id,
         managedById: session.user.role === "MANAGER" ? session.user.id : null,
         expiresAt,
-        usedAt: new Date(), // Mark as used since account is already created
+        usedAt: null,
       },
     });
 
-    // Send email with credentials
-    const loginUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/login`;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const inviteLink = `${appUrl}/invite/${token}`;
+    const loginUrl = `${appUrl}/login`;
 
     try {
       await sendInviteEmail({
         email: email.toLowerCase(),
-        name: user.name || email.split("@")[0],
+        name: email.split("@")[0],
         role,
-        tempPassword,
+        inviteLink,
         loginUrl,
         inviterName,
       });
     } catch (emailError: any) {
-      console.error("❌ [INVITE] Email sending failed for user:", user.id);
+      console.error("❌ [INVITE] Email sending failed for invite:", invite.id);
       console.error(
         "❌ [INVITE] Email error:",
         emailError?.message || "Unknown error",
       );
-      // Re-throw to be caught by outer catch block
-      throw emailError;
+      // Don't throw — surface the invite link in the response so the
+      // creator can share it manually when email is misconfigured.
+      return NextResponse.json(
+        {
+          message:
+            "Invite created, but email sending failed. Share the invite link manually.",
+          error: "Email sending failed",
+          invite: {
+            id: invite.id,
+            email: invite.email,
+            role: invite.role,
+            usedAt: invite.usedAt,
+          },
+          inviteLink, // surface for manual share
+        },
+        { status: 207 }, // 207 Multi-Status
+      );
     }
 
-    // In-app notification for org admin (non-blocking)
-    const roleName = role === "USER" ? "Technician" : "Manager";
-    prisma.organization
-      .findUnique({ where: { id: orgId }, select: { ownerId: true } })
-      .then((org) => {
-        if (org?.ownerId)
-          notifyTeamMemberJoined(
-            org.ownerId,
-            user.name || email.split("@")[0],
-            roleName,
-          );
-      })
-      .catch(() => {});
-
     return NextResponse.json({
-      message: "User account created and invite email sent successfully",
+      message: "Invite sent. The recipient will set their own password.",
       invite: {
         id: invite.id,
         email: invite.email,
         role: invite.role,
         usedAt: invite.usedAt,
       },
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-      },
-      credentials: {
-        email: user.email,
-        password: tempPassword,
-      },
     });
   } catch (error: any) {
     console.error("Error creating invite:", error);
-
-    // If email sending fails, we should still return success but log the error
-    // The account is created, so the user can still log in
-    if (error.message?.includes("email") || error.message?.includes("Resend")) {
-      // Find the user and invite that were created before email failed
-      const [createdUser, createdInvite] = await Promise.all([
-        prisma.user.findUnique({
-          where: { email: email.toLowerCase() },
-        }),
-        prisma.userInvite.findFirst({
-          where: {
-            email: email.toLowerCase(),
-            createdById: session.user.id,
-          },
-          orderBy: { createdAt: "desc" },
-        }),
-      ]);
-
-      return NextResponse.json(
-        {
-          message:
-            "User account created, but email sending failed. Please contact the user directly.",
-          error: "Email sending failed",
-          tempPassword, // Include temp password in response as fallback
-          invite: createdInvite
-            ? {
-                id: createdInvite.id,
-                email: createdInvite.email,
-                role: createdInvite.role,
-                usedAt: createdInvite.usedAt,
-              }
-            : undefined,
-          user: createdUser
-            ? {
-                id: createdUser.id,
-                email: createdUser.email,
-                name: createdUser.name,
-                role: createdUser.role,
-              }
-            : undefined,
-          credentials: createdUser
-            ? {
-                email: createdUser.email,
-                password: tempPassword,
-              }
-            : undefined,
-        },
-        { status: 207 }, // 207 Multi-Status
-      );
-    }
-
     return NextResponse.json(
       { error: "Failed to create invite. Please try again." },
       { status: 500 },

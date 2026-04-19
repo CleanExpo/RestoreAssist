@@ -51,6 +51,12 @@ model User {
   /// Required for AU consumer law compliance. Null for legacy users
   /// (back-filled lazily via a "re-accept" prompt if ever needed).
   acceptedTermsAt DateTime?
+  /// RA-390: first-run sidebar checklist dismissal timestamp.
+  firstRunChecklistDismissedAt DateTime?
+  /// RA-1238: in-app product tour dismissal timestamp.
+  /// Null means the tour has not been shown/completed yet; set on
+  /// either "Skip tour" or tour completion.
+  productTourDismissedAt DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 

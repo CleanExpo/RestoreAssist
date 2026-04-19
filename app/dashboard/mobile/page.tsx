@@ -431,7 +431,7 @@ function BetaSignupCard() {
             <Button
               type="submit"
               disabled={submitting}
-              className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white"
+              className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-600 hover:to-cyan-600 text-white"
             >
               {submitting ? (
                 <>
@@ -527,7 +527,7 @@ export default function MobileDashboardPage() {
             </div>
             <div className="h-2 rounded-full bg-neutral-100 dark:bg-slate-800 overflow-hidden">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 transition-all duration-700"
+                className="h-full rounded-full bg-gradient-to-r from-blue-600 to-cyan-600 transition-all duration-700"
                 style={{ width: `${progressPct}%` }}
               />
             </div>

@@ -455,7 +455,7 @@ export default function InterviewDetailPage() {
                 `/dashboard/forms/interview?formTemplateId=${interview.formTemplate.id}&sessionId=${interview.id}`,
               )
             }
-            className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:from-blue-600 hover:to-cyan-600"
+            className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white hover:from-blue-600 hover:to-cyan-600"
           >
             Resume Interview
           </Button>

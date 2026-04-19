@@ -11,6 +11,8 @@
     { "path": "/api/cron/board-meeting", "schedule": "0 0 * * 2" },
     { "path": "/api/cron/backfill-progress", "schedule": "0 4 * * *" },
     { "path": "/api/cron/winback", "schedule": "0 9 * * *" },
+    { "path": "/api/cron/google-token-refresh", "schedule": "0 5 * * 0" },
+    { "path": "/api/cron/dr-nrpg-liveness", "schedule": "30 4 * * *" },
     { "path": "/api/cron/prune-webhook-events", "schedule": "30 3 * * *" }
   ]
 }

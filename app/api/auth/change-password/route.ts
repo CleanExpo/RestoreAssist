@@ -114,7 +114,11 @@ export async function POST(request: NextRequest) {
         userId,
         email: session.user.email ?? undefined,
         ...reqCtx,
-      }).catch(() => {});
+      }).catch((err) => {
+        // RA-1311 — surface security-log write failures so operators can
+        // spot a broken logger chain; still non-blocking for the caller.
+        console.error("[change-password] security log failed:", err);
+      });
 
       return NextResponse.json(
         { message: "Password changed successfully" },

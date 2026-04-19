@@ -39,6 +39,8 @@ import dynamic from "next/dynamic";
 import toast from "react-hot-toast";
 import { NotificationBell } from "@/components/notifications";
 import { WhatsNewModal } from "@/components/releases/WhatsNewModal";
+import { ProductTour } from "@/components/onboarding/ProductTour";
+import { TrialBanner } from "@/components/TrialBanner";
 import { PastDueBanner } from "@/components/billing/PastDueBanner";
 import { CancellationCountdownBanner } from "@/components/billing/CancellationCountdownBanner";
 
@@ -355,7 +357,7 @@ export default function DashboardLayout({
                       className={cn(
                         "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group w-full text-left",
                         item.highlight
-                          ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-medium hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]"
+                          ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-medium hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]"
                           : cn(
                               "text-neutral-700 dark:text-slate-300",
                               "hover:bg-neutral-100 dark:hover:bg-slate-800",
@@ -391,7 +393,7 @@ export default function DashboardLayout({
                             "hover:scale-[1.02]",
                           )
                         : item.highlight
-                          ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-medium hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]"
+                          ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-medium hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]"
                           : cn(
                               "text-neutral-700 dark:text-slate-300",
                               "hover:bg-neutral-100 dark:hover:bg-slate-800",
@@ -538,6 +540,11 @@ export default function DashboardLayout({
             </div>
           </header>
 
+          {/* RA-1241 — persistent trial-countdown banner. Silent unless
+              subscriptionStatus === TRIAL + daysRemaining set. Dismissible
+              per-session. Escalates amber → orange → red at ≤3d and ≤1d. */}
+          <TrialBanner />
+
           {/* PAST_DUE dunning banner — RA-1244 */}
           <PastDueBanner status={subscriptionStatus} />
 
@@ -559,6 +566,8 @@ export default function DashboardLayout({
       <Chatbot />
       {/* What's New — shown once per release after login */}
       <WhatsNewModal />
+      {/* Product tour — RA-1238, auto-fires once for new users */}
+      <ProductTour />
     </>
   );
 }

@@ -476,7 +476,7 @@ export default function CostLibrariesPage() {
         </div>
         <button
           onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+          className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
         >
           <Plus size={20} />
           New Library
@@ -504,7 +504,7 @@ export default function CostLibrariesPage() {
                     onClick={() => setSelectedLibrary(lib.id)}
                     className={`w-full text-left px-4 py-3 rounded-lg transition-all ${
                       selectedLibrary === lib.id
-                        ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white"
+                        ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white"
                         : "hover:bg-slate-700/50 text-slate-300"
                     }`}
                   >
@@ -727,7 +727,7 @@ export default function CostLibrariesPage() {
                 </button>
                 <button
                   onClick={handleAddLibrary}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
                 >
                   Create
                 </button>
@@ -822,7 +822,7 @@ export default function CostLibrariesPage() {
                 </button>
                 <button
                   onClick={handleEditLibrary}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
                 >
                   Update Library
                 </button>
@@ -918,7 +918,7 @@ export default function CostLibrariesPage() {
                 </button>
                 <button
                   onClick={handleAddItem}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
                 >
                   Add Item
                 </button>
@@ -1012,7 +1012,7 @@ export default function CostLibrariesPage() {
                 </button>
                 <button
                   onClick={handleEditItem}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
                 >
                   Update Item
                 </button>

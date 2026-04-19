@@ -67,6 +67,15 @@ interface GuidedInterviewPanelProps {
   onComplete?: (questionsAndAnswers: InterviewQuestionAnswer[]) => void;
   onCancel?: () => void;
   showAutoPopulatedFields?: boolean;
+  /**
+   * RA-1213: emitted whenever the answers map changes (on answer submit or
+   * session restore). Parent uses this to drive the debounced autosave +
+   * "All changes saved" indicator and the localStorage fallback.
+   */
+  onAnswersChange?: (payload: {
+    sessionId: string;
+    answers: InterviewQuestionAnswer[];
+  }) => void;
 }
 
 /**
@@ -82,6 +91,7 @@ export function GuidedInterviewPanel({
   onComplete,
   onCancel,
   showAutoPopulatedFields = true,
+  onAnswersChange,
 }: GuidedInterviewPanelProps) {
   const router = useRouter();
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
@@ -107,6 +117,25 @@ export function GuidedInterviewPanel({
   const startTimeRef = useRef<number | null>(null);
   const isInitializingRef = useRef(false);
   const hasInitializedRef = useRef(false);
+
+  // RA-1213: notify parent whenever answers change so it can autosave + show indicator.
+  useEffect(() => {
+    if (!onAnswersChange) return;
+    if (!interviewState.sessionId) return;
+    if (interviewState.answers.size === 0) return;
+    const payload: InterviewQuestionAnswer[] = Array.from(
+      interviewState.answers.entries(),
+    ).map(([questionId, answer]) => {
+      const q = interviewState.allQuestions.find((qq) => qq.id === questionId);
+      return { questionId, questionText: q?.text ?? "", answer };
+    });
+    onAnswersChange({ sessionId: interviewState.sessionId, answers: payload });
+  }, [
+    interviewState.answers,
+    interviewState.sessionId,
+    interviewState.allQuestions,
+    onAnswersChange,
+  ]);
 
   /**
    * Initialize interview on mount - only once

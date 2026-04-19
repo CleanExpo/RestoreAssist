@@ -357,7 +357,7 @@ export default function SettingsPage() {
                 <div className="flex gap-3 pt-4">
                   <button
                     onClick={handleUpdateProfile}
-                    className="px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+                    className="px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
                   >
                     Save Changes
                   </button>
@@ -448,7 +448,7 @@ export default function SettingsPage() {
 
               <a
                 href="/dashboard/subscription"
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
               >
                 <CreditCard className="w-4 h-4" />
                 Manage Subscription
