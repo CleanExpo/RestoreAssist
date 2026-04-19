@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { cn } from "@/lib/utils";
 import { DeleteConfirmationDialog } from "@/components/DeleteConfirmationDialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Plus,
   Search,
@@ -78,6 +79,8 @@ export default function InterviewsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [stats, setStats] = useState<any>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [statsError, setStatsError] = useState<string | null>(null);
   const [templates, setTemplates] = useState<any[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -129,15 +132,22 @@ export default function InterviewsPage() {
 
   const fetchStats = async () => {
     try {
+      setStatsLoading(true);
+      setStatsError(null);
       const response = await fetch(
         "/api/forms/interview/analytics?type=aggregate",
       );
       if (response.ok) {
         const data = await response.json();
         setStats(data);
+      } else {
+        setStatsError("Failed to load stats");
       }
     } catch (error) {
       console.error("Error fetching stats:", error);
+      setStatsError("Failed to load stats");
+    } finally {
+      setStatsLoading(false);
     }
   };
 
@@ -329,34 +339,64 @@ export default function InterviewsPage() {
         </div>
       )}
 
-      {/* Stats Bar — customer-centric metrics (no session count) */}
+      {/* Stats Bar — customer-centric metrics (no session count).
+          RA-1198 — distinguish loading / empty / error states so users
+          aren't staring at em-dashes wondering if the page is broken. */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="p-3 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
-          <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider">
-            Finished
+        {[
+          {
+            label: "Finished",
+            colour: "text-emerald-600 dark:text-emerald-400",
+            value:
+              stats != null
+                ? `${Math.round(stats.completionRate ?? 0)}%`
+                : null,
+          },
+          {
+            label: "Avg. Time per Interview",
+            colour: "text-blue-600 dark:text-blue-400",
+            value:
+              stats != null
+                ? `${Math.round((stats.averageSessionDuration ?? 0) / 60)}m`
+                : null,
+          },
+          {
+            label: "Report Fields Filled",
+            colour: "text-purple-600 dark:text-purple-400",
+            value:
+              stats != null ? String(stats.averageFieldsPopulated ?? 0) : null,
+          },
+        ].map((cell) => (
+          <div
+            key={cell.label}
+            className="p-3 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50"
+          >
+            <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider">
+              {cell.label}
+            </div>
+            {statsLoading ? (
+              <Skeleton className="h-7 w-16 mt-1" />
+            ) : statsError ? (
+              <div
+                className="text-xl font-bold text-rose-500 mt-1"
+                title={statsError}
+              >
+                —
+              </div>
+            ) : sessions.length === 0 ? (
+              <div
+                className="text-xl font-bold text-neutral-400 dark:text-slate-500 mt-1"
+                title="Run your first interview to populate"
+              >
+                —
+              </div>
+            ) : (
+              <div className={cn("text-xl font-bold mt-1", cell.colour)}>
+                {cell.value ?? "—"}
+              </div>
+            )}
           </div>
-          <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
-            {stats != null ? `${Math.round(stats.completionRate ?? 0)}%` : "—"}
-          </div>
-        </div>
-        <div className="p-3 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
-          <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider">
-            Avg. Time per Interview
-          </div>
-          <div className="text-xl font-bold text-blue-600 dark:text-blue-400 mt-1">
-            {stats != null
-              ? `${Math.round((stats.averageSessionDuration ?? 0) / 60)}m`
-              : "—"}
-          </div>
-        </div>
-        <div className="p-3 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
-          <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider">
-            Report Fields Filled
-          </div>
-          <div className="text-xl font-bold text-purple-600 dark:text-purple-400 mt-1">
-            {stats != null ? (stats.averageFieldsPopulated ?? 0) : "—"}
-          </div>
-        </div>
+        ))}
       </div>
 
       {/* Status Filter Pills */}
