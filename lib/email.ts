@@ -110,6 +110,10 @@ export interface InviteEmailData {
   name: string;
   role: "MANAGER" | "USER";
   tempPassword?: string;
+  // RA-1249 — preferred path for NEW users: a link to /invite/[token] where
+  // the invitee sets their own password. `tempPassword` kept for backward
+  // compat with any callers still using the old emailed-credentials flow.
+  inviteLink?: string;
   loginUrl: string;
   inviterName: string;
   isTransfer?: boolean; // True if user already exists and is being transferred
@@ -135,6 +139,7 @@ export async function sendInviteEmail(data: InviteEmailData) {
   const roleLabel = data.role === "MANAGER" ? "Manager" : "Technician";
   const isTransfer = data.isTransfer || false;
   const hasTempPassword = !!data.tempPassword;
+  const hasInviteLink = !!data.inviteLink;
   console.log("📧 [EMAIL] Role label:", roleLabel);
   console.log("📧 [EMAIL] Is transfer:", isTransfer);
   console.log("📧 [EMAIL] Has temp password:", hasTempPassword);
@@ -174,8 +179,28 @@ export async function sendInviteEmail(data: InviteEmailData) {
           </div>
           
           ${
-            hasTempPassword
+            hasInviteLink
               ? `
+          <!-- Accept-invite box (RA-1249) -->
+          <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 2px solid #06b6d4; border-radius: 12px; padding: 25px; margin: 30px 0;">
+            <div style="display: flex; align-items: center; margin-bottom: 15px;">
+              <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%); border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-right: 15px;">
+                <span style="color: #ffffff; font-size: 20px;">✉️</span>
+              </div>
+              <p style="margin: 0; color: #0c4a6e; font-weight: 700; font-size: 16px; letter-spacing: 0.5px;">ACCEPT YOUR INVITE</p>
+            </div>
+            <div style="background: #ffffff; border-radius: 8px; padding: 20px; margin-top: 15px;">
+              <p style="margin: 0 0 15px 0; color: #1e293b; font-size: 15px; line-height: 1.6;">
+                Click the button below to review your invite and set your own password. The link is valid for 7 days.
+              </p>
+              <div style="text-align: center;">
+                <a href="${data.inviteLink}" style="display: inline-block; background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-weight: 600; font-size: 15px;">Accept invite</a>
+              </div>
+            </div>
+          </div>
+          `
+              : hasTempPassword
+                ? `
           <!-- Credentials box -->
           <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 2px solid #06b6d4; border-radius: 12px; padding: 25px; margin: 30px 0; box-shadow: 0 4px 12px rgba(6, 182, 212, 0.1);">
             <div style="display: flex; align-items: center; margin-bottom: 15px;">
@@ -205,7 +230,7 @@ export async function sendInviteEmail(data: InviteEmailData) {
             </p>
           </div>
           `
-              : `
+                : `
           <!-- Info box for transfers -->
           <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 2px solid #06b6d4; border-radius: 12px; padding: 25px; margin: 30px 0; box-shadow: 0 4px 12px rgba(6, 182, 212, 0.1);">
             <div style="display: flex; align-items: center; margin-bottom: 15px;">
@@ -261,7 +286,23 @@ If you have any questions or need assistance, please contact your administrator 
 ---
 This is an automated email from Restore Assist. Please do not reply to this email.
   `
-    : `
+    : hasInviteLink
+      ? `
+Welcome to Restore Assist!
+
+${data.inviterName} has invited you to join Restore Assist as a ${roleLabel}.
+
+Accept your invite here (valid for 7 days):
+${data.inviteLink}
+
+You'll pick your own password during acceptance.
+
+If you have any questions, contact your administrator or our support team.
+
+---
+This is an automated email from Restore Assist. Please do not reply to this email.
+  `
+      : `
 Welcome to Restore Assist!
 
 You've been invited by ${data.inviterName} to join Restore Assist as a ${roleLabel}.
@@ -289,7 +330,9 @@ This is an automated email from Restore Assist. Please do not reply to this emai
       to: data.email,
       subject: isTransfer
         ? `You've been added to ${data.inviterName}'s organization - Restore Assist`
-        : `Welcome to Restore Assist - Your ${roleLabel} Account`,
+        : hasInviteLink
+          ? `You're invited to join Restore Assist as a ${roleLabel}`
+          : `Welcome to Restore Assist - Your ${roleLabel} Account`,
       html,
       text,
     };

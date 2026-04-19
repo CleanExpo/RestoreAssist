@@ -1,9 +1,34 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import { cn } from "@/lib/utils";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+
+// RA-1215 — invite/edit flows previously surfaced field errors via toast
+// (email missing, invalid format, server "already exists") which disappear
+// after 4s on long forms. Validation + server 400 field errors now render
+// inline via shadcn <FormMessage>. Network / 5xx keeps toast.
+const inviteFormSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .min(1, "Email is required")
+    .email("Enter a valid email address"),
+  role: z.enum(["USER", "MANAGER"]),
+});
+type InviteFormValues = z.infer<typeof inviteFormSchema>;
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Users,
@@ -142,10 +167,13 @@ export default function TeamPage() {
     "ALL" | "ADMIN" | "MANAGER" | "USER"
   >("ALL");
 
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<"MANAGER" | "USER">("USER");
   const [creating, setCreating] = useState(false);
   const [showInviteForm, setShowInviteForm] = useState(false);
+  const inviteForm = useForm<InviteFormValues>({
+    resolver: zodResolver(inviteFormSchema),
+    defaultValues: { email: "", role: "USER" },
+    mode: "onBlur",
+  });
   const [copiedInviteId, setCopiedInviteId] = useState<string | null>(null);
   const [resendingEmail, setResendingEmail] = useState<string | null>(null);
 
@@ -198,9 +226,9 @@ export default function TeamPage() {
   // Managers can only invite Technicians: when opening invite form as Manager, force role to Technician
   useEffect(() => {
     if (showInviteForm && session?.user?.role === "MANAGER") {
-      setInviteRole("USER");
+      inviteForm.setValue("role", "USER");
     }
-  }, [showInviteForm, session?.user?.role]);
+  }, [showInviteForm, session?.user?.role, inviteForm]);
 
   // Debug: Log modal state changes
   useEffect(() => {
@@ -213,32 +241,37 @@ export default function TeamPage() {
     });
   }, [showCredentialsModal, credentials]);
 
-  const createInvite = async () => {
-    if (!inviteEmail.trim()) {
-      toast.error("Email is required");
-      return;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(inviteEmail.trim())) {
-      toast.error("Please enter a valid email address");
-      return;
-    }
-
+  const createInvite = inviteForm.handleSubmit(async (values) => {
+    const inviteEmail = values.email.trim();
+    const inviteRole = values.role;
     setCreating(true);
     try {
       const res = await fetch("/api/team/invites", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole }),
+        body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
       });
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
 
       // Debug logging
       console.log("Invite response:", { status: res.status, json });
 
       if (!res.ok) {
-        toast.error(json.error || "Failed to create invite");
+        // RA-1215 — 4xx field errors render inline against the offending
+        // field; generic / 5xx falls back to toast.
+        const message = json?.error || "Failed to create invite";
+        if (res.status >= 400 && res.status < 500) {
+          const lower = String(message).toLowerCase();
+          if (lower.includes("email")) {
+            inviteForm.setError("email", { type: "server", message });
+          } else if (lower.includes("role")) {
+            inviteForm.setError("role", { type: "server", message });
+          } else {
+            inviteForm.setError("root", { type: "server", message });
+          }
+        } else {
+          toast.error(message);
+        }
         return;
       }
 
@@ -307,14 +340,13 @@ export default function TeamPage() {
         );
       }
 
-      setInviteEmail("");
-      setInviteRole("USER");
+      inviteForm.reset({ email: "", role: "USER" });
       setShowInviteForm(false);
       await load();
     } finally {
       setCreating(false);
     }
-  };
+  });
 
   const copyInviteLink = async (token: string, inviteId: string) => {
     const link = `${inviteLinkBase}${encodeURIComponent(token)}`;
@@ -752,102 +784,113 @@ export default function TeamPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="md:col-span-2">
-                    <label
-                      className={cn(
-                        "block text-sm font-medium mb-2",
-                        "text-neutral-700 dark:text-neutral-300",
-                      )}
-                    >
-                      Email Address
-                    </label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-                      <input
-                        type="email"
-                        value={inviteEmail}
-                        onChange={(e) => setInviteEmail(e.target.value)}
-                        placeholder="colleague@example.com"
-                        className={cn(
-                          "w-full pl-10 pr-4 py-2.5 rounded-lg text-sm",
-                          "bg-white dark:bg-neutral-800",
-                          "border border-neutral-300 dark:border-neutral-700",
-                          "text-neutral-900 dark:text-neutral-50",
-                          "focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent",
-                        )}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && !creating) {
-                            createInvite();
-                          }
-                        }}
-                      />
+                <Form {...inviteForm}>
+                  <form onSubmit={createInvite} noValidate>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="md:col-span-2">
+                        <FormField
+                          control={inviteForm.control}
+                          name="email"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Email Address</FormLabel>
+                              <FormControl>
+                                <div className="relative">
+                                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                                  <input
+                                    type="email"
+                                    placeholder="colleague@example.com"
+                                    className={cn(
+                                      "w-full pl-10 pr-4 py-2.5 rounded-lg text-sm",
+                                      "bg-white dark:bg-neutral-800",
+                                      "border border-neutral-300 dark:border-neutral-700",
+                                      "text-neutral-900 dark:text-neutral-50",
+                                      "focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent",
+                                    )}
+                                    {...field}
+                                  />
+                                </div>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <div>
+                        <FormField
+                          control={inviteForm.control}
+                          name="role"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Role</FormLabel>
+                              <FormControl>
+                                <select
+                                  className={cn(
+                                    "w-full px-4 py-2.5 rounded-lg text-sm",
+                                    "bg-white dark:bg-neutral-800",
+                                    "border border-neutral-300 dark:border-neutral-700",
+                                    "text-neutral-900 dark:text-neutral-50",
+                                    "focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent",
+                                  )}
+                                  disabled={isManager}
+                                  {...field}
+                                >
+                                  <option value="USER">Technician</option>
+                                  {isAdmin && (
+                                    <option value="MANAGER">Manager</option>
+                                  )}
+                                </select>
+                              </FormControl>
+                              <FormMessage />
+                              {isManager && (
+                                <p
+                                  className={cn(
+                                    "text-xs mt-1",
+                                    "text-neutral-500 dark:text-neutral-400",
+                                  )}
+                                >
+                                  Managers can only invite Technicians.
+                                </p>
+                              )}
+                            </FormItem>
+                          )}
+                        />
+                      </div>
                     </div>
-                  </div>
-                  <div>
-                    <label
-                      className={cn(
-                        "block text-sm font-medium mb-2",
-                        "text-neutral-700 dark:text-neutral-300",
-                      )}
-                    >
-                      Role
-                    </label>
-                    <select
-                      value={inviteRole}
-                      onChange={(e) =>
-                        setInviteRole(e.target.value as "MANAGER" | "USER")
-                      }
-                      className={cn(
-                        "w-full px-4 py-2.5 rounded-lg text-sm",
-                        "bg-white dark:bg-neutral-800",
-                        "border border-neutral-300 dark:border-neutral-700",
-                        "text-neutral-900 dark:text-neutral-50",
-                        "focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent",
-                      )}
-                      disabled={isManager}
-                    >
-                      <option value="USER">Technician</option>
-                      {isAdmin && <option value="MANAGER">Manager</option>}
-                    </select>
-                    {isManager && (
-                      <p
-                        className={cn(
-                          "text-xs mt-1",
-                          "text-neutral-500 dark:text-neutral-400",
-                        )}
-                      >
-                        Managers can only invite Technicians.
+                    {inviteForm.formState.errors.root && (
+                      <p className="text-destructive text-sm mt-3" role="alert">
+                        {inviteForm.formState.errors.root.message}
                       </p>
                     )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 mt-4">
-                  <Button
-                    onClick={createInvite}
-                    disabled={creating || !inviteEmail.trim()}
-                    className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white"
-                  >
-                    {creating ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Creating...
-                      </>
-                    ) : (
-                      <>
-                        <Send className="w-4 h-4" />
-                        Send Invitation
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowInviteForm(false)}
-                    disabled={creating}
-                  >
-                    Cancel
-                  </Button>
-                </div>
+                    <div className="flex items-center gap-2 mt-4">
+                      <Button
+                        type="submit"
+                        disabled={creating}
+                        className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white"
+                      >
+                        {creating ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Creating...
+                          </>
+                        ) : (
+                          <>
+                            <Send className="w-4 h-4" />
+                            Send Invitation
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowInviteForm(false)}
+                        disabled={creating}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </form>
+                </Form>
               </CardContent>
             </Card>
           </motion.div>
