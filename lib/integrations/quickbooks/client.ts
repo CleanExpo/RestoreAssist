@@ -217,7 +217,13 @@ export class QuickBooksClient extends BaseIntegrationClient {
       throw new Error("No access token available");
     }
 
-    if (tokens.isExpired && tokens.refreshToken) {
+    // RA-1220 — proactive refresh (5-min window) to mirror Xero token-manager.
+    const FIVE_MINUTES_MS = 5 * 60 * 1000;
+    const needsRefresh =
+      tokens.isExpired ||
+      (tokens.tokenExpiresAt != null &&
+        tokens.tokenExpiresAt.getTime() - Date.now() < FIVE_MINUTES_MS);
+    if (needsRefresh && tokens.refreshToken) {
       await this.refreshAccessToken();
     }
 
