@@ -156,6 +156,35 @@ export async function PUT(request: NextRequest) {
       }
     }
 
+    // Validate optional RA-848 fields — no NRPG hard boundary, just type check
+    const optionalRa848Fields = [
+      "negativeAirMachineDailyRate",
+      "hepaVacuumDailyRate",
+      "mobilisationFee",
+      "monitoringVisitDailyRate",
+      "photoDocumentationFee",
+      "projectManagementPercent",
+      "afterHoursMultiplier",
+      "saturdayMultiplier",
+      "sundayMultiplier",
+      "publicHolidayMultiplier",
+      "wasteDisposalPerBinRate",
+    ];
+
+    for (const field of optionalRa848Fields) {
+      const val = data[field];
+      if (val !== undefined && val !== null) {
+        if (typeof val !== "number" || val < 0) {
+          return NextResponse.json(
+            {
+              error: `Invalid value for ${field}: must be a non-negative number`,
+            },
+            { status: 400 },
+          );
+        }
+      }
+    }
+
     // Handle custom fields - validate and stringify
     let customFieldsJson = null;
     if (data.customFields) {
@@ -230,6 +259,19 @@ export async function PUT(request: NextRequest) {
         thermalCameraUseCostPerAssessment:
           data.thermalCameraUseCostPerAssessment,
         customFields: customFieldsJson,
+        // RA-848 optional fields (nullable — null if not provided)
+        negativeAirMachineDailyRate: data.negativeAirMachineDailyRate ?? null,
+        hepaVacuumDailyRate: data.hepaVacuumDailyRate ?? null,
+        mobilisationFee: data.mobilisationFee ?? null,
+        monitoringVisitDailyRate: data.monitoringVisitDailyRate ?? null,
+        photoDocumentationFee: data.photoDocumentationFee ?? null,
+        wasteDisposalPerBinRate: data.wasteDisposalPerBinRate ?? null,
+        // RA-848 multipliers & percentage (non-nullable, schema defaults apply)
+        projectManagementPercent: data.projectManagementPercent ?? 8.0,
+        afterHoursMultiplier: data.afterHoursMultiplier ?? 1.5,
+        saturdayMultiplier: data.saturdayMultiplier ?? 1.5,
+        sundayMultiplier: data.sundayMultiplier ?? 2.0,
+        publicHolidayMultiplier: data.publicHolidayMultiplier ?? 2.5,
       },
       create: {
         userId: user.id,
@@ -258,6 +300,18 @@ export async function PUT(request: NextRequest) {
         thermalCameraUseCostPerAssessment:
           data.thermalCameraUseCostPerAssessment,
         customFields: customFieldsJson,
+        // RA-848 optional fields
+        negativeAirMachineDailyRate: data.negativeAirMachineDailyRate ?? null,
+        hepaVacuumDailyRate: data.hepaVacuumDailyRate ?? null,
+        mobilisationFee: data.mobilisationFee ?? null,
+        monitoringVisitDailyRate: data.monitoringVisitDailyRate ?? null,
+        photoDocumentationFee: data.photoDocumentationFee ?? null,
+        wasteDisposalPerBinRate: data.wasteDisposalPerBinRate ?? null,
+        projectManagementPercent: data.projectManagementPercent ?? 8.0,
+        afterHoursMultiplier: data.afterHoursMultiplier ?? 1.5,
+        saturdayMultiplier: data.saturdayMultiplier ?? 1.5,
+        sundayMultiplier: data.sundayMultiplier ?? 2.0,
+        publicHolidayMultiplier: data.publicHolidayMultiplier ?? 2.5,
       },
     });
 
