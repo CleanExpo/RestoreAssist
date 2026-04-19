@@ -4,7 +4,13 @@ import React, { useState, useCallback, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Cloud,
+  CloudOff,
+  Loader2,
+} from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,6 +26,11 @@ import {
   InterviewQuestionAnswerSummary,
 } from "@/components/forms/guided-interview";
 import type { InterviewQuestionAnswer } from "@/components/forms/guided-interview";
+import {
+  clearLocalSnapshot,
+  useInterviewAutosave,
+  type AutosaveStatus,
+} from "@/lib/interview/use-interview-autosave";
 
 /**
  * Guided Interview Page
@@ -44,6 +55,15 @@ export default function InterviewPage() {
     InterviewQuestionAnswer[] | null
   >(null);
   const [viewOnlyReportId, setViewOnlyReportId] = useState<string | null>(null);
+
+  // RA-1213: debounced autosave + status indicator for in-progress interviews.
+  const autosave = useInterviewAutosave();
+  const handleAnswersChange = useCallback(
+    (payload: { sessionId: string; answers: InterviewQuestionAnswer[] }) => {
+      autosave.enqueue(payload.sessionId, payload.answers);
+    },
+    [autosave],
+  );
 
   // View-only summary: when opened with sessionId only (e.g. from reports "View summary")
   useEffect(() => {
@@ -108,6 +128,8 @@ export default function InterviewPage() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ status: "COMPLETED" }),
           });
+          // RA-1213: interview submitted, discard local autosave snapshot.
+          clearLocalSnapshot(sessionIdForSave);
         } catch {
           // Non-blocking: summary still shown
         }
@@ -209,6 +231,12 @@ export default function InterviewPage() {
             Linked to Report: <span className="font-medium">{reportId}</span>
           </p>
         )}
+        {interviewStatus === "in_progress" && (
+          <AutosaveIndicator
+            status={autosave.status}
+            lastSavedAt={autosave.lastSavedAt}
+          />
+        )}
       </div>
 
       {interviewStatus === "in_progress" && (
@@ -231,6 +259,7 @@ export default function InterviewPage() {
                 onComplete={handleInterviewComplete}
                 onCancel={handleCancel}
                 showAutoPopulatedFields={false}
+                onAnswersChange={handleAnswersChange}
               />
             </div>
           </div>
@@ -311,5 +340,58 @@ export default function InterviewPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+/**
+ * RA-1213: autosave status badge rendered in the interview header.
+ * Three states per ticket: "Saving…" / "All changes saved" / "Failed to save — retrying".
+ */
+function AutosaveIndicator({
+  status,
+  lastSavedAt,
+}: {
+  status: AutosaveStatus;
+  lastSavedAt: Date | null;
+}) {
+  if (status === "idle") return null;
+
+  if (status === "saving") {
+    return (
+      <p
+        className="mt-2 inline-flex items-center gap-1.5 text-xs text-gray-500 dark:text-slate-400"
+        role="status"
+        aria-live="polite"
+      >
+        <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+        Saving…
+      </p>
+    );
+  }
+
+  if (status === "saved") {
+    const time = lastSavedAt ? lastSavedAt.toLocaleTimeString() : null;
+    return (
+      <p
+        className="mt-2 inline-flex items-center gap-1.5 text-xs text-green-700 dark:text-green-400"
+        role="status"
+        aria-live="polite"
+      >
+        <Cloud className="h-3.5 w-3.5" aria-hidden="true" />
+        All changes saved{time ? ` · ${time}` : ""}
+      </p>
+    );
+  }
+
+  // error / retrying
+  return (
+    <p
+      className="mt-2 inline-flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400"
+      role="status"
+      aria-live="polite"
+    >
+      <CloudOff className="h-3.5 w-3.5" aria-hidden="true" />
+      Failed to save — retrying
+    </p>
   );
 }
