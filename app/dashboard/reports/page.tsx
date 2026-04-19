@@ -21,12 +21,14 @@ import {
   X,
   GitBranch,
   RefreshCw,
+  Sparkles,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
   EvaluatorScoreBadge,
   PhaseProgressBar,
 } from "@/components/SessionMetadataCard";
+import { Button } from "@/components/ui/button";
 import type { ReportWithSessionData } from "@/lib/session-types";
 
 export default function ReportsPage() {
@@ -42,6 +44,12 @@ export default function ReportsPage() {
   const reports = reportsData?.reports ?? [];
   const [duplicating, setDuplicating] = useState<string | null>(null);
   const [downloading, setDownloading] = useState<string | null>(null);
+  // RA-1192: per-row synopsis generation. Keyed by report id so multiple rows
+  // can be generated in parallel without stepping on each other's state.
+  const [synopsising, setSynopsising] = useState<string | null>(null);
+  const [localSynopsis, setLocalSynopsis] = useState<Record<string, string>>(
+    {},
+  );
   const [batchDownloading, setBatchDownloading] = useState(false);
   const [selectedReports, setSelectedReports] = useState<string[]>([]);
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
@@ -110,6 +118,54 @@ export default function ReportsPage() {
       toast.error("Failed to duplicate report. Please try again.");
     } finally {
       setDuplicating(null);
+    }
+  };
+
+  // RA-1192: Generate AI one-line synopsis for a row. Cached for 24h server-side.
+  const generateSynopsis = async (reportId: string) => {
+    try {
+      setSynopsising(reportId);
+      const response = await fetch(`/api/reports/${reportId}/synopsis`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        if (response.status === 402 && payload.upgradeRequired) {
+          toast.error(
+            payload.error || "Active subscription required for AI summaries.",
+          );
+          setTimeout(() => router.push("/dashboard/pricing"), 1500);
+          return;
+        }
+        if (response.status === 400) {
+          toast.error(
+            payload.error ||
+              "Connect an AI integration first in Settings → Integrations.",
+          );
+          return;
+        }
+        if (response.status === 429) {
+          toast.error("Too many requests. Try again in a minute.");
+          return;
+        }
+        toast.error(payload.error || "Failed to generate AI summary.");
+        return;
+      }
+      const synopsis = payload?.data?.aiSynopsis as string | undefined;
+      if (synopsis) {
+        setLocalSynopsis((prev) => ({ ...prev, [reportId]: synopsis }));
+        toast.success(
+          payload.data.cached
+            ? "Loaded cached summary."
+            : "AI summary generated.",
+        );
+      }
+    } catch (error) {
+      console.error("Error generating synopsis:", error);
+      toast.error("Failed to generate AI summary.");
+    } finally {
+      setSynopsising(null);
     }
   };
 
@@ -567,6 +623,12 @@ export default function ReportsPage() {
                         <div className="text-sm text-white font-medium truncate">
                           {report.clientName || "N/A"}
                         </div>
+                        {/* RA-1192: AI one-liner (mobile). Shown only when present. */}
+                        {(localSynopsis[report.id] || report.aiSynopsis) && (
+                          <p className="text-xs text-slate-400 italic mt-0.5 mb-1 line-clamp-2">
+                            {localSynopsis[report.id] || report.aiSynopsis}
+                          </p>
+                        )}
                         <div className="text-xs text-slate-300 truncate mb-2">
                           {report.propertyAddress || "No address"}
                         </div>
@@ -606,6 +668,21 @@ export default function ReportsPage() {
                               <Copy size={16} />
                             )}
                           </button>
+                          {/* RA-1192: generate AI summary (mobile). Hidden once populated. */}
+                          {!(localSynopsis[report.id] || report.aiSynopsis) && (
+                            <button
+                              onClick={() => generateSynopsis(report.id)}
+                              disabled={synopsising === report.id}
+                              className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-3 rounded-lg border border-slate-700 hover:bg-slate-700/50 transition-colors text-xs disabled:opacity-50"
+                              aria-label="Generate AI summary"
+                            >
+                              {synopsising === report.id ? (
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cyan-500" />
+                              ) : (
+                                <Sparkles size={16} className="text-cyan-400" />
+                              )}
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -735,8 +812,35 @@ export default function ReportsPage() {
                             {report.reportNumber || report.id}
                           </Link>
                         </td>
-                        <td className="py-4 px-6">
-                          {report.clientName || "N/A"}
+                        <td className="py-4 px-6 max-w-[260px]">
+                          <div className="font-medium">
+                            {report.clientName || "N/A"}
+                          </div>
+                          {/* RA-1192: AI one-liner beneath the client name. */}
+                          {(localSynopsis[report.id] || report.aiSynopsis) && (
+                            <p className="text-xs text-slate-400 italic mt-0.5 line-clamp-2">
+                              {localSynopsis[report.id] || report.aiSynopsis}
+                            </p>
+                          )}
+                          {!(localSynopsis[report.id] || report.aiSynopsis) && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              disabled={synopsising === report.id}
+                              onClick={() => generateSynopsis(report.id)}
+                              className="mt-1 h-6 px-2 text-xs text-cyan-400 hover:text-cyan-300 hover:bg-slate-700/40"
+                            >
+                              {synopsising === report.id ? (
+                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-cyan-500" />
+                              ) : (
+                                <Sparkles size={12} />
+                              )}
+                              {synopsising === report.id
+                                ? "Generating…"
+                                : "Generate AI summary"}
+                            </Button>
+                          )}
                         </td>
                         <td className="py-4 px-6 text-slate-300 text-xs">
                           {report.propertyAddress || "N/A"}

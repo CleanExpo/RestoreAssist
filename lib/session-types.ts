@@ -88,6 +88,11 @@ export interface ReportWithSessionData {
   insuranceType?: string | null;
   policyType?: string | null;
 
+  // RA-1192: AI one-line synopsis rendered under the client name on the
+  // reports table. Null until the user clicks "Generate AI summary".
+  aiSynopsis?: string | null;
+  aiSynopsisAt?: string | null;
+
   // --- Session orchestration fields (optional, absent on older reports) ---
 
   /** The parent session ID that orchestrated this report's generation */

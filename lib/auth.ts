@@ -97,10 +97,61 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
   },
+  events: {
+    // RA-1259: the PrismaAdapter `createUser` event fires only when the
+    // OAuth provider creates a brand-new User row (i.e. no email match
+    // existed). Flag them so the dashboard middleware redirects to
+    // /onboarding/account-type until the required AU business fields
+    // (ABN/ACN/state/business name) are captured. Credentials signups
+    // do NOT hit this — they run through /api/auth/register which
+    // already collects these fields.
+    async createUser({ user }) {
+      try {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            needsOnboarding: true,
+            role: "ADMIN",
+            subscriptionStatus: "TRIAL",
+            creditsRemaining: 30,
+            totalCreditsUsed: 0,
+            trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+            quickFillCreditsRemaining: 30,
+            totalQuickFillUsed: 0,
+          } as any,
+        });
+      } catch (err) {
+        console.error(
+          "[auth.createUser] failed to flag OAuth signup:",
+          err instanceof Error ? err.message : String(err),
+        );
+      }
+    },
+  },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         token.role = (user as { role?: string }).role ?? "";
+      }
+      // RA-1259: keep `needsOnboarding` fresh on first mint and after the
+      // client calls `update()` post-onboarding so middleware stops
+      // redirecting once the user completes the form.
+      const shouldRefresh =
+        Boolean(user) ||
+        trigger === "update" ||
+        (token as any).needsOnboarding === undefined;
+      if (token.sub && shouldRefresh) {
+        try {
+          const fresh = await prisma.user.findUnique({
+            where: { id: token.sub },
+            select: { needsOnboarding: true } as any,
+          });
+          (token as any).needsOnboarding = Boolean(
+            (fresh as any)?.needsOnboarding,
+          );
+        } catch {
+          (token as any).needsOnboarding = false;
+        }
       }
       return token;
     },
@@ -108,6 +159,9 @@ export const authOptions: NextAuthOptions = {
       if (token && session.user) {
         session.user.id = token.sub!;
         session.user.role = token.role as string;
+        (session.user as any).needsOnboarding = Boolean(
+          (token as any).needsOnboarding,
+        );
       }
       return session;
     },
