@@ -365,7 +365,27 @@ export async function POST(request: NextRequest) {
     });
 
     // After saving, trigger intelligent standards analysis in background
-    // This prepares standards context for when user generates the report
+    // This prepares standards context for when user generates the report.
+    // RA-1325 — gate the AI pre-fetch with its own per-user rate limit so
+    // the outer 5/min report-create cap doesn't translate 1:1 into Claude
+    // calls on abuse. 1/min (= 60/hr) is plenty for a tech creating one
+    // report at a time, but caps a looping attacker to a tenth of the
+    // report-create ceiling.
+    const standardsRateLimited = await applyRateLimit(request, {
+      windowMs: 60 * 1000,
+      maxRequests: 1,
+      prefix: "standards-prefetch",
+      key: user.id,
+    });
+    if (standardsRateLimited) {
+      // Skip pre-fetch silently — user will still get standards when they
+      // invoke generate-inspection-report (which retrieves synchronously).
+      // Don't fail the response; the main report create already succeeded.
+      return NextResponse.json({
+        report,
+        message: "Report saved. Standards will be retrieved at generation time.",
+      });
+    }
     try {
       const { retrieveRelevantStandards } =
         await import("@/lib/standards-retrieval");
