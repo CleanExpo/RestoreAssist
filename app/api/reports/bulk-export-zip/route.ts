@@ -130,14 +130,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 7. Generate PDFs (in batches to avoid timeouts)
+    // 7. Generate PDFs (in batches to avoid timeouts).
+    // RA-1317 — reduced from 5 to 2 concurrent self-fetches. Each PDF
+    // generation does an internal HTTP fetch to /api/reports/{id}/download,
+    // which blocks a sibling Vercel function. At 5× concurrency × 20
+    // parallel users exporting 25 reports = 500 concurrent fn invocations —
+    // Vercel's concurrency ceiling, cold-start cascade, timeouts.
+    // 2× per exporter is a safer budget while still faster than serial.
+    // Full fix (swap self-fetch for direct function call) is follow-up.
     const pdfBuffers: Array<{
       reportNumber: string;
       clientName: string;
       buffer: Buffer;
       pdfType: string;
     }> = [];
-    const batchSize = 5;
+    const batchSize = 2;
     const errors: string[] = [];
 
     for (let i = 0; i < reports.length; i += batchSize) {
