@@ -147,15 +147,20 @@ function dispatchStorm(withWaterIngress: boolean | null | undefined): {
   return { primary: wind, secondary };
 }
 
-function dispatchBiohazard(
-  subtype: "sewage" | "trauma" | null | undefined,
-): ChecklistTemplate {
+function dispatchBiohazard(subtype: "sewage" | "trauma" | null | undefined): {
+  primary: ChecklistTemplate;
+  secondary: ChecklistTemplate[];
+} {
   const id = subtype === "trauma" ? "biohazard-trauma" : "biohazard-sewage";
   const t = findChecklist(id);
   if (!t) {
     throw new Error(`[scope-dispatcher] ${id} checklist missing`);
   }
-  return t;
+  // RA-877: Safe Work Australia biohazard CoP always overlays IICRC scope.
+  const secondary: ChecklistTemplate[] = [];
+  const swa = findChecklist("safe-work-biohazard");
+  if (swa) secondary.push(swa);
+  return { primary: t, secondary };
 }
 
 /**
@@ -179,10 +184,7 @@ function dispatchSingle(input: DispatchInput): {
     case "STORM":
       return dispatchStorm(input.stormWaterIngress);
     case "BIOHAZARD":
-      return {
-        primary: dispatchBiohazard(input.biohazardSubtype),
-        secondary: [],
-      };
+      return dispatchBiohazard(input.biohazardSubtype);
     case "GENERAL":
     case "MULTI_LOSS":
     default:
@@ -245,6 +247,174 @@ export function dispatchScope(input: DispatchInput): DispatchResult {
  */
 export function listChecklistIds(): string[] {
   return IICRC_CHECKLISTS.map((c) => c.id);
+}
+
+// ─── Scope-item generation (RA-862/864/865/866 bridge) ────────────────────────
+//
+// The dispatcher above returns *checklists* — template line items driven by
+// the standards. The functions below compose the per-damage-type generators
+// (scope-prelims, scope-mould, scope-fire, scope-storm, scope-biohazard) to
+// return concrete ScopeItemDraft arrays the UI + estimate builder can consume
+// without a second round-trip through the standards library.
+
+import type { CompanyPricingRates } from "./nir-cost-estimation";
+import { generatePrelims, type PrelimsDamageType } from "./scope-prelims";
+import {
+  generateFireScope,
+  type SmokeType,
+  type ScopeItemDraft,
+} from "./scope-fire";
+import { generateMouldScope, type ContaminationClass } from "./scope-mould";
+import {
+  generateStormScope,
+  type StormEntryType,
+  type StormWaterCategory,
+} from "./scope-storm";
+import {
+  generateBiohazardScope,
+  type BiohazardType,
+  type AustralianState,
+} from "./scope-biohazard";
+
+export interface ScopeItemsInput {
+  damageType: DamageType;
+  affectedAreaM2: number;
+  estimatedDays: number;
+  pricingConfig: CompanyPricingRates;
+
+  /** AU state/territory for jurisdiction-specific items (biohazard EPA manifest). */
+  state?: AustralianState;
+
+  /** Water/biohazard contamination level — maps to the Water dispatcher's cat. */
+  waterCategory?: WaterCategory | null;
+  waterClass?: WaterClass | null;
+
+  // Fire
+  smokeType?: SmokeType;
+  charLevel?: 1 | 2 | 3 | 4;
+
+  // Mould
+  contaminationClass?: ContaminationClass;
+  hvacInvolved?: boolean;
+
+  // Storm
+  stormEntryType?: StormEntryType;
+
+  // Biohazard
+  biohazardType?: BiohazardType;
+}
+
+/** Map DamageType → PrelimsDamageType for the prelims generator. */
+function toPrelimsDamageType(d: DamageType): PrelimsDamageType {
+  switch (d) {
+    case "WATER":
+      return "water_damage";
+    case "FIRE":
+      return "fire_smoke";
+    case "MOULD":
+      return "mould";
+    case "BIOHAZARD":
+      return "biohazard";
+    case "STORM":
+      return "storm";
+    case "MULTI_LOSS":
+    case "GENERAL":
+    default:
+      return "water_damage";
+  }
+}
+
+/**
+ * Generate the concrete list of scope items for a job — prelims always,
+ * plus the damage-type-specific pathway. Never throws for expected inputs;
+ * falls back to prelims-only for GENERAL / MULTI_LOSS without sub-details.
+ *
+ * Multi-loss callers can invoke per-damage-type and merge the resulting
+ * arrays themselves — this keeps the function simple and predictable.
+ */
+export function generateScopeItems(input: ScopeItemsInput): ScopeItemDraft[] {
+  const items: ScopeItemDraft[] = [];
+
+  // Prelims always first — mobilisation, monitoring, waste, PPE, transport.
+  items.push(
+    ...generatePrelims({
+      damageType: toPrelimsDamageType(input.damageType),
+      affectedAreaM2: input.affectedAreaM2,
+      estimatedDays: input.estimatedDays,
+      pricingConfig: input.pricingConfig,
+    }),
+  );
+
+  // Pathway-specific body.
+  switch (input.damageType) {
+    case "FIRE":
+      if (input.smokeType && input.charLevel !== undefined) {
+        items.push(
+          ...generateFireScope({
+            smokeType: input.smokeType,
+            charLevel: input.charLevel,
+            affectedAreaM2: input.affectedAreaM2,
+            pricingConfig: input.pricingConfig,
+          }),
+        );
+      }
+      break;
+
+    case "MOULD":
+      if (input.contaminationClass) {
+        items.push(
+          ...generateMouldScope({
+            contaminationClass: input.contaminationClass,
+            affectedAreaM2: input.affectedAreaM2,
+            estimatedDays: input.estimatedDays,
+            hvacInvolved: input.hvacInvolved ?? false,
+            pricingConfig: input.pricingConfig,
+          }),
+        );
+      }
+      break;
+
+    case "STORM":
+      if (input.stormEntryType) {
+        items.push(
+          ...generateStormScope({
+            entryType: input.stormEntryType,
+            waterCategory: Number(
+              input.waterCategory ?? "1",
+            ) as StormWaterCategory,
+            affectedAreaM2: input.affectedAreaM2,
+            estimatedDays: input.estimatedDays,
+            pricingConfig: input.pricingConfig,
+          }),
+        );
+      }
+      break;
+
+    case "BIOHAZARD":
+      if (input.biohazardType && input.state) {
+        items.push(
+          ...generateBiohazardScope({
+            biohazardType: input.biohazardType,
+            affectedAreaM2: input.affectedAreaM2,
+            state: input.state,
+            pricingConfig: input.pricingConfig,
+          }),
+        );
+      }
+      break;
+
+    case "WATER":
+    case "MULTI_LOSS":
+    case "GENERAL":
+    default:
+      // Water pathway hasn't been extracted into a dedicated scope module yet —
+      // prelims cover mobilisation/monitoring/waste which are the high-value
+      // lines for water. Structural drying/extraction still land via the
+      // checklist path in dispatchScope().
+      break;
+  }
+
+  return items;
 }
 
 /**
