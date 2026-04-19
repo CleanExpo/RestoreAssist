@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { track, isFirstTime } from "@/lib/analytics/track";
 
 // GET - Get single interview session by ID
 export async function GET(
@@ -153,6 +154,16 @@ export async function PATCH(
         completedAt?: Date;
       },
     });
+
+    // RA-1246 — first_interview_completed (first-time only)
+    if (
+      data.status === "COMPLETED" &&
+      (await isFirstTime(user.id, "first_interview_completed"))
+    ) {
+      track(user.id, "first_interview_completed", { sessionId: id }).catch(
+        () => {},
+      );
+    }
 
     return NextResponse.json({ success: true, sessionId: id });
   } catch (error) {

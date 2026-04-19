@@ -24,6 +24,7 @@ import {
 import {
   GuidedInterviewPanel,
   InterviewQuestionAnswerSummary,
+  InterviewValidationPanel,
 } from "@/components/forms/guided-interview";
 import type { InterviewQuestionAnswer } from "@/components/forms/guided-interview";
 import {
@@ -286,6 +287,12 @@ export default function InterviewPage() {
                 <strong>Interview completed.</strong> Review your answers below.
               </AlertDescription>
             </Alert>
+            {sessionId && (
+              <InterviewValidationPanel
+                sessionId={sessionId}
+                questionsAndAnswers={questionsAndAnswers}
+              />
+            )}
             <InterviewQuestionAnswerSummary
               questionsAndAnswers={questionsAndAnswers}
               onBackToReports={handleBackToReports}

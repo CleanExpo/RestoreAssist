@@ -9,6 +9,7 @@ import { notifyWelcome } from "@/lib/notifications";
 import { seedDemoDataForNewUser } from "@/lib/demo-data";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
 import { verifyTurnstile } from "@/lib/turnstile";
+import { track } from "@/lib/analytics/track";
 
 const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.app";
 
@@ -139,6 +140,10 @@ export async function POST(request: NextRequest) {
         ...reqCtx,
         details: { role: "ADMIN", hasOrganization: false },
       }).catch(() => {});
+      // RA-1246 — signup_completed (unconditional)
+      track(user.id, "signup_completed", { hasOrganization: false }).catch(
+        () => {},
+      );
       const { password: _, ...userWithoutPassword } = user;
       return NextResponse.json(
         {
@@ -197,6 +202,10 @@ export async function POST(request: NextRequest) {
         email: updatedUser.email,
         ...reqCtx,
         details: { role: "ADMIN", hasOrganization: true },
+      }).catch(() => {});
+      // RA-1246 — signup_completed (unconditional)
+      track(updatedUser.id, "signup_completed", {
+        hasOrganization: true,
       }).catch(() => {});
       const { password: _, ...userWithoutPassword } = updatedUser;
       return NextResponse.json(
