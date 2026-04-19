@@ -239,6 +239,94 @@ export const NRPG_RATE_RANGES: Record<string, NRPGRateRange> = {
     unit: "%",
     label: "Project Management (%)",
   },
+
+  // ── RA-861: 14 scope-generator rate fields (decorated with national
+  // AU averages). Each bounds the corresponding CompanyPricingConfig
+  // entry added under RA-848. All values in AUD.
+  rateNegativeAirMachine: {
+    min: 85,
+    max: 185,
+    unit: "$/day",
+    label: "Negative Air Machine — daily rate",
+  },
+  rateHEPAVacuum: {
+    min: 45,
+    max: 95,
+    unit: "$/day",
+    label: "HEPA Vacuum — daily rate",
+  },
+  rateOzoneGenerator: {
+    min: 75,
+    max: 165,
+    unit: "$/day",
+    label: "Ozone Generator — daily rate",
+  },
+  rateHydroxylUnit: {
+    min: 85,
+    max: 175,
+    unit: "$/day",
+    label: "Hydroxyl Unit — daily rate",
+  },
+  rateMouldRemediation: {
+    min: 65,
+    max: 145,
+    unit: "$/m²",
+    label: "Mould Remediation — per m²",
+  },
+  rateFireRestoration: {
+    min: 85,
+    max: 195,
+    unit: "$/m²",
+    label: "Fire Restoration — per m²",
+  },
+  rateStormWaterExtraction: {
+    min: 55,
+    max: 125,
+    unit: "$/m²",
+    label: "Storm Water Extraction — per m²",
+  },
+  rateBiohazardClean: {
+    min: 95,
+    max: 225,
+    unit: "$/m²",
+    label: "Biohazard Clean — per m²",
+  },
+  rateMobilisation: {
+    min: 150,
+    max: 450,
+    unit: "$/job",
+    label: "Mobilisation — per job",
+  },
+  rateMonitoring: {
+    min: 35,
+    max: 85,
+    unit: "$/visit",
+    label: "Daily Monitoring — per visit",
+  },
+  rateWasteDisposal: {
+    min: 45,
+    max: 125,
+    unit: "$/m³",
+    label: "Waste Disposal — per m³",
+  },
+  rateContentsPack: {
+    min: 35,
+    max: 85,
+    unit: "$/box",
+    label: "Contents Pack — per box",
+  },
+  rateContentsClean: {
+    min: 45,
+    max: 115,
+    unit: "$/item",
+    label: "Contents Clean — per item",
+  },
+  rateDehumidifierLarge: {
+    min: 95,
+    max: 215,
+    unit: "$/day",
+    label: "Large Dehumidifier — daily rate",
+  },
 };
 
 /** Check whether a rate value falls within the NRPG range for a given field. */
