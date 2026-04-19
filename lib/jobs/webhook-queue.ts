@@ -72,19 +72,41 @@ export async function processWebhookQueue(
     );
   }
 
-  // Get pending events
-  const pendingEvents = await prisma.webhookEvent.findMany({
+  // RA-1303 — time-based backoff on retries. Without this, an event that
+  // fails once is immediately re-picked on the next cron tick; if the
+  // underlying problem persists (auth expired, provider down) all 5
+  // retries burn within minutes. Enforce min elapsed since last attempt,
+  // scaled by retryCount so successive failures back off exponentially:
+  //   retry 0 → 0min    (fresh event)
+  //   retry 1 → 2min    (first re-attempt)
+  //   retry 2 → 4min
+  //   retry 3 → 8min
+  //   retry 4 → 16min
+  // Uses updatedAt as the proxy for "last touched" — updated on any
+  // status transition, so PENDING after a FAILED→PENDING reset carries
+  // the reset time.
+  const MAX_RETRIES = 5;
+  const now = Date.now();
+  const pendingCandidates = await prisma.webhookEvent.findMany({
     where: {
       status: "PENDING",
-      retryCount: {
-        lt: 5, // Max 5 retries
-      },
+      retryCount: { lt: MAX_RETRIES },
     },
-    orderBy: {
-      createdAt: "asc",
-    },
-    take: batchSize,
+    orderBy: { createdAt: "asc" },
+    take: batchSize * 2, // over-fetch so we still have work after time filter
   });
+  const pendingEvents = pendingCandidates
+    .filter((e) => {
+      const backoffMs =
+        e.retryCount === 0
+          ? 0
+          : Math.min(
+              60 * 60 * 1000, // cap at 1h
+              Math.pow(2, e.retryCount) * 60_000, // 2min × 2^retryCount
+            );
+      return now - e.updatedAt.getTime() >= backoffMs;
+    })
+    .slice(0, batchSize);
 
   if (pendingEvents.length === 0) {
     console.log("[Webhook Queue] No pending events to process");
