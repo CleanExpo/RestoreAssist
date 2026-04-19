@@ -217,4 +217,178 @@ describe("syncInvoiceToXero", () => {
       syncInvoiceToXero(makeInvoice(), makeIntegration({ tenantId: null })),
     ).rejects.toThrow("No tenant ID available for Xero");
   });
+
+  it("omits State tracking when propertyState is absent", async () => {
+    const xeroResponse = {
+      Invoices: [
+        {
+          InvoiceID: "xero-inv-no-state",
+          InvoiceNumber: "INV-002",
+          Status: "DRAFT",
+          Total: 330,
+          AmountDue: 330,
+          DateString: "2026-01-15",
+          DueDateString: "2026-01-29",
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      json: () => Promise.resolve(xeroResponse),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await syncInvoiceToXero(
+      makeInvoice({ propertyState: undefined }),
+      makeIntegration(),
+    );
+
+    const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const lineItem = requestBody.Invoices[0].LineItems[0];
+    const stateEntry = lineItem.TrackingCategories?.find(
+      (t: { Name: string }) => t.Name === "State",
+    );
+    expect(stateEntry).toBeUndefined();
+  });
+
+  it("includes State tracking when propertyState is present", async () => {
+    const xeroResponse = {
+      Invoices: [
+        {
+          InvoiceID: "xero-inv-with-state",
+          InvoiceNumber: "INV-003",
+          Status: "DRAFT",
+          Total: 330,
+          AmountDue: 330,
+          DateString: "2026-01-15",
+          DueDateString: "2026-01-29",
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      json: () => Promise.resolve(xeroResponse),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await syncInvoiceToXero(
+      makeInvoice({ propertyState: "NSW" }),
+      makeIntegration(),
+    );
+
+    const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const lineItem = requestBody.Invoices[0].LineItems[0];
+    const stateEntry = lineItem.TrackingCategories?.find(
+      (t: { Name: string }) => t.Name === "State",
+    );
+    expect(stateEntry).toEqual({ Name: "State", Option: "NSW" });
+  });
+
+  it("maps customerABN to Xero Contact TaxNumber in XX XXX XXX XXX format", async () => {
+    const xeroResponse = {
+      Invoices: [
+        {
+          InvoiceID: "xero-inv-abn",
+          InvoiceNumber: "INV-004",
+          Status: "DRAFT",
+          Total: 110,
+          AmountDue: 110,
+          DateString: "2026-01-15",
+          DueDateString: "2026-01-29",
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      json: () => Promise.resolve(xeroResponse),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await syncInvoiceToXero(
+      makeInvoice({ customerABN: "51824753556" }),
+      makeIntegration(),
+    );
+
+    const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const contact = requestBody.Invoices[0].Contact;
+    expect(contact.TaxNumber).toBe("51 824 753 556");
+  });
+
+  it("omits Contact TaxNumber when customerABN is null", async () => {
+    const xeroResponse = {
+      Invoices: [
+        {
+          InvoiceID: "xero-inv-no-abn",
+          InvoiceNumber: "INV-005",
+          Status: "DRAFT",
+          Total: 110,
+          AmountDue: 110,
+          DateString: "2026-01-15",
+          DueDateString: "2026-01-29",
+        },
+      ],
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        json: () => Promise.resolve(xeroResponse),
+      }),
+    );
+
+    await syncInvoiceToXero(
+      makeInvoice({ customerABN: null }),
+      makeIntegration(),
+    );
+
+    const requestBody = JSON.parse(
+      vi.mocked(global.fetch).mock.calls[0][1].body,
+    );
+    const contact = requestBody.Invoices[0].Contact;
+    expect(contact.TaxNumber).toBeUndefined();
+  });
+
+  it("applies gst.xeroTaxType to discount line item (not NONE)", async () => {
+    const xeroResponse = {
+      Invoices: [
+        {
+          InvoiceID: "xero-inv-discount",
+          InvoiceNumber: "INV-006",
+          Status: "DRAFT",
+          Total: 220,
+          AmountDue: 220,
+          DateString: "2026-01-15",
+          DueDateString: "2026-01-29",
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      json: () => Promise.resolve(xeroResponse),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await syncInvoiceToXero(
+      makeInvoice({ discountAmount: 1000 }), // $10 discount
+      makeIntegration(),
+    );
+
+    const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const discountItem = requestBody.Invoices[0].LineItems.find(
+      (li: { Description: string }) => li.Description === "Discount",
+    );
+    expect(discountItem).toBeDefined();
+    // RA-870: discount must use OUTPUT not NONE to correctly reduce GST payable
+    expect(discountItem.TaxType).toBe("OUTPUT");
+  });
 });

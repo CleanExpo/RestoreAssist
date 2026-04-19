@@ -83,3 +83,5 @@ proxy.ts
 
 # Multi-PC swarm — local identity per machine (see work-together.md)
 .claude/swarm/identity.local.md
+# Pi-CEO task-memory (auto-added by Pi-CEO session bootstrap, RA-1374)
+.pi-ceo/

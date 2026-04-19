@@ -340,7 +340,7 @@ export async function POST(request: NextRequest) {
         // Idempotency guard — don't double-update if already reconciled
         const existingInvoice = await prisma.invoice.findUnique({
           where: { id: invoiceId },
-          select: { status: true },
+          select: { status: true, userId: true },
         });
 
         // RA-1139: Orphaned invoiceId — Invoice row not found.
@@ -365,8 +365,7 @@ export async function POST(request: NextRequest) {
           break;
         }
 
-        // Note: stripePaymentIntentId lives on InvoicePayment, not Invoice.
-        // Record the core reconciliation state on the Invoice row directly.
+        // Record the core reconciliation state on the Invoice row.
         await prisma.invoice.update({
           where: { id: invoiceId },
           data: {
@@ -374,6 +373,22 @@ export async function POST(request: NextRequest) {
             paidDate: new Date(),
             amountDue: 0,
           },
+        });
+
+        // RA-893: Persist the Stripe payment reference on an InvoicePayment record.
+        // stripePaymentIntentId has a @unique constraint so upsert is idempotent —
+        // duplicate webhook deliveries won't create double payment rows.
+        await prisma.invoicePayment.upsert({
+          where: { stripePaymentIntentId: paymentIntent.id },
+          create: {
+            amount: paymentIntent.amount,
+            currency: (paymentIntent.currency ?? "aud").toUpperCase(),
+            paymentMethod: "STRIPE",
+            stripePaymentIntentId: paymentIntent.id,
+            invoiceId,
+            userId: existingInvoice.userId,
+          },
+          update: {}, // Already recorded — no-op on duplicate delivery
         });
 
         break;

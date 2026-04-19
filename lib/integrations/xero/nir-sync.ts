@@ -128,10 +128,12 @@ export async function syncNIRJobToXero(
         AccountCode: resolved.accountCode,
         TaxType: taxType,
         LineAmount: cents(item.subtotalExGST),
-        // RA-855: Tracking categories — Xero reports can filter by Damage Type + State
+        // RA-855: Tracking categories — Xero reports can filter by Damage Type + State.
+        // State is omitted when propertyState is absent to avoid pushing an empty-string
+        // option to Xero which would corrupt tracking category reports.
         TrackingCategories: [
           { Name: "Damage Type", Option: job.damageType },
-          { Name: "State", Option: job.propertyState ?? "QLD" },
+          ...(job.propertyState ? [{ Name: "State", Option: job.propertyState }] : []),
         ],
       };
     }),

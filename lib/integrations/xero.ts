@@ -100,10 +100,12 @@ export async function syncInvoiceToXero(
       const treatment = getGSTTreatment(item.category);
       const taxType =
         treatment.taxType === "OUTPUT" ? gst.xeroTaxType : treatment.taxType;
-      // RA-855: Tracking categories let Xero reports slice by Damage Type + State
+      // RA-855: Tracking categories let Xero reports slice by Damage Type + State.
+      // Only append entries when values are present — pushing an empty-string option
+      // creates an invalid tracking entry in Xero and corrupts reports.
       const tracking: Array<{ Name: string; Option: string }> = [];
       if (invoice.damageType) tracking.push({ Name: "Damage Type", Option: invoice.damageType });
-      tracking.push({ Name: "State", Option: invoice.propertyState ?? "QLD" });
+      if (invoice.propertyState) tracking.push({ Name: "State", Option: invoice.propertyState });
       return {
         Description:
           item.description + (item.category ? ` (${item.category})` : ""),

@@ -24,6 +24,9 @@ vi.mock("@/lib/prisma", () => ({
       findUnique: vi.fn(),
       update: vi.fn().mockResolvedValue({}),
     },
+    invoicePayment: {
+      upsert: vi.fn().mockResolvedValue({}),
+    },
   },
 }));
 
@@ -54,18 +57,25 @@ process.env.STRIPE_WEBHOOK_SECRET = "whsec_test_secret";
 import { POST } from "../route";
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
+import type { Mock } from "vitest";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makePaymentIntentEvent(metadata: Record<string, string> = {}) {
+function makePaymentIntentEvent(
+  metadata: Record<string, string> = {},
+  amount = 33000,
+  currency = "aud",
+) {
   return {
     id: "evt_test_123",
     type: "payment_intent.succeeded",
     data: {
       object: {
         id: "pi_test_abc",
+        amount,
+        currency,
         metadata,
       },
     },
@@ -93,6 +103,7 @@ describe("payment_intent.succeeded webhook", () => {
     vi.mocked(prisma.stripeWebhookEvent.updateMany).mockResolvedValue({
       count: 0,
     } as never);
+    vi.mocked(prisma.invoicePayment.upsert).mockResolvedValue({} as never);
 
     // Suppress console.error noise in test output (the handler intentionally logs)
     vi.spyOn(console, "error").mockImplementation(() => {});
@@ -125,12 +136,14 @@ describe("payment_intent.succeeded webhook", () => {
 
   it("returns 200 and sets paidDate when invoiceId matches an unpaid Invoice row", async () => {
     const invoiceId = "inv_valid_001";
-    const event = makePaymentIntentEvent({ invoiceId });
+    const userId = "user_owner_001";
+    const event = makePaymentIntentEvent({ invoiceId }, 33000, "aud");
     vi.mocked(stripe.webhooks.constructEvent).mockReturnValue(event as never);
 
-    // Simulate an existing UNPAID invoice
+    // Simulate an existing UNPAID invoice — include userId for InvoicePayment creation
     vi.mocked(prisma.invoice.findUnique).mockResolvedValue({
       status: "SENT",
+      userId,
     } as never);
     vi.mocked(prisma.invoice.update).mockResolvedValue({
       id: invoiceId,
@@ -144,7 +157,7 @@ describe("payment_intent.succeeded webhook", () => {
     expect(response.status).toBe(200);
     expect(body.received).toBe(true);
 
-    // Verify the update call was made with correct data
+    // Invoice must be marked PAID with paidDate set
     expect(prisma.invoice.update).toHaveBeenCalledWith({
       where: { id: invoiceId },
       data: {
@@ -153,5 +166,37 @@ describe("payment_intent.succeeded webhook", () => {
         amountDue: 0,
       },
     });
+
+    // InvoicePayment must be upserted with stripePaymentIntentId for reconciliation
+    expect(prisma.invoicePayment.upsert).toHaveBeenCalledWith({
+      where: { stripePaymentIntentId: "pi_test_abc" },
+      create: {
+        amount: 33000,
+        currency: "AUD",
+        paymentMethod: "STRIPE",
+        stripePaymentIntentId: "pi_test_abc",
+        invoiceId,
+        userId,
+      },
+      update: {},
+    });
+  });
+
+  it("does not create InvoicePayment when invoice is already PAID (idempotency)", async () => {
+    const invoiceId = "inv_already_paid";
+    const event = makePaymentIntentEvent({ invoiceId });
+    vi.mocked(stripe.webhooks.constructEvent).mockReturnValue(event as never);
+
+    // Invoice is already PAID — handler should break early
+    vi.mocked(prisma.invoice.findUnique).mockResolvedValue({
+      status: "PAID",
+      userId: "user_001",
+    } as never);
+
+    const response = await POST(makeRequest());
+
+    expect(response.status).toBe(200);
+    expect(prisma.invoice.update).not.toHaveBeenCalled();
+    expect(prisma.invoicePayment.upsert).not.toHaveBeenCalled();
   });
 });
