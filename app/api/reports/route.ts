@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateDetailedReport } from "@/lib/anthropic";
 import { withIdempotency } from "@/lib/idempotency";
+import { track, isFirstTime } from "@/lib/analytics/track";
 
 export async function GET(request: NextRequest) {
   try {
@@ -137,6 +138,20 @@ export async function POST(request: NextRequest) {
             { status: 400 },
           );
         }
+      }
+
+      // RA-1246 — first_report_started: user has 0 prior reports AND
+      // hasn't emitted this event yet. Fire-and-forget.
+      try {
+        const priorReports = await prisma.report.count({ where: { userId } });
+        if (
+          priorReports === 0 &&
+          (await isFirstTime(userId, "first_report_started"))
+        ) {
+          track(userId, "first_report_started").catch(() => {});
+        }
+      } catch {
+        // analytics must never block the user flow
       }
 
       const { canCreateReport, deductCreditsAndTrackUsage } =
@@ -319,6 +334,13 @@ export async function POST(request: NextRequest) {
           },
         },
       });
+
+      // RA-1246 — first_report_saved (first-time only, AFTER persist)
+      if (await isFirstTime(userId, "first_report_saved")) {
+        track(userId, "first_report_saved", { reportId: report.id }).catch(
+          () => {},
+        );
+      }
 
       return NextResponse.json(
         {
