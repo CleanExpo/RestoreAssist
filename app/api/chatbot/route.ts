@@ -24,7 +24,11 @@ export async function GET(request: NextRequest) {
     });
     if (rateLimited) return rateLimited;
     const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get("limit") || "50");
+    // RA-1307 — cap chat history reads so ?limit=1e9 can't exhaust memory.
+    const limit = Math.min(
+      200,
+      Math.max(1, parseInt(searchParams.get("limit") || "50") || 50),
+    );
 
     // Fetch chat history from database
     let chatMessages: any[] = [];

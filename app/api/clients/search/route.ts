@@ -16,8 +16,15 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const q = searchParams.get("q");
     const status = searchParams.get("status");
-    const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 100);
-    const offset = parseInt(searchParams.get("offset") || "0");
+    // RA-1307 — also floor offset at 0 to reject ?offset=-1 (Prisma skip=-1 throws).
+    const limit = Math.min(
+      100,
+      Math.max(1, parseInt(searchParams.get("limit") || "20") || 20),
+    );
+    const offset = Math.max(
+      0,
+      parseInt(searchParams.get("offset") || "0") || 0,
+    );
 
     // Validate search parameters
     const validation = validateSearchParams({
