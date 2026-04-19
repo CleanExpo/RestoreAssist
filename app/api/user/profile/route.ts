@@ -49,6 +49,9 @@ export async function GET(request: NextRequest) {
         monthlyResetDate: true,
         organizationId: true,
         lifetimeAccess: true,
+        // RA-1260 — surface 2FA state so /dashboard/security can render
+        // the correct on/off panel without a second round-trip.
+        twoFactorEnabled: true,
       },
     });
 
