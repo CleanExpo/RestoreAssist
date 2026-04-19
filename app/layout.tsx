@@ -1,6 +1,10 @@
 import type React from "react";
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Geist, Geist_Mono } from "next/font/google";
+// RA-1290 — Geist/Geist Mono are declared as --font-sans/--font-mono in
+// globals.css but were previously only available via the system-font
+// fallback stack. Loading via next/font gives preloaded, display=swap
+// webfonts instead of Flash-of-Unstyled-Text + render-blocking CSS.
 import { BRAND } from "@/lib/brand";
 import SessionProvider from "@/components/providers/SessionProvider";
 import { CapacitorProvider } from "@/components/providers/CapacitorProvider";
@@ -15,6 +19,16 @@ import "@/lib/env-check";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
+const geistSans = Geist({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-sans",
+});
+const geistMono = Geist_Mono({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-mono",
+});
 
 export const metadata: Metadata = {
   title: {
@@ -76,7 +90,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${geistSans.variable} ${geistMono.variable}`}
+    >
       <body className={inter.className}>
         <OrganizationSchema />
         <SoftwareApplicationSchema />
