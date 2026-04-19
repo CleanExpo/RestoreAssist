@@ -96,6 +96,14 @@ model User {
   // Password management
   mustChangePassword Boolean? @default(false) // True if user needs to change temporary password
 
+  // RA-1260 — two-factor authentication (TOTP / RFC 6238).
+  // secret is stored as a base32 string; encryption-at-rest is deferred
+  // to the DB layer. `enabled` gates whether login prompts for a code.
+  // Recovery codes for lock-out recovery are a follow-up.
+  twoFactorEnabled Boolean @default(false)
+  twoFactorSecret  String?  // base32-encoded TOTP shared secret
+  twoFactorEnabledAt DateTime?
+
   // Premium Features
   hasPremiumInspectionReports Boolean @default(false) // Access to 3-stakeholder PDF generator
 
