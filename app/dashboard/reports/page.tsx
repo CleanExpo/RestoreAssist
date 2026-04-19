@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useFetch } from "@/lib/hooks/useFetch";
+import { DeleteConfirmationDialog } from "@/components/DeleteConfirmationDialog";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -918,53 +919,18 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      {/* Bulk Delete Modal */}
-      {showBulkDeleteModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-slate-800 rounded-lg border border-slate-700 max-w-md w-full p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-red-400">
-                Delete Selected Reports
-              </h2>
-              <button
-                onClick={() => setShowBulkDeleteModal(false)}
-                className="p-1 hover:bg-slate-700 rounded"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="space-y-4">
-              <p className="text-slate-300">
-                Are you sure you want to delete{" "}
-                <span className="font-medium text-white">
-                  {selectedReports.length}
-                </span>{" "}
-                selected report(s)? This action cannot be undone.
-              </p>
-              <div className="bg-amber-500/20 border border-amber-500/30 rounded-lg p-4">
-                <p className="text-amber-300 text-sm">
-                  ⚠️ This will permanently delete all selected reports and their
-                  associated data.
-                </p>
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => setShowBulkDeleteModal(false)}
-                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleBulkDelete}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-red-500 to-rose-500 rounded-lg font-medium hover:shadow-lg hover:shadow-red-500/50 transition-all"
-                >
-                  Delete {selectedReports.length} Report(s)
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* RA-1191 — replaced custom bulk-delete modal with shared shadcn
+          AlertDialog-based DeleteConfirmationDialog (focus trap, Esc,
+          consistent with dashboard/inspections). */}
+      <DeleteConfirmationDialog
+        open={showBulkDeleteModal}
+        onOpenChange={setShowBulkDeleteModal}
+        onConfirm={handleBulkDelete}
+        title="Delete selected reports?"
+        description="This will permanently delete the selected reports and all associated data. This action cannot be undone."
+        itemCount={selectedReports.length}
+        itemName="report"
+      />
     </div>
   );
 }
