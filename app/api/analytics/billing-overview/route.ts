@@ -5,11 +5,29 @@ import { prisma } from "@/lib/prisma";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
 import { PRICING_CONFIG } from "@/lib/pricing";
 
+// RA-1320 — module-scope response cache. billing-overview fires 11
+// parallel queries, 3 of which groupBy/aggregate over the full User
+// table. At 100k users each admin-dashboard refresh is expensive and
+// connection-pool-heavy. Cache the response for 60s so repeated admin
+// refreshes share a single computation. Cache is stale-while-revalidate
+// would be better but this module has no Redis dependency — 60s
+// in-memory is the Pareto-optimal mitigation.
+type CachedResponse = { data: unknown; expiresAt: number };
+let cachedResponse: CachedResponse | null = null;
+const CACHE_TTL_MS = 60_000;
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     const auth = await verifyAdminFromDb(session);
     if (auth.response) return auth.response;
+
+    // RA-1320 — serve from cache if fresh
+    if (cachedResponse && cachedResponse.expiresAt > Date.now()) {
+      return NextResponse.json(cachedResponse.data, {
+        headers: { "X-Cache": "HIT" },
+      });
+    }
 
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -217,7 +235,7 @@ export async function GET(request: NextRequest) {
       estimatedMRR: totalMRR,
     }));
 
-    return NextResponse.json({
+    const responseBody = {
       mrr: {
         total: totalMRR,
         monthly: monthlyMRR,
@@ -271,7 +289,15 @@ export async function GET(request: NextRequest) {
       })),
       revenueTrend,
       totalUsers,
-    });
+    };
+
+    // RA-1320 — cache the computed response for 60s
+    cachedResponse = {
+      data: responseBody,
+      expiresAt: Date.now() + CACHE_TTL_MS,
+    };
+
+    return NextResponse.json(responseBody, { headers: { "X-Cache": "MISS" } });
   } catch (error) {
     console.error("Error fetching billing overview:", error);
     return NextResponse.json(
