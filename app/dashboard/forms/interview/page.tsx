@@ -6,6 +6,16 @@ import toast from "react-hot-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   GuidedInterviewPanel,
   InterviewQuestionAnswerSummary,
 } from "@/components/forms/guided-interview";
@@ -106,14 +116,15 @@ export default function InterviewPage() {
     [searchParams],
   );
 
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+
   const handleCancel = useCallback(() => {
-    if (
-      confirm(
-        "Are you sure you want to cancel this interview? Progress will be lost.",
-      )
-    ) {
-      router.back();
-    }
+    setShowCancelDialog(true);
+  }, []);
+
+  const confirmCancel = useCallback(() => {
+    setShowCancelDialog(false);
+    router.back();
   }, [router]);
 
   const handleBackToReports = useCallback(() => {
@@ -280,6 +291,25 @@ export default function InterviewPage() {
           </div>
         </div>
       )}
+      <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel interview?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Progress on this interview will be lost and cannot be recovered.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep going</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmCancel}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Yes, cancel interview
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
