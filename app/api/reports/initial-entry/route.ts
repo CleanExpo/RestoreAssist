@@ -395,12 +395,31 @@ export async function POST(request: NextRequest) {
         technicianNotes: report.technicianFieldReport || "",
       };
 
-      // Pre-fetch standards in background (don't await - let it run async)
-      retrieveRelevantStandards(retrievalQuery, anthropicApiKey)
-        .then((standards) => {})
-        .catch((error) => {
+      // Pre-fetch standards in background (don't await - let it run async).
+      // RA-1335 — re-check subscription inside the async boundary. The
+      // outer handler gates on subscriptionStatus at L35, but this call
+      // fires after the response returns; an admin action between the
+      // two can otherwise leave a CANCELED user getting billed Claude
+      // tokens. Tiny window but zero cost to close.
+      (async () => {
+        try {
+          const fresh = await prisma.user.findUnique({
+            where: { id: user.id },
+            select: { subscriptionStatus: true },
+          });
+          if (
+            !fresh ||
+            !ALLOWED_SUBSCRIPTION_STATUSES.includes(
+              fresh.subscriptionStatus ?? "",
+            )
+          ) {
+            return; // subscription revoked between handler start and async kickoff
+          }
+          await retrieveRelevantStandards(retrievalQuery, anthropicApiKey);
+        } catch (error) {
           console.error(`[Initial Entry] Error pre-fetching standards:`, error);
-        });
+        }
+      })();
     } catch (error) {
       // Non-critical - just log the error
       console.error(
