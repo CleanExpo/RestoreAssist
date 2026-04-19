@@ -45,20 +45,52 @@ export async function POST(request: NextRequest) {
   const cronErr = verifyCronAuth(request);
   if (cronErr) return cronErr;
 
-  const results: string[] = [];
-  for (const stmt of DDL_STATEMENTS) {
-    try {
-      await prisma.$executeRawUnsafe(stmt);
-      results.push("OK");
-    } catch (err: any) {
-      results.push(`ERROR: ${err?.message?.slice(0, 100)}`);
-    }
+  // RA-1334 — advisory lock guards against concurrent invocations that
+  // would deadlock Postgres on the CREATE TABLE / CREATE INDEX DDL
+  // against the same relations. If another instance holds the lock,
+  // return 409 early rather than piling on schema locks. Lock key
+  // is a deterministic constant for this migration (RA-1334 ticket
+  // number mapped to int4).
+  const LOCK_KEY = 1334; // Int4 advisory lock key for admin/migrate-v2
+  const [{ locked }] = await prisma.$queryRawUnsafe<Array<{ locked: boolean }>>(
+    `SELECT pg_try_advisory_lock(${LOCK_KEY}) AS locked`,
+  );
+  if (!locked) {
+    console.warn(
+      `[admin/migrate-v2] Another instance holds advisory lock ${LOCK_KEY} — migration already in flight.`,
+    );
+    return NextResponse.json(
+      { error: "Migration already in flight. Retry after it completes." },
+      { status: 409 },
+    );
   }
 
-  // Verify
-  const tables = await prisma.$queryRawUnsafe(
-    `SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename IN ('AscoraIntegration','AscoraJob','AscoraLineItem','AscoraNote','ScopePricingDatabase','HistoricalJob')`,
-  );
+  const results: string[] = [];
+  try {
+    for (const stmt of DDL_STATEMENTS) {
+      try {
+        await prisma.$executeRawUnsafe(stmt);
+        results.push("OK");
+      } catch (err: any) {
+        results.push(`ERROR: ${err?.message?.slice(0, 100)}`);
+      }
+    }
 
-  return NextResponse.json({ results, tables });
+    // Verify
+    const tables = await prisma.$queryRawUnsafe(
+      `SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename IN ('AscoraIntegration','AscoraJob','AscoraLineItem','AscoraNote','ScopePricingDatabase','HistoricalJob')`,
+    );
+
+    return NextResponse.json({ results, tables });
+  } finally {
+    // Always release the lock — even if DDL threw partway through.
+    await prisma
+      .$executeRawUnsafe(`SELECT pg_advisory_unlock(${LOCK_KEY})`)
+      .catch((err) => {
+        console.error(
+          `[admin/migrate-v2] Failed to release advisory lock ${LOCK_KEY}:`,
+          err,
+        );
+      });
+  }
 }
