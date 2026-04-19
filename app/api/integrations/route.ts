@@ -4,6 +4,30 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { IntegrationProvider } from "@prisma/client";
 
+// RA-1345 — explicit allowlist of safe-to-return fields. Previously both
+// GET (list) and POST (create) returned the full Integration row, leaking
+// `apiKey`, `accessToken`, `refreshToken`, and raw `config` to the client.
+// Sibling /[id]/route.ts already has this guard; this closes the matching
+// gap on the list/create endpoints.
+const INTEGRATION_PUBLIC_SELECT = {
+  id: true,
+  userId: true,
+  workspaceId: true,
+  provider: true,
+  name: true,
+  description: true,
+  icon: true,
+  status: true,
+  tokenExpiresAt: true,
+  tenantId: true,
+  realmId: true,
+  companyId: true,
+  lastSyncAt: true,
+  syncError: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -16,6 +40,7 @@ export async function GET(request: NextRequest) {
       where: {
         userId: session.user.id,
       },
+      select: INTEGRATION_PUBLIC_SELECT,
       orderBy: {
         createdAt: "desc",
       },
@@ -98,6 +123,7 @@ export async function POST(request: NextRequest) {
         provider: integrationProvider as IntegrationProvider,
         userId: session.user.id,
       },
+      select: INTEGRATION_PUBLIC_SELECT,
     });
 
     return NextResponse.json(integration);

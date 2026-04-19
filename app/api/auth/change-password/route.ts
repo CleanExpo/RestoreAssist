@@ -6,108 +6,126 @@ import { authOptions } from "@/lib/auth";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { validateCsrf } from "@/lib/csrf";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
+import { withIdempotency } from "@/lib/idempotency";
 
 export async function POST(request: NextRequest) {
-  try {
-    // CSRF validation
-    const csrfError = validateCsrf(request);
-    if (csrfError) return csrfError;
+  // CSRF validation (outside wrapper — returns early without consuming body)
+  const csrfError = validateCsrf(request);
+  if (csrfError) return csrfError;
 
-    // Rate limit: 5 attempts per 15 minutes per IP
-    const rateLimited = await applyRateLimit(request, {
-      maxRequests: 5,
-      prefix: "change-password",
-    });
-    if (rateLimited) return rateLimited;
+  // Rate limit: 5 attempts per 15 minutes per IP
+  const rateLimited = await applyRateLimit(request, {
+    maxRequests: 5,
+    prefix: "change-password",
+  });
+  if (rateLimited) return rateLimited;
 
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const userId = session.user.id;
 
-    const { currentPassword, newPassword } = await request.json();
+  // RA-1266: retry replays the bcrypt hash + update — expensive, and
+  // the cached response saves the ~250ms hash cost on idempotent retry.
+  return withIdempotency(request, userId, async (rawBody) => {
+    try {
+      let parsedBody: { currentPassword?: string; newPassword?: string };
+      try {
+        parsedBody = rawBody ? JSON.parse(rawBody) : {};
+      } catch {
+        return NextResponse.json(
+          { error: "Invalid JSON body" },
+          { status: 400 },
+        );
+      }
+      const { currentPassword, newPassword } = parsedBody;
 
-    if (!currentPassword || !newPassword) {
-      return NextResponse.json(
-        { error: "Current password and new password are required" },
-        { status: 400 },
+      if (!currentPassword || !newPassword) {
+        return NextResponse.json(
+          { error: "Current password and new password are required" },
+          { status: 400 },
+        );
+      }
+
+      // RA-1342 — aligned to registration min (12). Matches reset-password +
+      // registration so the policy can't be bypassed by setting a weak
+      // password via change-password after registering strong.
+      if (newPassword.length < 12) {
+        return NextResponse.json(
+          { error: "New password must be at least 12 characters long" },
+          { status: 400 },
+        );
+      }
+
+      // Get user with password
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { password: true, mustChangePassword: true },
+      });
+
+      if (!user || !user.password) {
+        return NextResponse.json(
+          { error: "Password not set. Please contact support." },
+          { status: 400 },
+        );
+      }
+
+      // Verify current password (works for both regular and forced password change)
+      const isCurrentPasswordValid = await bcrypt.compare(
+        currentPassword,
+        user.password,
       );
-    }
 
-    if (newPassword.length < 8) {
-      return NextResponse.json(
-        { error: "New password must be at least 8 characters long" },
-        { status: 400 },
-      );
-    }
+      if (!isCurrentPasswordValid) {
+        const reqCtx = extractRequestContext(request);
+        logSecurityEvent({
+          eventType: "LOGIN_FAILED",
+          severity: "WARNING",
+          userId,
+          email: session.user.email ?? undefined,
+          ...reqCtx,
+          details: {
+            reason: "incorrect_current_password",
+            context: "change_password",
+          },
+        }).catch(() => {});
+        return NextResponse.json(
+          { error: "Current password is incorrect" },
+          { status: 400 },
+        );
+      }
 
-    // Get user with password
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { password: true, mustChangePassword: true },
-    });
+      // Hash new password
+      const hashedNewPassword = await bcrypt.hash(newPassword, 12);
 
-    if (!user || !user.password) {
-      return NextResponse.json(
-        { error: "Password not set. Please contact support." },
-        { status: 400 },
-      );
-    }
+      // Update password and clear mustChangePassword flag
+      await prisma.user.update({
+        where: { id: userId },
+        data: {
+          password: hashedNewPassword,
+          mustChangePassword: false,
+        },
+      });
 
-    // Verify current password (works for both regular and forced password change)
-    const isCurrentPasswordValid = await bcrypt.compare(
-      currentPassword,
-      user.password,
-    );
-
-    if (!isCurrentPasswordValid) {
       const reqCtx = extractRequestContext(request);
       logSecurityEvent({
-        eventType: "LOGIN_FAILED",
-        severity: "WARNING",
-        userId: session.user.id,
+        eventType: "PASSWORD_CHANGED",
+        userId,
         email: session.user.email ?? undefined,
         ...reqCtx,
-        details: {
-          reason: "incorrect_current_password",
-          context: "change_password",
-        },
       }).catch(() => {});
+
       return NextResponse.json(
-        { error: "Current password is incorrect" },
-        { status: 400 },
+        { message: "Password changed successfully" },
+        { status: 200 },
+      );
+    } catch (error) {
+      console.error("Change password error:", error);
+      return NextResponse.json(
+        { error: "Internal server error" },
+        { status: 500 },
       );
     }
-
-    // Hash new password
-    const hashedNewPassword = await bcrypt.hash(newPassword, 12);
-
-    // Update password and clear mustChangePassword flag
-    await prisma.user.update({
-      where: { id: session.user.id },
-      data: {
-        password: hashedNewPassword,
-        mustChangePassword: false,
-      },
-    });
-
-    const reqCtx = extractRequestContext(request);
-    logSecurityEvent({
-      eventType: "PASSWORD_CHANGED",
-      userId: session.user.id,
-      email: session.user.email ?? undefined,
-      ...reqCtx,
-    }).catch(() => {});
-
-    return NextResponse.json(
-      { message: "Password changed successfully" },
-      { status: 200 },
-    );
-  } catch (error) {
-    console.error("Change password error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
-  }
+  });
 }
