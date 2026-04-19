@@ -18,6 +18,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { withIdempotency } from "@/lib/idempotency";
 
 // ─── Equipment amp draw reference (IICRC S500 / AS/NZS 3012) ──────────────────
 
@@ -147,47 +148,55 @@ export async function POST(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-
+  const userId = session.user.id;
   const { id } = await params;
 
-  const inspection = await prisma.inspection.findUnique({
-    where: { id, userId: session.user.id },
-    select: { id: true },
-  });
-  if (!inspection) {
-    return NextResponse.json(
-      { error: "Inspection not found" },
-      { status: 404 },
+  // RA-1266: prevents duplicate circuit-assessment rows on retry.
+  return withIdempotency(req, userId, async (rawBody) => {
+    const inspection = await prisma.inspection.findUnique({
+      where: { id, userId },
+      select: { id: true },
+    });
+    if (!inspection) {
+      return NextResponse.json(
+        { error: "Inspection not found" },
+        { status: 404 },
+      );
+    }
+
+    let body: any;
+    try {
+      body = rawBody ? JSON.parse(rawBody) : {};
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
+    const parsed = circuitSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid data", details: parsed.error.flatten() },
+        { status: 400 },
+      );
+    }
+
+    const data = parsed.data;
+    const safety = calculateCircuitSafety(
+      data.equipmentList,
+      data.circuitBreakerRating,
     );
-  }
 
-  const body = await req.json();
-  const parsed = circuitSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid data", details: parsed.error.flatten() },
-      { status: 400 },
-    );
-  }
+    const record = await (prisma as any).circuitAssessment.create({
+      data: {
+        inspectionId: id,
+        circuitId: data.circuitId,
+        locationZone: data.locationZone,
+        equipmentList: data.equipmentList,
+        circuitBreakerRating: data.circuitBreakerRating,
+        rcdProtected: data.rcdProtected,
+        extensionCordGauge: data.extensionCordGauge ?? null,
+        ...safety,
+      },
+    });
 
-  const data = parsed.data;
-  const safety = calculateCircuitSafety(
-    data.equipmentList,
-    data.circuitBreakerRating,
-  );
-
-  const record = await (prisma as any).circuitAssessment.create({
-    data: {
-      inspectionId: id,
-      circuitId: data.circuitId,
-      locationZone: data.locationZone,
-      equipmentList: data.equipmentList,
-      circuitBreakerRating: data.circuitBreakerRating,
-      rcdProtected: data.rcdProtected,
-      extensionCordGauge: data.extensionCordGauge ?? null,
-      ...safety,
-    },
+    return NextResponse.json(record, { status: 201 });
   });
-
-  return NextResponse.json(record, { status: 201 });
 }
