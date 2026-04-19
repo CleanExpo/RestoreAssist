@@ -204,41 +204,25 @@ export async function POST(request: NextRequest) {
         { status: 201 },
       );
     } catch (e) {
-      const user = await prisma.user.create({
-        data: {
-          name,
-          email,
-          password: hashedPassword,
-          role: "ADMIN",
-          subscriptionStatus: "TRIAL",
-          creditsRemaining: 30,
-          totalCreditsUsed: 0,
-          trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-          quickFillCreditsRemaining: 30,
-          totalQuickFillUsed: 0,
-          // RA-1255: cast needed until Prisma client regenerates in Vercel build
-          acceptedTermsAt: new Date() as any,
-        } as any,
-      });
-      sendWelcomeEmail({
-        recipientEmail: email,
-        recipientName: name,
-        loginUrl: `${APP_URL}/login`,
-        trialDays: 30,
-        trialCredits: 30,
-      }).catch((err) => console.error("[Register] Welcome email failed:", err));
-      notifyWelcome(user.id).catch((err) =>
-        console.error("[Register] notifyWelcome failed:", err),
+      // RA-1305 — the previous fallback created a User-only row (no
+      // Organization, no organizationId) and returned 201 with warning
+      // text. That left an ADMIN user orphaned from any org, which
+      // NPEs downstream code that assumes `user.organization.members`
+      // etc. Worse: the user record would require manual DB cleanup
+      // before they could re-register (P2002 on email).
+      // Correct behaviour: the transaction failed → nothing was
+      // committed → return 500 and let the client retry. No orphan.
+      console.error(
+        "[Register] Organisation setup failed — returning 500, no orphan user created:",
+        e instanceof Error ? e.message : String(e),
       );
-      const { password: _, ...userWithoutPassword } = user;
       return NextResponse.json(
         {
-          message: "User created successfully",
-          user: userWithoutPassword,
-          warning:
-            "Organisation setup failed (migration/client not applied yet). Run `npx prisma migrate dev` then `npx prisma generate`, and restart the dev server.",
+          error: "Registration failed — please try again.",
+          detail:
+            "Organisation setup transaction aborted; no partial user was created.",
         },
-        { status: 201 },
+        { status: 500 },
       );
     }
   } catch (error: unknown) {
