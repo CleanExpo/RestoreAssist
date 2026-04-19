@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { withIdempotency } from "@/lib/idempotency";
 
 /**
  * POST /api/authority-forms/:id/signatures
@@ -11,146 +12,159 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const userId = session.user.id;
+  const { id: formId } = await params;
 
-    const { id: formId } = await params;
-    const body = await request.json();
-    const {
-      signatureId,
-      signatureData,
-      signatoryName,
-      signatoryEmail,
-      signatoryRole,
-      action,
-    } = body;
-
-    // Create new signatory slot
-    if (action === "add_signatory") {
-      if (!signatoryName || !signatoryRole) {
+  // RA-1266: signatures are terminal legal records — prevent duplicate
+  // signature rows when the signer double-clicks.
+  return withIdempotency(request, userId, async (rawBody) => {
+    try {
+      let body: any;
+      try {
+        body = rawBody ? JSON.parse(rawBody) : {};
+      } catch {
         return NextResponse.json(
-          { error: "Signatory name and role are required" },
+          { error: "Invalid JSON body" },
+          { status: 400 },
+        );
+      }
+      const {
+        signatureId,
+        signatureData,
+        signatoryName,
+        signatoryEmail,
+        signatoryRole,
+        action,
+      } = body;
+
+      // Create new signatory slot
+      if (action === "add_signatory") {
+        if (!signatoryName || !signatoryRole) {
+          return NextResponse.json(
+            { error: "Signatory name and role are required" },
+            { status: 400 },
+          );
+        }
+
+        const newSignature = await prisma.authorityFormSignature.create({
+          data: {
+            instanceId: formId,
+            signatoryName,
+            signatoryRole,
+            signatoryEmail: signatoryEmail || null,
+          },
+        });
+
+        // Update form status to pending if still draft
+        const currentForm = await prisma.authorityFormInstance.findUnique({
+          where: { id: formId },
+          select: { status: true },
+        });
+        if (currentForm?.status === "DRAFT") {
+          await prisma.authorityFormInstance.update({
+            where: { id: formId },
+            data: { status: "PENDING_SIGNATURES" },
+          });
+        }
+
+        return NextResponse.json({ signature: newSignature });
+      }
+
+      if (!signatureId || !signatureData) {
+        return NextResponse.json(
+          { error: "Signature ID and signature data are required" },
           { status: 400 },
         );
       }
 
-      const newSignature = await prisma.authorityFormSignature.create({
-        data: {
-          instanceId: formId,
-          signatoryName,
-          signatoryRole,
-          signatoryEmail: signatoryEmail || null,
-        },
-      });
-
-      // Update form status to pending if still draft
-      const currentForm = await prisma.authorityFormInstance.findUnique({
+      // Verify form exists and user has access
+      const form = await prisma.authorityFormInstance.findUnique({
         where: { id: formId },
-        select: { status: true },
-      });
-      if (currentForm?.status === "DRAFT") {
-        await prisma.authorityFormInstance.update({
-          where: { id: formId },
-          data: { status: "PENDING_SIGNATURES" },
-        });
-      }
-
-      return NextResponse.json({ signature: newSignature });
-    }
-
-    if (!signatureId || !signatureData) {
-      return NextResponse.json(
-        { error: "Signature ID and signature data are required" },
-        { status: 400 },
-      );
-    }
-
-    // Verify form exists and user has access
-    const form = await prisma.authorityFormInstance.findUnique({
-      where: { id: formId },
-      include: {
-        report: {
-          select: {
-            userId: true,
-            assignedManagerId: true,
-            assignedAdminId: true,
+        include: {
+          report: {
+            select: {
+              userId: true,
+              assignedManagerId: true,
+              assignedAdminId: true,
+            },
           },
         },
-      },
-    });
+      });
 
-    if (!form) {
-      return NextResponse.json({ error: "Form not found" }, { status: 404 });
-    }
+      if (!form) {
+        return NextResponse.json({ error: "Form not found" }, { status: 404 });
+      }
 
-    // Check permissions
-    if (
-      form.report.userId !== session.user.id &&
-      form.report.assignedManagerId !== session.user.id &&
-      form.report.assignedAdminId !== session.user.id
-    ) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+      // Check permissions
+      if (
+        form.report.userId !== userId &&
+        form.report.assignedManagerId !== userId &&
+        form.report.assignedAdminId !== userId
+      ) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
 
-    // Get client IP and user agent for verification
-    const ipAddress =
-      request.headers.get("x-forwarded-for") ||
-      request.headers.get("x-real-ip") ||
-      "unknown";
-    const userAgent = request.headers.get("user-agent") || "unknown";
+      // Get client IP and user agent for verification
+      const ipAddress =
+        request.headers.get("x-forwarded-for") ||
+        request.headers.get("x-real-ip") ||
+        "unknown";
+      const userAgent = request.headers.get("user-agent") || "unknown";
 
-    // Update signature
-    const signature = await prisma.authorityFormSignature.update({
-      where: { id: signatureId },
-      data: {
-        signatureData,
-        signatoryName: signatoryName || undefined,
-        signedAt: new Date(),
-        ipAddress,
-        userAgent,
-      },
-    });
-
-    // Check if all signatures are complete
-    const allSignatures = await prisma.authorityFormSignature.findMany({
-      where: { instanceId: formId },
-    });
-
-    const allSigned = allSignatures.every((sig) => sig.signedAt !== null);
-
-    // Update form status if all signatures are complete
-    if (allSigned) {
-      await prisma.authorityFormInstance.update({
-        where: { id: formId },
+      // Update signature
+      const signature = await prisma.authorityFormSignature.update({
+        where: { id: signatureId },
         data: {
-          status: "COMPLETED",
-          completedAt: new Date(),
+          signatureData,
+          signatoryName: signatoryName || undefined,
+          signedAt: new Date(),
+          ipAddress,
+          userAgent,
         },
       });
-    } else {
-      // Update to partially signed if at least one signature exists
-      const hasAnySignature = allSignatures.some(
-        (sig) => sig.signedAt !== null,
-      );
-      if (hasAnySignature && form.status === "DRAFT") {
+
+      // Check if all signatures are complete
+      const allSignatures = await prisma.authorityFormSignature.findMany({
+        where: { instanceId: formId },
+      });
+
+      const allSigned = allSignatures.every((sig) => sig.signedAt !== null);
+
+      // Update form status if all signatures are complete
+      if (allSigned) {
         await prisma.authorityFormInstance.update({
           where: { id: formId },
-          data: { status: "PARTIALLY_SIGNED" },
+          data: {
+            status: "COMPLETED",
+            completedAt: new Date(),
+          },
         });
+      } else {
+        // Update to partially signed if at least one signature exists
+        const hasAnySignature = allSignatures.some(
+          (sig) => sig.signedAt !== null,
+        );
+        if (hasAnySignature && form.status === "DRAFT") {
+          await prisma.authorityFormInstance.update({
+            where: { id: formId },
+            data: { status: "PARTIALLY_SIGNED" },
+          });
+        }
       }
-    }
 
-    return NextResponse.json({ signature, allSigned });
-  } catch (error) {
-    console.error("Error adding signature:", error);
-    return NextResponse.json(
-      { error: "Failed to add signature" },
-      { status: 500 },
-    );
-  }
+      return NextResponse.json({ signature, allSigned });
+    } catch (error) {
+      console.error("Error adding signature:", error);
+      return NextResponse.json(
+        { error: "Failed to add signature" },
+        { status: 500 },
+      );
+    }
+  });
 }
 
 /**

@@ -27,89 +27,93 @@ import { stripe } from "@/lib/stripe";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { validateCsrf } from "@/lib/csrf";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
+import { withIdempotency } from "@/lib/idempotency";
 
 const CONFIRMATION_PHRASE = "DELETE MY ACCOUNT";
 
 export async function POST(request: NextRequest) {
-  try {
-    const csrfError = validateCsrf(request);
-    if (csrfError) return csrfError;
+  const csrfError = validateCsrf(request);
+  if (csrfError) return csrfError;
 
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const userId = session.user.id;
 
-    const rateLimited = await applyRateLimit(request, {
-      maxRequests: 3,
-      prefix: "account-delete",
-      key: session.user.id,
-    });
-    if (rateLimited) return rateLimited;
+  const rateLimited = await applyRateLimit(request, {
+    maxRequests: 3,
+    prefix: "account-delete",
+    key: userId,
+  });
+  if (rateLimited) return rateLimited;
 
-    let body: { confirmation?: unknown };
+  // RA-1266: account deletion is terminal. Idempotency lets the retry
+  // path return the cached success response rather than hitting a
+  // "user not found" 404 from the cascade.
+  return withIdempotency(request, userId, async (rawBody) => {
     try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json(
-        { error: "Invalid request body" },
-        { status: 400 },
-      );
-    }
-
-    if (body.confirmation !== CONFIRMATION_PHRASE) {
-      return NextResponse.json(
-        {
-          error: `Confirmation phrase must be "${CONFIRMATION_PHRASE}"`,
-        },
-        { status: 400 },
-      );
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: {
-        id: true,
-        email: true,
-        stripeCustomerId: true,
-        subscriptionId: true,
-      },
-    });
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-
-    // Cancel the Stripe subscription immediately so no further invoices
-    // are raised. We don't unwind historical invoices — those are already
-    // tax-compliant records.
-    if (user.subscriptionId) {
+      let body: { confirmation?: unknown } = {};
       try {
-        await stripe.subscriptions.cancel(user.subscriptionId);
-      } catch (err) {
-        console.error(
-          "[account-delete] Stripe cancel failed (proceeding with deletion):",
-          err,
+        body = rawBody ? JSON.parse(rawBody) : {};
+      } catch {
+        return NextResponse.json(
+          { error: "Invalid request body" },
+          { status: 400 },
         );
       }
+
+      if (body.confirmation !== CONFIRMATION_PHRASE) {
+        return NextResponse.json(
+          { error: `Confirmation phrase must be "${CONFIRMATION_PHRASE}"` },
+          { status: 400 },
+        );
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          email: true,
+          stripeCustomerId: true,
+          subscriptionId: true,
+        },
+      });
+      if (!user) {
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
+      }
+
+      if (user.subscriptionId) {
+        try {
+          await stripe.subscriptions.cancel(user.subscriptionId);
+        } catch (err) {
+          console.error(
+            "[account-delete] Stripe cancel failed (proceeding with deletion):",
+            err,
+          );
+        }
+      }
+
+      const reqCtx = extractRequestContext(request);
+      await logSecurityEvent({
+        eventType: "ACCOUNT_DELETED",
+        userId: user.id,
+        email: user.email,
+        ...reqCtx,
+        details: { hadSubscription: Boolean(user.subscriptionId) },
+      }).catch((err) =>
+        console.error("[account-delete] audit log failed:", err),
+      );
+
+      await prisma.user.delete({ where: { id: user.id } });
+
+      return NextResponse.json({ success: true });
+    } catch (error) {
+      console.error("[account-delete] Error:", error);
+      return NextResponse.json(
+        { error: "Failed to delete account" },
+        { status: 500 },
+      );
     }
-
-    const reqCtx = extractRequestContext(request);
-    await logSecurityEvent({
-      eventType: "ACCOUNT_DELETED",
-      userId: user.id,
-      email: user.email,
-      ...reqCtx,
-      details: { hadSubscription: Boolean(user.subscriptionId) },
-    }).catch((err) => console.error("[account-delete] audit log failed:", err));
-
-    await prisma.user.delete({ where: { id: user.id } });
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("[account-delete] Error:", error);
-    return NextResponse.json(
-      { error: "Failed to delete account" },
-      { status: 500 },
-    );
-  }
+  });
 }

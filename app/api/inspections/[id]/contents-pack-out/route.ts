@@ -16,6 +16,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { withIdempotency } from "@/lib/idempotency";
 
 // ─── Validation ────────────────────────────────────────────────────────────────
 
@@ -125,57 +126,65 @@ export async function POST(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-
+  const userId = session.user.id;
   const { id } = await params;
 
-  const inspection = await prisma.inspection.findUnique({
-    where: { id, userId: session.user.id },
-    select: { id: true },
+  // RA-1266: prevents duplicate pack-out item rows on retry.
+  return withIdempotency(req, userId, async (rawBody) => {
+    const inspection = await prisma.inspection.findUnique({
+      where: { id, userId },
+      select: { id: true },
+    });
+
+    if (!inspection) {
+      return NextResponse.json(
+        { error: "Inspection not found" },
+        { status: 404 },
+      );
+    }
+
+    let body: any;
+    try {
+      body = rawBody ? JSON.parse(rawBody) : {};
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
+    const parsed = packOutItemSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid data", details: parsed.error.flatten() },
+        { status: 400 },
+      );
+    }
+
+    const data = parsed.data;
+
+    const record = await (prisma as any).contentsPackOutItem.create({
+      data: {
+        inspectionId: id,
+        itemDescription: data.itemDescription,
+        make: data.make ?? null,
+        model: data.model ?? null,
+        serialNumber: data.serialNumber ?? null,
+        ageYears: data.ageYears ?? null,
+        conditionPreLoss: data.conditionPreLoss ?? null,
+        conditionPostLoss: data.conditionPostLoss ?? null,
+        replacementValueAud: data.replacementValueAud ?? null,
+        restorationCostEstimate: data.restorationCostEstimate ?? null,
+        packOutDecision: data.packOutDecision ?? null,
+        packOutTag: data.packOutTag ?? null,
+        beforePhotoUrl: data.beforePhotoUrl ?? null,
+        afterPhotoUrl: data.afterPhotoUrl ?? null,
+        claimType: data.claimType ?? null,
+      },
+    });
+
+    // Stamp Inspection.claimType = CONTENTS if no claim type already set
+    await prisma.inspection.update({
+      where: { id },
+      data: { claimType: "CONTENTS" } as any,
+    });
+
+    return NextResponse.json(record, { status: 201 });
   });
-
-  if (!inspection) {
-    return NextResponse.json(
-      { error: "Inspection not found" },
-      { status: 404 },
-    );
-  }
-
-  const body = await req.json();
-  const parsed = packOutItemSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid data", details: parsed.error.flatten() },
-      { status: 400 },
-    );
-  }
-
-  const data = parsed.data;
-
-  const record = await (prisma as any).contentsPackOutItem.create({
-    data: {
-      inspectionId: id,
-      itemDescription: data.itemDescription,
-      make: data.make ?? null,
-      model: data.model ?? null,
-      serialNumber: data.serialNumber ?? null,
-      ageYears: data.ageYears ?? null,
-      conditionPreLoss: data.conditionPreLoss ?? null,
-      conditionPostLoss: data.conditionPostLoss ?? null,
-      replacementValueAud: data.replacementValueAud ?? null,
-      restorationCostEstimate: data.restorationCostEstimate ?? null,
-      packOutDecision: data.packOutDecision ?? null,
-      packOutTag: data.packOutTag ?? null,
-      beforePhotoUrl: data.beforePhotoUrl ?? null,
-      afterPhotoUrl: data.afterPhotoUrl ?? null,
-      claimType: data.claimType ?? null,
-    },
-  });
-
-  // Stamp Inspection.claimType = CONTENTS if no claim type already set
-  await prisma.inspection.update({
-    where: { id },
-    data: { claimType: "CONTENTS" } as any,
-  });
-
-  return NextResponse.json(record, { status: 201 });
 }
