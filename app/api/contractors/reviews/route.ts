@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { withIdempotency } from "@/lib/idempotency";
 
 // Get reviews (filtered by contractor slug or client)
 export async function GET(request: NextRequest) {
@@ -123,109 +124,41 @@ export async function GET(request: NextRequest) {
 
 // Submit a new review (clients only)
 export async function POST(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
+  const session = await getServerSession(authOptions);
 
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const userId = session.user.id;
 
-    // Get client user
-    const clientUser = await (prisma.clientUser as any).findUnique({
-      where: { userId: session.user.id },
-      select: { id: true },
-    });
-
-    if (!clientUser) {
-      return NextResponse.json(
-        { error: "Only clients can submit reviews" },
-        { status: 403 },
-      );
-    }
-
-    const body = await request.json();
-    const {
-      contractorSlug,
-      reportId,
-      overallRating,
-      qualityRating,
-      timelinessRating,
-      communicationRating,
-      valueRating,
-      reviewTitle,
-      reviewText,
-    } = body;
-
-    // Validation
-    if (!contractorSlug || !overallRating || !reviewText) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 },
-      );
-    }
-
-    const subRatings = [qualityRating, timelinessRating, communicationRating, valueRating];
-    const allRatings = [overallRating, ...subRatings.filter((r) => r !== undefined)];
-    if (allRatings.some((r) => r < 1 || r > 5)) {
-      return NextResponse.json(
-        { error: "Rating must be between 1 and 5" },
-        { status: 400 },
-      );
-    }
-
-    // Get contractor profile
-    const profile = await prisma.contractorProfile.findUnique({
-      where: { slug: contractorSlug },
-      select: { id: true },
-    });
-
-    if (!profile) {
-      return NextResponse.json(
-        { error: "Contractor not found" },
-        { status: 404 },
-      );
-    }
-
-    // Check if report exists and belongs to this client
-    let isVerifiedJob = false;
-    if (reportId) {
-      const report = await prisma.report.findFirst({
-        where: {
-          id: reportId,
-          clientId: (clientUser as any).clientId,
-        },
+  // RA-1266: reviews are public-facing content — a double-post creates
+  // two identical reviews from the same client, which gives the illusion
+  // of an inflated rating count. Idempotency-Key catches the retry.
+  return withIdempotency(request, userId, async (rawBody) => {
+    try {
+      const clientUser = await (prisma.clientUser as any).findUnique({
+        where: { userId },
+        select: { id: true },
       });
 
-      if (report) {
-        isVerifiedJob = true;
-      }
-    }
-
-    // Check if client already reviewed this contractor for this report
-    if (reportId) {
-      const existingReview = await prisma.contractorReview.findFirst({
-        where: {
-          profileId: profile.id,
-          clientUserId: clientUser.id,
-          reportId,
-        },
-      });
-
-      if (existingReview) {
+      if (!clientUser) {
         return NextResponse.json(
-          {
-            error: "You have already reviewed this contractor for this report",
-          },
-          { status: 409 },
+          { error: "Only clients can submit reviews" },
+          { status: 403 },
         );
       }
-    }
 
-    // Create review
-    const review = await prisma.contractorReview.create({
-      data: {
-        profileId: profile.id,
-        clientUserId: clientUser.id,
+      let body: any;
+      try {
+        body = rawBody ? JSON.parse(rawBody) : {};
+      } catch {
+        return NextResponse.json(
+          { error: "Invalid JSON body" },
+          { status: 400 },
+        );
+      }
+      const {
+        contractorSlug,
         reportId,
         overallRating,
         qualityRating,
@@ -234,22 +167,112 @@ export async function POST(request: NextRequest) {
         valueRating,
         reviewTitle,
         reviewText,
-        isVerifiedJob,
-        status: "PUBLISHED", // Auto-publish as per user requirement
-      },
-    });
+      } = body;
 
-    // Update contractor's cached ratings
-    await updateContractorRatings(profile.id);
+      // Validation
+      if (!contractorSlug || !overallRating || !reviewText) {
+        return NextResponse.json(
+          { error: "Missing required fields" },
+          { status: 400 },
+        );
+      }
 
-    return NextResponse.json({ review }, { status: 201 });
-  } catch (error: any) {
-    console.error("Error creating review:", error);
-    return NextResponse.json(
-      { error: "Failed to create review" },
-      { status: 500 },
-    );
-  }
+      const subRatings = [
+        qualityRating,
+        timelinessRating,
+        communicationRating,
+        valueRating,
+      ];
+      const allRatings = [
+        overallRating,
+        ...subRatings.filter((r) => r !== undefined),
+      ];
+      if (allRatings.some((r) => r < 1 || r > 5)) {
+        return NextResponse.json(
+          { error: "Rating must be between 1 and 5" },
+          { status: 400 },
+        );
+      }
+
+      // Get contractor profile
+      const profile = await prisma.contractorProfile.findUnique({
+        where: { slug: contractorSlug },
+        select: { id: true },
+      });
+
+      if (!profile) {
+        return NextResponse.json(
+          { error: "Contractor not found" },
+          { status: 404 },
+        );
+      }
+
+      // Check if report exists and belongs to this client
+      let isVerifiedJob = false;
+      if (reportId) {
+        const report = await prisma.report.findFirst({
+          where: {
+            id: reportId,
+            clientId: (clientUser as any).clientId,
+          },
+        });
+
+        if (report) {
+          isVerifiedJob = true;
+        }
+      }
+
+      // Check if client already reviewed this contractor for this report
+      if (reportId) {
+        const existingReview = await prisma.contractorReview.findFirst({
+          where: {
+            profileId: profile.id,
+            clientUserId: clientUser.id,
+            reportId,
+          },
+        });
+
+        if (existingReview) {
+          return NextResponse.json(
+            {
+              error:
+                "You have already reviewed this contractor for this report",
+            },
+            { status: 409 },
+          );
+        }
+      }
+
+      // Create review
+      const review = await prisma.contractorReview.create({
+        data: {
+          profileId: profile.id,
+          clientUserId: clientUser.id,
+          reportId,
+          overallRating,
+          qualityRating,
+          timelinessRating,
+          communicationRating,
+          valueRating,
+          reviewTitle,
+          reviewText,
+          isVerifiedJob,
+          status: "PUBLISHED", // Auto-publish as per user requirement
+        },
+      });
+
+      // Update contractor's cached ratings
+      await updateContractorRatings(profile.id);
+
+      return NextResponse.json({ review }, { status: 201 });
+    } catch (error: any) {
+      console.error("Error creating review:", error);
+      return NextResponse.json(
+        { error: "Failed to create review" },
+        { status: 500 },
+      );
+    }
+  });
 }
 
 // Helper function to update contractor's cached ratings

@@ -308,14 +308,14 @@ export default function ReportsPage() {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-3xl font-semibold mb-2">Reports</h1>
-          <p className="text-slate-400">
+          <p className="text-slate-300">
             Manage and view all restoration reports
           </p>
         </div>
         <div className="flex items-center gap-3">
           {selectedReports.length > 0 && (
             <div className="flex items-center gap-2">
-              <span className="text-sm text-slate-400">
+              <span className="text-sm text-slate-300">
                 {selectedReports.length} selected
               </span>
               <button
@@ -497,7 +497,7 @@ export default function ReportsPage() {
         {loading ? (
           <div className="p-8 text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500 mx-auto mb-4"></div>
-            <p className="text-slate-400">Loading reports...</p>
+            <p className="text-slate-300">Loading reports...</p>
           </div>
         ) : (
           <>
@@ -506,7 +506,7 @@ export default function ReportsPage() {
                 field techs aren't horizontally-scrolling through 11 columns. */}
             <div className="sm:hidden space-y-3 px-4 py-4">
               {paginatedReports.length === 0 ? (
-                <div className="text-center py-8 text-slate-400">
+                <div className="text-center py-8 text-slate-300">
                   No reports found.{" "}
                   <Link href="/dashboard/reports/new" className="text-cyan-400 hover:underline">
                     Create your first report
@@ -558,10 +558,10 @@ export default function ReportsPage() {
                         <div className="text-sm text-white font-medium truncate">
                           {report.clientName || "N/A"}
                         </div>
-                        <div className="text-xs text-slate-400 truncate mb-2">
+                        <div className="text-xs text-slate-300 truncate mb-2">
                           {report.propertyAddress || "No address"}
                         </div>
-                        <div className="flex items-center gap-4 text-xs text-slate-500 flex-wrap">
+                        <div className="flex items-center gap-4 text-xs text-slate-400 flex-wrap">
                           <span className="font-medium text-slate-300">
                             {formatCost(report.estimatedCost)}
                           </span>
@@ -609,7 +609,7 @@ export default function ReportsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-700 bg-slate-900/50">
-                  <th className="text-left py-4 px-6 text-slate-400 font-medium">
+                  <th className="text-left py-4 px-6 text-slate-300 font-medium">
                     <button
                       onClick={
                         selectedReports.length === paginatedReports.length
@@ -626,34 +626,34 @@ export default function ReportsPage() {
                       Select All
                     </button>
                   </th>
-                  <th className="text-left py-4 px-6 text-slate-400 font-medium">
+                  <th className="text-left py-4 px-6 text-slate-300 font-medium">
                     Report ID
                   </th>
-                  <th className="text-left py-4 px-6 text-slate-400 font-medium">
+                  <th className="text-left py-4 px-6 text-slate-300 font-medium">
                     Client
                   </th>
-                  <th className="text-left py-4 px-6 text-slate-400 font-medium">
+                  <th className="text-left py-4 px-6 text-slate-300 font-medium">
                     Property
                   </th>
-                  <th className="text-left py-4 px-6 text-slate-400 font-medium">
+                  <th className="text-left py-4 px-6 text-slate-300 font-medium">
                     Category
                   </th>
-                  <th className="text-left py-4 px-6 text-slate-400 font-medium">
+                  <th className="text-left py-4 px-6 text-slate-300 font-medium">
                     Insurance
                   </th>
-                  <th className="text-left py-4 px-6 text-slate-400 font-medium">
+                  <th className="text-left py-4 px-6 text-slate-300 font-medium">
                     Status
                   </th>
-                  <th className="text-left py-4 px-6 text-slate-400 font-medium">
+                  <th className="text-left py-4 px-6 text-slate-300 font-medium">
                     Cost
                   </th>
-                  <th className="text-left py-4 px-6 text-slate-400 font-medium">
+                  <th className="text-left py-4 px-6 text-slate-300 font-medium">
                     Session
                   </th>
-                  <th className="text-left py-4 px-6 text-slate-400 font-medium">
+                  <th className="text-left py-4 px-6 text-slate-300 font-medium">
                     Date
                   </th>
-                  <th className="text-left py-4 px-6 text-slate-400 font-medium">
+                  <th className="text-left py-4 px-6 text-slate-300 font-medium">
                     Actions
                   </th>
                 </tr>
@@ -663,7 +663,7 @@ export default function ReportsPage() {
                   <tr>
                     <td
                       colSpan={11}
-                      className="py-8 text-center text-slate-400"
+                      className="py-8 text-center text-slate-300"
                     >
                       No reports found.{" "}
                       <Link
@@ -703,7 +703,7 @@ export default function ReportsPage() {
                       <td className="py-4 px-6">
                         {report.clientName || "N/A"}
                       </td>
-                      <td className="py-4 px-6 text-slate-400 text-xs">
+                      <td className="py-4 px-6 text-slate-300 text-xs">
                         {report.propertyAddress || "N/A"}
                       </td>
                       <td className="py-4 px-6">
@@ -747,7 +747,7 @@ export default function ReportsPage() {
                                   />
                                 ))}
                               </div>
-                              <span className="text-xs text-slate-400 flex-shrink-0">
+                              <span className="text-xs text-slate-300 flex-shrink-0">
                                 {
                                   report.phases.filter((p) => p.completed)
                                     .length
@@ -765,7 +765,7 @@ export default function ReportsPage() {
                           {/* Fan-out count + retry count */}
                           <div className="flex items-center gap-1.5 flex-wrap">
                             {(report.fanOutSessions?.length ?? 0) > 0 && (
-                              <span className="flex items-center gap-0.5 text-xs text-slate-400">
+                              <span className="flex items-center gap-0.5 text-xs text-slate-300">
                                 <GitBranch size={10} />
                                 {report.fanOutSessions!.length}
                               </span>
@@ -779,7 +779,7 @@ export default function ReportsPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="py-4 px-6 text-slate-400">
+                      <td className="py-4 px-6 text-slate-300">
                         {formatDate(report.createdAt)}
                       </td>
                       <td className="py-4 px-6">
@@ -839,7 +839,7 @@ export default function ReportsPage() {
 
       {/* Pagination */}
       <div className="flex items-center justify-between">
-        <p className="text-slate-400 text-sm">
+        <p className="text-slate-300 text-sm">
           Showing {(currentPage - 1) * itemsPerPage + 1}-
           {Math.min(currentPage * itemsPerPage, filteredReports.length)} of{" "}
           {filteredReports.length} reports

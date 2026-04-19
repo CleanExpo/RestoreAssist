@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { withIdempotency } from "@/lib/idempotency";
 
 // RA-1136a: Make-Safe compliance gate
 // ICA Code of Practice §3.1 · AS/NZS 1170.0 · WHS Regulations 2011
@@ -24,7 +25,9 @@ type RouteContext = { params: Promise<{ id: string }> };
 async function authorise(request: NextRequest, inspectionId: string) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+    return {
+      error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+    };
   }
 
   const rateLimited = await applyRateLimit(request, {
@@ -41,7 +44,10 @@ async function authorise(request: NextRequest, inspectionId: string) {
   });
   if (!inspection) {
     return {
-      error: NextResponse.json({ error: "Inspection not found" }, { status: 404 }),
+      error: NextResponse.json(
+        { error: "Inspection not found" },
+        { status: 404 },
+      ),
     };
   }
 
@@ -76,80 +82,104 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ data: actions });
   } catch (err) {
     console.error("[make-safe GET]", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
 // ── POST — upsert a single MakeSafeAction ─────────────────────────────────
 
 export async function POST(request: NextRequest, { params }: RouteContext) {
-  try {
-    const { id } = await params;
-    const auth = await authorise(request, id);
-    if (auth.error) return auth.error;
+  const { id } = await params;
+  const auth = await authorise(request, id);
+  if (auth.error) return auth.error;
+  const userId = auth.userId!;
 
-    const body = await request.json();
-    const { action, applicable, completed, notes } = body as {
-      action: string;
-      applicable?: boolean;
-      completed?: boolean;
-      notes?: string;
-    };
+  // RA-1266: upserts a MakeSafeAction — retry without idempotency would
+  // bump the same completed-transition counter twice.
+  return withIdempotency(request, userId, async (rawBody) => {
+    try {
+      let body: any;
+      try {
+        body = rawBody ? JSON.parse(rawBody) : {};
+      } catch {
+        return NextResponse.json(
+          { error: "Invalid JSON body" },
+          { status: 400 },
+        );
+      }
+      const { action, applicable, completed, notes } = body as {
+        action: string;
+        applicable?: boolean;
+        completed?: boolean;
+        notes?: string;
+      };
 
-    if (!action || !(MAKE_SAFE_ACTIONS as readonly string[]).includes(action)) {
+      if (
+        !action ||
+        !(MAKE_SAFE_ACTIONS as readonly string[]).includes(action)
+      ) {
+        return NextResponse.json(
+          {
+            error: `Invalid action. Must be one of: ${MAKE_SAFE_ACTIONS.join(", ")}`,
+          },
+          { status: 400 },
+        );
+      }
+
+      // Read existing row to detect completed transition
+      const existing = await prisma.makeSafeAction.findUnique({
+        where: { inspectionId_action: { inspectionId: id, action } },
+        select: { completed: true },
+      });
+
+      const wasCompleted = existing?.completed ?? false;
+      const nowCompleted = completed ?? wasCompleted;
+      const transitioningToCompleted = !wasCompleted && nowCompleted;
+
+      const result = await prisma.makeSafeAction.upsert({
+        where: { inspectionId_action: { inspectionId: id, action } },
+        create: {
+          inspectionId: id,
+          action,
+          applicable: applicable ?? true,
+          completed: nowCompleted,
+          completedAt: nowCompleted ? new Date() : null,
+          completedByUserId: nowCompleted ? auth.userId : null,
+          notes: notes ?? null,
+        },
+        update: {
+          ...(applicable !== undefined && { applicable }),
+          ...(completed !== undefined && {
+            completed,
+            ...(transitioningToCompleted && {
+              completedAt: new Date(),
+              completedByUserId: auth.userId,
+            }),
+          }),
+          ...(notes !== undefined && { notes }),
+        },
+        select: {
+          id: true,
+          action: true,
+          applicable: true,
+          completed: true,
+          completedAt: true,
+          notes: true,
+        },
+      });
+
+      return NextResponse.json({ data: result }, { status: 200 });
+    } catch (err) {
+      console.error("[make-safe POST]", err);
       return NextResponse.json(
-        { error: `Invalid action. Must be one of: ${MAKE_SAFE_ACTIONS.join(", ")}` },
-        { status: 400 },
+        { error: "Internal server error" },
+        { status: 500 },
       );
     }
-
-    // Read existing row to detect completed transition
-    const existing = await prisma.makeSafeAction.findUnique({
-      where: { inspectionId_action: { inspectionId: id, action } },
-      select: { completed: true },
-    });
-
-    const wasCompleted = existing?.completed ?? false;
-    const nowCompleted = completed ?? wasCompleted;
-    const transitioningToCompleted = !wasCompleted && nowCompleted;
-
-    const result = await prisma.makeSafeAction.upsert({
-      where: { inspectionId_action: { inspectionId: id, action } },
-      create: {
-        inspectionId: id,
-        action,
-        applicable: applicable ?? true,
-        completed: nowCompleted,
-        completedAt: nowCompleted ? new Date() : null,
-        completedByUserId: nowCompleted ? auth.userId : null,
-        notes: notes ?? null,
-      },
-      update: {
-        ...(applicable !== undefined && { applicable }),
-        ...(completed !== undefined && {
-          completed,
-          ...(transitioningToCompleted && {
-            completedAt: new Date(),
-            completedByUserId: auth.userId,
-          }),
-        }),
-        ...(notes !== undefined && { notes }),
-      },
-      select: {
-        id: true,
-        action: true,
-        applicable: true,
-        completed: true,
-        completedAt: true,
-        notes: true,
-      },
-    });
-
-    return NextResponse.json({ data: result }, { status: 200 });
-  } catch (err) {
-    console.error("[make-safe POST]", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
+  });
 }
 
 // ── PATCH — batch-update multiple MakeSafeAction rows ────────────────────
@@ -205,7 +235,9 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
         const transitioningToCompleted = !wasCompleted && nowCompleted;
 
         return prisma.makeSafeAction.upsert({
-          where: { inspectionId_action: { inspectionId: id, action: item.action } },
+          where: {
+            inspectionId_action: { inspectionId: id, action: item.action },
+          },
           create: {
             inspectionId: id,
             action: item.action,
@@ -216,7 +248,9 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
             notes: item.notes ?? null,
           },
           update: {
-            ...(item.applicable !== undefined && { applicable: item.applicable }),
+            ...(item.applicable !== undefined && {
+              applicable: item.applicable,
+            }),
             ...(item.completed !== undefined && {
               completed: item.completed,
               ...(transitioningToCompleted && {
@@ -241,6 +275,9 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ data: results });
   } catch (err) {
     console.error("[make-safe PATCH]", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

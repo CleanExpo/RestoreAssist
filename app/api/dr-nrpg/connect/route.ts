@@ -25,77 +25,91 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { randomBytes } from "crypto";
+import { withIdempotency } from "@/lib/idempotency";
 
 const DR_NRPG_BASE_URL = "https://api.dr-nrpg.com.au";
 
 export async function POST(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const userId = session.user.id;
 
-    const body = await request.json();
-    const { drNrpgApiKey, drNrpgBaseUrl, webhookSecret } = body as {
-      drNrpgApiKey: string;
-      drNrpgBaseUrl?: string;
-      webhookSecret?: string;
-    };
+  // RA-1266: prevents double-regenerating the webhook secret on retry
+  // (which would invalidate any link DR-NRPG already has).
+  return withIdempotency(request, userId, async (rawBody) => {
+    try {
+      let body: any;
+      try {
+        body = rawBody ? JSON.parse(rawBody) : {};
+      } catch {
+        return NextResponse.json(
+          { error: "Invalid JSON body" },
+          { status: 400 },
+        );
+      }
+      const { drNrpgApiKey, drNrpgBaseUrl, webhookSecret } = body as {
+        drNrpgApiKey: string;
+        drNrpgBaseUrl?: string;
+        webhookSecret?: string;
+      };
 
-    if (!drNrpgApiKey?.trim()) {
+      if (!drNrpgApiKey?.trim()) {
+        return NextResponse.json(
+          { error: "drNrpgApiKey is required" },
+          { status: 400 },
+        );
+      }
+
+      const resolvedBase = (drNrpgBaseUrl?.trim() || DR_NRPG_BASE_URL).replace(
+        /\/$/,
+        "",
+      );
+
+      // Auto-generate a secure webhook secret if not provided
+      // This is used to verify inbound webhooks from DR-NRPG
+      const resolvedSecret =
+        webhookSecret?.trim() || randomBytes(32).toString("hex");
+
+      const integration = await (prisma as any).drNrpgIntegration.upsert({
+        where: { userId: userId },
+        create: {
+          userId: userId,
+          drNrpgApiKey: drNrpgApiKey.trim(),
+          drNrpgBaseUrl: resolvedBase,
+          webhookSecret: resolvedSecret,
+          isActive: true,
+        },
+        update: {
+          drNrpgApiKey: drNrpgApiKey.trim(),
+          drNrpgBaseUrl: resolvedBase,
+          webhookSecret: resolvedSecret,
+          isActive: true,
+          updatedAt: new Date(),
+        },
+      });
+
+      const appUrl = process.env.NEXTAUTH_URL ?? "https://restoreassist.app";
+
+      return NextResponse.json({
+        success: true,
+        integrationId: integration.id,
+        webhookUrl: `${appUrl}/api/webhooks/dr-nrpg`,
+        webhookSecret: resolvedSecret, // Return once at creation — store securely in DR-NRPG
+        signatureHeader: "X-DRNRPG-Signature",
+        signatureFormat: "sha256=<hmac-sha256-hex>",
+        message:
+          "DR-NRPG integration saved. Configure the webhookUrl and webhookSecret in DR-NRPG's outbound webhook settings.",
+      });
+    } catch (error) {
+      console.error("[dr-nrpg/connect POST]", error);
       return NextResponse.json(
-        { error: "drNrpgApiKey is required" },
-        { status: 400 },
+        { error: "Internal server error" },
+        { status: 500 },
       );
     }
-
-    const resolvedBase = (drNrpgBaseUrl?.trim() || DR_NRPG_BASE_URL).replace(
-      /\/$/,
-      "",
-    );
-
-    // Auto-generate a secure webhook secret if not provided
-    // This is used to verify inbound webhooks from DR-NRPG
-    const resolvedSecret =
-      webhookSecret?.trim() || randomBytes(32).toString("hex");
-
-    const integration = await (prisma as any).drNrpgIntegration.upsert({
-      where: { userId: session.user.id },
-      create: {
-        userId: session.user.id,
-        drNrpgApiKey: drNrpgApiKey.trim(),
-        drNrpgBaseUrl: resolvedBase,
-        webhookSecret: resolvedSecret,
-        isActive: true,
-      },
-      update: {
-        drNrpgApiKey: drNrpgApiKey.trim(),
-        drNrpgBaseUrl: resolvedBase,
-        webhookSecret: resolvedSecret,
-        isActive: true,
-        updatedAt: new Date(),
-      },
-    });
-
-    const appUrl = process.env.NEXTAUTH_URL ?? "https://restoreassist.app";
-
-    return NextResponse.json({
-      success: true,
-      integrationId: integration.id,
-      webhookUrl: `${appUrl}/api/webhooks/dr-nrpg`,
-      webhookSecret: resolvedSecret, // Return once at creation — store securely in DR-NRPG
-      signatureHeader: "X-DRNRPG-Signature",
-      signatureFormat: "sha256=<hmac-sha256-hex>",
-      message:
-        "DR-NRPG integration saved. Configure the webhookUrl and webhookSecret in DR-NRPG's outbound webhook settings.",
-    });
-  } catch (error) {
-    console.error("[dr-nrpg/connect POST]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
-  }
+  });
 }
 
 export async function GET(request: NextRequest) {

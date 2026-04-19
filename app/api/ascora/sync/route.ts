@@ -420,10 +420,27 @@ export async function POST(request: NextRequest) {
     // Parse query params
     const { searchParams } = new URL(request.url);
     const incremental = searchParams.get("incremental") === "true";
-    const minValueAud = parseFloat(searchParams.get("minValueAud") ?? "0");
-    const priceUpliftFactor = Math.max(
-      1.0,
-      parseFloat(searchParams.get("priceUpliftFactor") ?? "1.12"),
+    // RA-1301 — parseFloat("Infinity") returns Infinity, parseFloat("1e308")
+    // returns a real huge number, and Math.max(min, Infinity) === Infinity.
+    // Every price would get multiplied by Infinity → NaN/overflow → garbage
+    // written to ScopePricingDatabase. Guard with Number.isFinite + ceiling.
+    const parseFiniteFloat = (raw: string, fallback: number): number => {
+      const n = parseFloat(raw);
+      return Number.isFinite(n) ? n : fallback;
+    };
+    const minValueAud = Math.max(
+      0,
+      parseFiniteFloat(searchParams.get("minValueAud") ?? "0", 0),
+    );
+    // Hard ceiling of 10 (=900% uplift) rejects hostile 1e308 and accidental
+    // decimal-misreads (e.g. "112" meaning 1.12). 10x is already well above
+    // any legitimate business range.
+    const priceUpliftFactor = Math.min(
+      10,
+      Math.max(
+        1.0,
+        parseFiniteFloat(searchParams.get("priceUpliftFactor") ?? "1.12", 1.12),
+      ),
     );
     const dryRun = searchParams.get("dryRun") === "true";
 

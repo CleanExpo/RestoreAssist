@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { withIdempotency } from "@/lib/idempotency";
 
 // GET /api/invoices/[id]/variations - Get invoice variations
 export async function GET(
@@ -98,199 +99,217 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const userId = session.user.id;
+  const { id } = await params;
 
-    const { id } = await params;
-    const body = await request.json();
-    const {
-      notes,
-      lineItems,
-      discountAmount,
-      discountPercentage,
-      shippingAmount,
-      terms,
-    } = body;
+  // RA-1266: Idempotency-Key prevents duplicate variation orders — a
+  // double-submit would create two variation invoices against the same
+  // base, each issued to the customer.
+  return withIdempotency(request, userId, async (rawBody) => {
+    try {
+      let body: any;
+      try {
+        body = rawBody ? JSON.parse(rawBody) : {};
+      } catch {
+        return NextResponse.json(
+          { error: "Invalid JSON body" },
+          { status: 400 },
+        );
+      }
+      const {
+        notes,
+        lineItems,
+        discountAmount,
+        discountPercentage,
+        shippingAmount,
+        terms,
+      } = body;
 
-    // Get original invoice
-    const originalInvoice = await prisma.invoice.findUnique({
-      where: {
-        id,
-        userId: session.user.id,
-      },
-      include: {
-        lineItems: {
-          orderBy: { sortOrder: "asc" },
+      // Get original invoice
+      const originalInvoice = await prisma.invoice.findUnique({
+        where: {
+          id,
+          userId: userId,
         },
-      },
-    });
+        include: {
+          lineItems: {
+            orderBy: { sortOrder: "asc" },
+          },
+        },
+      });
 
-    if (!originalInvoice) {
-      return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
-    }
+      if (!originalInvoice) {
+        return NextResponse.json(
+          { error: "Invoice not found" },
+          { status: 404 },
+        );
+      }
 
-    // If the original invoice is itself a variation, use its original
-    const baseInvoiceId = originalInvoice.originalInvoiceId || id;
+      // If the original invoice is itself a variation, use its original
+      const baseInvoiceId = originalInvoice.originalInvoiceId || id;
 
-    // Calculate financial totals
-    let subtotal = 0;
-    let gst = 0;
+      // Calculate financial totals
+      let subtotal = 0;
+      let gst = 0;
 
-    lineItems.forEach((item: any) => {
-      const itemSubtotal = Math.round(item.quantity * item.unitPrice * 100);
-      const itemGST = Math.round(itemSubtotal * (item.gstRate / 100));
-      subtotal += itemSubtotal;
-      gst += itemGST;
-    });
+      lineItems.forEach((item: any) => {
+        const itemSubtotal = Math.round(item.quantity * item.unitPrice * 100);
+        const itemGST = Math.round(itemSubtotal * (item.gstRate / 100));
+        subtotal += itemSubtotal;
+        gst += itemGST;
+      });
 
-    // Apply discount
-    if (discountAmount) {
-      subtotal -= Math.round(parseFloat(discountAmount) * 100);
-    } else if (discountPercentage) {
-      const discount = Math.round(
-        subtotal * (parseFloat(discountPercentage) / 100),
-      );
-      subtotal -= discount;
-    }
+      // Apply discount
+      if (discountAmount) {
+        subtotal -= Math.round(parseFloat(discountAmount) * 100);
+      } else if (discountPercentage) {
+        const discount = Math.round(
+          subtotal * (parseFloat(discountPercentage) / 100),
+        );
+        subtotal -= discount;
+      }
 
-    // Add shipping
-    if (shippingAmount) {
-      subtotal += Math.round(parseFloat(shippingAmount) * 100);
-    }
+      // Add shipping
+      if (shippingAmount) {
+        subtotal += Math.round(parseFloat(shippingAmount) * 100);
+      }
 
-    // Recalculate GST
-    gst = Math.round(subtotal * 0.1);
-    const total = subtotal + gst;
+      // Recalculate GST
+      gst = Math.round(subtotal * 0.1);
+      const total = subtotal + gst;
 
-    // Get next invoice number
-    const sequence = await prisma.invoiceSequence.findFirst({
-      where: { userId: session.user.id },
-    });
+      // Get next invoice number
+      const sequence = await prisma.invoiceSequence.findFirst({
+        where: { userId: userId },
+      });
 
-    if (!sequence) {
+      if (!sequence) {
+        return NextResponse.json(
+          { error: "Invoice sequence not found" },
+          { status: 500 },
+        );
+      }
+
+      const year = new Date().getFullYear();
+      const invoiceNumber = `RA-${year}-${(sequence as any).nextNumber.toString().padStart(4, "0")}-V`;
+
+      // Update sequence
+      await prisma.invoiceSequence.update({
+        where: { id: sequence.id },
+        data: { nextNumber: (sequence as any).nextNumber + 1 } as any,
+      });
+
+      // Calculate due date (default 30 days from now)
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 30);
+
+      // Create variation invoice
+      const variation = await (prisma.invoice.create as any)({
+        data: {
+          invoiceNumber,
+          status: "DRAFT",
+          invoiceDate: new Date(),
+          dueDate,
+          // Copy customer details from original
+          customerName: originalInvoice.customerName,
+          customerEmail: originalInvoice.customerEmail,
+          customerPhone: originalInvoice.customerPhone,
+          customerAddress: originalInvoice.customerAddress,
+          customerABN: originalInvoice.customerABN,
+          // Financial amounts
+          subtotalExGST: subtotal,
+          gstAmount: gst,
+          totalIncGST: total,
+          amountDue: total,
+          // Additional charges
+          discountAmount: discountAmount
+            ? Math.round(parseFloat(discountAmount) * 100)
+            : 0,
+          discountPercentage: discountPercentage
+            ? parseFloat(discountPercentage)
+            : null,
+          shippingAmount: shippingAmount
+            ? Math.round(parseFloat(shippingAmount) * 100)
+            : 0,
+          // Content
+          notes:
+            notes || `Variation of invoice ${originalInvoice.invoiceNumber}`,
+          terms: terms || originalInvoice.terms,
+          footer: originalInvoice.footer,
+          // Relationships
+          originalInvoiceId: baseInvoiceId,
+          reportId: originalInvoice.reportId,
+          estimateId: originalInvoice.estimateId,
+          clientId: originalInvoice.clientId,
+          contactId: (originalInvoice as any).contactId,
+          companyId: (originalInvoice as any).companyId,
+          templateId: originalInvoice.templateId,
+          userId: userId,
+          // Line items
+          lineItems: {
+            create: lineItems.map((item: any, index: number) => ({
+              description: item.description,
+              category: item.category || null,
+              quantity: item.quantity,
+              unitPrice: Math.round(item.unitPrice * 100),
+              subtotal: Math.round(item.quantity * item.unitPrice * 100),
+              gstRate: item.gstRate || 10,
+              gstAmount: Math.round(
+                item.quantity * item.unitPrice * 100 * (item.gstRate / 100),
+              ),
+              total: Math.round(
+                item.quantity * item.unitPrice * 100 * (1 + item.gstRate / 100),
+              ),
+              sortOrder: index,
+            })),
+          },
+        },
+        include: {
+          lineItems: {
+            orderBy: { sortOrder: "asc" },
+          },
+        },
+      });
+
+      // Create audit log
+      await prisma.invoiceAuditLog.create({
+        data: {
+          invoiceId: variation.id,
+          userId: userId,
+          action: "variation_created",
+          description: `Created variation from invoice ${originalInvoice.invoiceNumber}`,
+          metadata: {
+            originalInvoiceId: id,
+            originalInvoiceNumber: originalInvoice.invoiceNumber,
+          },
+        },
+      });
+
+      // Create audit log on original invoice
+      await prisma.invoiceAuditLog.create({
+        data: {
+          invoiceId: id,
+          userId: userId,
+          action: "variation_created",
+          description: `Variation ${variation.invoiceNumber} created`,
+          metadata: {
+            variationInvoiceId: variation.id,
+            variationInvoiceNumber: variation.invoiceNumber,
+          },
+        },
+      });
+
+      return NextResponse.json({ variation }, { status: 201 });
+    } catch (error) {
+      console.error("Error creating invoice variation:", error);
       return NextResponse.json(
-        { error: "Invoice sequence not found" },
+        { error: "Failed to create invoice variation" },
         { status: 500 },
       );
     }
-
-    const year = new Date().getFullYear();
-    const invoiceNumber = `RA-${year}-${(sequence as any).nextNumber.toString().padStart(4, "0")}-V`;
-
-    // Update sequence
-    await prisma.invoiceSequence.update({
-      where: { id: sequence.id },
-      data: { nextNumber: (sequence as any).nextNumber + 1 } as any,
-    });
-
-    // Calculate due date (default 30 days from now)
-    const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() + 30);
-
-    // Create variation invoice
-    const variation = await (prisma.invoice.create as any)({
-      data: {
-        invoiceNumber,
-        status: "DRAFT",
-        invoiceDate: new Date(),
-        dueDate,
-        // Copy customer details from original
-        customerName: originalInvoice.customerName,
-        customerEmail: originalInvoice.customerEmail,
-        customerPhone: originalInvoice.customerPhone,
-        customerAddress: originalInvoice.customerAddress,
-        customerABN: originalInvoice.customerABN,
-        // Financial amounts
-        subtotalExGST: subtotal,
-        gstAmount: gst,
-        totalIncGST: total,
-        amountDue: total,
-        // Additional charges
-        discountAmount: discountAmount
-          ? Math.round(parseFloat(discountAmount) * 100)
-          : 0,
-        discountPercentage: discountPercentage
-          ? parseFloat(discountPercentage)
-          : null,
-        shippingAmount: shippingAmount
-          ? Math.round(parseFloat(shippingAmount) * 100)
-          : 0,
-        // Content
-        notes: notes || `Variation of invoice ${originalInvoice.invoiceNumber}`,
-        terms: terms || originalInvoice.terms,
-        footer: originalInvoice.footer,
-        // Relationships
-        originalInvoiceId: baseInvoiceId,
-        reportId: originalInvoice.reportId,
-        estimateId: originalInvoice.estimateId,
-        clientId: originalInvoice.clientId,
-        contactId: (originalInvoice as any).contactId,
-        companyId: (originalInvoice as any).companyId,
-        templateId: originalInvoice.templateId,
-        userId: session.user.id,
-        // Line items
-        lineItems: {
-          create: lineItems.map((item: any, index: number) => ({
-            description: item.description,
-            category: item.category || null,
-            quantity: item.quantity,
-            unitPrice: Math.round(item.unitPrice * 100),
-            subtotal: Math.round(item.quantity * item.unitPrice * 100),
-            gstRate: item.gstRate || 10,
-            gstAmount: Math.round(
-              item.quantity * item.unitPrice * 100 * (item.gstRate / 100),
-            ),
-            total: Math.round(
-              item.quantity * item.unitPrice * 100 * (1 + item.gstRate / 100),
-            ),
-            sortOrder: index,
-          })),
-        },
-      },
-      include: {
-        lineItems: {
-          orderBy: { sortOrder: "asc" },
-        },
-      },
-    });
-
-    // Create audit log
-    await prisma.invoiceAuditLog.create({
-      data: {
-        invoiceId: variation.id,
-        userId: session.user.id,
-        action: "variation_created",
-        description: `Created variation from invoice ${originalInvoice.invoiceNumber}`,
-        metadata: {
-          originalInvoiceId: id,
-          originalInvoiceNumber: originalInvoice.invoiceNumber,
-        },
-      },
-    });
-
-    // Create audit log on original invoice
-    await prisma.invoiceAuditLog.create({
-      data: {
-        invoiceId: id,
-        userId: session.user.id,
-        action: "variation_created",
-        description: `Variation ${variation.invoiceNumber} created`,
-        metadata: {
-          variationInvoiceId: variation.id,
-          variationInvoiceNumber: variation.invoiceNumber,
-        },
-      },
-    });
-
-    return NextResponse.json({ variation }, { status: 201 });
-  } catch (error) {
-    console.error("Error creating invoice variation:", error);
-    return NextResponse.json(
-      { error: "Failed to create invoice variation" },
-      { status: 500 },
-    );
-  }
+  });
 }
