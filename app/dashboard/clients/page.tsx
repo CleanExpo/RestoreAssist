@@ -21,6 +21,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import {
   Form,
   FormControl,
@@ -29,6 +30,77 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+
+// RA-1204 — Relative-time formatter for the "Last report: 3 days ago"
+// preview under each client name. Uses Intl.RelativeTimeFormat (native,
+// no dependency) with en-AU for Australian English. Returns null when
+// there is no reference date so callers can skip rendering.
+const RELATIVE_TIME_FORMATTER =
+  typeof Intl !== "undefined" && typeof Intl.RelativeTimeFormat === "function"
+    ? new Intl.RelativeTimeFormat("en-AU", { numeric: "auto" })
+    : null;
+
+function formatRelativeFromNow(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const then = new Date(iso).getTime();
+  if (!Number.isFinite(then)) return null;
+  const diffMs = then - Date.now();
+  const absSec = Math.abs(diffMs) / 1000;
+
+  const units: Array<{ unit: Intl.RelativeTimeFormatUnit; sec: number }> = [
+    { unit: "year", sec: 60 * 60 * 24 * 365 },
+    { unit: "month", sec: 60 * 60 * 24 * 30 },
+    { unit: "week", sec: 60 * 60 * 24 * 7 },
+    { unit: "day", sec: 60 * 60 * 24 },
+    { unit: "hour", sec: 60 * 60 },
+    { unit: "minute", sec: 60 },
+  ];
+
+  for (const { unit, sec } of units) {
+    if (absSec >= sec) {
+      const value = Math.round(diffMs / 1000 / sec);
+      return RELATIVE_TIME_FORMATTER
+        ? RELATIVE_TIME_FORMATTER.format(value, unit)
+        : `${Math.abs(value)} ${unit}${Math.abs(value) === 1 ? "" : "s"} ago`;
+    }
+  }
+  return RELATIVE_TIME_FORMATTER
+    ? RELATIVE_TIME_FORMATTER.format(0, "second")
+    : "just now";
+}
+
+// RA-1204 — "N open" amber badge when openJobCount > 0, "No open jobs"
+// green when there are completed reports but none outstanding, nothing
+// for brand-new clients (avoids noisy empty-state). Colours match the
+// existing status-pill palette for consistency.
+function renderOpenJobsBadge(client: {
+  openJobCount?: number;
+  reportsCount?: number;
+}) {
+  const open = client.openJobCount ?? 0;
+  const total = client.reportsCount ?? 0;
+  if (open > 0) {
+    return (
+      <Badge
+        variant="outline"
+        className="border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-300"
+      >
+        {open} open
+      </Badge>
+    );
+  }
+  if (total > 0) {
+    return (
+      <Badge
+        variant="outline"
+        className="border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+      >
+        No open jobs
+      </Badge>
+    );
+  }
+  return null;
+}
 
 // RA-1215 — long add/edit client forms (10+ fields) previously showed
 // validation errors via react-hot-toast which disappears after 4s. Users
@@ -98,6 +170,11 @@ interface Client {
   totalRevenue: number;
   lastJob: string;
   reportsCount: number;
+  // RA-1204 — surfaced for the Client Name cell preview: relative "last
+  // report" line + "N open" / "No open jobs" badge. Optional so older
+  // rows (e.g. report-derived clients) degrade gracefully.
+  lastReportAt?: string | null;
+  openJobCount?: number;
 }
 
 export default function ClientsPage() {
@@ -561,12 +638,21 @@ export default function ClientsPage() {
                     >
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <div className="min-w-0 flex-1">
-                          <div className="font-medium text-neutral-900 dark:text-white truncate">
-                            <NameWrap>{client.name}</NameWrap>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <div className="font-medium text-neutral-900 dark:text-white truncate">
+                              <NameWrap>{client.name}</NameWrap>
+                            </div>
+                            {renderOpenJobsBadge(client)}
                           </div>
                           {client.company && (
                             <div className="text-xs text-neutral-500 dark:text-slate-500 truncate mt-0.5">
                               {client.company}
+                            </div>
+                          )}
+                          {client.lastReportAt && (
+                            <div className="text-xs text-neutral-500 dark:text-slate-500 mt-0.5">
+                              Last report:{" "}
+                              {formatRelativeFromNow(client.lastReportAt)}
                             </div>
                           )}
                           {fromReport && (
@@ -736,16 +822,26 @@ export default function ClientsPage() {
                           </button>
                         </td> */}
                         <td className="py-4 px-6 font-medium">
-                          {(client as ClientWithReportFlag)._isFromReport ? (
-                            <span className="text-cyan-400">{client.name}</span>
-                          ) : (
-                            <Link
-                              href={`/dashboard/clients/${client.id}`}
-                              className="text-cyan-400 hover:underline"
-                            >
-                              {client.name}
-                            </Link>
-                          )}
+                          {/* RA-1204 — Name cell now previews workload
+                              (open-jobs badge) + recency ("Last report:
+                              3 days ago"). Previously screen reader and
+                              keyboard users had to follow the View link
+                              to see any context. */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {(client as ClientWithReportFlag)._isFromReport ? (
+                              <span className="text-cyan-400">
+                                {client.name}
+                              </span>
+                            ) : (
+                              <Link
+                                href={`/dashboard/clients/${client.id}`}
+                                className="text-cyan-400 hover:underline"
+                              >
+                                {client.name}
+                              </Link>
+                            )}
+                            {renderOpenJobsBadge(client)}
+                          </div>
                           {client.company && (
                             <div
                               className={cn(
@@ -754,6 +850,17 @@ export default function ClientsPage() {
                               )}
                             >
                               {client.company}
+                            </div>
+                          )}
+                          {client.lastReportAt && (
+                            <div
+                              className={cn(
+                                "text-xs mt-1",
+                                "text-neutral-500 dark:text-slate-500",
+                              )}
+                            >
+                              Last report:{" "}
+                              {formatRelativeFromNow(client.lastReportAt)}
                             </div>
                           )}
                           {(client as ClientWithReportFlag)._isFromReport && (
