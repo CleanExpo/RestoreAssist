@@ -506,6 +506,12 @@ model Report {
   insuranceType   String
   totalCost       Float?
   isSample        Boolean      @default(false) // RA-1239: seeded demo row
+
+  // RA-1192: AI-generated one-line synopsis for the reports table row.
+  // Plain text, <= 20 words, Australian English. Generated on demand via
+  // POST /api/reports/[id]/synopsis and cached for 24h to bound AI spend.
+  aiSynopsis   String?   @db.Text
+  aiSynopsisAt DateTime?
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
   userId          String
