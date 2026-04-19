@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { cn } from "@/lib/utils";
 import { DeleteConfirmationDialog } from "@/components/DeleteConfirmationDialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useFetch } from "@/lib/hooks/useFetch";
 import {
   Plus,
   Search,
@@ -74,15 +75,29 @@ const STATUS_CONFIG: Record<
 
 export default function InterviewsPage() {
   const router = useRouter();
-  const [sessions, setSessions] = useState<InterviewSession[]>([]);
-  const [loading, setLoading] = useState(true);
+  // RA-1197 — migrated from direct useState+fetch triple pattern to
+  // useFetch for abort-on-unmount, consistent error handling, and a
+  // single refetch primitive the bulk-delete flow can call.
+  const {
+    data: sessionsData,
+    loading,
+    refetch: refetchSessions,
+  } = useFetch<{ sessions: InterviewSession[] }>("/api/interviews");
+  const sessions = sessionsData?.sessions ?? [];
+
+  const {
+    data: stats,
+    loading: statsLoading,
+    error: statsError,
+  } = useFetch<any>("/api/forms/interview/analytics?type=aggregate");
+
+  const { data: templatesData, loading: loadingTemplates } = useFetch<{
+    templates: any[];
+  }>("/api/form-templates");
+  const templates = templatesData?.templates ?? [];
+
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [stats, setStats] = useState<any>(null);
-  const [statsLoading, setStatsLoading] = useState(true);
-  const [statsError, setStatsError] = useState<string | null>(null);
-  const [templates, setTemplates] = useState<any[]>([]);
-  const [loadingTemplates, setLoadingTemplates] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -90,66 +105,6 @@ export default function InterviewsPage() {
     type: "single" | "bulk";
     id?: string;
   } | null>(null);
-
-  useEffect(() => {
-    fetchSessions();
-    fetchStats();
-    fetchTemplates();
-  }, []);
-
-  const fetchTemplates = async () => {
-    try {
-      setLoadingTemplates(true);
-      const response = await fetch("/api/form-templates");
-      if (response.ok) {
-        const data = await response.json();
-        setTemplates(data.templates || []);
-      }
-    } catch (error) {
-      console.error("Error fetching templates:", error);
-    } finally {
-      setLoadingTemplates(false);
-    }
-  };
-
-  const fetchSessions = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch("/api/interviews");
-      if (response.ok) {
-        const data = await response.json();
-        setSessions(data.sessions || []);
-      } else {
-        toast.error("Failed to fetch interviews");
-      }
-    } catch (error) {
-      console.error("Error fetching interviews:", error);
-      toast.error("Failed to fetch interviews");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchStats = async () => {
-    try {
-      setStatsLoading(true);
-      setStatsError(null);
-      const response = await fetch(
-        "/api/forms/interview/analytics?type=aggregate",
-      );
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data);
-      } else {
-        setStatsError("Failed to load stats");
-      }
-    } catch (error) {
-      console.error("Error fetching stats:", error);
-      setStatsError("Failed to load stats");
-    } finally {
-      setStatsLoading(false);
-    }
-  };
 
   const filtered = useMemo(() => {
     return sessions.filter((s) => {
@@ -224,14 +179,13 @@ export default function InterviewsPage() {
           method: "DELETE",
         });
         if (res.ok) {
-          setSessions((prev) => prev.filter((s) => s.id !== deleteTarget.id));
           setSelectedIds((prev) => {
             const next = new Set(prev);
             next.delete(deleteTarget.id!);
             return next;
           });
           toast.success("Interview session deleted");
-          fetchStats();
+          refetchSessions();
         } else {
           const data = await res.json().catch(() => ({}));
           toast.error(data.error || "Failed to delete session");
@@ -244,12 +198,11 @@ export default function InterviewsPage() {
         });
         const data = await res.json().catch(() => ({}));
         if (res.ok && data.success) {
-          setSessions((prev) => prev.filter((s) => !selectedIds.has(s.id)));
           setSelectedIds(new Set());
           toast.success(
             `${data.deletedCount ?? selectedIds.size} session(s) deleted`,
           );
-          fetchStats();
+          refetchSessions();
         } else {
           toast.error(data.error || "Failed to delete sessions");
         }
