@@ -1,14 +1,10 @@
 "use client";
 
 import {
-  Crown,
   Filter,
   Plus,
   Search,
   Trash2,
-  X,
-  XIcon,
-  Users,
   Copy,
   Edit,
   Eye,
@@ -18,18 +14,21 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import toast from "react-hot-toast";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+  clientFormSchema,
+  CLIENT_FORM_DEFAULTS,
+  applyServerFieldError,
+  type ClientFormValues,
+} from "@/lib/clients/form";
+import type { Client, ClientWithReportFlag } from "@/lib/clients/types";
+import { AddClientModal } from "@/components/clients/add-client-modal";
+import { EditClientModal } from "@/components/clients/edit-client-modal";
+import { DeleteClientModal } from "@/components/clients/delete-client-modal";
+import { BulkDeleteModal } from "@/components/clients/bulk-delete-modal";
+import { UpgradeModal } from "@/components/clients/upgrade-modal";
 
 // RA-1204 — Relative-time formatter for the "Last report: 3 days ago"
 // preview under each client name. Uses Intl.RelativeTimeFormat (native,
@@ -100,81 +99,6 @@ function renderOpenJobsBadge(client: {
     );
   }
   return null;
-}
-
-// RA-1215 — long add/edit client forms (10+ fields) previously showed
-// validation errors via react-hot-toast which disappears after 4s. Users
-// missed which field failed. Validation + server 400 field errors now
-// render inline via shadcn <FormMessage>. Network / 5xx keeps toast.
-const clientFormSchema = z.object({
-  name: z.string().trim().min(1, "Client name is required"),
-  email: z
-    .string()
-    .trim()
-    .min(1, "Email is required")
-    .email("Enter a valid email address"),
-  phone: z.string().optional().default(""),
-  address: z.string().optional().default(""),
-  company: z.string().optional().default(""),
-  contactPerson: z.string().optional().default(""),
-  notes: z.string().optional().default(""),
-  status: z.string().default("ACTIVE"),
-});
-type ClientFormValues = z.infer<typeof clientFormSchema>;
-
-const CLIENT_FORM_DEFAULTS: ClientFormValues = {
-  name: "",
-  email: "",
-  phone: "",
-  address: "",
-  company: "",
-  contactPerson: "",
-  notes: "",
-  status: "ACTIVE",
-};
-
-// Map a server error string onto the offending field when we can recognise it.
-// Returns true when a field error was set (render inline), false when caller
-// should fall back to toast (generic / unclassifiable).
-function applyServerFieldError(
-  form: ReturnType<typeof useForm<ClientFormValues>>,
-  message: string | undefined,
-): boolean {
-  if (!message) return false;
-  const m = message.toLowerCase();
-  if (m.includes("email")) {
-    form.setError("email", { type: "server", message });
-    return true;
-  }
-  if (m.includes("name")) {
-    form.setError("name", { type: "server", message });
-    return true;
-  }
-  return false;
-}
-
-type ClientWithReportFlag = Client & { _isFromReport?: boolean };
-
-interface Client {
-  id: string;
-  name: string;
-  email: string;
-  phone?: string;
-  address?: string;
-  company?: string;
-  contactPerson?: string;
-  notes?: string;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-  totalRevenue: number;
-  lastJob: string;
-  reportsCount: number;
-  // RA-1204 — surfaced for the Client Name cell preview: relative "last
-  // report" line + "N open" / "No open jobs" badge. Optional so older
-  // rows (e.g. report-derived clients) degrade gracefully.
-  lastReportAt?: string | null;
-  openJobCount?: number;
 }
 
 export default function ClientsPage() {
@@ -444,18 +368,6 @@ export default function ClientsPage() {
     }
   };
 
-  const toggleClientSelection = (clientId: string) => {
-    setSelectedClients((prev) =>
-      prev.includes(clientId)
-        ? prev.filter((id) => id !== clientId)
-        : [...prev, clientId],
-    );
-  };
-
-  const selectAllClients = () => {
-    setSelectedClients(filteredClients.map((c) => c.id));
-  };
-
   const clearSelection = () => {
     setSelectedClients([]);
   };
@@ -705,19 +617,6 @@ export default function ClientsPage() {
                       "bg-neutral-50 dark:bg-slate-900/50",
                     )}
                   >
-                    {/* <th className="text-left py-4 px-6 text-slate-400 font-medium">
-                      <button
-                        onClick={selectedClients.length === filteredClients.length ? clearSelection : selectAllClients}
-                        className="flex items-center gap-2 hover:text-white transition-colors"
-                      >
-                        {selectedClients.length === filteredClients.length ? (
-                          <CheckSquare size={16} />
-                        ) : (
-                          <Square size={16} />
-                        )}
-                        Select All
-                      </button>
-                    </th> */}
                     <th
                       className={cn(
                         "text-left py-4 px-6 font-medium",
@@ -809,18 +708,6 @@ export default function ClientsPage() {
                           "hover:bg-neutral-50 dark:hover:bg-slate-700/30",
                         )}
                       >
-                        {/* <td className="py-4 px-6">
-                          <button
-                            onClick={() => toggleClientSelection(client.id)}
-                            className="flex items-center gap-2 hover:text-white transition-colors"
-                          >
-                            {selectedClients.includes(client.id) ? (
-                              <CheckSquare size={16} className="text-cyan-400" />
-                            ) : (
-                              <Square size={16} />
-                            )}
-                          </button>
-                        </td> */}
                         <td className="py-4 px-6 font-medium">
                           {/* RA-1204 — Name cell now previews workload
                               (open-jobs badge) + recency ("Last report:
@@ -975,615 +862,42 @@ export default function ClientsPage() {
         </>
       )}
 
-      {/* Add Client Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div
-            className={cn(
-              "rounded-lg border max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto",
-              "bg-white dark:bg-slate-800",
-              "border-neutral-200 dark:border-slate-700",
-            )}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h2
-                className={cn(
-                  "text-xl font-semibold",
-                  "text-neutral-900 dark:text-white",
-                )}
-              >
-                Add New Client
-              </h2>
-              <button
-                onClick={() => setShowAddModal(false)}
-                className={cn(
-                  "p-1 rounded transition-all duration-200 hover:scale-110 active:scale-95",
-                  "hover:bg-neutral-100 dark:hover:bg-slate-700",
-                  "text-neutral-700 dark:text-slate-300",
-                )}
-                title="Close"
-              >
-                <X size={20} className="transition-transform duration-200" />
-              </button>
-            </div>
-            <Form {...form}>
-              <form onSubmit={handleAddClient} className="space-y-4" noValidate>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Client Name *</FormLabel>
-                        <FormControl>
-                          <input
-                            type="text"
-                            placeholder="Enter client name"
-                            className={cn(
-                              "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
-                              "bg-white dark:bg-slate-700/50",
-                              "border-neutral-300 dark:border-slate-600",
-                              "text-neutral-900 dark:text-white",
-                              "placeholder-neutral-500 dark:placeholder-slate-500",
-                            )}
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email *</FormLabel>
-                        <FormControl>
-                          <input
-                            type="email"
-                            placeholder="Enter email address"
-                            className={cn(
-                              "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
-                              "bg-white dark:bg-slate-700/50",
-                              "border-neutral-300 dark:border-slate-600",
-                              "text-neutral-900 dark:text-white",
-                              "placeholder-neutral-500 dark:placeholder-slate-500",
-                            )}
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="phone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Phone</FormLabel>
-                        <FormControl>
-                          <input
-                            type="tel"
-                            placeholder="Enter phone number"
-                            className={cn(
-                              "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
-                              "bg-white dark:bg-slate-700/50",
-                              "border-neutral-300 dark:border-slate-600",
-                              "text-neutral-900 dark:text-white",
-                              "placeholder-neutral-500 dark:placeholder-slate-500",
-                            )}
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="status"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Status</FormLabel>
-                        <FormControl>
-                          <select
-                            className={cn(
-                              "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
-                              "bg-white dark:bg-slate-700/50",
-                              "border-neutral-300 dark:border-slate-600",
-                              "text-neutral-900 dark:text-white",
-                            )}
-                            {...field}
-                          >
-                            <option value="ACTIVE">Active</option>
-                            <option value="INACTIVE">Inactive</option>
-                            <option value="PROSPECT">Prospect</option>
-                            <option value="ARCHIVED">Archived</option>
-                          </select>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <FormField
-                  control={form.control}
-                  name="company"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Company</FormLabel>
-                      <FormControl>
-                        <input
-                          type="text"
-                          placeholder="Enter company name"
-                          className={cn(
-                            "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
-                            "bg-white dark:bg-slate-700/50",
-                            "border-neutral-300 dark:border-slate-600",
-                            "text-neutral-900 dark:text-white",
-                            "placeholder-neutral-500 dark:placeholder-slate-500",
-                          )}
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="contactPerson"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Contact Person</FormLabel>
-                      <FormControl>
-                        <input
-                          type="text"
-                          placeholder="Enter contact person name"
-                          className={cn(
-                            "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
-                            "bg-white dark:bg-slate-700/50",
-                            "border-neutral-300 dark:border-slate-600",
-                            "text-neutral-900 dark:text-white",
-                            "placeholder-neutral-500 dark:placeholder-slate-500",
-                          )}
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="address"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Address</FormLabel>
-                      <FormControl>
-                        <input
-                          type="text"
-                          placeholder="Enter address"
-                          className={cn(
-                            "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
-                            "bg-white dark:bg-slate-700/50",
-                            "border-neutral-300 dark:border-slate-600",
-                            "text-neutral-900 dark:text-white",
-                            "placeholder-neutral-500 dark:placeholder-slate-500",
-                          )}
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="notes"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Notes</FormLabel>
-                      <FormControl>
-                        <textarea
-                          placeholder="Enter any additional notes"
-                          rows={3}
-                          className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                {form.formState.errors.root && (
-                  <p className="text-destructive text-sm" role="alert">
-                    {form.formState.errors.root.message}
-                  </p>
-                )}
-                <div className="flex gap-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowAddModal(false)}
-                    className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={form.formState.isSubmitting}
-                    className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group disabled:opacity-50"
-                  >
-                    <Users className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
-                    <span>Add Client</span>
-                  </button>
-                </div>
-              </form>
-            </Form>
-          </div>
-        </div>
-      )}
+      <AddClientModal
+        open={showAddModal}
+        onOpenChange={setShowAddModal}
+        form={form}
+        onSubmit={handleAddClient}
+      />
 
-      {/* Edit Client Modal */}
-      {showEditModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-slate-800 rounded-lg border border-slate-700 max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold">Edit Client</h2>
-              <button
-                onClick={() => setShowEditModal(false)}
-                className="p-1 hover:bg-slate-700 rounded"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <Form {...form}>
-              <form
-                onSubmit={handleEditClient}
-                className="space-y-4"
-                noValidate
-              >
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Client Name *</FormLabel>
-                        <FormControl>
-                          <input
-                            type="text"
-                            placeholder="Enter client name"
-                            className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email *</FormLabel>
-                        <FormControl>
-                          <input
-                            type="email"
-                            placeholder="Enter email address"
-                            className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="phone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Phone</FormLabel>
-                        <FormControl>
-                          <input
-                            type="tel"
-                            placeholder="Enter phone number"
-                            className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="status"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Status</FormLabel>
-                        <FormControl>
-                          <select
-                            className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
-                            {...field}
-                          >
-                            <option value="ACTIVE">Active</option>
-                            <option value="INACTIVE">Inactive</option>
-                            <option value="PROSPECT">Prospect</option>
-                            <option value="ARCHIVED">Archived</option>
-                          </select>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <FormField
-                  control={form.control}
-                  name="company"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Company</FormLabel>
-                      <FormControl>
-                        <input
-                          type="text"
-                          placeholder="Enter company name"
-                          className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="contactPerson"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Contact Person</FormLabel>
-                      <FormControl>
-                        <input
-                          type="text"
-                          placeholder="Enter contact person name"
-                          className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="address"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Address</FormLabel>
-                      <FormControl>
-                        <input
-                          type="text"
-                          placeholder="Enter address"
-                          className={cn(
-                            "w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50",
-                            "bg-white dark:bg-slate-700/50",
-                            "border-neutral-300 dark:border-slate-600",
-                            "text-neutral-900 dark:text-white",
-                            "placeholder-neutral-500 dark:placeholder-slate-500",
-                          )}
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="notes"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Notes</FormLabel>
-                      <FormControl>
-                        <textarea
-                          placeholder="Enter any additional notes"
-                          rows={3}
-                          className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                {form.formState.errors.root && (
-                  <p className="text-destructive text-sm" role="alert">
-                    {form.formState.errors.root.message}
-                  </p>
-                )}
-                <div className="flex gap-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowEditModal(false)}
-                    className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={form.formState.isSubmitting}
-                    className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group disabled:opacity-50"
-                  >
-                    <Edit className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
-                    <span>Update Client</span>
-                  </button>
-                </div>
-              </form>
-            </Form>
-          </div>
-        </div>
-      )}
+      <EditClientModal
+        open={showEditModal}
+        onOpenChange={setShowEditModal}
+        form={form}
+        onSubmit={handleEditClient}
+      />
 
-      {/* Delete Client Modal */}
-      {showDeleteModal && selectedClient && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-slate-800 rounded-lg border border-slate-700 max-w-md w-full p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-red-400">
-                Delete Client
-              </h2>
-              <button
-                onClick={() => setShowDeleteModal(false)}
-                className="p-1 hover:bg-slate-700 rounded"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="space-y-4">
-              <p className="text-slate-300">
-                Are you sure you want to delete{" "}
-                <span className="font-medium text-white">
-                  {selectedClient.name}
-                </span>
-                ? This action cannot be undone.
-              </p>
-              {selectedClient.reportsCount > 0 && (
-                <div className="bg-amber-500/20 border border-amber-500/30 rounded-lg p-4">
-                  <p className="text-amber-300 text-sm">
-                    ⚠️ This client has {selectedClient.reportsCount} report(s).
-                    You may want to archive instead of delete to preserve report
-                    history.
-                  </p>
-                </div>
-              )}
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => setShowDeleteModal(false)}
-                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDeleteClient}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-red-500 to-rose-500 rounded-lg font-medium hover:shadow-lg hover:shadow-red-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group"
-                >
-                  <Trash2 className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
-                  <span>Delete Client</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <DeleteClientModal
+        open={showDeleteModal}
+        onOpenChange={setShowDeleteModal}
+        client={selectedClient}
+        onConfirm={handleDeleteClient}
+      />
 
-      {/* Bulk Delete Modal */}
-      {showBulkDeleteModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-slate-800 rounded-lg border border-slate-700 max-w-md w-full p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-red-400">
-                Delete Selected Clients
-              </h2>
-              <button
-                onClick={() => setShowBulkDeleteModal(false)}
-                className="p-1 hover:bg-slate-700 rounded"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="space-y-4">
-              <p className="text-slate-300">
-                Are you sure you want to delete{" "}
-                <span className="font-medium text-white">
-                  {selectedClients.length}
-                </span>{" "}
-                selected client(s)? This action cannot be undone.
-              </p>
-              <div className="bg-amber-500/20 border border-amber-500/30 rounded-lg p-4">
-                <p className="text-amber-300 text-sm">
-                  ⚠️ This will permanently delete all selected clients and their
-                  associated data.
-                </p>
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => setShowBulkDeleteModal(false)}
-                  className="flex-1 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleBulkDelete}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-red-500 to-rose-500 rounded-lg font-medium hover:shadow-lg hover:shadow-red-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group"
-                >
-                  <Trash2 className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
-                  <span>Delete {selectedClients.length} Client(s)</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <BulkDeleteModal
+        open={showBulkDeleteModal}
+        onOpenChange={setShowBulkDeleteModal}
+        count={selectedClients.length}
+        onConfirm={handleBulkDelete}
+      />
 
-      {/* Upgrade Modal */}
-      {showUpgradeModal && (
-        <div className="fixed inset-0 bg-black/50 dark:bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white dark:bg-slate-800 rounded-lg border border-neutral-200 dark:border-slate-700 max-w-md w-full p-6 shadow-xl">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-yellow-500 to-orange-500 flex items-center justify-center">
-                  <Crown className="text-white" size={24} />
-                </div>
-                <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">
-                  Upgrade Required
-                </h2>
-              </div>
-              <button
-                onClick={() => setShowUpgradeModal(false)}
-                className="p-1 hover:bg-neutral-100 dark:hover:bg-slate-700 rounded text-neutral-600 dark:text-slate-300"
-              >
-                <XIcon size={20} />
-              </button>
-            </div>
-            <div className="space-y-4">
-              <p className="text-neutral-700 dark:text-slate-300">
-                To create clients, you need an active subscription (Monthly or
-                Yearly plan).
-              </p>
-              <p className="text-sm text-neutral-600 dark:text-slate-400">
-                Upgrade now to unlock all features including unlimited clients,
-                reports, API integrations, and priority support.
-              </p>
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => setShowUpgradeModal(false)}
-                  className="flex-1 px-4 py-2 border border-neutral-300 dark:border-slate-600 rounded-lg hover:bg-neutral-50 dark:hover:bg-slate-700/50 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md text-neutral-700 dark:text-slate-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    setShowUpgradeModal(false);
-                    router.push("/dashboard/pricing");
-                  }}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg font-medium hover:shadow-lg hover:shadow-orange-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group text-white"
-                >
-                  <Crown className="w-4 h-4 transition-transform duration-200 group-hover:scale-110 group-hover:rotate-12" />
-                  <span>Upgrade Now</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <UpgradeModal
+        open={showUpgradeModal}
+        onOpenChange={setShowUpgradeModal}
+        onUpgrade={() => {
+          setShowUpgradeModal(false);
+          router.push("/dashboard/pricing");
+        }}
+      />
     </div>
   );
 }
