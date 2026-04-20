@@ -29,7 +29,6 @@ const inviteFormSchema = z.object({
   role: z.enum(["USER", "MANAGER"]),
 });
 type InviteFormValues = z.infer<typeof inviteFormSchema>;
-import { motion, AnimatePresence } from "framer-motion";
 import {
   Users,
   UserPlus,
@@ -574,11 +573,7 @@ export default function TeamPage() {
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
           <Card
             className={cn(
               "border-2",
@@ -617,14 +612,10 @@ export default function TeamPage() {
               </div>
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
 
         {canViewInvites && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.1 }}
-          >
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 delay-100">
             <Card
               className={cn(
                 "border-2",
@@ -663,14 +654,10 @@ export default function TeamPage() {
                 </div>
               </CardContent>
             </Card>
-          </motion.div>
+          </div>
         )}
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.2 }}
-        >
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 delay-200">
           <Card
             className={cn(
               "border-2",
@@ -709,13 +696,9 @@ export default function TeamPage() {
               </div>
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.3 }}
-        >
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 delay-300">
           <Card
             className={cn(
               "border-2",
@@ -754,148 +737,141 @@ export default function TeamPage() {
               </div>
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
       </div>
 
       {/* Invite Form */}
-      <AnimatePresence>
-        {showInviteForm && canInvite && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.3 }}
+      {showInviteForm && canInvite && (
+        <div className="overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
+          <Card
+            className={cn(
+              "border-2",
+              "border-cyan-200 dark:border-cyan-800",
+              "bg-gradient-to-br from-cyan-50/50 to-blue-50/50 dark:from-cyan-950/20 dark:to-blue-950/20",
+            )}
           >
-            <Card
-              className={cn(
-                "border-2",
-                "border-cyan-200 dark:border-cyan-800",
-                "bg-gradient-to-br from-cyan-50/50 to-blue-50/50 dark:from-cyan-950/20 dark:to-blue-950/20",
-              )}
-            >
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <UserPlus className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
-                  Invite New Team Member
-                </CardTitle>
-                <CardDescription>
-                  An account will be created immediately and an email with login
-                  credentials will be sent.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Form {...inviteForm}>
-                  <form onSubmit={createInvite} noValidate>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="md:col-span-2">
-                        <FormField
-                          control={inviteForm.control}
-                          name="email"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Email Address</FormLabel>
-                              <FormControl>
-                                <div className="relative">
-                                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-                                  <input
-                                    type="email"
-                                    placeholder="colleague@example.com"
-                                    className={cn(
-                                      "w-full pl-10 pr-4 py-2.5 rounded-lg text-sm",
-                                      "bg-white dark:bg-neutral-800",
-                                      "border border-neutral-300 dark:border-neutral-700",
-                                      "text-neutral-900 dark:text-neutral-50",
-                                      "focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent",
-                                    )}
-                                    {...field}
-                                  />
-                                </div>
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      <div>
-                        <FormField
-                          control={inviteForm.control}
-                          name="role"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Role</FormLabel>
-                              <FormControl>
-                                <select
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <UserPlus className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+                Invite New Team Member
+              </CardTitle>
+              <CardDescription>
+                An account will be created immediately and an email with login
+                credentials will be sent.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Form {...inviteForm}>
+                <form onSubmit={createInvite} noValidate>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="md:col-span-2">
+                      <FormField
+                        control={inviteForm.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Email Address</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                                <input
+                                  type="email"
+                                  placeholder="colleague@example.com"
                                   className={cn(
-                                    "w-full px-4 py-2.5 rounded-lg text-sm",
+                                    "w-full pl-10 pr-4 py-2.5 rounded-lg text-sm",
                                     "bg-white dark:bg-neutral-800",
                                     "border border-neutral-300 dark:border-neutral-700",
                                     "text-neutral-900 dark:text-neutral-50",
                                     "focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent",
                                   )}
-                                  disabled={isManager}
                                   {...field}
-                                >
-                                  <option value="USER">Technician</option>
-                                  {isAdmin && (
-                                    <option value="MANAGER">Manager</option>
-                                  )}
-                                </select>
-                              </FormControl>
-                              <FormMessage />
-                              {isManager && (
-                                <p
-                                  className={cn(
-                                    "text-xs mt-1",
-                                    "text-neutral-500 dark:text-neutral-400",
-                                  )}
-                                >
-                                  Managers can only invite Technicians.
-                                </p>
-                              )}
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    </div>
-                    {inviteForm.formState.errors.root && (
-                      <p className="text-destructive text-sm mt-3" role="alert">
-                        {inviteForm.formState.errors.root.message}
-                      </p>
-                    )}
-                    <div className="flex items-center gap-2 mt-4">
-                      <Button
-                        type="submit"
-                        disabled={creating}
-                        className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white"
-                      >
-                        {creating ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            Creating...
-                          </>
-                        ) : (
-                          <>
-                            <Send className="w-4 h-4" />
-                            Send Invitation
-                          </>
+                                />
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
                         )}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setShowInviteForm(false)}
-                        disabled={creating}
-                      >
-                        Cancel
-                      </Button>
+                      />
                     </div>
-                  </form>
-                </Form>
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
-      </AnimatePresence>
+                    <div>
+                      <FormField
+                        control={inviteForm.control}
+                        name="role"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Role</FormLabel>
+                            <FormControl>
+                              <select
+                                className={cn(
+                                  "w-full px-4 py-2.5 rounded-lg text-sm",
+                                  "bg-white dark:bg-neutral-800",
+                                  "border border-neutral-300 dark:border-neutral-700",
+                                  "text-neutral-900 dark:text-neutral-50",
+                                  "focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent",
+                                )}
+                                disabled={isManager}
+                                {...field}
+                              >
+                                <option value="USER">Technician</option>
+                                {isAdmin && (
+                                  <option value="MANAGER">Manager</option>
+                                )}
+                              </select>
+                            </FormControl>
+                            <FormMessage />
+                            {isManager && (
+                              <p
+                                className={cn(
+                                  "text-xs mt-1",
+                                  "text-neutral-500 dark:text-neutral-400",
+                                )}
+                              >
+                                Managers can only invite Technicians.
+                              </p>
+                            )}
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                  {inviteForm.formState.errors.root && (
+                    <p className="text-destructive text-sm mt-3" role="alert">
+                      {inviteForm.formState.errors.root.message}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-2 mt-4">
+                    <Button
+                      type="submit"
+                      disabled={creating}
+                      className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white"
+                    >
+                      {creating ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Creating...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-4 h-4" />
+                          Send Invitation
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowInviteForm(false)}
+                      disabled={creating}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Search and Filter */}
       <div className="flex flex-col sm:flex-row gap-4">
@@ -996,11 +972,10 @@ export default function TeamPage() {
                 const config = roleConfig[member.role];
                 const Icon = config.icon;
                 return (
-                  <motion.div
+                  <div
                     key={member.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: idx * 0.05 }}
+                    className="animate-in fade-in slide-in-from-bottom-4 duration-300"
+                    style={{ animationDelay: `${idx * 50}ms` }}
                   >
                     <Card
                       className={cn(
@@ -1115,7 +1090,7 @@ export default function TeamPage() {
                           )}
                       </CardContent>
                     </Card>
-                  </motion.div>
+                  </div>
                 );
               })}
             </div>
@@ -1403,11 +1378,10 @@ export default function TeamPage() {
                   const isActive = !isUsed && !isExpired;
 
                   return (
-                    <motion.div
+                    <div
                       key={invite.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.3, delay: idx * 0.05 }}
+                      className="animate-in fade-in slide-in-from-left-5 duration-300"
+                      style={{ animationDelay: `${idx * 50}ms` }}
                     >
                       <Card
                         className={cn(
@@ -1545,7 +1519,7 @@ export default function TeamPage() {
                           </div>
                         </CardContent>
                       </Card>
-                    </motion.div>
+                    </div>
                   );
                 })}
               </div>
