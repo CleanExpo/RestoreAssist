@@ -523,6 +523,15 @@ model Report {
   // POST /api/reports/[id]/synopsis and cached for 24h to bound AI spend.
   aiSynopsis   String?   @db.Text
   aiSynopsisAt DateTime?
+
+  // RA-1461: Plain-English client-facing summary (≤160 words, grade-8
+  // reading level, Australian English, addresses reader as "you", ends
+  // with "What this means for you:"). Generated via Haiku 4.5 by
+  // lib/ai/client-summary.ts and exposed through
+  // POST /api/reports/[id]/client-summary. Invalidated whenever the
+  // report's scope changes; 5-minute rate limit per report.
+  clientSummaryCache     String?   @db.Text
+  clientSummaryCachedAt  DateTime?
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
   userId          String
