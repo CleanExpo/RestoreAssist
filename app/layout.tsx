@@ -15,6 +15,7 @@ import {
   SoftwareApplicationSchema,
 } from "@/components/seo/JsonLd";
 import { NirOfflineProvider } from "@/components/nir-offline-provider";
+import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
 import "@/lib/env-check";
 import "./globals.css";
 
@@ -76,12 +77,14 @@ export const metadata: Metadata = {
 };
 
 // viewport-fit=cover is required for iPhone notch (iPhone 13+) in Capacitor WebView
+// themeColor drives the browser address bar colour on Android + PWA splash — RA-1462
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
+  themeColor: "#2563eb",
 };
 
 export default function RootLayout({
@@ -108,6 +111,7 @@ export default function RootLayout({
             <SessionProvider>
               <CapacitorProvider>{children}</CapacitorProvider>
             </SessionProvider>
+            <PwaInstallPrompt />
           </NirOfflineProvider>
           <Toaster
             position="top-right"

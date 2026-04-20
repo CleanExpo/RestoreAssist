@@ -40,6 +40,10 @@ import {
   type SyncStatus,
   type QueueStats,
 } from "@/lib/nir-sync-queue";
+import {
+  getQueuedEvidenceCount,
+  initEvidenceSyncOnReconnect,
+} from "@/lib/evidence-upload-queue";
 
 // ─── CONTEXT ──────────────────────────────────────────────────────────────────
 
@@ -47,6 +51,8 @@ interface NirOfflineContextValue {
   syncStatus: SyncStatus;
   queueStats: QueueStats;
   isServiceWorkerReady: boolean;
+  /** Count of evidence (photo) uploads pending upload — RA-1462 */
+  pendingEvidenceUploads: number;
   /** Manually trigger a sync drain (e.g. on pull-to-refresh) */
   triggerSync: () => Promise<void>;
 }
@@ -55,6 +61,7 @@ const NirOfflineContext = createContext<NirOfflineContextValue>({
   syncStatus: "OFFLINE",
   queueStats: { pending: 0, failed: 0, conflicts: 0, status: "OFFLINE" },
   isServiceWorkerReady: false,
+  pendingEvidenceUploads: 0,
   triggerSync: async () => {},
 });
 
@@ -95,8 +102,9 @@ const STATUS_CONFIG: Record<
  * Satisfies OFFLINE_REQUIREMENTS.syncStatusIndicator: "Always visible — persistent status bar element"
  */
 export function NirSyncStatusBadge() {
-  const { syncStatus, queueStats } = useNirOffline();
+  const { syncStatus, queueStats, pendingEvidenceUploads } = useNirOffline();
   const config = STATUS_CONFIG[syncStatus];
+  const totalPending = queueStats.pending + pendingEvidenceUploads;
 
   return (
     <div
@@ -110,8 +118,8 @@ export function NirSyncStatusBadge() {
         aria-hidden="true"
       />
       <span>{config.label}</span>
-      {queueStats.pending > 0 && (
-        <span className="ml-0.5 tabular-nums">({queueStats.pending})</span>
+      {totalPending > 0 && (
+        <span className="ml-0.5 tabular-nums">({totalPending})</span>
       )}
     </div>
   );
@@ -132,14 +140,17 @@ export function NirOfflineProvider({ children }: NirOfflineProviderProps) {
     status: "OFFLINE",
   });
   const [isServiceWorkerReady, setIsServiceWorkerReady] = useState(false);
+  const [pendingEvidenceUploads, setPendingEvidenceUploads] = useState(0);
 
   const refreshStatus = useCallback(async () => {
-    const [status, stats] = await Promise.all([
+    const [status, stats, evidenceCount] = await Promise.all([
       getSyncStatus(),
       getQueueStats(),
+      getQueuedEvidenceCount(),
     ]);
     setSyncStatus(status);
     setQueueStats(stats);
+    setPendingEvidenceUploads(evidenceCount);
   }, []);
 
   const triggerSync = useCallback(async () => {
@@ -162,8 +173,9 @@ export function NirOfflineProvider({ children }: NirOfflineProviderProps) {
         });
     }
 
-    // 2. Initialise reconnect listener (returns cleanup fn)
+    // 2. Initialise reconnect listeners (returns cleanup fns)
     const cleanupSync = initSyncOnReconnect();
+    const cleanupEvidenceSync = initEvidenceSyncOnReconnect();
 
     // 3. Initial status read
     refreshStatus();
@@ -191,6 +203,7 @@ export function NirOfflineProvider({ children }: NirOfflineProviderProps) {
 
     return () => {
       cleanupSync();
+      cleanupEvidenceSync();
       clearInterval(interval);
       window.removeEventListener("online", onlineHandler);
       window.removeEventListener("offline", offlineHandler);
@@ -205,7 +218,13 @@ export function NirOfflineProvider({ children }: NirOfflineProviderProps) {
 
   return (
     <NirOfflineContext.Provider
-      value={{ syncStatus, queueStats, isServiceWorkerReady, triggerSync }}
+      value={{
+        syncStatus,
+        queueStats,
+        isServiceWorkerReady,
+        pendingEvidenceUploads,
+        triggerSync,
+      }}
     >
       {children}
     </NirOfflineContext.Provider>
