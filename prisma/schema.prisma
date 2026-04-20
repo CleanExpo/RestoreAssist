@@ -3588,6 +3588,13 @@ model Invoice {
   @@index([externalInvoiceId])
   @@index([publicToken])
   @@index([workspaceId])
+  // RA-1360: prevent duplicate invoice rows when an external sync (Xero / QBO /
+  // MYOB) re-imports the same invoice — webhook + cron double-fire, network
+  // retry, or two workspaces accidentally mapped to the same tenant. Sync code
+  // paths should upsert on this composite key. The partial-unique semantics
+  // (NULL values don't collide) are exactly what we want: local-only invoices
+  // (no external origin) can still have many rows with both columns NULL.
+  @@unique([externalSyncProvider, externalInvoiceId], name: "Invoice_external_sync_uniq")
 }
 
 // Invoice Line Items (snapshot from estimate)
