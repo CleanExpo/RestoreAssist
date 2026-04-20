@@ -102,8 +102,14 @@ self.addEventListener("fetch", (event) => {
 // ─── BACKGROUND SYNC ──────────────────────────────────────────────────────────
 
 self.addEventListener("sync", (event) => {
-  if (event.tag === "nir-inspection-sync") {
-    event.waitUntil(triggerClientSync());
+  if (
+    event.tag === "nir-inspection-sync" ||
+    event.tag === "evidence-upload-sync"
+  ) {
+    // Both tags drain via the same client-side handler — the client reads
+    // the SW message and each queue module (nir-sync-queue, evidence-upload-queue)
+    // decides what to drain. RA-1462.
+    event.waitUntil(triggerClientSync(event.tag));
   }
 });
 
@@ -199,9 +205,13 @@ async function networkOnlyWithOfflineStub(request) {
  * Signal all active clients to drain the IndexedDB sync queue.
  * The nir-sync-queue.ts initSyncOnReconnect() listener handles the actual drain.
  */
-async function triggerClientSync() {
+async function triggerClientSync(tag) {
   const clients = await self.clients.matchAll({ includeUncontrolled: true });
   clients.forEach((client) =>
-    client.postMessage({ type: "NIR_SYNC_TRIGGER", source: "background-sync" }),
+    client.postMessage({
+      type: "NIR_SYNC_TRIGGER",
+      source: "background-sync",
+      tag: tag || "nir-inspection-sync",
+    }),
   );
 }
