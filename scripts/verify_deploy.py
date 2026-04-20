@@ -19,6 +19,7 @@ Optional:
 import os
 import sys
 import subprocess
+import time
 import urllib.request
 import urllib.error
 import json
@@ -66,33 +67,66 @@ def get_local_sha() -> str:
 
 # ── Vercel ───────────────────────────────────────────────────────────────────
 
-def get_vercel_sha(token: str, project_id: str, team_id: str) -> str | None:
-    # target=production — the preview builds for every PR show up in the same
-    # project; without the filter the "latest READY" was whichever preview
-    # finished most recently, so parity always flagged as drift. We only
-    # care about what's actually serving prod traffic.
+def _extract_sha(dep: dict) -> str | None:
+    return (
+        dep.get("meta", {}).get("githubCommitSha")
+        or dep.get("gitSource", {}).get("sha")
+    )
+
+
+def get_vercel_sha(token: str, project_id: str, team_id: str, expected_sha: str) -> str | None:
+    """Return the prod SHA Vercel is serving, polling briefly to handle
+    the build race: push-to-main triggers both this workflow and a Vercel
+    build, and the workflow often runs before Vercel reaches READY. We
+    accept either (a) a READY deployment matching expected_sha, or
+    (b) a BUILDING/QUEUED deployment matching expected_sha (prod will
+    catch up shortly — the old READY is about to be superseded).
+
+    Only the latest READY falls through to a parity comparison; that's
+    what flags true drift (e.g. Vercel deploy got cancelled, rolled
+    back, or a different branch got promoted).
+    """
+    # Wider fetch so we can see in-flight builds, not just the last READY.
     url = (
         "https://api.vercel.com/v6/deployments"
-        f"?projectId={project_id}&limit=1&state=READY&target=production"
+        f"?projectId={project_id}&limit=20&target=production"
     )
     if team_id:
         url += f"&teamId={team_id}"
-    data = http_get(url, token)
 
-    deployments = data.get("deployments", [])
-    if not deployments:
-        print("[WARN] Vercel: no READY deployments found.")
-        return None
+    # Poll up to 4 minutes. Matches Vercel's typical build window without
+    # exceeding the workflow's 5-minute timeout.
+    deadline = time.monotonic() + 240
+    last_ready_sha: str | None = None
+    while True:
+        data = http_get(url, token)
+        deployments = data.get("deployments", [])
+        if not deployments:
+            print("[WARN] Vercel: no deployments found.")
+            return None
 
-    deployment = deployments[0]
-    # Vercel stores the git SHA in meta.githubCommitSha or gitSource.sha
-    sha = (
-        deployment.get("meta", {}).get("githubCommitSha")
-        or deployment.get("gitSource", {}).get("sha")
-    )
-    if not sha:
-        print(f"[WARN] Vercel: deployment {deployment.get('uid')} has no git SHA in metadata.")
-    return sha
+        # Look for an in-flight build matching the expected SHA.
+        for dep in deployments:
+            sha = _extract_sha(dep)
+            state = dep.get("state") or dep.get("readyState")
+            if sha and expected_sha.startswith(sha[:8]) and state in ("BUILDING", "QUEUED", "INITIALIZING"):
+                print(f"Vercel:      {sha} [{state}] — in-flight build matches HEAD, parity will settle.")
+                return sha
+            if sha and expected_sha.startswith(sha[:8]) and state == "READY":
+                return sha
+
+        # Remember the latest READY sha for the final comparison if polling times out.
+        for dep in deployments:
+            if (dep.get("state") or dep.get("readyState")) == "READY":
+                last_ready_sha = _extract_sha(dep)
+                break
+
+        if time.monotonic() >= deadline:
+            if last_ready_sha is None:
+                print("[WARN] Vercel: no READY deployments after 4-min poll.")
+            return last_ready_sha
+
+        time.sleep(20)
 
 
 # ── Railway ──────────────────────────────────────────────────────────────────
@@ -178,7 +212,7 @@ def main() -> int:
     # only our ability to *verify* it is. Failing CI here blocks unrelated
     # merges and causes false "site is down" alarms when the site is fine.
     try:
-        vercel_sha = get_vercel_sha(vercel_token, vercel_project_id, vercel_team_id)
+        vercel_sha = get_vercel_sha(vercel_token, vercel_project_id, vercel_team_id, local_sha)
         if vercel_sha is None:
             print("[WARN] Vercel: could not determine deployed SHA — skipping comparison.")
         elif vercel_sha.startswith(local_sha[:8]) or local_sha.startswith(vercel_sha[:8]):
