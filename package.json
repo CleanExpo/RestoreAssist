@@ -21,7 +21,7 @@
   },
   "scripts": {
     "postinstall": "prisma generate",
-    "build": "sh scripts/build.sh",
+    "build": "sh -c 'export DIRECT_URL=\"${DIRECT_URL:-$DATABASE_URL}\" && prisma generate && prisma migrate deploy && next build'",
     "dev": "next dev",
     "start": "next start",
     "lint": "eslint .",
