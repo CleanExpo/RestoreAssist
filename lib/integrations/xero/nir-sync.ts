@@ -10,7 +10,11 @@
 
 import { markIntegrationError, logSync } from "../oauth-handler";
 import { getValidXeroToken, getXeroTenantId } from "./token-manager";
-import { resolveAccountCodes } from "./account-code-resolver";
+import {
+  resolveAccountCodes,
+  resolveAccountCodeForItemType,
+} from "./account-code-resolver";
+import { isKnownItemType } from "@/lib/progress/integrations/xero-category";
 import { getGSTTreatment } from "../../gst-treatment-rules";
 
 /**
@@ -35,6 +39,12 @@ export interface NIRScopeItem {
   gstRate: number; // 0 or 10
   subtotalExGST: number; // cents
   iicrcRef?: string;
+  /**
+   * RA-854: Scope-generator itemType (e.g. "mobilisation", "clearance_testing").
+   * When present, drives fine-grained XeroCategory routing via the GST matrix.
+   * When absent or unknown, falls back to the legacy coarse-category routing.
+   */
+  itemType?: string;
 }
 
 export interface NIRJobPayload {
@@ -90,6 +100,27 @@ export async function syncNIRJobToXero(
       category: item.category,
     })),
   );
+
+  // RA-854: Fine-grained XeroCategory routing — when the scope item carries
+  // a known `itemType` (from the scope generators), classify via the GST
+  // matrix and override the coarse resolver's result. Items without a known
+  // itemType retain their RA-869 coarse-category routing.
+  const itemTypeResolutions = await Promise.all(
+    job.scopeItems.map(async (item, idx) => {
+      if (!item.itemType || !isKnownItemType(item.itemType)) {
+        return null;
+      }
+      const resolved = await resolveAccountCodeForItemType({
+        integrationId,
+        itemType: item.itemType,
+        legacyCategory: item.category,
+      });
+      return [`scope-${idx}`, resolved] as const;
+    }),
+  );
+  for (const entry of itemTypeResolutions) {
+    if (entry) resolvedCodes.set(entry[0], entry[1]);
+  }
 
   const dueDate = new Date(job.reportDate);
   dueDate.setDate(dueDate.getDate() + 14);

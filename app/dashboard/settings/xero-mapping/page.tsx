@@ -40,6 +40,17 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useFetch } from "@/lib/hooks/useFetch";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
+  XERO_CATEGORIES,
+  XERO_CATEGORY_DEFAULT_CODES,
+  XERO_CATEGORY_DESCRIPTIONS,
+} from "@/lib/progress/integrations/xero-category";
 
 // ─── Canonical categories + defaults (mirrors account-code-resolver.ts) ──────
 
@@ -179,6 +190,47 @@ export default function XeroMappingPage() {
                 />
               </TableBody>
             </Table>
+
+            {/* RA-854: Advanced per-category routing (GST-matrix XeroCategory) */}
+            <Accordion type="single" collapsible className="mt-6">
+              <AccordionItem value="advanced-routing">
+                <AccordionTrigger className="text-sm font-medium text-[#1C2E47]">
+                  Advanced: per-category routing (RA-854)
+                </AccordionTrigger>
+                <AccordionContent>
+                  <p className="mb-3 text-xs text-muted-foreground">
+                    Fine-grained routing derived from the GST treatment matrix.
+                    Scope-generator items (e.g. mobilisation, clearance_testing)
+                    are classified into one of these categories and routed to
+                    the account code configured below. Leave blank to use the
+                    built-in default.
+                  </p>
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-[#1C2E47]/5">
+                        <TableHead>Category</TableHead>
+                        <TableHead>Default</TableHead>
+                        <TableHead>Override</TableHead>
+                        <TableHead>Tax Type</TableHead>
+                        <TableHead className="w-[240px]">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {XERO_CATEGORIES.map((cat) => (
+                        <MappingRowEditor
+                          key={cat}
+                          category={cat}
+                          defaultCode={XERO_CATEGORY_DEFAULT_CODES[cat]}
+                          description={XERO_CATEGORY_DESCRIPTIONS[cat]}
+                          existing={mappingsByCategory.get(cat)}
+                          onChange={refetch}
+                        />
+                      ))}
+                    </TableBody>
+                  </Table>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </CardContent>
         </Card>
       )}
