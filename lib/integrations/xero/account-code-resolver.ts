@@ -23,6 +23,12 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import {
+  classifyScopeItem,
+  isKnownItemType,
+  XERO_CATEGORY_DEFAULT_CODES,
+  type XeroCategory,
+} from "@/lib/progress/integrations/xero-category";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -304,6 +310,87 @@ export async function resolveAccountCode(
 
   // 7. Global fallback
   return GLOBAL_FALLBACK;
+}
+
+// ─── RA-854: Per-category routing via scope itemType ─────────────────────────
+
+/**
+ * RA-854: Default tax types for the fine-grained `XeroCategory` set.
+ * INPUT for pass-through third-party / external hire, NONE for insurance
+ * excess (not a supply), OUTPUT for everything else (including DISCOUNT
+ * which is a negative OUTPUT).
+ */
+const XERO_CATEGORY_DEFAULT_TAX_TYPES: Record<XeroCategory, string> = {
+  LABOUR_OWN: "OUTPUT",
+  LABOUR_SUBCONTRACT: "OUTPUT",
+  EQUIPMENT_HIRE_OWN: "OUTPUT",
+  EQUIPMENT_HIRE_EXTERNAL: "INPUT",
+  CONSUMABLES: "OUTPUT",
+  WASTE_DISPOSAL: "OUTPUT",
+  THIRD_PARTY_DISBURSEMENT: "INPUT",
+  PROJECT_MANAGEMENT: "OUTPUT",
+  DISCOUNT: "OUTPUT",
+  INSURANCE_EXCESS: "NONE",
+};
+
+/**
+ * RA-854: Resolve an account code + tax type for a scope item by its
+ * generator `itemType` (e.g. "mobilisation", "clearance_testing"). Fine-grained
+ * routing via the GST-matrix-derived `XeroCategory` taxonomy.
+ *
+ * Resolution priority:
+ *   1. Explicit per-item override (if valid)
+ *   2. User-configured `XeroAccountCodeMapping` row matching the classified category
+ *      (e.g. "LABOUR_OWN"). Case-insensitive.
+ *   3. Built-in default for that category (see XERO_CATEGORY_DEFAULT_CODES)
+ *   4. Damage-type-only fallback: user's per-integration default row (null category)
+ *   5. Legacy coarse category fallback via {@link resolveAccountCode} — keeps
+ *      operators who only configured the old 6-category scheme working.
+ *   6. Global fallback (200 OUTPUT).
+ */
+export async function resolveAccountCodeForItemType(params: {
+  integrationId: string;
+  itemType: string;
+  /** Legacy coarse category ("Labour", "Equipment", …) for backward-compat fallback. */
+  legacyCategory?: string | null;
+  xeroAccountCodeOverride?: string | null;
+}): Promise<ResolvedAccountCode> {
+  if (
+    params.xeroAccountCodeOverride &&
+    isValidXeroAccountCode(params.xeroAccountCodeOverride)
+  ) {
+    return { accountCode: params.xeroAccountCodeOverride, taxType: "OUTPUT" };
+  }
+
+  const cache = await loadMappings(params.integrationId);
+
+  // Only attempt XeroCategory routing when the itemType is in the matrix.
+  // An unknown itemType would otherwise collapse to LABOUR_OWN and silently
+  // miss a legacy mapping the operator configured for the coarse category.
+  if (isKnownItemType(params.itemType)) {
+    const category = classifyScopeItem(params.itemType);
+
+    // Exact match on the XeroCategory string (case-sensitive)
+    if (cache.byRawCategory.has(category)) {
+      return cache.byRawCategory.get(category)!;
+    }
+    // Case-insensitive fallback (e.g. operator typed "labour_own")
+    if (cache.byLowerCategory.has(category.toLowerCase())) {
+      return cache.byLowerCategory.get(category.toLowerCase())!;
+    }
+
+    // Built-in default for this category (before falling through to legacy)
+    return {
+      accountCode: XERO_CATEGORY_DEFAULT_CODES[category],
+      taxType: XERO_CATEGORY_DEFAULT_TAX_TYPES[category],
+    };
+  }
+
+  // Unknown itemType — defer to legacy coarse-category resolution.
+  return resolveAccountCode({
+    integrationId: params.integrationId,
+    lineItemCategory: params.legacyCategory ?? null,
+  });
 }
 
 /**

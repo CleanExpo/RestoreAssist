@@ -25,6 +25,7 @@ import { prisma } from "@/lib/prisma";
 import {
   resolveAccountCode,
   resolveAccountCodes,
+  resolveAccountCodeForItemType,
   clearAccountCodeCache,
   isValidXeroAccountCode,
   normalizeCategory,
@@ -343,5 +344,96 @@ describe("normalizeCategory", () => {
 
   it("trims whitespace", () => {
     expect(normalizeCategory("  LABOUR  ")).toBe("LABOUR");
+  });
+});
+
+// ─── RA-854: resolveAccountCodeForItemType ───────────────────────────────────
+
+describe("resolveAccountCodeForItemType (RA-854)", () => {
+  it("returns built-in XeroCategory default when no override configured", async () => {
+    mockFindMany.mockResolvedValue([]);
+
+    const r = await resolveAccountCodeForItemType({
+      integrationId: INTEGRATION_A,
+      itemType: "mobilisation",
+    });
+
+    // LABOUR_OWN default is 400 / OUTPUT
+    expect(r).toEqual({ accountCode: "400", taxType: "OUTPUT" });
+  });
+
+  it("uses INPUT tax type for pass-through third-party disbursements", async () => {
+    mockFindMany.mockResolvedValue([]);
+
+    const r = await resolveAccountCodeForItemType({
+      integrationId: INTEGRATION_A,
+      itemType: "clearance_testing",
+    });
+
+    expect(r).toEqual({ accountCode: "406", taxType: "INPUT" });
+  });
+
+  it("uses NONE tax type for insurance excess (OUT_OF_SCOPE)", async () => {
+    mockFindMany.mockResolvedValue([]);
+
+    const r = await resolveAccountCodeForItemType({
+      integrationId: INTEGRATION_A,
+      itemType: "insurance_excess",
+    });
+
+    expect(r).toEqual({ accountCode: "409", taxType: "NONE" });
+  });
+
+  it("prefers user-configured XeroCategory mapping over built-in default", async () => {
+    mockFindMany.mockResolvedValue([
+      { category: "LABOUR_OWN", accountCode: "450", taxType: "OUTPUT" },
+    ]);
+
+    const r = await resolveAccountCodeForItemType({
+      integrationId: INTEGRATION_A,
+      itemType: "mobilisation",
+    });
+
+    expect(r).toEqual({ accountCode: "450", taxType: "OUTPUT" });
+  });
+
+  it("explicit override wins over classification", async () => {
+    mockFindMany.mockResolvedValue([]);
+
+    const r = await resolveAccountCodeForItemType({
+      integrationId: INTEGRATION_A,
+      itemType: "mobilisation",
+      xeroAccountCodeOverride: "999",
+    });
+
+    expect(r).toEqual({ accountCode: "999", taxType: "OUTPUT" });
+  });
+
+  it("falls back to legacy coarse-category routing for unknown itemType (backward compat)", async () => {
+    // Operator has only configured the old 6-category scheme
+    mockFindMany.mockResolvedValue([
+      { category: "Labour", accountCode: "210", taxType: "OUTPUT" },
+    ]);
+
+    const r = await resolveAccountCodeForItemType({
+      integrationId: INTEGRATION_A,
+      itemType: "totally_unknown_item",
+      legacyCategory: "Labour",
+    });
+
+    expect(r).toEqual({ accountCode: "210", taxType: "OUTPUT" });
+  });
+
+  it("unknown itemType with no legacy mapping falls to global default", async () => {
+    mockFindMany.mockResolvedValue([]);
+
+    const r = await resolveAccountCodeForItemType({
+      integrationId: INTEGRATION_A,
+      itemType: "totally_unknown_item",
+      legacyCategory: null,
+    });
+
+    // Global fallback
+    expect(r).toEqual({ accountCode: "200", taxType: "OUTPUT" });
   });
 });
