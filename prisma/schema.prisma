@@ -63,6 +63,12 @@ model User {
   /// Null means the tour has not been shown/completed yet; set on
   /// either "Skip tour" or tour completion.
   productTourDismissedAt DateTime?
+  /// RA-1363: trial-reminder cron idempotency. JSON shape:
+  ///   { "3-day": "2026-04-18T08:00:00.000Z", "1-day": "2026-04-20T08:00:00.000Z" }
+  /// The cron writes the ISO timestamp for a window before sending;
+  /// subsequent fires within 20h short-circuit (covers Vercel Cron retries
+  /// and overlapping invocations under maxDuration pressure).
+  trialReminderSentAt Json?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
