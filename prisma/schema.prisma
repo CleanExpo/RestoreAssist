@@ -1306,9 +1306,20 @@ model EstimateVariation {
 enum EstimateStatus {
   DRAFT
   INTERNAL_REVIEW
+  // RA-1365: SENT distinguishes "quote emailed to client" from
+  // CLIENT_REVIEW ("client has opened / is reviewing"). Lets the pipeline
+  // detect quotes that went out but were never opened (dead-letter flag)
+  // separately from quotes under active client consideration.
+  SENT
   CLIENT_REVIEW
   APPROVED
   LOCKED
+  // RA-1365: terminal states for client decline / no-response / withdrawal.
+  // Without these, rejected quotes get stuck in CLIENT_REVIEW forever or
+  // forced to LOCKED (implying approval), breaking win/loss reporting.
+  REJECTED
+  EXPIRED
+  WITHDRAWN
 }
 
 // Company Pricing Configuration Model

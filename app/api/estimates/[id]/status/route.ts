@@ -6,7 +6,12 @@
  * blockers if any are present, 200 with warnings otherwise.
  *
  * Body:
- *   { status: "INTERNAL_REVIEW" | "CLIENT_REVIEW" | "APPROVED" | "LOCKED" | "DRAFT" }
+ *   { status: "INTERNAL_REVIEW" | "SENT" | "CLIENT_REVIEW" | "APPROVED" | "LOCKED" | "DRAFT" | "REJECTED" | "EXPIRED" | "WITHDRAWN" }
+ *
+ * RA-1365 (2026-04-21) — enum expanded. SENT separates "emailed" from
+ * "under active client review"; REJECTED/EXPIRED/WITHDRAWN are terminal
+ * outcomes for declined / timed-out / retracted quotes (previously
+ * stranded in CLIENT_REVIEW or force-LOCKED).
  *
  * Auth: getServerSession required. Estimate ownership enforced.
  */
@@ -23,9 +28,13 @@ import {
 const ALLOWED_STATUSES = [
   "DRAFT",
   "INTERNAL_REVIEW",
+  "SENT",
   "CLIENT_REVIEW",
   "APPROVED",
   "LOCKED",
+  "REJECTED",
+  "EXPIRED",
+  "WITHDRAWN",
 ] as const;
 
 type EstimateStatus = (typeof ALLOWED_STATUSES)[number];
