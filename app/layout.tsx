@@ -34,7 +34,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: {
     default: BRAND.meta.title,
-    template: "%s | Restore Assist",
+    template: `%s | ${BRAND.name}`,
   },
   description: BRAND.meta.description,
   keywords: [
@@ -47,7 +47,7 @@ export const metadata: Metadata = {
     "inspection reports",
     "Australian building standards",
   ],
-  authors: [{ name: "Restore Assist" }],
+  authors: [{ name: BRAND.name }],
   openGraph: {
     title: BRAND.meta.title,
     description: BRAND.meta.ogDescription,
@@ -56,15 +56,15 @@ export const metadata: Metadata = {
     // session data includes it. Use getLocale(org.country) from @/lib/locale/format.
     // For now, defaults to en_AU.
     locale: "en_AU",
-    siteName: "Restore Assist",
+    siteName: BRAND.name,
     images: [
-      { url: "/logo.png", width: 512, height: 512, alt: "Restore Assist" },
+      { url: "/logo.png", width: 512, height: 512, alt: BRAND.name },
     ],
   },
   alternates: { canonical: "/" },
   twitter: {
     card: "summary_large_image",
-    title: "Restore Assist",
+    title: BRAND.name,
     description: BRAND.meta.ogDescription,
   },
   robots: {
