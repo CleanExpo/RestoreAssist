@@ -237,6 +237,10 @@ model User {
 
   // RA-1246 — activation funnel events
   activationEvents ActivationEvent[]
+
+  // RA-1352 — admin impersonation audit (as initiator and as target)
+  adminImpersonationsAsAdmin  AdminImpersonation[] @relation("AdminImpersonationAsAdmin")
+  adminImpersonationsAsTarget AdminImpersonation[] @relation("AdminImpersonationAsTarget")
 }
 
 model Feedback {
@@ -2063,6 +2067,49 @@ model AuditLog {
   @@index([action])
   @@index([timestamp])
   @@index([inspectionId, timestamp]) // ordered audit trail: WHERE inspectionId=? ORDER BY timestamp DESC
+}
+
+/// RA-1352 — admin impersonation audit trail.
+///
+/// Every time an admin uses "view as user" support tooling, a row lands
+/// here. Immutable + indexed by admin/target/timestamp so an external
+/// reviewer can answer "who acted as whom, when, and why" without
+/// database spelunking. `endedAt` is set when the admin explicitly
+/// stops impersonating OR when the token expires (30 min default).
+model AdminImpersonation {
+  id String @id @default(cuid())
+
+  /// Admin user who initiated the impersonation (Role.ADMIN required).
+  adminUserId String
+  admin       User @relation("AdminImpersonationAsAdmin", fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  /// Target user being impersonated.
+  targetUserId String
+  target       User @relation("AdminImpersonationAsTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+
+  /// Signed-token id (stored for revoke + audit). The JWT itself is
+  /// NEVER stored — only the jti claim.
+  tokenId String @unique
+
+  /// Why the admin is impersonating. Required; free-text but typically
+  /// references a support ticket or incident id.
+  reason String @db.Text
+
+  /// IP + user-agent at initiation (forensic trail if the admin
+  /// account is later compromised).
+  ipAddress String?
+  userAgent String? @db.Text
+
+  startedAt DateTime  @default(now())
+  expiresAt DateTime
+  endedAt   DateTime?
+
+  /// Optional — explicitly the reason for ending (revoked | expired | manual).
+  endReason String?
+
+  @@index([adminUserId, startedAt])
+  @@index([targetUserId, startedAt])
+  @@index([expiresAt])
 }
 
 // Building Code Database (State-specific requirements)
