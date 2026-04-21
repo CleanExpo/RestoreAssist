@@ -16,6 +16,7 @@ import {
 } from "@/components/seo/JsonLd";
 import { NirOfflineProvider } from "@/components/nir-offline-provider";
 import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
+import { Analytics } from "@vercel/analytics/next";
 import "@/lib/env-check";
 import "./globals.css";
 
@@ -113,6 +114,8 @@ export default function RootLayout({
             </SessionProvider>
             <PwaInstallPrompt />
           </NirOfflineProvider>
+          {/* RA-1349 — Vercel Analytics (Web Vitals + client route events). */}
+          <Analytics />
           <Toaster
             position="top-right"
             toastOptions={{
