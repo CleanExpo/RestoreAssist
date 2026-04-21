@@ -181,32 +181,41 @@ export async function POST(request: NextRequest) {
           data: { organizationId: org.id },
         });
       });
-      sendWelcomeEmail({
-        recipientEmail: email,
-        recipientName: name,
-        loginUrl: `${APP_URL}/login`,
-        trialDays: 30,
-        trialCredits: 30,
-      }).catch((err) => console.error("[Register] Welcome email failed:", err));
-      notifyWelcome(updatedUser.id).catch((err) =>
-        console.error("[Register] notifyWelcome failed:", err),
-      );
-      // RA-1239: seed demo data so trial users don't land on an empty dashboard
-      seedDemoDataForNewUser(updatedUser.id).catch((err) =>
-        console.error("[Register] seedDemoDataForNewUser failed:", err),
-      );
+      // RA-1309 — await all post-transaction side effects via allSettled so
+      // they run concurrently but we don't return the HTTP response until
+      // they're done. Previous code fired them as unawaited fire-and-forgets
+      // which (a) could race with NextAuth's first session write on the
+      // replica, and (b) meant unhandled rejections crashed the process
+      // instead of being caught locally. allSettled guarantees one of the
+      // callback `.catch()`s swallows each rejection so nothing bubbles.
       const reqCtx = extractRequestContext(request);
-      logSecurityEvent({
-        eventType: "ACCOUNT_REGISTERED",
-        userId: updatedUser.id,
-        email: updatedUser.email,
-        ...reqCtx,
-        details: { role: "ADMIN", hasOrganization: true },
-      }).catch(() => {});
-      // RA-1246 — signup_completed (unconditional)
-      track(updatedUser.id, "signup_completed", {
-        hasOrganization: true,
-      }).catch(() => {});
+      await Promise.allSettled([
+        sendWelcomeEmail({
+          recipientEmail: email,
+          recipientName: name,
+          loginUrl: `${APP_URL}/login`,
+          trialDays: 30,
+          trialCredits: 30,
+        }).catch((err) => console.error("[Register] Welcome email failed:", err)),
+        notifyWelcome(updatedUser.id).catch((err) =>
+          console.error("[Register] notifyWelcome failed:", err),
+        ),
+        // RA-1239: seed demo data so trial users don't land on an empty dashboard
+        seedDemoDataForNewUser(updatedUser.id).catch((err) =>
+          console.error("[Register] seedDemoDataForNewUser failed:", err),
+        ),
+        logSecurityEvent({
+          eventType: "ACCOUNT_REGISTERED",
+          userId: updatedUser.id,
+          email: updatedUser.email,
+          ...reqCtx,
+          details: { role: "ADMIN", hasOrganization: true },
+        }).catch(() => {}),
+        // RA-1246 — signup_completed (unconditional)
+        track(updatedUser.id, "signup_completed", {
+          hasOrganization: true,
+        }).catch(() => {}),
+      ]);
       const { password: _, ...userWithoutPassword } = updatedUser;
       return NextResponse.json(
         { message: "User created successfully", user: userWithoutPassword },
