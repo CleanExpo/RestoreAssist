@@ -69,6 +69,10 @@ model User {
   /// subsequent fires within 20h short-circuit (covers Vercel Cron retries
   /// and overlapping invocations under maxDuration pressure).
   trialReminderSentAt Json?
+  /// RA-1459: cloud mirror provider chosen at onboarding.
+  /// Values: "drive" | "onedrive" | "icloud". Null means not yet picked —
+  /// viewing copies stay local until the user completes onboarding.
+  cloudMirrorProvider String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
