@@ -3541,6 +3541,18 @@ model Invoice {
   clientId String?
   client   Client? @relation("ClientInvoices", fields: [clientId], references: [id], onDelete: SetNull)
 
+  // RA-1368: audit-trail snapshots. Populated at invoice creation from
+  // the source Report / Estimate / Client rows. Immutable thereafter —
+  // even if the parent row is deleted (onDelete: SetNull above), the
+  // human-readable breadcrumb survives so ATO audits, insurer disputes,
+  // and customer complaints can still answer "which job did we bill
+  // for?". Null only for legacy invoices created before this column
+  // existed or for invoices whose parent was already null at creation.
+  reportTitleSnapshot   String? @db.VarChar(256)
+  reportAddressSnapshot String? @db.VarChar(512)
+  estimateRefSnapshot   String? @db.VarChar(128) // e.g. "Estimate-ckz1a2b3-v2"
+  clientNameSnapshot    String? @db.VarChar(256)
+
   // Owner
   userId String
   user   User   @relation("UserInvoices", fields: [userId], references: [id], onDelete: Cascade)
