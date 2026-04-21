@@ -85,6 +85,21 @@ export async function POST(
 
       // Create moisture reading
       // Note: mapX/mapY are set separately when user places reading on the floor plan map
+      //
+      // RA-1312: the server accepts `photoUrl: null` unconditionally. If the
+      // client intended to attach a photo but the Cloudinary upload failed
+      // (offline, 5xx, rate-limited), the client MAY still submit this create
+      // — the reading persists without the photo, and no one knows. Emit a
+      // structured counter when photoUrl is null so ops can detect the
+      // pattern. A follow-up ticket covers the client-side change: require
+      // `photoIntended: true/false` explicitly, reject when photoIntended=true
+      // but photoUrl=null.
+      const photoUrl = body.photoUrl || null;
+      if (photoUrl === null) {
+        console.info(
+          `[moisture.create] photo-less save for inspection ${id} (RA-1312 tracking)`,
+        );
+      }
       const createData: Record<string, unknown> = {
         inspectionId: id,
         location: sanitizeString(body.location.trim(), 200),
@@ -92,7 +107,7 @@ export async function POST(
         moistureLevel: rawLevel,
         depth: sanitizeString(body.depth || "Surface", 50),
         notes: body.notes ? sanitizeString(body.notes, 2000) : null,
-        photoUrl: body.photoUrl || null,
+        photoUrl,
       };
       // Include mapX/mapY only if provided — clamp to [0, 1] normalised range; reject non-finite
       if (body.mapX !== undefined && body.mapX !== null) {
