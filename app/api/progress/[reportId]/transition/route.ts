@@ -21,6 +21,7 @@ import { transition, TRANSITION_KEYS } from "@/lib/progress/service";
 import type { TransitionKey } from "@/lib/progress/service";
 import { resolveProgressRole } from "@/lib/progress/permissions";
 import { withIdempotency } from "@/lib/idempotency";
+import { prisma } from "@/lib/prisma";
 
 export async function POST(
   request: NextRequest,
@@ -69,8 +70,19 @@ export async function POST(
         );
       }
 
+      // RA-1443 / M-16: the Junior Technician ring-fence only fires if
+      // we read the per-user flag here and pass it through. Previously
+      // `resolveProgressRole` got only `userRole`, so a User.role="USER"
+      // with `isJuniorTechnician=true` resolved as TECHNICIAN rather
+      // than TECHNICIAN_JUNIOR, silently bypassing `canPerformTransition`.
+      const userRow = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { isJuniorTechnician: true },
+      });
+
       const role = resolveProgressRole({
         userRole: session.user.role ?? "USER",
+        isJuniorTechnician: userRow?.isJuniorTechnician ?? false,
       });
 
       const result = await transition({
