@@ -73,6 +73,12 @@ model User {
   /// Values: "drive" | "onedrive" | "icloud". Null means not yet picked —
   /// viewing copies stay local until the user completes onboarding.
   cloudMirrorProvider String?
+  /// RA-1443 / M-16 — ring-fence for Junior Technician role. When true,
+  /// `resolveProgressRole` returns TECHNICIAN_JUNIOR which
+  /// `canPerformTransition` hard-blocks from any Progress transition
+  /// beyond evidence capture. Defaults false so existing users are not
+  /// regressed. Admin UI to flip this is tracked as a follow-up.
+  isJuniorTechnician Boolean @default(false)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
