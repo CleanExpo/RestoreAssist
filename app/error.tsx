@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { ErrorFallback } from "@/components/ErrorFallback";
+import { reportClientError } from "@/lib/observability";
 
 export default function RootError({
   error,
@@ -12,6 +13,9 @@ export default function RootError({
 }) {
   useEffect(() => {
     console.error("[RootError]", error);
+    // RA-1349 — also ship to the server-side sink so Vercel Observability
+    // sees it. The digest is Next.js's server-side error correlation id.
+    reportClientError(error, { boundary: "RootError", digest: error.digest });
   }, [error]);
 
   return (
