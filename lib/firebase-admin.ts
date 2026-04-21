@@ -62,7 +62,21 @@ async function initializeAdminAuth() {
   return adminAuth;
 }
 
-// Export function to get admin auth (lazy initialization)
+/**
+ * Get the initialized Firebase Admin Auth instance.
+ *
+ * **Returns `null`** — and does not throw — when:
+ *   - firebase-admin is not installed (dev/staging without the dep)
+ *   - FIREBASE_SERVICE_ACCOUNT_KEY is unparseable or missing AND no
+ *     ADC environment is present
+ *   - Any other init error (logged as a warning)
+ *
+ * RA-1310: every caller MUST check `if (adminAuth)` and degrade
+ * gracefully. The only caller as of 2026-04-21 is
+ * `app/api/auth/google-signin/route.ts`, which returns HTTP 503 when
+ * this helper returns null. If you add a new caller, apply the same
+ * pattern — don't let cold-start failure yield a raw 500.
+ */
 export async function getAdminAuth() {
   return await initializeAdminAuth();
 }
