@@ -2331,6 +2331,18 @@ model InspectionPhoto {
   moistureReadingLink       String? // Soft FK to MoistureReading.id (no enforced constraint)
   // --- End RA-446 Label Schema Fields ---
 
+  // RA-1123 — AI-suggested labels (Claude Vision). Populated by the
+  // async `/api/ai/auto-classify-photo/[photoId]` endpoint. Shape:
+  //   { damageCategory: "CAT_2", roomType: "BATHROOM",
+  //     affectedMaterial: ["PLASTER", "CARPET"], ... }
+  // Technicians accept, override, or ignore the suggestion; when
+  // accepted the fields above are copied across and labelledBy is
+  // set to "AI_ACCEPTED".
+  aiLabels     Json?
+  aiConfidence Float? // 0.0 - 1.0; overall model confidence
+  aiModel      String? // e.g. "claude-opus-4-7" for reproducibility
+  aiRunAt      DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
