@@ -111,6 +111,13 @@ export async function POST(request: NextRequest) {
           metadata: {
             userId: userId,
           },
+          // RA-1351 — AU GST compliance. Stripe Tax auto-applies 10 % GST
+          // to AU customers / 15 % to NZ. Plan prices are GST-inclusive,
+          // so tax_behavior=inclusive prevents double-charging. ABN
+          // collection lets AU business customers claim input credits.
+          automatic_tax: { enabled: true },
+          tax_id_collection: { enabled: true },
+          customer_update: { name: "auto", address: "auto" },
         });
       } catch (priceError: any) {
         // If price doesn't exist, create it dynamically
@@ -119,8 +126,13 @@ export async function POST(request: NextRequest) {
           let priceData;
           if (priceId === "MONTHLY_PLAN" || priceId.includes("MONTHLY")) {
             priceData = {
-              unit_amount: 9900, // $99.00 in cents
+              unit_amount: 9900, // $99.00 in cents (GST-inclusive per AU convention)
               currency: "aud",
+              // RA-1351 — mark prices GST-inclusive so Stripe Tax doesn't
+              // add 10 % on top of the displayed amount. Pricing page shows
+              // customer-facing GST-inclusive figures; ATO-compliant tax
+              // invoices break out the GST component automatically.
+              tax_behavior: "inclusive" as const,
               recurring: { interval: "month" as const },
               product_data: {
                 name: "Monthly Plan - 50 Reports",
@@ -128,8 +140,9 @@ export async function POST(request: NextRequest) {
             };
           } else if (priceId === "YEARLY_PLAN" || priceId.includes("YEARLY")) {
             priceData = {
-              unit_amount: 118800, // $1188.00 in cents
+              unit_amount: 118800, // $1188.00 in cents (GST-inclusive)
               currency: "aud",
+              tax_behavior: "inclusive" as const,
               recurring: { interval: "year" as const },
               product_data: {
                 name: "Yearly Plan - 70 Reports/Month",
@@ -156,6 +169,10 @@ export async function POST(request: NextRequest) {
             metadata: {
               userId: userId,
             },
+            // RA-1351 — same GST + ABN collection on the dynamic-price path
+            automatic_tax: { enabled: true },
+            tax_id_collection: { enabled: true },
+            customer_update: { name: "auto", address: "auto" },
           });
         } else {
           throw priceError;
