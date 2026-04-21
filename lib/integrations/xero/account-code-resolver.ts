@@ -49,7 +49,7 @@ export type LineItemCategory =
  * Accepted for future extension — the current schema doesn't scope mappings
  * by damage type, so this parameter is accepted but unused.
  */
-export type DamageType = "WATER" | "FIRE" | "MOULD" | "STORM" | "GENERAL";
+export type DamageType = "WATER" | "FIRE" | "MOULD" | "STORM" | "BIOHAZARD" | "CONTENTS" | "GENERAL";
 
 export interface ResolvedAccountCode {
   accountCode: string;

@@ -195,7 +195,7 @@ async function handleInvoicePaid(
 
   const invoice = await prisma.invoice.findFirst({
     where: { externalInvoiceId: xeroInvoiceId },
-    select: { id: true, status: true },
+    select: { id: true, status: true, totalIncGST: true },
   });
 
   if (!invoice) {
@@ -210,11 +210,14 @@ async function handleInvoicePaid(
     return;
   }
 
+  // RA-855: invoice.paid means fully settled — set amountPaid = totalIncGST, amountDue = 0
   await prisma.invoice.update({
     where: { id: invoice.id },
     data: {
       status: "PAID",
       paidDate: new Date(payload.eventDateUtc ?? Date.now()),
+      amountPaid: invoice.totalIncGST ?? 0,
+      amountDue: 0,
     },
   });
 
@@ -268,8 +271,8 @@ async function handlePaymentCreated(
   }
 
   const data = await res.json();
-  const xeroInvoiceId: string | undefined =
-    data?.Payments?.[0]?.Invoice?.InvoiceID;
+  const xeroPayment = data?.Payments?.[0];
+  const xeroInvoiceId: string | undefined = xeroPayment?.Invoice?.InvoiceID;
 
   if (!xeroInvoiceId) {
     console.warn(
@@ -278,24 +281,33 @@ async function handlePaymentCreated(
     return;
   }
 
+  // RA-855: Use Xero's AmountDue as source of truth for remaining balance (in dollars → cents)
+  const amountDueCents = Math.round((xeroPayment?.Invoice?.AmountDue ?? 0) * 100);
+
   const invoice = await prisma.invoice.findFirst({
     where: { externalInvoiceId: xeroInvoiceId },
-    select: { id: true, status: true },
+    select: { id: true, status: true, totalIncGST: true },
   });
 
   if (!invoice || invoice.status === "PAID") {
     return; // Not found or already paid — idempotent
   }
 
+  const newAmountPaid = Math.max(0, (invoice.totalIncGST ?? 0) - amountDueCents);
+  const isPaid = amountDueCents === 0;
+
   await prisma.invoice.update({
     where: { id: invoice.id },
     data: {
-      status: "PAID",
-      paidDate: new Date(payload.eventDateUtc ?? Date.now()),
+      amountPaid: newAmountPaid,
+      amountDue: amountDueCents,
+      ...(isPaid
+        ? { status: "PAID", paidDate: new Date(payload.eventDateUtc ?? Date.now()) }
+        : {}),
     },
   });
 
   console.log(
-    `[Xero Webhook] payment.created → marked invoice ${invoice.id} as PAID via payment ${paymentId}`,
+    `[Xero Webhook] payment.created → updated invoice ${invoice.id}: amountPaid=${newAmountPaid} amountDue=${amountDueCents}${isPaid ? " (PAID)" : ""}`,
   );
 }
