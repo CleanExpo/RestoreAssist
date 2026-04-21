@@ -21,7 +21,7 @@
   },
   "scripts": {
     "postinstall": "prisma generate",
-    "build": "prisma generate && prisma migrate deploy && next build",
+    "build": "sh scripts/build.sh",
     "dev": "next dev",
     "start": "next start",
     "lint": "eslint .",
