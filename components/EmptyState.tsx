@@ -80,7 +80,7 @@ export function EmptyState({
         {title}
       </h3>
       {description ? (
-        <p className="mb-6 max-w-sm text-sm text-slate-500 dark:text-slate-400">
+        <p className="mb-6 max-w-sm text-sm text-slate-600 dark:text-slate-300">
           {description}
         </p>
       ) : null}
