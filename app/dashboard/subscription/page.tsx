@@ -365,7 +365,7 @@ export default function SubscriptionPage() {
                         Export your data
                       </a>
                       <span>
-                        — we retain canceled-account data for 90 days.
+                        — we retain cancelled-account data for 90 days.
                       </span>
                     </div>
                   </>
@@ -393,7 +393,7 @@ export default function SubscriptionPage() {
                   disabled={canceling}
                   className="w-full px-4 py-3 bg-gradient-to-r from-red-500 to-rose-500 rounded-lg font-medium hover:shadow-lg hover:shadow-red-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {canceling ? "Canceling..." : "Cancel Subscription"}
+                  {canceling ? "Cancelling..." : "Cancel Subscription"}
                 </button>
               )}
 
