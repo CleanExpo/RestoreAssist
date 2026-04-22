@@ -1,9 +1,21 @@
 /**
  * POST /api/admin/migrate-v2
  * One-time endpoint to create V2 tables on DO managed database.
- * Requires CRON_SECRET bearer token.
+ *
+ * RA-1539 — defence-in-depth auth layering:
+ *   1. `ADMIN_MIGRATE_V2_ENABLED=true` env flag (infra toggle)
+ *   2. `verifyCronAuth` — CRON_SECRET bearer (infra secret)
+ *   3. `getServerSession` + verifyAdminFromDb (human ADMIN session) [ADDED]
+ *
+ * The previous version required only (1) + (2). A leaked CRON_SECRET
+ * plus the flag flipped on could trigger DDL from any external caller.
+ * Layer 3 closes that gap — a human admin session must be present on
+ * the request for the DDL to run, even with infra credentials.
  */
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { verifyAdminFromDb } from "@/lib/admin-auth";
 import { verifyCronAuth } from "@/lib/cron/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -44,6 +56,22 @@ export async function POST(request: NextRequest) {
 
   const cronErr = verifyCronAuth(request);
   if (cronErr) return cronErr;
+
+  // RA-1539 — third gate: human ADMIN session. verifyAdminFromDb re-reads
+  // role from the DB (not the JWT claim) so a demoted admin's stale
+  // session cannot trigger DDL.
+  const session = await getServerSession(authOptions);
+  const auth = await verifyAdminFromDb(session);
+  if (auth.response) {
+    console.warn(
+      "[admin/migrate-v2] Rejected: no admin session (env flag + CRON_SECRET passed, but no human admin).",
+    );
+    return auth.response;
+  }
+  console.info(
+    "[admin/migrate-v2] All three gates passed:",
+    JSON.stringify({ adminUserId: auth.user!.id, email: auth.user!.email }),
+  );
 
   // RA-1334 — advisory lock guards against concurrent invocations that
   // would deadlock Postgres on the CREATE TABLE / CREATE INDEX DDL
