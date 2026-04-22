@@ -14,7 +14,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getClientIp } from "@/lib/rate-limiter";
+import { applyRateLimit, getClientIp } from "@/lib/rate-limiter";
+import { validateCsrf } from "@/lib/csrf";
 import {
   IMPERSONATION_TTL_MS,
   issueImpersonationToken,
@@ -22,6 +23,14 @@ import {
 } from "@/lib/admin-impersonation";
 
 export async function POST(request: NextRequest) {
+  // RA-1545 — defence-in-depth. Session cookies are SameSite=Lax by
+  // default, but impersonation is a high-blast-radius action; adding
+  // explicit origin-check removes the "cookie-attached cross-origin POST
+  // from a malicious page" edge case. Rate-limit is IP-based; a compromised
+  // admin browser can still issue tokens, but flooding is bounded.
+  const csrfErr = validateCsrf(request);
+  if (csrfErr) return csrfErr;
+
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -29,6 +38,17 @@ export async function POST(request: NextRequest) {
   if (session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden — admin only" }, { status: 403 });
   }
+
+  // RA-1545 — bound token-mint rate per admin. A genuine support flow issues
+  // 1-2 tokens/minute at most; this cap is far above the real workflow but
+  // catches compromised admin credentials trying to mint many.
+  const rateLimited = await applyRateLimit(request, {
+    windowMs: 60 * 1000,
+    maxRequests: 10,
+    prefix: "admin:impersonate:start",
+    key: session.user.id,
+  });
+  if (rateLimited) return rateLimited;
 
   const body = (await request.json().catch(() => null)) as {
     targetUserId?: unknown;
