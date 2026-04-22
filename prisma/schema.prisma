@@ -121,10 +121,15 @@ model User {
   // RA-1260 — two-factor authentication (TOTP / RFC 6238).
   // secret is stored as a base32 string; encryption-at-rest is deferred
   // to the DB layer. `enabled` gates whether login prompts for a code.
-  // Recovery codes for lock-out recovery are a follow-up.
-  twoFactorEnabled Boolean @default(false)
-  twoFactorSecret  String?  // base32-encoded TOTP shared secret
+  twoFactorEnabled   Boolean   @default(false)
+  twoFactorSecret    String?   // base32-encoded TOTP shared secret
   twoFactorEnabledAt DateTime?
+  // RA-1588 — backup / recovery codes so losing the authenticator
+  // device is not a permanent lockout. JSON array of bcrypt hashes;
+  // each entry is consumed (spliced out) on use so codes are
+  // strictly single-use. Null + twoFactorEnabled=true means the user
+  // enrolled pre-RA-1588 and should be prompted to regenerate.
+  twoFactorRecoveryCodes String? @db.Text
 
   // Premium Features
   hasPremiumInspectionReports Boolean @default(false) // Access to 3-stakeholder PDF generator
