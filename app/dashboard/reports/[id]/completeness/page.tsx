@@ -286,6 +286,7 @@ export default function ReportCompletenessPage() {
               size="icon"
               onClick={() => router.push(`/dashboard/reports/${reportId}`)}
               className="shrink-0 mt-0.5"
+              aria-label="Back to report"
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>

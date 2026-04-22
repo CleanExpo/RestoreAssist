@@ -207,7 +207,12 @@ export default function ContentsManifestPage() {
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => router.back()}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => router.back()}
+            aria-label="Back"
+          >
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <div>

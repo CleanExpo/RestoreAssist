@@ -326,6 +326,7 @@ export default function InvoiceVariationsPage({
                     setShowForm(false);
                     setForm(EMPTY_FORM);
                   }}
+                  aria-label="Close variation form"
                 >
                   <X className="h-4 w-4" />
                 </Button>
