@@ -20,6 +20,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
 import { reportError } from "@/lib/observability";
+import { recordMutationAudit } from "@/lib/audit-log";
 
 export async function PATCH(
   request: NextRequest,
@@ -73,16 +74,17 @@ export async function PATCH(
       select: { id: true, email: true, isJuniorTechnician: true },
     });
 
-    // Structured log for Vercel Observability — who changed whom, when.
-    console.info(
-      "[admin-user.patch]",
-      JSON.stringify({
-        adminUserId: adminUser!.id,
-        targetUserId: target.id,
-        field: "isJuniorTechnician",
-        value: body.isJuniorTechnician,
-      }),
-    );
+    // RA-1541 — persistent audit trail (SecurityEvent + Observability).
+    await recordMutationAudit({
+      resource: "user",
+      resourceId: target.id,
+      verb: "UPDATE",
+      action: "update.isJuniorTechnician",
+      actorUserId: adminUser!.id,
+      organizationId: adminUser!.organizationId,
+      metadata: { value: body.isJuniorTechnician },
+      request,
+    });
 
     return NextResponse.json({ user: updated });
   } catch (err) {

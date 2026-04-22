@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { recordMutationAudit } from "@/lib/audit-log";
 
 export async function GET(
   request: NextRequest,
@@ -92,6 +93,20 @@ export async function PUT(
       },
     });
 
+    await recordMutationAudit({
+      resource: "integration",
+      resourceId: id,
+      verb: "UPDATE",
+      action: "integration.update",
+      actorUserId: session.user.id,
+      metadata: {
+        provider: existingIntegration.provider,
+        statusChanged: existingIntegration.status !== integration.status,
+        newStatus: integration.status,
+      },
+      request,
+    });
+
     return NextResponse.json(integration);
   } catch (error) {
     console.error("Error updating integration:", error);
@@ -132,6 +147,16 @@ export async function DELETE(
 
     await prisma.integration.delete({
       where: { id },
+    });
+
+    await recordMutationAudit({
+      resource: "integration",
+      resourceId: id,
+      verb: "DELETE",
+      action: "integration.delete",
+      actorUserId: session.user.id,
+      metadata: { provider: existingIntegration.provider },
+      request,
     });
 
     return NextResponse.json({ success: true });

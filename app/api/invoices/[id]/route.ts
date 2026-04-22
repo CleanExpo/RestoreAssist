@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isDraft, isCancelled } from "@/lib/invoice-status";
+import { recordMutationAudit } from "@/lib/audit-log";
 
 export async function GET(
   request: NextRequest,
@@ -236,6 +237,19 @@ export async function PUT(
         return updated;
       });
 
+      await recordMutationAudit({
+        resource: "invoice",
+        resourceId: id,
+        verb: "UPDATE",
+        action: "invoice.update",
+        actorUserId: session.user.id,
+        metadata: {
+          invoiceNumber: existing.invoiceNumber,
+          linesReplaced: true,
+          lineCount: lineItems.length,
+        },
+        request,
+      });
       return NextResponse.json({ invoice });
     } else {
       // Update invoice without line items
@@ -263,6 +277,15 @@ export async function PUT(
         return updated;
       });
 
+      await recordMutationAudit({
+        resource: "invoice",
+        resourceId: id,
+        verb: "UPDATE",
+        action: "invoice.update",
+        actorUserId: session.user.id,
+        metadata: { invoiceNumber: existing.invoiceNumber, linesReplaced: false },
+        request,
+      });
       return NextResponse.json({ invoice });
     }
   } catch (error: any) {
@@ -308,6 +331,16 @@ export async function DELETE(
     // Delete invoice (cascade will handle related records)
     await prisma.invoice.delete({
       where: { id },
+    });
+
+    await recordMutationAudit({
+      resource: "invoice",
+      resourceId: id,
+      verb: "DELETE",
+      action: "invoice.delete",
+      actorUserId: session.user.id,
+      metadata: { invoiceNumber: invoice.invoiceNumber, status: invoice.status },
+      request,
     });
 
     return NextResponse.json({
