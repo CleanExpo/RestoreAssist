@@ -35,6 +35,9 @@ interface AdminUser {
   createdAt: string;
   organizationId: string | null;
   subscriptionStatus: string | null;
+  // RA-1467: Junior Technician ring-fence — when true, resolveProgressRole
+  // blocks any Progress transition beyond evidence capture.
+  isJuniorTechnician?: boolean;
   _count: {
     inspections: number;
     reports: number;
@@ -68,6 +71,65 @@ function RoleBadge({ role }: { role: UserRole }) {
     <Badge variant="outline" className={config.className}>
       {config.label}
     </Badge>
+  );
+}
+
+/**
+ * RA-1467 — Inline toggle for User.isJuniorTechnician.
+ * PATCH /api/admin/users/[id] with {isJuniorTechnician: boolean}.
+ * Optimistic UI: toggles immediately, rolls back on error.
+ * Disabled for ADMINs (shouldn't be ring-fenced).
+ */
+function JuniorTechToggle({
+  userId,
+  initial,
+  disabled,
+}: {
+  userId: string;
+  initial: boolean;
+  disabled?: boolean;
+}) {
+  const [value, setValue] = useState(initial);
+  const [saving, setSaving] = useState(false);
+
+  async function handleToggle() {
+    if (disabled || saving) return;
+    const next = !value;
+    setValue(next);
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isJuniorTechnician: next }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch (err) {
+      setValue(!next); // rollback
+      console.error("[JuniorTechToggle] update failed", err);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={value}
+      aria-label={`Toggle junior-technician ring-fence ${value ? "off" : "on"}`}
+      onClick={handleToggle}
+      disabled={disabled || saving}
+      className={`inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+        value ? "bg-amber-500" : "bg-neutral-300 dark:bg-neutral-700"
+      } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+    >
+      <span
+        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+          value ? "translate-x-4" : "translate-x-0.5"
+        }`}
+      />
+    </button>
   );
 }
 
@@ -268,6 +330,9 @@ export default function AdminUsersPage() {
                   <TableHead className="pl-6">Name</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Role</TableHead>
+                  <TableHead className="hidden lg:table-cell">
+                    Junior tech
+                  </TableHead>
                   <TableHead className="hidden md:table-cell">
                     Reports
                   </TableHead>
@@ -294,6 +359,13 @@ export default function AdminUsersPage() {
                     </TableCell>
                     <TableCell>
                       <RoleBadge role={user.role} />
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell">
+                      <JuniorTechToggle
+                        userId={user.id}
+                        initial={user.isJuniorTechnician ?? false}
+                        disabled={user.role === "ADMIN"}
+                      />
                     </TableCell>
                     <TableCell className="hidden md:table-cell text-neutral-600 dark:text-neutral-400 text-sm">
                       {user._count.reports}
