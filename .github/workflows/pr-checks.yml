@@ -59,3 +59,12 @@ jobs:
           STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
           GOOGLE_MAPS_API_KEY: ci_placeholder
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+
+      # RA-1594 — dependency advisory audit. Surface high / critical CVEs
+      # on every PR so they're visible before merge. `continue-on-error`
+      # mirrors the other non-blocking checks in this gate: the signal is
+      # what matters today, we can promote to fail-on-high once the
+      # current backlog is clean.
+      - name: Audit dependencies
+        run: pnpm audit --audit-level=high --prod
+        continue-on-error: true
