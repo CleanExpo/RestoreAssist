@@ -301,8 +301,16 @@ export async function llmClassify(input: {
       jurisdiction: input.jurisdiction ?? "AU",
     });
 
+    // 2026-04-22: moved from claude-opus-4-7 → claude-sonnet-4-6.
+    // Reasoning for the swap:
+    //   - Auto-classify is binary / multi-class categorisation; it does
+    //     not need Opus's agentic reasoning.
+    //   - Opus 4.7 rejects `thinking.budget_tokens` (breaking change);
+    //     the block below would 400 on every call.
+    //   - Sonnet 4.6 still accepts explicit budget_tokens, keeps the
+    //     shared output schema, and cuts cost per call by ~67%.
     const response = await client.messages.create({
-      model: "claude-opus-4-7",
+      model: "claude-sonnet-4-6",
       max_tokens: 1024,
       thinking: { type: "enabled", budget_tokens: 2048 },
       system: SYSTEM_PROMPT,

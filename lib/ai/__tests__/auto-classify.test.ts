@@ -42,7 +42,7 @@ function makeAnthropicResponse(text: string) {
     type: "message",
     role: "assistant",
     content: [{ type: "text", text }],
-    model: "claude-opus-4-7",
+    model: "claude-sonnet-4-6",
     stop_reason: "end_turn",
     stop_sequence: null,
     usage: { input_tokens: 10, output_tokens: 20 },
