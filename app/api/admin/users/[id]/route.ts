@@ -19,7 +19,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
-import { reportError } from "@/lib/observability";
+import { apiError, fromException } from "@/lib/api-errors";
 import { recordMutationAudit } from "@/lib/audit-log";
 
 export async function PATCH(
@@ -33,7 +33,7 @@ export async function PATCH(
 
   const { id: targetUserId } = await params;
   if (!targetUserId) {
-    return NextResponse.json({ error: "User id required" }, { status: 400 });
+    return apiError(request, { code: "VALIDATION", message: "User id required", status: 400 });
   }
 
   // Same-org guard
@@ -42,13 +42,14 @@ export async function PATCH(
     select: { id: true, organizationId: true },
   });
   if (!target) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
+    return apiError(request, { code: "NOT_FOUND", message: "User not found", status: 404 });
   }
   if (adminUser!.organizationId && target.organizationId !== adminUser!.organizationId) {
-    return NextResponse.json(
-      { error: "Cannot edit users outside your organisation" },
-      { status: 403 },
-    );
+    return apiError(request, {
+      code: "FORBIDDEN",
+      message: "Cannot edit users outside your organisation",
+      status: 403,
+    });
   }
 
   const body = (await request.json().catch(() => null)) as
@@ -58,13 +59,12 @@ export async function PATCH(
   // Single-field whitelist — deliberately ignores other keys to avoid
   // mass-assignment (RA-1338 pattern).
   if (body == null || typeof body.isJuniorTechnician !== "boolean") {
-    return NextResponse.json(
-      {
-        error:
-          "Expected body { isJuniorTechnician: boolean }. No other fields accepted at this endpoint.",
-      },
-      { status: 400 },
-    );
+    return apiError(request, {
+      code: "VALIDATION",
+      message:
+        "Expected body { isJuniorTechnician: boolean }. No other fields accepted at this endpoint.",
+      status: 400,
+    });
   }
 
   try {
@@ -88,12 +88,9 @@ export async function PATCH(
 
     return NextResponse.json({ user: updated });
   } catch (err) {
-    reportError(err, {
-      route: "/api/admin/users/[id]",
+    return fromException(request, err, {
       stage: "update",
-      adminUserId: adminUser!.id,
-      targetUserId: target.id,
+      context: { adminUserId: adminUser!.id, targetUserId: target.id },
     });
-    return NextResponse.json({ error: "Update failed" }, { status: 500 });
   }
 }
