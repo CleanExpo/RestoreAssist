@@ -1,7 +1,7 @@
 /**
  * RA-437: POST /api/vision/extract-reading
  * Accepts a base64 image of a moisture meter and returns the extracted reading
- * using Claude Vision (claude-sonnet-4-20250514).
+ * using Claude Vision (claude-sonnet-4-6).
  *
  * Body: { image: string (base64), mediaType?: "image/jpeg"|"image/png"|"image/webp" }
  * Response: { reading: MeterReadingResult }
@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
       const messages = buildMeterExtractionMessages(image, mediaType);
 
       const response = await anthropic.messages.create({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-sonnet-4-6",
         max_tokens: 512,
         system: METER_EXTRACTION_SYSTEM_PROMPT,
         messages,
