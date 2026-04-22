@@ -237,9 +237,9 @@ export default function ClientDetailPage({
     return (
       <div className="text-center py-12">
         <AlertTriangle className="mx-auto h-12 w-12 text-slate-400 mb-4" />
-        <h3 className="text-lg font-medium text-white mb-2">
+        <h1 className="text-lg font-medium text-white mb-2">
           Client not found
-        </h3>
+        </h1>
         <p className="text-slate-400 mb-4">
           The client you're looking for doesn't exist or has been deleted.
         </p>
@@ -285,10 +285,10 @@ export default function ClientDetailPage({
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Contact Information */}
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
-          <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+          <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
             <User className="text-cyan-400" size={20} />
             Contact Information
-          </h3>
+          </h2>
           <div className="space-y-3">
             <div className="flex items-center gap-3">
               <Mail className="text-slate-400" size={16} />
@@ -317,10 +317,10 @@ export default function ClientDetailPage({
 
         {/* Business Information */}
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
-          <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+          <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
             <Building className="text-blue-400" size={20} />
             Business Information
-          </h3>
+          </h2>
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-slate-400">Status</span>
@@ -353,10 +353,10 @@ export default function ClientDetailPage({
 
         {/* Statistics */}
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
-          <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+          <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
             <DollarSign className="text-emerald-400" size={20} />
             Statistics
-          </h3>
+          </h2>
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-slate-400">Total Reports</span>
@@ -392,10 +392,10 @@ export default function ClientDetailPage({
       {/* Notes */}
       {client.notes && (
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
-          <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+          <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
             <FileText className="text-amber-400" size={20} />
             Notes
-          </h3>
+          </h2>
           <p className="text-slate-300">{client.notes}</p>
         </div>
       )}
@@ -409,7 +409,7 @@ export default function ClientDetailPage({
 
       {/* Inspections */}
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
-        <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+        <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
           <ClipboardList className="text-cyan-400" size={20} />
           Inspections
           {!loadingInspections && (
@@ -417,7 +417,7 @@ export default function ClientDetailPage({
               ({inspections.length})
             </span>
           )}
-        </h3>
+        </h2>
         {loadingInspections ? (
           <div className="space-y-3">
             {[1, 2, 3].map((n) => (
@@ -495,10 +495,10 @@ export default function ClientDetailPage({
 
       {/* Reports History */}
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
-        <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+        <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
           <FileText className="text-blue-400" size={20} />
           Reports History ({client.reportsCount})
-        </h3>
+        </h2>
         {client.reports.length === 0 ? (
           <div className="text-center py-8">
             <FileText className="mx-auto h-12 w-12 text-slate-400 mb-4" />
@@ -518,7 +518,7 @@ export default function ClientDetailPage({
                 className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg"
               >
                 <div className="flex-1">
-                  <h4 className="font-medium text-white">{report.title}</h4>
+                  <h3 className="font-medium text-white">{report.title}</h3>
                   <div className="flex items-center gap-4 mt-1 text-sm text-slate-400">
                     <span>
                       {new Date(report.createdAt).toLocaleDateString()}
@@ -557,7 +557,7 @@ export default function ClientDetailPage({
 
       {/* Restoration Invoices */}
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
-        <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+        <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
           <Receipt className="text-emerald-400" size={20} />
           Restoration Invoices
           {!invoicesLoading && (
@@ -565,7 +565,7 @@ export default function ClientDetailPage({
               {invoices.length}
             </span>
           )}
-        </h3>
+        </h2>
 
         {invoicesLoading ? (
           <div className="space-y-3">
