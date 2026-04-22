@@ -11,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { reportClientError } from "@/lib/observability";
 
 export default function DashboardError({
   error,
@@ -21,6 +22,12 @@ export default function DashboardError({
 }) {
   useEffect(() => {
     console.error("[DashboardError]", error);
+    // RA-1543 — ship the exception to Vercel Observability via the
+    // /api/observability/client-error sink so ops can filter + alert.
+    reportClientError(error, {
+      boundary: "DashboardError",
+      digest: error.digest,
+    });
   }, [error]);
 
   return (
