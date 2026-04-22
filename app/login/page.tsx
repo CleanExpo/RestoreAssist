@@ -14,6 +14,12 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  // RA-1587 — 2FA state. `totp` is the 6-digit code; `needsTotp` is
+  // toggled true after the server bounces the first submission with
+  // `2FA_REQUIRED`. We keep `email` + `password` in state so the
+  // follow-up submission carries them without re-prompting.
+  const [totp, setTotp] = useState("");
+  const [needsTotp, setNeedsTotp] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -34,10 +40,20 @@ function LoginForm() {
       const result = await signIn("credentials", {
         email,
         password,
+        totp: totp || undefined,
         redirect: false,
       });
 
-      if (result?.error) {
+      if (result?.error === "2FA_REQUIRED") {
+        // Account has 2FA enabled. Reveal the TOTP field and ask for a code.
+        setNeedsTotp(true);
+        setError("Enter your 6-digit authenticator code to continue.");
+        toast("2FA code required", { icon: "🔐" });
+      } else if (result?.error === "2FA_INVALID") {
+        setNeedsTotp(true);
+        setError("Invalid authenticator code. Try again.");
+        toast.error("Invalid 2FA code");
+      } else if (result?.error) {
         setError("Invalid email or password");
         toast.error("Invalid email or password");
       } else {
@@ -164,6 +180,36 @@ function LoginForm() {
                 </button>
               </div>
             </div>
+
+            {/* RA-1587 — 2FA code. Only rendered after the server
+                signals the account has 2FA enabled. Prevents email
+                enumeration (we don't reveal 2FA status up-front). */}
+            {needsTotp && (
+              <div>
+                <label
+                  htmlFor="totp"
+                  className="block text-sm font-medium text-slate-300 mb-2"
+                >
+                  6-digit authenticator code
+                </label>
+                <input
+                  id="totp"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]{6}"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  value={totp}
+                  onChange={(e) =>
+                    setTotp(e.target.value.replace(/\D/g, "").slice(0, 6))
+                  }
+                  placeholder="123456"
+                  required
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 tracking-widest text-center text-lg"
+                  autoFocus
+                />
+              </div>
+            )}
 
             {/* Error Message */}
             {error && (
