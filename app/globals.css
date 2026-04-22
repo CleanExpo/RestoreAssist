@@ -376,3 +376,21 @@ body {
 .animate-shimmer {
   animation: shimmer 2s infinite;
 }
+
+/*
+ * RA-1571 — honour prefers-reduced-motion (WCAG 2.3.3 Animation
+ * from Interactions, WCAG 2.2 SC). Users who opt into reduced motion
+ * at the OS level get a near-zero duration for every animation +
+ * transition, effectively disabling the motion without losing the
+ * paint so layout isn't broken.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
