@@ -508,7 +508,7 @@ Example format: ["remove_carpet", "install_dehumidification", "install_air_mover
         return Promise.race([
           // Use prompt caching for cost optimization (90% savings on cache hits)
           anthropic.messages.create({
-            model: "claude-sonnet-4-20250514",
+            model: "claude-sonnet-4-6",
             max_tokens: 8192, // Increased for larger/complex reports
             system: [createCachedSystemPrompt(systemPrompt)],
             messages: [
