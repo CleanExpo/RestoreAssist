@@ -25,6 +25,7 @@ import {
   type EstimateForCheck,
 } from "@/lib/billing-completeness-check";
 import { recordMutationAudit } from "@/lib/audit-log";
+import { apiError, fromException } from "@/lib/api-errors";
 
 const ALLOWED_STATUSES = [
   "DRAFT",
@@ -51,7 +52,7 @@ export async function PATCH(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
     }
 
     const { id } = await params;
@@ -60,12 +61,11 @@ export async function PATCH(
     } | null;
 
     if (!body || !isEstimateStatus(body.status)) {
-      return NextResponse.json(
-        {
-          error: `status must be one of ${ALLOWED_STATUSES.join(", ")}`,
-        },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: `status must be one of ${ALLOWED_STATUSES.join(", ")}`,
+        status: 400,
+      });
     }
 
     // Load the estimate with the projections the check needs
@@ -98,11 +98,11 @@ export async function PATCH(
     });
 
     if (!estimate) {
-      return NextResponse.json({ error: "Estimate not found" }, { status: 404 });
+      return apiError(request, { code: "NOT_FOUND", message: "Estimate not found", status: 404 });
     }
 
     if (estimate.userId !== session.user.id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return apiError(request, { code: "FORBIDDEN", message: "Forbidden", status: 403 });
     }
 
     // Run the completeness check only when transitioning to INTERNAL_REVIEW.
@@ -144,9 +144,15 @@ export async function PATCH(
       const result = checkBillingCompleteness(input);
 
       if (!result.complete) {
+        // Domain-specific 422 — keeps the existing shape so the UI can
+        // iterate `blockers` and `warnings`. Matches apiError envelope
+        // only on the top-level `error` field.
         return NextResponse.json(
           {
-            error: "Billing incomplete",
+            error: {
+              code: "VALIDATION",
+              message: "Billing incomplete",
+            },
             blockers: result.blockers,
             warnings: result.warnings,
           },
@@ -197,10 +203,6 @@ export async function PATCH(
 
     return NextResponse.json({ data: updated });
   } catch (err) {
-    console.error("[estimates status PATCH]", err);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, err, { stage: "estimate-status-patch" });
   }
 }

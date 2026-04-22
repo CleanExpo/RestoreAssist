@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { recordMutationAudit } from "@/lib/audit-log";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function GET(
   request: NextRequest,
@@ -12,7 +13,7 @@ export async function GET(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
     }
 
     const { id } = await params;
@@ -35,19 +36,12 @@ export async function GET(
     });
 
     if (!integration) {
-      return NextResponse.json(
-        { error: "Integration not found" },
-        { status: 404 },
-      );
+      return apiError(request, { code: "NOT_FOUND", message: "Integration not found", status: 404 });
     }
 
     return NextResponse.json(integration);
   } catch (error) {
-    console.error("Error fetching integration:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "integration-get" });
   }
 }
 
@@ -59,7 +53,7 @@ export async function PUT(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
     }
 
     const { id } = await params;
@@ -75,10 +69,7 @@ export async function PUT(
     });
 
     if (!existingIntegration) {
-      return NextResponse.json(
-        { error: "Integration not found" },
-        { status: 404 },
-      );
+      return apiError(request, { code: "NOT_FOUND", message: "Integration not found", status: 404 });
     }
 
     const integration = await prisma.integration.update({
@@ -109,11 +100,7 @@ export async function PUT(
 
     return NextResponse.json(integration);
   } catch (error) {
-    console.error("Error updating integration:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "integration-put" });
   }
 }
 
@@ -125,7 +112,7 @@ export async function DELETE(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
     }
 
     const { id } = await params;
@@ -139,10 +126,7 @@ export async function DELETE(
     });
 
     if (!existingIntegration) {
-      return NextResponse.json(
-        { error: "Integration not found" },
-        { status: 404 },
-      );
+      return apiError(request, { code: "NOT_FOUND", message: "Integration not found", status: 404 });
     }
 
     await prisma.integration.delete({
@@ -161,10 +145,6 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error deleting integration:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "integration-delete" });
   }
 }
