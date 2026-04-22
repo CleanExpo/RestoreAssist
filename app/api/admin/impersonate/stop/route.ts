@@ -11,8 +11,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { applyRateLimit } from "@/lib/rate-limiter";
+import { validateCsrf } from "@/lib/csrf";
 
 export async function POST(request: NextRequest) {
+  // RA-1545 — same CSRF + rate-limit posture as the start endpoint.
+  const csrfErr = validateCsrf(request);
+  if (csrfErr) return csrfErr;
+
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -20,6 +26,14 @@ export async function POST(request: NextRequest) {
   if (session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden — admin only" }, { status: 403 });
   }
+
+  const rateLimited = await applyRateLimit(request, {
+    windowMs: 60 * 1000,
+    maxRequests: 30,
+    prefix: "admin:impersonate:stop",
+    key: session.user.id,
+  });
+  if (rateLimited) return rateLimited;
 
   const body = (await request.json().catch(() => null)) as { jti?: unknown } | null;
   const jti = typeof body?.jti === "string" ? body.jti.trim() : "";
