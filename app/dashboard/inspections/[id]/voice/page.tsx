@@ -189,6 +189,7 @@ export default function VoiceSessionPage({ params }: PageProps) {
           size="icon"
           onClick={() => router.push(`/dashboard/inspections/${inspectionId}`)}
           className="text-white/60 hover:text-white"
+          aria-label="Back to inspection"
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
