@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
   }
   console.info(
     "[admin/migrate-v2] All three gates passed:",
-    JSON.stringify({ adminUserId: auth.user!.id, email: auth.user!.email }),
+    JSON.stringify({ adminUserId: auth.user!.id }),
   );
 
   // RA-1334 — advisory lock guards against concurrent invocations that
