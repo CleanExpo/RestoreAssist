@@ -14,7 +14,11 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { validateCsrf } from "@/lib/csrf";
 import { applyRateLimit } from "@/lib/rate-limiter";
-import { verifyToken } from "@/lib/auth/two-factor";
+import {
+  verifyToken,
+  generateRecoveryCodes,
+  serializeRecoveryCodes,
+} from "@/lib/auth/two-factor";
 
 export async function POST(req: NextRequest) {
   const csrfError = validateCsrf(req);
@@ -72,16 +76,26 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // RA-1588 — mint recovery codes at enrolment so losing the authenticator
+  // device is not a permanent lockout. Plain codes are returned ONCE in
+  // this response; the DB stores only bcrypt hashes. Each code is
+  // single-use and spliced out on consumption.
+  const { plain: recoveryCodes, hashed } = await generateRecoveryCodes();
+
   await prisma.user.update({
     where: { id: session.user.id },
     data: {
       twoFactorEnabled: true,
       twoFactorEnabledAt: new Date(),
+      twoFactorRecoveryCodes: serializeRecoveryCodes(hashed),
     } as any,
   });
 
   return NextResponse.json({
     success: true,
     message: "Two-factor authentication enabled.",
+    recoveryCodes,
+    recoveryCodesWarning:
+      "Save these recovery codes somewhere safe. Each is single-use and can log you in if you lose your authenticator device. They will not be shown again.",
   });
 }

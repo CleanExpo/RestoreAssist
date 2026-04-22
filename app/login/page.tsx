@@ -181,33 +181,36 @@ function LoginForm() {
               </div>
             </div>
 
-            {/* RA-1587 — 2FA code. Only rendered after the server
-                signals the account has 2FA enabled. Prevents email
-                enumeration (we don't reveal 2FA status up-front). */}
+            {/* RA-1587 / RA-1588 — 2FA code OR recovery code. Only
+                rendered after the server signals the account has 2FA
+                enabled (prevents enumeration). Accepts either:
+                  - 6-digit TOTP from the authenticator app, OR
+                  - XXXXX-XXXXX single-use recovery code. */}
             {needsTotp && (
               <div>
                 <label
                   htmlFor="totp"
                   className="block text-sm font-medium text-slate-300 mb-2"
                 >
-                  6-digit authenticator code
+                  6-digit code or recovery code
                 </label>
                 <input
                   id="totp"
                   type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]{6}"
+                  inputMode="text"
                   autoComplete="one-time-code"
-                  maxLength={6}
+                  maxLength={16}
                   value={totp}
-                  onChange={(e) =>
-                    setTotp(e.target.value.replace(/\D/g, "").slice(0, 6))
-                  }
-                  placeholder="123456"
+                  onChange={(e) => setTotp(e.target.value.slice(0, 16))}
+                  placeholder="123456 or ABCDE-FGHIJ"
                   required
                   className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 tracking-widest text-center text-lg"
                   autoFocus
                 />
+                <p className="text-xs text-slate-400 mt-2">
+                  Lost your device? Enter one of the recovery codes you
+                  saved when you enabled 2FA. Each is single-use.
+                </p>
               </div>
             )}
 
