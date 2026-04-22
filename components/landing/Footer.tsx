@@ -125,6 +125,26 @@ export default function Footer({ darkMode }: FooterProps) {
                 >
                   <p>Restore Assist by Unite-Group Nexus Pty Ltd</p>
                   {BRAND.company.abn && <p>ABN: {BRAND.company.abn}</p>}
+                  {BRAND.company.address && <p>{BRAND.company.address}</p>}
+                  {/* RA-1582 — procurement + security contacts. */}
+                  <p>
+                    Support:{" "}
+                    <a
+                      href={`mailto:${BRAND.company.supportEmail}`}
+                      className="underline hover:no-underline"
+                    >
+                      {BRAND.company.supportEmail}
+                    </a>
+                  </p>
+                  <p>
+                    Security disclosure:{" "}
+                    <a
+                      href={`mailto:${BRAND.company.securityEmail}`}
+                      className="underline hover:no-underline"
+                    >
+                      {BRAND.company.securityEmail}
+                    </a>
+                  </p>
                 </div>
               </div>
             </div>
