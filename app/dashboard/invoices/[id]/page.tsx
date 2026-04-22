@@ -400,7 +400,7 @@ export default function InvoiceDetailPage({
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <AlertCircle className="mx-auto h-12 w-12 text-red-400 mb-4" />
-          <h2 className="text-xl font-semibold mb-2">Invoice Not Found</h2>
+          <h1 className="text-xl font-semibold mb-2">Invoice Not Found</h1>
           <p className="text-slate-400 mb-4">
             The requested invoice could not be found.
           </p>
