@@ -24,6 +24,7 @@ import {
   checkBillingCompleteness,
   type EstimateForCheck,
 } from "@/lib/billing-completeness-check";
+import { recordMutationAudit } from "@/lib/audit-log";
 
 const ALLOWED_STATUSES = [
   "DRAFT",
@@ -158,6 +159,20 @@ export async function PATCH(
         data: { status: body.status, updatedBy: session.user.id },
       });
 
+      await recordMutationAudit({
+        resource: "estimate",
+        resourceId: id,
+        verb: "UPDATE",
+        action: "estimate.status.transition",
+        actorUserId: session.user.id,
+        metadata: {
+          from: estimate.status,
+          to: body.status,
+          warnings: result.warnings,
+        },
+        request,
+      });
+
       return NextResponse.json({
         data: updated,
         warnings: result.warnings,
@@ -168,6 +183,16 @@ export async function PATCH(
     const updated = await prisma.estimate.update({
       where: { id },
       data: { status: body.status, updatedBy: session.user.id },
+    });
+
+    await recordMutationAudit({
+      resource: "estimate",
+      resourceId: id,
+      verb: "UPDATE",
+      action: "estimate.status.transition",
+      actorUserId: session.user.id,
+      metadata: { from: estimate.status, to: body.status },
+      request,
     });
 
     return NextResponse.json({ data: updated });

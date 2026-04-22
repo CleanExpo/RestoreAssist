@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { recordMutationAudit } from "@/lib/audit-log";
 
 /**
  * GET /api/estimates/[id] — fetch a single estimate with full line items
@@ -54,7 +55,7 @@ export async function GET(
  * Cascade: line items are removed too (relation onDelete: Cascade).
  */
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
@@ -89,6 +90,16 @@ export async function DELETE(
     }
 
     await prisma.estimate.delete({ where: { id } });
+
+    await recordMutationAudit({
+      resource: "estimate",
+      resourceId: id,
+      verb: "DELETE",
+      action: "estimate.delete",
+      actorUserId: session.user.id,
+      metadata: { previousStatus: estimate.status },
+      request,
+    });
 
     return NextResponse.json({ deleted: true, id });
   } catch (error) {
