@@ -14,6 +14,40 @@ const nextConfig = {
   },
   async headers() {
     // Shared security headers applied to every route
+    // RA-1589 — static Content-Security-Policy stopgap.
+    //
+    // The original plan was a middleware-generated nonce-based CSP; that
+    // middleware was never written (see security audit 2026-04-22). This
+    // static policy gives us defence-in-depth against stored XSS while the
+    // nonce migration is scoped. Anything that would be a stricter policy
+    // (removing 'unsafe-inline' for scripts, removing 'unsafe-eval') needs
+    // the nonce path + a pass over the 13 dangerouslySetInnerHTML sites
+    // and every Stripe/Cloudinary inline widget.
+    //
+    // Key decisions:
+    //   - frame-ancestors 'none' — clickjacking defence (paired with XFO).
+    //   - form-action 'self'   — prevents form-submission redirects to
+    //                             attacker domains.
+    //   - base-uri 'self'      — stops <base> tag hijacks.
+    //   - object-src 'none'    — no Flash/Java plugin injection.
+    //   - upgrade-insecure-requests — auto-upgrade http:// subresources.
+    const cspDirectives = [
+      "default-src 'self'",
+      // 'unsafe-inline' + 'unsafe-eval' retained until nonce migration. Allow
+      // Stripe (checkout), Vercel Analytics, Cloudflare Turnstile, Cloudinary.
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://challenges.cloudflare.com https://widget.cloudinary.com https://upload-widget.cloudinary.com https://va.vercel-scripts.com",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "img-src 'self' data: blob: https://res.cloudinary.com https://*.stripe.com https://lh3.googleusercontent.com",
+      "font-src 'self' data: https://fonts.gstatic.com",
+      "connect-src 'self' https://api.stripe.com https://*.supabase.co https://*.upstash.io wss://*.supabase.co https://api.cloudinary.com https://vitals.vercel-insights.com",
+      "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com",
+      "frame-ancestors 'none'",
+      "form-action 'self'",
+      "base-uri 'self'",
+      "object-src 'none'",
+      "upgrade-insecure-requests",
+    ].join("; ");
+
     const sharedHeaders = [
       { key: "X-Frame-Options", value: "DENY" },
       { key: "X-Content-Type-Options", value: "nosniff" },
@@ -23,9 +57,7 @@ const nextConfig = {
         key: "Strict-Transport-Security",
         value: "max-age=31536000; includeSubDomains",
       },
-      // Content-Security-Policy is set per-request in middleware.ts with a fresh nonce
-      // to eliminate 'unsafe-inline' for scripts. Do not add a static CSP here —
-      // it would conflict with the middleware-generated nonce-based policy.
+      { key: "Content-Security-Policy", value: cspDirectives },
     ];
 
     return [
