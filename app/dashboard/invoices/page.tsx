@@ -35,6 +35,11 @@ interface Invoice {
   totalIncGST: number;
   amountPaid: number;
   amountDue: number;
+  // RA-1553 — surface external accounting-software sync state so users
+  // see a FAILED Xero/QuickBooks push instead of assuming success.
+  externalSyncStatus?: "PENDING" | "SYNCED" | "FAILED" | null;
+  externalSyncProvider?: string | null;
+  externalSyncError?: string | null;
   _count: {
     lineItems: number;
     payments: number;
@@ -445,6 +450,15 @@ export default function InvoicesPage() {
                         dueDate: invoice.dueDate,
                         amountDue: invoice.amountDue,
                       })}
+                      {invoice.externalSyncStatus === "FAILED" && (
+                        <div
+                          className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+                          title={invoice.externalSyncError ?? "Sync failed"}
+                        >
+                          <span aria-hidden>⚠</span>
+                          {invoice.externalSyncProvider ?? "Accounting"} sync failed
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                       <button
