@@ -83,3 +83,4 @@ proxy.ts
 
 # Multi-PC swarm — local identity per machine (see work-together.md)
 .claude/swarm/identity.local.md
+scripts/__pycache__/
