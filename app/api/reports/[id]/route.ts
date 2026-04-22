@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sanitizeString } from "@/lib/sanitize";
+import { parseDate } from "@/lib/parse-date";
 
 export async function GET(
   request: NextRequest,
@@ -121,6 +122,38 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
+
+    // RA-1300 — reject malformed user-supplied dates up-front (400) instead
+    // of persisting an Invalid Date silently. Only fail when the CALLER
+    // supplied the key but the value didn't parse.
+    let inspectionDateParsed: Date | null = null;
+    let completionDateParsed: Date | null = null;
+    if (body.inspectionDate !== undefined && body.inspectionDate !== null) {
+      inspectionDateParsed = parseDate(body.inspectionDate);
+      if (inspectionDateParsed === null) {
+        return NextResponse.json(
+          {
+            error:
+              "inspectionDate is not a valid date (expected ISO-8601 or similar)",
+            field: "inspectionDate",
+          },
+          { status: 400 },
+        );
+      }
+    }
+    if (body.completionDate !== undefined && body.completionDate !== null) {
+      completionDateParsed = parseDate(body.completionDate);
+      if (completionDateParsed === null) {
+        return NextResponse.json(
+          {
+            error:
+              "completionDate is not a valid date (expected ISO-8601 or similar)",
+            field: "completionDate",
+          },
+          { status: 400 },
+        );
+      }
+    }
 
     // ── Allowlist validation on the most dangerous scalar fields ─────────────
     const VALID_WATER_CATEGORIES = [
@@ -252,9 +285,8 @@ export async function PUT(
         insuranceType: sanitisedInsuranceType,
 
         // IICRC Assessment fields
-        inspectionDate: body.inspectionDate
-          ? new Date(body.inspectionDate)
-          : existingReport.inspectionDate,
+        // RA-1300 — validated parse above.
+        inspectionDate: inspectionDateParsed ?? existingReport.inspectionDate,
         waterCategory: body.waterCategory,
         waterClass: body.waterClass,
         sourceOfWater: body.sourceOfWater,
@@ -308,9 +340,8 @@ export async function PUT(
           : existingReport.additionalCover,
 
         // Optional fields
-        completionDate: body.completionDate
-          ? new Date(body.completionDate)
-          : existingReport.completionDate,
+        // RA-1300 — validated parse above; falls back to existing value when not supplied.
+        completionDate: completionDateParsed ?? existingReport.completionDate,
         totalCost: body.totalCost,
         description: sanitisedDescription,
 
