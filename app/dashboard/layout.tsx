@@ -38,6 +38,7 @@ import { useSession, signOut } from "next-auth/react";
 import dynamic from "next/dynamic";
 import toast from "react-hot-toast";
 import { NotificationBell } from "@/components/notifications";
+import { NirSyncStatusBadge } from "@/components/nir-offline-provider";
 import { WhatsNewModal } from "@/components/releases/WhatsNewModal";
 import { ProductTour } from "@/components/onboarding/ProductTour";
 import { TrialBanner } from "@/components/TrialBanner";
@@ -520,6 +521,14 @@ export default function DashboardLayout({
             </div>
 
             <div className="flex items-center gap-4 ml-6">
+              {/* RA-1124 MVP — persistent sync-status pill. The offline
+                  infrastructure (service worker + IndexedDB queue +
+                  reconnect listeners) already ships via NirOfflineProvider,
+                  but the user-facing badge was never mounted, so a
+                  technician in the field had no signal that their save
+                  was queued vs. actually on the wire. */}
+              <NirSyncStatusBadge />
+
               {/* Theme Toggle */}
               <ThemeToggle />
 
