@@ -130,7 +130,7 @@ export default function SubscriptionPage() {
   };
 
   // RA-1243: cancel flow now opens a dialog that captures reason + comment
-  // before calling /api/cancel-subscription. Replaces the old confirm() which
+  // before calling /api/cancel-subscription. Replaces the old native prompt which
   // gave users no exit survey and gave us no churn signal.
   const handleCancelSubscription = () => {
     setShowCancelDialog(true);
