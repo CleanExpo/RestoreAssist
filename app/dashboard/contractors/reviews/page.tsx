@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useConfirmDialog } from "@/components/ConfirmDialog";
 import {
   Star,
   MessageSquare,
@@ -37,6 +38,7 @@ interface Review {
 export default function ContractorReviewsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const confirmDialog = useConfirmDialog();
 
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
@@ -130,13 +132,14 @@ export default function ContractorReviewsPage() {
       return;
     }
 
-    if (
-      !confirm(
+    const ok = await confirmDialog.ask({
+      title: "Dispute this review?",
+      description:
         "Are you sure you want to dispute this review? This action cannot be undone.",
-      )
-    ) {
-      return;
-    }
+      destructive: true,
+      confirmLabel: "Dispute",
+    });
+    if (!ok) return;
 
     setSubmitting(true);
     setMessage(null);
@@ -206,6 +209,7 @@ export default function ContractorReviewsPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <confirmDialog.Mount />
       <h1 className="text-3xl font-bold text-white mb-8">Manage Reviews</h1>
 
       {/* Message */}

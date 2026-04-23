@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useConfirmDialog } from "@/components/ConfirmDialog";
 import toast from "react-hot-toast";
 import { cn } from "@/lib/utils";
 import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas";
@@ -267,6 +268,7 @@ export default function InspectionDetailPage({
 }) {
   const { id } = use(params);
   const router = useRouter();
+  const confirmDialog = useConfirmDialog();
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -775,6 +777,7 @@ export default function InspectionDetailPage({
 
   return (
     <div className="space-y-6">
+      <confirmDialog.Mount />
       {/* Header */}
       <div className="flex items-start gap-4">
         <button
@@ -2275,7 +2278,13 @@ export default function InspectionDetailPage({
                         </button>
                         <button
                           onClick={async () => {
-                            if (!confirm("Delete this scope item?")) return;
+                            const ok = await confirmDialog.ask({
+                              title: "Delete scope item?",
+                              description: "This cannot be undone.",
+                              destructive: true,
+                              confirmLabel: "Delete",
+                            });
+                            if (!ok) return;
                             try {
                               const res = await fetch(
                                 `/api/inspections/${id}/scope-items/${item.id}`,

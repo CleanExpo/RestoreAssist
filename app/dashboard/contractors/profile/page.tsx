@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useConfirmDialog } from "@/components/ConfirmDialog";
 import {
   Save,
   Plus,
@@ -55,6 +56,7 @@ interface ServiceArea {
 export default function ContractorProfileDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const confirmDialog = useConfirmDialog();
 
   const [profile, setProfile] = useState<ContractorProfile | null>(null);
   const [certifications, setCertifications] = useState<Certification[]>([]);
@@ -227,7 +229,13 @@ export default function ContractorProfileDashboard() {
   };
 
   const deleteCertification = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this certification?")) return;
+    const ok = await confirmDialog.ask({
+      title: "Delete certification?",
+      description: "This cannot be undone.",
+      destructive: true,
+      confirmLabel: "Delete",
+    });
+    if (!ok) return;
 
     try {
       const res = await fetch(`/api/contractors/certifications/${id}`, {
@@ -286,7 +294,13 @@ export default function ContractorProfileDashboard() {
   };
 
   const deleteServiceArea = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this service area?")) return;
+    const ok = await confirmDialog.ask({
+      title: "Delete service area?",
+      description: "This cannot be undone.",
+      destructive: true,
+      confirmLabel: "Delete",
+    });
+    if (!ok) return;
 
     try {
       const res = await fetch(`/api/contractors/service-areas/${id}`, {
@@ -314,6 +328,7 @@ export default function ContractorProfileDashboard() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <confirmDialog.Mount />
       <h1 className="text-3xl font-bold text-white mb-8">Contractor Profile</h1>
 
       {/* Message */}
