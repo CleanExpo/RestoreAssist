@@ -16,6 +16,10 @@ import {
 } from "@/components/seo/JsonLd";
 import { NirOfflineProvider } from "@/components/nir-offline-provider";
 import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
+// RA-1572 adoption — mount the announcer once at the root so any
+// descendant hook call lands in the polite / assertive aria-live
+// regions rendered inside the provider.
+import { AnnouncerProvider } from "@/components/LiveRegion";
 import { Analytics } from "@vercel/analytics/next";
 import "@/lib/env-check";
 import "./globals.css";
@@ -108,12 +112,14 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <NirOfflineProvider>
-            <SessionProvider>
-              <CapacitorProvider>{children}</CapacitorProvider>
-            </SessionProvider>
-            <PwaInstallPrompt />
-          </NirOfflineProvider>
+          <AnnouncerProvider>
+            <NirOfflineProvider>
+              <SessionProvider>
+                <CapacitorProvider>{children}</CapacitorProvider>
+              </SessionProvider>
+              <PwaInstallPrompt />
+            </NirOfflineProvider>
+          </AnnouncerProvider>
           {/* RA-1349 — Vercel Analytics (Web Vitals + client route events). */}
           <Analytics />
           <Toaster

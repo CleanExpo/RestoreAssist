@@ -47,6 +47,7 @@ import { CancellationCountdownBanner } from "@/components/billing/CancellationCo
 const Chatbot = dynamic(() => import("@/components/Chatbot"), { ssr: false });
 import GlobalSearch from "@/components/GlobalSearch";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { AutoBreadcrumbs } from "@/components/AutoBreadcrumbs";
 import { cn } from "@/lib/utils";
 
 export default function DashboardLayout({
@@ -575,6 +576,14 @@ export default function DashboardLayout({
               "bg-white dark:bg-slate-950",
             )}
           >
+            {/* RA-1569 adoption — auto-crumbs derived from the URL.
+                Hidden on /dashboard itself (one segment); visible on
+                every deeper route. Detail pages can pass an override
+                via the `labels` prop when they know the entity
+                name; by default the slug map in lib/breadcrumb-labels
+                renders friendly text plus a short-hash fallback for
+                cuids so the trail never shows a raw 25-char id. */}
+            <AutoBreadcrumbs className="text-xs" />
             {children}
           </main>
         </div>
