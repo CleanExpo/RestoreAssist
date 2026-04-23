@@ -12,10 +12,18 @@ const PortalInvitePanel = dynamic(
   () => import("@/components/inspection/PortalInvitePanel"),
   { ssr: false },
 );
+// RA-1125 MVP — promote SketchEditorV2 to the active editor.
+// V2 is the composable, tablet-first rewrite with multi-floor tabs,
+// scale calibration, React-DOM moisture-pin overlay, and scope-save
+// parity with V1 (same `/api/inspections/[id]/sketches` endpoints +
+// same `/sketches/pdf` export). Props are a strict superset of V1's.
+// Legacy `SketchEditor.tsx` is left in the tree for one release
+// cycle in case a rollback is needed; follow-up ticket removes it
+// once prod telemetry shows V2 is clean.
 const SketchEditor = dynamic(
   () =>
-    import("@/components/sketch/SketchEditor").then((m) => ({
-      default: m.SketchEditor,
+    import("@/components/sketch/SketchEditorV2").then((m) => ({
+      default: m.SketchEditorV2,
     })),
   { ssr: false },
 );
