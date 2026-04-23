@@ -6,6 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { validateCsrf } from "@/lib/csrf";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
+import { rejectIfBreached } from "@/lib/auth/password-breach";
 import { withIdempotency } from "@/lib/idempotency";
 
 export async function POST(request: NextRequest) {
@@ -56,6 +57,12 @@ export async function POST(request: NextRequest) {
           { error: "New password must be at least 12 characters long" },
           { status: 400 },
         );
+      }
+
+      // RA-1591 — HIBP breach check before accepting the new password.
+      const breachMsg = await rejectIfBreached(newPassword);
+      if (breachMsg) {
+        return NextResponse.json({ error: breachMsg }, { status: 400 });
       }
 
       // Get user with password
