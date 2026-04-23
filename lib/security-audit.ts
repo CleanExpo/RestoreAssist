@@ -18,7 +18,10 @@ export type SecurityEventType =
   | "ACCOUNT_DELETED"
   | "GOOGLE_SIGNIN"
   | "RATE_LIMIT_EXCEEDED"
-  | "CSRF_REJECTED";
+  | "CSRF_REJECTED"
+  // RA-1593 — global session revoke. JWT rotation picks this up on the
+  // next refresh (max 24h lag given `updateAge: 86400`).
+  | "SESSIONS_REVOKED";
 
 export type SecuritySeverity = "INFO" | "WARNING" | "CRITICAL";
 
