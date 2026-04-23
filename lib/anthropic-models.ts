@@ -19,6 +19,22 @@ export interface ModelConfig {
 }
 
 /**
+ * Opus 4.7 rejects any non-default `temperature`, `top_p`, `top_k`
+ * with a 400 error — the model's adaptive-thinking mode is the only
+ * sampling path supported. `tryClaudeModels()` strips these params
+ * when the target model is Opus 4.7 so callers tuning sampling don't
+ * hard-fail on the newest flagship while the same params still apply
+ * on Sonnet / Haiku / Opus 4.6.
+ *
+ * Keep in sync with Anthropic's breaking-change list:
+ * https://docs.anthropic.com/en/docs/about-claude/models/whats-new-claude-4-7
+ */
+function modelRejectsSamplingParams(model: string): boolean {
+  // Forward-compatible — matches opus-4-7 and any later 4.x opus.
+  return /^claude-opus-4-(7|8|9|1\d)/.test(model);
+}
+
+/**
  * Get list of Claude models to try, ordered by preference.
  *
  * Ordering philosophy — start with the strongest model the task is
@@ -82,15 +98,29 @@ export async function tryClaudeModels(
         messages: requestConfig.messages,
       };
 
-      // Add optional parameters
-      if (requestConfig.temperature !== undefined) {
-        createParams.temperature = requestConfig.temperature;
-      }
-      if (requestConfig.top_p !== undefined) {
-        createParams.top_p = requestConfig.top_p;
-      }
-      if (requestConfig.top_k !== undefined) {
-        createParams.top_k = requestConfig.top_k;
+      // Opus 4.7+ guard — drop sampling params the model would 400 on.
+      const stripSampling = modelRejectsSamplingParams(modelConfig.name);
+      const hasSampling =
+        requestConfig.temperature !== undefined ||
+        requestConfig.top_p !== undefined ||
+        requestConfig.top_k !== undefined;
+
+      if (!stripSampling) {
+        if (requestConfig.temperature !== undefined) {
+          createParams.temperature = requestConfig.temperature;
+        }
+        if (requestConfig.top_p !== undefined) {
+          createParams.top_p = requestConfig.top_p;
+        }
+        if (requestConfig.top_k !== undefined) {
+          createParams.top_k = requestConfig.top_k;
+        }
+      } else if (hasSampling) {
+        console.info(
+          "[claude-models] stripped sampling params for",
+          modelConfig.name,
+          "(Opus 4.7+ adaptive-thinking only)",
+        );
       }
 
       const response = await anthropicClient.messages.create(createParams);
