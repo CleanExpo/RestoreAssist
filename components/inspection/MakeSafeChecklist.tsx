@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
+import toast from "react-hot-toast";
 import { Badge } from "@/components/ui/badge";
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -81,7 +81,6 @@ interface MakeSafeChecklistProps {
 }
 
 export function MakeSafeChecklist({ inspectionId }: MakeSafeChecklistProps) {
-  const { toast } = useToast();
   const endpoint = `/api/inspections/${inspectionId}/make-safe`;
 
   const { data, loading, error } = useFetch<{ data: MakeSafeRow[] }>(endpoint);
@@ -146,17 +145,12 @@ export function MakeSafeChecklist({ inspectionId }: MakeSafeChecklistProps) {
         );
       }
 
-      toast({
-        title: "Stabilisation checklist saved",
-        description: `Compliance status: ${complianceStatus}`,
-      });
+      toast.success(
+        `Stabilisation checklist saved — compliance status: ${complianceStatus}`,
+      );
     } catch (err) {
       const message = err instanceof Error ? err.message : "Save failed";
-      toast({
-        title: "Save failed",
-        description: message,
-        variant: "destructive",
-      });
+      toast.error(`Save failed: ${message}`);
     } finally {
       setSaving(false);
     }
