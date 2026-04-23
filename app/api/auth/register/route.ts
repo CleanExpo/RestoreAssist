@@ -8,6 +8,7 @@ import { sendWelcomeEmail } from "@/lib/email";
 import { notifyWelcome } from "@/lib/notifications";
 import { seedDemoDataForNewUser } from "@/lib/demo-data";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
+import { rejectIfBreached } from "@/lib/auth/password-breach";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { track } from "@/lib/analytics/track";
 
@@ -80,6 +81,14 @@ export async function POST(request: NextRequest) {
         { error: "Password must be at least 12 characters" },
         { status: 400 },
       );
+    }
+
+    // RA-1591 — HIBP k-anonymity breach check. Fails open on network
+    // error (rejectIfBreached returns null); only blocks when HIBP
+    // confirms the password has been seen in a known breach.
+    const breachMsg = await rejectIfBreached(password);
+    if (breachMsg) {
+      return NextResponse.json({ error: breachMsg }, { status: 400 });
     }
 
     // RA-1340: hash password FIRST so the duplicate-email path takes the

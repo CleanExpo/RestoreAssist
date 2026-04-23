@@ -7,6 +7,7 @@ import { validateCsrf } from "@/lib/csrf";
 import { verifyResetCode } from "@/lib/password-reset-store";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
 import { verifyTurnstile } from "@/lib/turnstile";
+import { rejectIfBreached } from "@/lib/auth/password-breach";
 
 // RA-1342 — aligned to registration min (12). NIST SP 800-63B §5.1.1.2
 // recommends 8 as an absolute floor, but registration enforces 12 —
@@ -65,6 +66,14 @@ export async function POST(request: NextRequest) {
         },
         { status: 400 },
       );
+    }
+
+    // RA-1591 — HIBP breach check. Rejects known-compromised passwords
+    // before they become the user's new credential. Fail-open on network
+    // / HIBP outage.
+    const breachMsg = await rejectIfBreached(newPassword);
+    if (breachMsg) {
+      return NextResponse.json({ error: breachMsg }, { status: 400 });
     }
 
     // Verify the reset code
