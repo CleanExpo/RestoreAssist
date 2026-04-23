@@ -15,6 +15,25 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
+    # RA-1546 companion — ephemeral Postgres for the migration-drift
+    # check below. Without a real DB the check can't run, and the
+    # P3009 incident from 2026-04-22 (45 stranded migrations) proved
+    # that relying on "check it in prod" is not a gate.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -68,3 +87,22 @@ jobs:
       - name: Audit dependencies
         run: pnpm audit --audit-level=high --prod
         continue-on-error: true
+
+      # RA-1546 — Prisma migration-drift gate. Applies every migration
+      # in `prisma/migrations/` against the ephemeral Postgres service
+      # above, then runs `prisma migrate status` and fails if anything
+      # is pending, failed, or out-of-sync with `schema.prisma`. Catches
+      # out-of-band schema edits and missing migration files BEFORE
+      # the PR merges — preventing a repeat of the 2026-04-22 P3009
+      # incident where 45 migrations stranded in prod.
+      #
+      # `continue-on-error: true` during the backlog-burn window so
+      # existing drift doesn't chain-block every PR. Flip to false
+      # once `prisma migrate status` is clean on main.
+      - name: Prisma migration drift check
+        run: |
+          npx prisma migrate deploy
+          npx prisma migrate status
+        continue-on-error: true
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci

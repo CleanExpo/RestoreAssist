@@ -23,6 +23,16 @@ TypeScript / Next.js 15 App Router compliance platform for Australian water dama
 2. Use `session.user.id` (JWT `sub`) as authoritative identifier — `session.user.email` can be stale
 3. Admin routes use `verifyAdminFromDb()` from `lib/admin-auth.ts` — JWT role claim can be stale; always re-validate from DB
 
+### Dependencies & toolchain
+
+**This repo is pnpm-only. Do not run `npm install`, `npm uninstall`, `yarn`, or `bun` against it.** `pnpm-lock.yaml` is the source of truth; CI uses `pnpm install --frozen-lockfile` and Vercel builds the same. Mixing package managers has bricked a session: `npm uninstall` wrote a partial `package.json`, left the pnpm lockfile untouched, Vercel then rejected the frozen lockfile, and the PR gate flipped red until the lockfile was regenerated.
+
+Any dependency change:
+1. Edit `package.json` by hand OR run `pnpm add <pkg>` / `pnpm remove <pkg>`.
+2. `pnpm install --lockfile-only` (or `pnpm install` for a full refresh).
+3. Commit `package.json` and `pnpm-lock.yaml` in the **same** commit.
+4. Never commit one without the other.
+
 ### Data & Queries
 
 4. All Prisma queries require explicit `select`/`include` and a `take` limit — never unbounded `findMany`
@@ -81,6 +91,16 @@ Before structural changes or new features, read:
 **Session start:** read `.claude/PROGRESS.md` → `git log --oneline -10` → `pnpm type-check`
 
 **Before compaction:** update `.claude/PROGRESS.md` with active task state and uncommitted decisions.
+
+## Multi-agent orchestration
+
+When spawning Agents with `isolation: "worktree"`, the main thread's CWD **must** be inside a git repo. If invoked from a non-repo directory (e.g. `/Users/phill-mac/Pi-CEO`) Claude Code errors with `Cannot create agent worktree: not in a git repository`. Fix: `cd <repo>` before the Agent call, or pass an explicit repo-rooted `cwd` in the Agent prompt.
+
+Without worktree isolation, parallel code-modifying agents share the working tree. This has stomped uncommitted edits in past sessions. Rule: **at most one code-modifying agent running at any time** unless worktree isolation is in place. Filing-only tracks (Smoke, Discovery) can run in parallel — they don't mutate source.
+
+Every Agent prompt must open with a **mandatory existing-code audit**: grep for the primitive / component it intends to create, and skip the scaffold if one already exists. Past sessions have shipped duplicates (`PWAInstallPrompt.tsx` vs pre-existing `pwa-install-prompt.tsx`) when this step was skipped.
+
+Agents must **checkpoint-commit every ~3 edits** with `git commit --allow-empty -m "checkpoint: <scope>"`. If the agent is killed mid-run, the last checkpoint becomes the recovery point instead of orphaned uncommitted state on the shared tree.
 
 ## Git Recovery
 
