@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/prisma";
+import { recordWebhookFailure } from "@/lib/webhook-audit";
 
 /**
  * POST /api/webhooks/ascora — Receive inbound webhook events from Ascora.
@@ -114,6 +115,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true, eventType });
   } catch (error) {
     console.error("[Ascora Webhook] Unhandled error:", error);
+    await recordWebhookFailure({
+      provider: "ascora",
+      stage: "top-level",
+      error,
+      request,
+    });
     // RA-1269 pattern: return 500 so Ascora retries transient failures.
     return NextResponse.json(
       { error: "Internal server error" },

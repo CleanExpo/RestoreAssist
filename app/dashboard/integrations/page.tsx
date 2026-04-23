@@ -20,6 +20,7 @@ import toast from "react-hot-toast";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import ImportModal from "@/components/integrations/ImportModal";
+import { useConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -138,6 +139,7 @@ interface SubscriptionStatus {
 }
 
 export default function IntegrationsPage() {
+  const confirm = useConfirmDialog();
   const router = useRouter();
   const searchParams = useSearchParams();
   const isOnboarding = searchParams.get("onboarding") === "true";
@@ -701,7 +703,13 @@ export default function IntegrationsPage() {
   };
 
   const handleDeleteIntegration = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this integration?")) return;
+    const ok = await confirm.ask({
+      title: "Delete integration?",
+      description: "Are you sure you want to delete this integration?",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       const response = await fetch(`/api/integrations/${id}`, {
@@ -722,6 +730,7 @@ export default function IntegrationsPage() {
 
   return (
     <div className="space-y-8">
+      <confirm.Mount />
       {/* ── Header ─────────────────────────────────── */}
       <div className="flex items-start justify-between gap-4">
         <div>

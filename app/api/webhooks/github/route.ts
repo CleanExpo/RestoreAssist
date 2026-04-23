@@ -3,6 +3,7 @@ import * as crypto from "crypto";
 import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
 import { NotificationType } from "@prisma/client";
+import { recordWebhookFailure } from "@/lib/webhook-audit";
 
 function verifySignature(
   payload: string,
@@ -221,6 +222,13 @@ export async function POST(req: NextRequest) {
         "[github-webhook] Background release-notes job failed:",
         err,
       );
+      await recordWebhookFailure({
+        provider: "github",
+        externalEventId: deliveryId,
+        stage: "background-release-notes",
+        error: err,
+        details: { version, releaseId: release.id },
+      });
     }
   })();
 
