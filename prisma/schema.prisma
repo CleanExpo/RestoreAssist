@@ -3662,6 +3662,11 @@ model Invoice {
   // Public viewing
   publicToken     String? @unique // For public invoice viewing
   publicViewCount Int     @default(0)
+  // RA-1596 — token expiry + rotation. Null means the token is
+  // either absent or (for rows minted before this column shipped)
+  // legacy-unlimited. New tokens land with a 90-day expiry.
+  publicTokenExpiresAt DateTime?
+  publicTokenRotatedAt DateTime?
 
   // Metadata
   source   String? // "manual", "estimate", "recurring", "quickbooks_import"
