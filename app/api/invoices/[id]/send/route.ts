@@ -6,6 +6,7 @@ import { Resend } from "resend";
 import { generateInvoiceSentEmail } from "@/lib/invoices/email-templates";
 import { isDraft } from "@/lib/invoice-status";
 import { withIdempotency } from "@/lib/idempotency";
+import { mintPublicToken } from "@/lib/invoices/public-token";
 
 // Initialize Resend only if API key is available
 const resend = process.env.RESEND_API_KEY
@@ -74,9 +75,25 @@ export async function POST(
         );
       }
 
-      // Generate public token if not exists
-      const publicToken =
-        invoice.publicToken || `inv_${invoice.id}_${Date.now()}`;
+      // RA-1596 — mint a high-entropy token + 90-day expiry on first
+      // send. Previously `inv_${invoice.id}_${Date.now()}` which was
+      // predictable and had no expiry. We re-use the existing token
+      // only if it's still present AND hasn't expired; otherwise we
+      // rotate so a leaked old link can't be resurrected.
+      const now = Date.now();
+      const existingValid =
+        invoice.publicToken &&
+        (!(invoice as any).publicTokenExpiresAt ||
+          new Date((invoice as any).publicTokenExpiresAt).getTime() > now);
+      let publicToken = invoice.publicToken ?? "";
+      let newExpiresAt: Date | undefined;
+      let newRotatedAt: Date | undefined;
+      if (!existingValid) {
+        const minted = mintPublicToken();
+        publicToken = minted.token;
+        newExpiresAt = minted.expiresAt;
+        newRotatedAt = minted.rotatedAt;
+      }
 
       // Send email via Resend
       const fromEmail =
@@ -124,7 +141,13 @@ export async function POST(
               status: "SENT",
               sentDate: new Date(),
               publicToken,
-            },
+              ...(newExpiresAt
+                ? {
+                    publicTokenExpiresAt: newExpiresAt,
+                    publicTokenRotatedAt: newRotatedAt,
+                  }
+                : {}),
+            } as any,
           }),
           prisma.invoiceEmail.create({
             data: {
