@@ -53,6 +53,14 @@ function LoginForm() {
         setNeedsTotp(true);
         setError("Invalid authenticator code. Try again.");
         toast.error("Invalid 2FA code");
+      } else if (result?.error?.startsWith("ACCOUNT_LOCKED:")) {
+        // RA-1590 — too many failures in the rolling window. Show the
+        // retry window so the user knows when to come back.
+        const secs = Number(result.error.split(":")[1]) || 900;
+        const mins = Math.max(1, Math.ceil(secs / 60));
+        const msg = `Too many failed attempts. Try again in ${mins} minute${mins === 1 ? "" : "s"}, or reset your password.`;
+        setError(msg);
+        toast.error(msg);
       } else if (result?.error) {
         setError("Invalid email or password");
         toast.error("Invalid email or password");
