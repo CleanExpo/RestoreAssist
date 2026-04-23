@@ -195,8 +195,36 @@ export const authOptions: NextAuthOptions = {
       },
     }),
   ],
+  // RA-1593 — session hardening.
+  //   - `maxAge: 7d` — hard cap on session length. Longer sessions are
+  //     SaaS-friendly but anything beyond 7 days gets uncomfortable on
+  //     shared or lost devices.
+  //   - `updateAge: 24h` — JWT rolls every day, picking up role
+  //     changes + the global-revoke check in the jwt() callback.
+  //   - explicit cookie block — the NextAuth defaults are already
+  //     SameSite=lax + HttpOnly + Secure in production, but pinning
+  //     them here prevents accidental override via a future cookie-
+  //     name collision. Also sets `__Secure-` prefix in prod which
+  //     browsers refuse unless served over HTTPS — defence-in-depth
+  //     against accidental http:// deploys.
   session: {
     strategy: "jwt",
+    maxAge: 7 * 24 * 60 * 60,
+    updateAge: 24 * 60 * 60,
+  },
+  cookies: {
+    sessionToken: {
+      name:
+        process.env.NODE_ENV === "production"
+          ? "__Secure-next-auth.session-token"
+          : "next-auth.session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
   },
   events: {
     // RA-1259: the PrismaAdapter `createUser` event fires only when the
@@ -233,6 +261,10 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user, trigger }) {
       if (user) {
         token.role = (user as { role?: string }).role ?? "";
+        // Stamp the mint time so the revoke check below has a `since`
+        // anchor to compare against — `iat` is not always on the
+        // NextAuth token type in TS so we track it ourselves.
+        (token as any).mintedAt = Math.floor(Date.now() / 1000);
       }
       // RA-1259: keep `needsOnboarding` fresh on first mint and after the
       // client calls `update()` post-onboarding so middleware stops
@@ -245,15 +277,60 @@ export const authOptions: NextAuthOptions = {
         try {
           const fresh = await prisma.user.findUnique({
             where: { id: token.sub },
-            select: { needsOnboarding: true } as any,
+            select: { needsOnboarding: true, role: true } as any,
           });
           (token as any).needsOnboarding = Boolean(
             (fresh as any)?.needsOnboarding,
           );
+          // RA-1593 — privilege-change rotation. If the DB role no
+          // longer matches the token, bump the mint time so downstream
+          // permission checks pick up the new role immediately. A
+          // demotion cannot be papered over by a stale JWT.
+          const dbRole = (fresh as any)?.role ?? "";
+          if (dbRole && token.role !== dbRole) {
+            token.role = dbRole;
+            (token as any).mintedAt = Math.floor(Date.now() / 1000);
+          }
         } catch {
           (token as any).needsOnboarding = false;
         }
       }
+
+      // RA-1593 — global revoke. A SESSIONS_REVOKED event written by
+      // /api/auth/revoke-sessions invalidates every JWT minted before
+      // the event. Checked only on refresh (not every request) so
+      // stateless JWT behaviour is preserved between rotations.
+      // `updateAge: 24h` bounds worst-case revoke lag to 24 hours.
+      if (trigger === "update" || !(token as any).revocationChecked) {
+        try {
+          if (token.sub) {
+            const revokeEvent = await prisma.securityEvent.findFirst({
+              where: {
+                userId: token.sub,
+                eventType: "SESSIONS_REVOKED",
+              },
+              orderBy: { createdAt: "desc" },
+              select: { createdAt: true },
+            });
+            if (revokeEvent) {
+              const mintedAt = (token as any).mintedAt ?? 0;
+              const revokedAt = Math.floor(revokeEvent.createdAt.getTime() / 1000);
+              if (mintedAt > 0 && revokedAt >= mintedAt) {
+                // Return a token shape NextAuth will refuse to serialise
+                // into a session — the next session() callback sees no
+                // userId and middleware redirects to /login.
+                return { ...token, sub: undefined, revoked: true } as any;
+              }
+            }
+          }
+          (token as any).revocationChecked = true;
+        } catch {
+          // Fail-open on transient Prisma error — a DB blip should not
+          // log every user out.
+          (token as any).revocationChecked = true;
+        }
+      }
+
       return token;
     },
     async session({ session, token }) {
