@@ -27,6 +27,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden — admin only" }, { status: 403 });
   }
 
+  // RA-1592 — pair with /start: refuse while feature-flag is off.
+  if (process.env.ENABLE_ADMIN_IMPERSONATION !== "true") {
+    return NextResponse.json(
+      {
+        error: "Admin impersonation is not yet enabled in this environment.",
+        code: "FEATURE_DISABLED",
+      },
+      { status: 501 },
+    );
+  }
+
   const rateLimited = await applyRateLimit(request, {
     windowMs: 60 * 1000,
     maxRequests: 30,

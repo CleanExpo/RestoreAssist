@@ -39,6 +39,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden — admin only" }, { status: 403 });
   }
 
+  // RA-1592 — feature flag gate. Impersonation mints a token but the
+  // runtime session-swap is still pending security review. Until the
+  // runtime integration ships, this endpoint returns 501 so the
+  // half-built surface can't mislead a support operator into thinking
+  // they've actually impersonated. The existing audit/rate-limit
+  // scaffolding above still runs in dev (flag=true) so the future
+  // wiring PR can test against it.
+  if (process.env.ENABLE_ADMIN_IMPERSONATION !== "true") {
+    console.info(
+      "[admin-impersonation.start] attempted while feature-flag off",
+      JSON.stringify({ adminUserId: session.user.id }),
+    );
+    return NextResponse.json(
+      {
+        error:
+          "Admin impersonation is not yet enabled in this environment. The token-mint path is built, but runtime session-swap is pending security review.",
+        code: "FEATURE_DISABLED",
+      },
+      { status: 501 },
+    );
+  }
+
   // RA-1545 — bound token-mint rate per admin. A genuine support flow issues
   // 1-2 tokens/minute at most; this cap is far above the real workflow but
   // catches compromised admin credentials trying to mint many.
