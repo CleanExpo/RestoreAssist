@@ -19,6 +19,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { getStatusConfig } from "@/lib/invoice-status";
 import toast from "react-hot-toast";
+import { useAsyncAction } from "@/lib/client/use-async-action";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -152,7 +153,6 @@ export default function InvoiceVariationsPage({
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<VariationForm>(EMPTY_FORM);
-  const [submitting, setSubmitting] = useState(false);
 
   // ─── Fetch ──────────────────────────────────────────────────────────────────
 
@@ -190,18 +190,8 @@ export default function InvoiceVariationsPage({
 
   // ─── Form submit ────────────────────────────────────────────────────────────
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
+  const { run: runSubmit, loading: submitting } = useAsyncAction(async () => {
     const amount = parseFloat(form.amount);
-    if (!form.reason.trim()) {
-      toast.error("Reason is required");
-      return;
-    }
-    if (isNaN(amount) || amount <= 0) {
-      toast.error("Amount must be a positive number");
-      return;
-    }
 
     // Build a single line item representing this variation adjustment.
     // REDUCTION uses a negative unit price so the delta math works naturally.
@@ -225,7 +215,6 @@ export default function InvoiceVariationsPage({
 
     const notes = form.notes.trim() || undefined;
 
-    setSubmitting(true);
     try {
       const res = await fetch(`/api/invoices/${id}/variations`, {
         method: "POST",
@@ -246,9 +235,23 @@ export default function InvoiceVariationsPage({
       toast.error(
         err instanceof Error ? err.message : "Failed to create variation",
       );
-    } finally {
-      setSubmitting(false);
     }
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const amount = parseFloat(form.amount);
+    if (!form.reason.trim()) {
+      toast.error("Reason is required");
+      return;
+    }
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Amount must be a positive number");
+      return;
+    }
+
+    void runSubmit();
   };
 
   // ─── Render ─────────────────────────────────────────────────────────────────
