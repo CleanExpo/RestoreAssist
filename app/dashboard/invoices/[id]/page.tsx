@@ -29,6 +29,7 @@ import {
   isCancelled,
   type InvoiceStatus,
 } from "@/lib/invoice-status";
+import { formatDate } from "@/lib/formatters";
 
 interface LineItem {
   id: string;
@@ -471,7 +472,7 @@ export default function InvoiceDetailPage({
               Invoice {invoice.invoiceNumber}
             </h1>
             <p className="text-slate-600 dark:text-slate-400">
-              Created {new Date(invoice.invoiceDate).toLocaleDateString()}
+              Created {formatDate(invoice.invoiceDate)}
             </p>
           </div>
         </div>
@@ -583,13 +584,13 @@ export default function InvoiceDetailPage({
         {invoice.sentDate && (
           <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
             <Mail className="h-4 w-4" />
-            <span>Sent {new Date(invoice.sentDate).toLocaleDateString()}</span>
+            <span>Sent {formatDate(invoice.sentDate)}</span>
           </div>
         )}
         {invoice.paidDate && (
           <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
             <CheckCircle className="h-4 w-4" />
-            <span>Paid {new Date(invoice.paidDate).toLocaleDateString()}</span>
+            <span>Paid {formatDate(invoice.paidDate)}</span>
           </div>
         )}
         {/* External Sync Status */}
@@ -828,7 +829,7 @@ export default function InvoiceDetailPage({
                       </div>
                     </div>
                     <div className="text-sm text-slate-600 dark:text-slate-400">
-                      {new Date(payment.paymentDate).toLocaleDateString()}
+                      {formatDate(payment.paymentDate)}
                     </div>
                   </div>
                 ))}
@@ -884,7 +885,7 @@ export default function InvoiceDetailPage({
                             {v.invoiceNumber}
                           </a>
                           <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                            {new Date(v.invoiceDate).toLocaleDateString()}
+                            {formatDate(v.invoiceDate)}
                           </div>
                         </div>
                         <div
@@ -960,7 +961,7 @@ export default function InvoiceDetailPage({
                   Due Date
                 </div>
                 <div className="font-medium text-slate-900 dark:text-white">
-                  {new Date(invoice.dueDate).toLocaleDateString()}
+                  {formatDate(invoice.dueDate)}
                 </div>
               </div>
             </div>

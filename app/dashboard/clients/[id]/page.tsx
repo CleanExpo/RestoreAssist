@@ -22,6 +22,7 @@ import {
 import toast from "react-hot-toast";
 import PortalInvitationSection from "@/components/dashboard/PortalInvitationSection";
 import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
+import { formatDate } from "@/lib/formatters";
 
 const REPORT_STATUS_TONES: Record<string, StatusTone> = {
   completed: "success",
@@ -325,13 +326,13 @@ export default function ClientDetailPage({
             <div className="flex items-center justify-between">
               <span className="text-slate-400">Client Since</span>
               <span className="text-slate-300">
-                {new Date(client.createdAt).toLocaleDateString()}
+                {formatDate(client.createdAt)}
               </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-slate-400">Last Updated</span>
               <span className="text-slate-300">
-                {new Date(client.updatedAt).toLocaleDateString()}
+                {formatDate(client.updatedAt)}
               </span>
             </div>
           </div>
@@ -458,9 +459,9 @@ export default function ClientDetailPage({
                       </span>
                     </td>
                     <td className="py-3 pr-4 text-slate-400">
-                      {new Date(
+                      {formatDate(
                         inspection.submittedAt ?? inspection.createdAt,
-                      ).toLocaleDateString()}
+                      )}
                     </td>
                     <td className="py-3">
                       <Link
@@ -507,7 +508,7 @@ export default function ClientDetailPage({
                   <h3 className="font-medium text-white">{report.title}</h3>
                   <div className="flex items-center gap-4 mt-1 text-sm text-slate-400">
                     <span>
-                      {new Date(report.createdAt).toLocaleDateString()}
+                      {formatDate(report.createdAt)}
                     </span>
                     {report.reportNumber && <span>#{report.reportNumber}</span>}
                     {report.waterCategory && (
