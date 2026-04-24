@@ -1,18 +1,23 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { stripe } from "@/lib/stripe";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Sign in required",
+        status: 401,
+      });
     }
 
-    // Rate limit: 5 reactivation attempts per 15 minutes per user
     const rateLimited = await applyRateLimit(request, {
       maxRequests: 5,
       prefix: "reactivate-sub",
@@ -20,17 +25,17 @@ export async function POST(request: NextRequest) {
     });
     if (rateLimited) return rateLimited;
 
-    // Find customer
     const customers = await stripe.customers.list({
       email: session.user.email!,
       limit: 1,
     });
 
     if (customers.data.length === 0) {
-      return NextResponse.json(
-        { error: "Customer not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Customer not found",
+        status: 404,
+      });
     }
 
     const customer = customers.data[0];
@@ -41,25 +46,21 @@ export async function POST(request: NextRequest) {
     });
 
     if (subscriptions.data.length === 0) {
-      return NextResponse.json(
-        { error: "No subscription found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "No subscription found",
+        status: 404,
+      });
     }
 
     const subscription = subscriptions.data[0];
 
-    // Reactivate subscription
     await stripe.subscriptions.update(subscription.id, {
       cancel_at_period_end: false,
     });
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error reactivating subscription:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "reactivate-subscription" });
   }
 }
