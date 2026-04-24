@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { validateCsrf } from "@/lib/csrf";
 import { sendInviteEmail } from "@/lib/email";
+import { sendWithRetry } from "@/lib/email-retry";
 import { notifyTeamMemberJoined } from "@/lib/notifications";
 import { sanitizeString } from "@/lib/sanitize";
 
@@ -197,15 +198,19 @@ export async function POST(req: NextRequest) {
       const loginUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/login`;
 
       try {
-        await sendInviteEmail({
-          email: email.toLowerCase(),
-          name: updatedUser.name || email.split("@")[0],
-          role,
-          tempPassword: undefined,
-          loginUrl,
-          inviterName,
-          isTransfer: true,
-        });
+        await sendWithRetry(
+          () =>
+            sendInviteEmail({
+              email: email.toLowerCase(),
+              name: updatedUser.name || email.split("@")[0],
+              role,
+              tempPassword: undefined,
+              loginUrl,
+              inviterName,
+              isTransfer: true,
+            }),
+          { stage: "invite-transfer" },
+        );
       } catch (emailError: any) {
         console.error(
           "❌ [INVITE] Email sending failed:",
@@ -282,15 +287,19 @@ export async function POST(req: NextRequest) {
 
     try {
       // Send a different email for transferred users (they already have an account)
-      await sendInviteEmail({
-        email: email.toLowerCase(),
-        name: updatedUser.name || email.split("@")[0],
-        role,
-        tempPassword: undefined, // No temp password needed
-        loginUrl,
-        inviterName,
-        isTransfer: true, // Flag to indicate this is a transfer, not a new account
-      });
+      await sendWithRetry(
+        () =>
+          sendInviteEmail({
+            email: email.toLowerCase(),
+            name: updatedUser.name || email.split("@")[0],
+            role,
+            tempPassword: undefined,
+            loginUrl,
+            inviterName,
+            isTransfer: true,
+          }),
+        { stage: "invite-existing-user" },
+      );
     } catch (emailError: any) {
       console.error(
         "❌ [INVITE] Email sending failed for transferred user:",
@@ -374,14 +383,18 @@ export async function POST(req: NextRequest) {
     const loginUrl = `${appUrl}/login`;
 
     try {
-      await sendInviteEmail({
-        email: email.toLowerCase(),
-        name: email.split("@")[0],
-        role,
-        inviteLink,
-        loginUrl,
-        inviterName,
-      });
+      await sendWithRetry(
+        () =>
+          sendInviteEmail({
+            email: email.toLowerCase(),
+            name: email.split("@")[0],
+            role,
+            inviteLink,
+            loginUrl,
+            inviterName,
+          }),
+        { stage: "invite-new-user" },
+      );
     } catch (emailError: any) {
       console.error("❌ [INVITE] Email sending failed for invite:", invite.id);
       console.error(
