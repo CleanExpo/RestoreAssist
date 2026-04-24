@@ -33,6 +33,7 @@ import {
   linearCreateIssue,
   linearListIssues,
 } from "@/lib/margot-linear";
+import { generateAndStoreImage } from "@/lib/margot-image-gen";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -72,7 +73,9 @@ const MARGOT_SYSTEM_PROMPT_WITH_TOOLS = `${MARGOT_SYSTEM_PROMPT_BASE}
 
 You have a \`deep_research\` tool. Use it when Phill asks for research, Unite-Group-specific facts, or multi-source synthesis. Set \`use_corpus=true\` for Unite-Group questions, \`false\` for general web-research.
 
-You have \`linear_list_issues\`, \`linear_create_issue\`, and \`linear_comment_on_issue\` tools. Use \`list\` for any "what's in Linear" question. For \`create\` and \`comment\`: ALWAYS confirm with Phill before executing — never create a ticket without him saying "yes, file it" or similar. The tool will require a confirmation handshake on the first call; you'll see \`requiresConfirmation: true\` and should surface the pending action to Phill for approval.`;
+You have \`linear_list_issues\`, \`linear_create_issue\`, and \`linear_comment_on_issue\` tools. Use \`list\` for any "what's in Linear" question. For \`create\` and \`comment\`: ALWAYS confirm with Phill before executing — never create a ticket without him saying "yes, file it" or similar. The tool will require a confirmation handshake on the first call; you'll see \`requiresConfirmation: true\` and should surface the pending action to Phill for approval.
+
+You have an \`image_generate\` tool (Nano Banana 2). Use it when Phill asks for an image, diagram, mockup, or anything visual. Default to \`1K\` size + \`16:9\` aspect ratio unless he specifies. Keep prompts concise and descriptive. Do not use it unprompted — only when he explicitly asks for an image.`;
 
 const toolsEnabled = () => {
   const v = process.env.MARGOT_TOOLS_ENABLED;
@@ -272,6 +275,32 @@ const linearCommentOnIssueTool = tool({
   },
 });
 
+// ---------------------------------------------------------------------------
+// Image generation tool (v2 inc3) — Nano Banana 2
+// ---------------------------------------------------------------------------
+
+const imageGenerateTool = tool({
+  description:
+    "Generate an image via Nano Banana 2 (gemini-3.1-flash-image-preview). Use when Phill asks for an image, diagram, mockup, or anything visual. Defaults to 16:9 at 1K. Returns a public image_url hosted on Supabase Storage.",
+  inputSchema: z.object({
+    prompt: z.string().min(1).describe("Concise, descriptive image prompt."),
+    aspect_ratio: z
+      .enum(["1:1", "4:3", "3:4", "16:9", "9:16"])
+      .optional()
+      .describe("Output aspect ratio. Default 16:9."),
+    image_size: z
+      .enum(["1K", "2K", "4K"])
+      .optional()
+      .describe("Output resolution tier. Default 1K (cheapest: $0.045/img)."),
+    reference_image_url: z
+      .string()
+      .url()
+      .optional()
+      .describe("Optional URL of a reference image to condition the generation."),
+  }),
+  execute: async (input) => generateAndStoreImage(input),
+});
+
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -313,6 +342,7 @@ export async function POST(request: NextRequest) {
               linear_list_issues: linearListIssuesTool,
               linear_create_issue: linearCreateIssueTool,
               linear_comment_on_issue: linearCommentOnIssueTool,
+              image_generate: imageGenerateTool,
             },
             stopWhen: stepCountIs(5),
           }
