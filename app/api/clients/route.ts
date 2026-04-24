@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { PrismaClient } from "@prisma/client";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 const prisma = new PrismaClient();
 
@@ -11,7 +12,7 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
@@ -114,11 +115,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Error fetching clients:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "list" });
   }
 }
 
@@ -126,7 +123,7 @@ export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
   }
   const userId = session.user.id;
 
@@ -139,10 +136,7 @@ export async function POST(request: NextRequest) {
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, { code: "VALIDATION", message: "Invalid JSON body", status: 400 });
       }
       const {
         name,
@@ -156,10 +150,7 @@ export async function POST(request: NextRequest) {
       } = body;
 
       if (!name || !email) {
-        return NextResponse.json(
-          { error: "Name and email are required" },
-          { status: 400 },
-        );
+        return apiError(request, { code: "VALIDATION", message: "Name and email are required", status: 400 });
       }
 
       const existingClient = await prisma.client.findFirst({
@@ -167,10 +158,7 @@ export async function POST(request: NextRequest) {
       });
 
       if (existingClient) {
-        return NextResponse.json(
-          { error: "Client with this email already exists" },
-          { status: 400 },
-        );
+        return apiError(request, { code: "CONFLICT", message: "Client with this email already exists", status: 400 });
       }
 
       const client = await prisma.client.create({
@@ -199,11 +187,7 @@ export async function POST(request: NextRequest) {
         reportsCount: 0,
       });
     } catch (error) {
-      console.error("Error creating client:", error);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "create" });
     }
   });
 }
