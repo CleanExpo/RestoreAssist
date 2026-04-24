@@ -276,12 +276,51 @@ async function fetchHNFindings(): Promise<ScoutFinding[]> {
 // Claude scoring
 // ---------------------------------------------------------------------------
 
+async function generateScoringJson(prompt: string): Promise<string> {
+  const provider = (process.env.SCOUT_AGENT_LLM_PROVIDER ?? "anthropic")
+    .trim()
+    .toLowerCase();
+
+  if (provider === "ollama") {
+    const baseUrl = process.env.OLLAMA_BASE_URL ?? "http://localhost:11434/v1";
+    const model = process.env.OLLAMA_MODEL ?? "gemma4:latest";
+    const res = await fetch(`${baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer ollama",
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 2000,
+      }),
+    });
+    if (!res.ok) {
+      throw new Error(`Ollama API error ${res.status}: ${await res.text()}`);
+    }
+    const body = (await res.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    return (body.choices?.[0]?.message?.content ?? "").trim();
+  }
+
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const response = await client.messages.create({
+    model: "claude-haiku-4-5-20251001",
+    max_tokens: 2000,
+    messages: [{ role: "user", content: prompt }],
+  });
+  return response.content[0].type === "text" ? response.content[0].text : "[]";
+}
+
 async function scoreFindings(
   findings: ScoutFinding[],
 ): Promise<ScoutFinding[]> {
-  if (!process.env.ANTHROPIC_API_KEY) return findings;
-
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const provider = (process.env.SCOUT_AGENT_LLM_PROVIDER ?? "anthropic")
+    .trim()
+    .toLowerCase();
+  if (provider !== "ollama" && !process.env.ANTHROPIC_API_KEY) return findings;
 
   const dimensionList = ZTE_DIMENSIONS.map(
     (d) => `${d.id}. ${d.name}: ${d.desc}`,
@@ -294,14 +333,7 @@ async function scoreFindings(
     )
     .join("\n\n");
 
-  try {
-    const response = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 2000,
-      messages: [
-        {
-          role: "user",
-          content: `You are the RestoreAssist Scout Agent. Score external tech findings for relevance to RestoreAssist — an Australian water damage restoration compliance SaaS (Next.js 15, Prisma, Supabase, Capacitor, IICRC standards).
+  const prompt = `You are the RestoreAssist Scout Agent. Score external tech findings for relevance to RestoreAssist — an Australian water damage restoration compliance SaaS (Next.js 15, Prisma, Supabase, Capacitor, IICRC standards).
 
 ZTE DIMENSIONS:
 ${dimensionList}
@@ -326,13 +358,10 @@ Scoring guide:
 1 = Not relevant to RestoreAssist
 
 Be conservative — only score ≥ 3 if genuinely applicable to this Australian restoration SaaS.
-Return ONLY the JSON array, no other text.`,
-        },
-      ],
-    });
+Return ONLY the JSON array, no other text.`;
 
-    const text =
-      response.content[0].type === "text" ? response.content[0].text : "[]";
+  try {
+    const text = await generateScoringJson(prompt);
     const cleanJson = text.replace(/```(?:json)?\n?|\n?```/g, "").trim();
     const scores = JSON.parse(cleanJson) as Array<{
       index: number;
