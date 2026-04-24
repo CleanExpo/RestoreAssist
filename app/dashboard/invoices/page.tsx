@@ -23,7 +23,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useFetch } from "@/lib/hooks/useFetch";
-import { formatDate } from "@/lib/formatters";
+import { formatCurrencyCents, formatDate } from "@/lib/formatters";
 import toast from "react-hot-toast";
 
 interface Invoice {
@@ -210,7 +210,7 @@ export default function InvoicesPage() {
             </div>
             <div>
               <div className="text-2xl font-bold text-slate-900 dark:text-white">
-                ${(stats.totalRevenue / 100).toFixed(2)}
+                {formatCurrencyCents(stats.totalRevenue)}
               </div>
               <div className="text-sm text-slate-500 dark:text-slate-400">
                 Total Revenue
@@ -226,7 +226,7 @@ export default function InvoicesPage() {
             </div>
             <div>
               <div className="text-2xl font-bold text-slate-900 dark:text-white">
-                ${(stats.draftTotal / 100).toFixed(2)}
+                {formatCurrencyCents(stats.draftTotal)}
               </div>
               <div className="text-sm text-slate-500 dark:text-slate-400">
                 Drafts
@@ -242,7 +242,7 @@ export default function InvoicesPage() {
             </div>
             <div>
               <div className="text-2xl font-bold text-slate-900 dark:text-white">
-                ${(stats.outstanding / 100).toFixed(2)}
+                {formatCurrencyCents(stats.outstanding)}
               </div>
               <div className="text-sm text-slate-500 dark:text-slate-400">
                 Outstanding
@@ -258,7 +258,7 @@ export default function InvoicesPage() {
             </div>
             <div>
               <div className="text-2xl font-bold text-slate-900 dark:text-white">
-                ${(stats.overdue / 100).toFixed(2)}
+                {formatCurrencyCents(stats.overdue)}
               </div>
               <div className="text-sm text-slate-500 dark:text-slate-400">
                 Overdue
@@ -274,7 +274,7 @@ export default function InvoicesPage() {
             </div>
             <div>
               <div className="text-2xl font-bold text-slate-900 dark:text-white">
-                ${(stats.paidThisMonth / 100).toFixed(2)}
+                {formatCurrencyCents(stats.paidThisMonth)}
               </div>
               <div className="text-sm text-slate-500 dark:text-slate-400">
                 Paid This Month
@@ -437,11 +437,11 @@ export default function InvoicesPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-slate-900 dark:text-white">
-                        ${(invoice.totalIncGST / 100).toFixed(2)}
+                        {formatCurrencyCents(invoice.totalIncGST)}
                       </div>
                       {invoice.amountPaid > 0 && (
                         <div className="text-xs text-green-600 dark:text-green-400">
-                          ${(invoice.amountPaid / 100).toFixed(2)} paid
+                          {formatCurrencyCents(invoice.amountPaid)} paid
                         </div>
                       )}
                     </td>

@@ -23,6 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { formatCurrencyCents } from "@/lib/formatters";
 
 // ---------------------------------------------------------------------------
 // Types (derived from Prisma schema — no imports needed at runtime)
@@ -88,13 +89,6 @@ const STATUS_TABS: { label: string; value: CreditNoteStatus | "ALL" }[] = [
   { label: "Refunded", value: "REFUNDED" },
   { label: "Voided", value: "CANCELLED" },
 ];
-
-function formatAUD(cents: number): string {
-  return new Intl.NumberFormat("en-AU", {
-    style: "currency",
-    currency: "AUD",
-  }).format(cents / 100);
-}
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("en-AU", {
@@ -264,10 +258,10 @@ function ExpandedDetailRow({ creditNote }: ExpandedRowProps) {
                           {item.quantity}
                         </td>
                         <td className="px-4 py-2 text-right text-slate-600 dark:text-slate-400">
-                          {formatAUD(item.unitPrice)}
+                          {formatCurrencyCents(item.unitPrice)}
                         </td>
                         <td className="px-4 py-2 text-right font-medium text-slate-700 dark:text-slate-300">
-                          {formatAUD(item.total)}
+                          {formatCurrencyCents(item.total)}
                         </td>
                       </tr>
                     ))}
@@ -410,7 +404,7 @@ export default function CreditNotesPage() {
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                {formatAUD(totalCreditsIssued)}
+                {formatCurrencyCents(totalCreditsIssued)}
               </p>
               <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
                 Excludes voided credit notes
@@ -587,7 +581,7 @@ export default function CreditNotesPage() {
                     {/* Amount */}
                     <TableCell className="text-right">
                       <span className="text-sm font-semibold text-slate-900 dark:text-white tabular-nums">
-                        {formatAUD(cn.totalIncGST)}
+                        {formatCurrencyCents(cn.totalIncGST)}
                       </span>
                     </TableCell>
 
