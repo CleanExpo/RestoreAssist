@@ -14,6 +14,7 @@ import {
   CheckCircle,
 } from "lucide-react";
 import { useConfirmDialog } from "@/components/ConfirmDialog";
+import { useAsyncAction } from "@/lib/client/use-async-action";
 
 interface ContractorProfile {
   id: string;
@@ -62,7 +63,6 @@ export default function ContractorProfileDashboard() {
   const [certifications, setCertifications] = useState<Certification[]>([]);
   const [serviceAreas, setServiceAreas] = useState<ServiceArea[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{
     type: "success" | "error";
     text: string;
@@ -143,8 +143,7 @@ export default function ContractorProfileDashboard() {
     }
   };
 
-  const saveProfile = async () => {
-    setSaving(true);
+  const { run: saveProfile, loading: saving } = useAsyncAction(async () => {
     setMessage(null);
 
     try {
@@ -175,10 +174,8 @@ export default function ContractorProfileDashboard() {
       }
     } catch (error) {
       setMessage({ type: "error", text: "Failed to update profile" });
-    } finally {
-      setSaving(false);
     }
-  };
+  });
 
   const addCertification = async () => {
     if (
