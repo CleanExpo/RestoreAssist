@@ -8,6 +8,7 @@ import {
   Copy,
   Edit,
   Eye,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -29,6 +30,7 @@ import { EditClientModal } from "@/components/clients/edit-client-modal";
 import { DeleteClientModal } from "@/components/clients/delete-client-modal";
 import { BulkDeleteModal } from "@/components/clients/bulk-delete-modal";
 import { UpgradeModal } from "@/components/clients/upgrade-modal";
+import { EmptyState } from "@/components/EmptyState";
 
 // RA-1204 — Relative-time formatter for the "Last report: 3 days ago"
 // preview under each client name. Uses Intl.RelativeTimeFormat (native,
@@ -508,11 +510,30 @@ export default function ClientsPage() {
                 card per client. Desktop/tablet retains the table below. */}
             <div className="sm:hidden space-y-3 p-4">
               {filteredClients.length === 0 ? (
-                <div className="text-center py-8 text-neutral-600 dark:text-slate-400">
-                  {searchTerm || statusFilter
-                    ? "No clients found matching your criteria"
-                    : "No clients found. Add your first client to get started."}
-                </div>
+                <EmptyState
+                  icon={<Users className="h-10 w-10" aria-hidden />}
+                  title={
+                    searchTerm || statusFilter
+                      ? "No clients found matching your criteria"
+                      : "No clients yet"
+                  }
+                  description={
+                    searchTerm || statusFilter
+                      ? undefined
+                      : "Add your first client to get started."
+                  }
+                  primaryAction={
+                    searchTerm || statusFilter
+                      ? undefined
+                      : {
+                          label: "Add Client",
+                          onClick: () => {
+                            form.reset(CLIENT_FORM_DEFAULTS);
+                            setShowAddModal(true);
+                          },
+                        }
+                  }
+                />
               ) : (
                 filteredClients.map((client) => {
                   const fromReport = (client as ClientWithReportFlag)
@@ -686,16 +707,31 @@ export default function ClientsPage() {
                 <tbody>
                   {filteredClients.length === 0 ? (
                     <tr>
-                      <td
-                        colSpan={9}
-                        className={cn(
-                          "py-12 text-center",
-                          "text-neutral-600 dark:text-slate-400",
-                        )}
-                      >
-                        {searchTerm || statusFilter
-                          ? "No clients found matching your criteria"
-                          : "No clients found. Add your first client to get started."}
+                      <td colSpan={9}>
+                        <EmptyState
+                          icon={<Users className="h-10 w-10" aria-hidden />}
+                          title={
+                            searchTerm || statusFilter
+                              ? "No clients found matching your criteria"
+                              : "No clients yet"
+                          }
+                          description={
+                            searchTerm || statusFilter
+                              ? undefined
+                              : "Add your first client to get started."
+                          }
+                          primaryAction={
+                            searchTerm || statusFilter
+                              ? undefined
+                              : {
+                                  label: "Add Client",
+                                  onClick: () => {
+                                    form.reset(CLIENT_FORM_DEFAULTS);
+                                    setShowAddModal(true);
+                                  },
+                                }
+                          }
+                        />
                       </td>
                     </tr>
                   ) : (

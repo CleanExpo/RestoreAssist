@@ -40,6 +40,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { EmptyState } from "@/components/EmptyState";
 
 interface Integration {
   id: string;
@@ -789,26 +790,15 @@ export default function IntegrationsPage() {
             <Separator className="mt-4 mb-5" />
 
             {integrations.length === 0 ? (
-              <Card className="border-dashed">
-                <CardContent className="flex flex-col items-center justify-center py-10 text-center">
-                  <Zap size={32} className="text-muted-foreground/40 mb-3" />
-                  <p className="text-sm text-muted-foreground">
-                    No AI integrations yet.
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Add your first API key to enable AI-powered report
-                    generation.
-                  </p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="mt-4"
-                    onClick={() => setShowAddModal(true)}
-                  >
-                    <Plus /> Add API Key
-                  </Button>
-                </CardContent>
-              </Card>
+              <EmptyState
+                icon={<Zap size={32} aria-hidden />}
+                title="No AI integrations yet"
+                description="Add your first API key to enable AI-powered report generation."
+                primaryAction={{
+                  label: "Add API Key",
+                  onClick: () => setShowAddModal(true),
+                }}
+              />
             ) : (
               <div className="grid md:grid-cols-2 gap-4">
                 {integrations.map((integration) => (

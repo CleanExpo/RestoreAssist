@@ -25,6 +25,7 @@ import { useState } from "react";
 import { useFetch } from "@/lib/hooks/useFetch";
 import { formatCurrencyCents, formatDate } from "@/lib/formatters";
 import toast from "react-hot-toast";
+import { EmptyState } from "@/components/EmptyState";
 
 interface Invoice {
   id: string;
@@ -339,18 +340,14 @@ export default function InvoicesPage() {
           Loading invoices...
         </div>
       ) : invoices.length === 0 ? (
-        <div className="text-center py-12">
-          <FileText className="h-16 w-16 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
-          <p className="text-slate-500 dark:text-slate-400 text-lg">
-            No invoices found
-          </p>
-          <Link
-            href="/dashboard/invoices/new"
-            className="inline-block mt-4 text-cyan-500 hover:text-cyan-600"
-          >
-            Create your first invoice
-          </Link>
-        </div>
+        <EmptyState
+          icon={<FileText className="h-10 w-10" aria-hidden />}
+          title="No invoices found"
+          primaryAction={{
+            label: "Create your first invoice",
+            href: "/dashboard/invoices/new",
+          }}
+        />
       ) : (
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
           {/* RA-918: overflow-x-auto enables horizontal scroll on narrow viewports */}
