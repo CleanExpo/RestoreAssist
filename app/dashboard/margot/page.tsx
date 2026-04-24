@@ -300,6 +300,43 @@ export default function MargotDashboardPage() {
                             </Tool>
                           );
                         }
+                        if (part.type === "tool-image_generate") {
+                          const isRunning =
+                            part.state === "input-streaming" ||
+                            part.state === "input-available";
+                          return (
+                            <Tool key={i} defaultOpen={part.state !== "output-available"}>
+                              <ToolHeader
+                                type="tool-image_generate"
+                                state={part.state}
+                                title="image_generate"
+                              />
+                              <ToolContent>
+                                {isRunning ? (
+                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-current" />
+                                    Generating image…
+                                  </div>
+                                ) : null}
+                                {(part.state === "input-available" ||
+                                  part.state === "output-available" ||
+                                  part.state === "output-error") &&
+                                part.input ? (
+                                  <ToolInput input={part.input} />
+                                ) : null}
+                                {part.state === "output-available" ? (
+                                  <ImageGenResult output={part.output} />
+                                ) : null}
+                                {part.state === "output-error" ? (
+                                  <ToolOutput
+                                    output={undefined}
+                                    errorText={part.errorText}
+                                  />
+                                ) : null}
+                              </ToolContent>
+                            </Tool>
+                          );
+                        }
                         if (part.type === "tool-deep_research") {
                           const isRunning =
                             part.state === "input-streaming" ||
@@ -579,5 +616,62 @@ function LinearWriteResult({
     <pre className="max-h-48 overflow-auto rounded bg-white p-2 text-xs">
       {JSON.stringify(output, null, 2)}
     </pre>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Image generation renderer (v2 inc3)
+// ---------------------------------------------------------------------------
+
+interface ImageGenOutput {
+  image_url?: string;
+  prompt?: string;
+  model?: string;
+  aspect_ratio?: string;
+  image_size?: string;
+  cost_usd_approx?: number;
+  error?: string;
+}
+
+function ImageGenResult({ output }: { output: unknown }) {
+  const data = (output ?? {}) as ImageGenOutput;
+
+  if (data.error) {
+    return (
+      <div className="rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+        {data.error}
+      </div>
+    );
+  }
+
+  if (!data.image_url) {
+    return (
+      <pre className="max-h-48 overflow-auto rounded bg-white p-2 text-xs">
+        {JSON.stringify(output, null, 2)}
+      </pre>
+    );
+  }
+
+  const promptExcerpt =
+    data.prompt && data.prompt.length > 140
+      ? `${data.prompt.slice(0, 140)}…`
+      : data.prompt ?? "";
+
+  return (
+    <figure
+      className="flex flex-col gap-2 rounded-md border bg-white p-2"
+      style={{ borderColor: "#E7E0D3" }}
+    >
+      <img
+        src={data.image_url}
+        alt={promptExcerpt || "Generated image"}
+        className="max-h-[480px] w-full rounded-sm object-contain"
+      />
+      <figcaption className="text-xs text-muted-foreground">
+        <span className="italic">{promptExcerpt}</span>
+        <br />
+        Generated with Nano Banana 2 · {data.image_size ?? "1K"}
+      </figcaption>
+    </figure>
   );
 }
