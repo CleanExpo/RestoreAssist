@@ -24,6 +24,7 @@ import {
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
+import { formatCurrencyCents } from "@/lib/formatters";
 
 type RecurringFrequency =
   | "WEEKLY"
@@ -520,14 +521,7 @@ export default function RecurringInvoicesPage() {
 
                         {/* Amount */}
                         <TableCell className="font-medium text-slate-900 dark:text-white tabular-nums">
-                          $
-                          {(schedule.totalIncGST / 100).toLocaleString(
-                            "en-AU",
-                            {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            },
-                          )}
+                          {formatCurrencyCents(schedule.totalIncGST)}
                         </TableCell>
 
                         {/* Next invoice date */}
