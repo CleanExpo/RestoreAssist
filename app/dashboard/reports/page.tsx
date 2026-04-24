@@ -30,6 +30,7 @@ import {
 } from "@/components/SessionMetadataCard";
 import { Button } from "@/components/ui/button";
 import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
+import { EmptyState } from "@/components/EmptyState";
 import { formatDate } from "@/lib/formatters";
 import type { ReportWithSessionData } from "@/lib/session-types";
 
@@ -749,31 +750,15 @@ export default function ReportsPage() {
                     // primary CTA, not a single line in a table cell.
                     <tr>
                       <td colSpan={11} className="py-16 px-6">
-                        <div className="flex flex-col items-center justify-center text-center space-y-4">
-                          <div className="rounded-full bg-slate-800/50 p-4">
-                            <GitBranch
-                              size={32}
-                              className="text-cyan-400"
-                              aria-hidden
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <h3 className="text-lg font-semibold text-white">
-                              No reports yet
-                            </h3>
-                            <p className="text-sm text-slate-400 max-w-sm">
-                              Water-damage reports appear here once you complete
-                              an inspection. Start one to generate your first
-                              IICRC-compliant report.
-                            </p>
-                          </div>
-                          <Link
-                            href="/dashboard/reports/new"
-                            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-medium hover:from-blue-700 hover:to-cyan-700 transition-colors"
-                          >
-                            Create your first report
-                          </Link>
-                        </div>
+                        <EmptyState
+                          icon={<GitBranch size={40} aria-hidden />}
+                          title="No reports yet"
+                          description="Water-damage reports appear here once you complete an inspection. Start one to generate your first IICRC-compliant report."
+                          primaryAction={{
+                            label: "Create your first report",
+                            href: "/dashboard/reports/new",
+                          }}
+                        />
                       </td>
                     </tr>
                   ) : (
