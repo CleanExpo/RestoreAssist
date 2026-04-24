@@ -3,16 +3,20 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function DELETE(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Sign in required",
+        status: 401,
+      });
     }
 
-    // Rate limit: 10 bulk deletes per 15 minutes per IP
     const rateLimited = await applyRateLimit(request, {
       maxRequests: 10,
       prefix: "clients-bulk-delete",
@@ -23,13 +27,13 @@ export async function DELETE(request: NextRequest) {
     const { ids } = body;
 
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
-      return NextResponse.json(
-        { error: "No client IDs provided" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "No client IDs provided",
+        status: 400,
+      });
     }
 
-    // Verify all clients belong to the user
     const clients = await prisma.client.findMany({
       where: {
         id: { in: ids },
@@ -38,13 +42,13 @@ export async function DELETE(request: NextRequest) {
     });
 
     if (clients.length !== ids.length) {
-      return NextResponse.json(
-        { error: "Some clients not found or not authorized" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Some clients not found or not authorized",
+        status: 404,
+      });
     }
 
-    // Delete all clients
     await prisma.client.deleteMany({
       where: {
         id: { in: ids },
@@ -57,10 +61,6 @@ export async function DELETE(request: NextRequest) {
       deletedCount: ids.length,
     });
   } catch (error) {
-    console.error("Error deleting clients:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "clients-bulk-delete" });
   }
 }
