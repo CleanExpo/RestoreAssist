@@ -7,6 +7,7 @@ import { sanitizeString } from "@/lib/sanitize";
 import { validateCsrf } from "@/lib/csrf";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
 import { verifyTurnstile } from "@/lib/turnstile";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // POST - Send password reset verification code
 export async function POST(request: NextRequest) {
@@ -28,13 +29,21 @@ export async function POST(request: NextRequest) {
       typeof body.turnstileToken === "string" ? body.turnstileToken : null;
 
     if (!email) {
-      return NextResponse.json({ error: "Email is required" }, { status: 400 });
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Email is required",
+        status: 400,
+      });
     }
 
     // RA-1286: CAPTCHA gate. Soft-allow when TURNSTILE_SECRET_KEY unset.
     const captcha = await verifyTurnstile(turnstileToken, getClientIp(request));
     if (!captcha.ok) {
-      return NextResponse.json({ error: captcha.reason }, { status: 400 });
+      return apiError(request, {
+        code: "VALIDATION",
+        message: captcha.reason,
+        status: 400,
+      });
     }
 
     // RA-1341: also rate-limit per target email so IP rotation (residential
@@ -91,11 +100,7 @@ export async function POST(request: NextRequest) {
       message:
         "If an account exists with this email, a verification code has been sent.",
     });
-  } catch (error: any) {
-    console.error("Error in forgot password:", error);
-    return NextResponse.json(
-      { error: "An error occurred. Please try again." },
-      { status: 500 },
-    );
+  } catch (error) {
+    return fromException(request, error, { stage: "forgot-password" });
   }
 }
