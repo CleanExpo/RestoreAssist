@@ -29,6 +29,13 @@ import {
   MessageResponse,
 } from "@/components/ai-elements/message";
 import {
+  Tool,
+  ToolContent,
+  ToolHeader,
+  ToolInput,
+  ToolOutput,
+} from "@/components/ai-elements/tool";
+import {
   PromptInput,
   PromptInputBody,
   PromptInputTextarea,
@@ -190,6 +197,46 @@ export default function MargotDashboardPage() {
                             <MessageResponse key={i}>{part.text}</MessageResponse>
                           ) : (
                             <span key={i}>{part.text}</span>
+                          );
+                        }
+                        if (part.type === "tool-deep_research") {
+                          const isRunning =
+                            part.state === "input-streaming" ||
+                            part.state === "input-available";
+                          return (
+                            <Tool key={i} defaultOpen={part.state !== "output-available"}>
+                              <ToolHeader
+                                type="tool-deep_research"
+                                state={part.state}
+                                title="deep_research"
+                              />
+                              <ToolContent>
+                                {isRunning ? (
+                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-current" />
+                                    Margot is researching…
+                                  </div>
+                                ) : null}
+                                {(part.state === "input-available" ||
+                                  part.state === "output-available" ||
+                                  part.state === "output-error") &&
+                                part.input ? (
+                                  <ToolInput input={part.input} />
+                                ) : null}
+                                {part.state === "output-available" ? (
+                                  <ToolOutput
+                                    output={part.output}
+                                    errorText={undefined}
+                                  />
+                                ) : null}
+                                {part.state === "output-error" ? (
+                                  <ToolOutput
+                                    output={undefined}
+                                    errorText={part.errorText}
+                                  />
+                                ) : null}
+                              </ToolContent>
+                            </Tool>
                           );
                         }
                         return null;
