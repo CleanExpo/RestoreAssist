@@ -16,7 +16,8 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { PlusIcon, LinkIcon } from "lucide-react";
+import { PlusIcon, LinkIcon, ExternalLinkIcon } from "lucide-react";
+import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
 import {
   Conversation,
   ConversationContent,
@@ -83,6 +84,28 @@ export default function MargotDashboardPage() {
     const text = msg.text?.trim();
     if (!text) return;
     sendMessage({ text });
+  };
+
+  const confirmLinearAction = (
+    action: "linear_create_issue" | "linear_comment_on_issue",
+    pending: Record<string, unknown>,
+  ) => {
+    // Second-pass instruction: tell Margot to call the same tool again,
+    // this time with confirmed=true. The model is responsible for replaying
+    // the correct args from context.
+    const summary =
+      action === "linear_create_issue"
+        ? `Yes, file it. Call linear_create_issue again with confirmed=true and the same args (title: ${JSON.stringify(
+            pending.title,
+          )}).`
+        : `Yes, post it. Call linear_comment_on_issue again with confirmed=true, issueId ${JSON.stringify(
+            pending.issueId,
+          )}.`;
+    sendMessage({ text: summary });
+  };
+
+  const cancelLinearAction = () => {
+    sendMessage({ text: "Cancel that — don't file/post it." });
   };
 
   if (status === "loading" || !session) {
@@ -199,6 +222,84 @@ export default function MargotDashboardPage() {
                             <span key={i}>{part.text}</span>
                           );
                         }
+                        if (part.type === "tool-linear_list_issues") {
+                          return (
+                            <Tool
+                              key={i}
+                              defaultOpen={part.state !== "output-available"}
+                            >
+                              <ToolHeader
+                                type="tool-linear_list_issues"
+                                state={part.state}
+                                title="linear_list_issues"
+                              />
+                              <ToolContent>
+                                {(part.state === "input-available" ||
+                                  part.state === "output-available" ||
+                                  part.state === "output-error") &&
+                                part.input ? (
+                                  <ToolInput input={part.input} />
+                                ) : null}
+                                {part.state === "output-available" ? (
+                                  <LinearIssueList output={part.output} />
+                                ) : null}
+                                {part.state === "output-error" ? (
+                                  <ToolOutput
+                                    output={undefined}
+                                    errorText={part.errorText}
+                                  />
+                                ) : null}
+                              </ToolContent>
+                            </Tool>
+                          );
+                        }
+                        if (
+                          part.type === "tool-linear_create_issue" ||
+                          part.type === "tool-linear_comment_on_issue"
+                        ) {
+                          const label =
+                            part.type === "tool-linear_create_issue"
+                              ? "linear_create_issue"
+                              : "linear_comment_on_issue";
+                          return (
+                            <Tool
+                              key={i}
+                              defaultOpen={part.state !== "output-available"}
+                            >
+                              <ToolHeader
+                                type={part.type}
+                                state={part.state}
+                                title={label}
+                              />
+                              <ToolContent>
+                                {(part.state === "input-available" ||
+                                  part.state === "output-available" ||
+                                  part.state === "output-error") &&
+                                part.input ? (
+                                  <ToolInput input={part.input} />
+                                ) : null}
+                                {part.state === "output-available" ? (
+                                  <LinearWriteResult
+                                    action={
+                                      part.type === "tool-linear_create_issue"
+                                        ? "linear_create_issue"
+                                        : "linear_comment_on_issue"
+                                    }
+                                    output={part.output}
+                                    onConfirm={confirmLinearAction}
+                                    onCancel={cancelLinearAction}
+                                  />
+                                ) : null}
+                                {part.state === "output-error" ? (
+                                  <ToolOutput
+                                    output={undefined}
+                                    errorText={part.errorText}
+                                  />
+                                ) : null}
+                              </ToolContent>
+                            </Tool>
+                          );
+                        }
                         if (part.type === "tool-deep_research") {
                           const isRunning =
                             part.state === "input-streaming" ||
@@ -279,5 +380,204 @@ export default function MargotDashboardPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Linear tool renderers (v2 inc2)
+// ---------------------------------------------------------------------------
+
+interface LinearIssueListItem {
+  id: string;
+  identifier: string;
+  title: string;
+  state: string;
+  priority: number;
+  assignee: string | null;
+  url: string;
+}
+
+function priorityToTone(priority: number): { tone: StatusTone; label: string } {
+  // Linear: 0 none, 1 urgent, 2 high, 3 medium, 4 low.
+  switch (priority) {
+    case 1:
+      return { tone: "danger", label: "Urgent" };
+    case 2:
+      return { tone: "warning", label: "High" };
+    case 3:
+      return { tone: "info", label: "Medium" };
+    case 4:
+      return { tone: "neutral", label: "Low" };
+    default:
+      return { tone: "neutral", label: "None" };
+  }
+}
+
+function LinearIssueList({ output }: { output: unknown }) {
+  // Error payload shape: { error, retryable }.
+  if (
+    output &&
+    typeof output === "object" &&
+    "error" in output &&
+    typeof (output as { error: unknown }).error === "string"
+  ) {
+    return (
+      <div className="rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+        {(output as { error: string }).error}
+      </div>
+    );
+  }
+
+  const parsed = output as
+    | { issues?: LinearIssueListItem[]; count?: number }
+    | null;
+  const issues = parsed?.issues ?? [];
+
+  if (issues.length === 0) {
+    return (
+      <div className="text-sm text-muted-foreground">
+        No Linear issues matched.
+      </div>
+    );
+  }
+
+  return (
+    <ul className="flex flex-col gap-2">
+      {issues.map((issue) => {
+        const pri = priorityToTone(issue.priority);
+        return (
+          <li
+            key={issue.id}
+            className="flex items-start gap-3 rounded-md border bg-white px-3 py-2"
+            style={{ borderColor: "#E7E0D3" }}
+          >
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 text-sm">
+                <span className="font-mono font-medium">
+                  {issue.identifier}
+                </span>
+                <StatusBadge tone={pri.tone}>{pri.label}</StatusBadge>
+                <StatusBadge tone="neutral">{issue.state}</StatusBadge>
+              </div>
+              <div className="truncate text-sm font-medium">{issue.title}</div>
+              <div className="text-xs text-muted-foreground">
+                {issue.assignee ? `Assignee: ${issue.assignee}` : "Unassigned"}
+              </div>
+            </div>
+            <a
+              href={issue.url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex shrink-0 items-center gap-1 text-xs text-sky-700 hover:underline"
+            >
+              Linear
+              <ExternalLinkIcon className="h-3 w-3" />
+            </a>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+interface LinearConfirmationOutput {
+  requiresConfirmation: true;
+  action: "linear_create_issue" | "linear_comment_on_issue";
+  pending: Record<string, unknown>;
+  message: string;
+}
+
+function isConfirmation(v: unknown): v is LinearConfirmationOutput {
+  return (
+    !!v &&
+    typeof v === "object" &&
+    "requiresConfirmation" in v &&
+    (v as { requiresConfirmation: unknown }).requiresConfirmation === true
+  );
+}
+
+function LinearWriteResult({
+  action,
+  output,
+  onConfirm,
+  onCancel,
+}: {
+  action: "linear_create_issue" | "linear_comment_on_issue";
+  output: unknown;
+  onConfirm: (
+    action: "linear_create_issue" | "linear_comment_on_issue",
+    pending: Record<string, unknown>,
+  ) => void;
+  onCancel: () => void;
+}) {
+  if (isConfirmation(output)) {
+    const verb = output.action === "linear_create_issue" ? "create" : "comment on";
+    return (
+      <div
+        className="rounded-md border px-3 py-3 text-sm"
+        style={{ borderColor: "#E4C972", backgroundColor: "#FBF5E2" }}
+      >
+        <div className="mb-2 font-medium">
+          Confirm: {verb} Linear issue?
+        </div>
+        <pre className="mb-3 max-h-48 overflow-auto rounded bg-white p-2 text-xs">
+          {JSON.stringify(output.pending, null, 2)}
+        </pre>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            onClick={() => onConfirm(action, output.pending)}
+          >
+            Confirm
+          </Button>
+          <Button size="sm" variant="outline" onClick={onCancel}>
+            Cancel
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (
+    output &&
+    typeof output === "object" &&
+    "error" in output &&
+    typeof (output as { error: unknown }).error === "string"
+  ) {
+    return (
+      <div className="rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+        {(output as { error: string }).error}
+      </div>
+    );
+  }
+
+  const parsed = output as
+    | { identifier?: string; id?: string; url?: string }
+    | null;
+
+  if (parsed?.url) {
+    return (
+      <div className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+        Done.{" "}
+        {parsed.identifier ? (
+          <span className="font-mono">{parsed.identifier}</span>
+        ) : null}{" "}
+        <a
+          href={parsed.url}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1 text-sky-700 hover:underline"
+        >
+          Open in Linear
+          <ExternalLinkIcon className="h-3 w-3" />
+        </a>
+      </div>
+    );
+  }
+
+  return (
+    <pre className="max-h-48 overflow-auto rounded bg-white p-2 text-xs">
+      {JSON.stringify(output, null, 2)}
+    </pre>
   );
 }
