@@ -4,19 +4,23 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { toPostgresTsquery, validateSearchParams } from "@/lib/search-utils";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Sign in required",
+        status: 401,
+      });
     }
 
     const { searchParams } = new URL(request.url);
     const q = searchParams.get("q");
     const status = searchParams.get("status");
-    // RA-1307 — also floor offset at 0 to reject ?offset=-1 (Prisma skip=-1 throws).
     const limit = Math.min(
       100,
       Math.max(1, parseInt(searchParams.get("limit") || "20") || 20),
@@ -26,7 +30,6 @@ export async function GET(request: NextRequest) {
       parseInt(searchParams.get("offset") || "0") || 0,
     );
 
-    // Validate search parameters
     const validation = validateSearchParams({
       q: q || "",
       limit,
@@ -35,18 +38,17 @@ export async function GET(request: NextRequest) {
     });
 
     if (!validation.valid) {
-      return NextResponse.json(
-        { error: validation.errors?.join(", ") },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: validation.errors?.join(", ") ?? "Invalid search parameters",
+        status: 400,
+      });
     }
 
     const query = validation.query!;
     const tsquery = toPostgresTsquery(query);
     const userId = session.user.id;
 
-    // Build WHERE fragment using Prisma.sql for safe parameterization —
-    // avoids the SQL-injection risk of string-interpolated whereClause.
     let whereFragment = Prisma.sql`"userId" = ${userId}
       AND search_vector @@ to_tsquery('english', ${tsquery})`;
 
@@ -54,7 +56,6 @@ export async function GET(request: NextRequest) {
       whereFragment = Prisma.sql`${whereFragment} AND "status" = ${status}`;
     }
 
-    // Execute search query — all values are parameterized by Prisma.sql
     const clients = await prisma.$queryRaw<any[]>(Prisma.sql`
       SELECT
         id,
@@ -74,7 +75,6 @@ export async function GET(request: NextRequest) {
       OFFSET ${offset}
     `);
 
-    // Get total count
     const totalResult = await prisma.$queryRaw<[{ count: bigint }]>(Prisma.sql`
       SELECT COUNT(*) as count
       FROM "Client"
@@ -103,7 +103,6 @@ export async function GET(request: NextRequest) {
       hasMore: offset + limit < totalCount,
     });
   } catch (error) {
-    console.error("Clients search error:", error);
-    return NextResponse.json({ error: "Search failed" }, { status: 500 });
+    return fromException(request, error, { stage: "clients-search" });
   }
 }
