@@ -29,7 +29,17 @@ import {
   PhaseProgressBar,
 } from "@/components/SessionMetadataCard";
 import { Button } from "@/components/ui/button";
+import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
 import type { ReportWithSessionData } from "@/lib/session-types";
+
+const REPORT_STATUS_TONES: Record<string, StatusTone> = {
+  COMPLETED: "success",
+  APPROVED: "success",
+  PENDING: "warning",
+  "In Progress": "info",
+  DRAFT: "neutral",
+  ARCHIVED: "neutral",
+};
 
 export default function ReportsPage() {
   const router = useRouter();
@@ -327,14 +337,6 @@ export default function ReportsPage() {
     currentPage * itemsPerPage,
   );
 
-  const statusColors = {
-    COMPLETED: "bg-emerald-500/20 text-emerald-400",
-    APPROVED: "bg-emerald-500/20 text-emerald-400",
-    PENDING: "bg-amber-500/20 text-amber-400",
-    "In Progress": "bg-blue-500/20 text-blue-400",
-    DRAFT: "bg-slate-500/20 text-slate-400",
-    ARCHIVED: "bg-gray-500/20 text-gray-400",
-  };
 
   const hazardIcons = {
     "Category 1": "💧",
@@ -602,15 +604,11 @@ export default function ReportsPage() {
                           >
                             {report.reportNumber || report.id}
                           </Link>
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                              statusColors[
-                                report.status as keyof typeof statusColors
-                              ] || "bg-slate-500/20 text-slate-400"
-                            }`}
+                          <StatusBadge
+                            tone={REPORT_STATUS_TONES[report.status ?? ""] ?? "neutral"}
                           >
                             {report.status || "COMPLETED"}
-                          </span>
+                          </StatusBadge>
                           <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-700/50 text-slate-300 flex items-center gap-1">
                             <span>
                               {hazardIcons[
@@ -859,11 +857,11 @@ export default function ReportsPage() {
                           {report.policyType || "N/A"}
                         </td>
                         <td className="py-4 px-6">
-                          <span
-                            className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[report.status as keyof typeof statusColors] || "bg-slate-500/20 text-slate-400"}`}
+                          <StatusBadge
+                            tone={REPORT_STATUS_TONES[report.status ?? ""] ?? "neutral"}
                           >
                             {report.status || "COMPLETED"}
-                          </span>
+                          </StatusBadge>
                         </td>
                         <td className="py-4 px-6 font-medium">
                           {formatCost(report.estimatedCost)}

@@ -21,6 +21,22 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import PortalInvitationSection from "@/components/dashboard/PortalInvitationSection";
+import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
+
+const REPORT_STATUS_TONES: Record<string, StatusTone> = {
+  completed: "success",
+  approved: "success",
+  in_progress: "info",
+  pending: "warning",
+  draft: "neutral",
+};
+
+const CLIENT_STATUS_TONES: Record<string, StatusTone> = {
+  ACTIVE: "success",
+  INACTIVE: "warning",
+  PROSPECT: "info",
+  ARCHIVED: "neutral",
+};
 
 interface LinkedInspection {
   id: string;
@@ -183,35 +199,7 @@ export default function ClientDetailPage({
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "completed":
-        return "bg-emerald-500/20 text-emerald-400";
-      case "in_progress":
-        return "bg-blue-500/20 text-blue-400";
-      case "pending":
-        return "bg-amber-500/20 text-amber-400";
-      case "draft":
-        return "bg-slate-500/20 text-slate-400";
-      default:
-        return "bg-slate-500/20 text-slate-400";
-    }
-  };
 
-  const getClientStatusColor = (status: string) => {
-    switch (status) {
-      case "ACTIVE":
-        return "bg-emerald-500/20 text-emerald-400";
-      case "INACTIVE":
-        return "bg-amber-500/20 text-amber-400";
-      case "PROSPECT":
-        return "bg-blue-500/20 text-blue-400";
-      case "ARCHIVED":
-        return "bg-slate-500/20 text-slate-400";
-      default:
-        return "bg-slate-500/20 text-slate-400";
-    }
-  };
 
   const getDocTypeLabel = (type: string) => {
     if (type === "RESTORATION_INVOICE") return "Tax Invoice";
@@ -324,11 +312,9 @@ export default function ClientDetailPage({
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-slate-400">Status</span>
-              <span
-                className={`px-3 py-1 rounded-full text-xs font-medium ${getClientStatusColor(client.status)}`}
-              >
+              <StatusBadge tone={CLIENT_STATUS_TONES[client.status] ?? "neutral"}>
                 {client.status}
-              </span>
+              </StatusBadge>
             </div>
             {client.contactPerson && (
               <div className="flex items-center justify-between">
@@ -536,11 +522,11 @@ export default function ClientDetailPage({
                   <span className="text-lg font-bold text-cyan-400">
                     ${(report.totalCost || 0).toLocaleString()}
                   </span>
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}
+                  <StatusBadge
+                    tone={REPORT_STATUS_TONES[report.status.toLowerCase()] ?? "neutral"}
                   >
                     {report.status.replace("_", " ")}
-                  </span>
+                  </StatusBadge>
                   <Link
                     href={`/dashboard/reports/${report.id}`}
                     className="flex items-center gap-1 text-cyan-400 hover:underline text-sm"
