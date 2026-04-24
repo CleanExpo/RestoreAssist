@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { EmptyState } from "@/components/EmptyState";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -418,12 +419,11 @@ export default function ClientPortalPage({
               ))}
             </div>
           ) : invitations.length === 0 ? (
-            <div className="px-6 py-10 text-center">
-              <Send size={36} className="mx-auto text-slate-500 mb-3" />
-              <p className="text-slate-400 text-sm">
-                No portal invitations sent yet for this client.
-              </p>
-            </div>
+            <EmptyState
+              icon={<Send className="h-8 w-8" />}
+              title="No invitations yet"
+              description="Send this client their first portal invitation using the form above."
+            />
           ) : (
             <Table>
               <TableHeader>
