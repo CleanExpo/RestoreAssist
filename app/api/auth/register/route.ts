@@ -5,6 +5,7 @@ import { applyRateLimit, getClientIp } from "@/lib/rate-limiter";
 import { sanitizeString } from "@/lib/sanitize";
 import { validateCsrf } from "@/lib/csrf";
 import { sendWelcomeEmail } from "@/lib/email";
+import { sendWithRetry } from "@/lib/email-retry";
 import { notifyWelcome } from "@/lib/notifications";
 import { seedDemoDataForNewUser } from "@/lib/demo-data";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
@@ -127,13 +128,17 @@ export async function POST(request: NextRequest) {
           acceptedTermsAt: new Date() as any,
         } as any,
       });
-      sendWelcomeEmail({
-        recipientEmail: email,
-        recipientName: name,
-        loginUrl: `${APP_URL}/login`,
-        trialDays: 30,
-        trialCredits: 30,
-      }).catch((err) => console.error("[Register] Welcome email failed:", err));
+      sendWithRetry(
+        () =>
+          sendWelcomeEmail({
+            recipientEmail: email,
+            recipientName: name,
+            loginUrl: `${APP_URL}/login`,
+            trialDays: 30,
+            trialCredits: 30,
+          }),
+        { stage: "signup-welcome" },
+      ).catch((err) => console.error("[Register] Welcome email failed:", err));
       notifyWelcome(user.id).catch((err) =>
         console.error("[Register] notifyWelcome failed:", err),
       );
@@ -199,13 +204,17 @@ export async function POST(request: NextRequest) {
       // callback `.catch()`s swallows each rejection so nothing bubbles.
       const reqCtx = extractRequestContext(request);
       await Promise.allSettled([
-        sendWelcomeEmail({
-          recipientEmail: email,
-          recipientName: name,
-          loginUrl: `${APP_URL}/login`,
-          trialDays: 30,
-          trialCredits: 30,
-        }).catch((err) => console.error("[Register] Welcome email failed:", err)),
+        sendWithRetry(
+          () =>
+            sendWelcomeEmail({
+              recipientEmail: email,
+              recipientName: name,
+              loginUrl: `${APP_URL}/login`,
+              trialDays: 30,
+              trialCredits: 30,
+            }),
+          { stage: "signup-welcome" },
+        ).catch((err) => console.error("[Register] Welcome email failed:", err)),
         notifyWelcome(updatedUser.id).catch((err) =>
           console.error("[Register] notifyWelcome failed:", err),
         ),
