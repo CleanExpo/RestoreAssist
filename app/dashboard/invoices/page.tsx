@@ -23,6 +23,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useFetch } from "@/lib/hooks/useFetch";
+import { formatDate } from "@/lib/formatters";
 import toast from "react-hot-toast";
 
 interface Invoice {
@@ -429,10 +430,10 @@ export default function InvoicesPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
-                      {new Date(invoice.invoiceDate).toLocaleDateString()}
+                      {formatDate(invoice.invoiceDate)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
-                      {new Date(invoice.dueDate).toLocaleDateString()}
+                      {formatDate(invoice.dueDate)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-slate-900 dark:text-white">
