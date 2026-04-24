@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function POST(
   request: NextRequest,
@@ -11,7 +12,11 @@ export async function POST(
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Sign in required",
+      status: 401,
+    });
   }
   const userId = session.user.id;
   const { id } = await params;
@@ -24,10 +29,11 @@ export async function POST(
       });
 
       if (!originalClient) {
-        return NextResponse.json(
-          { error: "Client not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Client not found",
+          status: 404,
+        });
       }
 
       const duplicatedClient = await prisma.client.create({
@@ -46,11 +52,7 @@ export async function POST(
 
       return NextResponse.json(duplicatedClient, { status: 201 });
     } catch (error) {
-      console.error("Error duplicating client:", error);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "clients-duplicate" });
     }
   });
 }
