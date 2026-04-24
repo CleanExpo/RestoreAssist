@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { Loader2, GitBranch } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { EmptyState } from "@/components/EmptyState";
 
 interface StatusItem {
   status: string;
@@ -80,14 +81,11 @@ export default function StatusPipeline({
             Report Pipeline
           </h3>
         </div>
-        <div
-          className={cn(
-            "flex items-center justify-center h-[200px]",
-            "text-neutral-600 dark:text-slate-400",
-          )}
-        >
-          No status data for this period
-        </div>
+        <EmptyState
+          icon={<GitBranch className="h-8 w-8" />}
+          title="No status data yet"
+          description="There are no reports in the pipeline for this period."
+        />
       </div>
     );
   }
