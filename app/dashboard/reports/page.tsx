@@ -30,6 +30,7 @@ import {
 } from "@/components/SessionMetadataCard";
 import { Button } from "@/components/ui/button";
 import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
+import { formatDate } from "@/lib/formatters";
 import type { ReportWithSessionData } from "@/lib/session-types";
 
 const REPORT_STATUS_TONES: Record<string, StatusTone> = {
@@ -348,12 +349,6 @@ export default function ReportsPage() {
     Flood: "🌊",
     Biohazard: "☣️",
     Impact: "💥",
-  };
-
-  const formatDate = (dateString: string) => {
-    if (!dateString) return "N/A";
-    const date = new Date(dateString);
-    return date.toLocaleDateString();
   };
 
   const formatCost = (cost: number | string | null | undefined) => {
