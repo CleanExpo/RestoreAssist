@@ -44,6 +44,7 @@ import { ProductTour } from "@/components/onboarding/ProductTour";
 import { TrialBanner } from "@/components/TrialBanner";
 import { PastDueBanner } from "@/components/billing/PastDueBanner";
 import { CancellationCountdownBanner } from "@/components/billing/CancellationCountdownBanner";
+import { XeroDeadLetterBanner } from "@/components/integrations/XeroDeadLetterBanner";
 import { IntegrationHealthBanner } from "@/components/dashboard/IntegrationHealthBanner";
 
 const Chatbot = dynamic(() => import("@/components/Chatbot"), { ssr: false });
@@ -581,6 +582,9 @@ export default function DashboardLayout({
 
           {/* Cancellation countdown — RA-1256 */}
           <CancellationCountdownBanner />
+
+          {/* RA-1112 — dead-letter banner for failed Xero sync jobs > 24 h */}
+          <XeroDeadLetterBanner />
 
           {/* Page Content */}
           <main
