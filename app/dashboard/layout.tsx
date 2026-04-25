@@ -44,6 +44,7 @@ import { ProductTour } from "@/components/onboarding/ProductTour";
 import { TrialBanner } from "@/components/TrialBanner";
 import { PastDueBanner } from "@/components/billing/PastDueBanner";
 import { CancellationCountdownBanner } from "@/components/billing/CancellationCountdownBanner";
+import { IntegrationHealthBanner } from "@/components/dashboard/IntegrationHealthBanner";
 
 const Chatbot = dynamic(() => import("@/components/Chatbot"), { ssr: false });
 import GlobalSearch from "@/components/GlobalSearch";
@@ -320,6 +321,9 @@ export default function DashboardLayout({
               )}
             </button>
           </div>
+
+          {/* RA-1557: integration health warning banner */}
+          <IntegrationHealthBanner sidebarOpen={sidebarOpen} />
 
           {/* Navigation */}
           <nav className="flex-1 overflow-y-auto py-4 px-2">
