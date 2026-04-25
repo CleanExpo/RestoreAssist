@@ -17,6 +17,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { domainEvents } from "@/lib/events/emitter";
+import { writeInspectionAudit } from "@/lib/inspection-audit";
 
 const DEFAULT_ACTIONS = [
   "power_isolated",
@@ -72,10 +74,27 @@ export async function POST(request: NextRequest) {
     orderBy: { createdAt: "asc" },
   });
 
+  const authorisedAt = new Date().toISOString();
+  const authorisedBy = body.authorisedByName ?? session.user.name ?? session.user.id;
+
+  domainEvents.emit({
+    type: "make_safe.authorised",
+    payload: { inspectionId, authorisedBy, timestamp: authorisedAt },
+  });
+
+  await writeInspectionAudit({
+    inspectionId,
+    userId: session.user.id,
+    action: "make_safe.authorised",
+    entityType: "MakeSafeAction",
+    changes: { authorisedBy, actionsCreated: actions.length },
+    request,
+  });
+
   return NextResponse.json({
     inspectionId,
-    authorisedAt: new Date().toISOString(),
-    authorisedBy: body.authorisedByName ?? session.user.name ?? session.user.id,
+    authorisedAt,
+    authorisedBy,
     standard: "IICRC S500 §3.1",
     actions,
   });

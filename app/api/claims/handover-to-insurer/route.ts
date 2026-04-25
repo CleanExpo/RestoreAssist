@@ -19,6 +19,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email-send";
+import { domainEvents } from "@/lib/events/emitter";
+import { writeInspectionAudit } from "@/lib/inspection-audit";
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -104,6 +106,26 @@ export async function POST(request: NextRequest) {
       `,
     });
   }
+
+  domainEvents.emit({
+    type: "claim.handed_over",
+    payload: {
+      inspectionId,
+      userId: session.user.id,
+      insurerEmail: insurerEmail ?? null,
+      handoverAt: handoverAt.toISOString(),
+    },
+  });
+
+  await writeInspectionAudit({
+    inspectionId,
+    userId: session.user.id,
+    action: "claim.handed_over",
+    entityType: "Inspection",
+    entityId: inspectionId,
+    changes: { status: "SUBMITTED", insurerNotified: !!insurerEmail },
+    request,
+  });
 
   return NextResponse.json({
     inspectionId,
