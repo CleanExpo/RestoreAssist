@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import {
+  Bluetooth,
+  BluetoothConnected,
+  BluetoothSearching,
   Droplets,
   Loader2,
   X,
@@ -17,6 +20,11 @@ import {
   getMoistureStatus,
   STATUS_COLORS,
 } from "@/lib/iicrc-dry-standards";
+import {
+  useBluetoothMeter,
+  isEnvironmentalReading,
+  isMoistureReading,
+} from "@/hooks/use-bluetooth-meter";
 
 interface MoistureReadingEntryFormProps {
   inspectionId: string;
@@ -50,6 +58,9 @@ export function MoistureReadingEntryForm({
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // RA-1611: BLE meter integration — "ble" when value was pre-filled from a paired meter
+  const [source, setSource] = useState<"manual" | "ble">("manual");
+  const ble = useBluetoothMeter("testo-605");
 
   const std = getDryStandard(material);
   const level = parseFloat(moistureLevel);
@@ -85,6 +96,7 @@ export function MoistureReadingEntryForm({
           moistureLevel: level,
           depth,
           notes: notes.trim() || null,
+          source,
         }),
       });
 
@@ -100,6 +112,7 @@ export function MoistureReadingEntryForm({
       setLocation("");
       setMoistureLevel("");
       setNotes("");
+      setSource("manual");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save reading");
     } finally {
@@ -214,12 +227,65 @@ export function MoistureReadingEntryForm({
 
       {/* Reading value + status */}
       <div>
-        <label
-          htmlFor="moisture-level"
-          className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1"
-        >
-          Moisture Reading (%) <span className="text-rose-500">*</span>
-        </label>
+        <div className="flex items-center justify-between mb-1">
+          <label
+            htmlFor="moisture-level"
+            className="text-xs font-medium text-gray-700 dark:text-slate-300"
+          >
+            Moisture Reading (%) <span className="text-rose-500">*</span>
+          </label>
+          {/* RA-1611: BLE meter connect button */}
+          {ble.availability === "available" && (
+            <button
+              type="button"
+              aria-label={ble.paired ? "Read from paired meter" : "Connect Bluetooth meter"}
+              disabled={ble.pairing || ble.reading}
+              onClick={async () => {
+                if (!ble.paired) {
+                  await ble.pair();
+                } else {
+                  const result = await ble.read();
+                  if (result) {
+                    if (isEnvironmentalReading(result)) {
+                      setMoistureLevel(String(result.relativeHumidityPercent.toFixed(1)));
+                    } else if (isMoistureReading(result)) {
+                      setMoistureLevel(String(result.moistureContentPercent.toFixed(1)));
+                    }
+                    setSource("ble");
+                  }
+                }
+              }}
+              className={cn(
+                "inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors",
+                ble.paired
+                  ? "bg-cyan-50 text-cyan-700 border border-cyan-300 hover:bg-cyan-100 dark:bg-cyan-900/30 dark:text-cyan-300 dark:border-cyan-700"
+                  : "bg-slate-100 text-slate-600 border border-slate-300 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600",
+              )}
+            >
+              {ble.pairing || ble.reading ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : ble.paired ? (
+                <BluetoothConnected size={12} />
+              ) : (
+                <BluetoothSearching size={12} />
+              )}
+              {ble.pairing
+                ? "Pairing…"
+                : ble.reading
+                  ? "Reading…"
+                  : ble.paired
+                    ? "Read from meter"
+                    : "Connect meter"}
+            </button>
+          )}
+        </div>
+        {/* BLE source indicator */}
+        {source === "ble" && (
+          <div className="flex items-center gap-1 mb-1 text-xs text-cyan-600 dark:text-cyan-400">
+            <Bluetooth size={11} />
+            <span>Value from paired meter — confirm before saving</span>
+          </div>
+        )}
         <div className="flex items-center gap-2">
           <input
             id="moisture-level"
@@ -228,9 +294,17 @@ export function MoistureReadingEntryForm({
             max={100}
             step={0.1}
             value={moistureLevel}
-            onChange={(e) => setMoistureLevel(e.target.value)}
+            onChange={(e) => {
+              setMoistureLevel(e.target.value);
+              setSource("manual"); // user edited — revert to manual
+            }}
             placeholder="0.0"
-            className="flex-1 px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30"
+            className={cn(
+              "flex-1 px-3 py-2 text-sm rounded-lg border bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-1",
+              source === "ble"
+                ? "border-cyan-400 focus:border-cyan-500 focus:ring-cyan-500/30"
+                : "border-gray-300 dark:border-slate-600 focus:border-cyan-500 focus:ring-cyan-500/30",
+            )}
           />
           {/* Live status badge */}
           {status && statusColors && (

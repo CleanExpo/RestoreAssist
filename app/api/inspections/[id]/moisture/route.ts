@@ -108,6 +108,10 @@ export async function POST(
         depth: sanitizeString(body.depth || "Surface", 50),
         notes: body.notes ? sanitizeString(body.notes, 2000) : null,
         photoUrl,
+        // RA-1611: BLE source tag ("ble" | "cloud" | "ocr" | "manual")
+        source: ["ble", "cloud", "ocr", "manual"].includes(body.source)
+          ? body.source
+          : "manual",
       };
       // Include mapX/mapY only if provided — clamp to [0, 1] normalised range; reject non-finite
       if (body.mapX !== undefined && body.mapX !== null) {
