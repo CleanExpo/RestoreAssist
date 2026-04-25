@@ -91,3 +91,15 @@ export function decrypt(encryptedValue: string, keyOverride?: Buffer): string {
 
   return decrypted;
 }
+
+/**
+ * Decrypt if the value looks encrypted; return as-is if it's plaintext.
+ * Handles backward-compat for rows written before RA-1221 encryption was added.
+ */
+export function safeDecrypt(value: string, keyOverride?: Buffer): string {
+  try {
+    return decrypt(value, keyOverride);
+  } catch {
+    return value;
+  }
+}

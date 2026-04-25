@@ -26,6 +26,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ruleBasedClassify } from "@/lib/ai/auto-classify";
 import { verifyCronAuth } from "@/lib/cron/auth";
+import { safeDecrypt, encrypt } from "@/lib/credential-vault";
 
 // ============================================================
 // Ascora API types — actual camelCase structure from API
@@ -401,7 +402,7 @@ export async function POST(request: NextRequest) {
       integration = await (prisma as any).ascoraIntegration.create({
         data: {
           userId: userId,
-          apiKey: envApiKey,
+          apiKey: encrypt(envApiKey),
           baseUrl: (
             process.env.ASCORA_BASE_URL ?? "https://api.ascora.com.au"
           ).replace(/\/$/, ""),
@@ -416,6 +417,9 @@ export async function POST(request: NextRequest) {
         { status: 403 },
       );
     }
+
+    // Decrypt API key — encrypted at rest since RA-1221 (safeDecrypt handles legacy plaintext rows)
+    const apiKeyPlain = safeDecrypt(integration.apiKey as string);
 
     // Parse query params
     const { searchParams } = new URL(request.url);
@@ -449,7 +453,7 @@ export async function POST(request: NextRequest) {
     // ------------------------------------------------------------------
     const allJobs = await fetchAllPages<AscoraJobRaw>(
       integration.baseUrl,
-      integration.apiKey,
+      apiKeyPlain,
       "/jobs",
     );
 
