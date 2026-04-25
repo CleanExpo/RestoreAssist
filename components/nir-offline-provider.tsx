@@ -44,6 +44,11 @@ import {
   getQueuedEvidenceCount,
   initEvidenceSyncOnReconnect,
 } from "@/lib/evidence-upload-queue";
+import {
+  getQueuedVoiceNoteCount,
+  initVoiceNoteSyncOnReconnect,
+  pruneVoiceNoteQueue,
+} from "@/lib/voice-note-queue";
 
 // ─── CONTEXT ──────────────────────────────────────────────────────────────────
 
@@ -53,6 +58,8 @@ interface NirOfflineContextValue {
   isServiceWorkerReady: boolean;
   /** Count of evidence (photo) uploads pending upload — RA-1462 */
   pendingEvidenceUploads: number;
+  /** Count of voice notes queued for transcription — RA-1609 */
+  pendingVoiceNotes: number;
   /** Manually trigger a sync drain (e.g. on pull-to-refresh) */
   triggerSync: () => Promise<void>;
 }
@@ -62,6 +69,7 @@ const NirOfflineContext = createContext<NirOfflineContextValue>({
   queueStats: { pending: 0, failed: 0, conflicts: 0, status: "OFFLINE" },
   isServiceWorkerReady: false,
   pendingEvidenceUploads: 0,
+  pendingVoiceNotes: 0,
   triggerSync: async () => {},
 });
 
@@ -141,16 +149,19 @@ export function NirOfflineProvider({ children }: NirOfflineProviderProps) {
   });
   const [isServiceWorkerReady, setIsServiceWorkerReady] = useState(false);
   const [pendingEvidenceUploads, setPendingEvidenceUploads] = useState(0);
+  const [pendingVoiceNotes, setPendingVoiceNotes] = useState(0);
 
   const refreshStatus = useCallback(async () => {
-    const [status, stats, evidenceCount] = await Promise.all([
+    const [status, stats, evidenceCount, voiceNoteCount] = await Promise.all([
       getSyncStatus(),
       getQueueStats(),
       getQueuedEvidenceCount(),
+      getQueuedVoiceNoteCount(),
     ]);
     setSyncStatus(status);
     setQueueStats(stats);
     setPendingEvidenceUploads(evidenceCount);
+    setPendingVoiceNotes(voiceNoteCount);
   }, []);
 
   const triggerSync = useCallback(async () => {
@@ -176,6 +187,10 @@ export function NirOfflineProvider({ children }: NirOfflineProviderProps) {
     // 2. Initialise reconnect listeners (returns cleanup fns)
     const cleanupSync = initSyncOnReconnect();
     const cleanupEvidenceSync = initEvidenceSyncOnReconnect();
+    const cleanupVoiceNoteSync = initVoiceNoteSyncOnReconnect();
+
+    // Prune stale consumed/failed voice note entries on session start
+    pruneVoiceNoteQueue().catch(() => {});
 
     // 3. Initial status read
     refreshStatus();
@@ -204,6 +219,7 @@ export function NirOfflineProvider({ children }: NirOfflineProviderProps) {
     return () => {
       cleanupSync();
       cleanupEvidenceSync();
+      cleanupVoiceNoteSync();
       clearInterval(interval);
       window.removeEventListener("online", onlineHandler);
       window.removeEventListener("offline", offlineHandler);
@@ -223,6 +239,7 @@ export function NirOfflineProvider({ children }: NirOfflineProviderProps) {
         queueStats,
         isServiceWorkerReady,
         pendingEvidenceUploads,
+        pendingVoiceNotes,
         triggerSync,
       }}
     >

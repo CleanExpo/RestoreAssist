@@ -18,6 +18,7 @@ import { useEffect, useRef, useState } from "react";
 import { Loader2, Mic, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { queueVoiceNote } from "@/lib/voice-note-queue";
 
 type Status = "idle" | "recording" | "uploading";
 
@@ -29,6 +30,10 @@ interface Props {
   maxSeconds?: number;
   /** Compact mode hides the status label. */
   compact?: boolean;
+  /** When provided, audio is queued offline tagged to this inspection — RA-1609 */
+  inspectionId?: string;
+  /** Human label for the field (shows in the pending-transcripts UI) */
+  fieldLabel?: string;
 }
 
 export function VoiceNoteButton({
@@ -37,6 +42,8 @@ export function VoiceNoteButton({
   disabled,
   maxSeconds = 90,
   compact = false,
+  inspectionId,
+  fieldLabel,
 }: Props) {
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -133,22 +140,49 @@ export function VoiceNoteButton({
       const data = (await res.json()) as { transcript?: string };
       if (!data.transcript) throw new Error("Empty transcript");
       onTranscript(data.transcript.trim());
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Transcription failed";
-      setError(msg);
+    } catch {
+      // Likely a network error (fetch itself threw — truly offline).
+      // Queue the blob for transcription on reconnect (RA-1609).
+      try {
+        await queueVoiceNote({
+          blob: new Blob(chunksRef.current, { type: "audio/webm" }),
+          mimeType: "audio/webm",
+          inspectionId,
+          fieldLabel,
+        });
+        setError("Offline — voice note queued. Will transcribe on reconnect.");
+      } catch {
+        setError("Transcription failed. Check your connection and try again.");
+      }
     } finally {
       setStatus("idle");
     }
   }
 
-  async function webSpeechFallback(_blob: Blob) {
-    // Web Speech API requires live microphone — can't transcribe a
-    // recorded blob. Record-then-transcribe fallback is limited here.
-    // For truly offline support we queue the audio locally (RA-1124).
-    // Return a soft error that tells the user to retry with connectivity.
-    setError(
-      "Voice transcription is unavailable offline. Try again when connected, or type your note.",
-    );
+  async function webSpeechFallback(blob: Blob) {
+    // Server has no OPENAI_API_KEY — offline or unconfigured.
+    // Queue the audio blob (RA-1609); it will be transcribed on reconnect.
+    if (!navigator.onLine) {
+      try {
+        await queueVoiceNote({
+          blob,
+          mimeType: "audio/webm",
+          inspectionId,
+          fieldLabel,
+        });
+        setError(
+          "Offline — voice note queued. It will be transcribed when you reconnect.",
+        );
+      } catch {
+        setError(
+          "Voice transcription is unavailable offline. Try again when connected, or type your note.",
+        );
+      }
+    } else {
+      setError(
+        "Voice transcription is unavailable — API key not configured. Please type your note.",
+      );
+    }
   }
 
   const recording = status === "recording";
