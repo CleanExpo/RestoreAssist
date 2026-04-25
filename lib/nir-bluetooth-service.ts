@@ -9,10 +9,10 @@
  *   - Non-invasive moisture meters: Tramex CMEXv5, GE Protimeter Surveymaster
  *   - Thermo-hygrometers: Testo 605-H1, Vaisala HM70
  *
- * Architecture:
- *   Typed abstraction over the Web Bluetooth API. Device-specific GATT
- *   service/characteristic UUIDs are defined per device profile. Reading
- *   data is parsed into NIR form-ready types.
+ * RA-1614: Refactored to dispatch through nir-ble-transport.ts so that
+ * native iOS builds use @capacitor-community/bluetooth-le while web builds
+ * use the existing Web Bluetooth API path. The hook API (useBluetoothMeter)
+ * is unchanged — all callers see the same PairedDevice interface.
  *
  * IMPORTANT — UUID STATUS:
  *   The GATT UUIDs below are placeholder values. Final UUIDs must be validated
@@ -22,16 +22,11 @@
  *     Testo:     Testo Smart App SDK (developer.testo.com)
  *     Vaisala:   Vaisala Insight PC software BLE profile documentation
  *
- * BROWSER ONLY: Requires HTTPS + Web Bluetooth API (Chromium 56+).
- * iOS Safari does not support Web Bluetooth — iOS field use requires
- * a native WebView wrapper or React Native bridge for Bluetooth access.
+ * BROWSER ONLY: Requires HTTPS (web path) or Capacitor native context (iOS/Android).
  */
 
-// ─── Web Bluetooth API type stubs (not in default lib.dom.d.ts) ──────────────
-/* eslint-disable @typescript-eslint/no-explicit-any */
-type BluetoothDevice = any;
-type BluetoothRemoteGATTCharacteristic = any;
-/* eslint-enable @typescript-eslint/no-explicit-any */
+import { Capacitor } from "@capacitor/core";
+import { getBLETransport, type BLEHandle } from "./nir-ble-transport";
 
 // ─── CONSTANTS & DEVICE PROFILES ─────────────────────────────────────────────
 
@@ -124,12 +119,16 @@ export interface EnvironmentalReading {
 
 export type DeviceReading = MoistureReading | EnvironmentalReading;
 
+/**
+ * Opaque device handle returned by pairDevice().
+ * Callers should only use `disconnect()` — do not access `_handle` directly.
+ */
 export interface PairedDevice {
   key: DeviceKey;
   name: string;
   category: DeviceCategory;
-  bluetoothDevice: BluetoothDevice;
-  characteristic: BluetoothRemoteGATTCharacteristic;
+  /** @internal Transport-agnostic device handle */
+  _handle: BLEHandle;
   /** Remove notification listener and disconnect */
   disconnect: () => Promise<void>;
 }
@@ -143,13 +142,20 @@ export type BluetoothAvailability =
 // ─── AVAILABILITY CHECK ───────────────────────────────────────────────────────
 
 /**
- * Check if Web Bluetooth is available in the current browser/environment.
- * Returns a typed availability status with a reason.
+ * Check if Bluetooth LE is available in the current environment.
+ * On iOS native (Capacitor), returns "available" when BLE is enabled.
+ * On web, checks the Web Bluetooth API + HTTPS requirement.
  */
 export async function checkBluetoothAvailability(): Promise<BluetoothAvailability> {
   if (typeof window === "undefined") return "unavailable-no-api";
 
-  // iOS Safari does not support Web Bluetooth
+  // Native platform: use Capacitor BLE transport
+  if (Capacitor.isNativePlatform()) {
+    const available = await getBLETransport().isAvailable();
+    return available ? "available" : "unavailable-no-api";
+  }
+
+  // iOS Safari: Web Bluetooth not supported — and we're not in a native context
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
   if (isIOS && !("bluetooth" in navigator)) {
     return "unavailable-ios-safari";
@@ -159,7 +165,6 @@ export async function checkBluetoothAvailability(): Promise<BluetoothAvailabilit
     return "unavailable-no-api";
   }
 
-  // Web Bluetooth requires HTTPS
   if (
     window.location.protocol !== "https:" &&
     window.location.hostname !== "localhost"
@@ -167,7 +172,7 @@ export async function checkBluetoothAvailability(): Promise<BluetoothAvailabilit
     return "unavailable-not-https";
   }
 
-  const available = await (navigator.bluetooth as any).getAvailability();
+  const available = await getBLETransport().isAvailable();
   return available ? "available" : "unavailable-no-api";
 }
 
@@ -175,7 +180,8 @@ export async function checkBluetoothAvailability(): Promise<BluetoothAvailabilit
 
 /**
  * Initiate Bluetooth LE pairing for a specific device.
- * Triggers the browser's native device picker UI.
+ * On web: triggers the browser's native device picker UI.
+ * On iOS native: triggers the Capacitor BLE device picker.
  *
  * Requires a user gesture (button click) — cannot be called programmatically.
  *
@@ -183,34 +189,23 @@ export async function checkBluetoothAvailability(): Promise<BluetoothAvailabilit
  * @returns PairedDevice with disconnect function
  */
 export async function pairDevice(deviceKey: DeviceKey): Promise<PairedDevice> {
-  if (typeof window === "undefined" || !("bluetooth" in navigator)) {
-    throw new Error("Web Bluetooth API not available in this environment");
-  }
-
   const profile = DEVICE_PROFILES[deviceKey];
+  const transport = getBLETransport();
 
-  const bluetoothDevice = (await (navigator.bluetooth as any).requestDevice({
-    filters: profile.filters,
-    optionalServices: [profile.serviceUUID],
-  })) as BluetoothDevice;
-
-  const server = await bluetoothDevice.gatt!.connect();
-  const service = await server.getPrimaryService(profile.serviceUUID);
-  const characteristic = await service.getCharacteristic(
-    profile.characteristicUUID,
+  const filters = (profile.filters as ReadonlyArray<{ namePrefix?: string }>).map(
+    (f) => ({ namePrefix: f.namePrefix }),
   );
+  const handle = await transport.requestDevice(filters, [profile.serviceUUID]);
 
   const disconnect = async () => {
-    await characteristic.stopNotifications().catch(() => {});
-    bluetoothDevice.gatt?.disconnect();
+    await transport.disconnect(handle);
   };
 
   return {
     key: deviceKey,
     name: profile.name,
     category: profile.category,
-    bluetoothDevice,
-    characteristic,
+    _handle: handle,
     disconnect,
   };
 }
@@ -231,7 +226,12 @@ export async function readMoistureReading(
     throw new Error(`Device ${device.name} is not a moisture meter`);
   }
 
-  const value = await device.characteristic.readValue();
+  const profile = DEVICE_PROFILES[device.key];
+  const value = await getBLETransport().readCharacteristic(
+    device._handle,
+    profile.serviceUUID,
+    profile.characteristicUUID,
+  );
   const parsed = parseMoistureValue(device.key, value);
 
   return {
@@ -252,22 +252,30 @@ export async function readEnvironmentalData(
     throw new Error(`Device ${device.name} is not a thermo-hygrometer`);
   }
 
-  const rhValue = await device.characteristic.readValue();
+  const profile = DEVICE_PROFILES[device.key];
+  const transport = getBLETransport();
+
+  const rhValue = await transport.readCharacteristic(
+    device._handle,
+    profile.serviceUUID,
+    profile.characteristicUUID,
+  );
   const rh = parseHumidityValue(device.key, rhValue);
 
   // For Testo 605 / Vaisala — read temperature from separate characteristic
   let temperatureCelsius = 22; // fallback default
-  const profile = DEVICE_PROFILES[
-    device.key
-  ] as (typeof DEVICE_PROFILES)["testo-605"];
-  if ("temperatureCharUUID" in profile) {
+  const hasTemperatureChar =
+    "temperatureCharUUID" in profile && !!profile.temperatureCharUUID;
+
+  if (hasTemperatureChar) {
     try {
-      const server = device.bluetoothDevice.gatt!;
-      const service = await server.getPrimaryService(profile.serviceUUID);
-      const tempChar = await service.getCharacteristic(
-        profile.temperatureCharUUID,
+      const tempChar = (profile as typeof DEVICE_PROFILES["testo-605"])
+        .temperatureCharUUID;
+      const tempValue = await transport.readCharacteristic(
+        device._handle,
+        profile.serviceUUID,
+        tempChar,
       );
-      const tempValue = await tempChar.readValue();
       temperatureCelsius = parseTemperatureValue(device.key, tempValue);
     } catch {
       // Non-fatal — use fallback
@@ -299,13 +307,13 @@ export async function subscribeToReadings(
   onReading: (reading: DeviceReading) => void,
   onError?: (error: Error) => void,
 ): Promise<() => void> {
-  await device.characteristic.startNotifications();
+  const profile = DEVICE_PROFILES[device.key];
+  const transport = getBLETransport();
 
-  const handler = async (event: Event) => {
-    const target = event.target as BluetoothRemoteGATTCharacteristic;
+  const handleValue = (dataView: DataView) => {
     try {
       if (device.category === "thermo-hygrometer") {
-        const rh = parseHumidityValue(device.key, target.value!);
+        const rh = parseHumidityValue(device.key, dataView);
         const reading: EnvironmentalReading = {
           deviceKey: device.key,
           deviceName: device.name,
@@ -316,7 +324,7 @@ export async function subscribeToReadings(
         };
         onReading(reading);
       } else {
-        const parsed = parseMoistureValue(device.key, target.value!);
+        const parsed = parseMoistureValue(device.key, dataView);
         const reading: MoistureReading = {
           deviceKey: device.key,
           deviceName: device.name,
@@ -330,14 +338,15 @@ export async function subscribeToReadings(
     }
   };
 
-  device.characteristic.addEventListener("characteristicvaluechanged", handler);
+  const unsubscribeAsync = await transport.subscribeCharacteristic(
+    device._handle,
+    profile.serviceUUID,
+    profile.characteristicUUID,
+    handleValue,
+  );
 
   return () => {
-    device.characteristic.removeEventListener(
-      "characteristicvaluechanged",
-      handler,
-    );
-    device.characteristic.stopNotifications().catch(() => {});
+    unsubscribeAsync().catch(() => {});
   };
 }
 
