@@ -15,6 +15,8 @@
  * incompatible with that module's JSON-payload queue schema.
  */
 
+import { compressImageForUpload } from "@/lib/image-compression";
+
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
 const DB_NAME = "ra-evidence-queue";
@@ -40,6 +42,9 @@ export interface EvidenceQueueEntry {
   /** ISO timestamp when queued */
   queuedAt: string;
   retryCount: number;
+  /** Telemetry — sizes in bytes; both equal when compression was skipped */
+  originalSize: number;
+  compressedSize: number;
 }
 
 // ─── DATABASE ─────────────────────────────────────────────────────────────────
@@ -100,15 +105,22 @@ export async function queueEvidenceUpload(input: {
     );
   }
 
+  // Compress before storing — transparent optimisation (RA-1610).
+  const compressed = await compressImageForUpload(
+    new File([input.blob], input.filename, { type: input.mimeType }),
+  );
+
   const entry: EvidenceQueueEntry = {
     id: generateId(),
     inspectionId: input.inspectionId,
-    blob: input.blob,
-    filename: input.filename,
-    mimeType: input.mimeType,
+    blob: compressed.blob,
+    filename: compressed.skipped ? input.filename : input.filename.replace(/\.[^.]+$/, ".webp"),
+    mimeType: compressed.skipped ? input.mimeType : "image/webp",
     location: input.location,
     queuedAt: new Date().toISOString(),
     retryCount: 0,
+    originalSize: compressed.originalSize,
+    compressedSize: compressed.compressedSize,
   };
 
   await new Promise<void>((resolve, reject) => {
