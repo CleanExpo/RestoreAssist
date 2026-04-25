@@ -29,6 +29,8 @@ import {
   Trash2,
   Maximize2,
   GripHorizontal,
+  Upload,
+  Loader2,
 } from "lucide-react";
 import type { ToolMode } from "./SketchCanvas";
 
@@ -45,6 +47,8 @@ export interface SketchDockToolbarProps {
   onZoomOut?: () => void;
   onZoomReset?: () => void;
   onClear?: () => void;
+  /** RA-1607: called with the chosen image File when the user picks a sketch to import. */
+  onImportSketch?: (file: File) => Promise<void>;
   readonly?: boolean;
   className?: string;
 }
@@ -84,13 +88,16 @@ export function SketchDockToolbar({
   onZoomOut,
   onZoomReset,
   onClear,
+  onImportSketch,
   readonly = false,
   className,
 }: SketchDockToolbarProps) {
   const [dock, setDock] = useState<DockPosition>("bottom");
   const [isDragging, setIsDragging] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const dragRef = useRef<{ startX: number; startY: number } | null>(null);
   const barRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Hydrate from localStorage after mount
   useEffect(() => {
@@ -271,6 +278,49 @@ export function SketchDockToolbar({
             Icon={Trash2}
             danger
           />
+        </>
+      )}
+
+      {/* RA-1607: Import hand-drawn sketch via Claude Vision */}
+      {!readonly && onImportSketch && (
+        <>
+          <div className={dividerCls} />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png"
+            className="hidden"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (!file) return;
+              setIsImporting(true);
+              try {
+                await onImportSketch(file);
+              } finally {
+                setIsImporting(false);
+              }
+            }}
+          />
+          <button
+            type="button"
+            title="Import hand-drawn sketch (Claude Vision)"
+            aria-label="Import hand-drawn sketch"
+            disabled={isImporting}
+            onClick={() => fileInputRef.current?.click()}
+            className={cn(
+              "w-14 h-14 flex items-center justify-center rounded-xl transition-all duration-150",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400",
+              "text-cyan-400 hover:bg-cyan-500/20 hover:text-cyan-300",
+              isImporting && "opacity-50 cursor-not-allowed",
+            )}
+          >
+            {isImporting ? (
+              <Loader2 size={20} className="animate-spin" />
+            ) : (
+              <Upload size={20} strokeWidth={1.8} />
+            )}
+          </button>
         </>
       )}
     </div>

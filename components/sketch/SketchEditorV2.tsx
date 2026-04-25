@@ -406,6 +406,73 @@ export function SketchEditorV2({
     }
   }, [floorsData, inspectionId, exportingPdf]);
 
+  // ── RA-1607: Import hand-drawn sketch via Claude Vision ─
+  const handleImportSketch = useCallback(
+    async (file: File) => {
+      if (!inspectionId) return;
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(
+        `/api/inspections/${inspectionId}/sketches/import-from-image`,
+        { method: "POST", body: formData },
+      );
+      if (!res.ok) {
+        const { error } = (await res.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        throw new Error(error ?? `Import failed (${res.status})`);
+      }
+      const { rooms } = (await res.json()) as {
+        rooms: { label: string; vertices: { x: number; y: number }[] }[];
+      };
+      if (!rooms?.length) return;
+
+      const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
+        add: (...objs: unknown[]) => void;
+        renderAll: () => void;
+      } | null;
+      if (!fc) return;
+
+      const fabric = await import("fabric");
+      const FabricPolygon = (fabric as unknown as { Polygon: new (pts: { x: number; y: number }[], opts: object) => unknown }).Polygon;
+      const FabricText = (fabric as unknown as { IText: new (text: string, opts: object) => unknown }).IText;
+
+      rooms.forEach((room, i) => {
+        const color = ROOM_COLORS[i % ROOM_COLORS.length];
+        const pts = room.vertices.map((v) => ({ x: v.x * width, y: v.y * height }));
+
+        const polygon = new FabricPolygon(pts, {
+          fill: color.fill,
+          stroke: color.stroke,
+          strokeWidth: 2,
+          selectable: true,
+          evented: true,
+          data: { id: `imported-${Date.now()}-${i}`, label: room.label, type: "room" },
+        });
+
+        const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
+        const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
+        const label = new FabricText(room.label, {
+          left: cx,
+          top: cy,
+          originX: "center",
+          originY: "center",
+          fontSize: 13,
+          fill: color.stroke,
+          selectable: true,
+          evented: true,
+          data: { id: `imported-label-${Date.now()}-${i}`, type: "text" },
+        });
+
+        fc.add(polygon, label);
+      });
+
+      fc.renderAll();
+      scheduleSave();
+    },
+    [inspectionId, activeFloor, width, height, scheduleSave],
+  );
+
   // ── Tool mode change ────────────────────────────────────
   const handleToolChange = useCallback((mode: ToolMode) => {
     setToolMode(mode);
@@ -639,6 +706,7 @@ export function SketchEditorV2({
             activeFloor?.canvasRef.current?.clear();
             scheduleSave();
           }}
+          onImportSketch={inspectionId && !readonly ? handleImportSketch : undefined}
           readonly={readonly}
         />
       </div>
