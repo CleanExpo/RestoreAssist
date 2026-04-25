@@ -327,11 +327,6 @@ function AdjusterReviewContent() {
   const token = searchParams.get("token") ?? "";
   const inspectionId = searchParams.get("inspectionId") ?? "";
 
-  // RA-1131: If inspectionId param present, show AI analysis panel instead of survey
-  if (inspectionId) {
-    return <AdjusterAnalysisPanel inspectionId={inspectionId} />;
-  }
-
   const [reportFormat, setReportFormat] = useState<"nir" | "existing" | "">("");
   const [hours, setHours] = useState("");
   const [minutes, setMinutes] = useState("");
@@ -345,6 +340,11 @@ function AdjusterReviewContent() {
   useEffect(() => {
     if (!token) setFormState("invalid-token");
   }, [token]);
+
+  // RA-1131: If inspectionId param present, show AI analysis panel instead of survey
+  if (inspectionId) {
+    return <AdjusterAnalysisPanel inspectionId={inspectionId} />;
+  }
 
   const totalMinutes = () => {
     const h = parseInt(hours || "0", 10);

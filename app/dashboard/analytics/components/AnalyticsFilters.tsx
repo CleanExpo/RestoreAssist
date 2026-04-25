@@ -6,7 +6,7 @@ import { Download, Loader2, ChevronDown, Users } from "lucide-react";
 import toast from "react-hot-toast";
 import { cn } from "@/lib/utils";
 
-export interface AnalyticsFilters {
+export interface AnalyticsFiltersType {
   dateRange: string;
   customFrom?: string;
   customTo?: string;
@@ -16,7 +16,7 @@ export interface AnalyticsFilters {
 }
 
 interface AnalyticsFiltersProps {
-  onFiltersChange: (filters: AnalyticsFilters) => void;
+  onFiltersChange: (filters: AnalyticsFiltersType) => void;
   isLoading: boolean;
   onExport?: (format: "csv" | "excel" | "pdf") => Promise<void>;
 }

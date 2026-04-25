@@ -37,7 +37,7 @@ export function parseSearchQuery(query: string): string | null {
 
   // Replace special regex characters with escaped versions
   // Allow letters, numbers, spaces, and common punctuation
-  const sanitized = trimmed.replace(/[^\w\s\-]/g, "").trim();
+  const sanitized = trimmed.replace(/[^\w\s-]/g, "").trim();
 
   if (sanitized.length < 2) {
     return null;

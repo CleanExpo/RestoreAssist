@@ -431,29 +431,6 @@ export default function AiUsageDashboardPage() {
     fetchData(selectedMonth);
   }, [status, selectedMonth, fetchData]);
 
-  // Admin guard — show lock card, don't redirect
-  if (status !== "loading" && session?.user?.role !== "ADMIN") {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-        <Card className="w-full max-w-sm bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800">
-          <CardContent className="flex flex-col items-center gap-4 pt-8 pb-8">
-            <div className="p-4 rounded-full bg-red-500/10">
-              <Lock className="h-8 w-8 text-red-500" />
-            </div>
-            <div className="text-center">
-              <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">
-                Access Denied
-              </h2>
-              <p className="text-sm text-neutral-500 mt-1">
-                This page is restricted to administrators.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   // Derived: filtered event type rows
   const filteredEventTypes = useMemo(() => {
     if (!data) return [];
@@ -480,6 +457,29 @@ export default function AiUsageDashboardPage() {
     );
     return rows;
   }, [data, billingFilter, sortDesc]);
+
+  // Admin guard — show lock card, don't redirect
+  if (status !== "loading" && session?.user?.role !== "ADMIN") {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+        <Card className="w-full max-w-sm bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800">
+          <CardContent className="flex flex-col items-center gap-4 pt-8 pb-8">
+            <div className="p-4 rounded-full bg-red-500/10">
+              <Lock className="h-8 w-8 text-red-500" />
+            </div>
+            <div className="text-center">
+              <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">
+                Access Denied
+              </h2>
+              <p className="text-sm text-neutral-500 mt-1">
+                This page is restricted to administrators.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
   const pagedUsers = filteredUsers.slice(

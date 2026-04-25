@@ -355,7 +355,7 @@ export async function POST(
           try {
             // Extract numbered sections from the generated markdown
             const sectionMatches = accumulatedText.matchAll(
-              /^#{1,3}\s*\d+[\.\)]\s+(.+)$/gm,
+              /^#{1,3}\s*\d+[.)]\s+(.+)$/gm,
             );
             const sectionTitles = Array.from(sectionMatches).map((m) =>
               m[1].trim(),

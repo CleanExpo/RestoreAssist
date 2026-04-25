@@ -190,7 +190,7 @@ export default function TechnicianInputForm({
           !extractedEmail
         ) {
           // Extract email - look for @ symbol
-          const emailMatch = clientContent.match(/[\w\.-]+@[\w\.-]+\.\w+/i);
+          const emailMatch = clientContent.match(/[\w.-]+@[\w.-]+\.\w+/i);
           if (emailMatch) {
             extractedEmail = emailMatch[0];
           } else if (clientContent.includes("@")) {
@@ -206,7 +206,7 @@ export default function TechnicianInputForm({
           !extractedPhone
         ) {
           // Extract phone - remove common words and keep numbers
-          const phoneMatch = clientContent.match(/[\d\s\+\-\(\)]+/g);
+          const phoneMatch = clientContent.match(/[\d\s+\-()+]+/g);
           if (phoneMatch) {
             const cleanPhone = phoneMatch.join("").replace(/\s+/g, " ").trim();
             if (cleanPhone.length >= 8) {
@@ -268,7 +268,7 @@ export default function TechnicianInputForm({
         }
 
         if (!extractedEmail && message.includes("@")) {
-          const emailMatch = message.match(/[\w\.-]+@[\w\.-]+\.\w+/i);
+          const emailMatch = message.match(/[\w.-]+@[\w.-]+\.\w+/i);
           if (emailMatch) {
             extractedEmail = emailMatch[0];
           }
@@ -278,9 +278,9 @@ export default function TechnicianInputForm({
           !extractedPhone &&
           (lowerMessage.includes("phone") ||
             lowerMessage.includes("mobile") ||
-            /[\d\s\+\-\(\)]{8,}/.test(message))
+            /[\d\s+\-()]{8,}/.test(message))
         ) {
-          const phoneMatch = message.match(/[\d\s\+\-\(\)]+/g);
+          const phoneMatch = message.match(/[\d\s+\-()+]+/g);
           if (phoneMatch) {
             const cleanPhone = phoneMatch.join("").replace(/\s+/g, " ").trim();
             if (cleanPhone.length >= 8) {
