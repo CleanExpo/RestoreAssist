@@ -21,6 +21,7 @@ import {
   ArrowUpRight,
   Ruler,
   Droplets,
+  Camera,
   Hand,
   Undo2,
   Redo2,
@@ -66,6 +67,7 @@ const TOOLS: {
   { mode: "arrow", Icon: ArrowUpRight, label: "Arrow", shortcut: "A" },
   { mode: "measure", Icon: Ruler, label: "Measure", shortcut: "M" },
   { mode: "photo", Icon: Droplets, label: "Moisture Pin", shortcut: "D" },
+  { mode: "photopin", Icon: Camera, label: "Photo Pin", shortcut: "I" },
   { mode: "pan", Icon: Hand, label: "Pan", shortcut: "H" },
 ];
 

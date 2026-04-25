@@ -17,7 +17,8 @@ export type ToolMode =
   | "text" // Text label
   | "arrow" // Arrow annotation
   | "measure" // Measurement tool
-  | "photo" // Photo marker placement
+  | "photo" // Photo marker placement (moisture pins)
+  | "photopin" // Evidence photo pin placement — RA-1608
   | "pan"; // Pan/navigate
 
 export interface SketchCanvasProps {
