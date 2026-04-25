@@ -21,6 +21,7 @@ import {
   ArrowUpRight,
   Ruler,
   Droplets,
+  Camera,
   Hand,
   Undo2,
   Redo2,
@@ -29,6 +30,7 @@ import {
   Trash2,
   Maximize2,
   GripHorizontal,
+  Layers,
 } from "lucide-react";
 import type { ToolMode } from "./SketchCanvas";
 
@@ -45,6 +47,8 @@ export interface SketchDockToolbarProps {
   onZoomOut?: () => void;
   onZoomReset?: () => void;
   onClear?: () => void;
+  showHeatmap?: boolean;
+  onToggleHeatmap?: () => void;
   readonly?: boolean;
   className?: string;
 }
@@ -63,6 +67,7 @@ const TOOLS: {
   { mode: "arrow", Icon: ArrowUpRight, label: "Arrow", shortcut: "A" },
   { mode: "measure", Icon: Ruler, label: "Measure", shortcut: "M" },
   { mode: "photo", Icon: Droplets, label: "Moisture Pin", shortcut: "D" },
+  { mode: "photopin", Icon: Camera, label: "Photo Pin", shortcut: "I" },
   { mode: "pan", Icon: Hand, label: "Pan", shortcut: "H" },
 ];
 
@@ -84,6 +89,8 @@ export function SketchDockToolbar({
   onZoomOut,
   onZoomReset,
   onClear,
+  showHeatmap = false,
+  onToggleHeatmap,
   readonly = false,
   className,
 }: SketchDockToolbarProps) {
@@ -236,6 +243,18 @@ export function SketchDockToolbar({
             disabled={!canRedo}
             label="Redo (Ctrl+Shift+Z)"
             Icon={Redo2}
+          />
+        </>
+      )}
+
+      {onToggleHeatmap && (
+        <>
+          <div className={dividerCls} />
+          <ToolBtn
+            active={showHeatmap}
+            onClick={onToggleHeatmap}
+            label="Heatmap"
+            Icon={Layers}
           />
         </>
       )}

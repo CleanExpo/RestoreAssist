@@ -18,9 +18,9 @@ export function normalizeDate(dateStr: string): string {
 
   // Try to parse various date formats
   const formats = [
-    /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/, // DD/MM/YYYY or DD-MM-YYYY
-    /(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/, // YYYY/MM/DD or YYYY-MM-DD
-    /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})/, // DD/MM/YY or DD-MM-YY
+    /(\d{1,2})[/-](\d{1,2})[/-](\d{4})/, // DD/MM/YYYY or DD-MM-YYYY
+    /(\d{4})[/-](\d{1,2})[/-](\d{1,2})/, // YYYY/MM/DD or YYYY-MM-DD
+    /(\d{1,2})[/-](\d{1,2})[/-](\d{2})/, // DD/MM/YY or DD-MM-YY
   ];
 
   for (const format of formats) {

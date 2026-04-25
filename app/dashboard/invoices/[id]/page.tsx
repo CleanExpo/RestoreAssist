@@ -30,6 +30,7 @@ import {
   type InvoiceStatus,
 } from "@/lib/invoice-status";
 import { formatDate } from "@/lib/formatters";
+import { XeroSyncPill } from "@/components/integrations/XeroSyncPill";
 
 interface LineItem {
   id: string;
@@ -620,6 +621,8 @@ export default function InvoiceDetailPage({
             <span className="text-sm font-medium">Sync Failed</span>
           </div>
         )}
+        {/* RA-1112 — Xero InvoiceSyncJob queue status pill */}
+        {invoiceId && <XeroSyncPill invoiceId={invoiceId} />}
       </div>
 
       {/* Sync Error Display */}

@@ -46,7 +46,7 @@ const TooltipAny = Tooltip as unknown as ComponentType<TooltipWithClassProps>;
 
 import { useSession } from "next-auth/react";
 import AnalyticsFilters, {
-  AnalyticsFilters as AnalyticsFiltersType,
+  AnalyticsFiltersType,
 } from "./components/AnalyticsFilters";
 import KPICards from "./components/KPICards";
 import RevenueChart from "./components/RevenueChart";

@@ -34,9 +34,6 @@ export default function ExportPdfButton({
     } catch (err) {
       console.error("[ExportPdfButton] Export failed:", err);
       // Surface error to user in a non-blocking way — rely on console/toast elsewhere
-      alert(
-        `PDF export failed: ${err instanceof Error ? err.message : String(err)}`,
-      );
     } finally {
       setLoading(false);
     }

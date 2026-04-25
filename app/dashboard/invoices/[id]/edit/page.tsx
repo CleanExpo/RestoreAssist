@@ -230,7 +230,7 @@ export default function EditInvoicePage({
     fetch("/api/clients?limit=100")
       .then((r) => (r.ok ? r.json() : { clients: [] }))
       .then((d) => setClients(d.clients || []))
-      .catch(() => {})
+      .catch((err) => console.error("[InvoiceEdit]", err))
       .finally(() => setLoadingClients(false));
   }, []);
 

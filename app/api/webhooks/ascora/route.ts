@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { recordWebhookFailure } from "@/lib/webhook-audit";
+import { safeDecrypt } from "@/lib/credential-vault";
 
 /**
  * POST /api/webhooks/ascora — Receive inbound webhook events from Ascora.
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const expected = createHmac("sha256", integration.webhookSecret)
+    const expected = createHmac("sha256", safeDecrypt(integration.webhookSecret))
       .update(rawBody)
       .digest("hex");
     const providedHex = signature.replace(/^sha256=/, "");

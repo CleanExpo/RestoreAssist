@@ -26,14 +26,17 @@ export function WhatsNewModal() {
 
   useEffect(() => {
     fetch("/api/releases/unseen")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`Failed to load releases: ${r.status}`);
+        return r.json();
+      })
       .then(({ data }) => {
         if (data) {
           setRelease(data);
           setOpen(true);
         }
       })
-      .catch(() => {});
+      .catch((err) => console.error("[WhatsNewModal]", err));
   }, []);
 
   function dismiss() {

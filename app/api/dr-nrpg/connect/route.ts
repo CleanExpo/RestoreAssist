@@ -26,6 +26,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { randomBytes } from "crypto";
 import { withIdempotency } from "@/lib/idempotency";
+import { encrypt } from "@/lib/credential-vault";
 
 const DR_NRPG_BASE_URL = "https://api.dr-nrpg.com.au";
 
@@ -72,19 +73,23 @@ export async function POST(request: NextRequest) {
       const resolvedSecret =
         webhookSecret?.trim() || randomBytes(32).toString("hex");
 
+      // Encrypt secrets at rest — RA-1221
+      const encryptedApiKey = encrypt(drNrpgApiKey.trim());
+      const encryptedSecret = encrypt(resolvedSecret);
+
       const integration = await (prisma as any).drNrpgIntegration.upsert({
         where: { userId: userId },
         create: {
           userId: userId,
-          drNrpgApiKey: drNrpgApiKey.trim(),
+          drNrpgApiKey: encryptedApiKey,
           drNrpgBaseUrl: resolvedBase,
-          webhookSecret: resolvedSecret,
+          webhookSecret: encryptedSecret,
           isActive: true,
         },
         update: {
-          drNrpgApiKey: drNrpgApiKey.trim(),
+          drNrpgApiKey: encryptedApiKey,
           drNrpgBaseUrl: resolvedBase,
-          webhookSecret: resolvedSecret,
+          webhookSecret: encryptedSecret,
           isActive: true,
           updatedAt: new Date(),
         },

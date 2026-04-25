@@ -57,11 +57,14 @@ export default function NewCreditNotePage() {
 
   useEffect(() => {
     fetch("/api/invoices?status=SENT,PAID&limit=100")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`Failed to load invoices: ${r.status}`);
+        return r.json();
+      })
       .then((data) => {
         setInvoices(data.invoices ?? []);
       })
-      .catch(() => {})
+      .catch((err) => console.error("[CreditNoteNew]", err))
       .finally(() => setLoadingInvoices(false));
   }, []);
 

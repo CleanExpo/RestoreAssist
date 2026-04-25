@@ -6,10 +6,10 @@ import type { Experimental_TranscriptionResult as TranscriptionResult } from "ai
 import type { ComponentProps, ReactNode } from "react";
 import { createContext, useCallback, useContext, useMemo } from "react";
 
-type TranscriptionSegment = TranscriptionResult["segments"][number];
+type TranscriptionSegmentData = TranscriptionResult["segments"][number];
 
 interface TranscriptionContextValue {
-  segments: TranscriptionSegment[];
+  segments: TranscriptionSegmentData[];
   currentTime: number;
   onTimeUpdate: (time: number) => void;
   onSeek?: (time: number) => void;
@@ -30,10 +30,10 @@ const useTranscription = () => {
 };
 
 export type TranscriptionProps = Omit<ComponentProps<"div">, "children"> & {
-  segments: TranscriptionSegment[];
+  segments: TranscriptionSegmentData[];
   currentTime?: number;
   onSeek?: (time: number) => void;
-  children: (segment: TranscriptionSegment, index: number) => ReactNode;
+  children: (segment: TranscriptionSegmentData, index: number) => ReactNode;
 };
 
 export const Transcription = ({
@@ -74,7 +74,7 @@ export const Transcription = ({
 };
 
 export type TranscriptionSegmentProps = ComponentProps<"button"> & {
-  segment: TranscriptionSegment;
+  segment: TranscriptionSegmentData;
   index: number;
 };
 

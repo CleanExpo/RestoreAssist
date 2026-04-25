@@ -32,6 +32,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual, randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { recordWebhookFailure } from "@/lib/webhook-audit";
+import { safeDecrypt } from "@/lib/credential-vault";
 
 // ============================================================
 // HMAC-SHA256 signature verification
@@ -132,8 +133,9 @@ export async function POST(request: NextRequest) {
   }
 
   // Try each integration's webhookSecret until we find the matching one
+  // safeDecrypt handles legacy plaintext rows written before RA-1221
   const matchedIntegration = integrations.find((i: any) =>
-    verifySignature(rawBody, signature, i.webhookSecret),
+    verifySignature(rawBody, signature, safeDecrypt(i.webhookSecret)),
   );
 
   if (!matchedIntegration) {

@@ -1002,6 +1002,7 @@ enum IntegrationProvider {
   MYOB
   SERVICEM8
   ASCORA
+  UBIBOT
 }
 
 // External Client from integration (synced data)

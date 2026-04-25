@@ -12,6 +12,7 @@
  */
 import { prisma } from "@/lib/prisma";
 import type { CronJobResult } from "./runner";
+import { safeDecrypt } from "@/lib/credential-vault";
 
 const PROBE_TIMEOUT_MS = 10_000;
 const MAX_CONSECUTIVE_FAILURES_BEFORE_DEACTIVATE = 3;
@@ -36,7 +37,7 @@ export async function runDrNrpgLiveness(): Promise<CronJobResult> {
     drNrpgApiKey: string;
     drNrpgBaseUrl: string;
   }>) {
-    const outcome = await probeOne(integ.drNrpgBaseUrl, integ.drNrpgApiKey);
+    const outcome = await probeOne(integ.drNrpgBaseUrl, safeDecrypt(integ.drNrpgApiKey));
 
     if (outcome.ok) {
       passed++;

@@ -93,7 +93,7 @@ export async function GET(
   const totalReplacementValueAud = (items as any[]).reduce(
     (sum: number, item: any) =>
       item.packOutDecision === "TOTAL_LOSS"
-        ? sum + (Number(item.replacementValueAud) ?? 0)
+        ? sum + Number(item.replacementValueAud)
         : sum,
     0,
   );

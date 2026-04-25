@@ -242,7 +242,7 @@ function extractActionItems(
   // Parse numbered or bulleted action items
   const lines = actionsText.split("\n").filter((l) => l.trim());
   for (const line of lines) {
-    const clean = line.replace(/^[\d\.\-\*\s]+/, "").trim();
+    const clean = line.replace(/^[\d.\-*\s]+/, "").trim();
     if (clean.length > 10) {
       items.push({
         title: `[Board] ${clean.slice(0, 80)}`,

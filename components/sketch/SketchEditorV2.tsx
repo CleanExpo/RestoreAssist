@@ -28,6 +28,11 @@ import { SketchSelectionPanel } from "./SketchSelectionPanel";
 import type { SelectedObject } from "./SketchSelectionPanel";
 import { SketchMoistureLayer } from "./SketchMoistureLayer";
 import type { MoisturePin } from "./SketchMoistureLayer";
+import { SketchHeatmapLayer } from "./SketchHeatmapLayer";
+import type { Point } from "./SketchHeatmapLayer";
+import { SketchPhotoLayer } from "./SketchPhotoLayer";
+import type { PhotoPin } from "./SketchPhotoLayer";
+import { PhotoPinSidebar } from "./PhotoPinSidebar";
 import { SketchScaleModal } from "./SketchScaleModal";
 import type { ScaleConfig } from "./SketchScaleModal";
 import { FloorPlanUnderlayLoader } from "./FloorPlanUnderlayLoader";
@@ -66,6 +71,7 @@ interface FloorData {
   floor: SketchFloor;
   canvasRef: React.MutableRefObject<FabricCanvasRef | null>;
   moisturePins: MoisturePin[];
+  photoPins: PhotoPin[];
   backgroundUrl: string | null;
   backgroundOpacity: number;
   scaleConfig: ScaleConfig | null;
@@ -105,6 +111,7 @@ export function SketchEditorV2({
       floor: { id: `${uid}-f0`, floorNumber: 0, floorLabel: "Ground Floor" },
       canvasRef: makeFabricCanvas(),
       moisturePins: [],
+      photoPins: [],
       backgroundUrl: null,
       backgroundOpacity: 0.35,
       scaleConfig: null,
@@ -123,6 +130,9 @@ export function SketchEditorV2({
     canUndo: false,
     canRedo: false,
   });
+  const [showHeatmap, setShowHeatmap] = useState(false);
+  const [pendingPhotoId, setPendingPhotoId] = useState<string | null>(null);
+  const [pendingPhotoUrl, setPendingPhotoUrl] = useState<string | null>(null);
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -148,6 +158,7 @@ export function SketchEditorV2({
 
         const loaded: FloorData[] = sketches.map((s, i) => {
           const canvasRef = makeFabricCanvas();
+          const sketchMeta = s.sketchData as Record<string, unknown> | null;
           const floorData: FloorData = {
             floor: {
               id: s.id ?? `${uid}-f${i}`,
@@ -156,11 +167,10 @@ export function SketchEditorV2({
             },
             canvasRef,
             moisturePins: (s.moisturePoints as MoisturePin[] | null) ?? [],
+            photoPins: (sketchMeta?.photoPins as PhotoPin[] | null) ?? [],
             backgroundUrl: s.backgroundImageUrl ?? null,
             backgroundOpacity: 0.35,
-            scaleConfig:
-              ((s.sketchData as Record<string, unknown> | null)
-                ?.scaleConfig as ScaleConfig | null) ?? null,
+            scaleConfig: (sketchMeta?.scaleConfig as ScaleConfig | null) ?? null,
           };
           return floorData;
         });
@@ -200,6 +210,7 @@ export function SketchEditorV2({
           const sketchData = {
             ...(canvas.toJSON() as Record<string, unknown>),
             scaleConfig: fd.scaleConfig,
+            photoPins: fd.photoPins,
           };
           await fetch(`/api/inspections/${inspectionId}/sketches`, {
             method: "POST",
@@ -299,6 +310,7 @@ export function SketchEditorV2({
       },
       canvasRef: makeFabricCanvas(),
       moisturePins: [],
+      photoPins: [],
       backgroundUrl: null,
       backgroundOpacity: 0.35,
       scaleConfig: null,
@@ -346,6 +358,19 @@ export function SketchEditorV2({
       setFloorsData((prev) =>
         prev.map((fd, i) =>
           i === activeIdx ? { ...fd, moisturePins: pins } : fd,
+        ),
+      );
+      scheduleSave();
+    },
+    [activeIdx, scheduleSave],
+  );
+
+  // ── Photo pins ──────────────────────────────────────────
+  const handlePhotoPinsChange = useCallback(
+    (pins: PhotoPin[]) => {
+      setFloorsData((prev) =>
+        prev.map((fd, i) =>
+          i === activeIdx ? { ...fd, photoPins: pins } : fd,
         ),
       );
       scheduleSave();
@@ -410,6 +435,10 @@ export function SketchEditorV2({
   const handleToolChange = useCallback((mode: ToolMode) => {
     setToolMode(mode);
     setSelectedObj(null);
+    if (mode !== "photopin") {
+      setPendingPhotoId(null);
+      setPendingPhotoUrl(null);
+    }
   }, []);
 
   // ── Canvas get element (for scale modal) ───────────────
@@ -538,6 +567,27 @@ export function SketchEditorV2({
               className="w-full h-full"
             />
 
+            {/* Heat-map overlay — rendered below pin markers */}
+            <SketchHeatmapLayer
+              pins={fd.moisturePins}
+              polygon={
+                (fd.moisturePins.length > 0
+                  ? [
+                      { x: 0, y: 0 },
+                      { x: width, y: 0 },
+                      { x: width, y: height },
+                      { x: 0, y: height },
+                    ]
+                  : []) as Point[]
+              }
+              material={
+                fd.moisturePins[0]?.material ?? "other"
+              }
+              visible={showHeatmap && idx === activeIdx}
+              width={width}
+              height={height}
+            />
+
             {/* Moisture pin overlay */}
             <SketchMoistureLayer
               pins={fd.moisturePins}
@@ -546,6 +596,20 @@ export function SketchEditorV2({
               width={width}
               height={height}
               className="pointer-events-none"
+            />
+
+            {/* Evidence photo pin overlay — RA-1608 */}
+            <SketchPhotoLayer
+              pins={fd.photoPins}
+              onChange={handlePhotoPinsChange}
+              pendingPhotoId={toolMode === "photopin" ? pendingPhotoId : null}
+              pendingPhotoUrl={toolMode === "photopin" ? pendingPhotoUrl : null}
+              onPinDropped={() => {
+                /* keep photo armed for multi-drop */
+              }}
+              active={toolMode === "photopin" && idx === activeIdx}
+              width={width}
+              height={height}
             />
           </div>
         ))}
@@ -624,6 +688,20 @@ export function SketchEditorV2({
           }}
         />
 
+        {/* Photo pin sidebar — RA-1608 */}
+        {!readonly && (
+          <PhotoPinSidebar
+            inspectionId={inspectionId}
+            open={toolMode === "photopin"}
+            pendingPhotoId={pendingPhotoId}
+            onSelect={(id, url) => {
+              setPendingPhotoId(id || null);
+              setPendingPhotoUrl(url || null);
+            }}
+            onClose={() => handleToolChange("select")}
+          />
+        )}
+
         {/* Floating dock toolbar */}
         <SketchDockToolbar
           toolMode={toolMode}
@@ -639,6 +717,8 @@ export function SketchEditorV2({
             activeFloor?.canvasRef.current?.clear();
             scheduleSave();
           }}
+          showHeatmap={showHeatmap}
+          onToggleHeatmap={() => setShowHeatmap((v) => !v)}
           readonly={readonly}
         />
       </div>
