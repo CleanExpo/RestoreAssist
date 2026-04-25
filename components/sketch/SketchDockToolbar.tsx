@@ -29,6 +29,7 @@ import {
   Trash2,
   Maximize2,
   GripHorizontal,
+  Layers,
 } from "lucide-react";
 import type { ToolMode } from "./SketchCanvas";
 
@@ -45,6 +46,8 @@ export interface SketchDockToolbarProps {
   onZoomOut?: () => void;
   onZoomReset?: () => void;
   onClear?: () => void;
+  showHeatmap?: boolean;
+  onToggleHeatmap?: () => void;
   readonly?: boolean;
   className?: string;
 }
@@ -84,6 +87,8 @@ export function SketchDockToolbar({
   onZoomOut,
   onZoomReset,
   onClear,
+  showHeatmap = false,
+  onToggleHeatmap,
   readonly = false,
   className,
 }: SketchDockToolbarProps) {
@@ -236,6 +241,18 @@ export function SketchDockToolbar({
             disabled={!canRedo}
             label="Redo (Ctrl+Shift+Z)"
             Icon={Redo2}
+          />
+        </>
+      )}
+
+      {onToggleHeatmap && (
+        <>
+          <div className={dividerCls} />
+          <ToolBtn
+            active={showHeatmap}
+            onClick={onToggleHeatmap}
+            label="Heatmap"
+            Icon={Layers}
           />
         </>
       )}

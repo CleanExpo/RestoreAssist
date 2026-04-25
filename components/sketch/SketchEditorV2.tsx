@@ -28,6 +28,8 @@ import { SketchSelectionPanel } from "./SketchSelectionPanel";
 import type { SelectedObject } from "./SketchSelectionPanel";
 import { SketchMoistureLayer } from "./SketchMoistureLayer";
 import type { MoisturePin } from "./SketchMoistureLayer";
+import { SketchHeatmapLayer } from "./SketchHeatmapLayer";
+import type { Point } from "./SketchHeatmapLayer";
 import { SketchScaleModal } from "./SketchScaleModal";
 import type { ScaleConfig } from "./SketchScaleModal";
 import { FloorPlanUnderlayLoader } from "./FloorPlanUnderlayLoader";
@@ -123,6 +125,7 @@ export function SketchEditorV2({
     canUndo: false,
     canRedo: false,
   });
+  const [showHeatmap, setShowHeatmap] = useState(false);
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -538,6 +541,27 @@ export function SketchEditorV2({
               className="w-full h-full"
             />
 
+            {/* Heat-map overlay — rendered below pin markers */}
+            <SketchHeatmapLayer
+              pins={fd.moisturePins}
+              polygon={
+                (fd.moisturePins.length > 0
+                  ? [
+                      { x: 0, y: 0 },
+                      { x: width, y: 0 },
+                      { x: width, y: height },
+                      { x: 0, y: height },
+                    ]
+                  : []) as Point[]
+              }
+              material={
+                fd.moisturePins[0]?.material ?? "other"
+              }
+              visible={showHeatmap && idx === activeIdx}
+              width={width}
+              height={height}
+            />
+
             {/* Moisture pin overlay */}
             <SketchMoistureLayer
               pins={fd.moisturePins}
@@ -639,6 +663,8 @@ export function SketchEditorV2({
             activeFloor?.canvasRef.current?.clear();
             scheduleSave();
           }}
+          showHeatmap={showHeatmap}
+          onToggleHeatmap={() => setShowHeatmap((v) => !v)}
           readonly={readonly}
         />
       </div>
