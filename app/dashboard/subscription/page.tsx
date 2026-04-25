@@ -67,7 +67,7 @@ export default function SubscriptionPage() {
           });
         }
       })
-      .catch(() => {});
+      .catch((err) => console.error("[SubscriptionPage]", err));
   }, []);
 
   const fetchSubscription = async (forceRefresh = false) => {

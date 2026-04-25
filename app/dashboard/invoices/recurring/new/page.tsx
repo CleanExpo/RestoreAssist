@@ -58,9 +58,12 @@ export default function NewRecurringInvoicePage() {
 
   useEffect(() => {
     fetch("/api/clients?limit=200")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`Failed to load clients: ${r.status}`);
+        return r.json();
+      })
       .then((data) => setClients(data.clients ?? []))
-      .catch(() => {})
+      .catch((err) => console.error("[RecurringInvoiceNew]", err))
       .finally(() => setLoadingClients(false));
   }, []);
 

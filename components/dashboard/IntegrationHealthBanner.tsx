@@ -37,7 +37,7 @@ export function IntegrationHealthBanner({
           setHealthStatus(data.status as HealthStatus);
         }
       })
-      .catch(() => {});
+      .catch((err) => console.error("[IntegrationHealthBanner]", err));
   }, []);
 
   if (!sidebarOpen || dismissed || !healthStatus) return null;

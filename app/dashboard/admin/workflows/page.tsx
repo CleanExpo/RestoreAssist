@@ -545,7 +545,7 @@ export default function WorkflowMonitorPage() {
     fetch("/api/agents/workflows?limit=50")
       .then((r) => r.json())
       .then((d) => setAllWorkflows(d.workflows ?? []))
-      .catch(() => {});
+      .catch((err) => console.error("[WorkflowMonitor]", err));
   }, [isAdmin]);
 
   const counts = {

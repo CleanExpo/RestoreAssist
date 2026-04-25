@@ -25,7 +25,7 @@ export function XeroDeadLetterBanner() {
       .then((data) => {
         if (typeof data?.count === "number") setCount(data.count);
       })
-      .catch(() => {});
+      .catch((err) => console.error("[XeroDeadLetterBanner]", err));
   }, []);
 
   if (dismissed || !count || count === 0) return null;

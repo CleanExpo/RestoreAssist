@@ -30,7 +30,7 @@ export function CancellationCountdownBanner() {
           });
         }
       })
-      .catch(() => {});
+      .catch((err) => console.error("[CancellationCountdownBanner]", err));
   }, []);
 
   if (!state?.cancelAtPeriodEnd) return null;
