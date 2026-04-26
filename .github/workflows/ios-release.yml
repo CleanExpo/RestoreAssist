@@ -66,6 +66,13 @@ jobs:
           security default-keychain -s build.keychain
           security unlock-keychain -p "temp" build.keychain
           security set-keychain-settings -t 3600 -l build.keychain
+          # Modern macOS adds a key-partition ACL on top of -T. Without
+          # this, codesign blocks on a GUI prompt that can never be
+          # answered in CI — observed in run 24958163047 which hung for
+          # 43 min on "Signing Cordova.framework" before the workflow
+          # timed out. set-key-partition-list grants codesign + Apple
+          # tools access to the imported key without prompting.
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "temp" build.keychain
 
       - name: Install provisioning profile
         run: |
