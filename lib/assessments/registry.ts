@@ -13,11 +13,13 @@
 import type { AssessmentDomain, DomainPlugin } from "./types";
 import { waterDomain } from "./domains/water";
 import { mouldDomain } from "./domains/mould";
+import { biohazardDomain } from "./domains/biohazard";
 
 const DOMAIN_LIST: DomainPlugin[] = [
   waterDomain,
   mouldDomain,
-  // Future: biohazardDomain, fireSmokeDomain, hvacDomain, stormDomain,
+  biohazardDomain,
+  // Future: fireSmokeDomain, hvacDomain, stormDomain,
   // australianComplianceDomain — each follows the same contract from
   // lib/assessments/types.ts::DomainPlugin.
 ];
