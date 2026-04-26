@@ -109,7 +109,7 @@ Play Console → All apps → Create app.
 
 | # | Item | Source | Done? |
 |---|------|--------|-------|
-| 4.1 | App icon (App Store): 1024×1024 PNG, no alpha | `distribution/icon-source/out/ios-1024.png` | ☐ |
+| 4.1 | App icon (App Store): 1024×1024 PNG, no alpha — operator-supplied artwork as-is, locked 2026-04-26 | `distribution/icon-source/out/ios-1024.png` | ☐ |
 | 4.2 | App icon (Play): 512×512 PNG | `distribution/icon-source/out/android-512.png` | ☐ |
 | 4.3 | Adaptive icon (Play, internal — synced via `npx cap sync android`) | `mobile/assets/adaptive-icon.png` + `distribution/icon-source/out/adaptive-{fg,bg}-432.png` | ☐ |
 | 4.4 | Feature graphic (Play): 1024×500 PNG | `distribution/icon-source/out/android-feature-graphic.png` | ☐ |
@@ -183,6 +183,7 @@ Phase 5 cutover.
 ### Common rejections + fixes
 
 - **App Store: "App icon shows transparency"** — our icon is opaque-flattened; if rejected, re-run `node distribution/icon-source/build-icons.mjs` and confirm `flatten()` ran.
+- **App Store: "App icon shouldn't include the device frame / shadow / drop"** — our icon (silver disc + brushed metal rim) is intentionally a coin-style brand asset. If reviewers flag the textured-grey backdrop in the rounded corners, regenerate via the build-icons script with a circular mask onto `#050505` (the alternate variant logic is in git history at commit before 2026-04-26 — restore via `git show <prev>:distribution/icon-source/build-icons.mjs`).
 - **App Store: "Login required, no demo account"** — fix in §2.7.
 - **App Store: "Privacy policy doesn't match nutrition labels"** — re-audit `app/privacy/page.tsx` against `distribution/PRIVACY_DISCLOSURES.md`.
 - **Play: "Data Safety incomplete"** — every Yes in `distribution/PRIVACY_DISCLOSURES.md` § Data Safety must have a purpose selected; tick "Account management" + "App functionality" everywhere.

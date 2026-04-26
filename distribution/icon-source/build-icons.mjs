@@ -12,8 +12,7 @@
  * Outputs (all PNG, sRGB, no alpha unless noted):
  *
  *   distribution/icon-source/out/
- *     ios-1024.png            App Store Connect "App Icon" upload (textured-grey corners as-is)
- *     ios-1024-darkbg.png     Variant: silver disc on #050505 background (alternate option)
+ *     ios-1024.png            App Store Connect "App Icon" upload (canonical — operator selected as-supplied artwork)
  *     ios-marketing-1024.png  alias of ios-1024
  *     android-512.png         Play Store listing icon
  *     android-feature-graphic.png  1024×500 banner (auto-generated, replace with designer art when ready)
@@ -75,51 +74,6 @@ async function rasteriseToSize(squareSource, size, outPath, opts = {}) {
     pipeline.flatten({ background: BG_HEX });
   }
   await pipeline.png({ compressionLevel: 9 }).toFile(outPath);
-  const stat = await fs.stat(outPath);
-  console.log(
-    `  ${path.relative(REPO, outPath)}  (${stat.size.toLocaleString()} bytes)`,
-  );
-}
-
-/**
- * Recomposite the source onto a solid #050505 background using a
- * circular mask. Centred, radius = size/2.
- *
- * Only the artwork inside the disc survives; the textured grey
- * corners get replaced with the brand-dark background that matches
- * the splash screen + capacitor.config.ts.
- */
-async function darkBackgroundVariant(squareSource, size, outPath) {
-  // Build an SVG mask: an opaque white circle on transparent.
-  const mask = Buffer.from(`<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">
-  <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - 6}" fill="#fff" />
-</svg>`);
-
-  // 1. Resize source to target size.
-  const resized = await sharp(squareSource)
-    .resize(size, size, { fit: "cover" })
-    .toBuffer();
-
-  // 2. Apply the circular mask: the disc survives, everything else
-  //    becomes transparent.
-  const masked = await sharp(resized)
-    .composite([{ input: mask, blend: "dest-in" }])
-    .png()
-    .toBuffer();
-
-  // 3. Composite the masked disc onto a solid #050505 square.
-  await sharp({
-    create: {
-      width: size,
-      height: size,
-      channels: 3,
-      background: BG_HEX,
-    },
-  })
-    .composite([{ input: masked }])
-    .png({ compressionLevel: 9 })
-    .toFile(outPath);
   const stat = await fs.stat(outPath);
   console.log(
     `  ${path.relative(REPO, outPath)}  (${stat.size.toLocaleString()} bytes)`,
@@ -189,18 +143,14 @@ async function main() {
 
   console.log("App Store / Play Store icons:");
 
-  // App Store Connect: 1024×1024, no alpha. As-is variant first.
+  // App Store Connect: 1024×1024, no alpha. Operator-supplied artwork
+  // as-is — the textured-grey corners are intentional (brand decision
+  // 2026-04-26).
   await rasteriseToSize(squareSource, 1024, path.join(OUT, "ios-1024.png"));
   await rasteriseToSize(
     squareSource,
     1024,
     path.join(OUT, "ios-marketing-1024.png"),
-  );
-  // Dark-background variant: silver disc on #050505 (matches splash).
-  await darkBackgroundVariant(
-    squareSource,
-    1024,
-    path.join(OUT, "ios-1024-darkbg.png"),
   );
 
   // Google Play: 512×512.
@@ -237,14 +187,14 @@ async function main() {
   );
 
   console.log("\nDone. Next steps (operator):");
-  console.log("  1. Open distribution/icon-source/out/ in Finder");
-  console.log("  2. Compare ios-1024.png (textured grey corners) vs");
-  console.log("     ios-1024-darkbg.png (silver disc on #050505).");
-  console.log("     Pick which one to upload to App Store Connect.");
-  console.log("  3. npx cap sync ios && npx cap sync android");
-  console.log("  4. Open ios/App/App.xcworkspace in Xcode and verify the");
+  console.log("  1. npx cap sync ios && npx cap sync android");
+  console.log("  2. Open ios/App/App.xcworkspace in Xcode and verify the");
   console.log("     AppIcon.appiconset asset catalog now shows the new icon");
-  console.log("  5. Same for android/app/src/main/res/mipmap-*");
+  console.log("  3. Same for android/app/src/main/res/mipmap-*");
+  console.log("  4. Upload distribution/icon-source/out/ios-1024.png to");
+  console.log("     App Store Connect → App Information → App Icon");
+  console.log("  5. Upload distribution/icon-source/out/android-512.png to");
+  console.log("     Play Console → Store presence → Main store listing");
 }
 
 main().catch((err) => {
