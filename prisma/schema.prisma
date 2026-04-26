@@ -246,6 +246,9 @@ model User {
   // RA-1352 — admin impersonation audit (as initiator and as target)
   adminImpersonationsAsAdmin  AdminImpersonation[] @relation("AdminImpersonationAsAdmin")
   adminImpersonationsAsTarget AdminImpersonation[] @relation("AdminImpersonationAsTarget")
+
+  // RA-1717 — assessment generation audit (who generated which artefact)
+  assessmentGenerations       AssessmentGeneration[] @relation("UserAssessmentGenerations")
 }
 
 model Feedback {
@@ -1666,6 +1669,43 @@ enum StandardTemplateType {
 // ============================================
 
 // Main Inspection Record
+/// AssessmentGeneration — RA-1717. Persisted output of the unified
+/// assessment generation pipeline (lib/assessments/generate.ts).
+/// One row per (inspection, assessmentType) generation; latest by
+/// generatedAt is the canonical artefact for that inspection. Older
+/// rows are kept for audit + diff.
+model AssessmentGeneration {
+  id              String   @id @default(cuid())
+  inspectionId    String
+  inspection      Inspection @relation("InspectionAssessmentGenerations", fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  /// Domain key from lib/assessments/registry.ts. e.g. "WATER" | "MOULD" |
+  /// "BIOHAZARD" | "FIRE_SMOKE" | "HVAC" | "STORM" | "AUSTRALIAN_COMPLIANCE"
+  assessmentType  String
+
+  /// Structured artefacts. Stored as Json so the schema doesn't need to
+  /// change for every domain plug-in. Shape is enforced at the lib layer.
+  reportSections  Json
+  scopeItems      Json
+  estimateLines   Json
+  citations       Json
+
+  /// Provenance for audit + cost tracking.
+  modelUsed         String?
+  latencyMs         Int
+  costEstimateUsd   Float?
+  /// Workspace that paid for the generation (RA-1707 budget tracking).
+  workspaceId       String?
+
+  generatedAt     DateTime @default(now())
+  generatedById   String?
+  generatedBy     User?    @relation("UserAssessmentGenerations", fields: [generatedById], references: [id], onDelete: SetNull)
+
+  @@index([inspectionId, generatedAt])
+  @@index([assessmentType, generatedAt])
+  @@index([workspaceId])
+}
+
 model Inspection {
   id       String  @id @default(cuid())
   reportId String? @unique // Link to existing Report if applicable
@@ -1699,6 +1739,9 @@ model Inspection {
   auditLogs         AuditLog[]
   photos            InspectionPhoto[]
   usageEvents       UsageEvent[]        @relation("usageEvents")
+
+  // RA-1717 — Unified assessment-generation artefacts.
+  assessmentGenerations AssessmentGeneration[] @relation("InspectionAssessmentGenerations")
 
   // AI Assistant Tier (Phase 1 - Metering)
   totalUsageCost Float @default(0) // Cached total cost for this inspection
