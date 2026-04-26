@@ -34,8 +34,12 @@ export interface GenerateResultPayload {
 
 export default function AssessmentResultDisplay({
   result,
+  inspectionId,
+  domain,
 }: {
   result: GenerateResultPayload;
+  inspectionId?: string;
+  domain?: string;
 }) {
   const subtotal = result.estimate.totals.subtotalExGst.toFixed(2);
   const gst = result.estimate.totals.gstTotal.toFixed(2);
@@ -156,6 +160,14 @@ export default function AssessmentResultDisplay({
         >
           Download JSON ↓
         </button>
+        {inspectionId && domain ? (
+          <a
+            href={`/api/inspections/${encodeURIComponent(inspectionId)}/assessments/${domain}/pdf`}
+            className="px-3 py-1.5 text-xs rounded border hover:bg-muted/40"
+          >
+            Download PDF ↓
+          </a>
+        ) : null}
         <span className="text-[10px] text-muted-foreground">
           Persisted as{" "}
           <code className="font-mono">{result.assessmentGenerationId}</code>
