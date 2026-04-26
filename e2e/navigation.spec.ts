@@ -53,7 +53,13 @@ test.describe("404 Page", () => {
   test("should display 404 page for invalid routes", async ({ page }) => {
     await page.goto("/this-page-does-not-exist-12345");
 
-    // Should show 404 content
-    await expect(page.getByText(/404|not found|page not found/i)).toBeVisible();
+    // Should show 404 content. The page renders both a "404" tile and a
+    // "Page Not Found" heading — the previous regex matched both and
+    // Playwright's strict mode resolved that as ambiguous, failing the
+    // assertion despite the page being correct. Pin to the heading so
+    // the matcher resolves to one element.
+    await expect(
+      page.getByRole("heading", { name: /page not found/i }),
+    ).toBeVisible();
   });
 });
