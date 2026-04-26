@@ -5475,6 +5475,36 @@ model ProgressAttestation {
   @@index([attestationType])
 }
 
+/// ProgressTelemetryEvent — RA-1392 / Motion M-17. Append-only event stream
+/// for the Progress framework's 8 telemetry events (4 funnels + 2 KPIs read
+/// off this table). Hard ship-blocker: nothing in the Progress rollout goes
+/// without these events flowing.
+model ProgressTelemetryEvent {
+  id String @id @default(cuid())
+
+  // Event identity — one of the 8 names from UX paper §8
+  eventName String // "progress.transition.attempt" | ".success" | ".blocked" | ".override" | ".attestation.captured" | ".evidence.missing" | ".offline.queued" | ".offline.synced"
+
+  // Optional foreign keys — set when the event has a natural anchor.
+  // Not enforced as relations because telemetry must survive cascade deletes
+  // of source rows for audit purposes.
+  claimProgressId String?
+  transitionId    String?
+  transitionKey   String? // e.g. "start_stabilisation"
+  gateKey         String? // e.g. "evidence.photo_coverage"
+  userId          String? // actor on the event
+
+  // Free-form payload — { reason?, code?, durationMs?, ... }
+  payload Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([eventName, createdAt])
+  @@index([claimProgressId, createdAt])
+  @@index([transitionKey, createdAt])
+  @@index([createdAt])
+}
+
 enum ClaimState {
   INTAKE
   STABILISATION_ACTIVE
