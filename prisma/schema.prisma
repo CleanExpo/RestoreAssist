@@ -5425,6 +5425,13 @@ model ProgressTransition {
   // Computed at write time; verified on read for integrity checks.
   integrityHash String
 
+  // RA-1389 / M-14 — Gate gaps that did NOT block this transition. SOFT
+  // gaps are surfaced as nudges and counted toward the M-15 5% override
+  // governance review; AUDIT gaps are observed silently for telemetry.
+  // Both are arrays of catalogue gate keys (lib/progress/gate-policy.ts).
+  softGaps  Json?
+  auditGaps Json?
+
   // DB-default timestamp — never caller-provided (prevents backdating)
   transitionedAt DateTime @default(now())
 
