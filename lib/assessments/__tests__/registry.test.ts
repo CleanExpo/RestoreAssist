@@ -33,9 +33,13 @@ describe("assessment registry", () => {
     expect(getDomainPlugin("FIRE_SMOKE")).not.toBeNull();
   });
 
+  it("registers the STORM domain", () => {
+    expect(getDomainPlugin("STORM")).not.toBeNull();
+  });
+
   it("returns null for an unregistered domain", () => {
-    // HVAC / STORM / AUSTRALIAN_COMPLIANCE remain unregistered — they
-    // land in subsequent PRs.
+    // HVAC / AUSTRALIAN_COMPLIANCE remain unregistered — they land in
+    // subsequent PRs.
     expect(getDomainPlugin("HVAC")).toBeNull();
     expect(getDomainPlugin("UNREGISTERED" as never)).toBeNull();
   });
