@@ -12,12 +12,14 @@
 
 import type { AssessmentDomain, DomainPlugin } from "./types";
 import { waterDomain } from "./domains/water";
+import { mouldDomain } from "./domains/mould";
 
 const DOMAIN_LIST: DomainPlugin[] = [
   waterDomain,
-  // Future: mouldDomain, biohazardDomain, fireSmokeDomain, hvacDomain,
-  // stormDomain, australianComplianceDomain — each follows the same
-  // contract from lib/assessments/types.ts::DomainPlugin.
+  mouldDomain,
+  // Future: biohazardDomain, fireSmokeDomain, hvacDomain, stormDomain,
+  // australianComplianceDomain — each follows the same contract from
+  // lib/assessments/types.ts::DomainPlugin.
 ];
 
 const DOMAIN_REGISTRY = new Map<AssessmentDomain, DomainPlugin>(
