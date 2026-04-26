@@ -76,8 +76,10 @@ jobs:
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
+          # Capacitor 6+ project uses Swift Package Manager — no .xcworkspace
+          # is generated. Build directly against the .xcodeproj.
           fastlane gym \
-            --workspace ios/App/App.xcworkspace \
+            --project ios/App/App.xcodeproj \
             --scheme App \
             --export_method app-store \
             --output_directory ./build \
