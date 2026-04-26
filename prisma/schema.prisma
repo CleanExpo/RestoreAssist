@@ -5474,6 +5474,15 @@ model ProgressAttestation {
   signatureDataUrl String? @db.Text // Base64 drawn signature (SVG or PNG)
   integrityHash    String // Hash of attestor identity + timestamp + claimProgressId
 
+  // RA-1388 / M-13 — Labour-hire per-job attestation matrix. Populated only
+  // when attestationType = "LABOUR_HIRE_SELF". Validation lives in
+  // lib/progress/labour-hire.ts (Fair Work compliance).
+  labourHireHours                Decimal? @db.Decimal(6, 2)
+  labourHireAwardClass           String?
+  labourHireSuperRate            Decimal? @db.Decimal(5, 4) // 0.12 = 12% (default from 1 Jul 2025)
+  labourHirePortableLslState     String? // "NSW" | "VIC" | "QLD" | "ACT" | "TAS" | null when N/A
+  labourHireInductionEvidenceId  String? // FK reference to an evidence row carrying induction proof
+
   attestedAt DateTime @default(now())
 
   @@index([claimProgressId])
