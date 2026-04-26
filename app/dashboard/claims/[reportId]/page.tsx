@@ -107,6 +107,9 @@ export default async function ClaimDetailPage({ params }: Props) {
           propertyAddress: true,
           hazardType: true,
           insuranceType: true,
+          inspection: {
+            select: { id: true, inspectionNumber: true },
+          },
         },
       },
     },
@@ -193,7 +196,7 @@ export default async function ClaimDetailPage({ params }: Props) {
         <p className="text-sm text-muted-foreground">
           {cp.report.hazardType} · {cp.report.insuranceType}
         </p>
-        <div className="flex gap-3 items-center text-sm pt-1">
+        <div className="flex gap-3 items-center text-sm pt-1 flex-wrap">
           <span className="font-mono rounded bg-muted px-2 py-0.5">
             {cp.currentState}
           </span>
@@ -207,6 +210,18 @@ export default async function ClaimDetailPage({ params }: Props) {
               v{cp.version}
             </span>
           )}
+          {cp.report.inspection ? (
+            <Link
+              href={`/dashboard/inspections/${cp.report.inspection.id}/assessments`}
+              className="text-blue-600 hover:underline"
+            >
+              Open assessments
+              {cp.report.inspection.inspectionNumber
+                ? ` · ${cp.report.inspection.inspectionNumber}`
+                : ""}
+              {" →"}
+            </Link>
+          ) : null}
         </div>
       </header>
 
