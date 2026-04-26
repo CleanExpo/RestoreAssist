@@ -1,4 +1,5 @@
 import bundleAnalyzer from "@next/bundle-analyzer";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
@@ -202,4 +203,20 @@ const nextConfig = {
   },
 };
 
-export default withBundleAnalyzer(nextConfig);
+// RA P0-3 — wrap with Sentry's webpack plugin so source maps upload at
+// build time and stack traces in Sentry are symbolicated. Sentry-specific
+// build steps are no-ops when SENTRY_DSN / SENTRY_AUTH_TOKEN are unset
+// (local + preview without DSN — no impact on the build).
+const sentryWebpackOptions = {
+  org: process.env.SENTRY_ORG ?? undefined,
+  project: process.env.SENTRY_PROJECT ?? undefined,
+  authToken: process.env.SENTRY_AUTH_TOKEN ?? undefined,
+  silent: !process.env.SENTRY_AUTH_TOKEN,
+  // Hide source maps from public traffic — only Sentry can de-symbolicate.
+  hideSourceMaps: true,
+  // Keep the sentry build wrapper opt-in: when no auth token, skip the
+  // upload step but still inject the runtime SDK.
+  disableLogger: true,
+};
+
+export default withSentryConfig(withBundleAnalyzer(nextConfig), sentryWebpackOptions);
