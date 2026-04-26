@@ -7,6 +7,7 @@
   "scripts": {
     "run": "tsx src/index.ts run",
     "swarm": "tsx src/index.ts swarm",
+    "dryrun": "tsx src/index.ts dryrun",
     "test": "vitest run"
   },
   "engines": {
