@@ -339,7 +339,13 @@ export default function AssessmentDomainCard({
         </div>
       </form>
 
-      {result ? <AssessmentResultDisplay result={result} /> : null}
+      {result ? (
+        <AssessmentResultDisplay
+          result={result}
+          inspectionId={inspectionId}
+          domain={domain}
+        />
+      ) : null}
     </div>
   );
 }
