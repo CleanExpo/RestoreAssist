@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  RestoreAssist app icon — placeholder until designer artwork is supplied.
+
+  Brand reference:
+  - Background:  #050505 (matches capacitor.config.ts background)
+  - Cyan accent: #00F5FF (matches capacitor splash spinner)
+  - Mid cyan:    #00BAD4 (matches PDF brand cyan)
+  - Deep blue:   #1C2E47 (matches PDF brand dark)
+
+  Composition:
+  - Square dark background (rounded corners applied per-platform via the
+    rasteriser — iOS gets the black square, Android adaptive gets a
+    full-bleed background layer + cyan-on-black foreground layer).
+  - Stylised water droplet over a horizontal "shield" bar in cyan.
+  - "RA" monogram clipped from the droplet base.
+
+  This icon is an honest placeholder — readable, on-brand, App-Store
+  acceptable. Replace with designer artwork when available.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Background -->
+  <rect width="1024" height="1024" fill="#050505" />
+
+  <!-- Soft cyan glow behind the droplet -->
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="42%" r="40%">
+      <stop offset="0%" stop-color="#00F5FF" stop-opacity="0.20" />
+      <stop offset="100%" stop-color="#00F5FF" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="drop" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#7CFCFF" />
+      <stop offset="60%" stop-color="#00F5FF" />
+      <stop offset="100%" stop-color="#00BAD4" />
+    </linearGradient>
+  </defs>
+  <circle cx="512" cy="430" r="380" fill="url(#glow)" />
+
+  <!-- Water droplet -->
+  <path
+    d="M512 200
+       C 380 380, 320 480, 320 580
+       C 320 700, 410 790, 512 790
+       C 614 790, 704 700, 704 580
+       C 704 480, 644 380, 512 200 Z"
+    fill="url(#drop)" />
+
+  <!-- Inner highlight on droplet -->
+  <path
+    d="M448 410
+       C 412 460, 392 510, 392 555
+       C 392 595, 415 625, 448 635"
+    fill="none"
+    stroke="#FFFFFF"
+    stroke-opacity="0.45"
+    stroke-width="14"
+    stroke-linecap="round" />
+
+  <!-- "RA" monogram baseline -->
+  <text
+    x="512"
+    y="906"
+    text-anchor="middle"
+    font-family="Helvetica, Arial, sans-serif"
+    font-size="116"
+    font-weight="700"
+    letter-spacing="6"
+    fill="#FFFFFF">RA</text>
+</svg>
