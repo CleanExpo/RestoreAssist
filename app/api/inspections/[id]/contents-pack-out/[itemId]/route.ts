@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 
 export async function DELETE(
   _req: NextRequest,
@@ -19,16 +20,12 @@ export async function DELETE(
 
   const { id, itemId } = await params;
 
-  // Verify inspection ownership
-  const inspection = await prisma.inspection.findUnique({
-    where: { id, userId: session.user.id },
-    select: { id: true },
-  });
-
-  if (!inspection) {
+  // RA-1711 batch 3 — adopt shared tenancy helper.
+  const tenancy = await assertInspectionTenancy(session, id);
+  if (!tenancy.ok) {
     return NextResponse.json(
-      { error: "Inspection not found" },
-      { status: 404 },
+      { error: tenancy.reason },
+      { status: tenancy.status },
     );
   }
 

@@ -17,6 +17,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { withIdempotency } from "@/lib/idempotency";
+import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 
 // ─── Validation ────────────────────────────────────────────────────────────────
 
@@ -73,15 +74,12 @@ export async function GET(
 
   const { id } = await params;
 
-  const inspection = await prisma.inspection.findUnique({
-    where: { id, userId: session.user.id },
-    select: { id: true },
-  });
-
-  if (!inspection) {
+  // RA-1711 batch 3 — adopt shared tenancy helper.
+  const tenancy = await assertInspectionTenancy(session, id);
+  if (!tenancy.ok) {
     return NextResponse.json(
-      { error: "Inspection not found" },
-      { status: 404 },
+      { error: tenancy.reason },
+      { status: tenancy.status },
     );
   }
 
@@ -131,15 +129,12 @@ export async function POST(
 
   // RA-1266: prevents duplicate pack-out item rows on retry.
   return withIdempotency(req, userId, async (rawBody) => {
-    const inspection = await prisma.inspection.findUnique({
-      where: { id, userId },
-      select: { id: true },
-    });
-
-    if (!inspection) {
+    // RA-1711 batch 3 — adopt shared tenancy helper.
+    const tenancy = await assertInspectionTenancy(session, id);
+    if (!tenancy.ok) {
       return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
+        { error: tenancy.reason },
+        { status: tenancy.status },
       );
     }
 
