@@ -59,10 +59,30 @@ export default async function ClaimsIndexPage() {
       </header>
 
       {claims.length === 0 ? (
-        <div className="rounded border p-6 text-sm text-muted-foreground">
-          No claim-progress records yet. ClaimProgress rows are created the
-          first time a report enters the lifecycle (POST
-          {" "}<code>/api/progress/[reportId]/init</code>).
+        <div className="rounded-md border p-6 space-y-3">
+          <p className="text-base font-medium">No claims yet</p>
+          <p className="text-sm text-muted-foreground">
+            Claims appear here once you start an inspection. Open a report
+            from the inspections list and tap{" "}
+            <span className="font-medium text-foreground">
+              Start stabilisation
+            </span>{" "}
+            to begin the compliance lifecycle.
+          </p>
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Link
+              href="/dashboard/inspections"
+              className="px-3 py-1.5 text-sm rounded bg-foreground text-background"
+            >
+              Go to inspections →
+            </Link>
+            <Link
+              href="/dashboard/help"
+              className="px-3 py-1.5 text-sm rounded border"
+            >
+              How does this work?
+            </Link>
+          </div>
         </div>
       ) : (
         <div className="overflow-x-auto rounded-md border">
