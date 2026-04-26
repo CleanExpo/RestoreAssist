@@ -95,13 +95,18 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Verify report exists if reportId provided
+      // RA-1711 — verify report ownership (not just existence) so a
+      // user cannot submit a form referencing another tenant's report.
+      // Pre-RA-1711 the lookup was scoped by id only, which let a
+      // crafted reportId attach a FormSubmission row to a foreign
+      // tenant's report and leak its existence.
       if (reportId) {
         const report = await prisma.report.findUnique({
           where: { id: reportId },
+          select: { id: true, userId: true },
         });
 
-        if (!report) {
+        if (!report || report.userId !== userId) {
           return NextResponse.json(
             { error: "Report not found" },
             { status: 404 },

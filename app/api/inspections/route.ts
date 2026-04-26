@@ -61,10 +61,13 @@ export async function GET(request: NextRequest) {
     }
 
     if (reportId) {
-      // Note: reportId column doesn't exist, so find by property address instead
-      // First get the report to find property address
-      const report = await prisma.report.findUnique({
-        where: { id: reportId },
+      // Note: reportId column doesn't exist, so find by property address instead.
+      // RA-1711 — scope the lookup by userId so a probe with a foreign
+      // tenant's reportId returns null, not the report's address. Pre-fix
+      // the lookup was id-only, leaking propertyAddress + propertyPostcode
+      // of any report whose ID an attacker could enumerate.
+      const report = await prisma.report.findFirst({
+        where: { id: reportId, userId: session.user.id },
         select: { propertyAddress: true, propertyPostcode: true },
       });
 
