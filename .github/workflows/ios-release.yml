@@ -89,16 +89,46 @@ jobs:
           # The committed project uses CODE_SIGN_STYLE = Automatic with
           # "iPhone Developer" identity — fine for local Xcode dev, but
           # CI manually installs an "Apple Distribution" cert + a named
-          # provisioning profile and needs Manual signing. Override every
-          # signing build setting at archive time via --xcargs so the
-          # project file stays Xcode-friendly for the next dev who opens
-          # it.
+          # provisioning profile and needs Manual signing.
+          #
+          # Two-step signing override:
+          #   1. xcargs forces Manual signing during the `archive` phase.
+          #   2. ExportOptions.plist forces Manual signing + maps the
+          #      bundle id to the profile name during `exportArchive`.
+          # Without (2), run #4 failed with:
+          #   exportArchive "App.app" requires a provisioning profile.
+
+          cat > /tmp/ExportOptions.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>app-store</string>
+              <key>signingStyle</key>
+              <string>manual</string>
+              <key>teamID</key>
+              <string>${APPLE_TEAM_ID}</string>
+              <key>provisioningProfiles</key>
+              <dict>
+                  <key>com.restoreassist.app</key>
+                  <string>RestoreAssist App Store v1</string>
+              </dict>
+              <key>destination</key>
+              <string>export</string>
+              <key>uploadSymbols</key>
+              <true/>
+          </dict>
+          </plist>
+          EOF
+
           fastlane gym \
             --project ios/App/App.xcodeproj \
             --scheme App \
             --configuration Release \
             --export_method app-store \
             --export_team_id "$APPLE_TEAM_ID" \
+            --export_options /tmp/ExportOptions.plist \
             --codesigning_identity "Apple Distribution: Phill McGurk ($APPLE_TEAM_ID)" \
             --xcargs "DEVELOPMENT_TEAM=$APPLE_TEAM_ID CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY='Apple Distribution: Phill McGurk ($APPLE_TEAM_ID)' PROVISIONING_PROFILE_SPECIFIER='RestoreAssist App Store v1'" \
             --output_directory ./build \
