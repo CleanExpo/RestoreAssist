@@ -165,4 +165,118 @@ describe("verifyAttestationIntegrity", () => {
     });
     expect(r.ok).toBe(false);
   });
+
+  it("legacy attestation (no consent fields) verifies with legacy:true", () => {
+    // Hash computed with all P0-4 fields null — this is what existing
+    // pre-P0-4 rows look like.
+    const integrityHash = computeAttestationIntegrityHash(baseInput);
+    const r = verifyAttestationIntegrity({ ...baseInput, integrityHash });
+    expect(r.ok).toBe(true);
+    if (!r.ok) throw new Error("unreachable");
+    expect(r.legacy).toBe(true);
+  });
+
+  it("P0-4 attestation (consent + IP + UA + contentHash) verifies with legacy:false", () => {
+    const fullInput = {
+      ...baseInput,
+      consentTokenId: "ct_1",
+      signerIp: "203.0.113.42",
+      signerUserAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)",
+      contentHash: "a".repeat(64),
+    };
+    const integrityHash = computeAttestationIntegrityHash(fullInput);
+    const r = verifyAttestationIntegrity({ ...fullInput, integrityHash });
+    expect(r.ok).toBe(true);
+    if (!r.ok) throw new Error("unreachable");
+    expect(r.legacy).toBe(false);
+  });
+
+  it("rejects when the signer IP was mutated after the hash was written", () => {
+    const fullInput = {
+      ...baseInput,
+      consentTokenId: "ct_1",
+      signerIp: "203.0.113.42",
+      signerUserAgent: "ua",
+      contentHash: "h".repeat(64),
+    };
+    const integrityHash = computeAttestationIntegrityHash(fullInput);
+    const r = verifyAttestationIntegrity({
+      ...fullInput,
+      signerIp: "10.0.0.1", // tampered
+      integrityHash,
+    });
+    expect(r.ok).toBe(false);
+  });
+
+  it("rejects when the user-agent was mutated after the hash was written", () => {
+    const fullInput = {
+      ...baseInput,
+      consentTokenId: "ct_1",
+      signerIp: "203.0.113.42",
+      signerUserAgent: "Mozilla/5.0 original",
+      contentHash: "h".repeat(64),
+    };
+    const integrityHash = computeAttestationIntegrityHash(fullInput);
+    const r = verifyAttestationIntegrity({
+      ...fullInput,
+      signerUserAgent: "Mozilla/5.0 forged",
+      integrityHash,
+    });
+    expect(r.ok).toBe(false);
+  });
+
+  it("rejects when the consentTokenId was rewritten after the hash was written", () => {
+    const fullInput = {
+      ...baseInput,
+      consentTokenId: "ct_original",
+      signerIp: "ip",
+      signerUserAgent: "ua",
+      contentHash: "h".repeat(64),
+    };
+    const integrityHash = computeAttestationIntegrityHash(fullInput);
+    const r = verifyAttestationIntegrity({
+      ...fullInput,
+      consentTokenId: "ct_attacker",
+      integrityHash,
+    });
+    expect(r.ok).toBe(false);
+  });
+
+  it("rejects when the contentHash was rewritten after the hash was written", () => {
+    const fullInput = {
+      ...baseInput,
+      consentTokenId: "ct_1",
+      signerIp: "ip",
+      signerUserAgent: "ua",
+      contentHash: "a".repeat(64),
+    };
+    const integrityHash = computeAttestationIntegrityHash(fullInput);
+    const r = verifyAttestationIntegrity({
+      ...fullInput,
+      contentHash: "b".repeat(64),
+      integrityHash,
+    });
+    expect(r.ok).toBe(false);
+  });
+});
+
+describe("computeContentHash", () => {
+  it("is deterministic for the same input", async () => {
+    const { computeContentHash } = await import("../signature");
+    expect(computeContentHash("I agree to sign foo")).toBe(
+      computeContentHash("I agree to sign foo"),
+    );
+  });
+
+  it("produces different hashes for different inputs", async () => {
+    const { computeContentHash } = await import("../signature");
+    expect(computeContentHash("agree to A")).not.toBe(
+      computeContentHash("agree to B"),
+    );
+  });
+
+  it("produces a 64-char hex sha256", async () => {
+    const { computeContentHash } = await import("../signature");
+    expect(computeContentHash("anything")).toMatch(/^[0-9a-f]{64}$/);
+  });
 });

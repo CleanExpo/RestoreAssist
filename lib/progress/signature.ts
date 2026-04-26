@@ -98,6 +98,18 @@ export interface IntegrityHashInput {
   /** UTC; converted to ISO milliseconds in the hash input. */
   attestedAt: Date;
   signatureDataUrl: string;
+  /**
+   * RA-1708 / P0-4 — ETA 1999/2002 consent + identification material.
+   * For new attestations all four MUST be set. Older rows may have
+   * these as null; verifyAttestationIntegrity recomputes with the
+   * stored values (empty-string sentinel for null) so legacy hashes
+   * still verify and any post-write tampering of these columns
+   * surfaces on read.
+   */
+  consentTokenId?: string | null;
+  signerIp?: string | null;
+  signerUserAgent?: string | null;
+  contentHash?: string | null;
 }
 
 export function computeAttestationIntegrityHash(
@@ -113,8 +125,24 @@ export function computeAttestationIntegrityHash(
     input.claimProgressId,
     input.attestedAt.toISOString(),
     sigDigest,
+    // P0-4 — empty-string sentinel for legacy rows so the hash format
+    // is stable and verifiable; new rows include real values.
+    input.consentTokenId ?? "",
+    input.signerIp ?? "",
+    input.signerUserAgent ?? "",
+    input.contentHash ?? "",
   ].join(":");
   return crypto.createHash("sha256").update(material).digest("hex");
+}
+
+/**
+ * Hash the human-readable summary the user agreed to sign. Caller passes
+ * the summary string verbatim; we sha256 it. Used both at consent-token
+ * issuance and at attestation submit so we can prove the signer agreed to
+ * the SAME content the row records.
+ */
+export function computeContentHash(content: string): string {
+  return crypto.createHash("sha256").update(content).digest("hex");
 }
 
 export interface AttestationForVerify {
@@ -124,13 +152,21 @@ export interface AttestationForVerify {
   attestedAt: Date;
   signatureDataUrl: string | null;
   integrityHash: string;
+  consentTokenId?: string | null;
+  signerIp?: string | null;
+  signerUserAgent?: string | null;
+  contentHash?: string | null;
 }
 
 export type IntegrityVerification =
-  | { ok: true }
+  | { ok: true; legacy: boolean }
   | { ok: false; error: string };
 
-/** Recompute the integrity hash and constant-time compare. */
+/**
+ * Recompute the integrity hash and constant-time compare. Returns
+ * `legacy: true` when the row was written before P0-4 (no consent
+ * token / IP / UA captured) so callers can flag it for upgrade.
+ */
 export function verifyAttestationIntegrity(
   attestation: AttestationForVerify,
 ): IntegrityVerification {
@@ -143,11 +179,20 @@ export function verifyAttestationIntegrity(
     claimProgressId: attestation.claimProgressId,
     attestedAt: attestation.attestedAt,
     signatureDataUrl: attestation.signatureDataUrl,
+    consentTokenId: attestation.consentTokenId ?? null,
+    signerIp: attestation.signerIp ?? null,
+    signerUserAgent: attestation.signerUserAgent ?? null,
+    contentHash: attestation.contentHash ?? null,
   });
   if (!constantTimeEqual(expected, attestation.integrityHash)) {
     return { ok: false, error: "integrity hash mismatch — attestation tampered" };
   }
-  return { ok: true };
+  const legacy =
+    !attestation.consentTokenId &&
+    !attestation.signerIp &&
+    !attestation.signerUserAgent &&
+    !attestation.contentHash;
+  return { ok: true, legacy };
 }
 
 function constantTimeEqual(a: string, b: string): boolean {
