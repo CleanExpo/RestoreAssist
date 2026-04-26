@@ -17,6 +17,7 @@ import { biohazardDomain } from "./domains/biohazard";
 import { fireSmokeDomain } from "./domains/fire-smoke";
 import { stormDomain } from "./domains/storm";
 import { hvacDomain } from "./domains/hvac";
+import { australianComplianceDomain } from "./domains/australian-compliance";
 
 const DOMAIN_LIST: DomainPlugin[] = [
   waterDomain,
@@ -25,8 +26,7 @@ const DOMAIN_LIST: DomainPlugin[] = [
   fireSmokeDomain,
   stormDomain,
   hvacDomain,
-  // Future: australianComplianceDomain — follows the same contract
-  // from lib/assessments/types.ts::DomainPlugin.
+  australianComplianceDomain,
 ];
 
 const DOMAIN_REGISTRY = new Map<AssessmentDomain, DomainPlugin>(

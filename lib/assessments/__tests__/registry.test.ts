@@ -41,11 +41,24 @@ describe("assessment registry", () => {
     expect(getDomainPlugin("HVAC")).not.toBeNull();
   });
 
-  it("returns null for an unregistered domain", () => {
-    // AUSTRALIAN_COMPLIANCE remains unregistered — lands in a
-    // subsequent PR.
-    expect(getDomainPlugin("AUSTRALIAN_COMPLIANCE")).toBeNull();
+  it("registers the AUSTRALIAN_COMPLIANCE domain", () => {
+    expect(getDomainPlugin("AUSTRALIAN_COMPLIANCE")).not.toBeNull();
+  });
+
+  it("returns null for unregistered (truly unknown) domains", () => {
     expect(getDomainPlugin("UNREGISTERED" as never)).toBeNull();
+  });
+
+  it("registers all 7 V1.1 domains", () => {
+    expect(listDomainKeys().sort()).toEqual([
+      "AUSTRALIAN_COMPLIANCE",
+      "BIOHAZARD",
+      "FIRE_SMOKE",
+      "HVAC",
+      "MOULD",
+      "STORM",
+      "WATER",
+    ]);
   });
 
   it("isRegisteredDomain returns true for known and false for unknown", () => {
