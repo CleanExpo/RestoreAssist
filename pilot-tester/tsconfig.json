@@ -1,0 +1,16 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "moduleResolution": "Bundler",
+    "module": "ESNext",
+    "target": "ES2022",
+    "skipLibCheck": true,
+    "paths": {
+      "@/*": ["../*"],
+      "@pilot/*": ["./src/*"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["images/cache", "reports", "node_modules"]
+}

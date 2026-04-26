@@ -28,6 +28,12 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
+
+# pilot-tester (sandbox harness — generated artefacts, not source)
+/pilot-tester/images/cache/
+/pilot-tester/reports/
+/pilot-tester/user-pool.json
+/pilot-tester/node_modules/
 next-env.d.ts
 /lib/generated/prisma
 

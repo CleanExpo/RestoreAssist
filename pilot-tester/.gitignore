@@ -1,0 +1,6 @@
+images/cache/
+reports/
+node_modules/
+user-pool.json
+.env
+.env.local
