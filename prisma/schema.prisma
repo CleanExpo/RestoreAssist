@@ -5491,6 +5491,40 @@ model ProgressAttestation {
   @@index([attestationType])
 }
 
+/// OverrideGovernanceReport — RA-1390 / Motion M-15. Monthly snapshot of
+/// SOFT-gap override rates per gate. Surfaces the M-15 5% safeguard:
+/// any gate whose override-rate exceeds 5% gets re-classified or has its
+/// upstream workflow fixed. Cron writes one row per (month, gate) with
+/// the running counts.
+model OverrideGovernanceReport {
+  id String @id @default(cuid())
+
+  /// First day of the ISO month the report covers (UTC, e.g. 2026-04-01).
+  reportMonth DateTime @db.Date
+
+  /// Catalogue gate key (lib/progress/gate-policy.ts).
+  gateKey String
+
+  /// Number of committed transitions in the month.
+  transitionCount Int
+
+  /// Number of those that recorded this gate as a SOFT gap (override).
+  overrideCount Int
+
+  /// overrideCount / transitionCount. Stored materialised so the dashboard
+  /// can sort cheaply.
+  overrideRate Float
+
+  /// True when overrideRate > 0.05 — surfaces to the board for action.
+  isBreached Boolean
+
+  computedAt DateTime @default(now())
+
+  @@unique([reportMonth, gateKey])
+  @@index([reportMonth])
+  @@index([isBreached, reportMonth])
+}
+
 /// ProgressTelemetryEvent — RA-1392 / Motion M-17. Append-only event stream
 /// for the Progress framework's 8 telemetry events (4 funnels + 2 KPIs read
 /// off this table). Hard ship-blocker: nothing in the Progress rollout goes
