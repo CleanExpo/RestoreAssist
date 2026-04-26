@@ -25,10 +25,14 @@ describe("assessment registry", () => {
     expect(p?.domain).toBe("MOULD");
   });
 
+  it("registers the BIOHAZARD domain", () => {
+    expect(getDomainPlugin("BIOHAZARD")).not.toBeNull();
+  });
+
   it("returns null for an unregistered domain", () => {
-    // BIOHAZARD / FIRE_SMOKE / HVAC / STORM / AUSTRALIAN_COMPLIANCE
-    // remain unregistered — they land in subsequent PRs.
-    expect(getDomainPlugin("BIOHAZARD")).toBeNull();
+    // FIRE_SMOKE / HVAC / STORM / AUSTRALIAN_COMPLIANCE remain
+    // unregistered — they land in subsequent PRs.
+    expect(getDomainPlugin("FIRE_SMOKE")).toBeNull();
     expect(getDomainPlugin("UNREGISTERED" as never)).toBeNull();
   });
 
