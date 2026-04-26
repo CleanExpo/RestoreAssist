@@ -19,7 +19,10 @@
 import type { PrismaClient } from "@prisma/client";
 import type { GuardFn } from "./types";
 
-type Db = Pick<PrismaClient, "makeSafeAction" | "swmsDraft" | "wHSIncident">;
+type Db = Pick<
+  PrismaClient,
+  "makeSafeAction" | "swmsDraft" | "wHSIncident" | "inspectionPhoto"
+>;
 
 export const attestStabilisationGuard: GuardFn = async (db, ctx) => {
   if (!ctx.inspectionId) {
@@ -82,6 +85,17 @@ export const attestStabilisationGuard: GuardFn = async (db, ctx) => {
     };
   }
 
+  // RA-1389 / M-14 — non-blocking soft check: photo coverage on the
+  // inspection. SOFT classification per gate-policy.ts. Recorded but
+  // does not block; surfaces in M-15 governance dashboard.
+  const photoCount = await prisma.inspectionPhoto.count({
+    where: { inspectionId: ctx.inspectionId },
+  });
+  const softGaps: string[] = [];
+  if (photoCount === 0) {
+    softGaps.push("evidence.photo.coverage");
+  }
+
   return {
     passed: true,
     snapshot: {
@@ -94,7 +108,9 @@ export const attestStabilisationGuard: GuardFn = async (db, ctx) => {
       swmsId: swms.id,
       swmsSignedAt: swms.signedAt,
       openWhsIncidents: 0,
+      photoCount,
     },
+    softGaps: softGaps.length > 0 ? softGaps : undefined,
   };
 };
 
