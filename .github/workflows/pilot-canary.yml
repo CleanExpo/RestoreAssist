@@ -36,9 +36,15 @@ jobs:
           HUSKY: "0"
 
       - name: Write user-pool from secret
+        env:
+          POOL_JSON: ${{ secrets.PILOT_TESTER_USER_POOL_JSON }}
+        # CRITICAL: do NOT interpolate ${{ secrets.* }} directly into a
+        # shell script — backticks / $(...) / ; in the secret would
+        # execute. Pass via env and use printf with a quoted shell var
+        # so the runtime never re-parses the value.
         run: |
           mkdir -p pilot-tester
-          echo "${{ secrets.PILOT_TESTER_USER_POOL_JSON }}" > pilot-tester/user-pool.json
+          printf '%s' "$POOL_JSON" > pilot-tester/user-pool.json
 
       - name: Run swarm
         working-directory: pilot-tester
