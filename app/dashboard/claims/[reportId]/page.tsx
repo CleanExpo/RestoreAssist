@@ -271,6 +271,36 @@ export default async function ClaimDetailPage({ params }: Props) {
         )}
       </section>
 
+      <section className="space-y-2">
+        <h2 className="text-lg font-medium">Documents</h2>
+        <p className="text-xs text-muted-foreground">
+          Auto-populated from this claim&apos;s data — no re-entry. Pi-Sign
+          signatures embed inline where available.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <DocumentLink
+            reportId={cp.reportId}
+            type="stabilisation-certificate"
+            label="Stabilisation Certificate"
+          />
+          <DocumentLink
+            reportId={cp.reportId}
+            type="labour-hire-summary"
+            label="Labour-Hire Summary"
+          />
+          <DocumentLink
+            reportId={cp.reportId}
+            type="carrier-packet"
+            label="Carrier Packet"
+          />
+          <DocumentLink
+            reportId={cp.reportId}
+            type="closeout-pack"
+            label="Closeout Pack"
+          />
+        </div>
+      </section>
+
       {recentAttestations.length > 0 ? (
         <section className="space-y-2">
           <h2 className="text-lg font-medium">Attestations</h2>
@@ -310,6 +340,27 @@ export default async function ClaimDetailPage({ params }: Props) {
         </section>
       ) : null}
     </div>
+  );
+}
+
+function DocumentLink({
+  reportId,
+  type,
+  label,
+}: {
+  reportId: string;
+  type: string;
+  label: string;
+}) {
+  return (
+    <a
+      href={`/api/progress/${encodeURIComponent(reportId)}/documents/${type}`}
+      className="px-3 py-1.5 text-sm rounded border hover:bg-muted"
+      target="_blank"
+      rel="noopener"
+    >
+      {label} ↓
+    </a>
   );
 }
 
