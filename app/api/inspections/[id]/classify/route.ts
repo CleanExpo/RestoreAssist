@@ -28,6 +28,7 @@ import { prisma } from "@/lib/prisma";
 import Anthropic from "@anthropic-ai/sdk";
 import { getAnthropicApiKey } from "@/lib/ai-provider";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 
 const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
 
@@ -111,8 +112,17 @@ export async function POST(
       );
     }
 
+    // RA-1711 batch 3 — adopt shared tenancy helper (workspace-member + admin paths).
+    const tenancy = await assertInspectionTenancy(session, id);
+    if (!tenancy.ok) {
+      return NextResponse.json(
+        { error: tenancy.reason },
+        { status: tenancy.status },
+      );
+    }
+
     const inspection = await prisma.inspection.findUnique({
-      where: { id, userId },
+      where: { id },
       select: {
         id: true,
         inspectionNumber: true,

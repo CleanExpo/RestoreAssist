@@ -28,6 +28,7 @@ import {
   buildJobEmbeddingText,
   findSimilarJobs,
 } from "@/lib/ai/embeddings";
+import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -45,9 +46,17 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const limit = Math.min(parseInt(url.searchParams.get("limit") ?? "5"), 20);
     const claimTypeFilter = url.searchParams.get("claimType") ?? undefined;
 
-    // Load inspection with classification + affected areas
-    const inspection = await prisma.inspection.findFirst({
-      where: { id: inspectionId, userId: session.user.id },
+    // RA-1711 batch 3 — adopt shared tenancy helper.
+    const tenancy = await assertInspectionTenancy(session, inspectionId);
+    if (!tenancy.ok) {
+      return NextResponse.json(
+        { error: tenancy.reason },
+        { status: tenancy.status },
+      );
+    }
+
+    const inspection = await prisma.inspection.findUnique({
+      where: { id: inspectionId },
       include: {
         classifications: { orderBy: { createdAt: "desc" }, take: 1 },
         affectedAreas: true,
