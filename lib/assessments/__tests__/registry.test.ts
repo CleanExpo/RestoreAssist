@@ -37,10 +37,14 @@ describe("assessment registry", () => {
     expect(getDomainPlugin("STORM")).not.toBeNull();
   });
 
+  it("registers the HVAC domain", () => {
+    expect(getDomainPlugin("HVAC")).not.toBeNull();
+  });
+
   it("returns null for an unregistered domain", () => {
-    // HVAC / AUSTRALIAN_COMPLIANCE remain unregistered — they land in
-    // subsequent PRs.
-    expect(getDomainPlugin("HVAC")).toBeNull();
+    // AUSTRALIAN_COMPLIANCE remains unregistered — lands in a
+    // subsequent PR.
+    expect(getDomainPlugin("AUSTRALIAN_COMPLIANCE")).toBeNull();
     expect(getDomainPlugin("UNREGISTERED" as never)).toBeNull();
   });
 
