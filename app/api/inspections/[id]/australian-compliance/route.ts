@@ -19,6 +19,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { softDelete } from "@/lib/prisma-helpers";
 import { z } from "zod";
+import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 
 // ─── Validation ────────────────────────────────────────────────────────────────
 
@@ -64,15 +65,11 @@ export async function GET(
 
   const { id } = await params;
 
-  const inspection = await prisma.inspection.findUnique({
-    where: { id, userId: session.user.id },
-    select: { id: true },
-  });
-
-  if (!inspection) {
+  const tenancy = await assertInspectionTenancy(session, id);
+  if (!tenancy.ok) {
     return NextResponse.json(
-      { error: "Inspection not found" },
-      { status: 404 },
+      { error: tenancy.reason },
+      { status: tenancy.status },
     );
   }
 
@@ -96,15 +93,11 @@ export async function POST(
 
   const { id } = await params;
 
-  const inspection = await prisma.inspection.findUnique({
-    where: { id, userId: session.user.id },
-    select: { id: true },
-  });
-
-  if (!inspection) {
+  const tenancy = await assertInspectionTenancy(session, id);
+  if (!tenancy.ok) {
     return NextResponse.json(
-      { error: "Inspection not found" },
-      { status: 404 },
+      { error: tenancy.reason },
+      { status: tenancy.status },
     );
   }
 
@@ -212,15 +205,11 @@ export async function DELETE(
 
   const { id } = await params;
 
-  const inspection = await prisma.inspection.findUnique({
-    where: { id, userId: session.user.id },
-    select: { id: true },
-  });
-
-  if (!inspection) {
+  const tenancy = await assertInspectionTenancy(session, id);
+  if (!tenancy.ok) {
     return NextResponse.json(
-      { error: "Inspection not found" },
-      { status: 404 },
+      { error: tenancy.reason },
+      { status: tenancy.status },
     );
   }
 
