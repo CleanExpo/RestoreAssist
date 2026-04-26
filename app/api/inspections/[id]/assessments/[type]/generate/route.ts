@@ -74,13 +74,24 @@ export async function POST(
   // Optional domain-specific payload (e.g. MOULD reads `condition`,
   // `ambientRelativeHumidity` from this). WATER ignores. Empty body
   // is fine — plug-ins handle missing fields per their own contract.
+  // Special meta key `enhanceWithAi:true` toggles the prose rewrite
+  // pass; it's stripped from the domain options before dispatch.
   let options: Record<string, unknown> | null = null;
+  let enhanceWithAi = false;
   try {
     const text = await request.text();
     if (text.trim().length > 0) {
       const parsed = JSON.parse(text);
       if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        options = parsed as Record<string, unknown>;
+        const obj = parsed as Record<string, unknown>;
+        if (typeof obj.enhanceWithAi === "boolean") {
+          enhanceWithAi = obj.enhanceWithAi;
+        }
+        const { enhanceWithAi: _omit, ...domainOptions } = obj;
+        void _omit;
+        if (Object.keys(domainOptions).length > 0) {
+          options = domainOptions;
+        }
       }
     }
   } catch {
@@ -100,6 +111,7 @@ export async function POST(
     workspaceId: workspace?.id ?? null,
     userId,
     options,
+    enhanceWithAi,
   });
 
   if (!result.ok) {

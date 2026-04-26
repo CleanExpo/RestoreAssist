@@ -24,6 +24,7 @@ import type {
   GenerationMeta,
 } from "./types";
 import { getDomainPlugin } from "./registry";
+import { enhanceReportProse } from "./ai-prose";
 
 export interface GenerateAssessmentArgs {
   inspectionId: string;
@@ -34,6 +35,13 @@ export interface GenerateAssessmentArgs {
   userId: string;
   /** Domain-specific payload (see DomainGenerateInput.options). */
   options?: Record<string, unknown> | null;
+  /**
+   * When true, after the rule-based plug-in produces the report
+   * sections, run them through Claude Haiku to rewrite each body into
+   * investigator-grade prose. Standards citations are preserved
+   * verbatim. Failures degrade silently to the rule-based output.
+   */
+  enhanceWithAi?: boolean;
 }
 
 export type GenerateAssessmentResult =
@@ -81,17 +89,45 @@ export async function generateAssessment(
     };
   }
 
+  // Optional AI prose enhancement of the report sections.
+  // Never blocks: degrades to rule-based on any failure.
+  let reportSections = generated.data.report.sections;
+  let proseModel: string | null = generated.data.meta.modelUsed;
+  let proseLatencyMs = generated.data.meta.latencyMs;
+  let proseCostUsd = generated.data.meta.costEstimateUsd;
+
+  if (args.enhanceWithAi) {
+    const proseResult = await enhanceReportProse({
+      domain: args.domain,
+      sections: reportSections,
+      workspaceId: args.workspaceId,
+      userId: args.userId,
+    });
+    reportSections = proseResult.sections;
+    if (proseResult.modelUsed) {
+      proseModel = proseModel
+        ? `${proseModel}+${proseResult.modelUsed}`
+        : proseResult.modelUsed;
+    }
+    if (proseResult.latencyMs !== null) {
+      proseLatencyMs = proseLatencyMs + proseResult.latencyMs;
+    }
+    if (proseResult.costUsd !== null) {
+      proseCostUsd = (proseCostUsd ?? 0) + proseResult.costUsd;
+    }
+  }
+
   const meta: GenerationMeta = {
     domain: args.domain,
     generatedAt: new Date(),
-    modelUsed: generated.data.meta.modelUsed,
-    latencyMs: generated.data.meta.latencyMs,
-    costEstimateUsd: generated.data.meta.costEstimateUsd,
+    modelUsed: proseModel,
+    latencyMs: proseLatencyMs,
+    costEstimateUsd: proseCostUsd,
     workspaceId: generated.data.meta.workspaceId,
   };
 
   const result: AssessmentGenerationResult = {
-    report: generated.data.report,
+    report: { sections: reportSections },
     scope: generated.data.scope,
     estimate: generated.data.estimate,
     citations: generated.data.citations,

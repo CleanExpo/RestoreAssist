@@ -68,7 +68,7 @@ export async function checkWorkspaceBudget(
       console.error("[ai.budget-guard] workspace lookup failed", err);
       // Defensive: if we can't read the budget, allow the call. The pilot
       // path stays unblocked; the underlying error gets surfaced via
-      // existing observability (Sentry once configured).
+      // Vercel runtime logs.
       return {
         ok: true,
         budgetUsd: parseEnvBudget(),
