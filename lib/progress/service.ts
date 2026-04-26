@@ -31,6 +31,11 @@ import {
   canRead,
   type ProgressRole,
 } from "./permissions";
+import {
+  recordTransitionAttempt,
+  recordTransitionBlocked,
+  recordTransitionSuccess,
+} from "@/lib/telemetry/progress";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -131,6 +136,14 @@ export async function init(
 export async function transition(
   args: TransitionArgs,
 ): Promise<ServiceResult<ProgressTransition>> {
+  // M-17: emit attempt at the very top so every attempt is counted, even
+  // ones that fail before reaching the DB.
+  void recordTransitionAttempt({
+    transitionKey: args.key,
+    userId: args.actorUserId,
+    payload: { reportId: args.reportId, actorRole: args.actorRole },
+  });
+
   const cp = await prisma.claimProgress.findUnique({
     where: { reportId: args.reportId },
     select: {
@@ -142,11 +155,22 @@ export async function transition(
     },
   });
   if (!cp) {
+    void recordTransitionBlocked({
+      transitionKey: args.key,
+      userId: args.actorUserId,
+      payload: { code: "NOT_FOUND" },
+    });
     return { ok: false, code: "NOT_FOUND", message: "ClaimProgress not found" };
   }
 
   // Permission gate
   if (!canPerformTransition(args.actorRole, cp.currentState, args.key)) {
+    void recordTransitionBlocked({
+      claimProgressId: cp.id,
+      transitionKey: args.key,
+      userId: args.actorUserId,
+      payload: { code: "FORBIDDEN", from: cp.currentState },
+    });
     return {
       ok: false,
       code: "FORBIDDEN",
@@ -157,6 +181,12 @@ export async function transition(
   // Resolve the next state from (from, key). State machine is the source of truth.
   const toState = nextState(cp.currentState, args.key);
   if (!toState) {
+    void recordTransitionBlocked({
+      claimProgressId: cp.id,
+      transitionKey: args.key,
+      userId: args.actorUserId,
+      payload: { code: "INVALID_TRANSITION", from: cp.currentState },
+    });
     return {
       ok: false,
       code: "INVALID_TRANSITION",
@@ -165,6 +195,12 @@ export async function transition(
   }
   // Sanity check — should never fail, defence-in-depth
   if (!isValidTransition(cp.currentState, args.key, toState)) {
+    void recordTransitionBlocked({
+      claimProgressId: cp.id,
+      transitionKey: args.key,
+      userId: args.actorUserId,
+      payload: { code: "INVALID_TRANSITION", reason: "sanity_check" },
+    });
     return {
       ok: false,
       code: "INVALID_TRANSITION",
@@ -183,6 +219,15 @@ export async function transition(
     key: args.key,
   });
   if (!guardSnapshot.passed) {
+    void recordTransitionBlocked({
+      claimProgressId: cp.id,
+      transitionKey: args.key,
+      userId: args.actorUserId,
+      payload: {
+        code: "GUARD_FAILED",
+        reason: guardSnapshot.reason ?? null,
+      },
+    });
     return {
       ok: false,
       code: "GUARD_FAILED",
@@ -238,6 +283,15 @@ export async function transition(
       return trans;
     });
 
+    // M-17: success event — fire-and-forget, must not block return.
+    void recordTransitionSuccess({
+      claimProgressId: cp.id,
+      transitionId: result.id,
+      transitionKey: args.key,
+      userId: args.actorUserId,
+      payload: { from: cp.currentState, to: toState },
+    });
+
     // Integration fan-out is fire-and-forget — Sprint 2 (M-11, M-18, M-19)
     // wires Xero / DocuSign / Guidewire / Twilio into this hook.
     void dispatchIntegrations(result.id, args.key).catch((err) => {
@@ -250,6 +304,12 @@ export async function transition(
     return { ok: true, data: result };
   } catch (err) {
     if (err instanceof StaleVersionError) {
+      void recordTransitionBlocked({
+        claimProgressId: cp.id,
+        transitionKey: args.key,
+        userId: args.actorUserId,
+        payload: { code: "STALE_VERSION" },
+      });
       return {
         ok: false,
         code: "STALE_VERSION",
@@ -257,6 +317,12 @@ export async function transition(
       };
     }
     console.error("[progress.transition] failed", err);
+    void recordTransitionBlocked({
+      claimProgressId: cp.id,
+      transitionKey: args.key,
+      userId: args.actorUserId,
+      payload: { code: "INTERNAL" },
+    });
     return {
       ok: false,
       code: "INTERNAL",
