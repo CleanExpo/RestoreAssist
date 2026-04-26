@@ -14,11 +14,11 @@
 
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import type {
   ClaimProgress,
   ClaimState,
   ProgressTransition,
-  Prisma,
 } from "@prisma/client";
 import {
   TRANSITION_KEYS,
@@ -32,10 +32,12 @@ import {
   type ProgressRole,
 } from "./permissions";
 import {
+  recordEvidenceMissing,
   recordTransitionAttempt,
   recordTransitionBlocked,
   recordTransitionSuccess,
 } from "@/lib/telemetry/progress";
+import { classifyGaps } from "./gate-policy";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -265,6 +267,20 @@ export async function transition(
         // precise timestamp-matching happens at verify time.
       });
 
+      // M-14: classify guard's reported gaps. Unknown keys are dropped
+      // with a warning — programming-error path, must not block users.
+      const reported = [
+        ...(guardSnapshot.softGaps ?? []),
+        ...(guardSnapshot.auditGaps ?? []),
+      ];
+      const buckets = classifyGaps(reported);
+      if (buckets.unknown.length > 0) {
+        console.warn("[progress.transition] guard returned unknown gate keys", {
+          transitionKey: args.key,
+          unknown: buckets.unknown,
+        });
+      }
+
       const trans = await tx.progressTransition.create({
         data: {
           claimProgressId: cp.id,
@@ -277,31 +293,62 @@ export async function transition(
           actorIp: args.actorIp ?? null,
           guardSnapshot: guardSnapshot.snapshot as Prisma.InputJsonValue,
           integrityHash,
+          softGaps:
+            buckets.soft.length > 0
+              ? (buckets.soft as Prisma.InputJsonValue)
+              : Prisma.JsonNull,
+          auditGaps:
+            buckets.audit.length > 0
+              ? (buckets.audit as Prisma.InputJsonValue)
+              : Prisma.JsonNull,
         },
       });
 
-      return trans;
+      return { trans, buckets };
     });
 
     // M-17: success event — fire-and-forget, must not block return.
     void recordTransitionSuccess({
       claimProgressId: cp.id,
-      transitionId: result.id,
+      transitionId: result.trans.id,
       transitionKey: args.key,
       userId: args.actorUserId,
       payload: { from: cp.currentState, to: toState },
     });
 
+    // M-14: emit one progress.evidence.missing per non-blocking gap so
+    // the M-15 governance roll-up has fine-grained input.
+    for (const gap of result.buckets.soft) {
+      void recordEvidenceMissing({
+        claimProgressId: cp.id,
+        transitionId: result.trans.id,
+        transitionKey: args.key,
+        gateKey: gap,
+        userId: args.actorUserId,
+        payload: { classification: "SOFT" },
+      });
+    }
+    for (const gap of result.buckets.audit) {
+      void recordEvidenceMissing({
+        claimProgressId: cp.id,
+        transitionId: result.trans.id,
+        transitionKey: args.key,
+        gateKey: gap,
+        userId: args.actorUserId,
+        payload: { classification: "AUDIT" },
+      });
+    }
+
     // Integration fan-out is fire-and-forget — Sprint 2 (M-11, M-18, M-19)
     // wires Xero / DocuSign / Guidewire / Twilio into this hook.
-    void dispatchIntegrations(result.id, args.key).catch((err) => {
+    void dispatchIntegrations(result.trans.id, args.key).catch((err) => {
       console.error("[progress] integration dispatch failed", {
-        transitionId: result.id,
+        transitionId: result.trans.id,
         err,
       });
     });
 
-    return { ok: true, data: result };
+    return { ok: true, data: result.trans };
   } catch (err) {
     if (err instanceof StaleVersionError) {
       void recordTransitionBlocked({
@@ -418,11 +465,7 @@ async function runGuard(ctx: {
   fromState: ClaimState;
   toState: ClaimState;
   key: TransitionKey;
-}): Promise<{
-  passed: boolean;
-  reason?: string;
-  snapshot: Record<string, unknown>;
-}> {
+}): Promise<import("./guards/types").GuardResult> {
   const { guardFor } = await import("./guards");
   const guard = guardFor(ctx.key);
   return guard(prisma, ctx);
