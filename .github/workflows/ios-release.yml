@@ -138,16 +138,53 @@ jobs:
         env:
           ASC_PRIVATE_KEY_BASE64: ${{ secrets.ASC_PRIVATE_KEY_BASE64 }}
           ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
-        # `xcrun altool` discovers the .p8 by name in one of these
+        # xcrun altool discovers the .p8 by name in one of these
         # standard locations:
         #   ~/.appstoreconnect/private_keys/AuthKey_<KEY_ID>.p8
         #   ~/private_keys/AuthKey_<KEY_ID>.p8
         #   ./private_keys/AuthKey_<KEY_ID>.p8
         # We place it at the first path, mode 600.
+        #
+        # Run #8 failed because the secret value contains embedded
+        # newlines (macOS `base64 -i file | pbcopy` defaults to
+        # 76-char lines), so `printf '%s' "$VAR" | base64 -d` choked
+        # on the unexpected whitespace and produced bytes that
+        # altool then rejected with NSCocoaErrorDomain Code=259
+        # "The file couldn't be opened because it isn't in the
+        # correct format". Strip all whitespace before decoding so
+        # the layout of the source secret stops mattering, and
+        # validate the resulting PEM structure before handing off.
         run: |
           mkdir -p "$HOME/.appstoreconnect/private_keys"
-          printf '%s' "$ASC_PRIVATE_KEY_BASE64" | base64 -d > "$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_API_KEY_ID}.p8"
-          chmod 600 "$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_API_KEY_ID}.p8"
+          P8_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_API_KEY_ID}.p8"
+
+          # Strip whitespace; either single-line or multi-line base64
+          # input now works.
+          printf '%s' "$ASC_PRIVATE_KEY_BASE64" \
+            | tr -d '[:space:]' \
+            | base64 --decode > "$P8_PATH"
+          chmod 600 "$P8_PATH"
+
+          # Validate without revealing contents.
+          P8_SIZE=$(wc -c < "$P8_PATH" | tr -d ' ')
+          P8_FIRST_LINE=$(head -1 "$P8_PATH" || true)
+          P8_LAST_LINE=$(tail -1 "$P8_PATH" || true)
+          echo "P8 file size: ${P8_SIZE} bytes"
+          echo "P8 first line: '${P8_FIRST_LINE}'"
+          echo "P8 last line:  '${P8_LAST_LINE}'"
+
+          if ! head -1 "$P8_PATH" | grep -q -- "-----BEGIN PRIVATE KEY-----"; then
+            echo "::error ::AuthKey .p8 does not start with '-----BEGIN PRIVATE KEY-----'. The ASC_PRIVATE_KEY_BASE64 secret is malformed."
+            exit 1
+          fi
+          if ! tail -1 "$P8_PATH" | grep -q -- "-----END PRIVATE KEY-----"; then
+            echo "::error ::AuthKey .p8 does not end with '-----END PRIVATE KEY-----'. The ASC_PRIVATE_KEY_BASE64 secret is truncated."
+            exit 1
+          fi
+          if [ "$P8_SIZE" -lt 200 ] || [ "$P8_SIZE" -gt 600 ]; then
+            echo "::error ::AuthKey .p8 size ${P8_SIZE} is outside the expected 200-600 byte range. Likely a base64-decoding error."
+            exit 1
+          fi
 
       - name: Upload to TestFlight via altool
         env:
