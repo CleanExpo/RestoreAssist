@@ -1,0 +1,5 @@
+{
+  "generatedAt": "2026-04-26T00:00:00.000Z",
+  "entries": [],
+  "_note": "Run `UNSPLASH_ACCESS_KEY=... tsx src/images/source.ts refresh 4` to populate this. Until populated, the runner falls back to a synthetic 1x1 JPEG placeholder so the pipeline still exercises the upload path."
+}

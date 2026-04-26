@@ -1,0 +1,63 @@
+name: Pilot tester canary
+
+on:
+  schedule:
+    # 16:00 UTC = 02:00 AEST next-day (off-peak for the sandbox).
+    - cron: "0 16 * * *"
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Sandbox base URL (must contain sandbox/staging/preview)"
+        required: true
+        default: "https://restoreassist-sandbox.vercel.app"
+
+permissions:
+  contents: read
+
+jobs:
+  swarm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Install root deps (for prisma client + lib types)
+        run: pnpm install --frozen-lockfile
+        env:
+          HUSKY: "0"
+
+      - name: Write user-pool from secret
+        env:
+          POOL_JSON: ${{ secrets.PILOT_TESTER_USER_POOL_JSON }}
+        # CRITICAL: do NOT interpolate ${{ secrets.* }} directly into a
+        # shell script — backticks / $(...) / ; in the secret would
+        # execute. Pass via env and use printf with a quoted shell var
+        # so the runtime never re-parses the value.
+        run: |
+          mkdir -p pilot-tester
+          printf '%s' "$POOL_JSON" > pilot-tester/user-pool.json
+
+      - name: Run swarm
+        working-directory: pilot-tester
+        env:
+          PILOT_TESTER_BASE_URL: ${{ github.event.inputs.base_url || 'https://restoreassist-sandbox.vercel.app' }}
+          PILOT_TESTER_USER_POOL: ./user-pool.json
+          PILOT_TESTER_DATABASE_URL: ${{ secrets.PILOT_TESTER_DATABASE_URL }}
+        run: pnpm swarm -- --concurrency 3
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pilot-tester-report
+          path: pilot-tester/reports/
+          retention-days: 30
