@@ -78,10 +78,22 @@ jobs:
         run: |
           # Capacitor 6+ project uses Swift Package Manager — no .xcworkspace
           # is generated. Build directly against the .xcodeproj.
+          #
+          # The committed project uses CODE_SIGN_STYLE = Automatic with
+          # "iPhone Developer" identity — fine for local Xcode dev, but
+          # CI manually installs an "Apple Distribution" cert + a named
+          # provisioning profile and needs Manual signing. Override every
+          # signing build setting at archive time via --xcargs so the
+          # project file stays Xcode-friendly for the next dev who opens
+          # it.
           fastlane gym \
             --project ios/App/App.xcodeproj \
             --scheme App \
+            --configuration Release \
             --export_method app-store \
+            --export_team_id "$APPLE_TEAM_ID" \
+            --codesigning_identity "Apple Distribution: Phill McGurk ($APPLE_TEAM_ID)" \
+            --xcargs "DEVELOPMENT_TEAM=$APPLE_TEAM_ID CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY='Apple Distribution: Phill McGurk ($APPLE_TEAM_ID)' PROVISIONING_PROFILE_SPECIFIER='RestoreAssist App Store v1'" \
             --output_directory ./build \
             --output_name RestoreAssist.ipa
 
