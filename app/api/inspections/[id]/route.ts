@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sanitizeString } from "@/lib/sanitize";
+import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -274,11 +275,17 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const inspection = await prisma.inspection.findFirst({
-      where: {
-        id,
-        userId: session.user.id,
-      },
+    // RA-1711 batch 5 — adopt shared tenancy helper for read.
+    const tenancy = await assertInspectionTenancy(session, id);
+    if (!tenancy.ok) {
+      return NextResponse.json(
+        { error: tenancy.reason },
+        { status: tenancy.status },
+      );
+    }
+
+    const inspection = await prisma.inspection.findUnique({
+      where: { id },
       include: {
         environmentalData: true,
         moistureReadings: { orderBy: { createdAt: "asc" } },
@@ -318,15 +325,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     const { id } = await context.params;
 
-    const existing = await prisma.inspection.findFirst({
-      where: { id, userId: session.user.id },
-      select: { id: true },
-    });
-
-    if (!existing) {
+    // RA-1711 batch 5 — adopt shared tenancy helper. PATCH allows
+    // workspace members + admin (techs document the loss in the field).
+    const tenancy = await assertInspectionTenancy(session, id);
+    if (!tenancy.ok) {
       return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
+        { error: tenancy.reason },
+        { status: tenancy.status },
       );
     }
 
