@@ -14,14 +14,15 @@ import type { AssessmentDomain, DomainPlugin } from "./types";
 import { waterDomain } from "./domains/water";
 import { mouldDomain } from "./domains/mould";
 import { biohazardDomain } from "./domains/biohazard";
+import { fireSmokeDomain } from "./domains/fire-smoke";
 
 const DOMAIN_LIST: DomainPlugin[] = [
   waterDomain,
   mouldDomain,
   biohazardDomain,
-  // Future: fireSmokeDomain, hvacDomain, stormDomain,
-  // australianComplianceDomain — each follows the same contract from
-  // lib/assessments/types.ts::DomainPlugin.
+  fireSmokeDomain,
+  // Future: hvacDomain, stormDomain, australianComplianceDomain — each
+  // follows the same contract from lib/assessments/types.ts::DomainPlugin.
 ];
 
 const DOMAIN_REGISTRY = new Map<AssessmentDomain, DomainPlugin>(
