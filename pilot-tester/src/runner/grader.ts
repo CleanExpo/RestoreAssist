@@ -15,6 +15,7 @@
 
 import type { GenerateAssessmentOutput } from "../client/api-client.js";
 import { reviewByAdjuster, type AdjusterReview } from "../personas/senior-pm.js";
+import { judgeAssessment, type JudgeScore } from "./judge.js";
 
 export interface DeterministicScore {
   composite: number;
@@ -34,6 +35,7 @@ export interface GradedAssessment {
   costEstimateUsd: number | null;
   deterministic: DeterministicScore | null;
   adjuster: AdjusterReview | null;
+  judge: JudgeScore | null;
   /** True if every grading layer ran successfully. */
   fullyGraded: boolean;
 }
@@ -46,8 +48,14 @@ export interface GradingOptions {
 export async function gradeAssessment(
   opts: GradingOptions,
 ): Promise<GradedAssessment> {
-  const det = await runDeterministic(opts.generated);
-  const adj = await reviewByAdjuster({ inspectionId: opts.inspectionId });
+  // All three layers run in parallel — they don't share state and the
+  // network-bound ones (adjuster + judge) hide their own latency
+  // behind the deterministic call, which is offline.
+  const [det, adj, jud] = await Promise.all([
+    runDeterministic(opts.generated),
+    reviewByAdjuster({ inspectionId: opts.inspectionId }),
+    judgeAssessment({ generated: opts.generated }),
+  ]);
 
   return {
     inspectionId: opts.inspectionId,
@@ -58,7 +66,8 @@ export async function gradeAssessment(
     costEstimateUsd: opts.generated.meta.costEstimateUsd,
     deterministic: det,
     adjuster: adj,
-    fullyGraded: det !== null && adj !== null,
+    judge: jud,
+    fullyGraded: det !== null && adj !== null && jud !== null,
   };
 }
 

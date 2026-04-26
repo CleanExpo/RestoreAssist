@@ -10,12 +10,40 @@ on:
         description: "Sandbox base URL (must contain sandbox/staging/preview)"
         required: true
         default: "https://restoreassist-sandbox.vercel.app"
+  pull_request:
+    paths:
+      - "pilot-tester/**"
+      - ".github/workflows/pilot-canary.yml"
 
 permissions:
   contents: read
 
 jobs:
+  # Per-PR self-test — needs no secrets, no creds, no network.
+  # Catches harness-internal regressions (safety guard, fixtures,
+  # reporter, baseline analyser) without consuming AI budget.
+  dry-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install pilot-tester deps
+        working-directory: pilot-tester
+        run: npm install --no-audit --no-fund
+      - name: Vitest
+        working-directory: pilot-tester
+        run: npx vitest run
+      - name: Dry-run
+        working-directory: pilot-tester
+        run: npm run dryrun
+
   swarm:
+    # Only on schedule + manual dispatch — never on PRs (would
+    # consume AI budget against the sandbox workspace).
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
