@@ -472,12 +472,106 @@ async function runGuard(ctx: {
 }
 
 async function dispatchIntegrations(
-  _transitionId: string,
-  _key: TransitionKey,
+  transitionId: string,
+  key: TransitionKey,
 ) {
-  // Sprint-2 (M-11, M-18, M-19, M-13) wires Xero / DocuSign / Guidewire / Twilio here.
-  // Intentionally no-op in Sprint-1 so transitions commit cleanly.
-  return;
+  // M-19: attest_stabilisation triggers the carrier packet submission.
+  // Env-gated — when GUIDEWIRE_SANDBOX_URL is unset, this is a no-op.
+  if (key === "attest_stabilisation") {
+    await dispatchStabilisationPacket(transitionId);
+  }
+  // Sprint-2 (M-11, M-18, M-13) wires Xero / DocuSign / Twilio here.
+}
+
+async function dispatchStabilisationPacket(transitionId: string) {
+  // Lazy import to keep the cold-path light and avoid pulling integration
+  // code into the hot transition path bundle.
+  const { buildStabilisationPacket, submitToCarrier } = await import(
+    "./integrations/stabilisation-packet"
+  );
+
+  const built = await buildStabilisationPacket(transitionId, {
+    loadTransition: async (id) => {
+      const row = await prisma.progressTransition.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          claimProgressId: true,
+          transitionKey: true,
+          transitionedAt: true,
+          integrityHash: true,
+          guardSnapshot: true,
+          actorUserId: true,
+          actorRole: true,
+          actorName: true,
+          attestations: {
+            select: {
+              id: true,
+              attestationType: true,
+              attestorEmail: true,
+              integrityHash: true,
+            },
+          },
+        },
+      });
+      if (!row) return null;
+
+      const user = await prisma.user.findUnique({
+        where: { id: row.actorUserId },
+        select: { email: true },
+      });
+
+      return {
+        id: row.id,
+        claimProgressId: row.claimProgressId,
+        transitionKey: row.transitionKey,
+        transitionedAt: row.transitionedAt,
+        integrityHash: row.integrityHash,
+        guardSnapshot:
+          row.guardSnapshot &&
+          typeof row.guardSnapshot === "object" &&
+          !Array.isArray(row.guardSnapshot)
+            ? (row.guardSnapshot as Record<string, unknown>)
+            : null,
+        attestor: {
+          userId: row.actorUserId,
+          role: row.actorRole,
+          name: row.actorName,
+          email: user?.email ?? "",
+        },
+        evidenceManifest: row.attestations.map((a) => ({
+          type: a.attestationType,
+          id: a.id,
+          hash: a.integrityHash,
+        })),
+        origin: process.env.NEXT_PUBLIC_APP_URL ?? null,
+      };
+    },
+  });
+
+  if (!built.ok) {
+    console.warn("[m19] buildStabilisationPacket failed", {
+      transitionId,
+      error: built.error,
+    });
+    return;
+  }
+
+  // V1: submit to guidewire only when configured. M-18 procurement gates
+  // wider rollout; until then the env var stays unset and this is a no-op.
+  const r = await submitToCarrier(built.packet, "guidewire");
+  if (!r.ok) {
+    console.warn("[m19] submitToCarrier(guidewire) failed", {
+      transitionId,
+      error: r.error,
+      status: r.status,
+    });
+  } else {
+    console.info("[m19] submitToCarrier(guidewire) ok", {
+      transitionId,
+      carrierRef: r.carrierRef,
+    });
+  }
 }
 
 // Re-export for callers
