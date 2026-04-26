@@ -222,6 +222,7 @@ export default function AssessmentDomainCard({
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<GenerateResultPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [enhanceWithAi, setEnhanceWithAi] = useState(false);
 
   function setField(key: string, value: unknown) {
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -240,6 +241,7 @@ export default function AssessmentDomainCard({
       if (domain === "STORM" && typeof body.waterCategory === "string") {
         body.waterCategory = parseInt(body.waterCategory, 10);
       }
+      if (enhanceWithAi) body.enhanceWithAi = true;
       const r = await fetch(
         `/api/inspections/${encodeURIComponent(inspectionId)}/assessments/${domain}/generate`,
         {
@@ -310,6 +312,18 @@ export default function AssessmentDomainCard({
             onChange={(v) => setField(field.key, v)}
           />
         ))}
+
+        <label className="flex items-center gap-2 text-xs text-muted-foreground pt-1">
+          <input
+            type="checkbox"
+            checked={enhanceWithAi}
+            onChange={(e) => setEnhanceWithAi(e.target.checked)}
+          />
+          <span>
+            Enhance prose with AI (Claude Haiku · ~$0.005 · workspace
+            budget enforced)
+          </span>
+        </label>
 
         <div className="flex flex-wrap gap-2 items-center pt-1">
           <button
