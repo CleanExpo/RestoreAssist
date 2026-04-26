@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -17,16 +18,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     const { id } = await context.params;
 
-    // Confirm the inspection belongs to the requesting user
-    const inspection = await prisma.inspection.findFirst({
-      where: { id, userId: session.user.id },
-      select: { id: true },
-    });
-
-    if (!inspection) {
+    // RA-1711 batch 4 — adopt shared tenancy helper.
+    const tenancy = await assertInspectionTenancy(session, id);
+    if (!tenancy.ok) {
       return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
+        { error: tenancy.reason },
+        { status: tenancy.status },
       );
     }
 

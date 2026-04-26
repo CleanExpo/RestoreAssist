@@ -16,6 +16,7 @@ import { EvidenceClass } from "@prisma/client";
 import { getStorageProvider } from "@/lib/storage";
 import { classifyByMimeType } from "@/lib/storage/compression";
 import type { UploadInput } from "@/lib/storage";
+import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 
 const MAX_FILES = 20;
 const CONCURRENCY = 3;
@@ -71,15 +72,12 @@ export async function POST(
 
   const { id: inspectionId } = await params;
 
-  // Verify inspection ownership
-  const inspection = await prisma.inspection.findFirst({
-    where: { id: inspectionId, userId: session.user.id },
-    select: { id: true },
-  });
-  if (!inspection) {
+  // RA-1711 batch 4 — adopt shared tenancy helper.
+  const tenancy = await assertInspectionTenancy(session, inspectionId);
+  if (!tenancy.ok) {
     return NextResponse.json(
-      { error: "Inspection not found" },
-      { status: 404 },
+      { error: tenancy.reason },
+      { status: tenancy.status },
     );
   }
 

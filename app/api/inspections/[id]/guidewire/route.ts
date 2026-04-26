@@ -32,6 +32,7 @@ import {
 } from "@/lib/nir-guidewire-integration";
 import { getPropertyLocationFlags } from "@/lib/nir-location-services";
 import { withIdempotency } from "@/lib/idempotency";
+import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 
 // ─── STATE DERIVATION ─────────────────────────────────────────────────────────
 
@@ -91,9 +92,11 @@ function deriveLossType(category: string): string {
 
 // ─── SHARED INSPECTION FETCH ──────────────────────────────────────────────────
 
-async function fetchInspectionForGuidewire(id: string, userId: string) {
-  return prisma.inspection.findFirst({
-    where: { id, userId },
+async function fetchInspectionForGuidewire(id: string) {
+  // RA-1711 batch 4 — tenancy is enforced by callers via assertInspectionTenancy
+  // before we get here; this fetch is now id-only.
+  return prisma.inspection.findUnique({
+    where: { id },
     include: {
       classifications: true,
       scopeItems: true,
@@ -331,6 +334,14 @@ export async function GET(
     const insurerLossTypeCode =
       searchParams.get("insurerLossTypeCode") ?? "PR_WaterDamage";
 
+    const tenancy = await assertInspectionTenancy(session, id);
+    if (!tenancy.ok) {
+      return NextResponse.json(
+        { error: tenancy.reason },
+        { status: tenancy.status },
+      );
+    }
+
     return await buildResponse(
       id,
       session.user.id,
@@ -369,6 +380,14 @@ export async function POST(
   // idempotency prevents duplicate payload generation/submission on retry.
   return withIdempotency(request, userId, async (rawBody) => {
     try {
+      const tenancy = await assertInspectionTenancy(session, id);
+      if (!tenancy.ok) {
+        return NextResponse.json(
+          { error: tenancy.reason },
+          { status: tenancy.status },
+        );
+      }
+
       let body: { policyNumber?: string; insurerLossTypeCode?: string } = {};
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
@@ -407,7 +426,7 @@ async function buildResponse(
   policyNumber: string,
   insurerLossTypeCode: string,
 ) {
-  const inspection = await fetchInspectionForGuidewire(id, userId);
+  const inspection = await fetchInspectionForGuidewire(id);
 
   if (!inspection) {
     return NextResponse.json(

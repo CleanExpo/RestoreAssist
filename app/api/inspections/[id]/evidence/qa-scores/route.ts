@@ -14,6 +14,7 @@ import {
   scoreInspectionEvidence,
   type EvidenceItemForQA,
 } from "@/lib/evidence/qa-scorer";
+import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 
 export async function GET(
   request: NextRequest,
@@ -27,15 +28,12 @@ export async function GET(
   const { id: inspectionId } = await params;
 
   try {
-    // Verify inspection ownership
-    const inspection = await prisma.inspection.findFirst({
-      where: { id: inspectionId, userId: session.user.id },
-      select: { id: true },
-    });
-    if (!inspection) {
+    // RA-1711 batch 4 — adopt shared tenancy helper.
+    const tenancy = await assertInspectionTenancy(session, inspectionId);
+    if (!tenancy.ok) {
       return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
+        { error: tenancy.reason },
+        { status: tenancy.status },
       );
     }
 

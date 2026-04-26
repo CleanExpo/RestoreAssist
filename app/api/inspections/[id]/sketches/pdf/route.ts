@@ -17,6 +17,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateSketchPdf, type SketchFloor } from "@/lib/generate-sketch-pdf";
+import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 
 export async function POST(
   req: NextRequest,
@@ -29,9 +30,17 @@ export async function POST(
 
   const { id } = await params;
 
-  // Verify the inspection belongs to the current user
-  const inspection = await prisma.inspection.findFirst({
-    where: { id, userId: session.user.id },
+  // RA-1711 batch 4 — adopt shared tenancy helper.
+  const tenancy = await assertInspectionTenancy(session, id);
+  if (!tenancy.ok) {
+    return NextResponse.json(
+      { error: tenancy.reason },
+      { status: tenancy.status },
+    );
+  }
+
+  const inspection = await prisma.inspection.findUnique({
+    where: { id },
     select: { id: true, propertyAddress: true },
   });
   if (!inspection) {
