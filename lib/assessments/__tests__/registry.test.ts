@@ -29,10 +29,14 @@ describe("assessment registry", () => {
     expect(getDomainPlugin("BIOHAZARD")).not.toBeNull();
   });
 
+  it("registers the FIRE_SMOKE domain", () => {
+    expect(getDomainPlugin("FIRE_SMOKE")).not.toBeNull();
+  });
+
   it("returns null for an unregistered domain", () => {
-    // FIRE_SMOKE / HVAC / STORM / AUSTRALIAN_COMPLIANCE remain
-    // unregistered — they land in subsequent PRs.
-    expect(getDomainPlugin("FIRE_SMOKE")).toBeNull();
+    // HVAC / STORM / AUSTRALIAN_COMPLIANCE remain unregistered — they
+    // land in subsequent PRs.
+    expect(getDomainPlugin("HVAC")).toBeNull();
     expect(getDomainPlugin("UNREGISTERED" as never)).toBeNull();
   });
 
