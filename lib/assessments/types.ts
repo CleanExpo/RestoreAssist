@@ -144,6 +144,14 @@ export interface DomainGenerateInput {
   workspaceId: string | null;
   /** User who triggered the generation. */
   userId: string;
+  /**
+   * Optional domain-specific payload threaded through from the API caller.
+   * Example: MOULD plug-in reads `{ condition, ambientRelativeHumidity }`
+   * from this. WATER plug-in ignores it (everything is auto-derived from
+   * Inspection state). Plug-ins are responsible for their own narrowing
+   * + validation; the orchestrator passes the raw value through.
+   */
+  options?: Record<string, unknown> | null;
 }
 
 /**

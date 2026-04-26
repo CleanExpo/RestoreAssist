@@ -32,6 +32,8 @@ export interface GenerateAssessmentArgs {
   workspaceId: string | null;
   /** User who triggered the generation — recorded as `generatedBy` for audit. */
   userId: string;
+  /** Domain-specific payload (see DomainGenerateInput.options). */
+  options?: Record<string, unknown> | null;
 }
 
 export type GenerateAssessmentResult =
@@ -60,6 +62,7 @@ export async function generateAssessment(
     inspectionId: args.inspectionId,
     workspaceId: args.workspaceId,
     userId: args.userId,
+    options: args.options ?? null,
   });
 
   if (!generated.ok) {

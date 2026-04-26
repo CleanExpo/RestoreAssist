@@ -71,6 +71,25 @@ export async function POST(
     );
   }
 
+  // Optional domain-specific payload (e.g. MOULD reads `condition`,
+  // `ambientRelativeHumidity` from this). WATER ignores. Empty body
+  // is fine — plug-ins handle missing fields per their own contract.
+  let options: Record<string, unknown> | null = null;
+  try {
+    const text = await request.text();
+    if (text.trim().length > 0) {
+      const parsed = JSON.parse(text);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        options = parsed as Record<string, unknown>;
+      }
+    }
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid JSON body" },
+      { status: 400 },
+    );
+  }
+
   // Resolve workspace (best-effort) for budget tracking. Null is OK for
   // legacy single-user accounts.
   const workspace = await getWorkspaceForUser(userId);
@@ -80,6 +99,7 @@ export async function POST(
     domain: type as AssessmentDomain,
     workspaceId: workspace?.id ?? null,
     userId,
+    options,
   });
 
   if (!result.ok) {
