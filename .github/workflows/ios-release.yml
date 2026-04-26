@@ -139,26 +139,24 @@ jobs:
           ASC_PRIVATE_KEY_BASE64: ${{ secrets.ASC_PRIVATE_KEY_BASE64 }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
-        # Fastlane pilot/upload_to_testflight expects a single JSON
-        # file containing key_id, issuer_id, and the .p8 key contents.
-        # Run #5 failed with `invalid option: --issuer_id` because the
-        # separate-flags pattern was deprecated. Produce the JSON
-        # entirely in memory + write to a 0600 file; nothing leaks via
-        # logs because we never `echo` the contents.
+        # Fastlane pilot expects a JSON file. Two field formats are
+        # supported: inlined `key` content OR `key_filepath` pointing
+        # at the .p8 on disk. Run #6 used `key` content and hit the
+        # Ruby-OpenSSL "invalid curve name" regression on macos-latest
+        # (fastlane issue #20553) — Ruby's bundled OpenSSL fails to
+        # parse the EC P-256 curve when the key crosses a JSON
+        # round-trip. Workaround: pass the .p8 via `key_filepath` so
+        # fastlane reads the PEM directly without re-encoding.
         run: |
           printf '%s' "$ASC_PRIVATE_KEY_BASE64" | base64 -d > /tmp/asc_api_key.p8
           chmod 600 /tmp/asc_api_key.p8
 
-          # Build the JSON via python so the .p8 (which contains
-          # newlines) is correctly JSON-encoded. The .p8 file is
-          # consumed via env not stdin so it never traverses the
-          # shell parser.
-          ASC_API_KEY_P8="$(cat /tmp/asc_api_key.p8)" python3 -c '
+          python3 -c '
           import json, os
           payload = {
               "key_id": os.environ["ASC_API_KEY_ID"],
               "issuer_id": os.environ["ASC_ISSUER_ID"],
-              "key": os.environ["ASC_API_KEY_P8"],
+              "key_filepath": "/tmp/asc_api_key.p8",
               "duration": 1200,
               "in_house": False,
           }
@@ -167,6 +165,12 @@ jobs:
           ' && chmod 600 /tmp/asc_api_key.json
 
       - name: Upload to TestFlight
+        env:
+          # Belt-and-braces against the macos-latest brew openssl config
+          # that has been observed to reject EC P-256 ("invalid curve name").
+          # Bypassing the system config forces Ruby to fall back to the
+          # built-in OpenSSL provider which parses the key correctly.
+          OPENSSL_CONF: /dev/null
         run: |
           fastlane pilot upload \
             --ipa ./build/RestoreAssist.ipa \
