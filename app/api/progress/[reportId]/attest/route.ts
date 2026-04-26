@@ -1,25 +1,27 @@
 /**
  * POST /api/progress/[reportId]/attest — Pi-Sign in-house attestation.
  *
- * RA-1703. Replaces DocuSign for V1. Captures a base64-drawn signature
- * from the client and writes a ProgressAttestation row with a tamper-
- * evident integrity hash.
+ * RA-1703 + RA-1708 (P0-4). Replaces DocuSign for V1. Captures a
+ * base64-drawn signature from the client + a redeemed consent token
+ * (issued by /api/progress/[reportId]/pre-attest) and writes a
+ * ProgressAttestation row with a tamper-evident integrity hash that
+ * binds attestor identity, signature, signer IP + UA, and the content
+ * the user actually agreed to.
  *
  * Body:
  *   {
- *     attestationType: "TECHNICIAN_SIGN_OFF" | "MANAGER_COUNTERSIGN" |
- *                       "CARRIER_ACCEPT" | "LEGAL_CLEAR" |
- *                       "CUSTOMER_SIGN_OFF" | "LABOUR_HIRE_SELF",
- *     signatureDataUrl: string,    // data:image/png;base64,…
- *     transitionId?: string,        // optional FK to a ProgressTransition
- *     attestationNote?: string,
+ *     attestationType: AttestationType,
+ *     signatureDataUrl: string,        // data:image/png;base64,…
+ *     consentToken: string,             // RA-1708 — issued by /pre-attest
+ *     transitionId?: string,            // optional FK to ProgressTransition
+ *     attestationNote?: string
  *   }
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { applyRateLimit } from "@/lib/rate-limiter";
+import { applyRateLimit, getClientIp } from "@/lib/rate-limiter";
 import { validateCsrf } from "@/lib/csrf";
 import { withIdempotency } from "@/lib/idempotency";
 import { prisma } from "@/lib/prisma";
@@ -66,6 +68,7 @@ export async function POST(
     let body: {
       attestationType?: string;
       signatureDataUrl?: string;
+      consentToken?: string;
       transitionId?: string | null;
       attestationNote?: string | null;
     };
@@ -78,6 +81,16 @@ export async function POST(
     if (!body.attestationType || !ALLOWED_TYPES.has(body.attestationType)) {
       return NextResponse.json(
         { error: `attestationType must be one of ${[...ALLOWED_TYPES].join(", ")}` },
+        { status: 400 },
+      );
+    }
+
+    if (typeof body.consentToken !== "string" || body.consentToken.length < 8) {
+      return NextResponse.json(
+        {
+          error:
+            "consentToken is required — call POST /api/progress/[reportId]/pre-attest to obtain one (ETA 1999/2002 consent step)",
+        },
         { status: 400 },
       );
     }
@@ -138,6 +151,58 @@ export async function POST(
       }
     }
 
+    // RA-1708 / P0-4 — redeem the consent token. Validates user / report /
+    // type binding, expiry, single-use; captures the contentHash signed.
+    const token = await prisma.attestationConsentToken.findUnique({
+      where: { id: body.consentToken },
+    });
+    if (!token) {
+      return NextResponse.json(
+        { error: "consentToken not recognised" },
+        { status: 400 },
+      );
+    }
+    if (token.userId !== userId) {
+      return NextResponse.json(
+        { error: "consentToken does not belong to this user" },
+        { status: 403 },
+      );
+    }
+    if (token.reportId !== reportId) {
+      return NextResponse.json(
+        { error: "consentToken bound to a different report" },
+        { status: 400 },
+      );
+    }
+    if (token.attestationType !== body.attestationType) {
+      return NextResponse.json(
+        {
+          error:
+            "consentToken bound to a different attestationType — re-issue via /pre-attest with the correct type",
+        },
+        { status: 400 },
+      );
+    }
+    if (token.consumedAt) {
+      return NextResponse.json(
+        {
+          error:
+            "consentToken already consumed — issue a fresh one via /pre-attest",
+        },
+        { status: 409 },
+      );
+    }
+    if (token.expiresAt.getTime() <= Date.now()) {
+      return NextResponse.json(
+        { error: "consentToken expired — issue a fresh one via /pre-attest" },
+        { status: 400 },
+      );
+    }
+
+    // Bind attest-time IP + UA into the integrity hash.
+    const attestIp = getClientIp(request) ?? null;
+    const attestUserAgent = request.headers.get("user-agent") ?? null;
+
     const attestedAt = new Date();
     const integrityHash = computeAttestationIntegrityHash({
       attestorUserId: userId,
@@ -145,29 +210,48 @@ export async function POST(
       claimProgressId: cp.id,
       attestedAt,
       signatureDataUrl: body.signatureDataUrl as string,
+      consentTokenId: token.id,
+      signerIp: attestIp,
+      signerUserAgent: attestUserAgent,
+      contentHash: token.contentHash,
     });
 
     try {
-      const row = await prisma.progressAttestation.create({
-        data: {
-          claimProgressId: cp.id,
-          transitionId: body.transitionId ?? null,
-          attestorUserId: userId,
-          attestorRole: role,
-          attestorName: userRow.name ?? session.user.name ?? "unknown",
-          attestorEmail: userRow.email ?? session.user.email ?? "",
-          attestationType: body.attestationType,
-          attestationNote: body.attestationNote ?? null,
-          signatureDataUrl: body.signatureDataUrl as string,
-          integrityHash,
-          attestedAt,
-        },
-        select: {
-          id: true,
-          attestationType: true,
-          attestedAt: true,
-          integrityHash: true,
-        },
+      const row = await prisma.$transaction(async (tx) => {
+        // Mark the token consumed before the row write so a concurrent
+        // request can't redeem the same token twice.
+        const consume = await tx.attestationConsentToken.updateMany({
+          where: { id: token.id, consumedAt: null },
+          data: { consumedAt: new Date() },
+        });
+        if (consume.count === 0) {
+          throw new Error("CONSENT_RACE");
+        }
+        return tx.progressAttestation.create({
+          data: {
+            claimProgressId: cp.id,
+            transitionId: body.transitionId ?? null,
+            attestorUserId: userId,
+            attestorRole: role,
+            attestorName: userRow.name ?? session.user.name ?? "unknown",
+            attestorEmail: userRow.email ?? session.user.email ?? "",
+            attestationType: body.attestationType as string,
+            attestationNote: body.attestationNote ?? null,
+            signatureDataUrl: body.signatureDataUrl as string,
+            integrityHash,
+            attestedAt,
+            consentTokenId: token.id,
+            signerIp: attestIp,
+            signerUserAgent: attestUserAgent,
+            contentHash: token.contentHash,
+          },
+          select: {
+            id: true,
+            attestationType: true,
+            attestedAt: true,
+            integrityHash: true,
+          },
+        });
       });
 
       // M-17 telemetry — attestation.captured.
@@ -184,6 +268,17 @@ export async function POST(
 
       return NextResponse.json({ data: row });
     } catch (err) {
+      if (err instanceof Error && err.message === "CONSENT_RACE") {
+        // Another concurrent request consumed this token first. Surface
+        // a clean conflict instead of a 500 — the client can re-issue.
+        return NextResponse.json(
+          {
+            error:
+              "consentToken consumed concurrently — issue a fresh one via /pre-attest",
+          },
+          { status: 409 },
+        );
+      }
       console.error("[progress.attest] failed", err);
       return NextResponse.json(
         { error: "Failed to record attestation" },

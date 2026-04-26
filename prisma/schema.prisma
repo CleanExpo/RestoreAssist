@@ -5483,12 +5483,48 @@ model ProgressAttestation {
   labourHirePortableLslState     String? // "NSW" | "VIC" | "QLD" | "ACT" | "TAS" | null when N/A
   labourHireInductionEvidenceId  String? // FK reference to an evidence row carrying induction proof
 
+  // RA-1708 / P0-4 — ETA 1999 (AU) §10 + ETA 2002 (NZ) §4 consent +
+  // identification proof. consentTokenId points at the AttestationConsentToken
+  // the signer redeemed; signerIp + signerUserAgent are captured at attest
+  // time and hashed into integrityHash so post-write tampering of any of
+  // these fields surfaces on read.
+  consentTokenId    String?
+  signerIp          String?
+  signerUserAgent   String? @db.Text
+  contentHash       String? // sha256 of the content summary the signer agreed to
+
   attestedAt DateTime @default(now())
 
   @@index([claimProgressId])
   @@index([transitionId])
   @@index([attestorUserId])
   @@index([attestationType])
+}
+
+/// AttestationConsentToken — RA-1708 / P0-4. Short-lived proof that a
+/// signer explicitly consented to sign specific content. Required by the
+/// attest route before a ProgressAttestation row can be created. Bound
+/// to (userId, reportId, attestationType, contentHash) so the same token
+/// cannot be redeemed against a different document.
+model AttestationConsentToken {
+  id              String  @id @default(cuid())
+  userId          String
+  reportId        String
+  attestationType String
+  /// sha256 hex of the content summary the user agreed to sign.
+  contentHash     String
+
+  /// Captured at issuance for audit; mirror onto ProgressAttestation when redeemed.
+  ip        String?
+  userAgent String? @db.Text
+
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([userId, expiresAt])
+  @@index([reportId])
+  @@index([consumedAt])
 }
 
 /// OverrideGovernanceReport — RA-1390 / Motion M-15. Monthly snapshot of
