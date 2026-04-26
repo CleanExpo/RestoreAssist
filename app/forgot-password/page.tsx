@@ -244,11 +244,12 @@ function ForgotPasswordForm() {
               }}
               className="space-y-6"
             >
-              <div className="mb-4 p-3 bg-blue-500/20 border border-blue-500/30 rounded-lg flex items-center gap-2">
-                <Mail size={20} className="text-blue-400 flex-shrink-0" />
+              <div className="mb-4 p-3 bg-blue-500/20 border border-blue-500/30 rounded-lg flex items-start gap-2">
+                <Mail size={20} className="text-blue-400 flex-shrink-0 mt-0.5" />
                 <span className="text-blue-300 text-sm">
-                  A verification code has been generated for{" "}
-                  <strong>{email}</strong>. Check the server console.
+                  If an account exists for <strong>{email}</strong>, a
+                  6-digit verification code has been sent. It expires in 15
+                  minutes — check your inbox and spam folder.
                 </span>
               </div>
 
