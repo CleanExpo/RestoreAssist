@@ -14,6 +14,15 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import Anthropic from "@anthropic-ai/sdk";
+import { checkWorkspaceBudget } from "@/lib/ai/budget-guard";
+import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
+import { logAiUsage, estimateCostUsd } from "@/lib/usage/log-usage";
+
+// RA-1707 / P0-2 — Vision call costs roughly $0.005-0.012 per image at
+// claude-sonnet-4-x pricing (depends on image dimensions). We assume the
+// upper bound for the pre-call budget check; actual cost is logged
+// post-call from the API response's token counts.
+const VISION_COST_ESTIMATE_USD = 0.012;
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png"]);
@@ -94,6 +103,29 @@ export async function POST(
     );
   }
 
+  // RA-1707 / P0-2 — workspace AI daily budget check. Resolves the user's
+  // active workspace and rejects when this Vision call would tip the org
+  // over its daily ceiling. Defensive: when getWorkspaceForUser returns
+  // null (user has no workspace bound) we still allow — pilots in legacy
+  // user-scoped accounts continue to work.
+  const workspace = await getWorkspaceForUser(userId);
+  if (workspace) {
+    const budget = await checkWorkspaceBudget({
+      workspaceId: workspace.id,
+      estimatedCostUsd: VISION_COST_ESTIMATE_USD,
+    });
+    if (!budget.ok) {
+      return NextResponse.json(
+        {
+          error: budget.error,
+          remainingUsd: budget.remainingUsd,
+          budgetUsd: budget.budgetUsd,
+        },
+        { status: 429 },
+      );
+    }
+  }
+
   // Parse multipart
   let formData: FormData;
   try {
@@ -137,9 +169,11 @@ export async function POST(
   const client = new Anthropic({ apiKey });
 
   let raw: string;
+  const callStart = Date.now();
+  const visionModel = "claude-sonnet-4-6";
   try {
     const message = await client.messages.create({
-      model: "claude-sonnet-4-6",
+      model: visionModel,
       max_tokens: 2048,
       messages: [
         {
@@ -158,8 +192,47 @@ export async function POST(
       .filter((b) => b.type === "text")
       .map((b) => (b as { type: "text"; text: string }).text)
       .join("");
+
+    // RA-1707 / P0-2 — log post-call cost so the workspace daily budget
+    // accumulates. Fire-and-forget; never blocks the response.
+    if (workspace) {
+      const inputTokens = message.usage?.input_tokens ?? 0;
+      const outputTokens = message.usage?.output_tokens ?? 0;
+      logAiUsage({
+        workspaceId: workspace.id,
+        provider: "ANTHROPIC",
+        model: visionModel,
+        taskType: "vision_sketch_import",
+        inputTokens,
+        outputTokens,
+        estimatedCostUsd: estimateCostUsd(
+          "ANTHROPIC",
+          visionModel,
+          inputTokens,
+          outputTokens,
+        ),
+        latencyMs: Date.now() - callStart,
+        success: true,
+        metadata: { inspectionId, mediaType },
+      });
+    }
   } catch (err) {
     console.error("Claude Vision API error:", err);
+    if (workspace) {
+      logAiUsage({
+        workspaceId: workspace.id,
+        provider: "ANTHROPIC",
+        model: visionModel,
+        taskType: "vision_sketch_import",
+        inputTokens: 0,
+        outputTokens: 0,
+        estimatedCostUsd: 0,
+        latencyMs: Date.now() - callStart,
+        success: false,
+        errorType: err instanceof Error ? err.name : "unknown",
+        metadata: { inspectionId },
+      });
+    }
     return NextResponse.json(
       { error: "Vision API call failed" },
       { status: 502 },

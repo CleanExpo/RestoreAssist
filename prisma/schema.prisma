@@ -4578,6 +4578,11 @@ model Workspace {
   stripeCustomerId     String?         @unique
   stripeSubscriptionId String?         @unique
 
+  // RA-1707 / P0-2 — Anthropic + AI org-spend cap. Daily ceiling in USD.
+  // Null falls back to AI_DEFAULT_DAILY_BUDGET_USD env (defaults to 50).
+  // checkWorkspaceBudget() in lib/ai/budget-guard.ts reads this.
+  aiDailyBudgetUsd Float?
+
   // Relations
   members WorkspaceMember[]
   roles   WorkspaceRole[]
