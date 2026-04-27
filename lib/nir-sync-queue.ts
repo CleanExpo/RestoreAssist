@@ -24,7 +24,17 @@ const QUEUE_STORE = "sync-queue";
 const CONFLICT_STORE = "sync-conflicts";
 
 const MAX_RETRY_COUNT = 5;
+// RA-1762 — sketch saves represent potentially 30+ minutes of irrecoverable
+// canvas work; permanently failing them after 48s of retries (the default
+// MAX_RETRY_COUNT * RETRY_BACKOFF_MS) is unacceptable. Use a much higher cap
+// for sketches; per-type overrides live in `getMaxRetryCount` below.
+const SKETCH_SAVE_MAX_RETRY_COUNT = 1000; // ~effectively unlimited
 const RETRY_BACKOFF_MS = [1000, 2000, 5000, 10000, 30000]; // exponential backoff
+
+function getMaxRetryCount(type: QueueEntryType): number {
+  if (type === "sketch-save") return SKETCH_SAVE_MAX_RETRY_COUNT;
+  return MAX_RETRY_COUNT;
+}
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -41,7 +51,30 @@ export type QueueEntryType =
   | "moisture-reading"
   | "photo-upload"
   | "environmental-data"
-  | "scope-item";
+  | "scope-item"
+  // RA-1762 — sketch canvas saves. Coalesced by (inspectionId, floorNumber)
+  // at enqueue time so rapid offline edits don't blow the IDB quota.
+  | "sketch-save";
+
+/**
+ * RA-1762 — payload shape for `"sketch-save"` queue entries. The
+ * server endpoint (`POST /api/inspections/[id]/sketches`) already
+ * upserts by `(inspectionId, floorNumber)` so the drain is idempotent.
+ * `clientUpdatedAt` is sent as the `x-client-updated-at` header on
+ * drain so the server can reject stale payloads (409 + `{stale:true}`)
+ * that would otherwise clobber a fresher online save.
+ */
+export interface SketchSavePayload {
+  floorNumber: number;
+  floorLabel: string;
+  sketchType?: string;
+  sketchData?: unknown;
+  backgroundImageUrl?: string | null;
+  moisturePoints?: unknown;
+  equipmentPoints?: unknown;
+  /** Epoch ms at the moment the local sketch state was captured. */
+  clientUpdatedAt: number;
+}
 
 export interface SyncQueueEntry {
   id: string;
@@ -163,6 +196,90 @@ export async function queueWrite(
 }
 
 /**
+ * RA-1762 — sketch-specific enqueue with coalesce-by-(inspectionId, floorNumber).
+ *
+ * Reasoning: SketchEditorV2 autosaves on a 1.5 s debounce. With active
+ * drawing while offline, that produces an entry every ~1.5 s carrying a
+ * full Fabric `toJSON()` payload (often hundreds of KB). Without
+ * coalescing, 10 minutes offline → ~400 entries × ~200 KB each ≈ 80 MB
+ * in IDB, and Chrome will throw QuotaExceededError on `store.add()`.
+ * Coalescing also matches the user's intent — they care about the
+ * latest state of each floor, not the history.
+ *
+ * Coalesce strategy: in a single readwrite transaction, scan all
+ * pending entries for this inspection via the `by-inspection` index,
+ * delete any `sketch-save` entries with the same `floorNumber`, then
+ * add the new entry. Atomic — no race window where the floor is
+ * unrepresented.
+ *
+ * `endpoint` and `method` are fixed to the sketches POST route so the
+ * caller can't accidentally point a sketch save at a different
+ * endpoint (would silently corrupt cross-type drains).
+ */
+export async function enqueueSketchSave(
+  inspectionId: string,
+  payload: SketchSavePayload,
+): Promise<string> {
+  const db = await openDatabase();
+  const id = generateId();
+
+  const queueEntry: SyncQueueEntry = {
+    id,
+    type: "sketch-save",
+    endpoint: `/api/inspections/${inspectionId}/sketches`,
+    method: "POST",
+    payload,
+    inspectionId,
+    queuedAt: new Date().toISOString(),
+    retryCount: 0,
+    status: "pending",
+  };
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(QUEUE_STORE, "readwrite");
+    const store = tx.objectStore(QUEUE_STORE);
+    const index = store.index("by-inspection");
+    const cursorReq = index.openCursor(IDBKeyRange.only(inspectionId));
+
+    cursorReq.onsuccess = (evt) => {
+      const cursor = (evt.target as IDBRequest<IDBCursorWithValue>).result;
+      if (cursor) {
+        const existing = cursor.value as SyncQueueEntry;
+        if (
+          existing.type === "sketch-save" &&
+          existing.status === "pending" &&
+          (existing.payload as SketchSavePayload | null)?.floorNumber ===
+            payload.floorNumber
+        ) {
+          cursor.delete();
+        }
+        cursor.continue();
+      } else {
+        // Coalesce scan complete — add the new entry within the same tx.
+        const addReq = store.add(queueEntry);
+        addReq.onsuccess = () => {
+          // Best-effort Background Sync registration (Chromium).
+          if ("serviceWorker" in navigator && "SyncManager" in window) {
+            navigator.serviceWorker.ready
+              .then((sw) =>
+                ((sw as any).sync as any).register("nir-inspection-sync"),
+              )
+              .catch(() => {
+                /* SW not yet active, online listener will handle it */
+              });
+          }
+          resolve(id);
+        };
+        addReq.onerror = () => reject(addReq.error);
+      }
+    };
+
+    cursorReq.onerror = () => reject(cursorReq.error);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+/**
  * Get all pending entries for an inspection.
  * Used to show the technician which data is not yet synced.
  */
@@ -219,15 +336,32 @@ export async function drainQueue(): Promise<number> {
   let syncedCount = 0;
 
   for (const entry of entries) {
-    if (entry.retryCount >= MAX_RETRY_COUNT) {
+    // RA-1762 — per-type retry budget. Sketches use a much higher cap
+    // because losing 30+ minutes of canvas work to a transient outage
+    // is unacceptable; other types keep the historical 5-attempt limit.
+    if (entry.retryCount >= getMaxRetryCount(entry.type)) {
       await markEntryFailed(db, entry.id);
       continue;
     }
 
     try {
+      // RA-1762 — sketch-save entries piggyback the staleness check on
+      // the `x-client-updated-at` header. Other types pass through with
+      // the original Content-Type-only headers so unrelated routes
+      // aren't suddenly required to read the new header.
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (entry.type === "sketch-save") {
+        const sketchPayload = entry.payload as SketchSavePayload | null;
+        if (sketchPayload?.clientUpdatedAt != null) {
+          headers["x-client-updated-at"] = String(sketchPayload.clientUpdatedAt);
+        }
+      }
+
       const response = await fetch(entry.endpoint, {
         method: entry.method,
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify(entry.payload),
       });
 
@@ -235,10 +369,21 @@ export async function drainQueue(): Promise<number> {
         await removeEntry(db, entry.id);
         syncedCount++;
       } else if (response.status === 409) {
-        // Conflict — store for manual resolution
-        const serverPayload = await response.json().catch(() => null);
-        await storeConflict(db, entry, serverPayload);
-        await removeEntry(db, entry.id);
+        // RA-1762 — a 409 with `{ stale: true }` is the server telling
+        // us this queued payload predates the latest server state for
+        // this resource. Drop the entry silently; storing a conflict
+        // record for "you tried to save older data" would be noise the
+        // user can't act on. Other 409s (true conflicts) still go to
+        // the conflict store for manual resolution.
+        const serverPayload: { stale?: boolean } | null = await response
+          .json()
+          .catch(() => null);
+        if (serverPayload?.stale === true) {
+          await removeEntry(db, entry.id);
+        } else {
+          await storeConflict(db, entry, serverPayload);
+          await removeEntry(db, entry.id);
+        }
       } else {
         // Retriable error
         await incrementRetry(db, entry);
