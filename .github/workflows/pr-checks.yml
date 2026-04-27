@@ -106,4 +106,8 @@ jobs:
           npx prisma migrate deploy
           npx prisma migrate status
         env:
+          # Schema declares both DATABASE_URL (pooled) and DIRECT_URL
+          # (direct) per Supabase's standard pattern. CI's ephemeral
+          # Postgres has no pooler, so point both at the same connection.
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+          DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
