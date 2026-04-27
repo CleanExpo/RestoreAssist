@@ -2,6 +2,7 @@
 
 import { useRef, useCallback } from "react";
 import type { ToolMode } from "@/components/sketch/SketchCanvas";
+import { distance, formatMetres } from "@/lib/sketch/geometry-utils";
 
 // ─── Typed Fabric canvas subset ──────────────────────────────
 
@@ -72,6 +73,7 @@ export function useSketchTools(opts: UseSketchToolsOptions) {
   const roomPtsRef = useRef<{ x: number; y: number }[]>([]);
   const linePtRef = useRef<{ x: number; y: number } | null>(null);
   const arrowPtRef = useRef<{ x: number; y: number } | null>(null);
+  const measurePtRef = useRef<{ x: number; y: number } | null>(null);
   const tempObjsRef = useRef<unknown[]>([]);
 
   const canvasRef = useRef<FabricCanvas | null>(null);
@@ -225,6 +227,58 @@ export function useSketchTools(opts: UseSketchToolsOptions) {
           onModified?.();
           break;
         }
+        case "measure": {
+          if (!measurePtRef.current) {
+            measurePtRef.current = pt;
+            // Draw preview anchor dot
+            const dot = new fabric.Circle({
+              left: pt.x - 4,
+              top: pt.y - 4,
+              radius: 4,
+              fill: "#0ea5e9",
+              selectable: false,
+              evented: false,
+            });
+            canvas.add(dot);
+            tempObjsRef.current.push(dot);
+          } else {
+            clearTemp();
+            const from = measurePtRef.current;
+            const px = distance(from, pt);
+            const label = formatMetres(px);
+            const line = new fabric.Line([from.x, from.y, pt.x, pt.y], {
+              stroke: "#0ea5e9",
+              strokeWidth: 2,
+              selectable: false,
+              evented: false,
+            });
+            const text = new fabric.IText(label, {
+              left: (from.x + pt.x) / 2,
+              top: (from.y + pt.y) / 2 - 14,
+              fontSize: 12,
+              fill: "#0ea5e9",
+              fontFamily: "Inter, sans-serif",
+              selectable: false,
+              evented: false,
+            });
+            const group = new fabric.Group([line, text], {
+              selectable: true,
+              evented: true,
+              data: {
+                type: "measure",
+                lengthPx: px,
+                lengthMetres: px / 100,
+              },
+            });
+            canvas.add(group);
+            (canvas.requestRenderAll ?? canvas.renderAll).call(canvas);
+            measurePtRef.current = null;
+            clearGuides?.();
+            onSaveState();
+            onModified?.();
+          }
+          break;
+        }
       }
     },
     [
@@ -253,6 +307,8 @@ export function useSketchTools(opts: UseSketchToolsOptions) {
         showGuides?.(linePtRef.current, pt);
       } else if (modeRef.current === "arrow" && arrowPtRef.current) {
         showGuides?.(arrowPtRef.current, pt);
+      } else if (modeRef.current === "measure" && measurePtRef.current) {
+        showGuides?.(measurePtRef.current, pt);
       }
     },
     [snapPoint, showGuides],
@@ -279,6 +335,7 @@ export function useSketchTools(opts: UseSketchToolsOptions) {
     roomPtsRef.current = [];
     linePtRef.current = null;
     arrowPtRef.current = null;
+    measurePtRef.current = null;
   }, [onMouseDown, onMouseMove, clearTemp]);
 
   const setMode = useCallback(
@@ -288,6 +345,7 @@ export function useSketchTools(opts: UseSketchToolsOptions) {
       roomPtsRef.current = [];
       linePtRef.current = null;
       arrowPtRef.current = null;
+      measurePtRef.current = null;
       clearGuides?.();
     },
     [clearTemp, clearGuides],
