@@ -36,15 +36,85 @@ export function PropertyDataSetupWizard({
   const [testResult, setTestResult] = useState<"idle" | "success" | "fail">(
     "idle",
   );
+  const [testError, setTestError] = useState<string | null>(null);
 
+  // RA-1760 — the wizard used to await a setTimeout and then claim
+  // success regardless of state. Now it actually probes:
+  //
+  //   1. GET /api/properties/scrape/health — confirms the server side
+  //      is wired up before we tell the user the scraper works.
+  //   2. POST /api/properties/scrape against a known sentinel address
+  //      to confirm the full stack (auth, rate-limit, scraper, parser)
+  //      can produce a usable payload. Validates the response shape
+  //      so an empty/HTML-error JSON doesn't slip through as success.
+  //
+  // Override the sentinel via NEXT_PUBLIC_PROPERTY_TEST_ADDRESS for
+  // CI/staging where the default may not resolve.
   const handleTestConnection = async () => {
     setTesting(true);
     setTestResult("idle");
-    // Simulate connection test — real implementation would call MCP bridge
-    await new Promise((res) => setTimeout(res, 2000));
-    // For setup purposes, treat any attempt as "check extension manually"
-    setTestResult("success");
-    setTesting(false);
+    setTestError(null);
+    try {
+      // ── Stage 1: server health ──────────────────────────────────
+      const h = await fetch("/api/properties/scrape/health");
+      if (!h.ok) {
+        const body = (await h.json().catch(() => ({}))) as {
+          reason?: string;
+          status?: string;
+        };
+        setTestResult("fail");
+        setTestError(
+          body.reason ??
+            `Scraper not configured (health returned ${h.status})`,
+        );
+        return;
+      }
+
+      // ── Stage 2: real scrape against a sentinel address ─────────
+      const sentinel =
+        process.env.NEXT_PUBLIC_PROPERTY_TEST_ADDRESS ??
+        "123 Test Street, Sydney NSW 2000";
+      const r = await fetch("/api/properties/scrape", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address: sentinel }),
+      });
+
+      if (!r.ok) {
+        const body = (await r.json().catch(() => ({}))) as {
+          error?: { message?: string } | string;
+        };
+        const msg =
+          typeof body.error === "string"
+            ? body.error
+            : body.error?.message ?? `Scrape returned ${r.status}`;
+        setTestResult("fail");
+        setTestError(msg);
+        return;
+      }
+
+      const json = (await r.json()) as {
+        data?: { bedrooms?: number; floorAreaM2?: number };
+      };
+      const data = json.data;
+      if (
+        data == null ||
+        (data.bedrooms == null && data.floorAreaM2 == null)
+      ) {
+        setTestResult("fail");
+        setTestError(
+          "Scraper returned no usable fields — no bedrooms or floorAreaM2 in payload",
+        );
+        return;
+      }
+
+      setTestResult("success");
+    } catch (err) {
+      setTestResult("fail");
+      setTestError(err instanceof Error ? err.message : "Network error");
+    } finally {
+      setTesting(false);
+    }
   };
 
   const handleNext = () => {
@@ -206,11 +276,19 @@ export function PropertyDataSetupWizard({
                   {testing
                     ? "Testing connection…"
                     : testResult === "success"
-                      ? "Extension detected — ready to use"
+                      ? "Scraper reachable — ready to use"
                       : testResult === "fail"
-                        ? "Extension not found — check installation"
+                        ? "Connection test failed"
                         : "Connection not tested yet"}
                 </p>
+                {testResult === "fail" && testError && (
+                  <p
+                    role="alert"
+                    className="text-xs text-rose-600 dark:text-rose-400 text-center px-2"
+                  >
+                    {testError}
+                  </p>
+                )}
               </div>
               <button
                 onClick={handleTestConnection}
