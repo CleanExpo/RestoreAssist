@@ -21,6 +21,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { apiError } from "@/lib/api-errors";
 import { applyRateLimit, getClientIp } from "@/lib/rate-limiter";
 import { validateCsrf } from "@/lib/csrf";
 import { withIdempotency } from "@/lib/idempotency";
@@ -30,6 +31,10 @@ import {
   computeAttestationIntegrityHash,
   validateSignatureDataUrl,
 } from "@/lib/progress/signature";
+import {
+  validateLabourHireAttestation,
+  type NormalisedLabourHire,
+} from "@/lib/progress/labour-hire";
 import { recordAttestationCaptured } from "@/lib/telemetry/progress";
 
 const ALLOWED_TYPES = new Set([
@@ -71,6 +76,14 @@ export async function POST(
       consentToken?: string;
       transitionId?: string | null;
       attestationNote?: string | null;
+      // RA-1763 — labour-hire fields, only consumed when
+      // attestationType === "LABOUR_HIRE_SELF". Validator coerces
+      // strings to numbers and upper-cases the state code.
+      labourHireHours?: number | string | null;
+      labourHireAwardClass?: string | null;
+      labourHireSuperRate?: number | string | null;
+      labourHirePortableLslState?: string | null;
+      labourHireInductionEvidenceId?: string | null;
     };
     try {
       body = rawBody ? JSON.parse(rawBody) : {};
@@ -98,6 +111,38 @@ export async function POST(
     const sigCheck = validateSignatureDataUrl(body.signatureDataUrl);
     if (!sigCheck.ok) {
       return NextResponse.json({ error: sigCheck.error }, { status: 400 });
+    }
+
+    // RA-1763 / M-13 — Fair Work compliance check for labour-hire
+    // attestations. Runs BEFORE consent-token redemption so an invalid
+    // body doesn't burn a one-shot token. Validator returns the normalised
+    // numbers + upper-cased state, which we persist verbatim onto the
+    // ProgressAttestation row below.
+    let normalisedLabourHire: NormalisedLabourHire | null = null;
+    if (body.attestationType === "LABOUR_HIRE_SELF") {
+      const result = validateLabourHireAttestation({
+        hours: body.labourHireHours ?? null,
+        awardClass: body.labourHireAwardClass ?? null,
+        superRate: body.labourHireSuperRate ?? null,
+        portableLslState: body.labourHirePortableLslState ?? null,
+        inductionEvidenceId: body.labourHireInductionEvidenceId ?? null,
+      });
+      if (!result.ok) {
+        const fields: Record<string, string> = {};
+        for (const e of result.errors) {
+          // Surface field-keyed errors so the client can render
+          // per-input messages instead of one global blob.
+          fields[e.field] = `${e.code}: ${e.message}`;
+        }
+        return apiError(request, {
+          code: "VALIDATION",
+          status: 400,
+          message: "Labour-hire attestation failed validation",
+          fields,
+          stage: "labour-hire-validation",
+        });
+      }
+      normalisedLabourHire = result.normalised;
     }
 
     const cp = await prisma.claimProgress.findUnique({
@@ -244,6 +289,15 @@ export async function POST(
             signerIp: attestIp,
             signerUserAgent: attestUserAgent,
             contentHash: token.contentHash,
+            // RA-1763 / M-13 — labour-hire fields from the validator's
+            // normalised output. Prisma coerces plain numbers to Decimal.
+            labourHireHours: normalisedLabourHire?.hours ?? null,
+            labourHireAwardClass: normalisedLabourHire?.awardClass ?? null,
+            labourHireSuperRate: normalisedLabourHire?.superRate ?? null,
+            labourHirePortableLslState:
+              normalisedLabourHire?.portableLslState ?? null,
+            labourHireInductionEvidenceId:
+              normalisedLabourHire?.inductionEvidenceId ?? null,
           },
           select: {
             id: true,
