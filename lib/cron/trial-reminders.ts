@@ -52,23 +52,43 @@ export async function sendTrialReminders(): Promise<CronJobResult> {
       where: {
         subscriptionStatus: "TRIAL",
         trialEndsAt: { gte: from, lte: to },
-        // Skip users we've already reminded in this window (see metadata below).
-        // We intentionally do NOT have a dedicated column yet — this query
-        // bounds the set to avoid duplicate sends within a single cron run.
       },
       select: {
         id: true,
         email: true,
         name: true,
         trialEndsAt: true,
+        // RA-1363: stored idempotency record. Shape:
+        //   { "3-day": "<ISO>", "1-day": "<ISO>" }
+        trialReminderSentAt: true,
       },
       take: 1000, // CLAUDE.md rule 4
     });
 
+    // RA-1363 — any cron fire within this many ms of a previously-recorded
+    // send for the same (user, window) is treated as a duplicate and skipped.
+    // 20h covers both retry-after-timeout (minutes) and overlapping daily
+    // invocations; shorter than 24h so we don't swallow the NEXT day's fire
+    // if the cron is late.
+    const IDEMPOTENCY_WINDOW_MS = 20 * 60 * 60 * 1000;
+
     let sentInWindow = 0;
+    let skippedDuplicate = 0;
 
     for (const user of candidates) {
       if (!user.email || !user.trialEndsAt) continue;
+
+      // RA-1363: short-circuit if we already sent this window's reminder recently.
+      const stored =
+        (user.trialReminderSentAt as Record<string, string> | null) ?? null;
+      const lastIso = stored?.[win.label];
+      if (lastIso) {
+        const last = Date.parse(lastIso);
+        if (Number.isFinite(last) && now.getTime() - last < IDEMPOTENCY_WINDOW_MS) {
+          skippedDuplicate++;
+          continue;
+        }
+      }
 
       const msLeft = user.trialEndsAt.getTime() - now.getTime();
       const daysRemaining = Math.max(
@@ -84,13 +104,28 @@ export async function sendTrialReminders(): Promise<CronJobResult> {
           subscribeUrl,
         });
         sentInWindow++;
+
+        // RA-1363: record the send BEFORE the next iteration so a crash between
+        // sends still prevents the same user being re-emailed on cron retry.
+        const next = { ...(stored ?? {}), [win.label]: now.toISOString() };
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { trialReminderSentAt: next },
+        });
       } catch (err) {
         console.error(
           `[cron/trial-reminders] Failed to send ${win.label} reminder to user ${user.id}:`,
           err,
         );
         // Continue — one send failure shouldn't abort the whole run.
+        // We deliberately do NOT write trialReminderSentAt on failure so the
+        // next cron run will retry (with the 20h guard still enforcing that
+        // retries don't pile up within the same cron day).
       }
+    }
+
+    if (skippedDuplicate > 0) {
+      perWindow[`${win.label}_skipped_duplicate`] = skippedDuplicate;
     }
 
     perWindow[win.label] = sentInWindow;

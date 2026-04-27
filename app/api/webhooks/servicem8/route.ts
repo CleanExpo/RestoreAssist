@@ -5,6 +5,7 @@ import {
   deriveExternalEventId,
   isUniqueConstraintError,
 } from "@/lib/webhook-idempotency";
+import { recordWebhookFailure } from "@/lib/webhook-audit";
 
 /**
  * POST /api/webhooks/servicem8
@@ -136,6 +137,12 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("[ServiceM8 Webhook] Error:", error);
+    await recordWebhookFailure({
+      provider: "servicem8",
+      stage: "top-level",
+      error,
+      request,
+    });
     // Always 200 — prevents ServiceM8 from flooding retries
     return NextResponse.json(
       { success: false, error: "Internal server error" },

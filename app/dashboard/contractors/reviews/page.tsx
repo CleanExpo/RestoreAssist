@@ -12,6 +12,7 @@ import {
   ThumbsDown,
   Send,
 } from "lucide-react";
+import { useConfirmDialog } from "@/components/ConfirmDialog";
 
 interface Review {
   id: string;
@@ -37,6 +38,7 @@ interface Review {
 export default function ContractorReviewsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const confirm = useConfirmDialog();
 
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
@@ -130,13 +132,14 @@ export default function ContractorReviewsPage() {
       return;
     }
 
-    if (
-      !confirm(
+    const ok = await confirm.ask({
+      title: "Dispute this review?",
+      description:
         "Are you sure you want to dispute this review? This action cannot be undone.",
-      )
-    ) {
-      return;
-    }
+      confirmLabel: "Dispute",
+      destructive: true,
+    });
+    if (!ok) return;
 
     setSubmitting(true);
     setMessage(null);
@@ -206,6 +209,7 @@ export default function ContractorReviewsPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <confirm.Mount />
       <h1 className="text-3xl font-bold text-white mb-8">Manage Reviews</h1>
 
       {/* Message */}

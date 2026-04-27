@@ -128,19 +128,51 @@ export async function POST(request: NextRequest) {
       let estimate;
 
       if (existingEstimate) {
-        // Update existing estimate
-        // First, delete all existing line items
-        await prisma.estimateLineItem.deleteMany({
+        // RA-1359 — diff-and-sync instead of deleteMany+create. The old
+        // code wiped createdBy / modifiedBy / modifiedAt / changeReason
+        // on every save, destroying the line-item audit trail that the
+        // billing-dispute evidence story depends on.
+        //
+        // Strategy: for each incoming line item with a matching DB id,
+        // UPDATE (preserving createdBy, bumping modifiedBy + modifiedAt).
+        // Incoming items without an id, or whose id isn't in the DB, get
+        // CREATED. DB items whose id isn't in the incoming set are
+        // DELETED. All three happen inside a single transaction so the
+        // estimate + its line-item diff land atomically.
+        const incoming = (lineItems || []) as any[];
+        const incomingIds = new Set(
+          incoming.map((item) => item.id).filter((id): id is string => !!id),
+        );
+
+        const existingLineItems = await prisma.estimateLineItem.findMany({
           where: { estimateId: existingEstimate.id },
+          select: { id: true },
         });
 
-        // Then update the estimate and create new line items
-        estimate = await prisma.estimate.update({
-          where: { id: existingEstimate.id },
-          data: {
-            ...estimateData,
-            lineItems: {
-              create: (lineItems || []).map((item: any) => ({
+        const toDeleteIds = existingLineItems
+          .map((li) => li.id)
+          .filter((id) => !incomingIds.has(id));
+
+        // Separate incoming into existing-update vs brand-new
+        const toUpdate = incoming.filter(
+          (item) => item.id && incomingIds.has(item.id) &&
+            existingLineItems.some((li) => li.id === item.id),
+        );
+        const toCreate = incoming.filter(
+          (item) => !item.id || !existingLineItems.some((li) => li.id === item.id),
+        );
+
+        estimate = await prisma.$transaction(async (tx) => {
+          if (toDeleteIds.length > 0) {
+            await tx.estimateLineItem.deleteMany({
+              where: { id: { in: toDeleteIds } },
+            });
+          }
+
+          for (const item of toUpdate) {
+            await tx.estimateLineItem.update({
+              where: { id: item.id },
+              data: {
                 code: item.code || null,
                 category: item.category,
                 description: item.description,
@@ -152,16 +184,43 @@ export async function POST(request: NextRequest) {
                 isScopeLinked: item.isScopeLinked || false,
                 isEstimatorAdded: item.isEstimatorAdded !== false,
                 displayOrder: item.displayOrder || 0,
-                createdBy: userId,
+                // RA-1359: preserve createdBy; track the edit on
+                // modifiedBy + modifiedAt + changeReason.
                 modifiedBy: userId,
+                modifiedAt: new Date(),
                 changeReason: item.changeReason || null,
                 sourceCostItemId: item.sourceCostItemId || null,
-              })),
+              },
+            });
+          }
+
+          return await tx.estimate.update({
+            where: { id: existingEstimate.id },
+            data: {
+              ...estimateData,
+              lineItems: {
+                create: toCreate.map((item: any) => ({
+                  code: item.code || null,
+                  category: item.category,
+                  description: item.description,
+                  qty: item.qty,
+                  unit: item.unit,
+                  rate: item.rate,
+                  formula: item.formula || null,
+                  subtotal: item.subtotal || item.qty * item.rate,
+                  isScopeLinked: item.isScopeLinked || false,
+                  isEstimatorAdded: item.isEstimatorAdded !== false,
+                  displayOrder: item.displayOrder || 0,
+                  createdBy: userId,
+                  changeReason: item.changeReason || null,
+                  sourceCostItemId: item.sourceCostItemId || null,
+                })),
+              },
             },
-          },
-          include: {
-            lineItems: true,
-          },
+            include: {
+              lineItems: true,
+            },
+          });
         });
       } else {
         // Create new estimate

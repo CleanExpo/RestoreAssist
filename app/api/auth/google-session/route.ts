@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // POST - Create a NextAuth session for Google-authenticated user
 // Signs in the user using NextAuth credentials provider (without password for Google users)
@@ -8,7 +9,11 @@ export async function POST(request: NextRequest) {
     const { email } = await request.json();
 
     if (!email) {
-      return NextResponse.json({ error: "Email is required" }, { status: 400 });
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Email is required",
+        status: 400,
+      });
     }
 
     // Verify user exists in database
@@ -17,7 +22,11 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "User not found",
+        status: 404,
+      });
     }
 
     // Return success - the client will call NextAuth signIn with credentials
@@ -31,11 +40,7 @@ export async function POST(request: NextRequest) {
         role: user.role,
       },
     });
-  } catch (error: any) {
-    console.error("Error in Google session:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+  } catch (error) {
+    return fromException(request, error, { stage: "google-session" });
   }
 }

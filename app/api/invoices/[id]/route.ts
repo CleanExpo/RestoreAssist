@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isDraft, isCancelled } from "@/lib/invoice-status";
+import { recordMutationAudit } from "@/lib/audit-log";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function GET(
   request: NextRequest,
@@ -12,7 +14,7 @@ export async function GET(
     const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
     }
 
     const invoice = await prisma.invoice.findUnique({
@@ -66,16 +68,12 @@ export async function GET(
     });
 
     if (!invoice) {
-      return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+      return apiError(request, { code: "NOT_FOUND", message: "Invoice not found", status: 404 });
     }
 
     return NextResponse.json({ invoice });
   } catch (error: any) {
-    console.error("Error fetching invoice:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch invoice" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "invoice-get" });
   }
 }
 
@@ -87,7 +85,7 @@ export async function PUT(
     const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
     }
 
     // Check if invoice exists and belongs to user
@@ -99,15 +97,16 @@ export async function PUT(
     });
 
     if (!existing) {
-      return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+      return apiError(request, { code: "NOT_FOUND", message: "Invoice not found", status: 404 });
     }
 
     // Only allow updates to DRAFT invoices
     if (!isDraft(existing.status)) {
-      return NextResponse.json(
-        { error: "Only draft invoices can be edited" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "CONFLICT",
+        message: "Only draft invoices can be edited",
+        status: 409,
+      });
     }
 
     const body = await request.json();
@@ -236,6 +235,19 @@ export async function PUT(
         return updated;
       });
 
+      await recordMutationAudit({
+        resource: "invoice",
+        resourceId: id,
+        verb: "UPDATE",
+        action: "invoice.update",
+        actorUserId: session.user.id,
+        metadata: {
+          invoiceNumber: existing.invoiceNumber,
+          linesReplaced: true,
+          lineCount: lineItems.length,
+        },
+        request,
+      });
       return NextResponse.json({ invoice });
     } else {
       // Update invoice without line items
@@ -263,14 +275,19 @@ export async function PUT(
         return updated;
       });
 
+      await recordMutationAudit({
+        resource: "invoice",
+        resourceId: id,
+        verb: "UPDATE",
+        action: "invoice.update",
+        actorUserId: session.user.id,
+        metadata: { invoiceNumber: existing.invoiceNumber, linesReplaced: false },
+        request,
+      });
       return NextResponse.json({ invoice });
     }
   } catch (error: any) {
-    console.error("Error updating invoice:", error);
-    return NextResponse.json(
-      { error: "Failed to update invoice" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "invoice-put" });
   }
 }
 
@@ -282,7 +299,7 @@ export async function DELETE(
     const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
     }
 
     // Check if invoice exists and belongs to user
@@ -294,15 +311,16 @@ export async function DELETE(
     });
 
     if (!invoice) {
-      return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+      return apiError(request, { code: "NOT_FOUND", message: "Invoice not found", status: 404 });
     }
 
     // Only allow deletion of DRAFT or CANCELLED invoices
     if (!isDraft(invoice.status) && !isCancelled(invoice.status)) {
-      return NextResponse.json(
-        { error: "Only draft or cancelled invoices can be deleted" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "CONFLICT",
+        message: "Only draft or cancelled invoices can be deleted",
+        status: 409,
+      });
     }
 
     // Delete invoice (cascade will handle related records)
@@ -310,15 +328,21 @@ export async function DELETE(
       where: { id },
     });
 
+    await recordMutationAudit({
+      resource: "invoice",
+      resourceId: id,
+      verb: "DELETE",
+      action: "invoice.delete",
+      actorUserId: session.user.id,
+      metadata: { invoiceNumber: invoice.invoiceNumber, status: invoice.status },
+      request,
+    });
+
     return NextResponse.json({
       success: true,
       message: "Invoice deleted successfully",
     });
   } catch (error: any) {
-    console.error("Error deleting invoice:", error);
-    return NextResponse.json(
-      { error: "Failed to delete invoice" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "invoice-delete" });
   }
 }

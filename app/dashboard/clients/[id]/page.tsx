@@ -21,6 +21,23 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import PortalInvitationSection from "@/components/dashboard/PortalInvitationSection";
+import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
+import { formatDate } from "@/lib/formatters";
+
+const REPORT_STATUS_TONES: Record<string, StatusTone> = {
+  completed: "success",
+  approved: "success",
+  in_progress: "info",
+  pending: "warning",
+  draft: "neutral",
+};
+
+const CLIENT_STATUS_TONES: Record<string, StatusTone> = {
+  ACTIVE: "success",
+  INACTIVE: "warning",
+  PROSPECT: "info",
+  ARCHIVED: "neutral",
+};
 
 interface LinkedInspection {
   id: string;
@@ -183,35 +200,7 @@ export default function ClientDetailPage({
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "completed":
-        return "bg-emerald-500/20 text-emerald-400";
-      case "in_progress":
-        return "bg-blue-500/20 text-blue-400";
-      case "pending":
-        return "bg-amber-500/20 text-amber-400";
-      case "draft":
-        return "bg-slate-500/20 text-slate-400";
-      default:
-        return "bg-slate-500/20 text-slate-400";
-    }
-  };
 
-  const getClientStatusColor = (status: string) => {
-    switch (status) {
-      case "ACTIVE":
-        return "bg-emerald-500/20 text-emerald-400";
-      case "INACTIVE":
-        return "bg-amber-500/20 text-amber-400";
-      case "PROSPECT":
-        return "bg-blue-500/20 text-blue-400";
-      case "ARCHIVED":
-        return "bg-slate-500/20 text-slate-400";
-      default:
-        return "bg-slate-500/20 text-slate-400";
-    }
-  };
 
   const getDocTypeLabel = (type: string) => {
     if (type === "RESTORATION_INVOICE") return "Tax Invoice";
@@ -237,9 +226,9 @@ export default function ClientDetailPage({
     return (
       <div className="text-center py-12">
         <AlertTriangle className="mx-auto h-12 w-12 text-slate-400 mb-4" />
-        <h3 className="text-lg font-medium text-white mb-2">
+        <h1 className="text-lg font-medium text-white mb-2">
           Client not found
-        </h3>
+        </h1>
         <p className="text-slate-400 mb-4">
           The client you're looking for doesn't exist or has been deleted.
         </p>
@@ -285,10 +274,10 @@ export default function ClientDetailPage({
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Contact Information */}
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
-          <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+          <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
             <User className="text-cyan-400" size={20} />
             Contact Information
-          </h3>
+          </h2>
           <div className="space-y-3">
             <div className="flex items-center gap-3">
               <Mail className="text-slate-400" size={16} />
@@ -317,18 +306,16 @@ export default function ClientDetailPage({
 
         {/* Business Information */}
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
-          <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+          <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
             <Building className="text-blue-400" size={20} />
             Business Information
-          </h3>
+          </h2>
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-slate-400">Status</span>
-              <span
-                className={`px-3 py-1 rounded-full text-xs font-medium ${getClientStatusColor(client.status)}`}
-              >
+              <StatusBadge tone={CLIENT_STATUS_TONES[client.status] ?? "neutral"}>
                 {client.status}
-              </span>
+              </StatusBadge>
             </div>
             {client.contactPerson && (
               <div className="flex items-center justify-between">
@@ -339,13 +326,13 @@ export default function ClientDetailPage({
             <div className="flex items-center justify-between">
               <span className="text-slate-400">Client Since</span>
               <span className="text-slate-300">
-                {new Date(client.createdAt).toLocaleDateString()}
+                {formatDate(client.createdAt)}
               </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-slate-400">Last Updated</span>
               <span className="text-slate-300">
-                {new Date(client.updatedAt).toLocaleDateString()}
+                {formatDate(client.updatedAt)}
               </span>
             </div>
           </div>
@@ -353,10 +340,10 @@ export default function ClientDetailPage({
 
         {/* Statistics */}
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
-          <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+          <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
             <DollarSign className="text-emerald-400" size={20} />
             Statistics
-          </h3>
+          </h2>
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-slate-400">Total Reports</span>
@@ -392,10 +379,10 @@ export default function ClientDetailPage({
       {/* Notes */}
       {client.notes && (
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
-          <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+          <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
             <FileText className="text-amber-400" size={20} />
             Notes
-          </h3>
+          </h2>
           <p className="text-slate-300">{client.notes}</p>
         </div>
       )}
@@ -409,7 +396,7 @@ export default function ClientDetailPage({
 
       {/* Inspections */}
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
-        <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+        <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
           <ClipboardList className="text-cyan-400" size={20} />
           Inspections
           {!loadingInspections && (
@@ -417,7 +404,7 @@ export default function ClientDetailPage({
               ({inspections.length})
             </span>
           )}
-        </h3>
+        </h2>
         {loadingInspections ? (
           <div className="space-y-3">
             {[1, 2, 3].map((n) => (
@@ -472,9 +459,9 @@ export default function ClientDetailPage({
                       </span>
                     </td>
                     <td className="py-3 pr-4 text-slate-400">
-                      {new Date(
+                      {formatDate(
                         inspection.submittedAt ?? inspection.createdAt,
-                      ).toLocaleDateString()}
+                      )}
                     </td>
                     <td className="py-3">
                       <Link
@@ -495,10 +482,10 @@ export default function ClientDetailPage({
 
       {/* Reports History */}
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
-        <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+        <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
           <FileText className="text-blue-400" size={20} />
           Reports History ({client.reportsCount})
-        </h3>
+        </h2>
         {client.reports.length === 0 ? (
           <div className="text-center py-8">
             <FileText className="mx-auto h-12 w-12 text-slate-400 mb-4" />
@@ -518,10 +505,10 @@ export default function ClientDetailPage({
                 className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg"
               >
                 <div className="flex-1">
-                  <h4 className="font-medium text-white">{report.title}</h4>
+                  <h3 className="font-medium text-white">{report.title}</h3>
                   <div className="flex items-center gap-4 mt-1 text-sm text-slate-400">
                     <span>
-                      {new Date(report.createdAt).toLocaleDateString()}
+                      {formatDate(report.createdAt)}
                     </span>
                     {report.reportNumber && <span>#{report.reportNumber}</span>}
                     {report.waterCategory && (
@@ -536,11 +523,11 @@ export default function ClientDetailPage({
                   <span className="text-lg font-bold text-cyan-400">
                     ${(report.totalCost || 0).toLocaleString()}
                   </span>
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}
+                  <StatusBadge
+                    tone={REPORT_STATUS_TONES[report.status.toLowerCase()] ?? "neutral"}
                   >
                     {report.status.replace("_", " ")}
-                  </span>
+                  </StatusBadge>
                   <Link
                     href={`/dashboard/reports/${report.id}`}
                     className="flex items-center gap-1 text-cyan-400 hover:underline text-sm"
@@ -557,7 +544,7 @@ export default function ClientDetailPage({
 
       {/* Restoration Invoices */}
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
-        <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+        <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
           <Receipt className="text-emerald-400" size={20} />
           Restoration Invoices
           {!invoicesLoading && (
@@ -565,7 +552,7 @@ export default function ClientDetailPage({
               {invoices.length}
             </span>
           )}
-        </h3>
+        </h2>
 
         {invoicesLoading ? (
           <div className="space-y-3">

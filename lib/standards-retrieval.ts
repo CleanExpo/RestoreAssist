@@ -279,7 +279,7 @@ Be thorough but precise. Each extracted section should be directly usable in the
 
     // Use prompt caching for cost optimization (90% savings on cache hits)
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4-6",
       max_tokens: 4000,
       system: [createCachedSystemPrompt(systemPrompt)],
       messages: [
@@ -387,7 +387,7 @@ Analyse this folder structure and identify the most relevant standards documents
 
     // Use prompt caching for cost optimization (90% savings on cache hits)
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4-6",
       max_tokens: 4000,
       system: [createCachedSystemPrompt(systemPrompt)],
       messages: [

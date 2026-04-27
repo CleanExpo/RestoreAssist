@@ -53,6 +53,8 @@ export async function GET(request: NextRequest) {
         createdAt: true,
         organizationId: true,
         subscriptionStatus: true,
+        // RA-1467: surface the Junior Technician flag to the admin UI
+        isJuniorTechnician: true,
         _count: {
           select: {
             inspections: true,

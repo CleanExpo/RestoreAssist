@@ -18,6 +18,7 @@ import { checkNzbsGate } from "@/lib/compliance/nzbs-compliance-gate";
 import { detectMoistureTrendAnomalies } from "@/lib/compliance/moisture-trend-anomaly";
 import { detectDuplicateJob } from "@/lib/compliance/duplicate-detector";
 import { withIdempotency } from "@/lib/idempotency";
+import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 
 // POST - Submit inspection for processing
 export async function POST(
@@ -36,12 +37,19 @@ export async function POST(
   // classification, cost estimation, and downstream processing runs.
   return withIdempotency(request, userId, async () => {
     try {
-      // Get inspection with all data
-      const inspection = await prisma.inspection.findFirst({
-        where: {
-          id,
-          userId,
-        },
+      // RA-1711 batch 5 — adopt shared tenancy helper. Workspace techs
+      // submit inspections from the field; admins audit. CAS at the
+      // status-DRAFT update below still serialises concurrent submits.
+      const tenancy = await assertInspectionTenancy(session, id);
+      if (!tenancy.ok) {
+        return NextResponse.json(
+          { error: tenancy.reason },
+          { status: tenancy.status },
+        );
+      }
+
+      const inspection = await prisma.inspection.findUnique({
+        where: { id },
         include: {
           environmentalData: true,
           moistureReadings: true,
@@ -187,8 +195,11 @@ export async function POST(
       }
 
       // Atomic CAS — ensures only one concurrent submit wins; prevents duplicate child record creation
+      // CAS no longer scopes by userId — tenancy is verified above by
+      // assertInspectionTenancy, which permits owner OR workspace-member
+      // OR admin. Status-DRAFT predicate still serialises submits.
       const submitGuard = await prisma.inspection.updateMany({
-        where: { id, userId: userId, status: "DRAFT" },
+        where: { id, status: "DRAFT" },
         data: { status: "SUBMITTED", submittedAt: new Date() },
       });
       if (submitGuard.count === 0) {

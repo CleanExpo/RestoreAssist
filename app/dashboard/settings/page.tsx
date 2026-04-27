@@ -19,6 +19,15 @@ import {
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
+import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
+
+const SUBSCRIPTION_STATUS_TONES: Record<string, StatusTone> = {
+  ACTIVE: "success",
+  TRIAL: "info",
+  CANCELED: "warning",
+  EXPIRED: "danger",
+  PAST_DUE: "warning",
+};
 
 interface UserProfile {
   id: string;
@@ -139,23 +148,6 @@ export default function SettingsPage() {
       window.removeEventListener("focus", fetchProfile);
     };
   }, []);
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "ACTIVE":
-        return "text-green-400 bg-green-500/20";
-      case "TRIAL":
-        return "text-blue-400 bg-blue-500/20";
-      case "CANCELED":
-        return "text-yellow-400 bg-yellow-500/20";
-      case "EXPIRED":
-        return "text-red-400 bg-red-500/20";
-      case "PAST_DUE":
-        return "text-orange-400 bg-orange-500/20";
-      default:
-        return "text-slate-400 bg-slate-500/20";
-    }
-  };
 
   const getStatusText = (status: string) => {
     switch (status) {
@@ -410,11 +402,15 @@ export default function SettingsPage() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-2">Status</label>
-                <div
-                  className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(profile?.subscriptionStatus || "TRIAL")}`}
+                <StatusBadge
+                  tone={
+                    SUBSCRIPTION_STATUS_TONES[
+                      profile?.subscriptionStatus ?? "TRIAL"
+                    ] ?? "neutral"
+                  }
                 >
                   {getStatusText(profile?.subscriptionStatus || "TRIAL")}
-                </div>
+                </StatusBadge>
               </div>
 
               {profile?.subscriptionPlan && (

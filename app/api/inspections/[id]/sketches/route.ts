@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 
 // GET /api/inspections/[id]/sketches — list all sketches for an inspection
 export async function GET(
@@ -16,15 +17,12 @@ export async function GET(
 
     const { id } = await params;
 
-    // Verify ownership
-    const inspection = await prisma.inspection.findFirst({
-      where: { id, userId: session.user.id },
-      select: { id: true },
-    });
-    if (!inspection) {
+    // RA-1711 batch 4 — adopt shared tenancy helper.
+    const tenancy = await assertInspectionTenancy(session, id);
+    if (!tenancy.ok) {
       return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
+        { error: tenancy.reason },
+        { status: tenancy.status },
       );
     }
 
@@ -59,15 +57,12 @@ export async function POST(
 
     const { id } = await params;
 
-    // Verify ownership
-    const inspection = await prisma.inspection.findFirst({
-      where: { id, userId: session.user.id },
-      select: { id: true },
-    });
-    if (!inspection) {
+    // RA-1711 batch 4 — adopt shared tenancy helper.
+    const tenancy = await assertInspectionTenancy(session, id);
+    if (!tenancy.ok) {
       return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
+        { error: tenancy.reason },
+        { status: tenancy.status },
       );
     }
 
@@ -86,6 +81,36 @@ export async function POST(
     const existing = await (prisma as any).claimSketch.findFirst({
       where: { inspectionId: id, floorNumber },
     });
+
+    // RA-1762 — staleness guard. The offline sketch queue can hold a
+    // payload whose logical timestamp predates the latest server write
+    // (user dropped offline, drew, came back online and saved fresh,
+    // then a slow queued POST finally arrives carrying the older state).
+    // Without this check the older payload would clobber the newer one.
+    //
+    // Client sends `x-client-updated-at` (epoch ms or ISO) representing
+    // the moment the sketch state was captured locally. If we already
+    // have a newer row, return 409 with `{ stale: true }` so the queue
+    // drain drops the entry silently rather than retrying or storing
+    // a conflict record. Online-first saves can omit the header — the
+    // null branch behaves like the old code.
+    const clientUpdatedAtRaw = request.headers.get("x-client-updated-at");
+    if (existing && clientUpdatedAtRaw) {
+      const clientMs = Number.isFinite(Number(clientUpdatedAtRaw))
+        ? Number(clientUpdatedAtRaw)
+        : Date.parse(clientUpdatedAtRaw);
+      const serverMs = new Date(existing.updatedAt).getTime();
+      if (Number.isFinite(clientMs) && clientMs < serverMs) {
+        return NextResponse.json(
+          {
+            stale: true,
+            reason: "Server has a newer sketch for this floor",
+            serverUpdatedAt: existing.updatedAt,
+          },
+          { status: 409 },
+        );
+      }
+    }
 
     const sketch = existing
       ? await (prisma as any).claimSketch.update({

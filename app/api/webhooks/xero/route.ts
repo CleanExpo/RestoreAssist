@@ -5,6 +5,7 @@ import {
   deriveExternalEventId,
   isUniqueConstraintError,
 } from "@/lib/webhook-idempotency";
+import { recordWebhookFailure } from "@/lib/webhook-audit";
 
 /**
  * POST /api/webhooks/xero - Receive webhook events from Xero
@@ -175,6 +176,12 @@ export async function POST(request: NextRequest) {
     // Only return 200 once we've persisted the event to the queue
     // (which the normal path does above).
     console.error("[Xero Webhook] Error processing webhook:", error);
+    await recordWebhookFailure({
+      provider: "xero",
+      stage: "top-level",
+      error,
+      request,
+    });
     return NextResponse.json(
       { success: false, error: "Internal server error" },
       { status: 500 },

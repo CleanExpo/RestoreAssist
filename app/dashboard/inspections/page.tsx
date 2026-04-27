@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DeleteConfirmationDialog } from "@/components/DeleteConfirmationDialog";
+import { EmptyState } from "@/components/EmptyState";
 
 interface Inspection {
   id: string;
@@ -406,31 +407,27 @@ export default function InspectionsPage() {
           <Loader2 className="animate-spin text-cyan-500" size={32} />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-20">
-          <ClipboardCheck
-            size={48}
-            className="mx-auto text-neutral-300 dark:text-slate-600 mb-4"
-          />
-          <h3 className="text-lg font-semibold text-neutral-700 dark:text-slate-300">
-            {inspections.length === 0
+        <EmptyState
+          icon={<ClipboardCheck size={40} aria-hidden />}
+          title={
+            inspections.length === 0
               ? "No inspections yet"
-              : "No matching inspections"}
-          </h3>
-          <p className="text-sm text-neutral-500 dark:text-slate-400 mt-1 mb-4">
-            {inspections.length === 0
+              : "No matching inspections"
+          }
+          description={
+            inspections.length === 0
               ? "Create your first National Inspection Report"
-              : "Try adjusting your search or filters"}
-          </p>
-          {inspections.length === 0 && (
-            <button
-              onClick={() => router.push("/dashboard/inspections/new")}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
-            >
-              <Plus size={16} />
-              New Inspection
-            </button>
-          )}
-        </div>
+              : "Try adjusting your search or filters"
+          }
+          primaryAction={
+            inspections.length === 0
+              ? {
+                  label: "New Inspection",
+                  onClick: () => router.push("/dashboard/inspections/new"),
+                }
+              : undefined
+          }
+        />
       ) : (
         <div className="space-y-3">
           {filtered.map((insp) => {

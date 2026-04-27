@@ -20,6 +20,7 @@ import { verifyAdminFromDb } from "@/lib/admin-auth";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { evaluateVariation } from "@/lib/compliance/variation-auto-approve";
 import { withIdempotency } from "@/lib/idempotency";
+import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 
 // RA-1383 v2: authorisationSource is now a Prisma enum. Accept both the
 // legacy lowercase strings (for backward compat with existing clients)
@@ -63,15 +64,12 @@ export async function GET(
 
     const { id } = await params;
 
-    // Ownership check
-    const inspection = await prisma.inspection.findFirst({
-      where: { id, userId: session.user.id },
-      select: { id: true },
-    });
-    if (!inspection) {
+    // RA-1711 batch 4 — adopt shared tenancy helper.
+    const tenancy = await assertInspectionTenancy(session, id);
+    if (!tenancy.ok) {
       return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
+        { error: tenancy.reason },
+        { status: tenancy.status },
       );
     }
 
@@ -112,11 +110,18 @@ export async function POST(
   const userId = session.user.id;
   const { id } = await params;
 
-  // Ownership check — also fetch organisation country for threshold resolution
-  const inspection = await prisma.inspection.findFirst({
-    where: { id, userId },
+  // RA-1711 batch 4 — adopt shared tenancy helper, then fetch org country.
+  const tenancy = await assertInspectionTenancy(session, id);
+  if (!tenancy.ok) {
+    return NextResponse.json(
+      { error: tenancy.reason },
+      { status: tenancy.status },
+    );
+  }
+
+  const inspection = await prisma.inspection.findUnique({
+    where: { id },
     select: {
-      id: true,
       user: {
         select: {
           organization: {

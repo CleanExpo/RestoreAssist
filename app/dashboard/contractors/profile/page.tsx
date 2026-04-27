@@ -13,6 +13,8 @@ import {
   AlertCircle,
   CheckCircle,
 } from "lucide-react";
+import { useConfirmDialog } from "@/components/ConfirmDialog";
+import { useAsyncAction } from "@/lib/client/use-async-action";
 
 interface ContractorProfile {
   id: string;
@@ -55,12 +57,12 @@ interface ServiceArea {
 export default function ContractorProfileDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const confirm = useConfirmDialog();
 
   const [profile, setProfile] = useState<ContractorProfile | null>(null);
   const [certifications, setCertifications] = useState<Certification[]>([]);
   const [serviceAreas, setServiceAreas] = useState<ServiceArea[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{
     type: "success" | "error";
     text: string;
@@ -141,8 +143,7 @@ export default function ContractorProfileDashboard() {
     }
   };
 
-  const saveProfile = async () => {
-    setSaving(true);
+  const { run: saveProfile, loading: saving } = useAsyncAction(async () => {
     setMessage(null);
 
     try {
@@ -173,10 +174,8 @@ export default function ContractorProfileDashboard() {
       }
     } catch (error) {
       setMessage({ type: "error", text: "Failed to update profile" });
-    } finally {
-      setSaving(false);
     }
-  };
+  });
 
   const addCertification = async () => {
     if (
@@ -227,7 +226,13 @@ export default function ContractorProfileDashboard() {
   };
 
   const deleteCertification = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this certification?")) return;
+    const ok = await confirm.ask({
+      title: "Delete certification?",
+      description: "Are you sure you want to delete this certification?",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       const res = await fetch(`/api/contractors/certifications/${id}`, {
@@ -286,7 +291,13 @@ export default function ContractorProfileDashboard() {
   };
 
   const deleteServiceArea = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this service area?")) return;
+    const ok = await confirm.ask({
+      title: "Delete service area?",
+      description: "Are you sure you want to delete this service area?",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       const res = await fetch(`/api/contractors/service-areas/${id}`, {
@@ -314,6 +325,7 @@ export default function ContractorProfileDashboard() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <confirm.Mount />
       <h1 className="text-3xl font-bold text-white mb-8">Contractor Profile</h1>
 
       {/* Message */}

@@ -23,11 +23,19 @@ test.describe("Public Navigation", () => {
   test("should navigate to pricing page", async ({ page }) => {
     await page.goto("/pricing");
 
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-    // Pricing page should have pricing tiers
+    // The H1 ships with inline opacity:0 (entrance animation start state) —
+    // see RA-1730. Wait for the animation to settle before asserting.
     await expect(
-      page.getByText(/month|year|free|pro|enterprise/i),
-    ).toBeVisible();
+      page.getByRole("heading", { level: 1 }),
+    ).toBeVisible({ timeout: 10_000 });
+
+    // Pricing page should show at least one pricing tier heading. The page
+    // renders multiple "/month" texts and other pricing terms — pin to the
+    // tier headings so the matcher resolves to one element instead of the
+    // whole pricing-language soup that broke the previous regex.
+    await expect(
+      page.getByRole("heading", { name: /monthly|annual|enterprise/i }),
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   test("should navigate to about page", async ({ page }) => {
@@ -53,7 +61,13 @@ test.describe("404 Page", () => {
   test("should display 404 page for invalid routes", async ({ page }) => {
     await page.goto("/this-page-does-not-exist-12345");
 
-    // Should show 404 content
-    await expect(page.getByText(/404|not found|page not found/i)).toBeVisible();
+    // Should show 404 content. The page renders both a "404" tile and a
+    // "Page Not Found" heading — the previous regex matched both and
+    // Playwright's strict mode resolved that as ambiguous, failing the
+    // assertion despite the page being correct. Pin to the heading so
+    // the matcher resolves to one element.
+    await expect(
+      page.getByRole("heading", { name: /page not found/i }),
+    ).toBeVisible();
   });
 });

@@ -13,6 +13,7 @@
     { "path": "/api/cron/winback", "schedule": "0 9 * * *" },
     { "path": "/api/cron/google-token-refresh", "schedule": "0 5 * * 0" },
     { "path": "/api/cron/dr-nrpg-liveness", "schedule": "30 4 * * *" },
-    { "path": "/api/cron/prune-webhook-events", "schedule": "30 3 * * *" }
+    { "path": "/api/cron/prune-webhook-events", "schedule": "30 3 * * *" },
+    { "path": "/api/cron/override-governance", "schedule": "0 1 1 * *" }
   ]
 }

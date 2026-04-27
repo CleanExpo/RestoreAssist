@@ -4,6 +4,12 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
+import {
+  parseEquipmentParameters,
+  parseSiteVariables,
+  serializeEquipmentParameters,
+  serializeSiteVariables,
+} from "@/lib/scope-json-helpers";
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -73,13 +79,12 @@ export async function POST(request: NextRequest) {
       const scopeData = {
         reportId,
         scopeType,
-        siteVariables: siteVariables ? JSON.stringify(siteVariables) : null,
+        // RA-1366 — emit _v:1 on every write so readers know the shape.
+        siteVariables: serializeSiteVariables(siteVariables),
         labourParameters: labourParameters
           ? JSON.stringify(labourParameters)
           : null,
-        equipmentParameters: equipmentParameters
-          ? JSON.stringify(equipmentParameters)
-          : null,
+        equipmentParameters: serializeEquipmentParameters(equipmentParameters),
         chemicalApplication: chemicalApplication
           ? JSON.stringify(chemicalApplication)
           : null,
@@ -115,15 +120,11 @@ export async function POST(request: NextRequest) {
         id: scope.id,
         reportId: scope.reportId,
         scopeType: scope.scopeType,
-        siteVariables: scope.siteVariables
-          ? JSON.parse(scope.siteVariables)
-          : null,
+        siteVariables: parseSiteVariables(scope.siteVariables),
         labourParameters: scope.labourParameters
           ? JSON.parse(scope.labourParameters)
           : null,
-        equipmentParameters: scope.equipmentParameters
-          ? JSON.parse(scope.equipmentParameters)
-          : null,
+        equipmentParameters: parseEquipmentParameters(scope.equipmentParameters),
         chemicalApplication: scope.chemicalApplication
           ? JSON.parse(scope.chemicalApplication)
           : null,
@@ -216,15 +217,11 @@ export async function GET(request: NextRequest) {
         id: scope.id,
         reportId: scope.reportId,
         scopeType: scope.scopeType,
-        siteVariables: scope.siteVariables
-          ? JSON.parse(scope.siteVariables)
-          : null,
+        siteVariables: parseSiteVariables(scope.siteVariables),
         labourParameters: scope.labourParameters
           ? JSON.parse(scope.labourParameters)
           : null,
-        equipmentParameters: scope.equipmentParameters
-          ? JSON.parse(scope.equipmentParameters)
-          : null,
+        equipmentParameters: parseEquipmentParameters(scope.equipmentParameters),
         chemicalApplication: scope.chemicalApplication
           ? JSON.parse(scope.chemicalApplication)
           : null,
@@ -261,15 +258,11 @@ export async function GET(request: NextRequest) {
         id: scope.id,
         reportId: scope.reportId,
         scopeType: scope.scopeType,
-        siteVariables: scope.siteVariables
-          ? JSON.parse(scope.siteVariables)
-          : null,
+        siteVariables: parseSiteVariables(scope.siteVariables),
         labourParameters: scope.labourParameters
           ? JSON.parse(scope.labourParameters)
           : null,
-        equipmentParameters: scope.equipmentParameters
-          ? JSON.parse(scope.equipmentParameters)
-          : null,
+        equipmentParameters: parseEquipmentParameters(scope.equipmentParameters),
         chemicalApplication: scope.chemicalApplication
           ? JSON.parse(scope.chemicalApplication)
           : null,

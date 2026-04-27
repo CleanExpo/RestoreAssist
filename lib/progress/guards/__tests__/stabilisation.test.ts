@@ -26,6 +26,8 @@ function fakeDb(overrides: {
   }>;
   swms?: { id: string; signedAt: Date | null } | null;
   whs?: Array<{ id: string; severity: string }>;
+  /** Defaults to 1 (photo soft-gap NOT triggered). */
+  photoCount?: number;
 }) {
   return {
     makeSafeAction: {
@@ -53,6 +55,9 @@ function fakeDb(overrides: {
     },
     wHSIncident: {
       findMany: async () => overrides.whs ?? [],
+    },
+    inspectionPhoto: {
+      count: async () => overrides.photoCount ?? 1,
     },
   };
 }
@@ -141,6 +146,26 @@ describe("attestStabilisationGuard", () => {
       baseCtx(),
     );
     expect(res.passed).toBe(false);
+  });
+
+  it("M-14: passes but reports evidence.photo.coverage as a soft gap when no inspection photos exist", async () => {
+    const res = await attestStabilisationGuard(
+      fakeDb({ photoCount: 0 }),
+      baseCtx(),
+    );
+    expect(res.passed).toBe(true);
+    expect(res.softGaps).toEqual(["evidence.photo.coverage"]);
+    expect(res.snapshot).toHaveProperty("photoCount", 0);
+  });
+
+  it("M-14: omits softGaps when at least one photo exists", async () => {
+    const res = await attestStabilisationGuard(
+      fakeDb({ photoCount: 5 }),
+      baseCtx(),
+    );
+    expect(res.passed).toBe(true);
+    expect(res.softGaps).toBeUndefined();
+    expect(res.snapshot).toHaveProperty("photoCount", 5);
   });
 });
 

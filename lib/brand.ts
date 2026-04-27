@@ -20,5 +20,14 @@ export const BRAND = {
   company: {
     legal: "Restore Assist by Unite-Group Nexus Pty Ltd",
     abn: process.env.NEXT_PUBLIC_COMPANY_ABN || "",
+    // RA-1582 — sellability trust signals. Sourced from env so the
+    // displayed contact/address can be swapped without a code change.
+    // Fall back to safe defaults (contact email only) for local dev so
+    // the footer never shows undefined.
+    address: process.env.NEXT_PUBLIC_COMPANY_ADDRESS || "",
+    supportEmail:
+      process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "support@restoreassist.app",
+    securityEmail:
+      process.env.NEXT_PUBLIC_SECURITY_EMAIL || "security@restoreassist.app",
   },
 } as const;

@@ -7,6 +7,7 @@ import { sanitizeString } from "@/lib/sanitize";
 import { validateCsrf } from "@/lib/csrf";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
 import { sendWelcomeEmail } from "@/lib/email";
+import { sendWithRetry } from "@/lib/email-retry";
 import { notifyWelcome } from "@/lib/notifications";
 import { seedDemoDataForNewUser } from "@/lib/demo-data";
 
@@ -179,13 +180,17 @@ export async function POST(request: NextRequest) {
     // RA-1254: Google OAuth new-signups previously skipped the welcome
     // email that email+password signups get — the template existed but
     // was only called from /api/auth/register.
-    sendWelcomeEmail({
-      recipientEmail: userEmail,
-      recipientName: name || userEmail.split("@")[0] || "there",
-      loginUrl: `${APP_URL}/login`,
-      trialDays: 30,
-      trialCredits: 30,
-    }).catch((err) =>
+    sendWithRetry(
+      () =>
+        sendWelcomeEmail({
+          recipientEmail: userEmail,
+          recipientName: name || userEmail.split("@")[0] || "there",
+          loginUrl: `${APP_URL}/login`,
+          trialDays: 30,
+          trialCredits: 30,
+        }),
+      { stage: "google-signin-welcome" },
+    ).catch((err) =>
       console.error("[google-signin] Welcome email failed:", err),
     );
     notifyWelcome(newUser.id).catch((err) =>

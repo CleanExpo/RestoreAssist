@@ -262,7 +262,7 @@ Return the analysis as a JSON object matching this structure:
   try {
     // Use prompt caching for cost optimization (90% savings on cache hits)
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4-6",
       max_tokens: 8192,
       system: [createCachedSystemPrompt(systemPrompt)],
       messages: [
@@ -399,7 +399,7 @@ Return as JSON with structure, checklist, and line items.`;
   try {
     // Use prompt caching for cost optimization (90% savings on cache hits)
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4-6",
       max_tokens: 4096,
       system: [createCachedSystemPrompt(systemPrompt)],
       messages: [

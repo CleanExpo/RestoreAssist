@@ -14,11 +14,11 @@
 
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import type {
   ClaimProgress,
   ClaimState,
   ProgressTransition,
-  Prisma,
 } from "@prisma/client";
 import {
   TRANSITION_KEYS,
@@ -31,6 +31,13 @@ import {
   canRead,
   type ProgressRole,
 } from "./permissions";
+import {
+  recordEvidenceMissing,
+  recordTransitionAttempt,
+  recordTransitionBlocked,
+  recordTransitionSuccess,
+} from "@/lib/telemetry/progress";
+import { classifyGaps } from "./gate-policy";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -131,6 +138,14 @@ export async function init(
 export async function transition(
   args: TransitionArgs,
 ): Promise<ServiceResult<ProgressTransition>> {
+  // M-17: emit attempt at the very top so every attempt is counted, even
+  // ones that fail before reaching the DB.
+  void recordTransitionAttempt({
+    transitionKey: args.key,
+    userId: args.actorUserId,
+    payload: { reportId: args.reportId, actorRole: args.actorRole },
+  });
+
   const cp = await prisma.claimProgress.findUnique({
     where: { reportId: args.reportId },
     select: {
@@ -142,11 +157,22 @@ export async function transition(
     },
   });
   if (!cp) {
+    void recordTransitionBlocked({
+      transitionKey: args.key,
+      userId: args.actorUserId,
+      payload: { code: "NOT_FOUND" },
+    });
     return { ok: false, code: "NOT_FOUND", message: "ClaimProgress not found" };
   }
 
   // Permission gate
   if (!canPerformTransition(args.actorRole, cp.currentState, args.key)) {
+    void recordTransitionBlocked({
+      claimProgressId: cp.id,
+      transitionKey: args.key,
+      userId: args.actorUserId,
+      payload: { code: "FORBIDDEN", from: cp.currentState },
+    });
     return {
       ok: false,
       code: "FORBIDDEN",
@@ -157,6 +183,12 @@ export async function transition(
   // Resolve the next state from (from, key). State machine is the source of truth.
   const toState = nextState(cp.currentState, args.key);
   if (!toState) {
+    void recordTransitionBlocked({
+      claimProgressId: cp.id,
+      transitionKey: args.key,
+      userId: args.actorUserId,
+      payload: { code: "INVALID_TRANSITION", from: cp.currentState },
+    });
     return {
       ok: false,
       code: "INVALID_TRANSITION",
@@ -165,6 +197,12 @@ export async function transition(
   }
   // Sanity check — should never fail, defence-in-depth
   if (!isValidTransition(cp.currentState, args.key, toState)) {
+    void recordTransitionBlocked({
+      claimProgressId: cp.id,
+      transitionKey: args.key,
+      userId: args.actorUserId,
+      payload: { code: "INVALID_TRANSITION", reason: "sanity_check" },
+    });
     return {
       ok: false,
       code: "INVALID_TRANSITION",
@@ -183,6 +221,15 @@ export async function transition(
     key: args.key,
   });
   if (!guardSnapshot.passed) {
+    void recordTransitionBlocked({
+      claimProgressId: cp.id,
+      transitionKey: args.key,
+      userId: args.actorUserId,
+      payload: {
+        code: "GUARD_FAILED",
+        reason: guardSnapshot.reason ?? null,
+      },
+    });
     return {
       ok: false,
       code: "GUARD_FAILED",
@@ -220,6 +267,20 @@ export async function transition(
         // precise timestamp-matching happens at verify time.
       });
 
+      // M-14: classify guard's reported gaps. Unknown keys are dropped
+      // with a warning — programming-error path, must not block users.
+      const reported = [
+        ...(guardSnapshot.softGaps ?? []),
+        ...(guardSnapshot.auditGaps ?? []),
+      ];
+      const buckets = classifyGaps(reported);
+      if (buckets.unknown.length > 0) {
+        console.warn("[progress.transition] guard returned unknown gate keys", {
+          transitionKey: args.key,
+          unknown: buckets.unknown,
+        });
+      }
+
       const trans = await tx.progressTransition.create({
         data: {
           claimProgressId: cp.id,
@@ -232,24 +293,70 @@ export async function transition(
           actorIp: args.actorIp ?? null,
           guardSnapshot: guardSnapshot.snapshot as Prisma.InputJsonValue,
           integrityHash,
+          softGaps:
+            buckets.soft.length > 0
+              ? (buckets.soft as Prisma.InputJsonValue)
+              : Prisma.JsonNull,
+          auditGaps:
+            buckets.audit.length > 0
+              ? (buckets.audit as Prisma.InputJsonValue)
+              : Prisma.JsonNull,
         },
       });
 
-      return trans;
+      return { trans, buckets };
     });
+
+    // M-17: success event — fire-and-forget, must not block return.
+    void recordTransitionSuccess({
+      claimProgressId: cp.id,
+      transitionId: result.trans.id,
+      transitionKey: args.key,
+      userId: args.actorUserId,
+      payload: { from: cp.currentState, to: toState },
+    });
+
+    // M-14: emit one progress.evidence.missing per non-blocking gap so
+    // the M-15 governance roll-up has fine-grained input.
+    for (const gap of result.buckets.soft) {
+      void recordEvidenceMissing({
+        claimProgressId: cp.id,
+        transitionId: result.trans.id,
+        transitionKey: args.key,
+        gateKey: gap,
+        userId: args.actorUserId,
+        payload: { classification: "SOFT" },
+      });
+    }
+    for (const gap of result.buckets.audit) {
+      void recordEvidenceMissing({
+        claimProgressId: cp.id,
+        transitionId: result.trans.id,
+        transitionKey: args.key,
+        gateKey: gap,
+        userId: args.actorUserId,
+        payload: { classification: "AUDIT" },
+      });
+    }
 
     // Integration fan-out is fire-and-forget — Sprint 2 (M-11, M-18, M-19)
     // wires Xero / DocuSign / Guidewire / Twilio into this hook.
-    void dispatchIntegrations(result.id, args.key).catch((err) => {
+    void dispatchIntegrations(result.trans.id, args.key).catch((err) => {
       console.error("[progress] integration dispatch failed", {
-        transitionId: result.id,
+        transitionId: result.trans.id,
         err,
       });
     });
 
-    return { ok: true, data: result };
+    return { ok: true, data: result.trans };
   } catch (err) {
     if (err instanceof StaleVersionError) {
+      void recordTransitionBlocked({
+        claimProgressId: cp.id,
+        transitionKey: args.key,
+        userId: args.actorUserId,
+        payload: { code: "STALE_VERSION" },
+      });
       return {
         ok: false,
         code: "STALE_VERSION",
@@ -257,6 +364,12 @@ export async function transition(
       };
     }
     console.error("[progress.transition] failed", err);
+    void recordTransitionBlocked({
+      claimProgressId: cp.id,
+      transitionKey: args.key,
+      userId: args.actorUserId,
+      payload: { code: "INTERNAL" },
+    });
     return {
       ok: false,
       code: "INTERNAL",
@@ -352,23 +465,113 @@ async function runGuard(ctx: {
   fromState: ClaimState;
   toState: ClaimState;
   key: TransitionKey;
-}): Promise<{
-  passed: boolean;
-  reason?: string;
-  snapshot: Record<string, unknown>;
-}> {
+}): Promise<import("./guards/types").GuardResult> {
   const { guardFor } = await import("./guards");
   const guard = guardFor(ctx.key);
   return guard(prisma, ctx);
 }
 
 async function dispatchIntegrations(
-  _transitionId: string,
-  _key: TransitionKey,
+  transitionId: string,
+  key: TransitionKey,
 ) {
-  // Sprint-2 (M-11, M-18, M-19, M-13) wires Xero / DocuSign / Guidewire / Twilio here.
-  // Intentionally no-op in Sprint-1 so transitions commit cleanly.
-  return;
+  // M-19: attest_stabilisation triggers the carrier packet submission.
+  // Env-gated — when GUIDEWIRE_SANDBOX_URL is unset, this is a no-op.
+  if (key === "attest_stabilisation") {
+    await dispatchStabilisationPacket(transitionId);
+  }
+  // Sprint-2 (M-11, M-18, M-13) wires Xero / DocuSign / Twilio here.
+}
+
+async function dispatchStabilisationPacket(transitionId: string) {
+  // Lazy import to keep the cold-path light and avoid pulling integration
+  // code into the hot transition path bundle.
+  const { buildStabilisationPacket, submitToCarrier } = await import(
+    "./integrations/stabilisation-packet"
+  );
+
+  const built = await buildStabilisationPacket(transitionId, {
+    loadTransition: async (id) => {
+      const row = await prisma.progressTransition.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          claimProgressId: true,
+          transitionKey: true,
+          transitionedAt: true,
+          integrityHash: true,
+          guardSnapshot: true,
+          actorUserId: true,
+          actorRole: true,
+          actorName: true,
+          attestations: {
+            select: {
+              id: true,
+              attestationType: true,
+              attestorEmail: true,
+              integrityHash: true,
+            },
+          },
+        },
+      });
+      if (!row) return null;
+
+      const user = await prisma.user.findUnique({
+        where: { id: row.actorUserId },
+        select: { email: true },
+      });
+
+      return {
+        id: row.id,
+        claimProgressId: row.claimProgressId,
+        transitionKey: row.transitionKey,
+        transitionedAt: row.transitionedAt,
+        integrityHash: row.integrityHash,
+        guardSnapshot:
+          row.guardSnapshot &&
+          typeof row.guardSnapshot === "object" &&
+          !Array.isArray(row.guardSnapshot)
+            ? (row.guardSnapshot as Record<string, unknown>)
+            : null,
+        attestor: {
+          userId: row.actorUserId,
+          role: row.actorRole,
+          name: row.actorName,
+          email: user?.email ?? "",
+        },
+        evidenceManifest: row.attestations.map((a) => ({
+          type: a.attestationType,
+          id: a.id,
+          hash: a.integrityHash,
+        })),
+        origin: process.env.NEXT_PUBLIC_APP_URL ?? null,
+      };
+    },
+  });
+
+  if (!built.ok) {
+    console.warn("[m19] buildStabilisationPacket failed", {
+      transitionId,
+      error: built.error,
+    });
+    return;
+  }
+
+  // V1: submit to guidewire only when configured. M-18 procurement gates
+  // wider rollout; until then the env var stays unset and this is a no-op.
+  const r = await submitToCarrier(built.packet, "guidewire");
+  if (!r.ok) {
+    console.warn("[m19] submitToCarrier(guidewire) failed", {
+      transitionId,
+      error: r.error,
+      status: r.status,
+    });
+  } else {
+    console.info("[m19] submitToCarrier(guidewire) ok", {
+      transitionId,
+      carrierRef: r.carrierRef,
+    });
+  }
 }
 
 // Re-export for callers

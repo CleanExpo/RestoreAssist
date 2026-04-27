@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { MapPin, Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
+import { useConfirmDialog } from "@/components/ConfirmDialog";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +50,7 @@ const defaultForm = {
 export default function ServiceAreasPage() {
   const { status } = useSession();
   const router = useRouter();
+  const confirm = useConfirmDialog();
 
   const [serviceAreas, setServiceAreas] = useState<ServiceArea[]>([]);
   const [loading, setLoading] = useState(true);
@@ -137,7 +139,12 @@ export default function ServiceAreasPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this service area?")) return;
+    const ok = await confirm.ask({
+      title: "Delete service area?",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
     const previous = serviceAreas;
     setServiceAreas((prev) => prev.filter((a) => a.id !== id));
     try {
@@ -249,6 +256,7 @@ export default function ServiceAreasPage() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <confirm.Mount />
       {/* Header */}
       <div className="flex items-start justify-between mb-8">
         <div>

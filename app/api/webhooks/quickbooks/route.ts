@@ -5,6 +5,7 @@ import {
   deriveExternalEventId,
   isUniqueConstraintError,
 } from "@/lib/webhook-idempotency";
+import { recordWebhookFailure } from "@/lib/webhook-audit";
 
 /**
  * POST /api/webhooks/quickbooks - Receive webhook events from QuickBooks
@@ -165,6 +166,12 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("[QuickBooks Webhook] Error processing webhook:", error);
+    await recordWebhookFailure({
+      provider: "quickbooks",
+      stage: "top-level",
+      error,
+      request,
+    });
 
     // Return 200 to prevent QuickBooks from retrying on our errors
     return NextResponse.json(

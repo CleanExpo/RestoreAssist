@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import Stripe from "stripe";
 import { SubscriptionStatus } from "@prisma/client";
 import { sendSubscriptionActivatedEmail } from "@/lib/email";
+import { warnIfZeroRows } from "@/lib/prisma-assert";
 
 /**
  * Best-effort human-readable plan name from a Stripe Subscription.
@@ -156,7 +157,7 @@ export async function POST(request: NextRequest) {
             break;
           }
 
-          await prisma.user.updateMany({
+          const activationResult = await prisma.user.updateMany({
             where,
             data: {
               subscriptionStatus: "ACTIVE",
@@ -167,6 +168,14 @@ export async function POST(request: NextRequest) {
               nextBillingDate: subscriptionEndsAt,
               creditsRemaining: 999999, // Unlimited for paid plans
             },
+          });
+          // RA-1306: if no user matched, log a loud error so ops can trace
+          // the customer. Don't throw — the webhook still returns 200 so
+          // Stripe doesn't retry a non-recoverable "user not found" case.
+          warnIfZeroRows(activationResult, "stripe.checkout.completed.activate", {
+            customerId,
+            subscriptionId,
+            where,
           });
 
           // RA-1261: send branded activation receipt. Best-effort — never
@@ -216,7 +225,7 @@ export async function POST(request: NextRequest) {
           );
           const subscriptionPlan = derivePlanNameFromSubscription(subscription);
 
-          await prisma.user.updateMany({
+          const renewResult = await prisma.user.updateMany({
             where: { stripeCustomerId: subscription.customer as string },
             data: {
               subscriptionStatus: "ACTIVE",
@@ -226,6 +235,11 @@ export async function POST(request: NextRequest) {
               nextBillingDate: subscriptionEndsAt,
               creditsRemaining: 999999,
             },
+          });
+          // RA-1306: loud log when the renewal hits an unknown customer.
+          warnIfZeroRows(renewResult, "stripe.invoice.paid.renew", {
+            customerId: subscription.customer,
+            subscriptionId: subscription.id,
           });
         }
         break;

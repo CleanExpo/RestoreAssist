@@ -20,6 +20,7 @@ import toast from "react-hot-toast";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import ImportModal from "@/components/integrations/ImportModal";
+import { useConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -39,6 +40,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { EmptyState } from "@/components/EmptyState";
 
 interface Integration {
   id: string;
@@ -138,6 +140,7 @@ interface SubscriptionStatus {
 }
 
 export default function IntegrationsPage() {
+  const confirm = useConfirmDialog();
   const router = useRouter();
   const searchParams = useSearchParams();
   const isOnboarding = searchParams.get("onboarding") === "true";
@@ -701,7 +704,13 @@ export default function IntegrationsPage() {
   };
 
   const handleDeleteIntegration = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this integration?")) return;
+    const ok = await confirm.ask({
+      title: "Delete integration?",
+      description: "Are you sure you want to delete this integration?",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       const response = await fetch(`/api/integrations/${id}`, {
@@ -722,6 +731,7 @@ export default function IntegrationsPage() {
 
   return (
     <div className="space-y-8">
+      <confirm.Mount />
       {/* ── Header ─────────────────────────────────── */}
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -780,26 +790,15 @@ export default function IntegrationsPage() {
             <Separator className="mt-4 mb-5" />
 
             {integrations.length === 0 ? (
-              <Card className="border-dashed">
-                <CardContent className="flex flex-col items-center justify-center py-10 text-center">
-                  <Zap size={32} className="text-muted-foreground/40 mb-3" />
-                  <p className="text-sm text-muted-foreground">
-                    No AI integrations yet.
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Add your first API key to enable AI-powered report
-                    generation.
-                  </p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="mt-4"
-                    onClick={() => setShowAddModal(true)}
-                  >
-                    <Plus /> Add API Key
-                  </Button>
-                </CardContent>
-              </Card>
+              <EmptyState
+                icon={<Zap size={32} aria-hidden />}
+                title="No AI integrations yet"
+                description="Add your first API key to enable AI-powered report generation."
+                primaryAction={{
+                  label: "Add API Key",
+                  onClick: () => setShowAddModal(true),
+                }}
+              />
             ) : (
               <div className="grid md:grid-cols-2 gap-4">
                 {integrations.map((integration) => (

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sanitizeString } from "@/lib/sanitize";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function GET(
   request: NextRequest,
@@ -12,7 +13,7 @@ export async function GET(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
     }
 
     const { id } = await params;
@@ -45,7 +46,7 @@ export async function GET(
     });
 
     if (!client) {
-      return NextResponse.json({ error: "Client not found" }, { status: 404 });
+      return apiError(request, { code: "NOT_FOUND", message: "Client not found", status: 404 });
     }
 
     // Calculate client statistics
@@ -64,11 +65,7 @@ export async function GET(
       reportsCount: client._count.reports,
     });
   } catch (error) {
-    console.error("Error fetching client:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "client-get" });
   }
 }
 
@@ -80,7 +77,7 @@ export async function PUT(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
     }
 
     const { id } = await params;
@@ -95,10 +92,11 @@ export async function PUT(
     const status = body.status;
 
     if (!name || !email) {
-      return NextResponse.json(
-        { error: "Name and email are required" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Name and email are required",
+        status: 400,
+      });
     }
 
     // Check if client exists and belongs to user
@@ -110,7 +108,7 @@ export async function PUT(
     });
 
     if (!existingClient) {
-      return NextResponse.json({ error: "Client not found" }, { status: 404 });
+      return apiError(request, { code: "NOT_FOUND", message: "Client not found", status: 404 });
     }
 
     // Check if email is being changed and if it conflicts with another client
@@ -124,10 +122,11 @@ export async function PUT(
       });
 
       if (emailConflict) {
-        return NextResponse.json(
-          { error: "Client with this email already exists" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "CONFLICT",
+          message: "Client with this email already exists",
+          status: 409,
+        });
       }
     }
 
@@ -157,11 +156,7 @@ export async function PUT(
       reportsCount: client._count.reports,
     });
   } catch (error) {
-    console.error("Error updating client:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "client-put" });
   }
 }
 
@@ -181,7 +176,7 @@ export async function DELETE(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
     }
 
     const { id } = await params;
@@ -195,7 +190,7 @@ export async function DELETE(
     });
 
     if (!existingClient) {
-      return NextResponse.json({ error: "Client not found" }, { status: 404 });
+      return apiError(request, { code: "NOT_FOUND", message: "Client not found", status: 404 });
     }
 
     // Check if client has reports
@@ -204,13 +199,11 @@ export async function DELETE(
     });
 
     if (reportCount > 0) {
-      return NextResponse.json(
-        {
-          error:
-            "Cannot delete client with existing reports. Please archive instead.",
-        },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "CONFLICT",
+        message: "Cannot delete client with existing reports. Please archive instead.",
+        status: 409,
+      });
     }
 
     await prisma.client.delete({
@@ -219,10 +212,6 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error deleting client:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "client-delete" });
   }
 }

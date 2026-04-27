@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { reportClientError } from "@/lib/observability";
 
 export default function GlobalError({
   error,
@@ -11,6 +12,8 @@ export default function GlobalError({
 }) {
   useEffect(() => {
     console.error("[GlobalError]", error);
+    // RA-1349 — ship to server-side sink for Vercel Observability.
+    reportClientError(error, { boundary: "GlobalError", digest: error.digest });
   }, [error]);
 
   return (

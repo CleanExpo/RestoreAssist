@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { generateDetailedReport } from "@/lib/anthropic";
 import { withIdempotency } from "@/lib/idempotency";
 import { track, isFirstTime } from "@/lib/analytics/track";
+import { parseDate } from "@/lib/parse-date";
 
 export async function GET(request: NextRequest) {
   try {
@@ -140,6 +141,39 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // RA-1300 — reject malformed user-supplied dates up-front (400) instead
+      // of persisting an Invalid Date silently. Both fields are optional;
+      // only fail when the CALLER supplied the key but the value didn't
+      // parse (distinguishes "not provided" from "provided but invalid").
+      let inspectionDateParsed: Date | null = null;
+      let completionDateParsed: Date | null = null;
+      if (body.inspectionDate !== undefined && body.inspectionDate !== null) {
+        inspectionDateParsed = parseDate(body.inspectionDate);
+        if (inspectionDateParsed === null) {
+          return NextResponse.json(
+            {
+              error:
+                "inspectionDate is not a valid date (expected ISO-8601 or similar)",
+              field: "inspectionDate",
+            },
+            { status: 400 },
+          );
+        }
+      }
+      if (body.completionDate !== undefined && body.completionDate !== null) {
+        completionDateParsed = parseDate(body.completionDate);
+        if (completionDateParsed === null) {
+          return NextResponse.json(
+            {
+              error:
+                "completionDate is not a valid date (expected ISO-8601 or similar)",
+              field: "completionDate",
+            },
+            { status: 400 },
+          );
+        }
+      }
+
       // RA-1246 — first_report_started: user has 0 prior reports AND
       // hasn't emitted this event yet. Fire-and-forget.
       try {
@@ -258,9 +292,10 @@ export async function POST(request: NextRequest) {
           userId,
 
           // IICRC Assessment fields
-          inspectionDate: body.inspectionDate
-            ? new Date(body.inspectionDate)
-            : new Date(),
+          // RA-1300 — reject malformed dates with 400 instead of silently
+          // persisting an Invalid Date. inspectionDateParsed is validated
+          // above; fall back to now() when not supplied.
+          inspectionDate: inspectionDateParsed ?? new Date(),
           waterCategory: body.waterCategory,
           waterClass: body.waterClass,
           sourceOfWater: body.sourceOfWater,
@@ -316,9 +351,8 @@ export async function POST(request: NextRequest) {
             : null,
 
           // Optional fields
-          completionDate: body.completionDate
-            ? new Date(body.completionDate)
-            : null,
+          // RA-1300 — use validated parse; null if unparseable.
+          completionDate: completionDateParsed,
           totalCost: body.totalCost,
           description: body.description,
 

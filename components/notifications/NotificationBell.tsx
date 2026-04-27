@@ -174,6 +174,7 @@ export function NotificationBell({ className }: NotificationBellProps) {
                           size="icon"
                           className="h-7 w-7"
                           onClick={() => markAsRead(notification.id)}
+                          aria-label="Mark notification as read"
                         >
                           <Check className="h-3.5 w-3.5" />
                         </Button>
@@ -183,6 +184,7 @@ export function NotificationBell({ className }: NotificationBellProps) {
                         size="icon"
                         className="h-7 w-7 text-neutral-500 hover:text-red-500"
                         onClick={() => deleteNotification(notification.id)}
+                        aria-label="Delete notification"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>

@@ -20,6 +20,7 @@ import { useState, useRef, useCallback, useEffect, useId } from "react";
 import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 import { Loader2, Save, Check, FileDown, Ruler } from "lucide-react";
+import { enqueueSketchSave, getPendingEntries } from "@/lib/nir-sync-queue";
 
 import { SketchDockToolbar } from "./SketchDockToolbar";
 import { SketchFloorTabs } from "./SketchFloorTabs";
@@ -118,6 +119,12 @@ export function SketchEditorV2({
   const [showScaleModal, setShowScaleModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
+  // RA-1762 — running count of sketch saves currently held in the
+  // offline queue (this tab's enqueues only; cross-tab counts come
+  // from useNirOffline if the parent provider exposes them). Surfaced
+  // in the existing save-status indicator alongside saving / savedAt
+  // so the user has feedback that work is buffered, not lost.
+  const [offlinePending, setOfflinePending] = useState(0);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [historyState, setHistoryState] = useState({
     canUndo: false,
@@ -188,39 +195,131 @@ export function SketchEditorV2({
   const activeFloor = floorsData[activeIdx];
 
   // ── Auto-save ───────────────────────────────────────────
+  // RA-1762 — replaces the original empty `catch {}` that silently
+  // dropped offline saves. Each floor save is now independent
+  // (Promise.allSettled), and any per-floor failure (network, 5xx,
+  // auth blip) routes the payload to the offline queue. The queue
+  // drains on reconnect via lib/nir-sync-queue.ts. Coalescing in
+  // enqueueSketchSave guarantees we keep only the latest state per
+  // (inspectionId, floorNumber); clientUpdatedAt rides as a header
+  // on each POST so the server can drop stale replays via 409.
   const scheduleSave = useCallback(() => {
     if (!inspectionId || readonly) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
       setSaving(true);
-      try {
-        for (const fd of floorsData) {
-          const canvas = fd.canvasRef.current;
-          if (!canvas) continue;
-          const sketchData = {
-            ...(canvas.toJSON() as Record<string, unknown>),
-            scaleConfig: fd.scaleConfig,
-          };
-          await fetch(`/api/inspections/${inspectionId}/sketches`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              floorNumber: fd.floor.floorNumber,
-              floorLabel: fd.floor.floorLabel,
-              sketchData,
-              moisturePoints: fd.moisturePins,
-              backgroundImageUrl: fd.backgroundUrl,
-            }),
-          });
+      let queuedThisTick = 0;
+      const tickStartedAt = Date.now();
+
+      const floorPromises = floorsData.map(async (fd) => {
+        const canvas = fd.canvasRef.current;
+        if (!canvas) return;
+        const sketchData = {
+          ...(canvas.toJSON() as Record<string, unknown>),
+          scaleConfig: fd.scaleConfig,
+        };
+        const clientUpdatedAt = Date.now();
+        const body = {
+          floorNumber: fd.floor.floorNumber,
+          floorLabel: fd.floor.floorLabel,
+          sketchType: "structural",
+          sketchData,
+          moisturePoints: fd.moisturePins,
+          backgroundImageUrl: fd.backgroundUrl,
+        };
+
+        try {
+          const res = await fetch(
+            `/api/inspections/${inspectionId}/sketches`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "x-client-updated-at": String(clientUpdatedAt),
+              },
+              body: JSON.stringify(body),
+            },
+          );
+          if (!res.ok) throw new Error(`save ${res.status}`);
+        } catch {
+          // Network failure or non-2xx — queue locally, drain later.
+          try {
+            await enqueueSketchSave(inspectionId, {
+              ...body,
+              clientUpdatedAt,
+            });
+            queuedThisTick++;
+          } catch {
+            // Both online save AND IDB enqueue failed — nothing more
+            // we can do here. Don't bubble; tickStart timer below
+            // surfaces the lack of a fresh savedAt so the user knows
+            // something is off.
+          }
         }
-        setSavedAt(new Date());
+      });
+
+      await Promise.allSettled(floorPromises);
+
+      // Refresh the offline-pending count from the queue so it reflects
+      // ground truth (entries can also get added/removed by the SW
+      // drain, by other tabs, or by deeper retries we don't see here).
+      try {
+        const entries = await getPendingEntries(inspectionId);
+        const pendingSketches = entries.filter(
+          (e) => e.type === "sketch-save",
+        ).length;
+        setOfflinePending(pendingSketches);
       } catch {
-        // Non-fatal
-      } finally {
-        setSaving(false);
+        // IDB unavailable — fall back to the locally incremented count
+        // so the UI still surfaces the immediate enqueue feedback.
+        if (queuedThisTick > 0) {
+          setOfflinePending((c) => c + queuedThisTick);
+        }
       }
+      // Only refresh savedAt when at least one floor succeeded online —
+      // otherwise the indicator would lie about the save being durable.
+      // If everything got queued, the user sees "Offline: N pending"
+      // instead of "Saved at HH:MM".
+      const floorsWithCanvas = floorsData.filter(
+        (fd) => fd.canvasRef.current,
+      ).length;
+      if (queuedThisTick < floorsWithCanvas || queuedThisTick === 0) {
+        setSavedAt(new Date(tickStartedAt));
+      }
+      setSaving(false);
     }, 1500);
   }, [inspectionId, readonly, floorsData]);
+
+  // RA-1762 — keep the offline-pending count fresh when entries are
+  // drained externally (service-worker Background Sync, sibling tabs,
+  // the `online` event handler in nir-sync-queue). Cheap polling +
+  // explicit refresh on `online`.
+  useEffect(() => {
+    if (!inspectionId) return;
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const entries = await getPendingEntries(inspectionId);
+        if (cancelled) return;
+        setOfflinePending(
+          entries.filter((e) => e.type === "sketch-save").length,
+        );
+      } catch {
+        // IDB unavailable; leave count alone.
+      }
+    };
+
+    void refresh();
+    const onOnline = () => void refresh();
+    window.addEventListener("online", onOnline);
+    const interval = window.setInterval(refresh, 5000);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("online", onOnline);
+      clearInterval(interval);
+    };
+  }, [inspectionId]);
 
   // ── Canvas ready handler ────────────────────────────────
   const handleCanvasReady = useCallback(
@@ -406,6 +505,73 @@ export function SketchEditorV2({
     }
   }, [floorsData, inspectionId, exportingPdf]);
 
+  // ── RA-1607: Import hand-drawn sketch via Claude Vision ─
+  const handleImportSketch = useCallback(
+    async (file: File) => {
+      if (!inspectionId) return;
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(
+        `/api/inspections/${inspectionId}/sketches/import-from-image`,
+        { method: "POST", body: formData },
+      );
+      if (!res.ok) {
+        const { error } = (await res.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        throw new Error(error ?? `Import failed (${res.status})`);
+      }
+      const { rooms } = (await res.json()) as {
+        rooms: { label: string; vertices: { x: number; y: number }[] }[];
+      };
+      if (!rooms?.length) return;
+
+      const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
+        add: (...objs: unknown[]) => void;
+        renderAll: () => void;
+      } | null;
+      if (!fc) return;
+
+      const fabric = await import("fabric");
+      const FabricPolygon = (fabric as unknown as { Polygon: new (pts: { x: number; y: number }[], opts: object) => unknown }).Polygon;
+      const FabricText = (fabric as unknown as { IText: new (text: string, opts: object) => unknown }).IText;
+
+      rooms.forEach((room, i) => {
+        const color = ROOM_COLORS[i % ROOM_COLORS.length];
+        const pts = room.vertices.map((v) => ({ x: v.x * width, y: v.y * height }));
+
+        const polygon = new FabricPolygon(pts, {
+          fill: color.fill,
+          stroke: color.stroke,
+          strokeWidth: 2,
+          selectable: true,
+          evented: true,
+          data: { id: `imported-${Date.now()}-${i}`, label: room.label, type: "room" },
+        });
+
+        const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
+        const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
+        const label = new FabricText(room.label, {
+          left: cx,
+          top: cy,
+          originX: "center",
+          originY: "center",
+          fontSize: 13,
+          fill: color.stroke,
+          selectable: true,
+          evented: true,
+          data: { id: `imported-label-${Date.now()}-${i}`, type: "text" },
+        });
+
+        fc.add(polygon, label);
+      });
+
+      fc.renderAll();
+      scheduleSave();
+    },
+    [inspectionId, activeFloor, width, height, scheduleSave],
+  );
+
   // ── Tool mode change ────────────────────────────────────
   const handleToolChange = useCallback((mode: ToolMode) => {
     setToolMode(mode);
@@ -463,6 +629,13 @@ export function SketchEditorV2({
               {saving ? (
                 <span className="flex items-center gap-1 justify-end">
                   <Loader2 size={11} className="animate-spin" /> Saving…
+                </span>
+              ) : offlinePending > 0 ? (
+                <span
+                  className="flex items-center gap-1 justify-end text-amber-400"
+                  title="Saved locally — will sync when reconnected"
+                >
+                  <Save size={11} /> Offline: {offlinePending} pending
                 </span>
               ) : savedAt ? (
                 <span className="flex items-center gap-1 justify-end text-emerald-400">
@@ -639,6 +812,7 @@ export function SketchEditorV2({
             activeFloor?.canvasRef.current?.clear();
             scheduleSave();
           }}
+          onImportSketch={inspectionId && !readonly ? handleImportSketch : undefined}
           readonly={readonly}
         />
       </div>

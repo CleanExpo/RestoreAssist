@@ -38,6 +38,7 @@ import { useSession, signOut } from "next-auth/react";
 import dynamic from "next/dynamic";
 import toast from "react-hot-toast";
 import { NotificationBell } from "@/components/notifications";
+import { NirSyncStatusBadge } from "@/components/nir-offline-provider";
 import { WhatsNewModal } from "@/components/releases/WhatsNewModal";
 import { ProductTour } from "@/components/onboarding/ProductTour";
 import { TrialBanner } from "@/components/TrialBanner";
@@ -47,6 +48,7 @@ import { CancellationCountdownBanner } from "@/components/billing/CancellationCo
 const Chatbot = dynamic(() => import("@/components/Chatbot"), { ssr: false });
 import GlobalSearch from "@/components/GlobalSearch";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { AutoBreadcrumbs } from "@/components/AutoBreadcrumbs";
 import { cn } from "@/lib/utils";
 
 export default function DashboardLayout({
@@ -223,6 +225,8 @@ export default function DashboardLayout({
     special: true,
   };
 
+  const isDemoAccount = session?.user?.email === "demo@restoreassist.app";
+
   return (
     <>
       <div
@@ -232,6 +236,21 @@ export default function DashboardLayout({
           "text-neutral-900 dark:text-slate-50",
         )}
       >
+        {/* RA-1583 — demo-mode banner. Makes it obvious the user is
+            exploring sample data (seeded via /api/admin/seed-demo) so
+            data they create during the demo session isn't mistaken
+            for their real tenant. */}
+        {isDemoAccount && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="w-full bg-amber-500 text-amber-950 text-sm font-medium text-center px-4 py-2"
+          >
+            DEMO MODE — you're signed in as the sample account. Data
+            shown is illustrative; changes are shared with other demo
+            viewers.
+          </div>
+        )}
         {/* Mobile backdrop */}
         {mobileMenuOpen && (
           <div
@@ -502,6 +521,14 @@ export default function DashboardLayout({
             </div>
 
             <div className="flex items-center gap-4 ml-6">
+              {/* RA-1124 MVP — persistent sync-status pill. The offline
+                  infrastructure (service worker + IndexedDB queue +
+                  reconnect listeners) already ships via NirOfflineProvider,
+                  but the user-facing badge was never mounted, so a
+                  technician in the field had no signal that their save
+                  was queued vs. actually on the wire. */}
+              <NirSyncStatusBadge />
+
               {/* Theme Toggle */}
               <ThemeToggle />
 
@@ -558,6 +585,14 @@ export default function DashboardLayout({
               "bg-white dark:bg-slate-950",
             )}
           >
+            {/* RA-1569 adoption — auto-crumbs derived from the URL.
+                Hidden on /dashboard itself (one segment); visible on
+                every deeper route. Detail pages can pass an override
+                via the `labels` prop when they know the entity
+                name; by default the slug map in lib/breadcrumb-labels
+                renders friendly text plus a short-hash fallback for
+                cuids so the trail never shows a raw 25-char id. */}
+            <AutoBreadcrumbs className="text-xs" />
             {children}
           </main>
         </div>

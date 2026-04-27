@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import toast from "react-hot-toast";
+import { useAsyncAction } from "@/lib/client/use-async-action";
 
 type EditStage = "inspection" | "scoping" | "estimation";
 
@@ -45,7 +46,6 @@ export default function EditReportPage({
   const [scope, setScope] = useState<any>(null);
   const [estimate, setEstimate] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [clients, setClients] = useState<any[]>([]);
 
@@ -147,7 +147,35 @@ export default function EditReportPage({
     }
   };
 
-  const handleInspectionUpdate = async () => {
+  const { run: runInspectionUpdate, loading: saving } = useAsyncAction(
+    async () => {
+      try {
+        const response = await fetch(`/api/reports/${reportId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...inspectionData,
+            title: inspectionData.title || report?.reportNumber,
+            description: "Initial Inspection Report",
+          }),
+        });
+
+        if (response.ok) {
+          const updatedReport = await response.json();
+          setReport(updatedReport);
+          toast.success("Inspection report updated!");
+        } else {
+          const error = await response.json();
+          toast.error(error.error || "Failed to update inspection report");
+        }
+      } catch (error) {
+        console.error("Error updating inspection:", error);
+        toast.error("Failed to update inspection report");
+      }
+    },
+  );
+
+  const handleInspectionUpdate = () => {
     if (
       !inspectionData.clientName ||
       !inspectionData.propertyAddress ||
@@ -157,33 +185,7 @@ export default function EditReportPage({
       toast.error("Please fill in all required fields");
       return;
     }
-
-    setSaving(true);
-    try {
-      const response = await fetch(`/api/reports/${reportId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...inspectionData,
-          title: inspectionData.title || report?.reportNumber,
-          description: "Initial Inspection Report",
-        }),
-      });
-
-      if (response.ok) {
-        const updatedReport = await response.json();
-        setReport(updatedReport);
-        toast.success("Inspection report updated!");
-      } else {
-        const error = await response.json();
-        toast.error(error.error || "Failed to update inspection report");
-      }
-    } catch (error) {
-      console.error("Error updating inspection:", error);
-      toast.error("Failed to update inspection report");
-    } finally {
-      setSaving(false);
-    }
+    void runInspectionUpdate();
   };
 
   const handleScopeComplete = (updatedScope: any) => {

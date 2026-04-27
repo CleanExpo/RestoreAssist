@@ -139,7 +139,7 @@ export async function processXeroWebhookBatch(
  */
 async function handleInvoiceUpdated(
   payload: XeroWebhookPayload,
-  integrationId: string,
+  _integrationId: string,
 ): Promise<void> {
   const xeroInvoiceId = payload.resourceId;
   if (!xeroInvoiceId) {

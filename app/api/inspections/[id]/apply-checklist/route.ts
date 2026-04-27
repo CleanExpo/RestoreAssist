@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { IICRC_CHECKLISTS } from "@/lib/iicrc-checklists";
 import { withIdempotency } from "@/lib/idempotency";
+import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 
 // POST — apply an IICRC checklist template to an inspection's scope items
 export async function POST(
@@ -41,14 +42,12 @@ export async function POST(
         );
       }
 
-      const inspection = await prisma.inspection.findFirst({
-        where: { id, userId },
-      });
-
-      if (!inspection) {
+      // RA-1711 batch 4 — adopt shared tenancy helper.
+      const tenancy = await assertInspectionTenancy(session, id);
+      if (!tenancy.ok) {
         return NextResponse.json(
-          { error: "Inspection not found" },
-          { status: 404 },
+          { error: tenancy.reason },
+          { status: tenancy.status },
         );
       }
 

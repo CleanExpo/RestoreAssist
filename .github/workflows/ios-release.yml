@@ -6,9 +6,13 @@ on:
       - "v[0-9]+.[0-9]+.[0-9]+"
   workflow_dispatch: # Manual trigger from GitHub Actions UI
 
+permissions:
+  contents: read
+
 jobs:
   release-ios:
     runs-on: macos-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -32,42 +36,206 @@ jobs:
         run: |
           mkdir -p ios/App/App/public
           npx cap sync ios
+
       - name: Install Fastlane
-        run: gem install fastlane
-      - name: Decode certificate
+        run: gem install fastlane -N
+
+      # ─────────────────────────────────────────────────────────────
+      # SECRET HANDLING — pass via env, never interpolate ${{ secrets.* }}
+      # directly into a `run:` shell script. Direct interpolation is
+      # vulnerable to command injection if any secret ever contains
+      # shell metacharacters (cert passwords, base64 with newlines,
+      # IDs with `;`, etc).
+      # ─────────────────────────────────────────────────────────────
+
+      - name: Decode certificate + provisioning profile
+        env:
+          IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
         run: |
-          echo "${{ secrets.IOS_CERTIFICATE_BASE64 }}" | base64 -d > ios_distribution.p12
-          echo "${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}" | base64 -d > profile.mobileprovision
+          printf '%s' "$IOS_CERTIFICATE_BASE64" | base64 -d > ios_distribution.p12
+          printf '%s' "$IOS_PROVISIONING_PROFILE_BASE64" | base64 -d > profile.mobileprovision
+
       - name: Import certificate to keychain
+        env:
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
         run: |
           security create-keychain -p "temp" build.keychain
-          security import ios_distribution.p12 -k build.keychain -P "${{ secrets.IOS_CERTIFICATE_PASSWORD }}" -T /usr/bin/codesign
+          security import ios_distribution.p12 -k build.keychain -P "$IOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
           security list-keychains -s build.keychain
           security default-keychain -s build.keychain
           security unlock-keychain -p "temp" build.keychain
           security set-keychain-settings -t 3600 -l build.keychain
+          # Modern macOS adds a key-partition ACL on top of -T. Without
+          # this, codesign blocks on a GUI prompt that can never be
+          # answered in CI — observed in run 24958163047 which hung for
+          # 43 min on "Signing Cordova.framework" before the workflow
+          # timed out. set-key-partition-list grants codesign + Apple
+          # tools access to the imported key without prompting.
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "temp" build.keychain
+
       - name: Install provisioning profile
         run: |
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+
       - name: Build IPA with Fastlane
-        run: |
-          fastlane gym \
-            --workspace ios/App/App.xcworkspace \
-            --scheme App \
-            --export_method app-store \
-            --output_directory ./build \
-            --output_name RestoreAssist.ipa
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-      - name: Upload to TestFlight
         run: |
-          fastlane pilot upload \
-            --ipa ./build/RestoreAssist.ipa \
-            --api_key_path <(echo "${{ secrets.ASC_PRIVATE_KEY_BASE64 }}" | base64 -d) \
-            --issuer_id ${{ secrets.ASC_ISSUER_ID }} \
-            --key_id ${{ secrets.ASC_API_KEY_ID }} \
-            --skip_waiting_for_build_processing true
+          # Capacitor 6+ project uses Swift Package Manager — no .xcworkspace
+          # is generated. Build directly against the .xcodeproj.
+          #
+          # The committed project uses CODE_SIGN_STYLE = Automatic with
+          # "iPhone Developer" identity — fine for local Xcode dev, but
+          # CI manually installs an "Apple Distribution" cert + a named
+          # provisioning profile and needs Manual signing.
+          #
+          # Two-step signing override:
+          #   1. xcargs forces Manual signing during the `archive` phase.
+          #   2. ExportOptions.plist forces Manual signing + maps the
+          #      bundle id to the profile name during `exportArchive`.
+          # Without (2), run #4 failed with:
+          #   exportArchive "App.app" requires a provisioning profile.
+
+          cat > /tmp/ExportOptions.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>app-store</string>
+              <key>signingStyle</key>
+              <string>manual</string>
+              <key>teamID</key>
+              <string>${APPLE_TEAM_ID}</string>
+              <key>provisioningProfiles</key>
+              <dict>
+                  <key>com.restoreassist.app</key>
+                  <string>RestoreAssist App Store v1</string>
+              </dict>
+              <key>destination</key>
+              <string>export</string>
+              <key>uploadSymbols</key>
+              <true/>
+          </dict>
+          </plist>
+          EOF
+
+          fastlane gym \
+            --project ios/App/App.xcodeproj \
+            --scheme App \
+            --configuration Release \
+            --export_method app-store \
+            --export_team_id "$APPLE_TEAM_ID" \
+            --export_options /tmp/ExportOptions.plist \
+            --codesigning_identity "Apple Distribution: Phill McGurk ($APPLE_TEAM_ID)" \
+            --xcargs "DEVELOPMENT_TEAM=$APPLE_TEAM_ID CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY='Apple Distribution: Phill McGurk ($APPLE_TEAM_ID)' PROVISIONING_PROFILE_SPECIFIER='RestoreAssist App Store v1'" \
+            --output_directory ./build \
+            --output_name RestoreAssist.ipa
+
+      - name: Place ASC API key for altool
+        env:
+          ASC_PRIVATE_KEY_BASE64: ${{ secrets.ASC_PRIVATE_KEY_BASE64 }}
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+        # xcrun altool discovers the .p8 by name in one of these
+        # standard locations:
+        #   ~/.appstoreconnect/private_keys/AuthKey_<KEY_ID>.p8
+        #   ~/private_keys/AuthKey_<KEY_ID>.p8
+        #   ./private_keys/AuthKey_<KEY_ID>.p8
+        # We place it at the first path, mode 600.
+        #
+        # Run #8 failed because the secret value contains embedded
+        # newlines (macOS `base64 -i file | pbcopy` defaults to
+        # 76-char lines), so `printf '%s' "$VAR" | base64 -d` choked
+        # on the unexpected whitespace and produced bytes that
+        # altool then rejected with NSCocoaErrorDomain Code=259
+        # "The file couldn't be opened because it isn't in the
+        # correct format". Strip all whitespace before decoding so
+        # the layout of the source secret stops mattering, and
+        # validate the resulting PEM structure before handing off.
+        run: |
+          mkdir -p "$HOME/.appstoreconnect/private_keys"
+          P8_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_API_KEY_ID}.p8"
+
+          # Strip whitespace; either single-line or multi-line base64
+          # input now works.
+          printf '%s' "$ASC_PRIVATE_KEY_BASE64" \
+            | tr -d '[:space:]' \
+            | base64 --decode > "$P8_PATH"
+
+          # Run #9 decoded to 150 bytes of DER binary — the operator
+          # pasted the inner base64 body (between BEGIN/END markers)
+          # rather than `base64 -i AuthKey.p8`. Detect that case and
+          # rewrap as PEM so altool gets a parseable private key
+          # regardless of which form the secret holds.
+          if ! head -c 27 "$P8_PATH" | grep -q -- "-----BEGIN PRIVATE KEY-----"; then
+            echo "P8 appears to be raw DER bytes; rewrapping as PEM"
+            TMP_DER="$P8_PATH.der"
+            mv "$P8_PATH" "$TMP_DER"
+            {
+              echo "-----BEGIN PRIVATE KEY-----"
+              base64 < "$TMP_DER" | tr -d '\n' | fold -w 64
+              echo
+              echo "-----END PRIVATE KEY-----"
+            } > "$P8_PATH"
+            rm -f "$TMP_DER"
+          fi
+          chmod 600 "$P8_PATH"
+
+          # Validate without revealing contents.
+          P8_SIZE=$(wc -c < "$P8_PATH" | tr -d ' ')
+          P8_FIRST_LINE=$(head -1 "$P8_PATH" || true)
+          P8_LAST_LINE=$(tail -1 "$P8_PATH" || true)
+          echo "P8 file size: ${P8_SIZE} bytes"
+          echo "P8 first line: '${P8_FIRST_LINE}'"
+          echo "P8 last line:  '${P8_LAST_LINE}'"
+
+          if ! head -1 "$P8_PATH" | grep -q -- "-----BEGIN PRIVATE KEY-----"; then
+            echo "::error ::AuthKey .p8 does not start with '-----BEGIN PRIVATE KEY-----' even after rewrap. Secret is malformed."
+            exit 1
+          fi
+          if ! tail -1 "$P8_PATH" | grep -q -- "-----END PRIVATE KEY-----"; then
+            echo "::error ::AuthKey .p8 does not end with '-----END PRIVATE KEY-----'. The ASC_PRIVATE_KEY_BASE64 secret is truncated."
+            exit 1
+          fi
+          if [ "$P8_SIZE" -lt 200 ] || [ "$P8_SIZE" -gt 600 ]; then
+            echo "::error ::AuthKey .p8 size ${P8_SIZE} is outside the expected 200-600 byte range. Likely a base64-decoding error."
+            exit 1
+          fi
+
+      - name: Upload to TestFlight via altool
+        env:
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        # Bypass fastlane + Ruby OpenSSL entirely. altool is Apple's
+        # own tool, signs the JWT itself with the correct curve, and
+        # has no dependency on the brewed openssl that broke runs #6
+        # and #7. Validate first, then upload.
+        run: |
+          xcrun altool --validate-app \
+            --type ios \
+            --file ./build/RestoreAssist.ipa \
+            --apiKey "$ASC_API_KEY_ID" \
+            --apiIssuer "$ASC_ISSUER_ID" \
+            --output-format normal
+
+          xcrun altool --upload-app \
+            --type ios \
+            --file ./build/RestoreAssist.ipa \
+            --apiKey "$ASC_API_KEY_ID" \
+            --apiIssuer "$ASC_ISSUER_ID" \
+            --output-format normal
+
+      - name: Cleanup secrets
+        if: always()
+        env:
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+        run: |
+          rm -f ios_distribution.p12 profile.mobileprovision /tmp/ExportOptions.plist
+          rm -f "$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_API_KEY_ID}.p8" 2>/dev/null || true
+          security delete-keychain build.keychain || true
+
       - name: Notify on success
         if: success()
         run: echo "✅ iOS build uploaded to TestFlight"

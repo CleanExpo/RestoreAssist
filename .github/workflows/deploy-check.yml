@@ -9,7 +9,7 @@ jobs:
   deploy-check:
     name: Verify Deployment Parity
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 7
 
     steps:
       - name: Checkout

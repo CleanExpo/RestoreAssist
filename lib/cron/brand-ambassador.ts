@@ -8,10 +8,19 @@
  *
  * Called by: /api/cron/brand-ambassador (weekly: 0 8 * * 1)
  *
- * Env vars required:
- *   ANTHROPIC_API_KEY     — Claude Haiku for draft generation
- *   TELEGRAM_BOT_TOKEN    — Telegram bot token
- *   TELEGRAM_CHAT_ID      — CEO personal chat or channel ID
+ * Env vars:
+ *   ANTHROPIC_API_KEY                        — Claude Haiku for draft generation (default provider)
+ *   TELEGRAM_BOT_TOKEN                       — Telegram bot token
+ *   TELEGRAM_CHAT_ID                         — CEO personal chat or channel ID
+ *
+ *   BRAND_AMBASSADOR_LLM_PROVIDER (optional) — "anthropic" (default) or "ollama"
+ *   OLLAMA_BASE_URL (optional)               — Defaults to http://localhost:11434/v1
+ *   OLLAMA_MODEL (optional)                  — Defaults to gemma4:latest
+ *
+ * When BRAND_AMBASSADOR_LLM_PROVIDER=ollama, draft generation runs against a
+ * local OpenAI-compatible endpoint (Gemma 4 on Ollama) instead of the Anthropic
+ * API. This takes the weekly LinkedIn draft work off the Anthropic bill when a
+ * deployment has a local model available (Mac mini / on-prem).
  */
 
 import { getISOWeek } from "date-fns";
@@ -45,20 +54,12 @@ const ACTIVE_PROJECTS: Project[] = [
 
 // ─── Draft generation ─────────────────────────────────────────────────────────
 
-async function generatePostDraft(
+function buildPrompt(
   project: Project,
   isoWeek: number,
   year: number,
-): Promise<string> {
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-  const response = await client.messages.create({
-    model: "claude-haiku-4-5-20251001",
-    max_tokens: 300,
-    messages: [
-      {
-        role: "user",
-        content: `Write a short LinkedIn post for ${project.name} — ${project.tagline}.
+): string {
+  return `Write a short LinkedIn post for ${project.name} — ${project.tagline}.
 
 Audience: ${project.audience}
 Week: ISO week ${isoWeek}, ${year}
@@ -70,14 +71,59 @@ Rules:
 - Under 250 words total
 - Do NOT mention specific prices or promises
 
-Write only the post text, ready to copy-paste into LinkedIn.`,
-      },
-    ],
-  });
+Write only the post text, ready to copy-paste into LinkedIn.`;
+}
 
+async function generateViaAnthropic(prompt: string): Promise<string> {
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const response = await client.messages.create({
+    model: "claude-haiku-4-5-20251001",
+    max_tokens: 300,
+    messages: [{ role: "user", content: prompt }],
+  });
   const text =
     response.content[0].type === "text" ? response.content[0].text : "";
   return text.trim();
+}
+
+async function generateViaOllama(prompt: string): Promise<string> {
+  const baseUrl =
+    process.env.OLLAMA_BASE_URL ?? "http://localhost:11434/v1";
+  const model = process.env.OLLAMA_MODEL ?? "gemma4:latest";
+  const res = await fetch(`${baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer ollama",
+    },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 300,
+    }),
+  });
+  if (!res.ok) {
+    throw new Error(`Ollama API error ${res.status}: ${await res.text()}`);
+  }
+  const body = (await res.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  return (body.choices?.[0]?.message?.content ?? "").trim();
+}
+
+async function generatePostDraft(
+  project: Project,
+  isoWeek: number,
+  year: number,
+): Promise<string> {
+  const prompt = buildPrompt(project, isoWeek, year);
+  const provider = (process.env.BRAND_AMBASSADOR_LLM_PROVIDER ?? "anthropic")
+    .trim()
+    .toLowerCase();
+  if (provider === "ollama") {
+    return generateViaOllama(prompt);
+  }
+  return generateViaAnthropic(prompt);
 }
 
 // ─── Telegram delivery ────────────────────────────────────────────────────────

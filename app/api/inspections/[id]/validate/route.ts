@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { validateSubmission } from "@/lib/evidence/submission-gate";
+import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 
 // POST - Validate whether an inspection meets submission gate requirements
 export async function POST(
@@ -18,18 +18,12 @@ export async function POST(
 
     const { id } = await params;
 
-    // Validate inspection exists and belongs to user
-    const inspection = await prisma.inspection.findFirst({
-      where: {
-        id,
-        userId: session.user.id,
-      },
-    });
-
-    if (!inspection) {
+    // RA-1711 batch 3 — adopt shared tenancy helper.
+    const tenancy = await assertInspectionTenancy(session, id);
+    if (!tenancy.ok) {
       return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
+        { error: tenancy.reason },
+        { status: tenancy.status },
       );
     }
 

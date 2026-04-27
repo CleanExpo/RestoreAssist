@@ -11,6 +11,7 @@ import {
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
+import { EmptyState } from "@/components/EmptyState";
 
 interface FormTemplate {
   id: string;
@@ -257,37 +258,27 @@ export default function FormTemplatesPage() {
           <SkeletonCard />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-4">
-            <FileText className="w-8 h-8 text-gray-400 dark:text-gray-500" />
-          </div>
-          {templates.length === 0 ? (
-            <>
-              <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-1">
-                No form templates yet
-              </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-                Create your first one to get started.
-              </p>
-              <Link
-                href="/dashboard/form-templates/new"
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                New Template
-              </Link>
-            </>
-          ) : (
-            <>
-              <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-1">
-                No templates match your filters
-              </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Try adjusting your search or type filter.
-              </p>
-            </>
-          )}
-        </div>
+        <EmptyState
+          icon={<FileText className="w-8 h-8" aria-hidden />}
+          title={
+            templates.length === 0
+              ? "No form templates yet"
+              : "No templates match your filters"
+          }
+          description={
+            templates.length === 0
+              ? "Create your first one to get started."
+              : "Try adjusting your search or type filter."
+          }
+          primaryAction={
+            templates.length === 0
+              ? {
+                  label: "New Template",
+                  href: "/dashboard/form-templates/new",
+                }
+              : undefined
+          }
+        />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((template) => {

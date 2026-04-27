@@ -130,7 +130,7 @@ export default function SubscriptionPage() {
   };
 
   // RA-1243: cancel flow now opens a dialog that captures reason + comment
-  // before calling /api/cancel-subscription. Replaces the old confirm() which
+  // before calling /api/cancel-subscription. Replaces the old native prompt which
   // gave users no exit survey and gave us no churn signal.
   const handleCancelSubscription = () => {
     setShowCancelDialog(true);
@@ -365,7 +365,7 @@ export default function SubscriptionPage() {
                         Export your data
                       </a>
                       <span>
-                        — we retain canceled-account data for 90 days.
+                        — we retain cancelled-account data for 90 days.
                       </span>
                     </div>
                   </>
@@ -393,7 +393,7 @@ export default function SubscriptionPage() {
                   disabled={canceling}
                   className="w-full px-4 py-3 bg-gradient-to-r from-red-500 to-rose-500 rounded-lg font-medium hover:shadow-lg hover:shadow-red-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {canceling ? "Canceling..." : "Cancel Subscription"}
+                  {canceling ? "Cancelling..." : "Cancel Subscription"}
                 </button>
               )}
 
@@ -418,6 +418,24 @@ export default function SubscriptionPage() {
                 <Download className="w-4 h-4" />
                 {openingPortal ? "Opening…" : "Download Invoices"}
               </button>
+
+              {/* RA-1584 — in-app billing dispute / refund affordance.
+                  Opens the user's mail client with a pre-filled subject
+                  so support can route to the billing desk immediately.
+                  Deliberately a mailto, not a form — the signal of
+                  friction is intentional: refund requests should land
+                  in support@, not silently persist to a ticket table
+                  with no human read. */}
+              <a
+                href={`mailto:support@restoreassist.app?subject=${encodeURIComponent(
+                  "Billing dispute / refund request",
+                )}&body=${encodeURIComponent(
+                  "Hi RestoreAssist support,\n\nI'd like to raise the following billing concern:\n\n[Describe the charge or issue]\n\nAccount email: [your account email]\nInvoice number (if known): [e.g. INV-0001]\n\nThanks.",
+                )}`}
+                className="w-full px-4 py-3 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors flex items-center justify-center gap-2"
+              >
+                Request refund / dispute charge
+              </a>
             </div>
           </div>
 

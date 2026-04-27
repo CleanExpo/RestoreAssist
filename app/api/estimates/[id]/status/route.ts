@@ -6,7 +6,12 @@
  * blockers if any are present, 200 with warnings otherwise.
  *
  * Body:
- *   { status: "INTERNAL_REVIEW" | "CLIENT_REVIEW" | "APPROVED" | "LOCKED" | "DRAFT" }
+ *   { status: "INTERNAL_REVIEW" | "SENT" | "CLIENT_REVIEW" | "APPROVED" | "LOCKED" | "DRAFT" | "REJECTED" | "EXPIRED" | "WITHDRAWN" }
+ *
+ * RA-1365 (2026-04-21) — enum expanded. SENT separates "emailed" from
+ * "under active client review"; REJECTED/EXPIRED/WITHDRAWN are terminal
+ * outcomes for declined / timed-out / retracted quotes (previously
+ * stranded in CLIENT_REVIEW or force-LOCKED).
  *
  * Auth: getServerSession required. Estimate ownership enforced.
  */
@@ -19,13 +24,19 @@ import {
   checkBillingCompleteness,
   type EstimateForCheck,
 } from "@/lib/billing-completeness-check";
+import { recordMutationAudit } from "@/lib/audit-log";
+import { apiError, fromException } from "@/lib/api-errors";
 
 const ALLOWED_STATUSES = [
   "DRAFT",
   "INTERNAL_REVIEW",
+  "SENT",
   "CLIENT_REVIEW",
   "APPROVED",
   "LOCKED",
+  "REJECTED",
+  "EXPIRED",
+  "WITHDRAWN",
 ] as const;
 
 type EstimateStatus = (typeof ALLOWED_STATUSES)[number];
@@ -41,7 +52,7 @@ export async function PATCH(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
     }
 
     const { id } = await params;
@@ -50,12 +61,11 @@ export async function PATCH(
     } | null;
 
     if (!body || !isEstimateStatus(body.status)) {
-      return NextResponse.json(
-        {
-          error: `status must be one of ${ALLOWED_STATUSES.join(", ")}`,
-        },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: `status must be one of ${ALLOWED_STATUSES.join(", ")}`,
+        status: 400,
+      });
     }
 
     // Load the estimate with the projections the check needs
@@ -88,11 +98,11 @@ export async function PATCH(
     });
 
     if (!estimate) {
-      return NextResponse.json({ error: "Estimate not found" }, { status: 404 });
+      return apiError(request, { code: "NOT_FOUND", message: "Estimate not found", status: 404 });
     }
 
     if (estimate.userId !== session.user.id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return apiError(request, { code: "FORBIDDEN", message: "Forbidden", status: 403 });
     }
 
     // Run the completeness check only when transitioning to INTERNAL_REVIEW.
@@ -134,9 +144,15 @@ export async function PATCH(
       const result = checkBillingCompleteness(input);
 
       if (!result.complete) {
+        // Domain-specific 422 — keeps the existing shape so the UI can
+        // iterate `blockers` and `warnings`. Matches apiError envelope
+        // only on the top-level `error` field.
         return NextResponse.json(
           {
-            error: "Billing incomplete",
+            error: {
+              code: "VALIDATION",
+              message: "Billing incomplete",
+            },
             blockers: result.blockers,
             warnings: result.warnings,
           },
@@ -147,6 +163,20 @@ export async function PATCH(
       const updated = await prisma.estimate.update({
         where: { id },
         data: { status: body.status, updatedBy: session.user.id },
+      });
+
+      await recordMutationAudit({
+        resource: "estimate",
+        resourceId: id,
+        verb: "UPDATE",
+        action: "estimate.status.transition",
+        actorUserId: session.user.id,
+        metadata: {
+          from: estimate.status,
+          to: body.status,
+          warnings: result.warnings,
+        },
+        request,
       });
 
       return NextResponse.json({
@@ -161,12 +191,18 @@ export async function PATCH(
       data: { status: body.status, updatedBy: session.user.id },
     });
 
+    await recordMutationAudit({
+      resource: "estimate",
+      resourceId: id,
+      verb: "UPDATE",
+      action: "estimate.status.transition",
+      actorUserId: session.user.id,
+      metadata: { from: estimate.status, to: body.status },
+      request,
+    });
+
     return NextResponse.json({ data: updated });
   } catch (err) {
-    console.error("[estimates status PATCH]", err);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, err, { stage: "estimate-status-patch" });
   }
 }

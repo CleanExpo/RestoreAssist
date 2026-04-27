@@ -5,9 +5,11 @@ import { applyRateLimit, getClientIp } from "@/lib/rate-limiter";
 import { sanitizeString } from "@/lib/sanitize";
 import { validateCsrf } from "@/lib/csrf";
 import { sendWelcomeEmail } from "@/lib/email";
+import { sendWithRetry } from "@/lib/email-retry";
 import { notifyWelcome } from "@/lib/notifications";
 import { seedDemoDataForNewUser } from "@/lib/demo-data";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
+import { rejectIfBreached } from "@/lib/auth/password-breach";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { track } from "@/lib/analytics/track";
 
@@ -82,6 +84,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // RA-1591 — HIBP k-anonymity breach check. Fails open on network
+    // error (rejectIfBreached returns null); only blocks when HIBP
+    // confirms the password has been seen in a known breach.
+    const breachMsg = await rejectIfBreached(password);
+    if (breachMsg) {
+      return NextResponse.json({ error: breachMsg }, { status: 400 });
+    }
+
     // RA-1340: hash password FIRST so the duplicate-email path takes the
     // same ~250ms bcrypt cost as the create path. Previously the hash only
     // ran after the uniqueness check — a ~250ms timing oracle revealed
@@ -118,13 +128,17 @@ export async function POST(request: NextRequest) {
           acceptedTermsAt: new Date() as any,
         } as any,
       });
-      sendWelcomeEmail({
-        recipientEmail: email,
-        recipientName: name,
-        loginUrl: `${APP_URL}/login`,
-        trialDays: 30,
-        trialCredits: 30,
-      }).catch((err) => console.error("[Register] Welcome email failed:", err));
+      sendWithRetry(
+        () =>
+          sendWelcomeEmail({
+            recipientEmail: email,
+            recipientName: name,
+            loginUrl: `${APP_URL}/login`,
+            trialDays: 30,
+            trialCredits: 30,
+          }),
+        { stage: "signup-welcome" },
+      ).catch((err) => console.error("[Register] Welcome email failed:", err));
       notifyWelcome(user.id).catch((err) =>
         console.error("[Register] notifyWelcome failed:", err),
       );
@@ -181,32 +195,45 @@ export async function POST(request: NextRequest) {
           data: { organizationId: org.id },
         });
       });
-      sendWelcomeEmail({
-        recipientEmail: email,
-        recipientName: name,
-        loginUrl: `${APP_URL}/login`,
-        trialDays: 30,
-        trialCredits: 30,
-      }).catch((err) => console.error("[Register] Welcome email failed:", err));
-      notifyWelcome(updatedUser.id).catch((err) =>
-        console.error("[Register] notifyWelcome failed:", err),
-      );
-      // RA-1239: seed demo data so trial users don't land on an empty dashboard
-      seedDemoDataForNewUser(updatedUser.id).catch((err) =>
-        console.error("[Register] seedDemoDataForNewUser failed:", err),
-      );
+      // RA-1309 — await all post-transaction side effects via allSettled so
+      // they run concurrently but we don't return the HTTP response until
+      // they're done. Previous code fired them as unawaited fire-and-forgets
+      // which (a) could race with NextAuth's first session write on the
+      // replica, and (b) meant unhandled rejections crashed the process
+      // instead of being caught locally. allSettled guarantees one of the
+      // callback `.catch()`s swallows each rejection so nothing bubbles.
       const reqCtx = extractRequestContext(request);
-      logSecurityEvent({
-        eventType: "ACCOUNT_REGISTERED",
-        userId: updatedUser.id,
-        email: updatedUser.email,
-        ...reqCtx,
-        details: { role: "ADMIN", hasOrganization: true },
-      }).catch(() => {});
-      // RA-1246 — signup_completed (unconditional)
-      track(updatedUser.id, "signup_completed", {
-        hasOrganization: true,
-      }).catch(() => {});
+      await Promise.allSettled([
+        sendWithRetry(
+          () =>
+            sendWelcomeEmail({
+              recipientEmail: email,
+              recipientName: name,
+              loginUrl: `${APP_URL}/login`,
+              trialDays: 30,
+              trialCredits: 30,
+            }),
+          { stage: "signup-welcome" },
+        ).catch((err) => console.error("[Register] Welcome email failed:", err)),
+        notifyWelcome(updatedUser.id).catch((err) =>
+          console.error("[Register] notifyWelcome failed:", err),
+        ),
+        // RA-1239: seed demo data so trial users don't land on an empty dashboard
+        seedDemoDataForNewUser(updatedUser.id).catch((err) =>
+          console.error("[Register] seedDemoDataForNewUser failed:", err),
+        ),
+        logSecurityEvent({
+          eventType: "ACCOUNT_REGISTERED",
+          userId: updatedUser.id,
+          email: updatedUser.email,
+          ...reqCtx,
+          details: { role: "ADMIN", hasOrganization: true },
+        }).catch(() => {}),
+        // RA-1246 — signup_completed (unconditional)
+        track(updatedUser.id, "signup_completed", {
+          hasOrganization: true,
+        }).catch(() => {}),
+      ]);
       const { password: _, ...userWithoutPassword } = updatedUser;
       return NextResponse.json(
         { message: "User created successfully", user: userWithoutPassword },

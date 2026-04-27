@@ -23,7 +23,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useFetch } from "@/lib/hooks/useFetch";
+import { formatCurrencyCents, formatDate } from "@/lib/formatters";
 import toast from "react-hot-toast";
+import { EmptyState } from "@/components/EmptyState";
 
 interface Invoice {
   id: string;
@@ -35,6 +37,11 @@ interface Invoice {
   totalIncGST: number;
   amountPaid: number;
   amountDue: number;
+  // RA-1553 — surface external accounting-software sync state so users
+  // see a FAILED Xero/QuickBooks push instead of assuming success.
+  externalSyncStatus?: "PENDING" | "SYNCED" | "FAILED" | null;
+  externalSyncProvider?: string | null;
+  externalSyncError?: string | null;
   _count: {
     lineItems: number;
     payments: number;
@@ -204,7 +211,7 @@ export default function InvoicesPage() {
             </div>
             <div>
               <div className="text-2xl font-bold text-slate-900 dark:text-white">
-                ${(stats.totalRevenue / 100).toFixed(2)}
+                {formatCurrencyCents(stats.totalRevenue)}
               </div>
               <div className="text-sm text-slate-500 dark:text-slate-400">
                 Total Revenue
@@ -220,7 +227,7 @@ export default function InvoicesPage() {
             </div>
             <div>
               <div className="text-2xl font-bold text-slate-900 dark:text-white">
-                ${(stats.draftTotal / 100).toFixed(2)}
+                {formatCurrencyCents(stats.draftTotal)}
               </div>
               <div className="text-sm text-slate-500 dark:text-slate-400">
                 Drafts
@@ -236,7 +243,7 @@ export default function InvoicesPage() {
             </div>
             <div>
               <div className="text-2xl font-bold text-slate-900 dark:text-white">
-                ${(stats.outstanding / 100).toFixed(2)}
+                {formatCurrencyCents(stats.outstanding)}
               </div>
               <div className="text-sm text-slate-500 dark:text-slate-400">
                 Outstanding
@@ -252,7 +259,7 @@ export default function InvoicesPage() {
             </div>
             <div>
               <div className="text-2xl font-bold text-slate-900 dark:text-white">
-                ${(stats.overdue / 100).toFixed(2)}
+                {formatCurrencyCents(stats.overdue)}
               </div>
               <div className="text-sm text-slate-500 dark:text-slate-400">
                 Overdue
@@ -268,7 +275,7 @@ export default function InvoicesPage() {
             </div>
             <div>
               <div className="text-2xl font-bold text-slate-900 dark:text-white">
-                ${(stats.paidThisMonth / 100).toFixed(2)}
+                {formatCurrencyCents(stats.paidThisMonth)}
               </div>
               <div className="text-sm text-slate-500 dark:text-slate-400">
                 Paid This Month
@@ -333,18 +340,14 @@ export default function InvoicesPage() {
           Loading invoices...
         </div>
       ) : invoices.length === 0 ? (
-        <div className="text-center py-12">
-          <FileText className="h-16 w-16 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
-          <p className="text-slate-500 dark:text-slate-400 text-lg">
-            No invoices found
-          </p>
-          <Link
-            href="/dashboard/invoices/new"
-            className="inline-block mt-4 text-cyan-500 hover:text-cyan-600"
-          >
-            Create your first invoice
-          </Link>
-        </div>
+        <EmptyState
+          icon={<FileText className="h-10 w-10" aria-hidden />}
+          title="No invoices found"
+          primaryAction={{
+            label: "Create your first invoice",
+            href: "/dashboard/invoices/new",
+          }}
+        />
       ) : (
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
           {/* RA-918: overflow-x-auto enables horizontal scroll on narrow viewports */}
@@ -424,18 +427,18 @@ export default function InvoicesPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
-                      {new Date(invoice.invoiceDate).toLocaleDateString()}
+                      {formatDate(invoice.invoiceDate)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
-                      {new Date(invoice.dueDate).toLocaleDateString()}
+                      {formatDate(invoice.dueDate)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-slate-900 dark:text-white">
-                        ${(invoice.totalIncGST / 100).toFixed(2)}
+                        {formatCurrencyCents(invoice.totalIncGST)}
                       </div>
                       {invoice.amountPaid > 0 && (
                         <div className="text-xs text-green-600 dark:text-green-400">
-                          ${(invoice.amountPaid / 100).toFixed(2)} paid
+                          {formatCurrencyCents(invoice.amountPaid)} paid
                         </div>
                       )}
                     </td>
@@ -445,6 +448,15 @@ export default function InvoicesPage() {
                         dueDate: invoice.dueDate,
                         amountDue: invoice.amountDue,
                       })}
+                      {invoice.externalSyncStatus === "FAILED" && (
+                        <div
+                          className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+                          title={invoice.externalSyncError ?? "Sync failed"}
+                        >
+                          <span aria-hidden>⚠</span>
+                          {invoice.externalSyncProvider ?? "Accounting"} sync failed
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                       <button

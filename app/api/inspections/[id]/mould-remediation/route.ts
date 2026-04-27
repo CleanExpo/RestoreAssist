@@ -19,6 +19,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 
 // ─── Validation ────────────────────────────────────────────────────────────────
 
@@ -72,20 +73,22 @@ export async function GET(
 
   const { id } = await params;
 
-  const inspection = await (prisma as any).inspection.findUnique({
-    where: { id, userId: session.user.id },
-    select: { id: true, mouldRemediationAssessment: true },
-  });
-
-  if (!inspection) {
+  // RA-1711 batch 2 — shared tenancy helper (workspace-member + admin paths).
+  const tenancy = await assertInspectionTenancy(session, id);
+  if (!tenancy.ok) {
     return NextResponse.json(
-      { error: "Inspection not found" },
-      { status: 404 },
+      { error: tenancy.reason },
+      { status: tenancy.status },
     );
   }
 
+  const inspection = await (prisma as any).inspection.findUnique({
+    where: { id },
+    select: { mouldRemediationAssessment: true },
+  });
+
   return NextResponse.json(
-    (inspection as any).mouldRemediationAssessment ?? null,
+    (inspection as any)?.mouldRemediationAssessment ?? null,
   );
 }
 
@@ -102,15 +105,11 @@ export async function POST(
 
   const { id } = await params;
 
-  const inspection = await prisma.inspection.findUnique({
-    where: { id, userId: session.user.id },
-    select: { id: true },
-  });
-
-  if (!inspection) {
+  const tenancy = await assertInspectionTenancy(session, id);
+  if (!tenancy.ok) {
     return NextResponse.json(
-      { error: "Inspection not found" },
-      { status: 404 },
+      { error: tenancy.reason },
+      { status: tenancy.status },
     );
   }
 
@@ -235,15 +234,11 @@ export async function DELETE(
 
   const { id } = await params;
 
-  const inspection = await prisma.inspection.findUnique({
-    where: { id, userId: session.user.id },
-    select: { id: true },
-  });
-
-  if (!inspection) {
+  const tenancy = await assertInspectionTenancy(session, id);
+  if (!tenancy.ok) {
     return NextResponse.json(
-      { error: "Inspection not found" },
-      { status: 404 },
+      { error: tenancy.reason },
+      { status: tenancy.status },
     );
   }
 

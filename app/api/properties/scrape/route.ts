@@ -228,11 +228,17 @@ export async function POST(req: NextRequest) {
     // ── Check cache ─────────────────────────────────────────
     if (normAddress && normPostcode) {
       try {
+        // RA-1761 — cache writes accept both onthehouse and domain rows
+        // (see upsert below at the bottom of this handler), so reads must
+        // match. Filtering to just "onthehouse" stranded all domain.com.au
+        // entries: they got persisted with a 90-day TTL but were never
+        // served from cache, forcing every repeat domain lookup back through
+        // the upstream scraper.
         const cached = await prisma.propertyLookup.findFirst({
           where: {
             propertyAddress: { equals: normAddress, mode: "insensitive" },
             propertyPostcode: normPostcode,
-            dataSource: "onthehouse",
+            dataSource: { in: ["onthehouse", "domain"] },
             expiresAt: { gt: new Date() },
           },
         });

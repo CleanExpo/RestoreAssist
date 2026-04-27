@@ -1,0 +1,27 @@
+{
+  "name": "@restoreassist/pilot-tester",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Senior-PM canary harness — drives synthetic restoration jobs against the sandbox to catch quality regressions Playwright can't.",
+  "type": "module",
+  "scripts": {
+    "run": "tsx src/index.ts run",
+    "swarm": "tsx src/index.ts swarm",
+    "dryrun": "tsx src/index.ts dryrun",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "tough-cookie": "^4.1.4",
+    "undici": "^6.21.0"
+  },
+  "devDependencies": {
+    "@types/tough-cookie": "^4.0.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.9"
+  }
+}

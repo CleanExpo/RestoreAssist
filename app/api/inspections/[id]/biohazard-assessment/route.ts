@@ -15,7 +15,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { softDelete } from "@/lib/prisma-helpers";
 import { z } from "zod";
+import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 
 // ─── Validation ────────────────────────────────────────────────────────────────
 
@@ -53,19 +55,23 @@ export async function GET(
 
   const { id } = await params;
 
-  const inspection = await (prisma as any).inspection.findUnique({
-    where: { id, userId: session.user.id },
-    select: { id: true, biohazardAssessment: true },
-  });
-
-  if (!inspection) {
+  // RA-1711 batch 2 — adopt shared tenancy helper. Adds workspace-member
+  // path so workspace techs (not just owners) can read; admin bypass for
+  // legitimate auditor access.
+  const tenancy = await assertInspectionTenancy(session, id);
+  if (!tenancy.ok) {
     return NextResponse.json(
-      { error: "Inspection not found" },
-      { status: 404 },
+      { error: tenancy.reason },
+      { status: tenancy.status },
     );
   }
 
-  return NextResponse.json((inspection as any).biohazardAssessment ?? null);
+  const inspection = await (prisma as any).inspection.findUnique({
+    where: { id },
+    select: { biohazardAssessment: true },
+  });
+
+  return NextResponse.json((inspection as any)?.biohazardAssessment ?? null);
 }
 
 // ─── POST ─────────────────────────────────────────────────────────────────────
@@ -81,15 +87,11 @@ export async function POST(
 
   const { id } = await params;
 
-  const inspection = await prisma.inspection.findUnique({
-    where: { id, userId: session.user.id },
-    select: { id: true },
-  });
-
-  if (!inspection) {
+  const tenancy = await assertInspectionTenancy(session, id);
+  if (!tenancy.ok) {
     return NextResponse.json(
-      { error: "Inspection not found" },
-      { status: 404 },
+      { error: tenancy.reason },
+      { status: tenancy.status },
     );
   }
 
@@ -168,21 +170,18 @@ export async function DELETE(
 
   const { id } = await params;
 
-  const inspection = await prisma.inspection.findUnique({
-    where: { id, userId: session.user.id },
-    select: { id: true },
-  });
-
-  if (!inspection) {
+  const tenancy = await assertInspectionTenancy(session, id);
+  if (!tenancy.ok) {
     return NextResponse.json(
-      { error: "Inspection not found" },
-      { status: 404 },
+      { error: tenancy.reason },
+      { status: tenancy.status },
     );
   }
 
-  await (prisma as any).biohazardAssessment
-    .delete({ where: { inspectionId: id } })
-    .catch(() => {});
+  await softDelete(
+    () => (prisma as any).biohazardAssessment.delete({ where: { inspectionId: id } }),
+    { route: "/api/inspections/[id]/biohazard-assessment", stage: "delete", inspectionId: id },
+  );
 
   await prisma.inspection.update({
     where: { id },

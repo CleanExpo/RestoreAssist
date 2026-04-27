@@ -501,7 +501,7 @@ Return JSON with this EXACT structure:
   try {
     // Use prompt caching for cost optimization (90% savings on cache hits)
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4-6",
       max_tokens: 16384, // Maximum tokens for comprehensive analysis
       system: [createCachedSystemPrompt(comprehensiveSystemPrompt)],
       messages: [

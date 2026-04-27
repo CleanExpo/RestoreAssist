@@ -77,6 +77,13 @@ export default [
       // react-hooks rules of Hooks (critical correctness)
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "warn",
+      // RA-1566: ban native browser confirm()/alert()/prompt() in app/ — use shadcn AlertDialog instead
+      "no-restricted-globals": [
+        "error",
+        { name: "confirm", message: "Use shadcn <AlertDialog> / ConfirmDialog instead of window.confirm(). See components/ui/confirm-dialog.tsx." },
+        { name: "alert", message: "Use shadcn <AlertDialog> or a toast instead of window.alert()." },
+        { name: "prompt", message: "Use a controlled dialog instead of window.prompt()." },
+      ],
     },
   },
   {

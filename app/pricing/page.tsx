@@ -365,6 +365,15 @@ export default function PricingPage() {
                       {plan.period}
                     </span>
                   )}
+                  {/* RA-1580 — AU B2B requires explicit AUD + GST-inclusive
+                      labelling; pair with Tax Invoice promise from RA-1559. */}
+                  {!plan.isFree && (
+                    <p
+                      className={`text-xs mt-1 ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                    >
+                      AUD, incl. GST. Tax invoices issued monthly. Cancel any time.
+                    </p>
+                  )}
                   {plan.monthlyEquivalent && (
                     <p
                       className={`text-sm mt-1 ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}

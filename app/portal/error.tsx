@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { ErrorFallback } from "@/components/ErrorFallback";
+import { reportClientError } from "@/lib/observability";
 
 export default function PortalError({
   error,
@@ -12,6 +13,11 @@ export default function PortalError({
 }) {
   useEffect(() => {
     console.error("[PortalError]", error);
+    // RA-1544 — ship to Vercel Observability sink.
+    reportClientError(error, {
+      boundary: "PortalError",
+      digest: error.digest,
+    });
   }, [error]);
 
   return (

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { cn } from "@/lib/utils";
 import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas";
+import { useConfirmDialog } from "@/components/ConfirmDialog";
 import { NirPilotSurvey } from "@/components/nir-pilot-survey";
 import { MobileNav } from "@/components/mobile/MobileNav";
 import dynamic from "next/dynamic";
@@ -12,10 +13,18 @@ const PortalInvitePanel = dynamic(
   () => import("@/components/inspection/PortalInvitePanel"),
   { ssr: false },
 );
+// RA-1125 MVP — promote SketchEditorV2 to the active editor.
+// V2 is the composable, tablet-first rewrite with multi-floor tabs,
+// scale calibration, React-DOM moisture-pin overlay, and scope-save
+// parity with V1 (same `/api/inspections/[id]/sketches` endpoints +
+// same `/sketches/pdf` export). Props are a strict superset of V1's.
+// Legacy `SketchEditor.tsx` is left in the tree for one release
+// cycle in case a rollback is needed; follow-up ticket removes it
+// once prod telemetry shows V2 is clean.
 const SketchEditor = dynamic(
   () =>
-    import("@/components/sketch/SketchEditor").then((m) => ({
-      default: m.SketchEditor,
+    import("@/components/sketch/SketchEditorV2").then((m) => ({
+      default: m.SketchEditorV2,
     })),
   { ssr: false },
 );
@@ -267,6 +276,7 @@ export default function InspectionDetailPage({
 }) {
   const { id } = use(params);
   const router = useRouter();
+  const confirm = useConfirmDialog();
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -775,6 +785,7 @@ export default function InspectionDetailPage({
 
   return (
     <div className="space-y-6">
+      <confirm.Mount />
       {/* Header */}
       <div className="flex items-start gap-4">
         <button
@@ -2275,7 +2286,12 @@ export default function InspectionDetailPage({
                         </button>
                         <button
                           onClick={async () => {
-                            if (!confirm("Delete this scope item?")) return;
+                            const ok = await confirm.ask({
+                              title: "Delete scope item?",
+                              confirmLabel: "Delete",
+                              destructive: true,
+                            });
+                            if (!ok) return;
                             try {
                               const res = await fetch(
                                 `/api/inspections/${id}/scope-items/${item.id}`,

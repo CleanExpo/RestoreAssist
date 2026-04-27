@@ -19,19 +19,44 @@ export interface ModelConfig {
 }
 
 /**
- * Get list of Claude models to try, ordered by preference
- * We try the latest models first, then fall back to stable versions
+ * Opus 4.7 rejects any non-default `temperature`, `top_p`, `top_k`
+ * with a 400 error — the model's adaptive-thinking mode is the only
+ * sampling path supported. `tryClaudeModels()` strips these params
+ * when the target model is Opus 4.7 so callers tuning sampling don't
+ * hard-fail on the newest flagship while the same params still apply
+ * on Sonnet / Haiku / Opus 4.6.
+ *
+ * Keep in sync with Anthropic's breaking-change list:
+ * https://docs.anthropic.com/en/docs/about-claude/models/whats-new-claude-4-7
+ */
+function modelRejectsSamplingParams(model: string): boolean {
+  // Forward-compatible — matches opus-4-7 and any later 4.x opus.
+  return /^claude-opus-4-(7|8|9|1\d)/.test(model);
+}
+
+/**
+ * Get list of Claude models to try, ordered by preference.
+ *
+ * Ordering philosophy — start with the strongest model the task is
+ * likely to benefit from, then step down to cheaper / faster
+ * fallbacks that are still in active support. We deliberately avoid
+ * Claude 3.x sunset models — the June-15 and earlier retirements
+ * mean any 404 from 3.5 Sonnet cascades into the 3.0 Opus fallback,
+ * which is either itself retired or soon will be.
+ *
+ * Refreshed 2026-04-22 after Anthropic's Opus 4.7 GA:
+ *   - Opus 4.7 is the new flagship (agentic, 1M ctx).
+ *   - Sonnet 4.6 remains the value/reasoning workhorse.
+ *   - Haiku 4.5 is the cheap/fast path.
+ *   - Opus 4.6 retained as a cool-off fallback in case 4.7 has an
+ *     availability blip; removed once a week clean.
  */
 export function getClaudeModels(maxTokens: number = 8000): ModelConfig[] {
   return [
-    // Current Claude 4.6 models (2026)
-    { name: "claude-sonnet-4-6", maxTokens }, // Latest Sonnet 4.6
-    { name: "claude-opus-4-6", maxTokens }, // Latest Opus 4.6
-
-    // Stable Claude 4.5 fallbacks
-    { name: "claude-haiku-4-5-20251001", maxTokens }, // Fast Haiku 4.5
-    { name: "claude-3-5-sonnet-20241022", maxTokens }, // Claude 3.5 Sonnet
-    { name: "claude-3-opus-20240229", maxTokens: Math.min(maxTokens, 4096) }, // Stable 3.0 Opus
+    { name: "claude-opus-4-7", maxTokens }, // Flagship — 1M ctx, agentic
+    { name: "claude-sonnet-4-6", maxTokens }, // Value workhorse
+    { name: "claude-haiku-4-5-20251001", maxTokens }, // Fast + cheap
+    { name: "claude-opus-4-6", maxTokens }, // Legacy-only fallback
   ];
 }
 
@@ -73,15 +98,29 @@ export async function tryClaudeModels(
         messages: requestConfig.messages,
       };
 
-      // Add optional parameters
-      if (requestConfig.temperature !== undefined) {
-        createParams.temperature = requestConfig.temperature;
-      }
-      if (requestConfig.top_p !== undefined) {
-        createParams.top_p = requestConfig.top_p;
-      }
-      if (requestConfig.top_k !== undefined) {
-        createParams.top_k = requestConfig.top_k;
+      // Opus 4.7+ guard — drop sampling params the model would 400 on.
+      const stripSampling = modelRejectsSamplingParams(modelConfig.name);
+      const hasSampling =
+        requestConfig.temperature !== undefined ||
+        requestConfig.top_p !== undefined ||
+        requestConfig.top_k !== undefined;
+
+      if (!stripSampling) {
+        if (requestConfig.temperature !== undefined) {
+          createParams.temperature = requestConfig.temperature;
+        }
+        if (requestConfig.top_p !== undefined) {
+          createParams.top_p = requestConfig.top_p;
+        }
+        if (requestConfig.top_k !== undefined) {
+          createParams.top_k = requestConfig.top_k;
+        }
+      } else if (hasSampling) {
+        console.info(
+          "[claude-models] stripped sampling params for",
+          modelConfig.name,
+          "(Opus 4.7+ adaptive-thinking only)",
+        );
       }
 
       const response = await anthropicClient.messages.create(createParams);

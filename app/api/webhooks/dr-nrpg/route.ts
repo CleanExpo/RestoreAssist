@@ -31,6 +31,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual, randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
+import { recordWebhookFailure } from "@/lib/webhook-audit";
 
 // ============================================================
 // HMAC-SHA256 signature verification
@@ -199,6 +200,14 @@ export async function POST(request: NextRequest) {
     });
   } catch (upsertErr) {
     console.error("[dr-nrpg webhook] DrNrpgJobSync upsert failed:", upsertErr);
+    await recordWebhookFailure({
+      provider: "dr-nrpg",
+      externalEventId: jobId,
+      stage: "jobsync-upsert",
+      error: upsertErr,
+      request,
+      details: { event, claimNumber },
+    });
 
     // Log the failure and return 500 so DR-NRPG retries
     return NextResponse.json({ error: "Failed to sync job" }, { status: 500 });

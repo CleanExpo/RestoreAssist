@@ -556,7 +556,7 @@ export default function TeamPage() {
             )}
           >
             {isTechnician
-              ? "View your organization's team members and hierarchy."
+              ? "View your organisation's team members and hierarchy."
               : "Manage your team members and invitations."}
           </p>
         </div>
@@ -939,7 +939,7 @@ export default function TeamPage() {
             <Users className="w-5 h-5" />
             Team Members ({filteredMembers.length})
           </CardTitle>
-          <CardDescription>Active members in your organization</CardDescription>
+          <CardDescription>Active members in your organisation</CardDescription>
         </CardHeader>
         <CardContent>
           {filteredMembers.length === 0 ? (
@@ -1128,7 +1128,7 @@ export default function TeamPage() {
             >
               {credentials?.password
                 ? "Account has been created successfully. Please copy and share these credentials with the user."
-                : "User has been added to your organization. Please share the email address with them."}
+                : "User has been added to your organisation. Please share the email address with them."}
             </DialogDescription>
           </DialogHeader>
 
@@ -1295,7 +1295,7 @@ export default function TeamPage() {
               from your team?
               <br />
               <br />
-              This will remove them from your organization. They will no longer
+              This will remove them from your organisation. They will no longer
               have access to team resources, but their account will remain
               active.
             </AlertDialogDescription>

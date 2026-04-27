@@ -46,22 +46,43 @@ export function getCacheTTL(strategy: CacheStrategy): number | null {
 }
 
 /**
- * Create a cached system prompt block
+ * Create a cached system prompt block.
+ *
+ * Optional `strategy` argument wires the chosen TTL through to the
+ * API as `cache_control.ttl` — previously `getCacheTTL()` only
+ * returned an advisory number but every call emitted the default
+ * 5-minute cache regardless. Set `strategy: "long-running"` on
+ * daily-cron agents (board-meeting, gap-analysis) so a single write
+ * survives the full hour window; writes cost 2× but reads still
+ * earn the 90% discount, which pays back after the second hit.
  */
 export function createCachedSystemPrompt(
   content: string,
   enableCache: boolean = true,
+  strategy: CacheStrategy = "standard",
 ): Anthropic.Messages.TextBlockParam {
   const block: Anthropic.Messages.TextBlockParam = {
     type: "text",
     text: content,
   };
 
-  if (enableCache) {
-    block.cache_control = { type: "ephemeral" };
+  if (enableCache && strategy !== "none") {
+    block.cache_control = buildCacheControl(strategy);
   }
 
   return block;
+}
+
+/**
+ * Map a CacheStrategy into the API cache_control shape. Only the
+ * 1-hour TTL strategy needs the explicit `ttl` field — Anthropic's
+ * default is 5 minutes, which matches "standard" / "session".
+ */
+function buildCacheControl(strategy: CacheStrategy): { type: "ephemeral"; ttl?: "5m" | "1h" } {
+  if (strategy === "long-running") {
+    return { type: "ephemeral", ttl: "1h" };
+  }
+  return { type: "ephemeral" };
 }
 
 /**
@@ -69,11 +90,12 @@ export function createCachedSystemPrompt(
  * Useful for agents with multi-part system prompts
  */
 export function createCachedSystemPrompts(
-  prompts: Array<{ content: string; cached?: boolean }>,
+  prompts: Array<{ content: string; cached?: boolean; strategy?: CacheStrategy }>,
   defaultCache: boolean = true,
+  defaultStrategy: CacheStrategy = "standard",
 ): Anthropic.Messages.TextBlockParam[] {
-  return prompts.map(({ content, cached = defaultCache }) =>
-    createCachedSystemPrompt(content, cached),
+  return prompts.map(({ content, cached = defaultCache, strategy = defaultStrategy }) =>
+    createCachedSystemPrompt(content, cached, strategy),
   );
 }
 
@@ -86,6 +108,7 @@ export function wrapSystemPromptWithCache(
     | Anthropic.Messages.TextBlockParam
     | Anthropic.Messages.TextBlockParam[],
   enableCache: boolean = true,
+  strategy: CacheStrategy = "standard",
 ): Anthropic.Messages.TextBlockParam[] {
   // Already an array of blocks
   if (Array.isArray(system)) {
@@ -98,7 +121,7 @@ export function wrapSystemPromptWithCache(
       return [
         {
           ...system,
-          cache_control: { type: "ephemeral" },
+          cache_control: buildCacheControl(strategy),
         },
       ];
     }
@@ -106,7 +129,7 @@ export function wrapSystemPromptWithCache(
   }
 
   // Plain string - wrap with cache
-  return [createCachedSystemPrompt(system, enableCache)];
+  return [createCachedSystemPrompt(system, enableCache, strategy)];
 }
 
 /**
@@ -252,7 +275,11 @@ export function prepareCachedMessageParams(
   const messageParams: Anthropic.Messages.MessageCreateParams = {
     model: params.model,
     max_tokens: params.maxTokens,
-    system: wrapSystemPromptWithCache(params.system, enableCache),
+    system: wrapSystemPromptWithCache(
+      params.system,
+      enableCache,
+      params.cacheStrategy ?? "standard",
+    ),
     messages: params.messages,
   };
 

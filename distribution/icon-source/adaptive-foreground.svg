@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Android adaptive icon FOREGROUND layer.
+
+  Spec: 432×432 viewport with a 264×264 safe zone centred. Foreground
+  is rendered on top of the background (solid #050505) — keep all
+  visible content INSIDE the safe zone or it will be cropped on
+  circular masks.
+
+  This is the same droplet from icon.svg, scaled into the safe zone.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 432 432" width="432" height="432">
+  <defs>
+    <linearGradient id="drop" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#7CFCFF" />
+      <stop offset="60%" stop-color="#00F5FF" />
+      <stop offset="100%" stop-color="#00BAD4" />
+    </linearGradient>
+  </defs>
+
+  <!-- Droplet, fully inside the 264x264 safe zone (84..348). -->
+  <path
+    d="M216 100
+       C 158 175, 130 224, 130 270
+       C 130 322, 169 360, 216 360
+       C 263 360, 302 322, 302 270
+       C 302 224, 274 175, 216 100 Z"
+    fill="url(#drop)" />
+
+  <path
+    d="M186 200
+       C 170 224, 161 247, 161 268
+       C 161 286, 172 300, 186 305"
+    fill="none"
+    stroke="#FFFFFF"
+    stroke-opacity="0.45"
+    stroke-width="6"
+    stroke-linecap="round" />
+</svg>

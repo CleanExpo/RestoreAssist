@@ -14,6 +14,12 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  // RA-1587 — 2FA state. `totp` is the 6-digit code; `needsTotp` is
+  // toggled true after the server bounces the first submission with
+  // `2FA_REQUIRED`. We keep `email` + `password` in state so the
+  // follow-up submission carries them without re-prompting.
+  const [totp, setTotp] = useState("");
+  const [needsTotp, setNeedsTotp] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -34,10 +40,28 @@ function LoginForm() {
       const result = await signIn("credentials", {
         email,
         password,
+        totp: totp || undefined,
         redirect: false,
       });
 
-      if (result?.error) {
+      if (result?.error === "2FA_REQUIRED") {
+        // Account has 2FA enabled. Reveal the TOTP field and ask for a code.
+        setNeedsTotp(true);
+        setError("Enter your 6-digit authenticator code to continue.");
+        toast("2FA code required", { icon: "🔐" });
+      } else if (result?.error === "2FA_INVALID") {
+        setNeedsTotp(true);
+        setError("Invalid authenticator code. Try again.");
+        toast.error("Invalid 2FA code");
+      } else if (result?.error?.startsWith("ACCOUNT_LOCKED:")) {
+        // RA-1590 — too many failures in the rolling window. Show the
+        // retry window so the user knows when to come back.
+        const secs = Number(result.error.split(":")[1]) || 900;
+        const mins = Math.max(1, Math.ceil(secs / 60));
+        const msg = `Too many failed attempts. Try again in ${mins} minute${mins === 1 ? "" : "s"}, or reset your password.`;
+        setError(msg);
+        toast.error(msg);
+      } else if (result?.error) {
         setError("Invalid email or password");
         toast.error("Invalid email or password");
       } else {
@@ -86,7 +110,7 @@ function LoginForm() {
             className="text-4xl font-bold bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent mb-2"
             style={{ fontFamily: "Titillium Web, sans-serif" }}
           >
-            Restore Assist{" "}
+            RestoreAssist{" "}
           </motion.h1>
           <p className="text-slate-400">Sign in to your account</p>
         </div>
@@ -164,6 +188,39 @@ function LoginForm() {
                 </button>
               </div>
             </div>
+
+            {/* RA-1587 / RA-1588 — 2FA code OR recovery code. Only
+                rendered after the server signals the account has 2FA
+                enabled (prevents enumeration). Accepts either:
+                  - 6-digit TOTP from the authenticator app, OR
+                  - XXXXX-XXXXX single-use recovery code. */}
+            {needsTotp && (
+              <div>
+                <label
+                  htmlFor="totp"
+                  className="block text-sm font-medium text-slate-300 mb-2"
+                >
+                  6-digit code or recovery code
+                </label>
+                <input
+                  id="totp"
+                  type="text"
+                  inputMode="text"
+                  autoComplete="one-time-code"
+                  maxLength={16}
+                  value={totp}
+                  onChange={(e) => setTotp(e.target.value.slice(0, 16))}
+                  placeholder="123456 or ABCDE-FGHIJ"
+                  required
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 tracking-widest text-center text-lg"
+                  autoFocus
+                />
+                <p className="text-xs text-slate-400 mt-2">
+                  Lost your device? Enter one of the recovery codes you
+                  saved when you enabled 2FA. Each is single-use.
+                </p>
+              </div>
+            )}
 
             {/* Error Message */}
             {error && (

@@ -29,7 +29,19 @@ import {
   PhaseProgressBar,
 } from "@/components/SessionMetadataCard";
 import { Button } from "@/components/ui/button";
+import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
+import { EmptyState } from "@/components/EmptyState";
+import { formatDate } from "@/lib/formatters";
 import type { ReportWithSessionData } from "@/lib/session-types";
+
+const REPORT_STATUS_TONES: Record<string, StatusTone> = {
+  COMPLETED: "success",
+  APPROVED: "success",
+  PENDING: "warning",
+  "In Progress": "info",
+  DRAFT: "neutral",
+  ARCHIVED: "neutral",
+};
 
 export default function ReportsPage() {
   const router = useRouter();
@@ -327,14 +339,6 @@ export default function ReportsPage() {
     currentPage * itemsPerPage,
   );
 
-  const statusColors = {
-    COMPLETED: "bg-emerald-500/20 text-emerald-400",
-    APPROVED: "bg-emerald-500/20 text-emerald-400",
-    PENDING: "bg-amber-500/20 text-amber-400",
-    "In Progress": "bg-blue-500/20 text-blue-400",
-    DRAFT: "bg-slate-500/20 text-slate-400",
-    ARCHIVED: "bg-gray-500/20 text-gray-400",
-  };
 
   const hazardIcons = {
     "Category 1": "💧",
@@ -346,12 +350,6 @@ export default function ReportsPage() {
     Flood: "🌊",
     Biohazard: "☣️",
     Impact: "💥",
-  };
-
-  const formatDate = (dateString: string) => {
-    if (!dateString) return "N/A";
-    const date = new Date(dateString);
-    return date.toLocaleDateString();
   };
 
   const formatCost = (cost: number | string | null | undefined) => {
@@ -602,15 +600,11 @@ export default function ReportsPage() {
                           >
                             {report.reportNumber || report.id}
                           </Link>
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                              statusColors[
-                                report.status as keyof typeof statusColors
-                              ] || "bg-slate-500/20 text-slate-400"
-                            }`}
+                          <StatusBadge
+                            tone={REPORT_STATUS_TONES[report.status ?? ""] ?? "neutral"}
                           >
                             {report.status || "COMPLETED"}
-                          </span>
+                          </StatusBadge>
                           <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-700/50 text-slate-300 flex items-center gap-1">
                             <span>
                               {hazardIcons[
@@ -756,31 +750,15 @@ export default function ReportsPage() {
                     // primary CTA, not a single line in a table cell.
                     <tr>
                       <td colSpan={11} className="py-16 px-6">
-                        <div className="flex flex-col items-center justify-center text-center space-y-4">
-                          <div className="rounded-full bg-slate-800/50 p-4">
-                            <GitBranch
-                              size={32}
-                              className="text-cyan-400"
-                              aria-hidden
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <h3 className="text-lg font-semibold text-white">
-                              No reports yet
-                            </h3>
-                            <p className="text-sm text-slate-400 max-w-sm">
-                              Water-damage reports appear here once you complete
-                              an inspection. Start one to generate your first
-                              IICRC-compliant report.
-                            </p>
-                          </div>
-                          <Link
-                            href="/dashboard/reports/new"
-                            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-medium hover:from-blue-700 hover:to-cyan-700 transition-colors"
-                          >
-                            Create your first report
-                          </Link>
-                        </div>
+                        <EmptyState
+                          icon={<GitBranch size={40} aria-hidden />}
+                          title="No reports yet"
+                          description="Water-damage reports appear here once you complete an inspection. Start one to generate your first IICRC-compliant report."
+                          primaryAction={{
+                            label: "Create your first report",
+                            href: "/dashboard/reports/new",
+                          }}
+                        />
                       </td>
                     </tr>
                   ) : (
@@ -859,11 +837,11 @@ export default function ReportsPage() {
                           {report.policyType || "N/A"}
                         </td>
                         <td className="py-4 px-6">
-                          <span
-                            className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[report.status as keyof typeof statusColors] || "bg-slate-500/20 text-slate-400"}`}
+                          <StatusBadge
+                            tone={REPORT_STATUS_TONES[report.status ?? ""] ?? "neutral"}
                           >
                             {report.status || "COMPLETED"}
-                          </span>
+                          </StatusBadge>
                         </td>
                         <td className="py-4 px-6 font-medium">
                           {formatCost(report.estimatedCost)}

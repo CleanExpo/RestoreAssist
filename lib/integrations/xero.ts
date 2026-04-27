@@ -235,6 +235,7 @@ export async function syncInvoiceToXero(
               ? refreshErr.message
               : String(refreshErr)
           }`,
+          { cause: refreshErr },
         );
       }
       throw new Error(

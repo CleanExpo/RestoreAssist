@@ -15,6 +15,25 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
+    # RA-1546 companion — ephemeral Postgres for the migration-drift
+    # check below. Without a real DB the check can't run, and the
+    # P3009 incident from 2026-04-22 (45 stranded migrations) proved
+    # that relying on "check it in prod" is not a gate.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -59,3 +78,36 @@ jobs:
           STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
           GOOGLE_MAPS_API_KEY: ci_placeholder
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+
+      # RA-1594 — dependency advisory audit. Surface high / critical CVEs
+      # on every PR so they're visible before merge. `continue-on-error`
+      # mirrors the other non-blocking checks in this gate: the signal is
+      # what matters today, we can promote to fail-on-high once the
+      # current backlog is clean.
+      - name: Audit dependencies
+        run: pnpm audit --audit-level=high --prod
+        continue-on-error: true
+
+      # RA-1546 — Prisma migration-drift gate. Applies every migration
+      # in `prisma/migrations/` against the ephemeral Postgres service
+      # above, then runs `prisma migrate status` and fails if anything
+      # is pending, failed, or out-of-sync with `schema.prisma`. Catches
+      # out-of-band schema edits and missing migration files BEFORE
+      # the PR merges — preventing a repeat of the 2026-04-22 P3009
+      # incident.
+      #
+      # FLIPPED 2026-04-27 (RA-1742 follow-up): `continue-on-error` is now
+      # `false`. The 2026-04-27 outage left both prod + sandbox stuck for
+      # days because main merged migrations that failed against the live
+      # DB but passed (silently) here. The backlog-burn window is over —
+      # main is clean, this gate now blocks merges.
+      - name: Prisma migration drift check
+        run: |
+          npx prisma migrate deploy
+          npx prisma migrate status
+        env:
+          # Schema declares both DATABASE_URL (pooled) and DIRECT_URL
+          # (direct) per Supabase's standard pattern. CI's ephemeral
+          # Postgres has no pooler, so point both at the same connection.
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+          DIRECT_URL: postgresql://ci:ci@localhost:5432/ci

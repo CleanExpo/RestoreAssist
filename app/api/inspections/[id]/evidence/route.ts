@@ -10,6 +10,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
+import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 
 export async function GET(
   request: NextRequest,
@@ -23,14 +24,12 @@ export async function GET(
   const { id: inspectionId } = await params;
 
   try {
-    const inspection = await prisma.inspection.findFirst({
-      where: { id: inspectionId, userId: session.user.id },
-      select: { id: true },
-    });
-    if (!inspection) {
+    // RA-1711 batch 4 — adopt shared tenancy helper.
+    const tenancy = await assertInspectionTenancy(session, inspectionId);
+    if (!tenancy.ok) {
       return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
+        { error: tenancy.reason },
+        { status: tenancy.status },
       );
     }
 
@@ -75,13 +74,12 @@ export async function POST(
         );
       }
 
-      const inspection = await prisma.inspection.findFirst({
-        where: { id: inspectionId, userId },
-      });
-      if (!inspection) {
+      // RA-1711 batch 4 — adopt shared tenancy helper.
+      const tenancy = await assertInspectionTenancy(session, inspectionId);
+      if (!tenancy.ok) {
         return NextResponse.json(
-          { error: "Inspection not found" },
-          { status: 404 },
+          { error: tenancy.reason },
+          { status: tenancy.status },
         );
       }
 
@@ -150,13 +148,17 @@ export async function DELETE(
   const { evidenceId } = body;
 
   try {
-    // Verify ownership chain
+    // RA-1711 batch 4 — adopt shared tenancy helper.
+    const tenancy = await assertInspectionTenancy(session, inspectionId);
+    if (!tenancy.ok) {
+      return NextResponse.json(
+        { error: tenancy.reason },
+        { status: tenancy.status },
+      );
+    }
+
     const evidence = await prisma.evidenceItem.findFirst({
-      where: {
-        id: evidenceId,
-        inspectionId,
-        inspection: { userId: session.user.id },
-      },
+      where: { id: evidenceId, inspectionId },
     });
 
     if (!evidence) {

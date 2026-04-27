@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
+import { EmptyState } from "@/components/EmptyState";
 
 interface Report {
   id: string;
@@ -411,16 +412,12 @@ export default function CompletenessCheckPage() {
 
         {/* Empty state — before any check */}
         {!checking && !result && (
-          <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 py-20 text-center">
-            <ClipboardList className="h-12 w-12 text-slate-300 dark:text-slate-600 mb-4" />
-            <h2 className="text-base font-semibold text-slate-600 dark:text-slate-400">
-              No report selected yet
-            </h2>
-            <p className="text-sm text-slate-400 dark:text-slate-500 mt-1 max-w-xs">
-              Pick a report from the dropdown above and click{" "}
-              <strong>Run Check</strong> to see the completeness analysis.
-            </p>
-          </div>
+          <EmptyState
+            icon={<ClipboardList className="h-8 w-8" />}
+            title="No report selected yet"
+            description="Pick a report from the dropdown above and click Run Check to see the completeness analysis."
+            className="rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700"
+          />
         )}
 
         {/* Loading skeleton */}

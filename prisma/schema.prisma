@@ -9,6 +9,12 @@ generator client {
 datasource db {
   provider   = "postgresql"
   url        = env("DATABASE_URL")
+  // DIRECT_URL points at Supabase's direct 5432 port; DATABASE_URL points at the
+  // 6543 transaction-mode pooler. Prisma Client can run against the pooler at
+  // runtime, but `prisma migrate deploy` cannot use a transaction pooler — it
+  // needs the direct connection to obtain advisory locks. Without directUrl,
+  // the Vercel build's migrate step hangs ~45 min and errors out (RA-1494).
+  directUrl  = env("DIRECT_URL")
   extensions = [pgvector(map: "vector")]
 }
 
@@ -57,6 +63,22 @@ model User {
   /// Null means the tour has not been shown/completed yet; set on
   /// either "Skip tour" or tour completion.
   productTourDismissedAt DateTime?
+  /// RA-1363: trial-reminder cron idempotency. JSON shape:
+  ///   { "3-day": "2026-04-18T08:00:00.000Z", "1-day": "2026-04-20T08:00:00.000Z" }
+  /// The cron writes the ISO timestamp for a window before sending;
+  /// subsequent fires within 20h short-circuit (covers Vercel Cron retries
+  /// and overlapping invocations under maxDuration pressure).
+  trialReminderSentAt Json?
+  /// RA-1459: cloud mirror provider chosen at onboarding.
+  /// Values: "drive" | "onedrive" | "icloud". Null means not yet picked —
+  /// viewing copies stay local until the user completes onboarding.
+  cloudMirrorProvider String?
+  /// RA-1443 / M-16 — ring-fence for Junior Technician role. When true,
+  /// `resolveProgressRole` returns TECHNICIAN_JUNIOR which
+  /// `canPerformTransition` hard-blocks from any Progress transition
+  /// beyond evidence capture. Defaults false so existing users are not
+  /// regressed. Admin UI to flip this is tracked as a follow-up.
+  isJuniorTechnician Boolean @default(false)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -99,10 +121,15 @@ model User {
   // RA-1260 — two-factor authentication (TOTP / RFC 6238).
   // secret is stored as a base32 string; encryption-at-rest is deferred
   // to the DB layer. `enabled` gates whether login prompts for a code.
-  // Recovery codes for lock-out recovery are a follow-up.
-  twoFactorEnabled Boolean @default(false)
-  twoFactorSecret  String?  // base32-encoded TOTP shared secret
+  twoFactorEnabled   Boolean   @default(false)
+  twoFactorSecret    String?   // base32-encoded TOTP shared secret
   twoFactorEnabledAt DateTime?
+  // RA-1588 — backup / recovery codes so losing the authenticator
+  // device is not a permanent lockout. JSON array of bcrypt hashes;
+  // each entry is consumed (spliced out) on use so codes are
+  // strictly single-use. Null + twoFactorEnabled=true means the user
+  // enrolled pre-RA-1588 and should be prompted to regenerate.
+  twoFactorRecoveryCodes String? @db.Text
 
   // Premium Features
   hasPremiumInspectionReports Boolean @default(false) // Access to 3-stakeholder PDF generator
@@ -215,6 +242,13 @@ model User {
 
   // RA-1246 — activation funnel events
   activationEvents ActivationEvent[]
+
+  // RA-1352 — admin impersonation audit (as initiator and as target)
+  adminImpersonationsAsAdmin  AdminImpersonation[] @relation("AdminImpersonationAsAdmin")
+  adminImpersonationsAsTarget AdminImpersonation[] @relation("AdminImpersonationAsTarget")
+
+  // RA-1717 — assessment generation audit (who generated which artefact)
+  assessmentGenerations       AssessmentGeneration[] @relation("UserAssessmentGenerations")
 }
 
 model Feedback {
@@ -523,6 +557,15 @@ model Report {
   // POST /api/reports/[id]/synopsis and cached for 24h to bound AI spend.
   aiSynopsis   String?   @db.Text
   aiSynopsisAt DateTime?
+
+  // RA-1461: Plain-English client-facing summary (≤160 words, grade-8
+  // reading level, Australian English, addresses reader as "you", ends
+  // with "What this means for you:"). Generated via Haiku 4.5 by
+  // lib/ai/client-summary.ts and exposed through
+  // POST /api/reports/[id]/client-summary. Invalidated whenever the
+  // report's scope changes; 5-minute rate limit per report.
+  clientSummaryCache     String?   @db.Text
+  clientSummaryCachedAt  DateTime?
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
   userId          String
@@ -1291,9 +1334,20 @@ model EstimateVariation {
 enum EstimateStatus {
   DRAFT
   INTERNAL_REVIEW
+  // RA-1365: SENT distinguishes "quote emailed to client" from
+  // CLIENT_REVIEW ("client has opened / is reviewing"). Lets the pipeline
+  // detect quotes that went out but were never opened (dead-letter flag)
+  // separately from quotes under active client consideration.
+  SENT
   CLIENT_REVIEW
   APPROVED
   LOCKED
+  // RA-1365: terminal states for client decline / no-response / withdrawal.
+  // Without these, rejected quotes get stuck in CLIENT_REVIEW forever or
+  // forced to LOCKED (implying approval), breaking win/loss reporting.
+  REJECTED
+  EXPIRED
+  WITHDRAWN
 }
 
 // Company Pricing Configuration Model
@@ -1615,6 +1669,43 @@ enum StandardTemplateType {
 // ============================================
 
 // Main Inspection Record
+/// AssessmentGeneration — RA-1717. Persisted output of the unified
+/// assessment generation pipeline (lib/assessments/generate.ts).
+/// One row per (inspection, assessmentType) generation; latest by
+/// generatedAt is the canonical artefact for that inspection. Older
+/// rows are kept for audit + diff.
+model AssessmentGeneration {
+  id              String   @id @default(cuid())
+  inspectionId    String
+  inspection      Inspection @relation("InspectionAssessmentGenerations", fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  /// Domain key from lib/assessments/registry.ts. e.g. "WATER" | "MOULD" |
+  /// "BIOHAZARD" | "FIRE_SMOKE" | "HVAC" | "STORM" | "AUSTRALIAN_COMPLIANCE"
+  assessmentType  String
+
+  /// Structured artefacts. Stored as Json so the schema doesn't need to
+  /// change for every domain plug-in. Shape is enforced at the lib layer.
+  reportSections  Json
+  scopeItems      Json
+  estimateLines   Json
+  citations       Json
+
+  /// Provenance for audit + cost tracking.
+  modelUsed         String?
+  latencyMs         Int
+  costEstimateUsd   Float?
+  /// Workspace that paid for the generation (RA-1707 budget tracking).
+  workspaceId       String?
+
+  generatedAt     DateTime @default(now())
+  generatedById   String?
+  generatedBy     User?    @relation("UserAssessmentGenerations", fields: [generatedById], references: [id], onDelete: SetNull)
+
+  @@index([inspectionId, generatedAt])
+  @@index([assessmentType, generatedAt])
+  @@index([workspaceId])
+}
+
 model Inspection {
   id       String  @id @default(cuid())
   reportId String? @unique // Link to existing Report if applicable
@@ -1648,6 +1739,9 @@ model Inspection {
   auditLogs         AuditLog[]
   photos            InspectionPhoto[]
   usageEvents       UsageEvent[]        @relation("usageEvents")
+
+  // RA-1717 — Unified assessment-generation artefacts.
+  assessmentGenerations AssessmentGeneration[] @relation("InspectionAssessmentGenerations")
 
   // AI Assistant Tier (Phase 1 - Metering)
   totalUsageCost Float @default(0) // Cached total cost for this inspection
@@ -2023,6 +2117,49 @@ model AuditLog {
   @@index([inspectionId, timestamp]) // ordered audit trail: WHERE inspectionId=? ORDER BY timestamp DESC
 }
 
+/// RA-1352 — admin impersonation audit trail.
+///
+/// Every time an admin uses "view as user" support tooling, a row lands
+/// here. Immutable + indexed by admin/target/timestamp so an external
+/// reviewer can answer "who acted as whom, when, and why" without
+/// database spelunking. `endedAt` is set when the admin explicitly
+/// stops impersonating OR when the token expires (30 min default).
+model AdminImpersonation {
+  id String @id @default(cuid())
+
+  /// Admin user who initiated the impersonation (Role.ADMIN required).
+  adminUserId String
+  admin       User @relation("AdminImpersonationAsAdmin", fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  /// Target user being impersonated.
+  targetUserId String
+  target       User @relation("AdminImpersonationAsTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+
+  /// Signed-token id (stored for revoke + audit). The JWT itself is
+  /// NEVER stored — only the jti claim.
+  tokenId String @unique
+
+  /// Why the admin is impersonating. Required; free-text but typically
+  /// references a support ticket or incident id.
+  reason String @db.Text
+
+  /// IP + user-agent at initiation (forensic trail if the admin
+  /// account is later compromised).
+  ipAddress String?
+  userAgent String? @db.Text
+
+  startedAt DateTime  @default(now())
+  expiresAt DateTime
+  endedAt   DateTime?
+
+  /// Optional — explicitly the reason for ending (revoked | expired | manual).
+  endReason String?
+
+  @@index([adminUserId, startedAt])
+  @@index([targetUserId, startedAt])
+  @@index([expiresAt])
+}
+
 // Building Code Database (State-specific requirements)
 model BuildingCode {
   id String @id @default(cuid())
@@ -2241,6 +2378,18 @@ model InspectionPhoto {
   technicianNotes           String?  @db.Text
   moistureReadingLink       String? // Soft FK to MoistureReading.id (no enforced constraint)
   // --- End RA-446 Label Schema Fields ---
+
+  // RA-1123 — AI-suggested labels (Claude Vision). Populated by the
+  // async `/api/ai/auto-classify-photo/[photoId]` endpoint. Shape:
+  //   { damageCategory: "CAT_2", roomType: "BATHROOM",
+  //     affectedMaterial: ["PLASTER", "CARPET"], ... }
+  // Technicians accept, override, or ignore the suggestion; when
+  // accepted the fields above are copied across and labelledBy is
+  // set to "AI_ACCEPTED".
+  aiLabels     Json?
+  aiConfidence Float? // 0.0 - 1.0; overall model confidence
+  aiModel      String? // e.g. "claude-opus-4-7" for reproducibility
+  aiRunAt      DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -3509,6 +3658,18 @@ model Invoice {
   clientId String?
   client   Client? @relation("ClientInvoices", fields: [clientId], references: [id], onDelete: SetNull)
 
+  // RA-1368: audit-trail snapshots. Populated at invoice creation from
+  // the source Report / Estimate / Client rows. Immutable thereafter —
+  // even if the parent row is deleted (onDelete: SetNull above), the
+  // human-readable breadcrumb survives so ATO audits, insurer disputes,
+  // and customer complaints can still answer "which job did we bill
+  // for?". Null only for legacy invoices created before this column
+  // existed or for invoices whose parent was already null at creation.
+  reportTitleSnapshot   String? @db.VarChar(256)
+  reportAddressSnapshot String? @db.VarChar(512)
+  estimateRefSnapshot   String? @db.VarChar(128) // e.g. "Estimate-ckz1a2b3-v2"
+  clientNameSnapshot    String? @db.VarChar(256)
+
   // Owner
   userId String
   user   User   @relation("UserInvoices", fields: [userId], references: [id], onDelete: Cascade)
@@ -3544,6 +3705,11 @@ model Invoice {
   // Public viewing
   publicToken     String? @unique // For public invoice viewing
   publicViewCount Int     @default(0)
+  // RA-1596 — token expiry + rotation. Null means the token is
+  // either absent or (for rows minted before this column shipped)
+  // legacy-unlimited. New tokens land with a 90-day expiry.
+  publicTokenExpiresAt DateTime?
+  publicTokenRotatedAt DateTime?
 
   // Metadata
   source   String? // "manual", "estimate", "recurring", "quickbooks_import"
@@ -3573,6 +3739,13 @@ model Invoice {
   @@index([externalInvoiceId])
   @@index([publicToken])
   @@index([workspaceId])
+  // RA-1360: prevent duplicate invoice rows when an external sync (Xero / QBO /
+  // MYOB) re-imports the same invoice — webhook + cron double-fire, network
+  // retry, or two workspaces accidentally mapped to the same tenant. Sync code
+  // paths should upsert on this composite key. The partial-unique semantics
+  // (NULL values don't collide) are exactly what we want: local-only invoices
+  // (no external origin) can still have many rows with both columns NULL.
+  @@unique([externalSyncProvider, externalInvoiceId], name: "Invoice_external_sync_uniq")
 }
 
 // Invoice Line Items (snapshot from estimate)
@@ -4448,6 +4621,11 @@ model Workspace {
   stripeCustomerId     String?         @unique
   stripeSubscriptionId String?         @unique
 
+  // RA-1707 / P0-2 — Anthropic + AI org-spend cap. Daily ceiling in USD.
+  // Null falls back to AI_DEFAULT_DAILY_BUDGET_USD env (defaults to 50).
+  // checkWorkspaceBudget() in lib/ai/budget-guard.ts reads this.
+  aiDailyBudgetUsd Float?
+
   // Relations
   members WorkspaceMember[]
   roles   WorkspaceRole[]
@@ -5295,6 +5473,13 @@ model ProgressTransition {
   // Computed at write time; verified on read for integrity checks.
   integrityHash String
 
+  // RA-1389 / M-14 — Gate gaps that did NOT block this transition. SOFT
+  // gaps are surfaced as nudges and counted toward the M-15 5% override
+  // governance review; AUDIT gaps are observed silently for telemetry.
+  // Both are arrays of catalogue gate keys (lib/progress/gate-policy.ts).
+  softGaps  Json?
+  auditGaps Json?
+
   // DB-default timestamp — never caller-provided (prevents backdating)
   transitionedAt DateTime @default(now())
 
@@ -5337,12 +5522,121 @@ model ProgressAttestation {
   signatureDataUrl String? @db.Text // Base64 drawn signature (SVG or PNG)
   integrityHash    String // Hash of attestor identity + timestamp + claimProgressId
 
+  // RA-1388 / M-13 — Labour-hire per-job attestation matrix. Populated only
+  // when attestationType = "LABOUR_HIRE_SELF". Validation lives in
+  // lib/progress/labour-hire.ts (Fair Work compliance).
+  labourHireHours                Decimal? @db.Decimal(6, 2)
+  labourHireAwardClass           String?
+  labourHireSuperRate            Decimal? @db.Decimal(5, 4) // 0.12 = 12% (default from 1 Jul 2025)
+  labourHirePortableLslState     String? // "NSW" | "VIC" | "QLD" | "ACT" | "TAS" | null when N/A
+  labourHireInductionEvidenceId  String? // FK reference to an evidence row carrying induction proof
+
+  // RA-1708 / P0-4 — ETA 1999 (AU) §10 + ETA 2002 (NZ) §4 consent +
+  // identification proof. consentTokenId points at the AttestationConsentToken
+  // the signer redeemed; signerIp + signerUserAgent are captured at attest
+  // time and hashed into integrityHash so post-write tampering of any of
+  // these fields surfaces on read.
+  consentTokenId    String?
+  signerIp          String?
+  signerUserAgent   String? @db.Text
+  contentHash       String? // sha256 of the content summary the signer agreed to
+
   attestedAt DateTime @default(now())
 
   @@index([claimProgressId])
   @@index([transitionId])
   @@index([attestorUserId])
   @@index([attestationType])
+}
+
+/// AttestationConsentToken — RA-1708 / P0-4. Short-lived proof that a
+/// signer explicitly consented to sign specific content. Required by the
+/// attest route before a ProgressAttestation row can be created. Bound
+/// to (userId, reportId, attestationType, contentHash) so the same token
+/// cannot be redeemed against a different document.
+model AttestationConsentToken {
+  id              String  @id @default(cuid())
+  userId          String
+  reportId        String
+  attestationType String
+  /// sha256 hex of the content summary the user agreed to sign.
+  contentHash     String
+
+  /// Captured at issuance for audit; mirror onto ProgressAttestation when redeemed.
+  ip        String?
+  userAgent String? @db.Text
+
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([userId, expiresAt])
+  @@index([reportId])
+  @@index([consumedAt])
+}
+
+/// OverrideGovernanceReport — RA-1390 / Motion M-15. Monthly snapshot of
+/// SOFT-gap override rates per gate. Surfaces the M-15 5% safeguard:
+/// any gate whose override-rate exceeds 5% gets re-classified or has its
+/// upstream workflow fixed. Cron writes one row per (month, gate) with
+/// the running counts.
+model OverrideGovernanceReport {
+  id String @id @default(cuid())
+
+  /// First day of the ISO month the report covers (UTC, e.g. 2026-04-01).
+  reportMonth DateTime @db.Date
+
+  /// Catalogue gate key (lib/progress/gate-policy.ts).
+  gateKey String
+
+  /// Number of committed transitions in the month.
+  transitionCount Int
+
+  /// Number of those that recorded this gate as a SOFT gap (override).
+  overrideCount Int
+
+  /// overrideCount / transitionCount. Stored materialised so the dashboard
+  /// can sort cheaply.
+  overrideRate Float
+
+  /// True when overrideRate > 0.05 — surfaces to the board for action.
+  isBreached Boolean
+
+  computedAt DateTime @default(now())
+
+  @@unique([reportMonth, gateKey])
+  @@index([reportMonth])
+  @@index([isBreached, reportMonth])
+}
+
+/// ProgressTelemetryEvent — RA-1392 / Motion M-17. Append-only event stream
+/// for the Progress framework's 8 telemetry events (4 funnels + 2 KPIs read
+/// off this table). Hard ship-blocker: nothing in the Progress rollout goes
+/// without these events flowing.
+model ProgressTelemetryEvent {
+  id String @id @default(cuid())
+
+  // Event identity — one of the 8 names from UX paper §8
+  eventName String // "progress.transition.attempt" | ".success" | ".blocked" | ".override" | ".attestation.captured" | ".evidence.missing" | ".offline.queued" | ".offline.synced"
+
+  // Optional foreign keys — set when the event has a natural anchor.
+  // Not enforced as relations because telemetry must survive cascade deletes
+  // of source rows for audit purposes.
+  claimProgressId String?
+  transitionId    String?
+  transitionKey   String? // e.g. "start_stabilisation"
+  gateKey         String? // e.g. "evidence.photo_coverage"
+  userId          String? // actor on the event
+
+  // Free-form payload — { reason?, code?, durationMs?, ... }
+  payload Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([eventName, createdAt])
+  @@index([claimProgressId, createdAt])
+  @@index([transitionKey, createdAt])
+  @@index([createdAt])
 }
 
 enum ClaimState {

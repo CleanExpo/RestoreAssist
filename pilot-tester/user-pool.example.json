@@ -1,0 +1,32 @@
+[
+  {
+    "email": "pilot-beyond-clean@restoreassist.sandbox",
+    "password": "<sandbox-only password>",
+    "workspaceName": "Beyond Clean (sandbox)",
+    "companyKey": "beyond-clean"
+  },
+  {
+    "email": "pilot-elite@restoreassist.sandbox",
+    "password": "<sandbox-only password>",
+    "workspaceName": "Elite Restoration (sandbox)",
+    "companyKey": "elite-restoration"
+  },
+  {
+    "email": "pilot-crsa@restoreassist.sandbox",
+    "password": "<sandbox-only password>",
+    "workspaceName": "CRSA (sandbox)",
+    "companyKey": "crsa"
+  },
+  {
+    "email": "pilot-tropical@restoreassist.sandbox",
+    "password": "<sandbox-only password>",
+    "workspaceName": "Tropical Recovery (sandbox)",
+    "companyKey": "tropical-recovery"
+  },
+  {
+    "email": "pilot-outback@restoreassist.sandbox",
+    "password": "<sandbox-only password>",
+    "workspaceName": "Outback Clean (sandbox)",
+    "companyKey": "outback-clean"
+  }
+]

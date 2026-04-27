@@ -189,8 +189,10 @@ async function renderInvoicePage(
 
   yPosition -= 40;
 
-  // Invoice Title & Number
-  page.drawText("INVOICE", {
+  // RA-1559 — ATO GSTR 2013/1 §22 requires the words "Tax Invoice"
+  // on any invoice issuing GST for a taxable supply > $82.50. We always
+  // issue GST-inclusive invoices, so the wording is unconditional.
+  page.drawText("TAX INVOICE", {
     x: margin,
     y: yPosition,
     size: 28,

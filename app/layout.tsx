@@ -15,6 +15,12 @@ import {
   SoftwareApplicationSchema,
 } from "@/components/seo/JsonLd";
 import { NirOfflineProvider } from "@/components/nir-offline-provider";
+import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
+// RA-1572 adoption — mount the announcer once at the root so any
+// descendant hook call lands in the polite / assertive aria-live
+// regions rendered inside the provider.
+import { AnnouncerProvider } from "@/components/LiveRegion";
+import { Analytics } from "@vercel/analytics/next";
 import "@/lib/env-check";
 import "./globals.css";
 
@@ -33,7 +39,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: {
     default: BRAND.meta.title,
-    template: "%s | Restore Assist",
+    template: `%s | ${BRAND.name}`,
   },
   description: BRAND.meta.description,
   keywords: [
@@ -46,7 +52,7 @@ export const metadata: Metadata = {
     "inspection reports",
     "Australian building standards",
   ],
-  authors: [{ name: "Restore Assist" }],
+  authors: [{ name: BRAND.name }],
   openGraph: {
     title: BRAND.meta.title,
     description: BRAND.meta.ogDescription,
@@ -55,15 +61,15 @@ export const metadata: Metadata = {
     // session data includes it. Use getLocale(org.country) from @/lib/locale/format.
     // For now, defaults to en_AU.
     locale: "en_AU",
-    siteName: "Restore Assist",
+    siteName: BRAND.name,
     images: [
-      { url: "/logo.png", width: 512, height: 512, alt: "Restore Assist" },
+      { url: "/logo.png", width: 512, height: 512, alt: BRAND.name },
     ],
   },
   alternates: { canonical: "/" },
   twitter: {
     card: "summary_large_image",
-    title: "Restore Assist",
+    title: BRAND.name,
     description: BRAND.meta.ogDescription,
   },
   robots: {
@@ -76,12 +82,14 @@ export const metadata: Metadata = {
 };
 
 // viewport-fit=cover is required for iPhone notch (iPhone 13+) in Capacitor WebView
+// themeColor drives the browser address bar colour on Android + PWA splash — RA-1462
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
+  themeColor: "#2563eb",
 };
 
 export default function RootLayout({
@@ -104,11 +112,16 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <NirOfflineProvider>
-            <SessionProvider>
-              <CapacitorProvider>{children}</CapacitorProvider>
-            </SessionProvider>
-          </NirOfflineProvider>
+          <AnnouncerProvider>
+            <NirOfflineProvider>
+              <SessionProvider>
+                <CapacitorProvider>{children}</CapacitorProvider>
+              </SessionProvider>
+              <PwaInstallPrompt />
+            </NirOfflineProvider>
+          </AnnouncerProvider>
+          {/* RA-1349 — Vercel Analytics (Web Vitals + client route events). */}
+          <Analytics />
           <Toaster
             position="top-right"
             toastOptions={{

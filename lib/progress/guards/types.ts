@@ -33,6 +33,17 @@ export interface GuardResult {
    * we advanced, these rows existed and satisfied the contract".
    */
   snapshot: Record<string, unknown>;
+  /**
+   * RA-1389 / Motion M-14. Gate keys whose evidence is missing but the
+   * gate is classified SOFT — transition allows, dashboard surfaces a
+   * nudge, M-15 governance counts the override.
+   */
+  softGaps?: string[];
+  /**
+   * RA-1389 / Motion M-14. Gate keys whose evidence is missing but the
+   * gate is classified AUDIT — silent observation, telemetry only.
+   */
+  auditGaps?: string[];
 }
 
 /**
