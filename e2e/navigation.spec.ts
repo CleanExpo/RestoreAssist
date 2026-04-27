@@ -23,11 +23,19 @@ test.describe("Public Navigation", () => {
   test("should navigate to pricing page", async ({ page }) => {
     await page.goto("/pricing");
 
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-    // Pricing page should have pricing tiers
+    // The H1 ships with inline opacity:0 (entrance animation start state) —
+    // see RA-1730. Wait for the animation to settle before asserting.
     await expect(
-      page.getByText(/month|year|free|pro|enterprise/i),
-    ).toBeVisible();
+      page.getByRole("heading", { level: 1 }),
+    ).toBeVisible({ timeout: 10_000 });
+
+    // Pricing page should show at least one pricing tier heading. The page
+    // renders multiple "/month" texts and other pricing terms — pin to the
+    // tier headings so the matcher resolves to one element instead of the
+    // whole pricing-language soup that broke the previous regex.
+    await expect(
+      page.getByRole("heading", { name: /monthly|annual|enterprise/i }),
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   test("should navigate to about page", async ({ page }) => {
