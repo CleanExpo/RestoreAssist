@@ -32,13 +32,18 @@ test.describe("@smoke pilot workflow — public surfaces", () => {
     page,
   }) => {
     await page.goto("/login");
+    // The H1 on /login is "RestoreAssist" — "Sign in to your account" is
+    // a sub-paragraph and "Sign in" is the submit button label.
     await expect(
-      page.getByRole("heading", { name: /sign in/i }),
+      page.getByRole("heading", { name: /restoreassist/i, level: 1 }),
     ).toBeVisible();
-    await expect(page.getByLabel(/email/i)).toBeVisible();
-    await expect(page.getByLabel(/password/i)).toBeVisible();
+    // Pin email/password inputs by id — the password field has a sibling
+    // "Show password" toggle button whose aria-label clashes with
+    // getByLabel(/password/i) under Playwright strict mode.
+    await expect(page.locator("#email")).toBeVisible();
+    await expect(page.locator("#password")).toBeVisible();
     await expect(
-      page.getByRole("button", { name: /sign in/i }),
+      page.getByRole("button", { name: /^sign in/i }),
     ).toBeVisible();
   });
 
