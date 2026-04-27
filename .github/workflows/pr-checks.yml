@@ -94,15 +94,20 @@ jobs:
       # is pending, failed, or out-of-sync with `schema.prisma`. Catches
       # out-of-band schema edits and missing migration files BEFORE
       # the PR merges — preventing a repeat of the 2026-04-22 P3009
-      # incident where 45 migrations stranded in prod.
+      # incident.
       #
-      # `continue-on-error: true` during the backlog-burn window so
-      # existing drift doesn't chain-block every PR. Flip to false
-      # once `prisma migrate status` is clean on main.
+      # FLIPPED 2026-04-27 (RA-1742 follow-up): `continue-on-error` is now
+      # `false`. The 2026-04-27 outage left both prod + sandbox stuck for
+      # days because main merged migrations that failed against the live
+      # DB but passed (silently) here. The backlog-burn window is over —
+      # main is clean, this gate now blocks merges.
       - name: Prisma migration drift check
         run: |
           npx prisma migrate deploy
           npx prisma migrate status
-        continue-on-error: true
         env:
+          # Schema declares both DATABASE_URL (pooled) and DIRECT_URL
+          # (direct) per Supabase's standard pattern. CI's ephemeral
+          # Postgres has no pooler, so point both at the same connection.
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+          DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
