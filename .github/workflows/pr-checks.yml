@@ -83,6 +83,30 @@ jobs:
               LANGUAGE sql STABLE AS \$\$ SELECT NULL::uuid \$\$;
           "
 
+      # RA-1548 follow-up — pre-resolve migrations that use
+      # `CREATE INDEX CONCURRENTLY`. Prisma wraps each migration in a
+      # transaction; CONCURRENTLY can't run inside one. These migrations
+      # apply cleanly on Supabase (which uses a different mechanism)
+      # but fail on the plain pgvector/pgvector:pg16 used in CI, leaving
+      # a failed row in `_prisma_migrations` that poisons every later
+      # `migrate deploy` (P3009) and turns this gate red on every PR.
+      #
+      # Marking them `--applied` here means CI agrees they're considered
+      # applied without actually running them. The indexes they would
+      # have created don't exist in CI's ephemeral DB, but no test in
+      # this gate depends on those indexes existing.
+      #
+      # If a NEW migration file uses `CREATE INDEX CONCURRENTLY` and
+      # this gate goes red again, append the migration name to the list
+      # below.
+      - name: Pre-resolve CONCURRENTLY migrations (Supabase-only syntax)
+        run: |
+          npx prisma migrate resolve --applied 20260407_n1_performance_indexes
+          npx prisma migrate resolve --applied 20260407_perf_composite_indexes
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+          DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+
       - name: TypeScript Check
         run: npx tsc --noEmit
         continue-on-error: true
