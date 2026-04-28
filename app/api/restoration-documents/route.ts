@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 const DOC_TYPE_INVOICE = "RESTORATION_INVOICE";
 
@@ -11,7 +12,11 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { searchParams } = new URL(request.url);
@@ -40,12 +45,8 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({ documents: docs });
-  } catch (error) {
-    console.error("Error listing restoration documents:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+  } catch (err) {
+    return fromException(request, err, { stage: "load" });
   }
 }
 
@@ -53,7 +54,11 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -64,18 +69,20 @@ export async function POST(request: NextRequest) {
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const { documentType, documentNumber, title, reportId, data } = body;
 
       if (!documentType || !documentNumber || data === undefined) {
-        return NextResponse.json(
-          { error: "documentType, documentNumber, and data are required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "documentType, documentNumber, and data are required",
+          status: 400,
+        });
       }
 
       const doc = await prisma.restorationDocument.create({
@@ -90,12 +97,8 @@ export async function POST(request: NextRequest) {
       });
 
       return NextResponse.json({ document: doc });
-    } catch (error) {
-      console.error("Error creating restoration document:", error);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+    } catch (err) {
+      return fromException(request, err, { stage: "create" });
     }
   });
 }

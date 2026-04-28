@@ -3,12 +3,17 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const templates = await (prisma as any).scopeTemplate.findMany({
@@ -28,23 +33,19 @@ export async function GET(request: NextRequest) {
         _count: { items: t.items ? JSON.parse(t.items).length : 0 },
       })),
     );
-  } catch (error: any) {
-    console.error("[scope-templates] GET error:", error);
-    return NextResponse.json(
-      {
-        error: "Failed to fetch scope templates",
-        details:
-          process.env.NODE_ENV === "development" ? error?.message : undefined,
-      },
-      { status: 500 },
-    );
+  } catch (err) {
+    return fromException(request, err, { stage: "load" });
   }
 }
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -55,18 +56,20 @@ export async function POST(request: NextRequest) {
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const { name, description, claimType, items } = body;
 
       if (!name?.trim()) {
-        return NextResponse.json(
-          { error: "Name is required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Name is required",
+          status: 400,
+        });
       }
 
       const template = await (prisma as any).scopeTemplate.create({
@@ -94,16 +97,8 @@ export async function POST(request: NextRequest) {
         },
         { status: 201 },
       );
-    } catch (error: any) {
-      console.error("[scope-templates] POST error:", error);
-      return NextResponse.json(
-        {
-          error: "Failed to create scope template",
-          details:
-            process.env.NODE_ENV === "development" ? error?.message : undefined,
-        },
-        { status: 500 },
-      );
+    } catch (err) {
+      return fromException(request, err, { stage: "create" });
     }
   });
 }
