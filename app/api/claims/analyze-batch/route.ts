@@ -18,6 +18,7 @@ import {
 } from "@/lib/standards-retrieval";
 import type { GapAnalysisResult } from "@/lib/gap-analysis";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { apiError, fromException } from "@/lib/api-errors";
 
 const CATEGORY_MAP: Record<
   string,
@@ -63,7 +64,11 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user || !session.user.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     // Rate limit: 5 batch analyses per 15 minutes per user (heavy operation)
@@ -78,10 +83,11 @@ export async function POST(request: NextRequest) {
     const { folderId, maxDocuments, stream } = body;
 
     if (!folderId) {
-      return NextResponse.json(
-        { error: "folderId is required" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "folderId is required",
+        status: 400,
+      });
     }
 
     const userId = session.user.id;
@@ -170,10 +176,11 @@ export async function POST(request: NextRequest) {
     }
 
     if (pdfFiles.length === 0) {
-      return NextResponse.json(
-        { error: "No PDF files found in the folder" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "No PDF files found in the folder",
+        status: 400,
+      });
     }
 
     // --- Streaming mode: process one-by-one with progress events ---
@@ -518,12 +525,8 @@ export async function POST(request: NextRequest) {
       summary,
       batchId: batch.id,
     });
-  } catch (error: any) {
-    console.error("Error performing gap analysis:", error);
-    return NextResponse.json(
-      { error: "Failed to perform gap analysis" },
-      { status: 500 },
-    );
+  } catch (err) {
+    return fromException(request, err, { stage: "analyze-batch" });
   }
 }
 
