@@ -7,6 +7,7 @@ import { applyRateLimit } from "@/lib/rate-limiter";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // RA-1243: accept optional reason + comment so we can capture churn signal.
 // Both are optional to preserve backwards compatibility with the old
@@ -31,7 +32,11 @@ export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -67,10 +72,11 @@ export async function POST(request: NextRequest) {
       });
 
       if (customers.data.length === 0) {
-        return NextResponse.json(
-          { error: "Customer not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Customer not found",
+          status: 404,
+        });
       }
 
       const customer = customers.data[0];
@@ -81,10 +87,11 @@ export async function POST(request: NextRequest) {
       });
 
       if (subscriptions.data.length === 0) {
-        return NextResponse.json(
-          { error: "No active subscription found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "No active subscription found",
+          status: 404,
+        });
       }
 
       const subscription = subscriptions.data[0];
@@ -125,12 +132,8 @@ export async function POST(request: NextRequest) {
       }
 
       return NextResponse.json({ success: true });
-    } catch (error) {
-      console.error("Error cancelling subscription:", error);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+    } catch (err) {
+      return fromException(request, err, { stage: "cancel" });
     }
   });
 }
