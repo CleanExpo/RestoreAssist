@@ -13,11 +13,16 @@ import { authOptions } from "@/lib/auth";
 import { InterviewFlowEngine } from "@/lib/interview";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -30,25 +35,31 @@ export async function POST(request: NextRequest) {
       });
 
       if (!user) {
-        return NextResponse.json({ error: "User not found" }, { status: 404 });
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "User not found",
+          status: 404,
+        });
       }
 
       let body: any;
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const { sessionId, answer, confidence } = body;
 
       if (!sessionId || answer === undefined) {
-        return NextResponse.json(
-          { error: "sessionId and answer are required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "sessionId and answer are required",
+          status: 400,
+        });
       }
 
       // Get interview session from database
@@ -58,18 +69,20 @@ export async function POST(request: NextRequest) {
       });
 
       if (!interviewSession) {
-        return NextResponse.json(
-          { error: "Interview session not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Interview session not found",
+          status: 404,
+        });
       }
 
       // Verify session belongs to user
       if (interviewSession.userId !== user.id) {
-        return NextResponse.json(
-          { error: "Unauthorized: session does not belong to user" },
-          { status: 403 },
-        );
+        return apiError(request, {
+          code: "FORBIDDEN",
+          message: "Unauthorized: session does not belong to user",
+          status: 403,
+        });
       }
 
       // Parse stored session data
@@ -143,11 +156,7 @@ export async function POST(request: NextRequest) {
       });
     } catch (error) {
       // RA-786: do not leak error.message to clients
-      console.error("Interview answer submission error:", error);
-      return NextResponse.json(
-        { error: "Failed to submit answer" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "answer" });
     }
   });
 }
