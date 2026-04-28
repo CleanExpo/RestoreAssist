@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { validateCsrf } from "@/lib/csrf";
+import { apiError, fromException } from "@/lib/api-errors";
 
 function canRemoveMember(role?: string) {
   return role === "ADMIN";
@@ -22,17 +23,22 @@ export async function PATCH(
 
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id: memberId } = await params;
 
     // Prevent changing own role
     if (memberId === session.user.id) {
-      return NextResponse.json(
-        { error: "You cannot change your own role" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "You cannot change your own role",
+        status: 400,
+      });
     }
 
     const body = await request.json();
@@ -40,13 +46,12 @@ export async function PATCH(
 
     // Only allow USER or MANAGER — not ADMIN/OWNER
     if (!["USER", "MANAGER"].includes(role)) {
-      return NextResponse.json(
-        {
-          error:
-            "Role must be USER or MANAGER. ADMIN and OWNER roles cannot be assigned here.",
-        },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message:
+          "Role must be USER or MANAGER. ADMIN and OWNER roles cannot be assigned here.",
+        status: 400,
+      });
     }
 
     // Re-verify role from DB — JWT role can be stale (CLAUDE.md rule 3)
@@ -56,17 +61,19 @@ export async function PATCH(
     });
 
     if (!canChangeRole(currentUser?.role)) {
-      return NextResponse.json(
-        { error: "Only Admins can change member roles" },
-        { status: 403 },
-      );
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Only Admins can change member roles",
+        status: 403,
+      });
     }
 
     if (!currentUser?.organizationId) {
-      return NextResponse.json(
-        { error: "You are not part of an organization" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "You are not part of an organization",
+        status: 400,
+      });
     }
 
     // Get the member to update
@@ -82,15 +89,20 @@ export async function PATCH(
     });
 
     if (!memberToUpdate) {
-      return NextResponse.json({ error: "Member not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Member not found",
+        status: 404,
+      });
     }
 
     // Verify the member is in the same organization
     if (memberToUpdate.organizationId !== currentUser.organizationId) {
-      return NextResponse.json(
-        { error: "Member is not in your organization" },
-        { status: 403 },
-      );
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Member is not in your organization",
+        status: 403,
+      });
     }
 
     // Update the role
@@ -113,10 +125,7 @@ export async function PATCH(
     });
   } catch (error: any) {
     console.error("❌ [TEAM] Error changing member role:", error);
-    return NextResponse.json(
-      { error: "Failed to change member role" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "change-role" });
   }
 }
 
@@ -130,7 +139,11 @@ export async function DELETE(
 
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id: memberId } = await params;
@@ -142,17 +155,19 @@ export async function DELETE(
     });
 
     if (!canRemoveMember(currentUser?.role)) {
-      return NextResponse.json(
-        { error: "Only Admins can remove team members" },
-        { status: 403 },
-      );
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Only Admins can remove team members",
+        status: 403,
+      });
     }
 
     if (!currentUser?.organizationId) {
-      return NextResponse.json(
-        { error: "You are not part of an organization" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "You are not part of an organization",
+        status: 400,
+      });
     }
 
     // Get the member to remove
@@ -168,34 +183,39 @@ export async function DELETE(
     });
 
     if (!memberToRemove) {
-      return NextResponse.json({ error: "Member not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Member not found",
+        status: 404,
+      });
     }
 
     // Verify the member is in the same organization
     if (memberToRemove.organizationId !== currentUser.organizationId) {
-      return NextResponse.json(
-        { error: "Member is not in your organization" },
-        { status: 403 },
-      );
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Member is not in your organization",
+        status: 403,
+      });
     }
 
     // Prevent removing yourself
     if (memberToRemove.id === session.user.id) {
-      return NextResponse.json(
-        { error: "You cannot remove yourself" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "You cannot remove yourself",
+        status: 400,
+      });
     }
 
     // Prevent removing other Admins (only the owner can do that, but for now we'll prevent it)
     if (memberToRemove.role === "ADMIN") {
-      return NextResponse.json(
-        {
-          error:
-            "Cannot remove other Admin accounts. Only organization owners can manage Admins.",
-        },
-        { status: 403 },
-      );
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message:
+          "Cannot remove other Admin accounts. Only organization owners can manage Admins.",
+        status: 403,
+      });
     }
 
     // Remove member from organization (soft remove - set organizationId to null)
@@ -219,9 +239,6 @@ export async function DELETE(
     });
   } catch (error: any) {
     console.error("❌ [TEAM] Error removing member:", error);
-    return NextResponse.json(
-      { error: "Failed to remove team member" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "remove-member" });
   }
 }
