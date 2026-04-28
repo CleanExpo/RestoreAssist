@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isProviderId, PROVIDER_CATALOG } from "@/lib/cloud-mirror";
-import type { CloudMirrorProviderId } from "@/lib/cloud-mirror";
+import { apiError, fromException } from "@/lib/api-errors";
 
 /**
  * RA-1459 — cloud mirror provider preference.
@@ -15,14 +15,14 @@ import type { CloudMirrorProviderId } from "@/lib/cloud-mirror";
  *        even if its client-side gate is bypassed.
  */
 
-interface GetResponse {
-  provider: CloudMirrorProviderId | null;
-}
-
-export async function GET(_request: NextRequest): Promise<NextResponse<GetResponse | { error: string }>> {
+export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   const user = await prisma.user.findUnique({
@@ -38,27 +38,31 @@ export async function GET(_request: NextRequest): Promise<NextResponse<GetRespon
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   const body = await request.json().catch(() => null);
   const provider: unknown = body?.provider;
 
   if (!isProviderId(provider)) {
-    return NextResponse.json(
-      { error: "provider must be one of: drive, onedrive, icloud" },
-      { status: 400 },
-    );
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "provider must be one of: drive, onedrive, icloud",
+      status: 400,
+    });
   }
 
   const catalogEntry = PROVIDER_CATALOG.find((p) => p.id === provider);
   if (!catalogEntry?.enabled) {
-    return NextResponse.json(
-      {
-        error: `Provider "${provider}" is not yet available. Only Google Drive ships in v1.`,
-      },
-      { status: 400 },
-    );
+    return apiError(request, {
+      code: "VALIDATION",
+      message: `Provider "${provider}" is not yet available. Only Google Drive ships in v1.`,
+      status: 400,
+    });
   }
 
   try {
@@ -68,7 +72,6 @@ export async function POST(request: NextRequest) {
     });
     return NextResponse.json({ success: true, provider });
   } catch (err) {
-    console.error("[cloud-mirror POST] error", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return fromException(request, err, { stage: "update" });
   }
 }
