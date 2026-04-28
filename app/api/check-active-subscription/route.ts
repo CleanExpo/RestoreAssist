@@ -5,6 +5,7 @@ import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import { PRICING_CONFIG } from "@/lib/pricing";
 import { LIFETIME_PRICING_EMAIL } from "@/lib/lifetime-pricing";
+import { apiError, fromException } from "@/lib/api-errors";
 
 function subPeriodEnd(sub: import("stripe").Stripe.Subscription): number {
   return (
@@ -26,7 +27,11 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     // Get user from database
@@ -44,7 +49,11 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "User not found",
+        status: 404,
+      });
     }
 
     // Lifetime one-time payers have no Stripe subscription; treat as active
@@ -86,10 +95,11 @@ export async function POST(request: NextRequest) {
     }
 
     if (!customerId) {
-      return NextResponse.json(
-        { error: "No Stripe customer found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "No Stripe customer found",
+        status: 404,
+      });
     }
 
     // Find active subscriptions for this customer
@@ -235,19 +245,11 @@ export async function POST(request: NextRequest) {
           { status: 404 },
         );
       }
-    } catch (stripeError: any) {
+    } catch (err) {
       // RA-786: do not leak stripeError.message to clients
-      console.error("Error checking subscriptions:", stripeError);
-      return NextResponse.json(
-        { error: "Failed to check subscriptions" },
-        { status: 500 },
-      );
+      return fromException(request, err, { stage: "stripe-list-subscriptions" });
     }
-  } catch (error) {
-    console.error("Error checking subscription:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+  } catch (err) {
+    return fromException(request, err, { stage: "load" });
   }
 }

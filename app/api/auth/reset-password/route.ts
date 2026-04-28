@@ -8,6 +8,7 @@ import { verifyResetCode } from "@/lib/password-reset-store";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { rejectIfBreached } from "@/lib/auth/password-breach";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // RA-1342 — aligned to registration min (12). NIST SP 800-63B §5.1.1.2
 // recommends 8 as an absolute floor, but registration enforces 12 —
@@ -37,16 +38,21 @@ export async function POST(request: NextRequest) {
       typeof body.turnstileToken === "string" ? body.turnstileToken : null;
 
     if (!email || !newPassword || !code) {
-      return NextResponse.json(
-        { error: "Email, verification code, and new password are required" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Email, verification code, and new password are required",
+        status: 400,
+      });
     }
 
     // RA-1286: CAPTCHA gate. Soft-allow when TURNSTILE_SECRET_KEY unset.
     const captcha = await verifyTurnstile(turnstileToken, getClientIp(request));
     if (!captcha.ok) {
-      return NextResponse.json({ error: captcha.reason }, { status: 400 });
+      return apiError(request, {
+        code: "VALIDATION",
+        message: captcha.reason,
+        status: 400,
+      });
     }
 
     // RA-1341: second limit per target email so IP rotation can't grind
@@ -60,12 +66,11 @@ export async function POST(request: NextRequest) {
     if (emailLimited) return emailLimited;
 
     if (newPassword.length < MIN_PASSWORD_LENGTH) {
-      return NextResponse.json(
-        {
-          error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters`,
-        },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: `Password must be at least ${MIN_PASSWORD_LENGTH} characters`,
+        status: 400,
+      });
     }
 
     // RA-1591 — HIBP breach check. Rejects known-compromised passwords
@@ -73,13 +78,21 @@ export async function POST(request: NextRequest) {
     // / HIBP outage.
     const breachMsg = await rejectIfBreached(newPassword);
     if (breachMsg) {
-      return NextResponse.json({ error: breachMsg }, { status: 400 });
+      return apiError(request, {
+        code: "VALIDATION",
+        message: breachMsg,
+        status: 400,
+      });
     }
 
     // Verify the reset code
     const codeResult = await verifyResetCode(email, code);
     if (!codeResult.valid) {
-      return NextResponse.json({ error: codeResult.error }, { status: 400 });
+      return apiError(request, {
+        code: "VALIDATION",
+        message: codeResult.error ?? "Invalid verification code",
+        status: 400,
+      });
     }
 
     // Check if user exists
@@ -88,7 +101,11 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Invalid request",
+        status: 400,
+      });
     }
 
     // Hash the new password
@@ -122,11 +139,7 @@ export async function POST(request: NextRequest) {
       success: true,
       message: "Password reset successfully",
     });
-  } catch (error: any) {
-    console.error("Error resetting password:", error);
-    return NextResponse.json(
-      { error: "An error occurred. Please try again." },
-      { status: 500 },
-    );
+  } catch (err) {
+    return fromException(request, err, { stage: "reset" });
   }
 }
