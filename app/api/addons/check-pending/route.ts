@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 
 /**
  * Check for pending add-on purchases that haven't been processed
@@ -13,7 +14,11 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     // Get user's Stripe customer ID and check if we can use AddonPurchase table
@@ -42,6 +47,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!user?.stripeCustomerId) {
+      // Preserve dual error/message payload for client UX
       return NextResponse.json(
         {
           error: "No Stripe customer found",
@@ -214,12 +220,7 @@ export async function POST(request: NextRequest) {
       addonReports: finalUser?.addonReports || 0,
       previousAddonReports: user.addonReports,
     });
-  } catch (error: any) {
-    // RA-786: do not leak error.message to clients
-    console.error("❌ ERROR CHECKING PENDING ADD-ONS:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+  } catch (err) {
+    return fromException(request, err, { stage: "check-pending" });
   }
 }
