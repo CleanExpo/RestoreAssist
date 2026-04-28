@@ -315,6 +315,91 @@ export async function getPendingEntries(
 }
 
 /**
+ * RA-1769 — get all `failed` entries (optionally scoped to one inspection).
+ *
+ * Failed entries are produced by `markEntryFailed` after `MAX_RETRY_COUNT`
+ * (or `SKETCH_SAVE_MAX_RETRY_COUNT`) attempts. They will not be drained
+ * automatically — the user must explicitly retry, export, or discard via
+ * the recovery UI.
+ */
+export async function getFailedEntries(
+  inspectionId?: string,
+): Promise<SyncQueueEntry[]> {
+  const db = await openDatabase();
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(QUEUE_STORE, "readonly");
+    const store = tx.objectStore(QUEUE_STORE);
+    const statusIndex = store.index("by-status");
+    const req = statusIndex.getAll("failed");
+
+    req.onsuccess = () => {
+      const all = req.result;
+      resolve(
+        inspectionId
+          ? all.filter((e) => e.inspectionId === inspectionId)
+          : all,
+      );
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/**
+ * RA-1769 — reset a failed entry to `pending` so the next drain picks it
+ * up. Wipes `retryCount` and `lastAttemptAt` so the new drain starts
+ * with a fresh retry budget. Returns true if the entry was found and
+ * reset, false if it had already been removed (e.g. cross-tab race).
+ */
+export async function retryFailedEntry(id: string): Promise<boolean> {
+  const db = await openDatabase();
+
+  const entry = await new Promise<SyncQueueEntry | undefined>(
+    (resolve, reject) => {
+      const tx = db.transaction(QUEUE_STORE, "readonly");
+      const req = tx.objectStore(QUEUE_STORE).get(id);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    },
+  );
+
+  if (!entry || entry.status !== "failed") return false;
+
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(QUEUE_STORE, "readwrite");
+    const req = tx.objectStore(QUEUE_STORE).put({
+      ...entry,
+      status: "pending",
+      retryCount: 0,
+      lastAttemptAt: undefined,
+    });
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+
+  // Kick the drain so the user sees their retry happen immediately
+  // instead of waiting for the next 5 s polling tick.
+  void drainQueue();
+  return true;
+}
+
+/**
+ * RA-1769 — permanently remove a failed entry. Use when the user has
+ * exported the payload to file or explicitly chosen to discard. No
+ * confirmation gate at this layer; the caller (UI) is responsible for
+ * asking the user before invoking.
+ */
+export async function removeFailedEntry(id: string): Promise<void> {
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(QUEUE_STORE, "readwrite");
+    const req = tx.objectStore(QUEUE_STORE).delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/**
  * Drain the sync queue — call all pending entries against the server.
  * Called automatically on the 'online' event and by the service worker
  * Background Sync handler.

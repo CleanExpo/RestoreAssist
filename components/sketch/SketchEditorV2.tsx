@@ -19,8 +19,28 @@
 import { useState, useRef, useCallback, useEffect, useId } from "react";
 import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
-import { Loader2, Save, Check, FileDown, Ruler } from "lucide-react";
-import { enqueueSketchSave, getPendingEntries } from "@/lib/nir-sync-queue";
+import {
+  Loader2,
+  Save,
+  Check,
+  FileDown,
+  Ruler,
+  AlertTriangle,
+  Download,
+  RefreshCw,
+  Trash2,
+  X,
+} from "lucide-react";
+import {
+  enqueueSketchSave,
+  getPendingEntries,
+  getFailedEntries,
+  retryFailedEntry,
+  removeFailedEntry,
+  type SyncQueueEntry,
+  type SketchSavePayload,
+} from "@/lib/nir-sync-queue";
+import toast from "react-hot-toast";
 
 import { SketchDockToolbar } from "./SketchDockToolbar";
 import { SketchFloorTabs } from "./SketchFloorTabs";
@@ -125,6 +145,11 @@ export function SketchEditorV2({
   // in the existing save-status indicator alongside saving / savedAt
   // so the user has feedback that work is buffered, not lost.
   const [offlinePending, setOfflinePending] = useState(0);
+  // RA-1769 — entries whose retry budget was exhausted. Surfaced in a
+  // separate (red) state in the indicator; clicking opens a recovery
+  // panel where the user can retry, export, or discard.
+  const [failedEntries, setFailedEntries] = useState<SyncQueueEntry[]>([]);
+  const [failedPanelOpen, setFailedPanelOpen] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [historyState, setHistoryState] = useState({
     canUndo: false,
@@ -290,22 +315,26 @@ export function SketchEditorV2({
     }, 1500);
   }, [inspectionId, readonly, floorsData]);
 
-  // RA-1762 — keep the offline-pending count fresh when entries are
-  // drained externally (service-worker Background Sync, sibling tabs,
-  // the `online` event handler in nir-sync-queue). Cheap polling +
-  // explicit refresh on `online`.
+  // RA-1762 / RA-1769 — keep the offline-pending count + failed-entry
+  // list fresh. Pending changes when sibling tabs or the SW drain
+  // queue entries; failed list grows when MAX_RETRY_COUNT is hit.
+  // Cheap polling (5 s) + explicit refresh on `online`.
   useEffect(() => {
     if (!inspectionId) return;
     let cancelled = false;
     const refresh = async () => {
       try {
-        const entries = await getPendingEntries(inspectionId);
+        const [pending, failed] = await Promise.all([
+          getPendingEntries(inspectionId),
+          getFailedEntries(inspectionId),
+        ]);
         if (cancelled) return;
         setOfflinePending(
-          entries.filter((e) => e.type === "sketch-save").length,
+          pending.filter((e) => e.type === "sketch-save").length,
         );
+        setFailedEntries(failed.filter((e) => e.type === "sketch-save"));
       } catch {
-        // IDB unavailable; leave count alone.
+        // IDB unavailable; leave state alone.
       }
     };
 
@@ -320,6 +349,65 @@ export function SketchEditorV2({
       clearInterval(interval);
     };
   }, [inspectionId]);
+
+  // RA-1769 — recovery actions for failed sketch saves.
+  const handleRetryFailed = useCallback(async (id: string) => {
+    try {
+      const ok = await retryFailedEntry(id);
+      if (ok) {
+        setFailedEntries((prev) => prev.filter((e) => e.id !== id));
+        toast.success("Retrying — will sync if reachable");
+      } else {
+        toast("Entry already removed");
+      }
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Retry failed — try again",
+      );
+    }
+  }, []);
+
+  const handleExportFailed = useCallback((entry: SyncQueueEntry) => {
+    try {
+      const blob = new Blob([JSON.stringify(entry, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const payload = entry.payload as Partial<SketchSavePayload> | null;
+      const floorLabel = payload?.floorLabel ?? `floor-${payload?.floorNumber ?? "?"}`;
+      a.href = url;
+      a.download = `sketch-recovery-${entry.inspectionId}-${floorLabel}-${entry.id}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Exported — keep this file as your backup");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Export failed — try again",
+      );
+    }
+  }, []);
+
+  const handleDiscardFailed = useCallback(async (id: string) => {
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm(
+        "Discard this failed save? The sketch state will be lost from the queue. " +
+          "Export it first if you might want to recover the data later.",
+      )
+    ) {
+      return;
+    }
+    try {
+      await removeFailedEntry(id);
+      setFailedEntries((prev) => prev.filter((e) => e.id !== id));
+      toast.success("Discarded");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Could not discard — try again",
+      );
+    }
+  }, []);
 
   // ── Canvas ready handler ────────────────────────────────
   const handleCanvasReady = useCallback(
@@ -623,10 +711,20 @@ export function SketchEditorV2({
             </button>
           )}
 
-          {/* Save indicator */}
+          {/* Save indicator (with RA-1769 failed-entry surfacing) */}
           {!readonly && (
-            <span className="text-xs text-white/30 min-w-[80px] text-right">
-              {saving ? (
+            <span className="relative text-xs text-white/30 min-w-[80px] text-right">
+              {failedEntries.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setFailedPanelOpen((v) => !v)}
+                  className="flex items-center gap-1 justify-end text-rose-400 hover:text-rose-300 cursor-pointer"
+                  title="Click to view, retry, or export failed sketch saves"
+                >
+                  <AlertTriangle size={11} />
+                  Sync failed: {failedEntries.length} stuck
+                </button>
+              ) : saving ? (
                 <span className="flex items-center gap-1 justify-end">
                   <Loader2 size={11} className="animate-spin" /> Saving…
                 </span>
@@ -647,6 +745,90 @@ export function SketchEditorV2({
                   })}
                 </span>
               ) : null}
+
+              {/* RA-1769 — recovery panel for failed sketch saves */}
+              {failedPanelOpen && failedEntries.length > 0 && (
+                <div
+                  role="dialog"
+                  aria-label="Failed sketch saves"
+                  className="absolute right-0 top-full mt-2 w-[360px] z-50 rounded-lg border border-rose-500/40 bg-slate-900 shadow-xl p-3 text-left"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold text-rose-300 flex items-center gap-1.5">
+                      <AlertTriangle size={12} />
+                      {failedEntries.length} stuck save
+                      {failedEntries.length === 1 ? "" : "s"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setFailedPanelOpen(false)}
+                      className="text-white/50 hover:text-white"
+                      aria-label="Close"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-white/50 mb-2 leading-snug">
+                    These saves hit the retry cap. Retry them, export the
+                    payload to a file as backup, or discard if no longer
+                    needed.
+                  </p>
+                  <ul className="space-y-2 max-h-[260px] overflow-y-auto">
+                    {failedEntries.map((entry) => {
+                      const payload =
+                        entry.payload as Partial<SketchSavePayload> | null;
+                      const floorLabel =
+                        payload?.floorLabel ?? `Floor ${payload?.floorNumber ?? "?"}`;
+                      const lastAttempt = entry.lastAttemptAt
+                        ? new Date(entry.lastAttemptAt).toLocaleString("en-AU", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            day: "2-digit",
+                            month: "short",
+                          })
+                        : "never";
+                      return (
+                        <li
+                          key={entry.id}
+                          className="rounded border border-white/10 bg-slate-800/50 p-2"
+                        >
+                          <div className="flex items-baseline justify-between gap-2 mb-1">
+                            <span className="text-xs text-white/80">
+                              {floorLabel}
+                            </span>
+                            <span className="text-[10px] text-white/40">
+                              last try: {lastAttempt}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleRetryFailed(entry.id)}
+                              className="flex items-center gap-1 px-2 py-1 text-[11px] rounded bg-blue-500/20 text-blue-300 hover:bg-blue-500/30"
+                            >
+                              <RefreshCw size={10} /> Retry
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleExportFailed(entry)}
+                              className="flex items-center gap-1 px-2 py-1 text-[11px] rounded bg-slate-700 text-white/80 hover:bg-slate-600"
+                            >
+                              <Download size={10} /> Export
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDiscardFailed(entry.id)}
+                              className="flex items-center gap-1 px-2 py-1 text-[11px] rounded bg-rose-500/20 text-rose-300 hover:bg-rose-500/30"
+                            >
+                              <Trash2 size={10} /> Discard
+                            </button>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
             </span>
           )}
 
