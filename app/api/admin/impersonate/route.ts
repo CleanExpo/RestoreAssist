@@ -21,6 +21,7 @@ import {
   issueImpersonationToken,
   serializeToken,
 } from "@/lib/admin-impersonation";
+import { apiError } from "@/lib/api-errors";
 
 export async function POST(request: NextRequest) {
   // RA-1545 — defence-in-depth. Session cookies are SameSite=Lax by
@@ -33,10 +34,10 @@ export async function POST(request: NextRequest) {
 
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
   }
   if (session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Forbidden — admin only" }, { status: 403 });
+    return apiError(request, { code: "FORBIDDEN", message: "Forbidden — admin only", status: 403 });
   }
 
   // RA-1592 — feature flag gate. Impersonation mints a token but the
@@ -110,7 +111,7 @@ export async function POST(request: NextRequest) {
     select: { id: true, email: true },
   });
   if (!target) {
-    return NextResponse.json({ error: "Target user not found" }, { status: 404 });
+    return apiError(request, { code: "NOT_FOUND", message: "Target user not found", status: 404 });
   }
 
   const token = issueImpersonationToken(session.user.id, target.id);
