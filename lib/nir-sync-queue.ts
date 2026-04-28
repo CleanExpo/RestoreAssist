@@ -321,7 +321,47 @@ export async function getPendingEntries(
  *
  * @returns number of entries successfully synced
  */
+/**
+ * RA-1768 — cross-tab single-flight via navigator.locks.
+ *
+ * Without the lock: two tabs of the same inspection both fire `online`,
+ * both call drainQueue(), both read the same pending entries from IDB,
+ * both POST to the server, both attempt removeEntry. Today this works
+ * by accident — every queued endpoint happens to be idempotent — but
+ * that's an implicit contract no caller is aware of and will silently
+ * break the moment a non-idempotent endpoint is added to the queue.
+ *
+ * With the lock: at most one tab drains at a time (exclusive mode).
+ * Subsequent tabs queue behind the holder and drain after, by which
+ * point the first tab has typically cleared the queue (the second
+ * tab's drain returns 0). Lock name is namespaced so it doesn't
+ * collide with any unrelated `navigator.locks` users.
+ *
+ * Fallback: when `navigator.locks` is unavailable (older browsers),
+ * drainQueue calls drainQueueImpl directly, preserving today's
+ * implicit-idempotency behaviour.
+ */
+const SYNC_DRAIN_LOCK_NAME = "nir-sync-drain";
+
 export async function drainQueue(): Promise<number> {
+  if (typeof window === "undefined" || !navigator.onLine) return 0;
+
+  if (
+    typeof navigator !== "undefined" &&
+    "locks" in navigator &&
+    navigator.locks?.request
+  ) {
+    return navigator.locks.request(
+      SYNC_DRAIN_LOCK_NAME,
+      { mode: "exclusive" },
+      () => drainQueueImpl(),
+    );
+  }
+
+  return drainQueueImpl();
+}
+
+async function drainQueueImpl(): Promise<number> {
   if (typeof window === "undefined" || !navigator.onLine) return 0;
 
   let db: IDBDatabase;
