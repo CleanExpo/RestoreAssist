@@ -4,7 +4,7 @@ import { FAQPageSchema } from "@/components/seo/JsonLd";
 export const metadata: Metadata = {
   title: "FAQ - Restore Assist Questions & Answers",
   description:
-    "Get answers to common questions about RestoreAssist restoration software, IICRC compliance, pricing, features, integrations, and implementation for Australian restoration businesses.",
+    "Get answers to common questions about RestoreAssist restoration software, IICRC S500 alignment, pricing, features, integrations, and implementation for Australian restoration businesses.",
   keywords: [
     "restoration software FAQ",
     "IICRC software questions",
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "FAQ - Restore Assist Questions & Answers",
     description:
-      "Common questions about restoration software, compliance, and features.",
+      "Common questions about restoration software, standards alignment, and features.",
     type: "website",
     images: [
       { url: "/logo.png", width: 512, height: 512, alt: "Restore Assist" },
@@ -27,17 +27,17 @@ const faqData = [
   {
     question: "What is RestoreAssist?",
     answer:
-      "RestoreAssist is an AI-powered damage assessment platform designed for Australian restoration professionals. It helps you create accurate, transparent, and auditable restoration reports with compliance built-in.",
+      "RestoreAssist is an AI-assisted damage assessment platform used by Australian restoration professionals. Restorers use it to create accurate, transparent, and auditable restoration reports with built-in alignment to industry standards.",
   },
   {
-    question: "How does the AI assessment work?",
+    question: "How does the AI assistance work?",
     answer:
-      "Our AI analyzes captured site data including photos, measurements, and damage details to identify damage patterns, compliance requirements, and generate detailed scope of work documents automatically.",
+      "Restorers capture site data including photos, measurements, and damage details on site. The platform's AI assists by identifying damage patterns, surfacing relevant standards, and drafting scope of work documents that the restorer reviews and approves before issuing.",
   },
   {
-    question: "What compliance standards does RestoreAssist support?",
+    question: "What standards does RestoreAssist align with?",
     answer:
-      "RestoreAssist supports IICRC S500, NCC 2022, AS/NZS standards, and meets requirements of major Australian insurance providers. All assessments are automatically checked for compliance.",
+      "RestoreAssist aligns with IICRC S500, NCC 2022, AS/NZS standards, and the requirements of major Australian insurance providers. Restorers can review their reports against these standards within the platform before submission.",
   },
   {
     question: "Can I export reports?",
