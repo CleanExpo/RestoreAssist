@@ -13,6 +13,7 @@ import {
 } from "@/lib/bulk-operations";
 import { sendReportCompletedEmail } from "@/lib/email";
 import { notifyReportCompleted } from "@/lib/notifications";
+import { apiError, fromException } from "@/lib/api-errors";
 
 const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.app";
 
@@ -27,7 +28,7 @@ export async function PATCH(request: NextRequest) {
     // 1. Authenticate
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
     }
 
     // 2. Rate limit check
@@ -197,11 +198,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // RA-786: do not leak error.message to clients
-    console.error("bulk-status request failed:", error);
-    return NextResponse.json(
-      { error: "Request failed" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "update" });
   }
 }
 
