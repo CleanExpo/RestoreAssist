@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { sendInviteEmail } from "@/lib/email";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 function canResendInvite(role?: string) {
   return role === "ADMIN" || role === "MANAGER";
@@ -15,10 +16,18 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(req, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   if (!canResendInvite(session.user.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return apiError(req, {
+      code: "FORBIDDEN",
+      message: "Forbidden",
+      status: 403,
+    });
   }
   const userId = session.user.id;
   const { id } = await params;
@@ -39,31 +48,38 @@ export async function POST(
       });
 
       if (!invite) {
-        return NextResponse.json(
-          { error: "Invite not found" },
-          { status: 404 },
-        );
+        return apiError(req, {
+          code: "NOT_FOUND",
+          message: "Invite not found",
+          status: 404,
+        });
       }
 
       // Verify the invite belongs to the user's organization
       if (invite.createdBy?.organizationId !== session.user.organizationId) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        return apiError(req, {
+          code: "FORBIDDEN",
+          message: "Forbidden",
+          status: 403,
+        });
       }
 
       // Managers can only resend invites they created
       if (session.user.role === "MANAGER" && invite.createdById !== userId) {
-        return NextResponse.json(
-          { error: "You can only resend invites you created" },
-          { status: 403 },
-        );
+        return apiError(req, {
+          code: "FORBIDDEN",
+          message: "You can only resend invites you created",
+          status: 403,
+        });
       }
 
       // Check if invite is already used
       if (invite.usedAt) {
-        return NextResponse.json(
-          { error: "This invite has already been used" },
-          { status: 400 },
-        );
+        return apiError(req, {
+          code: "VALIDATION",
+          message: "This invite has already been used",
+          status: 400,
+        });
       }
 
       // Check if invite is expired and update if needed
@@ -114,10 +130,7 @@ export async function POST(
       });
     } catch (error: any) {
       console.error("Error resending invite:", error);
-      return NextResponse.json(
-        { error: "Failed to resend invite email" },
-        { status: 500 },
-      );
+      return fromException(req, error, { stage: "resend-invite" });
     }
   });
 }
