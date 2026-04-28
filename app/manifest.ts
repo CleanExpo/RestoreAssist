@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "RestoreAssist - Restoration Report Software",
     short_name: "RestoreAssist",
     description:
-      "AI-powered restoration report software for Australian water damage and disaster recovery professionals. IICRC S500 compliant.",
+      "Restoration report software used by Australian water damage and disaster recovery professionals. IICRC S500 aligned.",
     start_url: "/",
     display: "standalone",
     background_color: "#ffffff",

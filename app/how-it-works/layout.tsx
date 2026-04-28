@@ -3,7 +3,7 @@ import { Metadata } from "next";
 export const metadata: Metadata = {
   title: "How It Works - RestoreAssist Restoration Software",
   description:
-    "Learn how RestoreAssist works: from inspection and scoping to AI-powered reports and cost estimation. Built for Australian restoration contractors and IICRC S500 compliance.",
+    "Learn how RestoreAssist works: from inspection and scoping to AI-assisted reports and cost estimation, all driven by the restorer. Built for Australian restoration contractors with IICRC S500 alignment.",
   keywords: [
     "how restoration software works",
     "restoration report workflow",
