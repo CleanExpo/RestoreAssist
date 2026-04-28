@@ -21,7 +21,12 @@ jobs:
     # that relying on "check it in prod" is not a gate.
     services:
       postgres:
-        image: postgres:16-alpine
+        # pgvector/pgvector:pg16 ships postgres:16 with the pgvector
+        # extension preinstalled. The 20260406_iicrc_chunk_pgvector
+        # migration creates a vector(...) column and would otherwise
+        # fail with `extension "vector" is not available` against
+        # plain postgres:16-alpine.
+        image: pgvector/pgvector:pg16
         env:
           POSTGRES_USER: ci
           POSTGRES_PASSWORD: ci
