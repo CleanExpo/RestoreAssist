@@ -12,6 +12,7 @@ vi.mock("../../oauth-handler", () => ({
   getTokens: vi.fn(),
   storeTokens: vi.fn(),
   markIntegrationError: vi.fn(),
+  disconnectIntegration: vi.fn(),
 }));
 
 const mockRefreshAccessToken = vi.fn();
@@ -29,7 +30,11 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
-import { getTokens, markIntegrationError } from "../../oauth-handler";
+import {
+  getTokens,
+  markIntegrationError,
+  disconnectIntegration,
+} from "../../oauth-handler";
 import { prisma } from "@/lib/prisma";
 import {
   getValidXeroToken,
@@ -39,6 +44,7 @@ import {
 
 const mockGetTokens = getTokens as ReturnType<typeof vi.fn>;
 const mockMarkError = markIntegrationError as ReturnType<typeof vi.fn>;
+const mockDisconnect = disconnectIntegration as ReturnType<typeof vi.fn>;
 const mockFindUnique = prisma.integration.findUnique as ReturnType<
   typeof vi.fn
 >;
@@ -120,7 +126,36 @@ describe("getValidXeroToken", () => {
     expect(mockRefreshAccessToken).toHaveBeenCalledOnce();
   });
 
-  it("throws XeroTokenError + stores integration error when refresh fails", async () => {
+  it("throws XeroTokenError + stores integration error when refresh fails (transient)", async () => {
+    // RA-1308 — transient errors (5xx, network) take the markIntegrationError
+    // path so the next sync run can recover. Terminal auth failures take the
+    // disconnectIntegration path instead (covered by the next test).
+    mockGetTokens.mockResolvedValue({
+      accessToken: "stale_token",
+      refreshToken: "refresh_xyz",
+      tokenExpiresAt: new Date(Date.now() - 1000),
+      isExpired: true,
+    });
+    mockFindUnique.mockResolvedValue({ tenantId: TENANT_ID });
+    mockRefreshAccessToken.mockRejectedValue(
+      new Error("Xero 503: temporary server error"),
+    );
+
+    await expect(getValidXeroToken(INTEGRATION_ID)).rejects.toThrow(
+      XeroTokenError,
+    );
+
+    expect(mockMarkError).toHaveBeenCalledWith(
+      INTEGRATION_ID,
+      expect.stringContaining("Token refresh failed"),
+    );
+    expect(mockDisconnect).not.toHaveBeenCalled();
+  });
+
+  it("throws XeroTokenError + disconnects integration on terminal auth failure (RA-1308)", async () => {
+    // 401 / invalid_grant / revoked → user must re-connect. Move integration
+    // to DISCONNECTED so the dashboard prompts re-auth instead of silently
+    // retrying forever.
     mockGetTokens.mockResolvedValue({
       accessToken: "stale_token",
       refreshToken: "refresh_xyz",
@@ -136,10 +171,8 @@ describe("getValidXeroToken", () => {
       XeroTokenError,
     );
 
-    expect(mockMarkError).toHaveBeenCalledWith(
-      INTEGRATION_ID,
-      expect.stringContaining("Token refresh failed"),
-    );
+    expect(mockDisconnect).toHaveBeenCalledWith(INTEGRATION_ID);
+    expect(mockMarkError).not.toHaveBeenCalled();
   });
 
   it("throws XeroTokenError when no access token exists (disconnected)", async () => {
