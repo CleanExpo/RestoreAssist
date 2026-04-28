@@ -19,6 +19,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { checkPaymentGate } from "@/lib/workspace/payment-gate";
+import { apiError, fromException } from "@/lib/api-errors";
 import {
   generateImageObjectJsonLd,
   generateLocalBusinessJsonLd,
@@ -36,7 +37,7 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
     }
 
     // RA-426: Workspace payment gate
@@ -86,7 +87,7 @@ export async function GET(
     });
 
     if (!asset) {
-      return NextResponse.json({ error: "Asset not found" }, { status: 404 });
+      return apiError(request, { code: "NOT_FOUND", message: "Asset not found", status: 404 });
     }
 
     const { searchParams } = request.nextUrl;
@@ -181,11 +182,7 @@ export async function GET(
       socialMeta,
     });
   } catch (error) {
-    console.error("[GET /api/media/[id]/seo] Error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "media-seo-get" });
   }
 }
 
@@ -198,7 +195,7 @@ export async function POST(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
     }
 
     const { id } = await params;
@@ -206,10 +203,11 @@ export async function POST(
     const { altText } = body as { altText?: string };
 
     if (!altText || typeof altText !== "string" || !altText.trim()) {
-      return NextResponse.json(
-        { error: "altText is required" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "altText is required",
+        status: 400,
+      });
     }
 
     // Verify ownership
@@ -224,7 +222,7 @@ export async function POST(
     });
 
     if (!asset) {
-      return NextResponse.json({ error: "Asset not found" }, { status: 404 });
+      return apiError(request, { code: "NOT_FOUND", message: "Asset not found", status: 404 });
     }
 
     // Update alt text and invalidate cached JSON-LD so it regenerates
@@ -239,11 +237,7 @@ export async function POST(
 
     return NextResponse.json({ asset: updated });
   } catch (error) {
-    console.error("[POST /api/media/[id]/seo] Error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "media-seo-post" });
   }
 }
 
