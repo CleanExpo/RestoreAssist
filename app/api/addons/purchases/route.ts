@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 
 /**
  * Get add-on purchase history for the current user
@@ -11,7 +12,11 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     try {
@@ -51,14 +56,7 @@ export async function GET(request: NextRequest) {
       }
       throw error;
     }
-  } catch (error: any) {
-    console.error("Error fetching add-on purchases:", error);
-    return NextResponse.json(
-      {
-        error: "Internal server error",
-        purchases: [],
-      },
-      { status: 500 },
-    );
+  } catch (err) {
+    return fromException(request, err, { stage: "list" });
   }
 }
