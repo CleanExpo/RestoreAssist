@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 
 /** GET: Fetch one restoration document */
 export async function GET(
@@ -11,7 +12,11 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -21,19 +26,16 @@ export async function GET(
     });
 
     if (!doc) {
-      return NextResponse.json(
-        { error: "Document not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Document not found",
+        status: 404,
+      });
     }
 
     return NextResponse.json({ document: doc });
-  } catch (error) {
-    console.error("Error fetching restoration document:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+  } catch (err) {
+    return fromException(request, err, { stage: "load" });
   }
 }
 
@@ -45,7 +47,11 @@ export async function PUT(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -57,10 +63,11 @@ export async function PUT(
     });
 
     if (!existing) {
-      return NextResponse.json(
-        { error: "Document not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Document not found",
+        status: 404,
+      });
     }
 
     const updateData: {
@@ -81,12 +88,8 @@ export async function PUT(
     });
 
     return NextResponse.json({ document: doc });
-  } catch (error) {
-    console.error("Error updating restoration document:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+  } catch (err) {
+    return fromException(request, err, { stage: "update" });
   }
 }
 
@@ -98,7 +101,11 @@ export async function DELETE(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -108,19 +115,16 @@ export async function DELETE(
     });
 
     if (!existing) {
-      return NextResponse.json(
-        { error: "Document not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Document not found",
+        status: 404,
+      });
     }
 
     await prisma.restorationDocument.delete({ where: { id } });
     return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Error deleting restoration document:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+  } catch (err) {
+    return fromException(request, err, { stage: "delete" });
   }
 }
