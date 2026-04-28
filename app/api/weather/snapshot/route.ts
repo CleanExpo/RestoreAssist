@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { fetchWeatherSnapshot } from "@/lib/weather/weather-provider";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 /**
  * POST /api/weather/snapshot
@@ -17,7 +18,11 @@ import { withIdempotency } from "@/lib/idempotency";
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(req, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -36,44 +41,53 @@ export async function POST(req: NextRequest) {
     try {
       body = rawBody ? JSON.parse(rawBody) : {};
     } catch {
-      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+      return apiError(req, {
+        code: "VALIDATION",
+        message: "Invalid JSON body",
+        status: 400,
+      });
     }
 
     if (typeof body !== "object" || body === null) {
-      return NextResponse.json(
-        { error: "Body must be a JSON object" },
-        { status: 400 },
-      );
+      return apiError(req, {
+        code: "VALIDATION",
+        message: "Body must be a JSON object",
+        status: 400,
+      });
     }
 
     const { country, postcode, date } = body as Record<string, unknown>;
 
     if (country !== "AU" && country !== "NZ") {
-      return NextResponse.json(
-        { error: 'country must be "AU" or "NZ"' },
-        { status: 400 },
-      );
+      return apiError(req, {
+        code: "VALIDATION",
+        message: 'country must be "AU" or "NZ"',
+        status: 400,
+      });
     }
 
     if (typeof postcode !== "string" || postcode.trim() === "") {
-      return NextResponse.json(
-        { error: "postcode must be a non-empty string" },
-        { status: 400 },
-      );
+      return apiError(req, {
+        code: "VALIDATION",
+        message: "postcode must be a non-empty string",
+        status: 400,
+      });
     }
 
     if (typeof date !== "string" || date.trim() === "") {
-      return NextResponse.json(
-        { error: "date must be an ISO date string" },
-        { status: 400 },
-      );
+      return apiError(req, {
+        code: "VALIDATION",
+        message: "date must be an ISO date string",
+        status: 400,
+      });
     }
     const parsedDate = new Date(date);
     if (isNaN(parsedDate.getTime())) {
-      return NextResponse.json(
-        { error: "date is not a valid ISO date string" },
-        { status: 400 },
-      );
+      return apiError(req, {
+        code: "VALIDATION",
+        message: "date is not a valid ISO date string",
+        status: 400,
+      });
     }
 
     try {
@@ -85,11 +99,7 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({ data: snapshot });
     } catch (err) {
-      console.error("[weather/snapshot] Unexpected error:", err);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return fromException(req, err, { stage: "weather-snapshot" });
     }
   });
 }

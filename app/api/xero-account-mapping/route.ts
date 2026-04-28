@@ -27,6 +27,7 @@ import {
   clearAccountCodeCache,
   isValidXeroAccountCode,
 } from "@/lib/integrations/xero/account-code-resolver";
+import { apiError, fromException } from "@/lib/api-errors";
 
 const DEFAULT_SENTINEL = "__default__"; // used by the UI to target the null-category row
 
@@ -102,11 +103,15 @@ async function upsertMapping(
   throw lastErr;
 }
 
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const integration = await getActiveXeroIntegration(session.user.id);
@@ -133,11 +138,7 @@ export async function GET(_request: NextRequest) {
 
     return NextResponse.json({ data: mappings, hasIntegration: true });
   } catch (err) {
-    console.error("[xero-account-mapping GET]", err);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, err, { stage: "xero-mapping-get" });
   }
 }
 
@@ -145,7 +146,11 @@ export async function PUT(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const body = (await request.json().catch(() => null)) as {
@@ -156,20 +161,20 @@ export async function PUT(request: NextRequest) {
     } | null;
 
     if (!body || typeof body.accountCode !== "string") {
-      return NextResponse.json(
-        { error: "accountCode is required" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "accountCode is required",
+        status: 400,
+      });
     }
 
     if (!isValidXeroAccountCode(body.accountCode)) {
-      return NextResponse.json(
-        {
-          error:
-            "Invalid account code format — must be 3–4 digits or a Xero GUID",
-        },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message:
+          "Invalid account code format — must be 3–4 digits or a Xero GUID",
+        status: 400,
+      });
     }
 
     const category =
@@ -180,18 +185,20 @@ export async function PUT(request: NextRequest) {
         : String(body.category).trim();
 
     if (category !== null && category.length === 0) {
-      return NextResponse.json(
-        { error: "category cannot be empty (use null for default)" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "category cannot be empty (use null for default)",
+        status: 400,
+      });
     }
 
     const integration = await getActiveXeroIntegration(session.user.id);
     if (!integration) {
-      return NextResponse.json(
-        { error: "No active Xero integration — connect Xero first" },
-        { status: 409 },
-      );
+      return apiError(request, {
+        code: "CONFLICT",
+        message: "No active Xero integration — connect Xero first",
+        status: 409,
+      });
     }
 
     const data = {
@@ -216,11 +223,7 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json({ data: mapping });
   } catch (err) {
-    console.error("[xero-account-mapping PUT]", err);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, err, { stage: "xero-mapping-put" });
   }
 }
 
@@ -228,24 +231,30 @@ export async function DELETE(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { searchParams } = new URL(request.url);
     const rawCategory = searchParams.get("category");
     if (rawCategory === null) {
-      return NextResponse.json(
-        { error: "category query parameter required" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "category query parameter required",
+        status: 400,
+      });
     }
 
     const integration = await getActiveXeroIntegration(session.user.id);
     if (!integration) {
-      return NextResponse.json(
-        { error: "No active Xero integration" },
-        { status: 409 },
-      );
+      return apiError(request, {
+        code: "CONFLICT",
+        message: "No active Xero integration",
+        status: 409,
+      });
     }
 
     const category = rawCategory === DEFAULT_SENTINEL ? null : rawCategory;
@@ -261,10 +270,6 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ data: { deletedCount: deleted.count } });
   } catch (err) {
-    console.error("[xero-account-mapping DELETE]", err);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, err, { stage: "xero-mapping-delete" });
   }
 }
