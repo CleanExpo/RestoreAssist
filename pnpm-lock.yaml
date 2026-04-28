@@ -164,8 +164,8 @@ importers:
         specifier: ^1.0.2
         version: 1.0.2(react@19.2.5)
       '@stripe/stripe-js':
-        specifier: ^8.1.0
-        version: 8.9.0
+        specifier: ^9.3.1
+        version: 9.3.1
       '@supabase/supabase-js':
         specifier: ^2.104.1
         version: 2.104.1
@@ -3531,8 +3531,8 @@ packages:
     peerDependencies:
       react: ^18.0.0 || ^19.0.0
 
-  '@stripe/stripe-js@8.9.0':
-    resolution: {integrity: sha512-OJkXvUI5GAc56QdiSRimQDvWYEqn475J+oj8RzRtFTCPtkJNO2TWW619oDY+nn1ExR+2tCVTQuRQBbR4dRugww==}
+  '@stripe/stripe-js@9.3.1':
+    resolution: {integrity: sha512-oWpAEENuVg8aw4W2OUAM9WxRDtIV2YTLr2nr6qHT+D8tHPW7bya61ufinPpUespyRNUVXqesnHo+jQdUNsGywA==}
     engines: {node: '>=12.16'}
 
   '@supabase/auth-js@2.104.1':
@@ -12833,7 +12833,7 @@ snapshots:
       mermaid: 11.14.0
       react: 19.2.5
 
-  '@stripe/stripe-js@8.9.0': {}
+  '@stripe/stripe-js@9.3.1': {}
 
   '@supabase/auth-js@2.104.1':
     dependencies:
