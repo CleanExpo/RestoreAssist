@@ -9,6 +9,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { InterviewAnalyticsService } from "@/lib/forms/analytics";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 interface CompletionRequest {
   sessionId: string;
@@ -25,7 +26,11 @@ export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -37,10 +42,11 @@ export async function POST(request: NextRequest) {
       try {
         body = (rawBody ? JSON.parse(rawBody) : {}) as CompletionRequest;
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
 
       const {
@@ -51,10 +57,11 @@ export async function POST(request: NextRequest) {
       } = body;
 
       if (!sessionId) {
-        return NextResponse.json(
-          { error: "Missing required field: sessionId" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Missing required field: sessionId",
+          status: 400,
+        });
       }
 
       const metrics = await InterviewAnalyticsService.trackSessionCompletion(
@@ -65,10 +72,11 @@ export async function POST(request: NextRequest) {
       );
 
       if (!metrics) {
-        return NextResponse.json(
-          { error: "Session not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Session not found",
+          status: 404,
+        });
       }
 
       return NextResponse.json({
@@ -76,11 +84,7 @@ export async function POST(request: NextRequest) {
         metrics,
       });
     } catch (error) {
-      console.error("Error tracking interview completion:", error);
-      return NextResponse.json(
-        { error: "Failed to track interview completion" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "complete" });
     }
   });
 }
