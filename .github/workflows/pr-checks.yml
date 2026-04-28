@@ -58,6 +58,26 @@ jobs:
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
 
+      # Must run BEFORE Build — `pnpm build` invokes `prisma migrate deploy`
+      # via scripts/build.sh whenever DATABASE_URL is set (and VERCEL_ENV
+      # isn't preview/development). On vanilla postgres:16-alpine the
+      # 20260403010000_add_evidence_schema migration fails with
+      # `schema "auth" does not exist`, which writes a failed row into
+      # `_prisma_migrations`. Even though Build has continue-on-error,
+      # the failed migration row poisons the database for the later
+      # `Prisma migration drift check` step (P3009). Stubbing the auth
+      # schema HERE — before any step touches Postgres — keeps the DB
+      # clean. Production unaffected: Supabase ships `auth.uid()` and
+      # the CREATE OR REPLACE never runs there because the workflow only
+      # runs in CI.
+      - name: Bootstrap Supabase auth.uid() stub for CI
+        run: |
+          PGPASSWORD=ci psql -h localhost -U ci -d ci -c "
+            CREATE SCHEMA IF NOT EXISTS auth;
+            CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid
+              LANGUAGE sql STABLE AS \$\$ SELECT NULL::uuid \$\$;
+          "
+
       - name: TypeScript Check
         run: npx tsc --noEmit
         continue-on-error: true
@@ -87,28 +107,6 @@ jobs:
       - name: Audit dependencies
         run: pnpm audit --audit-level=high --prod
         continue-on-error: true
-
-      # Bootstrap a Supabase-compatible auth schema before running the
-      # drift gate. Migrations under prisma/migrations/ create RLS
-      # policies that reference `auth.uid()` (e.g.
-      # 20260403010000_add_evidence_schema), and Supabase ships that
-      # schema + function out of the box. The ephemeral Postgres
-      # service used here is vanilla 16-alpine — `auth` does not
-      # exist, so `migrate deploy` fails with P3018:
-      #   ERROR: schema "auth" does not exist
-      # which then cascades into P3009 (failed-state migrations) for
-      # every subsequent PR.
-      #
-      # We stub `auth.uid()` with a function returning NULL::uuid; that's
-      # enough for CREATE POLICY to validate. The stub never runs in
-      # production (Supabase replaces it).
-      - name: Bootstrap Supabase auth.uid() stub for CI
-        run: |
-          PGPASSWORD=ci psql -h localhost -U ci -d ci -c "
-            CREATE SCHEMA IF NOT EXISTS auth;
-            CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid
-              LANGUAGE sql STABLE AS \$\$ SELECT NULL::uuid \$\$;
-          "
 
       # RA-1546 — Prisma migration-drift gate. Applies every migration
       # in `prisma/migrations/` against the ephemeral Postgres service
