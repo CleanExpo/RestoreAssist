@@ -88,6 +88,28 @@ jobs:
         run: pnpm audit --audit-level=high --prod
         continue-on-error: true
 
+      # Bootstrap a Supabase-compatible auth schema before running the
+      # drift gate. Migrations under prisma/migrations/ create RLS
+      # policies that reference `auth.uid()` (e.g.
+      # 20260403010000_add_evidence_schema), and Supabase ships that
+      # schema + function out of the box. The ephemeral Postgres
+      # service used here is vanilla 16-alpine — `auth` does not
+      # exist, so `migrate deploy` fails with P3018:
+      #   ERROR: schema "auth" does not exist
+      # which then cascades into P3009 (failed-state migrations) for
+      # every subsequent PR.
+      #
+      # We stub `auth.uid()` with a function returning NULL::uuid; that's
+      # enough for CREATE POLICY to validate. The stub never runs in
+      # production (Supabase replaces it).
+      - name: Bootstrap Supabase auth.uid() stub for CI
+        run: |
+          PGPASSWORD=ci psql -h localhost -U ci -d ci -c "
+            CREATE SCHEMA IF NOT EXISTS auth;
+            CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid
+              LANGUAGE sql STABLE AS \$\$ SELECT NULL::uuid \$\$;
+          "
+
       # RA-1546 — Prisma migration-drift gate. Applies every migration
       # in `prisma/migrations/` against the ephemeral Postgres service
       # above, then runs `prisma migrate status` and fails if anything
