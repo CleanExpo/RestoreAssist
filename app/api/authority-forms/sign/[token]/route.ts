@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { apiError } from "@/lib/api-errors";
 
 /**
  * GET /api/authority-forms/sign/:token
@@ -22,7 +23,11 @@ export async function GET(
     const { token } = await params;
 
     if (!token) {
-      return NextResponse.json({ error: "Token is required" }, { status: 400 });
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Token is required",
+        status: 400,
+      });
     }
 
     const signature = await prisma.authorityFormSignature.findUnique({
@@ -46,10 +51,11 @@ export async function GET(
     });
 
     if (!signature) {
-      return NextResponse.json(
-        { error: "Invalid or expired signing link" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Invalid or expired signing link",
+        status: 404,
+      });
     }
 
     if (signature.signedAt) {
@@ -90,10 +96,13 @@ export async function GET(
     });
   } catch (error: any) {
     console.error("[Sign Token GET] Error:", error);
-    return NextResponse.json(
-      { error: "Failed to load signing page" },
-      { status: 500 },
-    );
+    return apiError(request, {
+      code: "INTERNAL",
+      message: "Failed to load signing page",
+      status: 500,
+      err: error,
+      stage: "sign-get",
+    });
   }
 }
 
@@ -120,14 +129,19 @@ export async function POST(
     const { signatureData, signatoryName } = body;
 
     if (!token) {
-      return NextResponse.json({ error: "Token is required" }, { status: 400 });
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Token is required",
+        status: 400,
+      });
     }
 
     if (!signatureData) {
-      return NextResponse.json(
-        { error: "Signature data is required" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Signature data is required",
+        status: 400,
+      });
     }
 
     // Look up the signature record to get the id and instanceId
@@ -136,10 +150,11 @@ export async function POST(
     });
 
     if (!signature) {
-      return NextResponse.json(
-        { error: "Invalid or expired signing link" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Invalid or expired signing link",
+        status: 404,
+      });
     }
 
     // Capture verification data
@@ -164,10 +179,11 @@ export async function POST(
     });
 
     if (result.count === 0) {
-      return NextResponse.json(
-        { error: "This form has already been signed" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "CONFLICT",
+        message: "This form has already been signed",
+        status: 400,
+      });
     }
 
     // Fetch the updated record for instanceId-based checks below
@@ -175,10 +191,11 @@ export async function POST(
       where: { id: signature.id },
     });
     if (!updated) {
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return apiError(request, {
+        code: "INTERNAL",
+        message: "Internal server error",
+        status: 500,
+      });
     }
 
     // Check if all signatures for this form are now complete
@@ -222,9 +239,12 @@ export async function POST(
     });
   } catch (error: any) {
     console.error("[Sign Token POST] Error:", error);
-    return NextResponse.json(
-      { error: "Failed to submit signature" },
-      { status: 500 },
-    );
+    return apiError(request, {
+      code: "INTERNAL",
+      message: "Failed to submit signature",
+      status: 500,
+      err: error,
+      stage: "sign-post",
+    });
   }
 }
