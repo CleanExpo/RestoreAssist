@@ -15,6 +15,33 @@
  * Old caches are pruned on activate.
  */
 
+/**
+ * RA-1767 — STOP before bumping NIR_VERSION.
+ *
+ * Bumping this version invalidates CACHE_APP and CACHE_STATIC, so every
+ * offline user loses the cached app shell on next reload. Only bump when
+ * one of these is actually changing:
+ *
+ *   ✓ The fetch handler logic (network-first / cache-first decisions)
+ *   ✓ The cache strategy or precache list (PRECACHE_URLS)
+ *   ✓ The sync event handler signature/behaviour
+ *   ✓ Anything else that the SW itself executes
+ *
+ * Do NOT bump for:
+ *
+ *   ✗ Adding a new entry type to lib/nir-sync-queue.ts QueueEntryType.
+ *     The drain runs in the client tab, not in the SW — the SW only
+ *     fires the NIR_SYNC_TRIGGER message and doesn't care which type
+ *     of entry the client drains.
+ *   ✗ Changing the payload shape of a queued entry — same reason.
+ *   ✗ Changing the drain endpoint (entry.endpoint is read client-side).
+ *   ✗ Adding a new client-side helper that talks to the queue.
+ *
+ * Cost of an unnecessary bump: every device with the old SW loses
+ * /_next/static/** + /, /portal/inspections, /offline from cache the
+ * next time they open the app. They re-download the shell, which on
+ * a flaky connection means a blank screen until the network catches up.
+ */
 const NIR_VERSION = "nir-v2.0";
 const CACHE_APP = `${NIR_VERSION}-app`;
 const CACHE_STATIC = `${NIR_VERSION}-static`;

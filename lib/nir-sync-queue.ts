@@ -44,6 +44,13 @@ export type SyncStatus =
   | "SYNC_CONFLICT"
   | "OFFLINE";
 
+/**
+ * RA-1767 — adding a new entry type does NOT require bumping NIR_VERSION
+ * in `public/sw.js`. The drain runs in this file (client-side), the SW
+ * only fires the NIR_SYNC_TRIGGER message. Bumping NIR_VERSION invalidates
+ * the cached app shell for every offline user — see the warning at the
+ * top of `public/sw.js` for the full list of when (and when not) to bump.
+ */
 export type QueueEntryType =
   | "inspection-create"
   | "inspection-update"
