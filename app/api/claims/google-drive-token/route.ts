@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,7 +16,11 @@ export async function GET(request: NextRequest) {
     });
 
     if (!token?.sub) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const accessToken = (token as { googleAccessToken?: string })
@@ -33,11 +38,7 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({ accessToken });
-  } catch (error) {
-    console.error("[Google Drive Token] Error:", error);
-    return NextResponse.json(
-      { error: "Failed to get Google Drive token" },
-      { status: 500 },
-    );
+  } catch (err) {
+    return fromException(request, err, { stage: "load" });
   }
 }

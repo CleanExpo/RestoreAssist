@@ -8,23 +8,29 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { listDriveItems } from "@/lib/google-drive";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user || !session.user.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const body = await request.json();
     const { folderId } = body;
 
     if (!folderId) {
-      return NextResponse.json(
-        { error: "folderId is required" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "folderId is required",
+        status: 400,
+      });
     }
 
     // List all items in the folder using the same function as standards retrieval
@@ -98,14 +104,7 @@ export async function POST(request: NextRequest) {
       totalFiles: pdfFiles.length,
       totalItems: items.files.length + items.folders.length,
     });
-  } catch (error: any) {
-    console.error("Error listing files:", error);
-    return NextResponse.json(
-      {
-        error: "Failed to list files from Google Drive",
-        details: "Please check your Google Drive credentials and folder permissions.",
-      },
-      { status: 500 },
-    );
+  } catch (err) {
+    return fromException(request, err, { stage: "list-drive-files" });
   }
 }
