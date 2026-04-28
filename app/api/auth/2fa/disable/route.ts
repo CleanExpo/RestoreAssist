@@ -14,6 +14,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { validateCsrf } from "@/lib/csrf";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { apiError } from "@/lib/api-errors";
 
 export async function POST(req: NextRequest) {
   const csrfError = validateCsrf(req);
@@ -28,23 +29,32 @@ export async function POST(req: NextRequest) {
 
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(req, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   let body: { currentPassword?: string };
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    return apiError(req, {
+      code: "VALIDATION",
+      message: "Invalid JSON body",
+      status: 400,
+    });
   }
 
   const currentPassword =
     typeof body.currentPassword === "string" ? body.currentPassword : "";
   if (!currentPassword) {
-    return NextResponse.json(
-      { error: "Current password is required to disable 2FA" },
-      { status: 400 },
-    );
+    return apiError(req, {
+      code: "VALIDATION",
+      message: "Current password is required to disable 2FA",
+      status: 400,
+    });
   }
 
   const user = await prisma.user.findUnique({
@@ -52,18 +62,20 @@ export async function POST(req: NextRequest) {
     select: { password: true },
   });
   if (!user || !user.password) {
-    return NextResponse.json(
-      { error: "Password not set on this account" },
-      { status: 400 },
-    );
+    return apiError(req, {
+      code: "VALIDATION",
+      message: "Password not set on this account",
+      status: 400,
+    });
   }
 
   const passwordOk = await bcrypt.compare(currentPassword, user.password);
   if (!passwordOk) {
-    return NextResponse.json(
-      { error: "Current password is incorrect" },
-      { status: 400 },
-    );
+    return apiError(req, {
+      code: "VALIDATION",
+      message: "Current password is incorrect",
+      status: 400,
+    });
   }
 
   await prisma.user.update({

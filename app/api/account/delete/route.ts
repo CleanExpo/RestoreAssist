@@ -28,6 +28,7 @@ import { applyRateLimit } from "@/lib/rate-limiter";
 import { validateCsrf } from "@/lib/csrf";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 const CONFIRMATION_PHRASE = "DELETE MY ACCOUNT";
 
@@ -37,7 +38,11 @@ export async function POST(request: NextRequest) {
 
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -57,17 +62,19 @@ export async function POST(request: NextRequest) {
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid request body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid request body",
+          status: 400,
+        });
       }
 
       if (body.confirmation !== CONFIRMATION_PHRASE) {
-        return NextResponse.json(
-          { error: `Confirmation phrase must be "${CONFIRMATION_PHRASE}"` },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: `Confirmation phrase must be "${CONFIRMATION_PHRASE}"`,
+          status: 400,
+        });
       }
 
       const user = await prisma.user.findUnique({
@@ -80,7 +87,11 @@ export async function POST(request: NextRequest) {
         },
       });
       if (!user) {
-        return NextResponse.json({ error: "User not found" }, { status: 404 });
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "User not found",
+          status: 404,
+        });
       }
 
       if (user.subscriptionId) {
@@ -109,11 +120,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({ success: true });
     } catch (error) {
-      console.error("[account-delete] Error:", error);
-      return NextResponse.json(
-        { error: "Failed to delete account" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "delete" });
     }
   });
 }

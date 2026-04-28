@@ -17,6 +17,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { validateCsrf } from "@/lib/csrf";
 import { generateSecret } from "@/lib/auth/two-factor";
+import { apiError } from "@/lib/api-errors";
 
 export async function POST(req: NextRequest) {
   const csrfError = validateCsrf(req);
@@ -24,7 +25,11 @@ export async function POST(req: NextRequest) {
 
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(req, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   const user = await prisma.user.findUnique({
@@ -32,7 +37,11 @@ export async function POST(req: NextRequest) {
     select: { id: true, email: true, twoFactorEnabled: true },
   });
   if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
+    return apiError(req, {
+      code: "NOT_FOUND",
+      message: "User not found",
+      status: 404,
+    });
   }
 
   const { secretBase32, otpauthUrl } = generateSecret(user.email);
