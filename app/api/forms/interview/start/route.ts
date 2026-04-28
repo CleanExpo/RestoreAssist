@@ -17,11 +17,16 @@ import {
 } from "@/lib/interview";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -35,26 +40,32 @@ export async function POST(request: NextRequest) {
       });
 
       if (!user) {
-        return NextResponse.json({ error: "User not found" }, { status: 404 });
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "User not found",
+          status: 404,
+        });
       }
 
       let body: any;
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const { formTemplateId, jobType, postcode, experienceLevel, reportId } =
         body;
 
       if (!formTemplateId) {
-        return NextResponse.json(
-          { error: "formTemplateId is required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "formTemplateId is required",
+          status: 400,
+        });
       }
 
       // Get form template
@@ -63,10 +74,11 @@ export async function POST(request: NextRequest) {
       });
 
       if (!formTemplate) {
-        return NextResponse.json(
-          { error: "Form template not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Form template not found",
+          status: 404,
+        });
       }
 
       // Create interview context
@@ -84,16 +96,14 @@ export async function POST(request: NextRequest) {
       try {
         questionResponse = QuestionGenerationEngine.generateQuestions(context);
       } catch (err) {
-        console.error("[interview/start] generateQuestions threw:", err, {
-          context,
+        return apiError(request, {
+          code: "INTERNAL",
+          message: "Failed to generate questions for your subscription tier",
+          status: 500,
+          err,
+          stage: "generateQuestions",
+          context: { userId: user.id, jobType: context.jobType },
         });
-        return NextResponse.json(
-          {
-            error: "Failed to generate questions for your subscription tier",
-            code: "QUESTION_GENERATION_FAILED",
-          },
-          { status: 500 },
-        );
       }
 
       // Use the tiered questions directly - they're already filtered by userTierLevel
@@ -104,6 +114,7 @@ export async function POST(request: NextRequest) {
       if (totalAvailable === 0) {
         // Safer than 500 — the client renders "Please check your subscription tier"
         // on 4xx, and this exact shape lets the dashboard show a real message.
+        // Preserved bespoke shape: client branches on top-level `code` + `tier`.
         console.warn(
           "[interview/start] zero questions generated for user",
           user.id,
@@ -159,18 +170,8 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json(response);
     } catch (error) {
-      // RA-786: do not leak error.message to clients. Include an error code
-      // the UI can branch on so the user sees a useful toast instead of a
-      // generic "Failed to start interview" that gives them nothing to act on.
-      const errCode =
-        error instanceof Error && error.name === "PrismaClientKnownRequestError"
-          ? "DB_ERROR"
-          : "UNKNOWN";
-      console.error("Interview start error:", error, { code: errCode });
-      return NextResponse.json(
-        { error: "Failed to start interview", code: errCode },
-        { status: 500 },
-      );
+      // RA-786: do not leak error.message to clients.
+      return fromException(request, error, { stage: "start" });
     }
   });
 }
