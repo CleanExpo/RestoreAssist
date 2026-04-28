@@ -20,6 +20,7 @@ import { prisma } from "@/lib/prisma";
 import { softDelete } from "@/lib/prisma-helpers";
 import { z } from "zod";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import { apiError } from "@/lib/api-errors";
 
 // ─── Validation ────────────────────────────────────────────────────────────────
 
@@ -55,12 +56,12 @@ const auComplianceSchema = z.object({
 // ─── GET ──────────────────────────────────────────────────────────────────────
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(req, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
   }
 
   const { id } = await params;
@@ -88,7 +89,7 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(req, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
   }
 
   const { id } = await params;
@@ -195,12 +196,12 @@ export async function POST(
 // ─── DELETE ───────────────────────────────────────────────────────────────────
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(req, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
   }
 
   const { id } = await params;
