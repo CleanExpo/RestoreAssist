@@ -20,6 +20,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError } from "@/lib/api-errors";
 import {
   parseOnTheHouseHTML,
   parseOnTheHouseSearchResults,
@@ -156,7 +157,11 @@ async function fetchHtml(
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(req, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -176,7 +181,11 @@ export async function POST(req: NextRequest) {
     try {
       body = rawBody ? JSON.parse(rawBody) : {};
     } catch {
-      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+      return apiError(req, {
+        code: "VALIDATION",
+        message: "Invalid JSON body",
+        status: 400,
+      });
     }
 
     const {
@@ -190,10 +199,11 @@ export async function POST(req: NextRequest) {
     const useDomainFallback = fallbackSources.includes("domain");
 
     if (!address && !directUrl) {
-      return NextResponse.json(
-        { error: "address or url is required" },
-        { status: 400 },
-      );
+      return apiError(req, {
+        code: "VALIDATION",
+        message: "address or url is required",
+        status: 400,
+      });
     }
 
     // RA-1347: if the caller supplied `url` directly, only accept it when
@@ -212,13 +222,18 @@ export async function POST(req: NextRequest) {
           (parsed.hostname === "www.domain.com.au" ||
             parsed.hostname === "domain.com.au");
         if (!isOth && !isDomain) {
-          return NextResponse.json(
-            { error: "url must be on onthehouse.com.au or domain.com.au" },
-            { status: 400 },
-          );
+          return apiError(req, {
+            code: "VALIDATION",
+            message: "url must be on onthehouse.com.au or domain.com.au",
+            status: 400,
+          });
         }
       } catch {
-        return NextResponse.json({ error: "Invalid url" }, { status: 400 });
+        return apiError(req, {
+          code: "VALIDATION",
+          message: "Invalid url",
+          status: 400,
+        });
       }
     }
 
@@ -273,10 +288,11 @@ export async function POST(req: NextRequest) {
         // Triggered when: OTH search fails (404/503/network), returns no listings,
         // OR caller explicitly opts in. Allows the scraper to survive OTH URL changes.
         if (!useDomainFallback && searchStatus === 0) {
-          return NextResponse.json(
-            { error: "Could not connect to OnTheHouse. Please try again." },
-            { status: 503 },
-          );
+          return apiError(req, {
+            code: "UPSTREAM_FAILED",
+            message: "Could not connect to OnTheHouse. Please try again.",
+            status: 503,
+          });
         }
 
         if (
@@ -335,10 +351,11 @@ export async function POST(req: NextRequest) {
       await fetchHtml(propertyUrl);
 
     if (propertyStatus === 0) {
-      return NextResponse.json(
-        { error: "Could not fetch property page." },
-        { status: 503 },
-      );
+      return apiError(req, {
+        code: "UPSTREAM_FAILED",
+        message: "Could not fetch property page.",
+        status: 503,
+      });
     }
 
     const data = isDomainUrl
