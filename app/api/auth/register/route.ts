@@ -12,6 +12,7 @@ import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
 import { rejectIfBreached } from "@/lib/auth/password-breach";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { track } from "@/lib/analytics/track";
+import { apiError } from "@/lib/api-errors";
 
 const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.app";
 
@@ -30,20 +31,22 @@ export async function POST(request: NextRequest) {
     try {
       body = await request.json();
     } catch {
-      return NextResponse.json(
-        { error: "Invalid request body" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Invalid request body",
+        status: 400,
+      });
     }
     const name = sanitizeString(body.name, 200);
     const email = sanitizeString(body.email, 320);
     const { password, acceptedTerms, turnstileToken } = body;
 
     if (!name || !email || !password) {
-      return NextResponse.json(
-        { error: "Name, email, and password are required" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Name, email, and password are required",
+        status: 400,
+      });
     }
 
     // RA-1286: CAPTCHA gate on the public signup endpoint. Soft-allows
@@ -53,35 +56,40 @@ export async function POST(request: NextRequest) {
       getClientIp(request),
     );
     if (!captcha.ok) {
-      return NextResponse.json({ error: captcha.reason }, { status: 400 });
+      return apiError(request, {
+        code: "VALIDATION",
+        message: captcha.reason,
+        status: 400,
+      });
     }
 
     // RA-1255: ToS + Privacy acceptance mandatory for new email signups.
     // Server-side re-check — don't trust just the client-side guard.
     if (acceptedTerms !== true) {
-      return NextResponse.json(
-        {
-          error:
-            "You must accept the Terms of Service and Privacy Policy to create an account",
-        },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message:
+          "You must accept the Terms of Service and Privacy Policy to create an account",
+        status: 400,
+      });
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      return NextResponse.json(
-        { error: "Please provide a valid email address" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Please provide a valid email address",
+        status: 400,
+      });
     }
 
     // RA-1258: raise floor to 12 chars per NIST SP 800-63B / OWASP 2024.
     if (typeof password !== "string" || password.length < 12) {
-      return NextResponse.json(
-        { error: "Password must be at least 12 characters" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Password must be at least 12 characters",
+        status: 400,
+      });
     }
 
     // RA-1591 — HIBP k-anonymity breach check. Fails open on network
@@ -89,7 +97,11 @@ export async function POST(request: NextRequest) {
     // confirms the password has been seen in a known breach.
     const breachMsg = await rejectIfBreached(password);
     if (breachMsg) {
-      return NextResponse.json({ error: breachMsg }, { status: 400 });
+      return apiError(request, {
+        code: "VALIDATION",
+        message: breachMsg,
+        status: 400,
+      });
     }
 
     // RA-1340: hash password FIRST so the duplicate-email path takes the
@@ -102,10 +114,11 @@ export async function POST(request: NextRequest) {
       where: { email },
     });
     if (existingUser) {
-      return NextResponse.json(
-        { error: "User with this email already exists" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "CONFLICT",
+        message: "User with this email already exists",
+        status: 400,
+      });
     }
 
     // All registrations create an ADMIN user with their own organisation
@@ -271,14 +284,18 @@ export async function POST(request: NextRequest) {
     );
     const prismaError = error as { code?: string };
     if (prismaError?.code === "P2002") {
-      return NextResponse.json(
-        { error: "User with this email already exists" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "CONFLICT",
+        message: "User with this email already exists",
+        status: 400,
+      });
     }
-    return NextResponse.json(
-      { error: "Registration failed. Please try again." },
-      { status: 500 },
-    );
+    return apiError(request, {
+      code: "INTERNAL",
+      message: "Registration failed. Please try again.",
+      status: 500,
+      err: error,
+      stage: "register",
+    });
   }
 }
