@@ -9,6 +9,7 @@ import { sendInviteEmail } from "@/lib/email";
 import { sendWithRetry } from "@/lib/email-retry";
 import { notifyTeamMemberJoined } from "@/lib/notifications";
 import { sanitizeString } from "@/lib/sanitize";
+import { apiError, fromException } from "@/lib/api-errors";
 
 function canInvite(role?: string) {
   // Only ADMIN and MANAGER can create invites
@@ -42,12 +43,20 @@ async function ensureOrganizationForUser(userId: string) {
   return org.id;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   if (!canViewInvites(session.user.role))
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return apiError(request, {
+      code: "FORBIDDEN",
+      message: "Forbidden",
+      status: 403,
+    });
 
   const orgId = await ensureOrganizationForUser(session.user.id);
 
@@ -90,32 +99,43 @@ export async function POST(req: NextRequest) {
 
   const session = await getServerSession(authOptions);
   if (!session?.user?.id)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(req, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   if (!canInvite(session.user.role))
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return apiError(req, {
+      code: "FORBIDDEN",
+      message: "Forbidden",
+      status: 403,
+    });
 
   const body = await req.json();
   const email = sanitizeString(body.email, 320);
   const role = body.role;
   if (!email || !role)
-    return NextResponse.json(
-      { error: "Email and role are required" },
-      { status: 400 },
-    );
+    return apiError(req, {
+      code: "VALIDATION",
+      message: "Email and role are required",
+      status: 400,
+    });
 
   if (role !== "MANAGER" && role !== "USER") {
-    return NextResponse.json(
-      { error: "Invalid role. Use MANAGER or USER." },
-      { status: 400 },
-    );
+    return apiError(req, {
+      code: "VALIDATION",
+      message: "Invalid role. Use MANAGER or USER.",
+      status: 400,
+    });
   }
 
   // Managers can only invite technicians (USER)
   if (session.user.role === "MANAGER" && role !== "USER") {
-    return NextResponse.json(
-      { error: "Managers can only invite technicians" },
-      { status: 403 },
-    );
+    return apiError(req, {
+      code: "FORBIDDEN",
+      message: "Managers can only invite technicians",
+      status: 403,
+    });
   }
 
   const orgId = await ensureOrganizationForUser(session.user.id);
@@ -431,9 +451,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     console.error("Error creating invite:", error);
-    return NextResponse.json(
-      { error: "Failed to create invite. Please try again." },
-      { status: 500 },
-    );
+    return fromException(req, error, { stage: "create-invite" });
   }
 }
