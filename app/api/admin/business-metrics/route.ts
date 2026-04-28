@@ -18,6 +18,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // Plan-name → monthly price (AUD). Update when pricing changes.
 // Values are best-effort: if a plan name doesn't match, MRR for that
@@ -29,99 +30,103 @@ const PLAN_PRICE_AUD: Record<string, number> = {
   "Yearly Plan": 790, // /12 handled below
 };
 
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
   }
   if (session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Forbidden — admin only" }, { status: 403 });
+    return apiError(request, { code: "FORBIDDEN", message: "Forbidden — admin only", status: 403 });
   }
 
-  const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  try {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-  // 1. Paying customer count + MRR
-  const activeSubscribers = await prisma.user.findMany({
-    where: { subscriptionStatus: "ACTIVE" },
-    select: { id: true, subscriptionPlan: true },
-  });
-  let mrr = 0;
-  let planUnmatched = 0;
-  for (const u of activeSubscribers) {
-    const plan = u.subscriptionPlan ?? "";
-    const price = PLAN_PRICE_AUD[plan];
-    if (price === undefined) {
-      planUnmatched++;
-      continue;
+    // 1. Paying customer count + MRR
+    const activeSubscribers = await prisma.user.findMany({
+      where: { subscriptionStatus: "ACTIVE" },
+      select: { id: true, subscriptionPlan: true },
+    });
+    let mrr = 0;
+    let planUnmatched = 0;
+    for (const u of activeSubscribers) {
+      const plan = u.subscriptionPlan ?? "";
+      const price = PLAN_PRICE_AUD[plan];
+      if (price === undefined) {
+        planUnmatched++;
+        continue;
+      }
+      // Yearly → monthly equivalent
+      mrr += plan.toLowerCase().includes("year") ? price / 12 : price;
     }
-    // Yearly → monthly equivalent
-    mrr += plan.toLowerCase().includes("year") ? price / 12 : price;
-  }
 
-  // 2. New trials this month
-  const newTrialsThisMonth = await prisma.user.count({
-    where: {
-      subscriptionStatus: "TRIAL",
-      createdAt: { gte: monthStart },
-    },
-  });
-
-  // 3. Trial → paid conversion (users currently ACTIVE whose trial started this month)
-  //    Heuristic: trialEndsAt is set for trial users and carries over to ACTIVE.
-  const convertedThisMonth = await prisma.user.count({
-    where: {
-      subscriptionStatus: "ACTIVE",
-      trialEndsAt: { gte: monthStart, lte: now },
-    },
-  });
-
-  // 4. Churn this month (CANCELED or EXPIRED with subscriptionEndsAt in this month)
-  const churnedThisMonth = await prisma.user.count({
-    where: {
-      subscriptionStatus: { in: ["CANCELED", "EXPIRED"] },
-      subscriptionEndsAt: { gte: monthStart, lte: now },
-    },
-  });
-
-  // 5. Failed charges (last 30 days) — count distinct Stripe webhook events
-  let failedCharges30d = 0;
-  try {
-    failedCharges30d = await prisma.stripeWebhookEvent.count({
+    // 2. New trials this month
+    const newTrialsThisMonth = await prisma.user.count({
       where: {
-        eventType: "invoice.payment_failed",
-        createdAt: { gte: thirtyDaysAgo },
+        subscriptionStatus: "TRIAL",
+        createdAt: { gte: monthStart },
       },
     });
-  } catch {
-    // If StripeWebhookEvent model doesn't exist in this deployment, show -1
-    failedCharges30d = -1;
-  }
 
-  // 6. Subscription deleted (last 30 days)
-  let subscriptionsDeleted30d = 0;
-  try {
-    subscriptionsDeleted30d = await prisma.stripeWebhookEvent.count({
+    // 3. Trial → paid conversion (users currently ACTIVE whose trial started this month)
+    //    Heuristic: trialEndsAt is set for trial users and carries over to ACTIVE.
+    const convertedThisMonth = await prisma.user.count({
       where: {
-        eventType: "customer.subscription.deleted",
-        createdAt: { gte: thirtyDaysAgo },
+        subscriptionStatus: "ACTIVE",
+        trialEndsAt: { gte: monthStart, lte: now },
       },
     });
-  } catch {
-    subscriptionsDeleted30d = -1;
-  }
 
-  return NextResponse.json({
-    generatedAt: now.toISOString(),
-    currency: "AUD",
-    mrr: Math.round(mrr * 100) / 100,
-    payingCustomers: activeSubscribers.length,
-    planUnmatched,
-    newTrialsThisMonth,
-    convertedThisMonth,
-    churnedThisMonth,
-    failedCharges30d,
-    subscriptionsDeleted30d,
-  });
+    // 4. Churn this month (CANCELED or EXPIRED with subscriptionEndsAt in this month)
+    const churnedThisMonth = await prisma.user.count({
+      where: {
+        subscriptionStatus: { in: ["CANCELED", "EXPIRED"] },
+        subscriptionEndsAt: { gte: monthStart, lte: now },
+      },
+    });
+
+    // 5. Failed charges (last 30 days) — count distinct Stripe webhook events
+    let failedCharges30d = 0;
+    try {
+      failedCharges30d = await prisma.stripeWebhookEvent.count({
+        where: {
+          eventType: "invoice.payment_failed",
+          createdAt: { gte: thirtyDaysAgo },
+        },
+      });
+    } catch {
+      // If StripeWebhookEvent model doesn't exist in this deployment, show -1
+      failedCharges30d = -1;
+    }
+
+    // 6. Subscription deleted (last 30 days)
+    let subscriptionsDeleted30d = 0;
+    try {
+      subscriptionsDeleted30d = await prisma.stripeWebhookEvent.count({
+        where: {
+          eventType: "customer.subscription.deleted",
+          createdAt: { gte: thirtyDaysAgo },
+        },
+      });
+    } catch {
+      subscriptionsDeleted30d = -1;
+    }
+
+    return NextResponse.json({
+      generatedAt: now.toISOString(),
+      currency: "AUD",
+      mrr: Math.round(mrr * 100) / 100,
+      payingCustomers: activeSubscribers.length,
+      planUnmatched,
+      newTrialsThisMonth,
+      convertedThisMonth,
+      churnedThisMonth,
+      failedCharges30d,
+      subscriptionsDeleted30d,
+    });
+  } catch (err) {
+    return fromException(request, err, { stage: "load" });
+  }
 }
