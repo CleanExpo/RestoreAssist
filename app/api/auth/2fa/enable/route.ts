@@ -19,6 +19,7 @@ import {
   generateRecoveryCodes,
   serializeRecoveryCodes,
 } from "@/lib/auth/two-factor";
+import { apiError } from "@/lib/api-errors";
 
 export async function POST(req: NextRequest) {
   const csrfError = validateCsrf(req);
@@ -36,22 +37,31 @@ export async function POST(req: NextRequest) {
 
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(req, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   let body: { code?: string };
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    return apiError(req, {
+      code: "VALIDATION",
+      message: "Invalid JSON body",
+      status: 400,
+    });
   }
 
   const code = typeof body.code === "string" ? body.code.trim() : "";
   if (!/^\d{6}$/.test(code)) {
-    return NextResponse.json(
-      { error: "Enter the 6-digit code from your authenticator app" },
-      { status: 400 },
-    );
+    return apiError(req, {
+      code: "VALIDATION",
+      message: "Enter the 6-digit code from your authenticator app",
+      status: 400,
+    });
   }
 
   const user = await prisma.user.findUnique({
@@ -59,21 +69,21 @@ export async function POST(req: NextRequest) {
     select: { twoFactorSecret: true, twoFactorEnabled: true } as any,
   });
   if (!user || !(user as any).twoFactorSecret) {
-    return NextResponse.json(
-      { error: "Run setup first to generate a secret" },
-      { status: 400 },
-    );
+    return apiError(req, {
+      code: "VALIDATION",
+      message: "Run setup first to generate a secret",
+      status: 400,
+    });
   }
 
   const ok = verifyToken((user as any).twoFactorSecret, code);
   if (!ok) {
-    return NextResponse.json(
-      {
-        error:
-          "Code didn't match. Make sure your device clock is accurate and try the next code.",
-      },
-      { status: 400 },
-    );
+    return apiError(req, {
+      code: "VALIDATION",
+      message:
+        "Code didn't match. Make sure your device clock is accurate and try the next code.",
+      status: 400,
+    });
   }
 
   // RA-1588 — mint recovery codes at enrolment so losing the authenticator
