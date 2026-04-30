@@ -56,8 +56,25 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // Default: collapsed (icon-only) on tablets to give the content pane
+  // breathing room. Apple App Review (1.0.2) flagged the iPad layout because
+  // an expanded 256px sidebar on iPad portrait left the main pane cramped
+  // and pushed cards off-screen. Lazy SSR-safe init: assume collapsed during
+  // SSR (matches the worst case) and refine on mount via useEffect below.
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // On mount, collapse sidebar by default for tablet-class viewports
+  // (768px ≤ width < 1280px). Covers iPad portrait (1024px), iPad Pro 11"
+  // portrait (1180px), and iPad Pro 13" portrait (1024px). Desktop (≥ 1280px)
+  // and tablet landscape default expanded. Mobile (< 768px) uses overlay menu.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const w = window.innerWidth;
+    if (w >= 768 && w < 1280) {
+      setSidebarOpen(false);
+    }
+  }, []);
   // NotificationBell manages its own open/close state
   const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(
     null,

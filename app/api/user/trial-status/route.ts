@@ -30,10 +30,14 @@ export async function GET(request: NextRequest) {
   try {
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { subscriptionStatus: true, trialEndsAt: true },
+      select: {
+        subscriptionStatus: true,
+        trialEndsAt: true,
+        lifetimeAccess: true,
+      } as any,
     });
 
-    const trialEndsAt = user?.trialEndsAt ?? null;
+    const trialEndsAt = (user as any)?.trialEndsAt ?? null;
     let daysRemaining: number | null = null;
     if (trialEndsAt) {
       const msRemaining = trialEndsAt.getTime() - Date.now();
@@ -41,9 +45,13 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({
-      subscriptionStatus: user?.subscriptionStatus ?? null,
+      subscriptionStatus: (user as any)?.subscriptionStatus ?? null,
       trialEndsAt: trialEndsAt ? trialEndsAt.toISOString() : null,
       daysRemaining,
+      // RA-XXXX — surfaced so TrialBanner can hide for lifetime/owner accounts
+      // (e.g. App Store reviewer demo account). Without this, lifetime users
+      // saw the urgency banner because the only signal was subscriptionStatus.
+      lifetimeAccess: (user as any)?.lifetimeAccess ?? false,
     });
   } catch (err) {
     // Never throw a 500 from a status-surface endpoint — dashboard would
@@ -53,6 +61,7 @@ export async function GET(request: NextRequest) {
       subscriptionStatus: null,
       trialEndsAt: null,
       daysRemaining: null,
+      lifetimeAccess: false,
     });
   }
 }
