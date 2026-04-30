@@ -22,6 +22,8 @@ type TrialStatus = {
   subscriptionStatus: string | null;
   trialEndsAt: string | null;
   daysRemaining: number | null;
+  /** True for lifetime/owner accounts. Banner hides regardless of trial state. */
+  lifetimeAccess?: boolean;
 };
 
 const DISMISS_STORAGE_KEY = "ra-1241-trial-banner-dismissed-session";
@@ -46,6 +48,11 @@ export function TrialBanner() {
 
   if (dismissed) return null;
   if (!status) return null;
+  // Lifetime + owner accounts never see the upgrade urgency banner.
+  // Was the cause of an Apple App Review rejection: reviewer's demo account
+  // had lifetimeAccess=true but the banner showed because we only checked
+  // subscriptionStatus.
+  if (status.lifetimeAccess) return null;
   if (status.subscriptionStatus !== "TRIAL") return null;
   if (status.daysRemaining === null || status.daysRemaining < 0) return null;
 
