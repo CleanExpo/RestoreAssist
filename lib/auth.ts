@@ -1,6 +1,7 @@
 import { NextAuthOptions } from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import GoogleProvider from "next-auth/providers/google";
+import AppleProvider from "next-auth/providers/apple";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "./prisma";
 import bcrypt from "bcryptjs";
@@ -45,6 +46,24 @@ export const authOptions: NextAuthOptions = {
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
+    // RA-1842 Ground 2 — Sign in with Apple (Apple guideline 4.8).
+    // Required by App Review because the app offers third-party login.
+    // Provider is registered conditionally so missing env vars don't
+    // crash the auth handler in dev / preview deploys without the
+    // Apple Developer config in place yet.
+    //
+    // Apple's "client secret" is a JWT signed with the .p8 private
+    // key. We pass it via APPLE_CLIENT_SECRET — the deploy infra is
+    // responsible for generating + rotating the JWT (typical ttl: 6 mo).
+    // See docs/IOS_SIGN_IN_WITH_APPLE.md for the rotation runbook.
+    ...(process.env.APPLE_CLIENT_ID && process.env.APPLE_CLIENT_SECRET
+      ? [
+          AppleProvider({
+            clientId: process.env.APPLE_CLIENT_ID,
+            clientSecret: process.env.APPLE_CLIENT_SECRET,
+          }),
+        ]
+      : []),
     CredentialsProvider({
       name: "credentials",
       credentials: {
