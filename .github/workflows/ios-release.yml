@@ -139,6 +139,16 @@ jobs:
           </plist>
           EOF
 
+          # NOTE — DO NOT pass --codesigning_identity to fastlane gym.
+          # That flag applies globally to every target including SPM
+          # libraries (IONCameraLib, BrowserPlugin), which use automatic
+          # signing internally and reject a manually-specified identity:
+          #   "IONCameraLib has conflicting provisioning settings.
+          #    IONCameraLib is automatically signed, but code signing
+          #    identity 'Apple Distribution: ...' has been manually
+          #    specified."  (run #25243102693, 2026-05-02)
+          # The App target's pbxproj already pins the right identity
+          # via CODE_SIGN_IDENTITY[sdk=iphoneos*]; that's enough.
           fastlane gym \
             --project ios/App/App.xcodeproj \
             --scheme App \
@@ -146,7 +156,6 @@ jobs:
             --export_method app-store \
             --export_team_id "$APPLE_TEAM_ID" \
             --export_options /tmp/ExportOptions.plist \
-            --codesigning_identity "Apple Distribution: Phill McGurk ($APPLE_TEAM_ID)" \
             --xcargs "DEVELOPMENT_TEAM=$APPLE_TEAM_ID" \
             --output_directory ./build \
             --output_name RestoreAssist.ipa
