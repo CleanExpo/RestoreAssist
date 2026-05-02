@@ -6,8 +6,15 @@ import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
+import { rejectIfIOSCapacitor } from "@/lib/ios-billing-guard";
 
 export async function POST(request: NextRequest) {
+  // RA-1842 Path B — Apple guideline 3.1.1 compliance. iOS Capacitor
+  // shell sends X-Capacitor-Platform: ios on every same-origin fetch;
+  // reject with 403 before any Stripe call.
+  const iosBlocked = rejectIfIOSCapacitor(request);
+  if (iosBlocked) return iosBlocked;
+
   const csrfError = validateCsrf(request);
   if (csrfError) return csrfError;
 
