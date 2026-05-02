@@ -7,8 +7,13 @@ import { PRICING_CONFIG } from "@/lib/pricing";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
+import { rejectIfIOSCapacitor } from "@/lib/ios-billing-guard";
 
 export async function POST(request: NextRequest) {
+  // RA-1842 Path B — fail-closed for iOS Capacitor.
+  const iosBlocked = rejectIfIOSCapacitor(request);
+  if (iosBlocked) return iosBlocked;
+
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {

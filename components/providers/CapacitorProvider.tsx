@@ -21,6 +21,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import CapacitorFetchInit from "@/components/capacitor/CapacitorFetchInit";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -94,6 +95,9 @@ export function CapacitorProvider({ children }: { children: ReactNode }) {
 
   return (
     <CapacitorContext.Provider value={value}>
+      {/* RA-1842 Path B — patch fetch on iOS so checkout APIs see
+          X-Capacitor-Platform: ios and 403 client-side. Web noop. */}
+      <CapacitorFetchInit />
       {children}
     </CapacitorContext.Provider>
   );
