@@ -97,6 +97,26 @@ jobs:
           #      bundle id to the profile name during `exportArchive`.
           # Without (2), run #4 failed with:
           #   exportArchive "App.app" requires a provisioning profile.
+          #
+          # Run #25242757701 (2026-05-02) regressed because PR #865
+          # added @capacitor/browser as an SPM dep, which surfaces a
+          # new BrowserPlugin SPM target. Setting
+          # PROVISIONING_PROFILE_SPECIFIER globally on xcargs applies
+          # it to EVERY target including SPM library targets, and
+          # Xcode rejects:
+          #   "IONCameraLib does not support provisioning profiles,
+          #    but provisioning profile RestoreAssist App Store v1
+          #    has been manually specified."
+          # Fix: drop PROVISIONING_PROFILE_SPECIFIER from xcargs (it
+          # was redundant — ExportOptions.plist already maps the
+          # profile per-bundle-id). xcargs now sets only Manual
+          # signing identity + team, which Xcode applies to all
+          # targets safely. The actual profile is picked at the
+          # exportArchive step from ExportOptions.plist's
+          # provisioningProfiles dict, which is keyed by bundle id
+          # (the App target's `com.restoreassist.app`) — SPM library
+          # targets aren't in the dict so they keep their default
+          # automatic-signing-skip behaviour.
 
           cat > /tmp/ExportOptions.plist <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
@@ -130,7 +150,7 @@ jobs:
             --export_team_id "$APPLE_TEAM_ID" \
             --export_options /tmp/ExportOptions.plist \
             --codesigning_identity "Apple Distribution: Phill McGurk ($APPLE_TEAM_ID)" \
-            --xcargs "DEVELOPMENT_TEAM=$APPLE_TEAM_ID CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY='Apple Distribution: Phill McGurk ($APPLE_TEAM_ID)' PROVISIONING_PROFILE_SPECIFIER='RestoreAssist App Store v1'" \
+            --xcargs "DEVELOPMENT_TEAM=$APPLE_TEAM_ID CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY='Apple Distribution: Phill McGurk ($APPLE_TEAM_ID)'" \
             --output_directory ./build \
             --output_name RestoreAssist.ipa
 
