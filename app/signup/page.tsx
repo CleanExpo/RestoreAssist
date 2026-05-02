@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
+import { signInWithOAuth } from "@/lib/oauth-native";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -142,7 +143,9 @@ export default function SignupPage() {
     setIsLoading(true);
     setError("");
     try {
-      await signIn("google", { callbackUrl: "/dashboard?welcome=1" });
+      // RA-1842 Ground 3 — on iOS this opens SFSafariViewController
+      // instead of bouncing to Safari proper. Web behaviour unchanged.
+      await signInWithOAuth("google", { callbackUrl: "/dashboard?welcome=1" });
     } catch (error: any) {
       setError("Google sign-in failed. Please try again.");
       toast.error("Google sign-in failed. Please try again.");
