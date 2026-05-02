@@ -5,12 +5,13 @@ import { prisma } from "@/lib/prisma";
 import { sanitizeString } from "@/lib/sanitize";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
   }
   const userId = session.user.id;
 
@@ -29,10 +30,7 @@ export async function POST(request: NextRequest) {
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, { code: "VALIDATION", message: "Invalid JSON body", status: 400 });
       }
       const {
         reportId,
@@ -52,10 +50,7 @@ export async function POST(request: NextRequest) {
 
       // Validate required fields
       if (!reportId) {
-        return NextResponse.json(
-          { error: "Missing required field: reportId" },
-          { status: 400 },
-        );
+        return apiError(request, { code: "VALIDATION", message: "Missing required field: reportId", status: 400 });
       }
 
       // Tenancy check — the report must belong to the caller (RA-1362)
@@ -64,21 +59,17 @@ export async function POST(request: NextRequest) {
         select: { id: true },
       });
       if (!report) {
-        return NextResponse.json(
-          { error: "Report not found" },
-          { status: 404 },
-        );
+        return apiError(request, { code: "NOT_FOUND", message: "Report not found", status: 404 });
       }
 
       // Verify prisma.estimate exists
       if (!prisma || typeof prisma.estimate === "undefined") {
-        console.error(
-          "Prisma Estimate model not available. Please run: npx prisma generate",
-        );
-        return NextResponse.json(
-          { error: "Database models not initialized. Please contact support." },
-          { status: 500 },
-        );
+        return apiError(request, {
+          code: "INTERNAL",
+          message: "Database models not initialized. Please contact support.",
+          status: 500,
+          stage: "prisma-init-check",
+        });
       }
 
       // Check if estimate already exists (by reportId or scopeId)
@@ -290,45 +281,10 @@ export async function POST(request: NextRequest) {
         complianceStatement: estimate.complianceStatement,
         disclaimer: estimate.disclaimer,
       });
-    } catch (error: any) {
-      console.error("Error saving estimate:", error);
-
-      if (error?.code === "P2002") {
-        return NextResponse.json(
-          { error: "An estimate already exists for this report/scope" },
-          { status: 409 },
-        );
-      }
-
-      if (error?.code === "P2003") {
-        return NextResponse.json(
-          { error: "Invalid report or scope ID. Please verify the IDs exist." },
-          { status: 400 },
-        );
-      }
-
-      if (
-        error?.message?.includes("prisma.estimate") ||
-        error?.message?.includes("undefined")
-      ) {
-        return NextResponse.json(
-          {
-            error:
-              "Database models not initialized. Please restart the development server after running 'npx prisma generate'.",
-            details: "Prisma Estimate model not found.",
-          },
-          { status: 500 },
-        );
-      }
-
-      return NextResponse.json(
-        {
-          error: "Failed to save estimate",
-          details:
-            process.env.NODE_ENV === "development" ? error?.message : undefined,
-        },
-        { status: 500 },
-      );
+    } catch (error) {
+      // fromException maps P2002 → 409 CONFLICT and P2003 → 409 CONFLICT
+      // automatically (see lib/api-errors.ts).
+      return fromException(request, error, { stage: "save" });
     }
   });
 }
@@ -338,7 +294,7 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
@@ -347,11 +303,12 @@ export async function GET(request: NextRequest) {
     if (reportId) {
       // Verify prisma.estimate exists
       if (!prisma || typeof prisma.estimate === "undefined") {
-        console.error("Prisma Estimate model not available");
-        return NextResponse.json(
-          { error: "Database models not initialized" },
-          { status: 500 },
-        );
+        return apiError(request, {
+          code: "INTERNAL",
+          message: "Database models not initialized",
+          status: 500,
+          stage: "prisma-init-check",
+        });
       }
 
       // Get estimate for specific report
@@ -375,10 +332,7 @@ export async function GET(request: NextRequest) {
       });
 
       if (!estimate) {
-        return NextResponse.json(
-          { error: "Estimate not found" },
-          { status: 404 },
-        );
+        return apiError(request, { code: "NOT_FOUND", message: "Estimate not found", status: 404 });
       }
 
       return NextResponse.json({
@@ -459,30 +413,7 @@ export async function GET(request: NextRequest) {
         lineItems: estimate.lineItems,
       })),
     );
-  } catch (error: any) {
-    console.error("Error fetching estimates:", error);
-
-    if (
-      error?.message?.includes("prisma.estimate") ||
-      error?.message?.includes("undefined")
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "Database models not initialized. Please restart the development server after running 'npx prisma generate'.",
-          details: "Prisma Estimate model not found.",
-        },
-        { status: 500 },
-      );
-    }
-
-    return NextResponse.json(
-      {
-        error: "Failed to fetch estimates",
-        details:
-          process.env.NODE_ENV === "development" ? error?.message : undefined,
-      },
-      { status: 500 },
-    );
+  } catch (error) {
+    return fromException(request, error, { stage: "list" });
   }
 }

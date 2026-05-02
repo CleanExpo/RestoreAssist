@@ -3,12 +3,13 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
@@ -76,19 +77,15 @@ export async function GET(request: NextRequest) {
         pages: Math.ceil(total / limit),
       },
     });
-  } catch (error: any) {
-    console.error("Error fetching invoices:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch invoices" },
-      { status: 500 },
-    );
+  } catch (error) {
+    return fromException(request, error, { stage: "list" });
   }
 }
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
   }
   const userId = session.user.id;
 
@@ -100,10 +97,7 @@ export async function POST(request: NextRequest) {
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, { code: "VALIDATION", message: "Invalid JSON body", status: 400 });
       }
       const {
         estimateId,
@@ -129,24 +123,15 @@ export async function POST(request: NextRequest) {
 
       // Validate required fields
       if (!customerName || !customerEmail) {
-        return NextResponse.json(
-          { error: "Customer name and email are required" },
-          { status: 400 },
-        );
+        return apiError(request, { code: "VALIDATION", message: "Customer name and email are required", status: 400 });
       }
 
       if (!lineItems || lineItems.length === 0) {
-        return NextResponse.json(
-          { error: "At least one line item is required" },
-          { status: 400 },
-        );
+        return apiError(request, { code: "VALIDATION", message: "At least one line item is required", status: 400 });
       }
 
       if (!dueDate) {
-        return NextResponse.json(
-          { error: "Due date is required" },
-          { status: 400 },
-        );
+        return apiError(request, { code: "VALIDATION", message: "Due date is required", status: 400 });
       }
 
       // Calculate financials
@@ -305,15 +290,8 @@ export async function POST(request: NextRequest) {
           });
           try {
             invoice = await runCreate();
-          } catch (secondError: any) {
-            console.error(
-              "Error creating invoice (retry after P2002):",
-              secondError,
-            );
-            return NextResponse.json(
-              { error: "Failed to create invoice. Please try again." },
-              { status: 500 },
-            );
+          } catch (secondError) {
+            return fromException(request, secondError, { stage: "create-retry-p2002" });
           }
         } else {
           throw firstError;
@@ -321,12 +299,8 @@ export async function POST(request: NextRequest) {
       }
 
       return NextResponse.json({ invoice }, { status: 201 });
-    } catch (error: any) {
-      console.error("Error creating invoice:", error);
-      return NextResponse.json(
-        { error: "Failed to create invoice" },
-        { status: 500 },
-      );
+    } catch (error) {
+      return fromException(request, error, { stage: "create" });
     }
   });
 }
