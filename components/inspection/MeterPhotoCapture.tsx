@@ -31,6 +31,7 @@ import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
 import type { OcrExtraction, ExtractionType } from "@/lib/nir-vision-ocr";
 import { useCapacitor } from "@/components/providers/CapacitorProvider";
+import { fireHaptic } from "@/lib/capacitor";
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -174,9 +175,11 @@ function MoistureConfirm({
       });
 
       if (res.ok) {
+        void fireHaptic("success");
         toast.success("Moisture reading saved");
         onSaved();
       } else {
+        void fireHaptic("warning");
         const data = await res.json();
         toast.error(data.error ?? "Failed to save reading");
       }
@@ -310,9 +313,11 @@ function EnvironmentalConfirm({
       );
 
       if (res.ok) {
+        void fireHaptic("success");
         toast.success("Environmental data applied to inspection");
         onSaved();
       } else {
+        void fireHaptic("warning");
         const data = await res.json();
         toast.error(data.error ?? "Failed to save environmental data");
       }
@@ -408,6 +413,7 @@ function MeasurementConfirm({
     const text = `${val} ${unit}`;
     try {
       await navigator.clipboard.writeText(text);
+      void fireHaptic("light");
       toast.success(`${text} copied — paste into the Affected Areas form`);
     } catch {
       toast(`Measurement: ${text}`, { icon: "📋" });

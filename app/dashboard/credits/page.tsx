@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import BillingGate from "@/components/capacitor/BillingGate";
 
 interface ReportLimits {
   baseLimit: number;
@@ -98,6 +99,14 @@ function getUsageBarColor(pct: number): string {
 }
 
 export default function CreditsPage() {
+  return (
+    <BillingGate>
+      <CreditsPageContent />
+    </BillingGate>
+  );
+}
+
+function CreditsPageContent() {
   const { data: session, status: sessionStatus } = useSession();
   const [data, setData] = useState<CreditData | null>(null);
   const [loading, setLoading] = useState(true);

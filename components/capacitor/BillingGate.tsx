@@ -20,8 +20,8 @@ interface BillingGateProps {
   children: React.ReactNode;
   /**
    * Optional override for what to render in the iOS shell instead of
-   * `children`. Defaults to a centred message + CTA pointing at the
-   * marketing site for billing.
+   * `children`. Defaults to a workspace-admin framed placeholder with
+   * no external links or CTAs (App Review 3.1.1 compliance).
    */
   fallback?: React.ReactNode;
 }
@@ -49,19 +49,11 @@ export default function BillingGate({ children, fallback }: BillingGateProps) {
           role="status"
         >
           <h1 className="text-2xl font-semibold tracking-tight">
-            Billing happens on the website
+            Managed by your workspace
           </h1>
           <p className="max-w-md text-sm text-muted-foreground">
-            The RestoreAssist iOS app is free for field use. Subscriptions,
-            billing and account upgrades are managed on{" "}
-            <a
-              href="https://restoreassist.app"
-              className="underline hover:text-primary"
-            >
-              restoreassist.app
-            </a>
-            . Sign in with your workspace account once your employer activates
-            a subscription.
+            Subscriptions are managed by your workspace administrator. Sign in
+            with your workspace credentials to access RestoreAssist.
           </p>
         </div>
       )}
