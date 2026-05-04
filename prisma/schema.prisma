@@ -1799,6 +1799,9 @@ model Inspection {
   drNrpgJobSync    DrNrpgJobSync?
   dryingGoalRecord DryingGoalRecord?
 
+  // V3: Wall-graph sketch (Sketch V3 — Encircle-grade) — see lib/sketch/v3
+  floorPlansV3 FloorPlanV3[]
+
   // RA-1132a: AI Live Teacher sessions
   liveTeacherSessions LiveTeacherSession[]
 
@@ -4983,6 +4986,215 @@ model SketchAnnotation {
   updatedAt DateTime    @updatedAt
 
   @@index([sketchId])
+}
+
+// ─── V3: Wall-Graph Sketch (Encircle-grade) ──────────────────────────────────
+// Topology: corners + walls + openings + derived rooms. Replaces V2's
+// polygon-per-room model so adjacent rooms share walls and openings (doors,
+// windows) attach to specific walls.  Source of truth for queries; the JSON
+// blob in ClaimSketch.sketchData is a fast-load cache.
+
+model FloorPlanV3 {
+  id                String  @id @default(cuid())
+  inspectionId      String
+  inspection        Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  floorIndex        Int     @default(0)
+  floorLabel        String  @default("Ground Floor")
+  pxPerMetre        Float   @default(100)
+  northRotationDeg  Float   @default(0)
+  origin            Json?   // { lat, lng } when seeded from Geoscape
+  geoTransform      Json?   // affine WGS84↔canvas
+  /// "manual" | "geoscape" | "nearmap" | "image_import" | "v2_migrated"
+  sourceType        String  @default("manual")
+  /// FK to GeoscapeFootprint (Phase 2). Stored as id-only — relation added
+  /// in the Geoscape migration so this Phase-1 migration stays decoupled.
+  sourceFootprintId String?
+
+  corners  FloorCornerV3[]
+  walls    FloorWallV3[]
+  openings FloorOpeningV3[]
+  rooms    FloorRoomV3[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([inspectionId])
+  @@index([inspectionId, floorIndex])
+}
+
+model FloorCornerV3 {
+  id          String      @id @default(cuid())
+  floorPlanId String
+  floorPlan   FloorPlanV3 @relation(fields: [floorPlanId], references: [id], onDelete: Cascade)
+  x           Float
+  y           Float
+  isLocked    Boolean     @default(false)
+  metadata    Json?
+
+  @@index([floorPlanId])
+}
+
+model FloorWallV3 {
+  id           String           @id @default(cuid())
+  floorPlanId  String
+  floorPlan    FloorPlanV3      @relation(fields: [floorPlanId], references: [id], onDelete: Cascade)
+  fromCornerId String
+  toCornerId   String
+  thicknessMm  Int              @default(110)
+  isExterior   Boolean          @default(false)
+  height       Float?
+  finishLeft   String?
+  finishRight  String?
+  metadata     Json?
+
+  openings FloorOpeningV3[]
+
+  @@index([floorPlanId])
+  @@index([fromCornerId])
+  @@index([toCornerId])
+}
+
+model FloorOpeningV3 {
+  id          String      @id @default(cuid())
+  floorPlanId String
+  floorPlan   FloorPlanV3 @relation(fields: [floorPlanId], references: [id], onDelete: Cascade)
+  wallId      String
+  wall        FloorWallV3 @relation(fields: [wallId], references: [id], onDelete: Cascade)
+  /// "DOOR" | "WINDOW" | "OPEN_PASS" | "GARAGE_DOOR"
+  type        String
+  positionM   Float
+  widthM      Float
+  heightM     Float?
+  sillHeightM Float?
+  /// "LEFT_IN" | "RIGHT_IN" | "LEFT_OUT" | "RIGHT_OUT"
+  swingDir    String?
+  metadata    Json?
+
+  @@index([wallId])
+  @@index([floorPlanId])
+}
+
+model FloorRoomV3 {
+  id          String      @id @default(cuid())
+  floorPlanId String
+  floorPlan   FloorPlanV3 @relation(fields: [floorPlanId], references: [id], onDelete: Cascade)
+  label       String      @default("Room")
+  roomType    String?
+  /// Ordered corner IDs forming the closed face. Cache; never authoritative.
+  cornerCycle Json
+  centroidX   Float
+  centroidY   Float
+  areaM2      Float
+  metadata    Json?
+
+  @@index([floorPlanId])
+}
+
+// ─── V3: Geoscape + Nearmap auto-pull cache (Phase 2) ────────────────────────
+// Stores building footprints fetched from Geoscape Buildings (AU national
+// dataset) and Nearmap aerial tiles. 90-day cache TTL parity with
+// PropertyLookup. Linked to FloorPlanV3.sourceFootprintId via id-only ref so
+// the Phase-1 migration didn't have to depend on this one.
+
+model GeoscapeFootprint {
+  id           String    @id @default(cuid())
+  /// GNAF Persistent Identifier — Australia's authoritative address ID.
+  gnafPid      String?
+  /// Geoscape Buildings ID for the footprint polygon.
+  buildingId   String?
+  /// GeoJSON Polygon (or MultiPolygon outer ring) in WGS84.
+  geomGeoJson  Json
+  storeyCount  Int?
+  roofMaterial String?
+  /// When the underlying imagery was captured (Nearmap).
+  capturedAt   DateTime?
+  fetchedAt    DateTime  @default(now())
+  /// 90-day TTL parity with PropertyLookup.
+  expiresAt    DateTime
+  /// Raw response cache for debugging / re-parsing.
+  rawResponse  Json
+  /// "geoscape_buildings" | "nearmap_ai" | "manual_polygon" | "test_fixture"
+  source       String
+  /// Address-string lookup key — normalised same as PropertyLookup.
+  addressKey   String?
+
+  tiles NearmapTile[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([gnafPid])
+  @@unique([buildingId])
+  @@index([addressKey])
+  @@index([expiresAt])
+}
+
+model NearmapTile {
+  id          String            @id @default(cuid())
+  footprintId String
+  footprint   GeoscapeFootprint @relation(fields: [footprintId], references: [id], onDelete: Cascade)
+  capturedAt  DateTime
+  /// [minLng, minLat, maxLng, maxLat]
+  bbox        Json
+  /// Cached image URL (Cloudinary / S3) or upstream URL.
+  imageUrl    String
+  zoomLevel   Int
+  createdAt   DateTime          @default(now())
+
+  @@index([footprintId])
+}
+
+// ─── V3: Geometry Anchor (Phase 4 — first-class evidence binding) ────────────
+// Joins evidence rows (moisture readings, photos, voice notes, attestations)
+// to specific wall-graph geometry. Additive — no column changes on existing
+// evidence models, preserving append-only audit on ProgressAttestation.
+
+model GeometryAnchor {
+  id          String @id @default(cuid())
+  floorPlanId String
+  /// "CORNER" | "WALL" | "OPENING" | "ROOM"
+  geometryType String
+  /// FK target depends on geometryType (FloorCornerV3 / FloorWallV3 /
+  /// FloorOpeningV3 / FloorRoomV3). Not enforced at DB level (polymorphic);
+  /// reducer + server transactional check enforces deletion safety.
+  geometryId   String
+
+  /// Polymorphic back-link — at most one of these is non-null.
+  moistureReadingId  String?
+  inspectionPhotoId  String?
+  attestationId      String?
+  voiceNoteId        String?
+
+  createdAt DateTime @default(now())
+
+  @@index([geometryType, geometryId])
+  @@index([floorPlanId])
+  @@index([moistureReadingId])
+  @@index([inspectionPhotoId])
+  @@index([attestationId])
+}
+
+// ─── V3: Symbility XML Export (Phase 3 — append-only) ────────────────────────
+// Insurance claim systems (Symbility / Xactimate) ingest sketches via XML.
+// Exports are immutable: each export is a new row with sha256 contentHash.
+// Schema mapping is pluggable (lib/sketch/exporters/symbility-xml.ts).
+
+model SymbilityExport {
+  id            String   @id @default(cuid())
+  inspectionId  String
+  /// FloorPlanV3 ids included in this export, ordered.
+  floorPlanIds  String[]
+  /// Generated XML payload — large, kept on the row for audit completeness.
+  xmlPayload    String
+  /// Format profile so we can evolve schemas without breaking older exports.
+  schemaVersion String
+  /// SHA-256 of xmlPayload — append-only audit hook.
+  contentHash   String
+  createdById   String
+  createdAt     DateTime @default(now())
+
+  @@index([inspectionId])
+  @@index([createdAt])
 }
 
 // ─── V2: Ascora Integration (RA-262) ─────────────────────────────────────────

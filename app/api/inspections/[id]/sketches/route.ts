@@ -3,6 +3,12 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import {
+  parseIncomingWallGraph,
+  persistWallGraph,
+  WallGraphIntegrityError,
+  type MinimalPrismaV3,
+} from "@/lib/sketch/v3/persistence";
 
 // GET /api/inspections/[id]/sketches — list all sketches for an inspection
 export async function GET(
@@ -135,6 +141,26 @@ export async function POST(
             equipmentPoints: equipmentPoints ?? undefined,
           },
         });
+
+    // V3 wall-graph persistence — write relational rows in addition to the
+    // ClaimSketch JSON cache. Any V3 validation failure returns 400 so the
+    // client can surface it; the JSON cache write above stays as the
+    // user-visible save (V3 rows are queryable secondaries).
+    if (sketchType === "wall_graph_v3" && sketchData) {
+      try {
+        const graph = parseIncomingWallGraph(sketchData);
+        await persistWallGraph(prisma as unknown as MinimalPrismaV3, id, graph);
+      } catch (err) {
+        if (err instanceof WallGraphIntegrityError) {
+          return NextResponse.json(
+            { error: err.message, codes: err.codes },
+            { status: 400 },
+          );
+        }
+        // Unknown error — log and leave JSON cache; the next save will retry.
+        console.error("V3 persistence failed:", err);
+      }
+    }
 
     return NextResponse.json(sketch, { status: 201 });
   } catch (error) {

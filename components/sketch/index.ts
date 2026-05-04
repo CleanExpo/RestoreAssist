@@ -24,3 +24,15 @@ export { SketchMoistureLayer } from "./SketchMoistureLayer";
 export type { MoisturePin } from "./SketchMoistureLayer";
 export { SketchScaleModal } from "./SketchScaleModal";
 export type { ScaleConfig } from "./SketchScaleModal";
+
+// ── Router (V2 ↔ V3 switching) ─────────────────────────────
+export { SketchEditorRouter } from "./SketchEditorRouter";
+export type { SketchEditorRouterProps } from "./SketchEditorRouter";
+
+// ── V3 components (wall-graph, Konva) ──────────────────────
+// V3 is mounted via dynamic import only (Konva is ~250 KB and SSR-incompatible).
+// Importing the module keeps types accessible without pulling Konva into the
+// landing-page bundle.
+export type { WallGraphTool, WallGraphCanvasProps } from "./v3/WallGraphCanvas";
+export type { WallGraphEditorProps } from "./v3/WallGraphEditor";
+export { parseInitialGraph } from "./v3/WallGraphEditor";

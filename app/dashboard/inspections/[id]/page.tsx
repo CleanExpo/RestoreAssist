@@ -13,18 +13,16 @@ const PortalInvitePanel = dynamic(
   () => import("@/components/inspection/PortalInvitePanel"),
   { ssr: false },
 );
-// RA-1125 MVP — promote SketchEditorV2 to the active editor.
-// V2 is the composable, tablet-first rewrite with multi-floor tabs,
-// scale calibration, React-DOM moisture-pin overlay, and scope-save
-// parity with V1 (same `/api/inspections/[id]/sketches` endpoints +
-// same `/sketches/pdf` export). Props are a strict superset of V1's.
-// Legacy `SketchEditor.tsx` is left in the tree for one release
-// cycle in case a rollback is needed; follow-up ticket removes it
-// once prod telemetry shows V2 is clean.
+// Sketch V3 rollout — `SketchEditorRouter` decides V2 (Fabric, polygon rooms)
+// vs V3 (Konva wall-graph, Encircle-grade) based on:
+//   1. existing sketch.sketchType for the floor (V3 if "wall_graph_v3"), or
+//   2. NEXT_PUBLIC_SKETCH_V3_ENABLED env flag for fresh sketches.
+// V2 sketches keep loading in V2 — no migration triggered here. Falls back to
+// V2 automatically if V3 fails to mount (Konva incompatibility, etc).
 const SketchEditor = dynamic(
   () =>
-    import("@/components/sketch/SketchEditorV2").then((m) => ({
-      default: m.SketchEditorV2,
+    import("@/components/sketch/SketchEditorRouter").then((m) => ({
+      default: m.SketchEditorRouter,
     })),
   { ssr: false },
 );
