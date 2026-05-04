@@ -37,16 +37,17 @@ const HEADER = "x-capacitor-platform";
  *     // ... existing handler ...
  *   }
  */
-export function rejectIfIOSCapacitor(request: NextRequest): NextResponse | null {
+export function rejectIfIOSCapacitor(
+  request: NextRequest,
+): NextResponse | null {
   const platform = (request.headers.get(HEADER) ?? "").trim().toLowerCase();
   if (platform !== "ios") return null;
+  // Apple App Review 3.1.1 — payload must contain no URLs/CTAs that
+  // could be read as routing to an external purchase mechanism.
   return NextResponse.json(
     {
       error: "billing_unavailable_on_ios",
-      message:
-        "RestoreAssist for iOS is free for field use. Subscriptions and " +
-        "billing are managed on the website.",
-      web_billing_url: "https://restoreassist.app/pricing",
+      message: "Subscriptions are managed by your workspace administrator.",
     },
     { status: 403 },
   );

@@ -20,6 +20,7 @@ import {
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
+import { isCapacitorIOS } from "@/lib/capacitor";
 
 const SUBSCRIPTION_STATUS_TONES: Record<string, StatusTone> = {
   ACTIVE: "success",
@@ -56,6 +57,13 @@ export default function SettingsPage() {
     name: "",
     email: "",
   });
+  // RA-1842 — Hide "Manage Subscription" button on iOS shell (Apple 3.1.1).
+  // Tracked separately from auth hydration so the button is suppressed on
+  // first paint inside the iOS shell, eliminating the external-purchase CTA.
+  const [hideBillingEntry, setHideBillingEntry] = useState(false);
+  useEffect(() => {
+    setHideBillingEntry(isCapacitorIOS());
+  }, []);
 
   useEffect(() => {
     if (status === "authenticated" && session?.user) {
@@ -217,13 +225,15 @@ export default function SettingsPage() {
             />
             {refreshing ? "Refreshing..." : "Refresh"}
           </button>
-          <button
-            onClick={() => (window.location.href = "/dashboard/subscription")}
-            className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors"
-          >
-            <CreditCard className="w-4 h-4" />
-            Manage Subscription
-          </button>
+          {!hideBillingEntry && (
+            <button
+              onClick={() => (window.location.href = "/dashboard/subscription")}
+              className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors"
+            >
+              <CreditCard className="w-4 h-4" />
+              Manage Subscription
+            </button>
+          )}
         </div>
       </div>
 

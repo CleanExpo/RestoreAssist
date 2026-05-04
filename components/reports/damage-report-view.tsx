@@ -23,6 +23,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { isCapacitorIOS, shareBlobNatively } from "@/lib/capacitor";
 
 interface ReportViewData {
   id: string;
@@ -111,7 +112,8 @@ function plainWaterClass(waterClass: string | null): string {
   if (!waterClass) return "Not classified";
   const key = waterClass.toUpperCase();
   if (key.includes("1")) return "Small area of damp, easy to dry out";
-  if (key.includes("2")) return "Whole room affected — drying the carpet and walls";
+  if (key.includes("2"))
+    return "Whole room affected — drying the carpet and walls";
   if (key.includes("3"))
     return "Water came from above — ceilings, walls and floors all wet";
   if (key.includes("4"))
@@ -157,19 +159,37 @@ export function DamageReportView({
       const res = await fetch(url);
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? `PDF generation failed (HTTP ${res.status})`);
+        throw new Error(
+          body.error ?? `PDF generation failed (HTTP ${res.status})`,
+        );
       }
       const blob = await res.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = objectUrl;
-      a.download = `damage-report-${report.reportNumber ?? report.id}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(objectUrl);
+      const fileName = `damage-report-${report.reportNumber ?? report.id}.pdf`;
+      // RA-1842 (Apple 4.2) — On iOS shell, route through the native
+      // share sheet (UIActivityViewController) so reviewers see real
+      // platform integration instead of a browser download anchor.
+      if (isCapacitorIOS()) {
+        const shared = await shareBlobNatively({
+          blob,
+          fileName,
+          title: report.title || "Damage Report",
+        });
+        if (!shared) {
+          throw new Error("Native share unavailable");
+        }
+      } else {
+        const objectUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = objectUrl;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(objectUrl);
+      }
     } catch (err) {
-      const message = err instanceof Error ? err.message : "PDF download failed";
+      const message =
+        err instanceof Error ? err.message : "PDF download failed";
       // RA-1109: surface explicit error with actionable next step — no silent success.
       setPdfError(message);
       toast.error(`${message}. Try "Print / Save as PDF" instead.`);
@@ -227,8 +247,8 @@ export function DamageReportView({
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle>PDF download failed</AlertTitle>
               <AlertDescription>
-                {pdfError}. As a fallback, use &quot;Print / Save as PDF&quot; — your
-                browser will save the page as a PDF file.
+                {pdfError}. As a fallback, use &quot;Print / Save as PDF&quot; —
+                your browser will save the page as a PDF file.
               </AlertDescription>
             </Alert>
           </div>
@@ -275,7 +295,9 @@ export function DamageReportView({
                 </p>
               </div>
               <div>
-                <p className="text-xs uppercase text-[#5A6A7B]">Inspection date</p>
+                <p className="text-xs uppercase text-[#5A6A7B]">
+                  Inspection date
+                </p>
                 <p className="font-medium text-[#1C2E47]">
                   {formatDate(report.inspectionDate ?? report.createdAt)}
                 </p>
@@ -425,13 +447,13 @@ export function DamageReportView({
         <Section title="Standards we're working to" number={8}>
           <p>
             Your property is being assessed and dried to the IICRC S500:2025
-            Standard §7.1 for professional water damage restoration. This is
-            the same standard that every licensed restorer in Australia works
-            to, and it is the standard your insurer expects.
+            Standard §7.1 for professional water damage restoration. This is the
+            same standard that every licensed restorer in Australia works to,
+            and it is the standard your insurer expects.
           </p>
           <p className="mt-3">
-            Australian Consumer Law and the applicable state building code
-            apply to any structural or electrical repair work that follows.
+            Australian Consumer Law and the applicable state building code apply
+            to any structural or electrical repair work that follows.
           </p>
         </Section>
 
@@ -523,10 +545,7 @@ function Section({
     <Card className="mt-6 print:mt-4 print:border-0 print:shadow-none">
       <CardHeader>
         <div className="flex items-baseline gap-3">
-          <Badge
-            variant="outline"
-            className="border-[#8A6B4E] text-[#8A6B4E]"
-          >
+          <Badge variant="outline" className="border-[#8A6B4E] text-[#8A6B4E]">
             {number}
           </Badge>
           <CardTitle className="text-xl text-[#1C2E47]">{title}</CardTitle>
