@@ -17,6 +17,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Clock, X } from "lucide-react";
+import { isCapacitorIOS } from "@/lib/capacitor";
 
 type TrialStatus = {
   subscriptionStatus: string | null;
@@ -31,8 +32,17 @@ const DISMISS_STORAGE_KEY = "ra-1241-trial-banner-dismissed-session";
 export function TrialBanner() {
   const [status, setStatus] = useState<TrialStatus | null>(null);
   const [dismissed, setDismissed] = useState<boolean>(false);
+  // RA-1842 — never show the trial urgency banner inside the iOS
+  // Capacitor shell. The CTA leads to /dashboard/pricing which is
+  // intentionally hidden on iOS (no in-app purchase support, per
+  // guideline 3.1.1). Showing an "Upgrade now" button that leads to
+  // a "Billing happens on the website" placeholder is itself the
+  // visible upgrade UI Apple App Review flagged.
+  const [isIOS, setIsIOS] = useState(false);
 
   useEffect(() => {
+    setIsIOS(isCapacitorIOS());
+
     // Session-scoped dismissal — not persisted, so the banner returns next
     // session when urgency is higher. Intentional.
     if (typeof window !== "undefined") {
@@ -46,6 +56,7 @@ export function TrialBanner() {
       .catch(() => setStatus(null));
   }, []);
 
+  if (isIOS) return null;
   if (dismissed) return null;
   if (!status) return null;
   // Lifetime + owner accounts never see the upgrade urgency banner.
@@ -66,29 +77,30 @@ export function TrialBanner() {
           border: "border-rose-500/40 dark:border-rose-700/50",
           text: "text-rose-700 dark:text-rose-300",
           icon: "text-rose-500",
-          cta:
-            "bg-rose-500 hover:bg-rose-600 text-white",
+          cta: "bg-rose-500 hover:bg-rose-600 text-white",
         }
       : d <= 3
-      ? {
-          bg: "bg-orange-500/10 dark:bg-orange-900/30",
-          border: "border-orange-500/40 dark:border-orange-700/50",
-          text: "text-orange-700 dark:text-orange-300",
-          icon: "text-orange-500",
-          cta:
-            "bg-orange-500 hover:bg-orange-600 text-white",
-        }
-      : {
-          bg: "bg-amber-500/10 dark:bg-amber-900/30",
-          border: "border-amber-500/40 dark:border-amber-700/50",
-          text: "text-amber-700 dark:text-amber-300",
-          icon: "text-amber-500",
-          cta:
-            "bg-amber-500 hover:bg-amber-600 text-white",
-        };
+        ? {
+            bg: "bg-orange-500/10 dark:bg-orange-900/30",
+            border: "border-orange-500/40 dark:border-orange-700/50",
+            text: "text-orange-700 dark:text-orange-300",
+            icon: "text-orange-500",
+            cta: "bg-orange-500 hover:bg-orange-600 text-white",
+          }
+        : {
+            bg: "bg-amber-500/10 dark:bg-amber-900/30",
+            border: "border-amber-500/40 dark:border-amber-700/50",
+            text: "text-amber-700 dark:text-amber-300",
+            icon: "text-amber-500",
+            cta: "bg-amber-500 hover:bg-amber-600 text-white",
+          };
 
   const daysLabel =
-    d === 0 ? "Trial ends today" : d === 1 ? "1 day left in trial" : `${d} days left in trial`;
+    d === 0
+      ? "Trial ends today"
+      : d === 1
+        ? "1 day left in trial"
+        : `${d} days left in trial`;
 
   return (
     <div
@@ -97,11 +109,11 @@ export function TrialBanner() {
       aria-live="polite"
     >
       <div className="max-w-9xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between gap-3 flex-wrap">
-        <div className={`flex items-center gap-2 text-sm font-medium ${tone.text}`}>
+        <div
+          className={`flex items-center gap-2 text-sm font-medium ${tone.text}`}
+        >
           <Clock size={16} className={tone.icon} />
-          <span>
-            {daysLabel} — upgrade to keep your reports.
-          </span>
+          <span>{daysLabel} — upgrade to keep your reports.</span>
         </div>
         <div className="flex items-center gap-2">
           <Link
