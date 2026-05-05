@@ -2,7 +2,7 @@ name: PR Quality Gates
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, sandbox]
     types: [opened, synchronize, reopened]
 
 concurrency:
@@ -115,9 +115,15 @@ jobs:
         run: pnpm lint
         continue-on-error: true
 
+      # Build flipped to enforcing 2026-05-06 (Wave 1 PR-B production-readiness push).
+      # Vercel previews already pass `pnpm build` against both `restoreassist` and
+      # `restoreassist-sandbox` projects on every PR, so flipping this from
+      # `continue-on-error: true` to enforcing closes the gap where a CI build
+      # break could merge silently while Vercel happened to succeed for an
+      # unrelated reason. tsc and lint stay non-blocking until the type-check
+      # baseline ratchet (Wave 3 PR-E) lands.
       - name: Build
         run: pnpm build
-        continue-on-error: true
         env:
           NODE_OPTIONS: --max-old-space-size=4096
           SKIP_ENV_VALIDATION: true
