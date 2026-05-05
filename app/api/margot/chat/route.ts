@@ -118,9 +118,7 @@ const deepResearchTool = tool({
       const config =
         use_corpus && store
           ? {
-              tools: [
-                { fileSearch: { fileSearchStoreNames: [store] } },
-              ],
+              tools: [{ fileSearch: { fileSearchStoreNames: [store] } }],
             }
           : undefined;
 
@@ -161,10 +159,22 @@ const linearListIssuesTool = tool({
   description:
     "List Linear issues. Filter by state (e.g. 'Todo', 'In Progress', 'Done'), project name, team name, or limit (max 20). Use for any 'what's in Linear' / 'what am I working on' question.",
   inputSchema: z.object({
-    state: z.string().optional().describe("Workflow state name, case-insensitive."),
+    state: z
+      .string()
+      .optional()
+      .describe("Workflow state name, case-insensitive."),
     project: z.string().optional().describe("Project name."),
-    team: z.string().optional().describe("Team name or key (e.g. 'RestoreAssist', 'RA')."),
-    limit: z.number().int().min(1).max(20).optional().describe("Max issues to return (default 10, cap 20)."),
+    team: z
+      .string()
+      .optional()
+      .describe("Team name or key (e.g. 'RestoreAssist', 'RA')."),
+    limit: z
+      .number()
+      .int()
+      .min(1)
+      .max(20)
+      .optional()
+      .describe("Max issues to return (default 10, cap 20)."),
   }),
   execute: async (input) => {
     const apiKey = process.env.LINEAR_API_KEY;
@@ -199,7 +209,9 @@ const linearCreateIssueTool = tool({
     confirmed: z
       .boolean()
       .optional()
-      .describe("Set to true only after Phill has explicitly approved the create."),
+      .describe(
+        "Set to true only after Phill has explicitly approved the create.",
+      ),
   }),
   execute: async (input) => {
     if (!input.confirmed) {
@@ -246,7 +258,9 @@ const linearCommentOnIssueTool = tool({
     confirmed: z
       .boolean()
       .optional()
-      .describe("Set to true only after Phill has explicitly approved the comment."),
+      .describe(
+        "Set to true only after Phill has explicitly approved the comment.",
+      ),
   }),
   execute: async (input) => {
     if (!input.confirmed) {
@@ -296,7 +310,9 @@ const imageGenerateTool = tool({
       .string()
       .url()
       .optional()
-      .describe("Optional URL of a reference image to condition the generation."),
+      .describe(
+        "Optional URL of a reference image to condition the generation.",
+      ),
   }),
   execute: async (input) => generateAndStoreImage(input),
 });

@@ -33,10 +33,18 @@ const PLAN_PRICE_AUD: Record<string, number> = {
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   if (session.user.role !== "ADMIN") {
-    return apiError(request, { code: "FORBIDDEN", message: "Forbidden — admin only", status: 403 });
+    return apiError(request, {
+      code: "FORBIDDEN",
+      message: "Forbidden — admin only",
+      status: 403,
+    });
   }
 
   try {

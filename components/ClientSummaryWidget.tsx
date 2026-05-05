@@ -67,7 +67,9 @@ export function ClientSummaryWidget({
         fellBack: Boolean(body.data.fellBack),
       });
     } catch {
-      setError("Could not reach the server. Check your connection and try again.");
+      setError(
+        "Could not reach the server. Check your connection and try again.",
+      );
     } finally {
       setLoading(false);
     }
@@ -121,7 +123,8 @@ export function ClientSummaryWidget({
           </div>
           {state.fellBack ? (
             <p className="text-xs text-muted-foreground">
-              Shown from a safe template — regenerate to try the AI writer again.
+              Shown from a safe template — regenerate to try the AI writer
+              again.
             </p>
           ) : null}
           {state.cachedAt ? (

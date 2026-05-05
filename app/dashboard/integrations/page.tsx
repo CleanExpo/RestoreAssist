@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useRouter, useSearchParams } from "next/navigation";
+import { isCapacitorIOS } from "@/lib/capacitor";
+import BillingGate from "@/components/capacitor/BillingGate";
 import Image from "next/image";
 import ImportModal from "@/components/integrations/ImportModal";
 import { useConfirmDialog } from "@/components/ConfirmDialog";
@@ -1563,41 +1565,45 @@ export default function IntegrationsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Upgrade Modal ─────────────────────────── */}
-      <Dialog open={showUpgradeModal} onOpenChange={setShowUpgradeModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <div className="flex items-center gap-3 mb-1">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-yellow-500 to-orange-500 flex items-center justify-center shrink-0">
-                <Crown className="text-white" size={18} />
+      {/* ── Upgrade Modal ── gated for iOS App Review (RA-1842) ────── */}
+      <BillingGate fallback={null}>
+        <Dialog open={showUpgradeModal} onOpenChange={setShowUpgradeModal}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-yellow-500 to-orange-500 flex items-center justify-center shrink-0">
+                  <Crown className="text-white" size={18} />
+                </div>
+                <DialogTitle>Upgrade Required</DialogTitle>
               </div>
-              <DialogTitle>Upgrade Required</DialogTitle>
-            </div>
-            <DialogDescription>
-              An active subscription is required to connect integrations and
-              unlock all features — unlimited reports, priority support, and
-              full API access.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowUpgradeModal(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                setShowUpgradeModal(false);
-                router.push("/dashboard/pricing");
-              }}
-              className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white border-0"
-            >
-              Upgrade Now
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              <DialogDescription>
+                An active subscription is required to connect integrations and
+                unlock all features — unlimited reports, priority support, and
+                full API access.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setShowUpgradeModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowUpgradeModal(false);
+                  if (!isCapacitorIOS()) {
+                    router.push("/dashboard/pricing");
+                  }
+                }}
+                className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white border-0"
+              >
+                Upgrade Now
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </BillingGate>
 
       {/* ── Add Integration Modal ─────────────────── */}
       <Dialog

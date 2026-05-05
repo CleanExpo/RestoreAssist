@@ -81,7 +81,9 @@ export function useConfirmDialog() {
             <AlertDialogHeader>
               <AlertDialogTitle>{opts.title}</AlertDialogTitle>
               {opts.description ? (
-                <AlertDialogDescription>{opts.description}</AlertDialogDescription>
+                <AlertDialogDescription>
+                  {opts.description}
+                </AlertDialogDescription>
               ) : null}
             </AlertDialogHeader>
             <AlertDialogFooter>

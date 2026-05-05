@@ -14,7 +14,11 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { searchParams } = new URL(request.url);
@@ -98,7 +102,11 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      return apiError(request, { code: "NOT_FOUND", message: "Inspection not found", status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
     }
 
     // Get pagination parameters
@@ -262,7 +270,11 @@ export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -275,16 +287,28 @@ export async function POST(request: NextRequest) {
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return apiError(request, { code: "VALIDATION", message: "Invalid JSON body", status: 400 });
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
 
       // Validate required fields
       if (!body.propertyAddress || !body.propertyAddress.trim()) {
-        return apiError(request, { code: "VALIDATION", message: "Property address is required", status: 400 });
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Property address is required",
+          status: 400,
+        });
       }
 
       if (!body.propertyPostcode || !body.propertyPostcode.trim()) {
-        return apiError(request, { code: "VALIDATION", message: "Property postcode is required", status: 400 });
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Property postcode is required",
+          status: 400,
+        });
       }
 
       // Validate reportId if provided
@@ -295,12 +319,20 @@ export async function POST(request: NextRequest) {
         });
 
         if (!report) {
-          return apiError(request, { code: "NOT_FOUND", message: "Report not found", status: 404 });
+          return apiError(request, {
+            code: "NOT_FOUND",
+            message: "Report not found",
+            status: 404,
+          });
         }
 
         // Verify the report belongs to the user
         if (report.userId !== userId) {
-          return apiError(request, { code: "FORBIDDEN", message: "Unauthorized: Report does not belong to user", status: 403 });
+          return apiError(request, {
+            code: "FORBIDDEN",
+            message: "Unauthorized: Report does not belong to user",
+            status: 403,
+          });
         }
       }
 

@@ -89,8 +89,7 @@ export async function POST(
       publicToken: token,
       expiresAt: expiresAt.toISOString(),
       rotatedAt: rotatedAt.toISOString(),
-      message:
-        "New share link generated. Previous link is now invalid.",
+      message: "New share link generated. Previous link is now invalid.",
     });
   } catch (err) {
     return fromException(request, err, { stage: "rotate-public-token" });

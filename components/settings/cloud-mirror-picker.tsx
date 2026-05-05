@@ -119,15 +119,17 @@ export function CloudMirrorPicker() {
       <CardHeader>
         <CardTitle>Cloud mirror provider</CardTitle>
         <CardDescription>
-          Where RestoreAssist copies your viewing-quality evidence files. Originals always live in
-          our storage for the statutory retention window; mirroring gives you an independent copy
-          in a location you control.
+          Where RestoreAssist copies your viewing-quality evidence files.
+          Originals always live in our storage for the statutory retention
+          window; mirroring gives you an independent copy in a location you
+          control.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {loading ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" /> Loading your current setting…
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading your current
+            setting…
           </div>
         ) : (
           <RadioGroup
@@ -174,7 +176,8 @@ export function CloudMirrorPicker() {
           </Button>
           {initial && !dirty && (
             <p className="text-sm text-muted-foreground">
-              Currently using <strong>{OPTIONS.find((o) => o.id === initial)?.label}</strong>.
+              Currently using{" "}
+              <strong>{OPTIONS.find((o) => o.id === initial)?.label}</strong>.
             </p>
           )}
         </div>

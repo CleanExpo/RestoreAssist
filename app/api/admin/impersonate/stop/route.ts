@@ -22,10 +22,18 @@ export async function POST(request: NextRequest) {
 
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   if (session.user.role !== "ADMIN") {
-    return apiError(request, { code: "FORBIDDEN", message: "Forbidden — admin only", status: 403 });
+    return apiError(request, {
+      code: "FORBIDDEN",
+      message: "Forbidden — admin only",
+      status: 403,
+    });
   }
 
   // RA-1592 — pair with /start: refuse while feature-flag is off.
@@ -48,10 +56,16 @@ export async function POST(request: NextRequest) {
   if (rateLimited) return rateLimited;
 
   try {
-    const body = (await request.json().catch(() => null)) as { jti?: unknown } | null;
+    const body = (await request.json().catch(() => null)) as {
+      jti?: unknown;
+    } | null;
     const jti = typeof body?.jti === "string" ? body.jti.trim() : "";
     if (!jti) {
-      return apiError(request, { code: "VALIDATION", message: "jti is required", status: 400 });
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "jti is required",
+        status: 400,
+      });
     }
 
     const row = await prisma.adminImpersonation.findUnique({
@@ -59,7 +73,11 @@ export async function POST(request: NextRequest) {
       select: { id: true, adminUserId: true, endedAt: true },
     });
     if (!row) {
-      return apiError(request, { code: "NOT_FOUND", message: "Session not found", status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Session not found",
+        status: 404,
+      });
     }
     if (row.adminUserId !== session.user.id) {
       return NextResponse.json(

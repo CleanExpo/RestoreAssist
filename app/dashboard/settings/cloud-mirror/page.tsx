@@ -13,7 +13,8 @@ export default function CloudMirrorSettingsPage() {
       <div>
         <h1 className="text-2xl font-semibold">Cloud mirror</h1>
         <p className="text-sm text-muted-foreground">
-          Where RestoreAssist copies viewing-quality evidence after it&apos;s produced.
+          Where RestoreAssist copies viewing-quality evidence after it&apos;s
+          produced.
         </p>
       </div>
       <CloudMirrorPicker />

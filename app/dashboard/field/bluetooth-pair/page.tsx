@@ -76,8 +76,9 @@ export default function BluetoothPairPage() {
   const [paired, setPaired] = useState<PairedDevice | null>(null);
   const [pairing, setPairing] = useState(false);
   const [reading, setReading] = useState(false);
-  const [lastReading, setLastReading] =
-    useState<EnvironmentalReading | null>(null);
+  const [lastReading, setLastReading] = useState<EnvironmentalReading | null>(
+    null,
+  );
 
   useEffect(() => {
     let alive = true;
@@ -141,8 +142,8 @@ export default function BluetoothPairPage() {
         </h1>
         <p className="text-sm text-slate-600 dark:text-slate-300">
           MVP surface for RA-1121. Currently pairs with Testo 605-H1
-          thermo-hygrometers; additional meters follow as vendor-SDK
-          UUIDs are confirmed.
+          thermo-hygrometers; additional meters follow as vendor-SDK UUIDs are
+          confirmed.
         </p>
       </header>
 
@@ -204,13 +205,22 @@ export default function BluetoothPairPage() {
             className="rounded-md border border-slate-200 dark:border-slate-700 p-3 text-sm font-mono tabular-nums"
           >
             <div>
-              RH: <span className="font-semibold">{lastReading.relativeHumidityPercent.toFixed(1)}%</span>
+              RH:{" "}
+              <span className="font-semibold">
+                {lastReading.relativeHumidityPercent.toFixed(1)}%
+              </span>
             </div>
             <div>
-              Temp: <span className="font-semibold">{lastReading.temperatureCelsius.toFixed(1)} °C</span>
+              Temp:{" "}
+              <span className="font-semibold">
+                {lastReading.temperatureCelsius.toFixed(1)} °C
+              </span>
             </div>
             <div>
-              Dew point: <span className="font-semibold">{lastReading.dewPointCelsius.toFixed(1)} °C</span>
+              Dew point:{" "}
+              <span className="font-semibold">
+                {lastReading.dewPointCelsius.toFixed(1)} °C
+              </span>
             </div>
             <div className="text-xs text-slate-500 mt-1">
               @ {new Date(lastReading.readingTimestamp).toLocaleString("en-AU")}
@@ -220,9 +230,9 @@ export default function BluetoothPairPage() {
       </section>
 
       <p className="text-xs text-slate-500 dark:text-slate-400">
-        Follow-up work: pair dialog inside MoistureReadingEntryForm,
-        Delmhorst / Tramex / Protimeter / Trotec / Gann UUID tables,
-        Capacitor BLE plugin for iOS, Ubibot cloud poller (RA-1611..).
+        Follow-up work: pair dialog inside MoistureReadingEntryForm, Delmhorst /
+        Tramex / Protimeter / Trotec / Gann UUID tables, Capacitor BLE plugin
+        for iOS, Ubibot cloud poller (RA-1611..).
       </p>
     </div>
   );

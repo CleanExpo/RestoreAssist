@@ -42,7 +42,9 @@ const ALLOWED_STATUSES = [
 type EstimateStatus = (typeof ALLOWED_STATUSES)[number];
 
 function isEstimateStatus(v: unknown): v is EstimateStatus {
-  return typeof v === "string" && (ALLOWED_STATUSES as readonly string[]).includes(v);
+  return (
+    typeof v === "string" && (ALLOWED_STATUSES as readonly string[]).includes(v)
+  );
 }
 
 export async function PATCH(
@@ -52,7 +54,11 @@ export async function PATCH(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -98,11 +104,19 @@ export async function PATCH(
     });
 
     if (!estimate) {
-      return apiError(request, { code: "NOT_FOUND", message: "Estimate not found", status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Estimate not found",
+        status: 404,
+      });
     }
 
     if (estimate.userId !== session.user.id) {
-      return apiError(request, { code: "FORBIDDEN", message: "Forbidden", status: 403 });
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Forbidden",
+        status: 403,
+      });
     }
 
     // Run the completeness check only when transitioning to INTERNAL_REVIEW.

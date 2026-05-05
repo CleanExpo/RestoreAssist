@@ -20,7 +20,9 @@ import { z } from "zod";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { apiError } from "@/lib/api-errors";
 
-function tenancyCode(status: 401 | 403 | 404): "UNAUTHORIZED" | "FORBIDDEN" | "NOT_FOUND" {
+function tenancyCode(
+  status: 401 | 403 | 404,
+): "UNAUTHORIZED" | "FORBIDDEN" | "NOT_FOUND" {
   if (status === 401) return "UNAUTHORIZED";
   if (status === 403) return "FORBIDDEN";
   return "NOT_FOUND";
@@ -57,7 +59,11 @@ export async function GET(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return apiError(req, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+    return apiError(req, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   const { id } = await params;
@@ -90,7 +96,11 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return apiError(req, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+    return apiError(req, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   const { id } = await params;
@@ -174,7 +184,11 @@ export async function DELETE(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return apiError(req, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+    return apiError(req, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   const { id } = await params;
@@ -189,8 +203,15 @@ export async function DELETE(
   }
 
   await softDelete(
-    () => (prisma as any).biohazardAssessment.delete({ where: { inspectionId: id } }),
-    { route: "/api/inspections/[id]/biohazard-assessment", stage: "delete", inspectionId: id },
+    () =>
+      (prisma as any).biohazardAssessment.delete({
+        where: { inspectionId: id },
+      }),
+    {
+      route: "/api/inspections/[id]/biohazard-assessment",
+      stage: "delete",
+      inspectionId: id,
+    },
   );
 
   await prisma.inspection.update({

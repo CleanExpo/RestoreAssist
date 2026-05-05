@@ -9,7 +9,11 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { searchParams } = new URL(request.url);
@@ -85,7 +89,11 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -97,7 +105,11 @@ export async function POST(request: NextRequest) {
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return apiError(request, { code: "VALIDATION", message: "Invalid JSON body", status: 400 });
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const {
         estimateId,
@@ -123,15 +135,27 @@ export async function POST(request: NextRequest) {
 
       // Validate required fields
       if (!customerName || !customerEmail) {
-        return apiError(request, { code: "VALIDATION", message: "Customer name and email are required", status: 400 });
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Customer name and email are required",
+          status: 400,
+        });
       }
 
       if (!lineItems || lineItems.length === 0) {
-        return apiError(request, { code: "VALIDATION", message: "At least one line item is required", status: 400 });
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "At least one line item is required",
+          status: 400,
+        });
       }
 
       if (!dueDate) {
-        return apiError(request, { code: "VALIDATION", message: "Due date is required", status: 400 });
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Due date is required",
+          status: 400,
+        });
       }
 
       // Calculate financials
@@ -291,7 +315,9 @@ export async function POST(request: NextRequest) {
           try {
             invoice = await runCreate();
           } catch (secondError) {
-            return fromException(request, secondError, { stage: "create-retry-p2002" });
+            return fromException(request, secondError, {
+              stage: "create-retry-p2002",
+            });
           }
         } else {
           throw firstError;

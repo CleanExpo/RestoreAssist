@@ -12,7 +12,8 @@ export const metadata: Metadata = {
     "restoration industry innovation",
   ],
   openGraph: {
-    title: "About RestoreAssist - Restoration Software for Australian Restorers",
+    title:
+      "About RestoreAssist - Restoration Software for Australian Restorers",
     description:
       "Helping Australian restorers transform restoration reporting with AI-assisted technology and IICRC S500 alignment.",
     type: "website",

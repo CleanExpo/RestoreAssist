@@ -56,7 +56,11 @@ export async function GET(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return apiError(req, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+    return apiError(req, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   const { id } = await params;
@@ -86,7 +90,11 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return apiError(req, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+    return apiError(req, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   const { id } = await params;
@@ -197,7 +205,11 @@ export async function DELETE(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return apiError(req, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+    return apiError(req, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   const { id } = await params;
@@ -211,8 +223,15 @@ export async function DELETE(
   }
 
   await softDelete(
-    () => (prisma as any).stormDamageAssessment.delete({ where: { inspectionId: id } }),
-    { route: "/api/inspections/[id]/storm-damage", stage: "delete", inspectionId: id },
+    () =>
+      (prisma as any).stormDamageAssessment.delete({
+        where: { inspectionId: id },
+      }),
+    {
+      route: "/api/inspections/[id]/storm-damage",
+      stage: "delete",
+      inspectionId: id,
+    },
   );
 
   await prisma.inspection.update({

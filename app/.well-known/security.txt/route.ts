@@ -25,9 +25,10 @@ export const revalidate = 86_400; // 1 day
 function buildSecurityTxt(): string {
   const securityEmail =
     process.env.NEXT_PUBLIC_SECURITY_EMAIL || "security@restoreassist.app";
-  const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL || "https://restoreassist.app";
-  const expires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://restoreassist.app";
+  const expires = new Date(
+    Date.now() + 365 * 24 * 60 * 60 * 1000,
+  ).toISOString();
 
   return [
     `Contact: mailto:${securityEmail}`,

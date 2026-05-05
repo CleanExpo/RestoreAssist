@@ -93,7 +93,9 @@ export async function POST(
 
     if (!body.attestationType || !ALLOWED_TYPES.has(body.attestationType)) {
       return NextResponse.json(
-        { error: `attestationType must be one of ${[...ALLOWED_TYPES].join(", ")}` },
+        {
+          error: `attestationType must be one of ${[...ALLOWED_TYPES].join(", ")}`,
+        },
         { status: 400 },
       );
     }

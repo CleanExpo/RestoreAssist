@@ -33,10 +33,7 @@ export async function GET(request: NextRequest) {
 
   const reports = await prisma.overrideGovernanceReport.findMany({
     where: monthFilter ? { reportMonth: monthFilter } : undefined,
-    orderBy: [
-      { reportMonth: "desc" },
-      { overrideRate: "desc" },
-    ],
+    orderBy: [{ reportMonth: "desc" }, { overrideRate: "desc" }],
     take: monthFilter ? 1000 : 100,
   });
 

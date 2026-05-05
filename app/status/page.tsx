@@ -42,7 +42,9 @@ async function fetchHealth(): Promise<HealthResponse | null> {
     process.env.NEXT_PUBLIC_APP_URL ||
     process.env.VERCEL_URL ||
     "http://localhost:3000";
-  const url = base.startsWith("http") ? `${base}/api/health` : `https://${base}/api/health`;
+  const url = base.startsWith("http")
+    ? `${base}/api/health`
+    : `https://${base}/api/health`;
   try {
     const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) return null;
@@ -100,15 +102,22 @@ export default async function StatusPage() {
             {Object.entries(health.checks).map(([name, check]) => {
               const checkTone = toneFor(check.status);
               return (
-                <li key={name} className="flex items-center justify-between px-4 py-3">
+                <li
+                  key={name}
+                  className="flex items-center justify-between px-4 py-3"
+                >
                   <span className="text-sm font-medium text-slate-800 dark:text-slate-200">
                     {name}
                   </span>
                   <span className="flex items-center gap-3 text-xs">
                     {typeof check.latencyMs === "number" && (
-                      <span className="text-slate-500">{check.latencyMs}ms</span>
+                      <span className="text-slate-500">
+                        {check.latencyMs}ms
+                      </span>
                     )}
-                    <span className={`rounded-full px-2 py-0.5 ${checkTone.tint}`}>
+                    <span
+                      className={`rounded-full px-2 py-0.5 ${checkTone.tint}`}
+                    >
                       {checkTone.label}
                     </span>
                   </span>

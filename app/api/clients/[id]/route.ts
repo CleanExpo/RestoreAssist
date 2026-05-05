@@ -13,7 +13,11 @@ export async function GET(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -46,7 +50,11 @@ export async function GET(
     });
 
     if (!client) {
-      return apiError(request, { code: "NOT_FOUND", message: "Client not found", status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Client not found",
+        status: 404,
+      });
     }
 
     // Calculate client statistics
@@ -77,7 +85,11 @@ export async function PUT(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -108,7 +120,11 @@ export async function PUT(
     });
 
     if (!existingClient) {
-      return apiError(request, { code: "NOT_FOUND", message: "Client not found", status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Client not found",
+        status: 404,
+      });
     }
 
     // Check if email is being changed and if it conflicts with another client
@@ -176,7 +192,11 @@ export async function DELETE(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -190,7 +210,11 @@ export async function DELETE(
     });
 
     if (!existingClient) {
-      return apiError(request, { code: "NOT_FOUND", message: "Client not found", status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Client not found",
+        status: 404,
+      });
     }
 
     // Check if client has reports
@@ -201,7 +225,8 @@ export async function DELETE(
     if (reportCount > 0) {
       return apiError(request, {
         code: "CONFLICT",
-        message: "Cannot delete client with existing reports. Please archive instead.",
+        message:
+          "Cannot delete client with existing reports. Please archive instead.",
         status: 409,
       });
     }

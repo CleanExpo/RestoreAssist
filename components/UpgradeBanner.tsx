@@ -15,13 +15,14 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import BillingGate from "@/components/capacitor/BillingGate";
 
 interface UpgradeBannerProps {
   onDismiss?: () => void;
   variant?: "inline" | "floating";
 }
 
-export default function UpgradeBanner({
+function UpgradeBannerContent({
   onDismiss,
   variant = "inline",
 }: UpgradeBannerProps) {
@@ -289,5 +290,13 @@ export default function UpgradeBanner({
         </div>
       </div>
     </motion.div>
+  );
+}
+
+export default function UpgradeBanner(props: UpgradeBannerProps) {
+  return (
+    <BillingGate fallback={null}>
+      <UpgradeBannerContent {...props} />
+    </BillingGate>
   );
 }

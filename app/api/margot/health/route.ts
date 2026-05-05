@@ -18,7 +18,12 @@ export async function GET() {
 
   if (!HERMES_BASE) {
     return Response.json({
-      data: { online: false, lastHeartbeat: null, stale: true, reason: "HERMES_BASE_URL not configured" },
+      data: {
+        online: false,
+        lastHeartbeat: null,
+        stale: true,
+        reason: "HERMES_BASE_URL not configured",
+      },
       fetchedAt,
       stale: true,
     });
@@ -42,7 +47,12 @@ export async function GET() {
     });
   } catch {
     return Response.json({
-      data: { online: false, lastHeartbeat: null, stale: true, reason: "Hermes unreachable" },
+      data: {
+        online: false,
+        lastHeartbeat: null,
+        stale: true,
+        reason: "Hermes unreachable",
+      },
       fetchedAt,
       stale: true,
     });

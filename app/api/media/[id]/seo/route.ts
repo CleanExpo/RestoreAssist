@@ -37,7 +37,11 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     // RA-426: Workspace payment gate
@@ -87,7 +91,11 @@ export async function GET(
     });
 
     if (!asset) {
-      return apiError(request, { code: "NOT_FOUND", message: "Asset not found", status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Asset not found",
+        status: 404,
+      });
     }
 
     const { searchParams } = request.nextUrl;
@@ -195,7 +203,11 @@ export async function POST(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -222,7 +234,11 @@ export async function POST(
     });
 
     if (!asset) {
-      return apiError(request, { code: "NOT_FOUND", message: "Asset not found", status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Asset not found",
+        status: 404,
+      });
     }
 
     // Update alt text and invalidate cached JSON-LD so it regenerates

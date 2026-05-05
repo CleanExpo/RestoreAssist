@@ -62,7 +62,10 @@ export function VoiceNoteButton({
   async function start() {
     setError(null);
     try {
-      if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      if (
+        typeof navigator === "undefined" ||
+        !navigator.mediaDevices?.getUserMedia
+      ) {
         throw new Error("Microphone access not supported in this browser");
       }
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });

@@ -9,9 +9,27 @@ import { getSupabaseServerClient } from "@/lib/supabase-server";
 export const dynamic = "force-dynamic";
 
 const STATIC_SCHEDULES = [
-  { id: "morning_brief",  name: "Morning Brief",    cronExpr: "0 8 * * 1-5",  nextRunAt: null, lastStatus: null },
-  { id: "eod_wrap",       name: "EOD Wrap",          cronExpr: "30 17 * * 1-5", nextRunAt: null, lastStatus: null },
-  { id: "week_ahead",     name: "Week Ahead (Mon)",  cronExpr: "0 7 * * 1",    nextRunAt: null, lastStatus: null },
+  {
+    id: "morning_brief",
+    name: "Morning Brief",
+    cronExpr: "0 8 * * 1-5",
+    nextRunAt: null,
+    lastStatus: null,
+  },
+  {
+    id: "eod_wrap",
+    name: "EOD Wrap",
+    cronExpr: "30 17 * * 1-5",
+    nextRunAt: null,
+    lastStatus: null,
+  },
+  {
+    id: "week_ahead",
+    name: "Week Ahead (Mon)",
+    cronExpr: "0 7 * * 1",
+    nextRunAt: null,
+    lastStatus: null,
+  },
 ];
 
 export async function GET() {
@@ -30,7 +48,12 @@ export async function GET() {
       .limit(10);
 
     if (error) {
-      return Response.json({ data: { schedules: STATIC_SCHEDULES }, fetchedAt, stale: true, reason: "Using static schedule list" });
+      return Response.json({
+        data: { schedules: STATIC_SCHEDULES },
+        fetchedAt,
+        stale: true,
+        reason: "Using static schedule list",
+      });
     }
 
     const schedules = (data ?? []).map((row) => ({
@@ -41,8 +64,17 @@ export async function GET() {
       lastStatus: row.last_status as string | null,
     }));
 
-    return Response.json({ data: { schedules: schedules.length ? schedules : STATIC_SCHEDULES }, fetchedAt, stale: false });
+    return Response.json({
+      data: { schedules: schedules.length ? schedules : STATIC_SCHEDULES },
+      fetchedAt,
+      stale: false,
+    });
   } catch {
-    return Response.json({ data: { schedules: STATIC_SCHEDULES }, fetchedAt, stale: true, reason: "Schedules table unreachable" });
+    return Response.json({
+      data: { schedules: STATIC_SCHEDULES },
+      fetchedAt,
+      stale: true,
+      reason: "Schedules table unreachable",
+    });
   }
 }

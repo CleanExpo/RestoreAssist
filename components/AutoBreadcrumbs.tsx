@@ -59,10 +59,7 @@ export function AutoBreadcrumbs({ labels, className }: AutoBreadcrumbsProps) {
     <Breadcrumb className={className}>
       <BreadcrumbList>
         {crumbs.map((crumb, idx) => (
-          <div
-            key={crumb.href}
-            className="inline-flex items-center gap-1.5"
-          >
+          <div key={crumb.href} className="inline-flex items-center gap-1.5">
             <BreadcrumbItem>
               {crumb.isLast ? (
                 <BreadcrumbPage>{crumb.label}</BreadcrumbPage>

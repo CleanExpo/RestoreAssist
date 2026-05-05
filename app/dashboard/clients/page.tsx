@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { isCapacitorIOS } from "@/lib/capacitor";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -931,7 +932,11 @@ export default function ClientsPage() {
         onOpenChange={setShowUpgradeModal}
         onUpgrade={() => {
           setShowUpgradeModal(false);
-          router.push("/dashboard/pricing");
+          // RA-1842: defense-in-depth — UpgradeModal is BillingGate-gated so
+          // this onUpgrade is unreachable on iOS, but guard anyway.
+          if (!isCapacitorIOS()) {
+            router.push("/dashboard/pricing");
+          }
         }}
       />
     </div>

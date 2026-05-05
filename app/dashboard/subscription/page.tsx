@@ -37,7 +37,7 @@ interface Subscription {
   };
 }
 
-export default function SubscriptionPage() {
+function SubscriptionPageContent() {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
   const [canceling, setCanceling] = useState(false);
@@ -693,6 +693,14 @@ export default function SubscriptionPage() {
           onCancelled={() => fetchSubscription()}
         />
       </div>
+    </BillingGate>
+  );
+}
+
+export default function SubscriptionPage() {
+  return (
+    <BillingGate>
+      <SubscriptionPageContent />
     </BillingGate>
   );
 }

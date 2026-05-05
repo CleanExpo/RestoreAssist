@@ -28,7 +28,10 @@ export async function GET() {
         data: { messages: [] },
         fetchedAt,
         stale: true,
-        reason: error.code === "42P01" ? "margot_telegram_log table not yet created" : error.message,
+        reason:
+          error.code === "42P01"
+            ? "margot_telegram_log table not yet created"
+            : error.message,
       });
     }
 
@@ -41,6 +44,11 @@ export async function GET() {
 
     return Response.json({ data: { messages }, fetchedAt, stale: false });
   } catch {
-    return Response.json({ data: { messages: [] }, fetchedAt, stale: true, reason: "Telegram log unreachable" });
+    return Response.json({
+      data: { messages: [] },
+      fetchedAt,
+      stale: true,
+      reason: "Telegram log unreachable",
+    });
   }
 }

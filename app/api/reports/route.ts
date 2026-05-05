@@ -13,7 +13,11 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { searchParams } = new URL(request.url);
@@ -102,7 +106,11 @@ export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -114,7 +122,11 @@ export async function POST(request: NextRequest) {
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return apiError(request, { code: "VALIDATION", message: "Invalid JSON body", status: 400 });
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
 
       // Validate required fields
@@ -128,7 +140,11 @@ export async function POST(request: NextRequest) {
 
       for (const field of requiredFields) {
         if (!body[field]) {
-          return apiError(request, { code: "VALIDATION", message: `Missing required field: ${field}`, status: 400 });
+          return apiError(request, {
+            code: "VALIDATION",
+            message: `Missing required field: ${field}`,
+            status: 400,
+          });
         }
       }
 
@@ -143,7 +159,8 @@ export async function POST(request: NextRequest) {
         if (inspectionDateParsed === null) {
           return apiError(request, {
             code: "VALIDATION",
-            message: "inspectionDate is not a valid date (expected ISO-8601 or similar)",
+            message:
+              "inspectionDate is not a valid date (expected ISO-8601 or similar)",
             status: 400,
             fields: { inspectionDate: "invalid date" },
           });
@@ -154,7 +171,8 @@ export async function POST(request: NextRequest) {
         if (completionDateParsed === null) {
           return apiError(request, {
             code: "VALIDATION",
-            message: "completionDate is not a valid date (expected ISO-8601 or similar)",
+            message:
+              "completionDate is not a valid date (expected ISO-8601 or similar)",
             status: 400,
             fields: { completionDate: "invalid date" },
           });

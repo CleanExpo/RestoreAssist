@@ -247,7 +247,9 @@ export async function POST(request: NextRequest) {
       }
     } catch (err) {
       // RA-786: do not leak stripeError.message to clients
-      return fromException(request, err, { stage: "stripe-list-subscriptions" });
+      return fromException(request, err, {
+        stage: "stripe-list-subscriptions",
+      });
     }
   } catch (err) {
     return fromException(request, err, { stage: "load" });

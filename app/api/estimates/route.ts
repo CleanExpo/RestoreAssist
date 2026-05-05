@@ -11,7 +11,11 @@ export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -30,7 +34,11 @@ export async function POST(request: NextRequest) {
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return apiError(request, { code: "VALIDATION", message: "Invalid JSON body", status: 400 });
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const {
         reportId,
@@ -50,7 +58,11 @@ export async function POST(request: NextRequest) {
 
       // Validate required fields
       if (!reportId) {
-        return apiError(request, { code: "VALIDATION", message: "Missing required field: reportId", status: 400 });
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Missing required field: reportId",
+          status: 400,
+        });
       }
 
       // Tenancy check — the report must belong to the caller (RA-1362)
@@ -59,7 +71,11 @@ export async function POST(request: NextRequest) {
         select: { id: true },
       });
       if (!report) {
-        return apiError(request, { code: "NOT_FOUND", message: "Report not found", status: 404 });
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Report not found",
+          status: 404,
+        });
       }
 
       // Verify prisma.estimate exists
@@ -146,11 +162,14 @@ export async function POST(request: NextRequest) {
 
         // Separate incoming into existing-update vs brand-new
         const toUpdate = incoming.filter(
-          (item) => item.id && incomingIds.has(item.id) &&
+          (item) =>
+            item.id &&
+            incomingIds.has(item.id) &&
             existingLineItems.some((li) => li.id === item.id),
         );
         const toCreate = incoming.filter(
-          (item) => !item.id || !existingLineItems.some((li) => li.id === item.id),
+          (item) =>
+            !item.id || !existingLineItems.some((li) => li.id === item.id),
         );
 
         estimate = await prisma.$transaction(async (tx) => {
@@ -294,7 +313,11 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { searchParams } = new URL(request.url);
@@ -332,7 +355,11 @@ export async function GET(request: NextRequest) {
       });
 
       if (!estimate) {
-        return apiError(request, { code: "NOT_FOUND", message: "Estimate not found", status: 404 });
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Estimate not found",
+          status: 404,
+        });
       }
 
       return NextResponse.json({

@@ -238,7 +238,11 @@ export function MoistureReadingEntryForm({
           {ble.availability === "available" && (
             <button
               type="button"
-              aria-label={ble.paired ? "Read from paired meter" : "Connect Bluetooth meter"}
+              aria-label={
+                ble.paired
+                  ? "Read from paired meter"
+                  : "Connect Bluetooth meter"
+              }
               disabled={ble.pairing || ble.reading}
               onClick={async () => {
                 if (!ble.paired) {
@@ -247,9 +251,13 @@ export function MoistureReadingEntryForm({
                   const result = await ble.read();
                   if (result) {
                     if (isEnvironmentalReading(result)) {
-                      setMoistureLevel(String(result.relativeHumidityPercent.toFixed(1)));
+                      setMoistureLevel(
+                        String(result.relativeHumidityPercent.toFixed(1)),
+                      );
                     } else if (isMoistureReading(result)) {
-                      setMoistureLevel(String(result.moistureContentPercent.toFixed(1)));
+                      setMoistureLevel(
+                        String(result.moistureContentPercent.toFixed(1)),
+                      );
                     }
                     setSource("ble");
                   }

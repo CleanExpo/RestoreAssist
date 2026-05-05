@@ -64,8 +64,7 @@ export function PropertyDataSetupWizard({
         };
         setTestResult("fail");
         setTestError(
-          body.reason ??
-            `Scraper not configured (health returned ${h.status})`,
+          body.reason ?? `Scraper not configured (health returned ${h.status})`,
         );
         return;
       }
@@ -87,7 +86,7 @@ export function PropertyDataSetupWizard({
         const msg =
           typeof body.error === "string"
             ? body.error
-            : body.error?.message ?? `Scrape returned ${r.status}`;
+            : (body.error?.message ?? `Scrape returned ${r.status}`);
         setTestResult("fail");
         setTestError(msg);
         return;
@@ -97,10 +96,7 @@ export function PropertyDataSetupWizard({
         data?: { bedrooms?: number; floorAreaM2?: number };
       };
       const data = json.data;
-      if (
-        data == null ||
-        (data.bedrooms == null && data.floorAreaM2 == null)
-      ) {
+      if (data == null || (data.bedrooms == null && data.floorAreaM2 == null)) {
         setTestResult("fail");
         setTestError(
           "Scraper returned no usable fields — no bedrooms or floorAreaM2 in payload",

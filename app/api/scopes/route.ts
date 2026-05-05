@@ -124,7 +124,9 @@ export async function POST(request: NextRequest) {
         labourParameters: scope.labourParameters
           ? JSON.parse(scope.labourParameters)
           : null,
-        equipmentParameters: parseEquipmentParameters(scope.equipmentParameters),
+        equipmentParameters: parseEquipmentParameters(
+          scope.equipmentParameters,
+        ),
         chemicalApplication: scope.chemicalApplication
           ? JSON.parse(scope.chemicalApplication)
           : null,
@@ -221,7 +223,9 @@ export async function GET(request: NextRequest) {
         labourParameters: scope.labourParameters
           ? JSON.parse(scope.labourParameters)
           : null,
-        equipmentParameters: parseEquipmentParameters(scope.equipmentParameters),
+        equipmentParameters: parseEquipmentParameters(
+          scope.equipmentParameters,
+        ),
         chemicalApplication: scope.chemicalApplication
           ? JSON.parse(scope.chemicalApplication)
           : null,
@@ -262,7 +266,9 @@ export async function GET(request: NextRequest) {
         labourParameters: scope.labourParameters
           ? JSON.parse(scope.labourParameters)
           : null,
-        equipmentParameters: parseEquipmentParameters(scope.equipmentParameters),
+        equipmentParameters: parseEquipmentParameters(
+          scope.equipmentParameters,
+        ),
         chemicalApplication: scope.chemicalApplication
           ? JSON.parse(scope.chemicalApplication)
           : null,

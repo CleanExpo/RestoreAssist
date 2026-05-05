@@ -165,14 +165,16 @@ export default function SignaturePad({
         onError?.(msg);
         return;
       }
-      const data = (json as {
-        data: {
-          id: string;
-          attestationType: string;
-          attestedAt: string;
-          integrityHash: string;
-        };
-      }).data;
+      const data = (
+        json as {
+          data: {
+            id: string;
+            attestationType: string;
+            attestedAt: string;
+            integrityHash: string;
+          };
+        }
+      ).data;
       onAttested?.(data);
       clear();
     } catch (err) {

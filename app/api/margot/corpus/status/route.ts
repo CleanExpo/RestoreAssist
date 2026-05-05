@@ -20,10 +20,17 @@ export async function GET() {
 
   if (!GEMINI_API_KEY || !STORE_NAME) {
     return Response.json({
-      data: { fileCount: null, lastUploadAt: null, storeName: STORE_NAME || null, stale: true },
+      data: {
+        fileCount: null,
+        lastUploadAt: null,
+        storeName: STORE_NAME || null,
+        stale: true,
+      },
       fetchedAt,
       stale: true,
-      reason: !GEMINI_API_KEY ? "GOOGLE_GENERATIVE_AI_API_KEY not configured" : "MARGOT_FILE_SEARCH_STORE not configured",
+      reason: !GEMINI_API_KEY
+        ? "GOOGLE_GENERATIVE_AI_API_KEY not configured"
+        : "MARGOT_FILE_SEARCH_STORE not configured",
     });
   }
 
@@ -39,31 +46,48 @@ export async function GET() {
 
     if (!res.ok) {
       return Response.json({
-        data: { fileCount: null, lastUploadAt: null, storeName: STORE_NAME, stale: true },
+        data: {
+          fileCount: null,
+          lastUploadAt: null,
+          storeName: STORE_NAME,
+          stale: true,
+        },
         fetchedAt,
         stale: true,
         reason: `Gemini API ${res.status}`,
       });
     }
 
-    const body = await res.json() as { documents?: Array<{ name: string; updateTime?: string }> };
+    const body = (await res.json()) as {
+      documents?: Array<{ name: string; updateTime?: string }>;
+    };
     const docs = body.documents ?? [];
     const fileCount = docs.length;
     const dates = docs.map((d) => d.updateTime).filter(Boolean) as string[];
     const lastUploadAt = dates.length ? dates.sort().at(-1)! : null;
 
     const staleFlag = lastUploadAt
-      ? (Date.now() - new Date(lastUploadAt).getTime()) > STALE_DAYS * 86_400_000
+      ? Date.now() - new Date(lastUploadAt).getTime() > STALE_DAYS * 86_400_000
       : true;
 
     return Response.json({
-      data: { fileCount, lastUploadAt, storeName: STORE_NAME, stale: staleFlag },
+      data: {
+        fileCount,
+        lastUploadAt,
+        storeName: STORE_NAME,
+        stale: staleFlag,
+      },
       fetchedAt,
       stale: false,
     });
   } catch {
     return Response.json({
-      data: { fileCount: null, lastUploadAt: null, storeName: STORE_NAME, stale: true },
+      data: {
+        fileCount: null,
+        lastUploadAt: null,
+        storeName: STORE_NAME,
+        stale: true,
+      },
       fetchedAt,
       stale: true,
       reason: "Gemini corpus unreachable",

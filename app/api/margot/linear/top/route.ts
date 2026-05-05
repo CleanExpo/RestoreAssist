@@ -40,7 +40,12 @@ export async function GET() {
   const apiKey = process.env.LINEAR_API_KEY ?? "";
 
   if (!apiKey) {
-    return Response.json({ data: { issues: [] }, fetchedAt, stale: true, reason: "LINEAR_API_KEY not configured" });
+    return Response.json({
+      data: { issues: [] },
+      fetchedAt,
+      stale: true,
+      reason: "LINEAR_API_KEY not configured",
+    });
   }
 
   try {
@@ -52,14 +57,31 @@ export async function GET() {
     });
 
     if (!res.ok) {
-      return Response.json({ data: { issues: [] }, fetchedAt, stale: true, reason: `Linear ${res.status}` });
+      return Response.json({
+        data: { issues: [] },
+        fetchedAt,
+        stale: true,
+        reason: `Linear ${res.status}`,
+      });
     }
 
-    const json = await res.json() as { data?: { issues?: { nodes?: unknown[] } }; errors?: unknown[] };
+    const json = (await res.json()) as {
+      data?: { issues?: { nodes?: unknown[] } };
+      errors?: unknown[];
+    };
     const nodes = json.data?.issues?.nodes ?? [];
 
     const issues = nodes.map((n: unknown) => {
-      const node = n as { id: string; identifier: string; title: string; priority: number; state: { name: string }; assignee: { name: string } | null; url: string; team: { name: string } };
+      const node = n as {
+        id: string;
+        identifier: string;
+        title: string;
+        priority: number;
+        state: { name: string };
+        assignee: { name: string } | null;
+        url: string;
+        team: { name: string };
+      };
       return {
         id: node.id,
         identifier: node.identifier,
@@ -74,6 +96,11 @@ export async function GET() {
 
     return Response.json({ data: { issues }, fetchedAt, stale: false });
   } catch {
-    return Response.json({ data: { issues: [] }, fetchedAt, stale: true, reason: "Linear fetch failed" });
+    return Response.json({
+      data: { issues: [] },
+      fetchedAt,
+      stale: true,
+      reason: "Linear fetch failed",
+    });
   }
 }

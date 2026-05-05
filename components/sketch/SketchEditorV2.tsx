@@ -254,17 +254,14 @@ export function SketchEditorV2({
         };
 
         try {
-          const res = await fetch(
-            `/api/inspections/${inspectionId}/sketches`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "x-client-updated-at": String(clientUpdatedAt),
-              },
-              body: JSON.stringify(body),
+          const res = await fetch(`/api/inspections/${inspectionId}/sketches`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-client-updated-at": String(clientUpdatedAt),
             },
-          );
+            body: JSON.stringify(body),
+          });
           if (!res.ok) throw new Error(`save ${res.status}`);
         } catch {
           // Network failure or non-2xx — queue locally, drain later.
@@ -375,7 +372,8 @@ export function SketchEditorV2({
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       const payload = entry.payload as Partial<SketchSavePayload> | null;
-      const floorLabel = payload?.floorLabel ?? `floor-${payload?.floorNumber ?? "?"}`;
+      const floorLabel =
+        payload?.floorLabel ?? `floor-${payload?.floorNumber ?? "?"}`;
       a.href = url;
       a.download = `sketch-recovery-${entry.inspectionId}-${floorLabel}-${entry.id}.json`;
       a.click();
@@ -621,12 +619,26 @@ export function SketchEditorV2({
       if (!fc) return;
 
       const fabric = await import("fabric");
-      const FabricPolygon = (fabric as unknown as { Polygon: new (pts: { x: number; y: number }[], opts: object) => unknown }).Polygon;
-      const FabricText = (fabric as unknown as { IText: new (text: string, opts: object) => unknown }).IText;
+      const FabricPolygon = (
+        fabric as unknown as {
+          Polygon: new (
+            pts: { x: number; y: number }[],
+            opts: object,
+          ) => unknown;
+        }
+      ).Polygon;
+      const FabricText = (
+        fabric as unknown as {
+          IText: new (text: string, opts: object) => unknown;
+        }
+      ).IText;
 
       rooms.forEach((room, i) => {
         const color = ROOM_COLORS[i % ROOM_COLORS.length];
-        const pts = room.vertices.map((v) => ({ x: v.x * width, y: v.y * height }));
+        const pts = room.vertices.map((v) => ({
+          x: v.x * width,
+          y: v.y * height,
+        }));
 
         const polygon = new FabricPolygon(pts, {
           fill: color.fill,
@@ -634,7 +646,11 @@ export function SketchEditorV2({
           strokeWidth: 2,
           selectable: true,
           evented: true,
-          data: { id: `imported-${Date.now()}-${i}`, label: room.label, type: "room" },
+          data: {
+            id: `imported-${Date.now()}-${i}`,
+            label: room.label,
+            type: "room",
+          },
         });
 
         const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
@@ -770,22 +786,25 @@ export function SketchEditorV2({
                   </div>
                   <p className="text-[11px] text-white/50 mb-2 leading-snug">
                     These saves hit the retry cap. Retry them, export the
-                    payload to a file as backup, or discard if no longer
-                    needed.
+                    payload to a file as backup, or discard if no longer needed.
                   </p>
                   <ul className="space-y-2 max-h-[260px] overflow-y-auto">
                     {failedEntries.map((entry) => {
                       const payload =
                         entry.payload as Partial<SketchSavePayload> | null;
                       const floorLabel =
-                        payload?.floorLabel ?? `Floor ${payload?.floorNumber ?? "?"}`;
+                        payload?.floorLabel ??
+                        `Floor ${payload?.floorNumber ?? "?"}`;
                       const lastAttempt = entry.lastAttemptAt
-                        ? new Date(entry.lastAttemptAt).toLocaleString("en-AU", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            day: "2-digit",
-                            month: "short",
-                          })
+                        ? new Date(entry.lastAttemptAt).toLocaleString(
+                            "en-AU",
+                            {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              day: "2-digit",
+                              month: "short",
+                            },
+                          )
                         : "never";
                       return (
                         <li
@@ -994,7 +1013,9 @@ export function SketchEditorV2({
             activeFloor?.canvasRef.current?.clear();
             scheduleSave();
           }}
-          onImportSketch={inspectionId && !readonly ? handleImportSketch : undefined}
+          onImportSketch={
+            inspectionId && !readonly ? handleImportSketch : undefined
+          }
           readonly={readonly}
         />
       </div>

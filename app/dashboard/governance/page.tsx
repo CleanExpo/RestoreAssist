@@ -78,8 +78,7 @@ export default async function GovernancePage({ searchParams }: Props) {
         <nav className="flex flex-wrap gap-2 text-sm">
           {months.map((m) => {
             const key = m.toISOString().slice(0, 7);
-            const active =
-              currentMonth?.toISOString().slice(0, 7) === key;
+            const active = currentMonth?.toISOString().slice(0, 7) === key;
             return (
               <a
                 key={key}
@@ -97,10 +96,10 @@ export default async function GovernancePage({ searchParams }: Props) {
 
       {reports.length === 0 ? (
         <div className="rounded border p-6 text-sm text-muted-foreground">
-          No override-governance reports yet for this month. The cron
-          populates this on the 1st of each month from
-          ProgressTransition.softGaps (M-14). Until M-14 SOFT-gap reporting
-          flows through real transitions, this surface stays empty.
+          No override-governance reports yet for this month. The cron populates
+          this on the 1st of each month from ProgressTransition.softGaps (M-14).
+          Until M-14 SOFT-gap reporting flows through real transitions, this
+          surface stays empty.
         </div>
       ) : (
         <div className="overflow-x-auto rounded-md border">

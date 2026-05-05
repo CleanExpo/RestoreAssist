@@ -12,7 +12,11 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { searchParams } = new URL(request.url);
@@ -123,7 +127,11 @@ export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -136,7 +144,11 @@ export async function POST(request: NextRequest) {
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return apiError(request, { code: "VALIDATION", message: "Invalid JSON body", status: 400 });
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const {
         name,
@@ -150,7 +162,11 @@ export async function POST(request: NextRequest) {
       } = body;
 
       if (!name || !email) {
-        return apiError(request, { code: "VALIDATION", message: "Name and email are required", status: 400 });
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Name and email are required",
+          status: 400,
+        });
       }
 
       const existingClient = await prisma.client.findFirst({
@@ -158,7 +174,11 @@ export async function POST(request: NextRequest) {
       });
 
       if (existingClient) {
-        return apiError(request, { code: "CONFLICT", message: "Client with this email already exists", status: 400 });
+        return apiError(request, {
+          code: "CONFLICT",
+          message: "Client with this email already exists",
+          status: 400,
+        });
       }
 
       const client = await prisma.client.create({

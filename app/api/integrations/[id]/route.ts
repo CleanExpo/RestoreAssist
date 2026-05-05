@@ -13,7 +13,11 @@ export async function GET(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -36,7 +40,11 @@ export async function GET(
     });
 
     if (!integration) {
-      return apiError(request, { code: "NOT_FOUND", message: "Integration not found", status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Integration not found",
+        status: 404,
+      });
     }
 
     return NextResponse.json(integration);
@@ -53,7 +61,11 @@ export async function PUT(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -69,7 +81,11 @@ export async function PUT(
     });
 
     if (!existingIntegration) {
-      return apiError(request, { code: "NOT_FOUND", message: "Integration not found", status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Integration not found",
+        status: 404,
+      });
     }
 
     const integration = await prisma.integration.update({
@@ -112,7 +128,11 @@ export async function DELETE(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -126,7 +146,11 @@ export async function DELETE(
     });
 
     if (!existingIntegration) {
-      return apiError(request, { code: "NOT_FOUND", message: "Integration not found", status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Integration not found",
+        status: 404,
+      });
     }
 
     await prisma.integration.delete({

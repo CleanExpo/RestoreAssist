@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { isCapacitorIOS } from "@/lib/capacitor";
+import BillingGate from "@/components/capacitor/BillingGate";
 import {
   CheckCircle,
   Loader2,
@@ -437,8 +439,10 @@ export default function SuccessPage() {
   // Auto-redirect to subscription page for add-ons IMMEDIATELY (no modal shown)
   useEffect(() => {
     if (isAddonPurchase) {
-      // Redirect immediately without showing any UI
-      router.push("/dashboard/subscription?addon=success");
+      // RA-1842: iOS billing happens on web — skip auto-redirect on iOS.
+      if (!isCapacitorIOS()) {
+        router.push("/dashboard/subscription?addon=success");
+      }
     }
   }, [isAddonPurchase, router]);
 
@@ -745,15 +749,19 @@ export default function SuccessPage() {
                 >
                   Skip Setup
                 </button>
-                <button
-                  onClick={async () => {
-                    await update();
-                    router.push("/dashboard/subscription");
-                  }}
-                  className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/50 transition-colors text-gray-700 dark:text-slate-300 font-medium"
-                >
-                  View Subscription
-                </button>
+                <BillingGate fallback={null}>
+                  <button
+                    onClick={async () => {
+                      await update();
+                      if (!isCapacitorIOS()) {
+                        router.push("/dashboard/subscription");
+                      }
+                    }}
+                    className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/50 transition-colors text-gray-700 dark:text-slate-300 font-medium"
+                  >
+                    View Subscription
+                  </button>
+                </BillingGate>
               </div>
               <p className="text-xs text-center text-gray-500 dark:text-slate-400 mt-3">
                 You can complete setup anytime from Settings or the sidebar

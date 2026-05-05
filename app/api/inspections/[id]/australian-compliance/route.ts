@@ -61,7 +61,11 @@ export async function GET(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return apiError(req, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+    return apiError(req, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   const { id } = await params;
@@ -89,7 +93,11 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return apiError(req, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+    return apiError(req, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   const { id } = await params;
@@ -201,7 +209,11 @@ export async function DELETE(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return apiError(req, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+    return apiError(req, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   const { id } = await params;
@@ -215,8 +227,15 @@ export async function DELETE(
   }
 
   await softDelete(
-    () => (prisma as any).australianComplianceRecord.delete({ where: { inspectionId: id } }),
-    { route: "/api/inspections/[id]/australian-compliance", stage: "delete", inspectionId: id },
+    () =>
+      (prisma as any).australianComplianceRecord.delete({
+        where: { inspectionId: id },
+      }),
+    {
+      route: "/api/inspections/[id]/australian-compliance",
+      stage: "delete",
+      inspectionId: id,
+    },
   );
 
   return NextResponse.json({ deleted: true });

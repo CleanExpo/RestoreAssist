@@ -68,17 +68,22 @@ vi.mock("@/lib/prisma", () => ({
       updateMany: vi.fn(),
     },
     progressAttestation: { create: vi.fn() },
-    $transaction: vi.fn(async (cb: (tx: unknown) => unknown) => cb({
-      attestationConsentToken: {
-        updateMany: vi.fn(async () => ({ count: 1 })),
-      },
-      progressAttestation: { create: vi.fn(async (args: unknown) => ({
-        id: "att_1",
-        attestationType: (args as { data: { attestationType: string } }).data.attestationType,
-        attestedAt: new Date(),
-        integrityHash: "test-integrity-hash",
-      })) },
-    })),
+    $transaction: vi.fn(async (cb: (tx: unknown) => unknown) =>
+      cb({
+        attestationConsentToken: {
+          updateMany: vi.fn(async () => ({ count: 1 })),
+        },
+        progressAttestation: {
+          create: vi.fn(async (args: unknown) => ({
+            id: "att_1",
+            attestationType: (args as { data: { attestationType: string } })
+              .data.attestationType,
+            attestedAt: new Date(),
+            integrityHash: "test-integrity-hash",
+          })),
+        },
+      }),
+    ),
   },
 }));
 
@@ -175,7 +180,9 @@ describe("RA-1763 — labour-hire validator wired into attest route", () => {
     }));
     p.$transaction.mockImplementation(async (cb: (tx: unknown) => unknown) =>
       cb({
-        attestationConsentToken: { updateMany: vi.fn(async () => ({ count: 1 })) },
+        attestationConsentToken: {
+          updateMany: vi.fn(async () => ({ count: 1 })),
+        },
         progressAttestation: { create: created },
       }),
     );
@@ -186,7 +193,8 @@ describe("RA-1763 — labour-hire validator wired into attest route", () => {
 
     expect(res.status).toBe(200);
     expect(created).toHaveBeenCalledTimes(1);
-    const data = (created.mock.calls[0][0] as { data: Record<string, unknown> }).data;
+    const data = (created.mock.calls[0][0] as { data: Record<string, unknown> })
+      .data;
     expect(data.labourHireHours).toBe(8);
     expect(data.labourHireAwardClass).toBe("Cleaning Services Award - Level 2");
     expect(data.labourHireSuperRate).toBe(0.12);
@@ -248,13 +256,18 @@ describe("RA-1763 — labour-hire validator wired into attest route", () => {
     const created = vi.fn();
     p.$transaction.mockImplementation(async (cb: (tx: unknown) => unknown) =>
       cb({
-        attestationConsentToken: { updateMany: vi.fn(async () => ({ count: 1 })) },
+        attestationConsentToken: {
+          updateMany: vi.fn(async () => ({ count: 1 })),
+        },
         progressAttestation: { create: created },
       }),
     );
 
     await POST(
-      makePost({ ...VALID_LABOUR_HIRE_BODY, labourHireInductionEvidenceId: "" }),
+      makePost({
+        ...VALID_LABOUR_HIRE_BODY,
+        labourHireInductionEvidenceId: "",
+      }),
       { params: Promise.resolve({ reportId: "r1" }) },
     );
 
@@ -289,7 +302,9 @@ describe("RA-1763 — labour-hire validator wired into attest route", () => {
     }));
     p.$transaction.mockImplementation(async (cb: (tx: unknown) => unknown) =>
       cb({
-        attestationConsentToken: { updateMany: vi.fn(async () => ({ count: 1 })) },
+        attestationConsentToken: {
+          updateMany: vi.fn(async () => ({ count: 1 })),
+        },
         progressAttestation: { create: created },
       }),
     );
@@ -306,7 +321,8 @@ describe("RA-1763 — labour-hire validator wired into attest route", () => {
 
     expect(res.status).toBe(200);
     expect(created).toHaveBeenCalledTimes(1);
-    const data = (created.mock.calls[0][0] as { data: Record<string, unknown> }).data;
+    const data = (created.mock.calls[0][0] as { data: Record<string, unknown> })
+      .data;
     expect(data.labourHireHours).toBeNull();
     expect(data.labourHireAwardClass).toBeNull();
     expect(data.labourHireSuperRate).toBeNull();

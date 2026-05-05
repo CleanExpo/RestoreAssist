@@ -23,7 +23,13 @@
  * drift during authoring.
  */
 
-import { Children, cloneElement, isValidElement, type ReactElement, type ReactNode } from "react";
+import {
+  Children,
+  cloneElement,
+  isValidElement,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import { Label } from "@/components/ui/label";
 
 export interface FormFieldProps {
@@ -78,7 +84,11 @@ export function FormField({
         </p>
       ) : null}
       {error ? (
-        <p id={errorId} role="alert" className="text-xs text-rose-600 dark:text-rose-400">
+        <p
+          id={errorId}
+          role="alert"
+          className="text-xs text-rose-600 dark:text-rose-400"
+        >
           {error}
         </p>
       ) : null}

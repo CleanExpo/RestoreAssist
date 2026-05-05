@@ -28,9 +28,7 @@ export default async function ClaimsIndexPage() {
   // shows only rows that have a progress record (the rest are read-only
   // reports that haven't entered the lifecycle).
   const claims = await prisma.claimProgress.findMany({
-    where: isAdmin
-      ? undefined
-      : { report: { userId: session.user.id } },
+    where: isAdmin ? undefined : { report: { userId: session.user.id } },
     select: {
       id: true,
       reportId: true,
@@ -40,7 +38,12 @@ export default async function ClaimsIndexPage() {
       createdAt: true,
       updatedAt: true,
       report: {
-        select: { id: true, propertyAddress: true, hazardType: true, title: true },
+        select: {
+          id: true,
+          propertyAddress: true,
+          hazardType: true,
+          title: true,
+        },
       },
     },
     orderBy: { updatedAt: "desc" },
@@ -62,8 +65,8 @@ export default async function ClaimsIndexPage() {
         <div className="rounded-md border p-6 space-y-3">
           <p className="text-base font-medium">No claims yet</p>
           <p className="text-sm text-muted-foreground">
-            Claims appear here once you start an inspection. Open a report
-            from the inspections list and tap{" "}
+            Claims appear here once you start an inspection. Open a report from
+            the inspections list and tap{" "}
             <span className="font-medium text-foreground">
               Start stabilisation
             </span>{" "}

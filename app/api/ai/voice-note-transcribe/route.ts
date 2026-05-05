@@ -85,7 +85,9 @@ export async function POST(request: NextRequest) {
 
   if (audioRaw.size > MAX_AUDIO_BYTES) {
     return NextResponse.json(
-      { error: `Audio exceeds 10 MB limit (got ${Math.round(audioRaw.size / 1024)} KB)` },
+      {
+        error: `Audio exceeds 10 MB limit (got ${Math.round(audioRaw.size / 1024)} KB)`,
+      },
       { status: 413 },
     );
   }

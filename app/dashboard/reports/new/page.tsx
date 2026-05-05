@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { isCapacitorIOS } from "@/lib/capacitor";
+import BillingGate from "@/components/capacitor/BillingGate";
 import {
   Upload,
   FileText,
@@ -244,8 +246,15 @@ export default function NewReportPage() {
         const subscriptionStep = data.steps?.subscription;
         if (subscriptionStep && !subscriptionStep.completed) {
           // Subscription not complete - redirect to pricing
-          toast.error("Please upgrade your package to create reports");
-          router.push("/dashboard/pricing");
+          // RA-1842: iOS billing on web only.
+          if (!isCapacitorIOS()) {
+            toast.error("Please upgrade your package to create reports");
+            router.push("/dashboard/pricing");
+          } else {
+            toast.error(
+              "Subscriptions are managed on restoreassist.app.",
+            );
+          }
           setHasCheckedOnboarding(true);
           return;
         }
@@ -711,13 +720,15 @@ export default function NewReportPage() {
                 You've used all your free credits. Please upgrade your package
                 to create more reports.
               </p>
-              <button
-                onClick={() => router.push("/dashboard/pricing")}
-                className="px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white rounded-lg font-medium transition-colors flex items-center gap-2 mx-auto"
-              >
-                <Crown className="w-4 h-4" />
-                Upgrade Package
-              </button>
+              <BillingGate fallback={null}>
+                <button
+                  onClick={() => router.push("/dashboard/pricing")}
+                  className="px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white rounded-lg font-medium transition-colors flex items-center gap-2 mx-auto"
+                >
+                  <Crown className="w-4 h-4" />
+                  Upgrade Package
+                </button>
+              </BillingGate>
             </div>
           </div>
         ) : !onboardingComplete && hasCheckedOnboarding ? (
@@ -863,15 +874,19 @@ export default function NewReportPage() {
                 >
                   Skip Setup
                 </button>
-                <button
-                  onClick={async () => {
-                    await update();
-                    router.push("/dashboard/subscription");
-                  }}
-                  className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/50 transition-colors text-gray-700 dark:text-slate-300 font-medium"
-                >
-                  View Subscription
-                </button>
+                <BillingGate fallback={null}>
+                  <button
+                    onClick={async () => {
+                      await update();
+                      if (!isCapacitorIOS()) {
+                        router.push("/dashboard/subscription");
+                      }
+                    }}
+                    className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/50 transition-colors text-gray-700 dark:text-slate-300 font-medium"
+                  >
+                    View Subscription
+                  </button>
+                </BillingGate>
               </div>
               <p className="text-xs text-center text-gray-500 dark:text-slate-400 mt-3">
                 You can complete setup anytime from Settings or the sidebar
@@ -881,8 +896,9 @@ export default function NewReportPage() {
         </div>
       )}
 
-      {/* Upgrade Modal */}
+      {/* Upgrade Modal — gated for iOS App Review (RA-1842) */}
       {showUpgradeModal && (
+        <BillingGate fallback={null}>
         <div className="fixed inset-0 bg-black/50 dark:bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
           <div className="bg-white dark:bg-slate-800 rounded-lg border border-neutral-200 dark:border-slate-700 max-w-md w-full p-6 shadow-xl">
             <div className="flex items-center justify-between mb-4">
@@ -927,7 +943,9 @@ export default function NewReportPage() {
                 <button
                   onClick={() => {
                     setShowUpgradeModal(false);
-                    router.push("/dashboard/pricing");
+                    if (!isCapacitorIOS()) {
+                      router.push("/dashboard/pricing");
+                    }
                   }}
                   className="flex-1 px-4 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg font-medium hover:shadow-lg hover:shadow-orange-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group text-white"
                 >
@@ -938,6 +956,7 @@ export default function NewReportPage() {
             </div>
           </div>
         </div>
+        </BillingGate>
       )}
     </div>
   );

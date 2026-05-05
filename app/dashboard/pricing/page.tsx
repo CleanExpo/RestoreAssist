@@ -15,7 +15,7 @@ import { PRICING_CONFIG, type PricingPlan } from "@/lib/pricing";
 import toast from "react-hot-toast";
 import BillingGate from "@/components/capacitor/BillingGate";
 
-export default function PricingPage() {
+function PricingPageContent() {
   const [loading, setLoading] = useState<string | null>(null);
 
   const handleSubscribe = async (plan: PricingPlan) => {
@@ -269,6 +269,14 @@ export default function PricingPage() {
           </div>
         </div>
       </div>
+    </BillingGate>
+  );
+}
+
+export default function PricingPage() {
+  return (
+    <BillingGate>
+      <PricingPageContent />
     </BillingGate>
   );
 }

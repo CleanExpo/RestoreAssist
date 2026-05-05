@@ -146,7 +146,10 @@ async function fetchHtml(
     recordBreakerOutcome(host, !failed);
     // Challenge HTML → report as 403 so downstream treats it as a
     // definite refusal rather than a "no results" false negative.
-    return { html: challenged ? "" : html, status: challenged ? 403 : res.status };
+    return {
+      html: challenged ? "" : html,
+      status: challenged ? 403 : res.status,
+    };
   } catch (err) {
     console.error("fetchHtml failed:", url, err);
     recordBreakerOutcome(host, false);

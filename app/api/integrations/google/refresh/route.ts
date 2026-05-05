@@ -95,8 +95,7 @@ export async function POST(request: NextRequest) {
 
   if (!res.ok) {
     const text = await res.text();
-    const isInvalidGrant =
-      res.status === 400 && text.includes("invalid_grant");
+    const isInvalidGrant = res.status === 400 && text.includes("invalid_grant");
     if (isInvalidGrant) {
       // Kill the dead refresh token so the UI can prompt re-consent.
       await prisma.account.update({

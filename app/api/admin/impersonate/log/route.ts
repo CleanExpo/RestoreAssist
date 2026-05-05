@@ -15,15 +15,26 @@ import { apiError, fromException } from "@/lib/api-errors";
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   if (session.user.role !== "ADMIN") {
-    return apiError(request, { code: "FORBIDDEN", message: "Forbidden — admin only", status: 403 });
+    return apiError(request, {
+      code: "FORBIDDEN",
+      message: "Forbidden — admin only",
+      status: 403,
+    });
   }
 
   try {
     const { searchParams } = new URL(request.url);
-    const limit = Math.min(Number.parseInt(searchParams.get("limit") ?? "50", 10), 200);
+    const limit = Math.min(
+      Number.parseInt(searchParams.get("limit") ?? "50", 10),
+      200,
+    );
     const adminUserId = searchParams.get("adminUserId") ?? undefined;
     const targetUserId = searchParams.get("targetUserId") ?? undefined;
 

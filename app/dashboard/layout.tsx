@@ -5,6 +5,7 @@ import type React from "react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
+import { isCapacitorIOS } from "@/lib/capacitor";
 import {
   LayoutDashboard,
   FileText,
@@ -263,9 +264,8 @@ export default function DashboardLayout({
             aria-live="polite"
             className="w-full bg-amber-500 text-amber-950 text-sm font-medium text-center px-4 py-2"
           >
-            DEMO MODE — you're signed in as the sample account. Data
-            shown is illustrative; changes are shared with other demo
-            viewers.
+            DEMO MODE — you're signed in as the sample account. Data shown is
+            illustrative; changes are shared with other demo viewers.
           </div>
         )}
         {/* Mobile backdrop */}
@@ -381,7 +381,14 @@ export default function DashboardLayout({
                               return;
                             }
                             if (!data.canCreate) {
-                              router.push("/dashboard/pricing");
+                              // RA-1842: iOS billing happens on web; do not auto-redirect.
+                              if (!isCapacitorIOS()) {
+                                router.push("/dashboard/pricing");
+                              } else {
+                                toast.error(
+                                  "Subscriptions are managed on restoreassist.app.",
+                                );
+                              }
                               return;
                             }
                           }

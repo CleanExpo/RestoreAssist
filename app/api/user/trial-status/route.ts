@@ -41,7 +41,10 @@ export async function GET(request: NextRequest) {
     let daysRemaining: number | null = null;
     if (trialEndsAt) {
       const msRemaining = trialEndsAt.getTime() - Date.now();
-      daysRemaining = Math.max(0, Math.ceil(msRemaining / (1000 * 60 * 60 * 24)));
+      daysRemaining = Math.max(
+        0,
+        Math.ceil(msRemaining / (1000 * 60 * 60 * 24)),
+      );
     }
 
     return NextResponse.json({

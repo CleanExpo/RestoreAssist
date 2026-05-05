@@ -13,7 +13,10 @@ export default function InvoiceError({
 }) {
   useEffect(() => {
     console.error("[InvoiceError]", error);
-    reportClientError(error, { boundary: "InvoiceError", digest: error.digest });
+    reportClientError(error, {
+      boundary: "InvoiceError",
+      digest: error.digest,
+    });
   }, [error]);
 
   return (

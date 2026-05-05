@@ -227,7 +227,9 @@ export async function POST(request: NextRequest) {
               trialCredits: 30,
             }),
           { stage: "signup-welcome" },
-        ).catch((err) => console.error("[Register] Welcome email failed:", err)),
+        ).catch((err) =>
+          console.error("[Register] Welcome email failed:", err),
+        ),
         notifyWelcome(updatedUser.id).catch((err) =>
           console.error("[Register] notifyWelcome failed:", err),
         ),

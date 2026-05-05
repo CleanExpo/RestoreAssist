@@ -454,7 +454,8 @@ export default function InvoicesPage() {
                           title={invoice.externalSyncError ?? "Sync failed"}
                         >
                           <span aria-hidden>⚠</span>
-                          {invoice.externalSyncProvider ?? "Accounting"} sync failed
+                          {invoice.externalSyncProvider ?? "Accounting"} sync
+                          failed
                         </div>
                       )}
                     </td>

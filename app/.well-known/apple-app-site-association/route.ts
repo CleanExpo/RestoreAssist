@@ -81,7 +81,8 @@ function buildAasa(): AppleAppSiteAssociation {
           components: [
             {
               "/": "/api/auth/*",
-              comment: "next-auth callback URLs MUST stay in the browser so the OAuth dance completes there before iOS intercepts the final redirect",
+              comment:
+                "next-auth callback URLs MUST stay in the browser so the OAuth dance completes there before iOS intercepts the final redirect",
               exclude: true,
             },
             {
@@ -96,12 +97,14 @@ function buildAasa(): AppleAppSiteAssociation {
             },
             {
               "/": "/.well-known/*",
-              comment: "Well-known files (this file, security.txt, etc) — never intercept",
+              comment:
+                "Well-known files (this file, security.txt, etc) — never intercept",
               exclude: true,
             },
             {
               "/": "*",
-              comment: "Default: every other path on restoreassist.app opens in the iOS app when installed",
+              comment:
+                "Default: every other path on restoreassist.app opens in the iOS app when installed",
             },
           ],
         },
