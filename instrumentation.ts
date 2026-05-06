@@ -17,4 +17,4 @@ export async function register() {
   }
 }
 
-export { onRequestError } from "@sentry/nextjs";
+export { captureRequestError as onRequestError } from "@sentry/nextjs";
