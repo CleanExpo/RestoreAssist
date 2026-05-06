@@ -309,9 +309,7 @@ export async function generateStabilisationCertificate(
     .find((t) => t.transitionKey === "attest_stabilisation");
   const sigAttestation = graph.attestations
     .filter((a) => a.attestationType === "TECHNICIAN_SIGN_OFF")
-    .filter((a) =>
-      stabilisation ? a.transitionId === stabilisation.id : true,
-    )
+    .filter((a) => (stabilisation ? a.transitionId === stabilisation.id : true))
     .at(-1);
 
   drawText(ctx, "STABILISATION COMPLETION CERTIFICATE", {
@@ -456,11 +454,10 @@ export async function generateLabourHireSummary(
   }
 
   drawDivider(ctx);
-  drawText(
-    ctx,
-    `Generated ${new Date().toISOString()} from RestoreAssist.`,
-    { size: 8, color: [0.5, 0.5, 0.5] },
-  );
+  drawText(ctx, `Generated ${new Date().toISOString()} from RestoreAssist.`, {
+    size: 8,
+    color: [0.5, 0.5, 0.5],
+  });
 
   return ctx.doc.save();
 }
@@ -508,11 +505,7 @@ export async function generateCarrierPacketPdf(
     );
     drawKv(ctx, "Integrity hash", stabilisation.integrityHash);
     if (stabilisation.softGaps.length > 0) {
-      drawKv(
-        ctx,
-        "Soft gaps",
-        stabilisation.softGaps.map(labelFor).join(", "),
-      );
+      drawKv(ctx, "Soft gaps", stabilisation.softGaps.map(labelFor).join(", "));
     }
     if (stabilisation.auditGaps.length > 0) {
       drawKv(
@@ -537,11 +530,10 @@ export async function generateCarrierPacketPdf(
   }
 
   drawDivider(ctx);
-  drawText(
-    ctx,
-    `Generated ${new Date().toISOString()} from RestoreAssist.`,
-    { size: 8, color: [0.5, 0.5, 0.5] },
-  );
+  drawText(ctx, `Generated ${new Date().toISOString()} from RestoreAssist.`, {
+    size: 8,
+    color: [0.5, 0.5, 0.5],
+  });
 
   return ctx.doc.save();
 }
@@ -627,11 +619,10 @@ export async function generateCloseoutPack(
   }
 
   drawDivider(ctx);
-  drawText(
-    ctx,
-    `Generated ${new Date().toISOString()} from RestoreAssist.`,
-    { size: 8, color: [0.5, 0.5, 0.5] },
-  );
+  drawText(ctx, `Generated ${new Date().toISOString()} from RestoreAssist.`, {
+    size: 8,
+    color: [0.5, 0.5, 0.5],
+  });
 
   return ctx.doc.save();
 }

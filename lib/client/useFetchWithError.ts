@@ -22,7 +22,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { parseApiError, type ParsedApiError } from "@/lib/client/parse-api-error";
+import {
+  parseApiError,
+  type ParsedApiError,
+} from "@/lib/client/parse-api-error";
 
 export interface UseFetchWithErrorResult<T> {
   data: T | null;

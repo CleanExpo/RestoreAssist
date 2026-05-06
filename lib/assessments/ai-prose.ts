@@ -56,8 +56,7 @@ const DOMAIN_TONE: Record<AssessmentDomain, string> = {
   WATER:
     "IICRC S500:2025 water-damage restoration assessor for an Australian insurer",
   MOULD: "IICRC S520:2015 mould remediation Indoor Environmental Professional",
-  BIOHAZARD:
-    "IICRC S540:2021 trauma & biohazard remediation lead in Australia",
+  BIOHAZARD: "IICRC S540:2021 trauma & biohazard remediation lead in Australia",
   FIRE_SMOKE: "IICRC S700:2015 fire & smoke damage restoration assessor",
   STORM:
     "Australian storm-damage restoration assessor (S500:2025 + NCC Vol 2 Part 3.5)",
@@ -179,8 +178,7 @@ export async function enhanceReportProse(
       totalInputTokens += message.usage.input_tokens ?? 0;
       totalOutputTokens += message.usage.output_tokens ?? 0;
       const textBlock = message.content.find((b) => b.type === "text");
-      const raw =
-        textBlock && textBlock.type === "text" ? textBlock.text : "";
+      const raw = textBlock && textBlock.type === "text" ? textBlock.text : "";
       const parsed = tryParseBody(raw);
       if (parsed) {
         enhanced.push({ ...section, body: parsed.body });
@@ -200,8 +198,7 @@ export async function enhanceReportProse(
   const latencyMs = Date.now() - start;
   // Haiku 4.5 pricing: $1/MTok input, $5/MTok output (Apr 2026 reference).
   const costUsd =
-    (totalInputTokens / 1_000_000) * 1 +
-    (totalOutputTokens / 1_000_000) * 5;
+    (totalInputTokens / 1_000_000) * 1 + (totalOutputTokens / 1_000_000) * 5;
 
   return {
     sections: enhanced,

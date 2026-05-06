@@ -20,15 +20,21 @@ import {
   type ClaimDataGraph,
 } from "../document-generators";
 
-const cpFindUnique = (prisma as unknown as {
-  claimProgress: { findUnique: ReturnType<typeof vi.fn> };
-}).claimProgress.findUnique;
-const trFindMany = (prisma as unknown as {
-  progressTransition: { findMany: ReturnType<typeof vi.fn> };
-}).progressTransition.findMany;
-const atFindMany = (prisma as unknown as {
-  progressAttestation: { findMany: ReturnType<typeof vi.fn> };
-}).progressAttestation.findMany;
+const cpFindUnique = (
+  prisma as unknown as {
+    claimProgress: { findUnique: ReturnType<typeof vi.fn> };
+  }
+).claimProgress.findUnique;
+const trFindMany = (
+  prisma as unknown as {
+    progressTransition: { findMany: ReturnType<typeof vi.fn> };
+  }
+).progressTransition.findMany;
+const atFindMany = (
+  prisma as unknown as {
+    progressAttestation: { findMany: ReturnType<typeof vi.fn> };
+  }
+).progressAttestation.findMany;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -38,9 +44,7 @@ const TINY_PNG_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
 const TINY_PNG_DATA_URL = `data:image/png;base64,${TINY_PNG_BASE64}`;
 
-function fakeGraph(
-  overrides: Partial<ClaimDataGraph> = {},
-): ClaimDataGraph {
+function fakeGraph(overrides: Partial<ClaimDataGraph> = {}): ClaimDataGraph {
   return {
     claimProgress: {
       id: "cp_1",
@@ -174,9 +178,7 @@ describe("loadClaimDataGraph", () => {
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error("unreachable");
     expect(r.data.transitions).toHaveLength(1);
-    expect(r.data.transitions[0].softGaps).toEqual([
-      "evidence.photo.coverage",
-    ]);
+    expect(r.data.transitions[0].softGaps).toEqual(["evidence.photo.coverage"]);
     expect(r.data.transitions[0].auditGaps).toEqual([]);
     expect(r.data.attestations[0].labourHireHours).toBeCloseTo(7.5);
     expect(r.data.attestations[0].labourHireSuperRate).toBeCloseTo(0.12);

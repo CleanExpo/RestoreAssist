@@ -14,7 +14,10 @@
  */
 
 import type { GenerateAssessmentOutput } from "../client/api-client.js";
-import { reviewByAdjuster, type AdjusterReview } from "../personas/senior-pm.js";
+import {
+  reviewByAdjuster,
+  type AdjusterReview,
+} from "../personas/senior-pm.js";
 import { judgeAssessment, type JudgeScore } from "./judge.js";
 
 export interface DeterministicScore {
@@ -99,10 +102,7 @@ async function runDeterministic(
     categoryCompliance: number;
   };
   let evaluateScopeQuality:
-    | ((
-        scope: string,
-        input: { claimType: string },
-      ) => ScoreShape)
+    | ((scope: string, input: { claimType: string }) => ScoreShape)
     | null = null;
   try {
     const mod = (await import("@/lib/ai/scope-quality-evaluator")) as {

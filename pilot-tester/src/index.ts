@@ -31,11 +31,7 @@ interface CliArgs {
 
 function parseArgs(argv: string[]): CliArgs {
   const command =
-    argv[2] === "swarm"
-      ? "swarm"
-      : argv[2] === "dryrun"
-        ? "dryrun"
-        : "run";
+    argv[2] === "swarm" ? "swarm" : argv[2] === "dryrun" ? "dryrun" : "run";
   const args: Record<string, string> = {};
   for (let i = 3; i < argv.length; i++) {
     const arg = argv[i];

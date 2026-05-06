@@ -72,10 +72,13 @@ export async function recordMutationAudit(
   };
 
   // Structured log → Vercel Observability (searchable by tag).
-  console.info("[audit.mutation]", JSON.stringify({
-    actorUserId: input.actorUserId ?? null,
-    ...details,
-  }));
+  console.info(
+    "[audit.mutation]",
+    JSON.stringify({
+      actorUserId: input.actorUserId ?? null,
+      ...details,
+    }),
+  );
 
   try {
     await prisma.securityEvent.create({

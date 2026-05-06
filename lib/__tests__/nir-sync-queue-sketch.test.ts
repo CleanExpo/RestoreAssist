@@ -11,10 +11,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import type {
-  QueueEntryType,
-  SketchSavePayload,
-} from "@/lib/nir-sync-queue";
+import type { QueueEntryType, SketchSavePayload } from "@/lib/nir-sync-queue";
 
 describe("RA-1762 — QueueEntryType union includes sketch-save", () => {
   it("accepts 'sketch-save' as a valid type", () => {

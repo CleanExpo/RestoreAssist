@@ -61,11 +61,7 @@ export async function refreshGoogleTokens(): Promise<CronJobResult> {
   for (const acc of accounts) {
     if (!acc.refresh_token) continue; // narrowing; filter already applied
 
-    const outcome = await refreshOne(
-      clientId,
-      clientSecret,
-      acc.refresh_token,
-    );
+    const outcome = await refreshOne(clientId, clientSecret, acc.refresh_token);
 
     if (outcome.ok) {
       refreshed++;

@@ -161,7 +161,8 @@ function narrowOptions(
 const SMOKE_LABEL: Record<SmokeType, string> = {
   wet: "Wet smoke (low-temp slow-burn — oily residue, strong odour)",
   dry: "Dry smoke (high-temp fast-burn — fine powder residue)",
-  protein: "Protein smoke (kitchen / organic combustion — invisible film, strong odour)",
+  protein:
+    "Protein smoke (kitchen / organic combustion — invisible film, strong odour)",
   fuel_oil: "Fuel-oil smoke (puffback / heating-system — petroleum residue)",
 };
 
@@ -306,7 +307,11 @@ export const fireSmokeDomain: DomainPlugin = {
         },
       });
       if (!inspection) {
-        return { ok: false, code: "NOT_FOUND", message: "Inspection not found" };
+        return {
+          ok: false,
+          code: "NOT_FOUND",
+          message: "Inspection not found",
+        };
       }
 
       const affectedAreaM2 = inspection.affectedAreas.reduce(

@@ -74,8 +74,7 @@ export function apiError(
 
   // Only call reportError for 5xx and unexpected UPSTREAM_FAILED — 4xx
   // are expected client errors and would drown the observability feed.
-  const shouldReport =
-    input.status >= 500 || input.code === "UPSTREAM_FAILED";
+  const shouldReport = input.status >= 500 || input.code === "UPSTREAM_FAILED";
 
   if (shouldReport || input.err) {
     reportError(input.err ?? new Error(input.message), {
@@ -114,7 +113,10 @@ export function fromException(
   // We don't import @prisma/client/runtime/library at the top level to
   // keep this helper usable in edge runtimes; instead duck-type.
   const prismaCode =
-    typeof err === "object" && err !== null && "code" in err && typeof (err as { code: unknown }).code === "string"
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    typeof (err as { code: unknown }).code === "string"
       ? (err as { code: string }).code
       : undefined;
 

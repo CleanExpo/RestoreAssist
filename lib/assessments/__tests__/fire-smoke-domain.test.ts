@@ -139,7 +139,9 @@ describe("fireSmokeDomain — citations + scope", () => {
     });
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error("unreachable");
-    expect(r.data.citations.every((c) => c.standard === "IICRC S700:2015")).toBe(true);
+    expect(
+      r.data.citations.every((c) => c.standard === "IICRC S700:2015"),
+    ).toBe(true);
     expect(r.data.citations.length).toBeGreaterThan(2);
   });
 
@@ -239,11 +241,14 @@ describe("fireSmokeDomain — estimate self-consistency", () => {
       (s, l) => s + l.lineTotalExGst,
       0,
     );
-    expect(Math.abs(subtotal - r.data.estimate.totals.subtotalExGst)).toBeLessThan(0.05);
+    expect(
+      Math.abs(subtotal - r.data.estimate.totals.subtotalExGst),
+    ).toBeLessThan(0.05);
     expect(
       Math.abs(
         r.data.estimate.totals.totalIncGst -
-          (r.data.estimate.totals.subtotalExGst + r.data.estimate.totals.gstTotal),
+          (r.data.estimate.totals.subtotalExGst +
+            r.data.estimate.totals.gstTotal),
       ),
     ).toBeLessThan(0.05);
     expect(r.data.estimate.totals.gstRate).toBe(0.1);

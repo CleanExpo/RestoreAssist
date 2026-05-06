@@ -10,18 +10,19 @@ vi.mock("@/lib/prisma", () => {
 });
 
 import { prisma } from "@/lib/prisma";
-import {
-  __BUDGET_GUARD_INTERNAL,
-  checkWorkspaceBudget,
-} from "../budget-guard";
+import { __BUDGET_GUARD_INTERNAL, checkWorkspaceBudget } from "../budget-guard";
 
-const wsFind = (prisma as unknown as {
-  workspace: { findUnique: ReturnType<typeof vi.fn> };
-}).workspace.findUnique;
+const wsFind = (
+  prisma as unknown as {
+    workspace: { findUnique: ReturnType<typeof vi.fn> };
+  }
+).workspace.findUnique;
 
-const aggregate = (prisma as unknown as {
-  aiUsageLog: { aggregate: ReturnType<typeof vi.fn> };
-}).aiUsageLog.aggregate;
+const aggregate = (
+  prisma as unknown as {
+    aiUsageLog: { aggregate: ReturnType<typeof vi.fn> };
+  }
+).aiUsageLog.aggregate;
 
 const ORIGINAL_ENV = { ...process.env };
 

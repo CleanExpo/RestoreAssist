@@ -128,7 +128,12 @@ export async function judgeAssessment(
     return null;
   }
 
-  const dims = ["professionalism", "specificity", "consistency", "actionability"] as const;
+  const dims = [
+    "professionalism",
+    "specificity",
+    "consistency",
+    "actionability",
+  ] as const;
   const scores: number[] = [];
   for (const k of dims) {
     const v = parsed[k];

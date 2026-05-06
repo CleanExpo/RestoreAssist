@@ -41,7 +41,9 @@ export function formatDate(value: Date | string | null | undefined): string {
 }
 
 /** dd/mm/yyyy hh:mm (24h) in AEST. */
-export function formatDateTime(value: Date | string | null | undefined): string {
+export function formatDateTime(
+  value: Date | string | null | undefined,
+): string {
   if (!value) return DASH;
   const d = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(d.getTime())) return DASH;
@@ -56,7 +58,9 @@ export function formatDateTime(value: Date | string | null | undefined): string 
 }
 
 /** Compact relative time — "2m ago", "3h ago", "yesterday", then date. */
-export function formatRelative(value: Date | string | null | undefined): string {
+export function formatRelative(
+  value: Date | string | null | undefined,
+): string {
   if (!value) return DASH;
   const d = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(d.getTime())) return DASH;

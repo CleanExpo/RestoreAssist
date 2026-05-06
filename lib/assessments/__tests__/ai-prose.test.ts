@@ -20,7 +20,9 @@ import { getAnthropicApiKey } from "@/lib/ai-provider";
 import { enhanceReportProse } from "../ai-prose";
 import type { ReportSection } from "../types";
 
-const mockedBudget = checkWorkspaceBudget as unknown as ReturnType<typeof vi.fn>;
+const mockedBudget = checkWorkspaceBudget as unknown as ReturnType<
+  typeof vi.fn
+>;
 const mockedKey = getAnthropicApiKey as unknown as ReturnType<typeof vi.fn>;
 
 const sampleSections: ReportSection[] = [

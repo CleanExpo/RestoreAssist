@@ -116,11 +116,7 @@ function categoryToScopeCategory(itemType: string): ScopeCategory {
   if (t.includes("labour") || t.includes("technician") || t.includes("hours")) {
     return "LABOUR";
   }
-  if (
-    t.includes("disposal") ||
-    t.includes("waste") ||
-    t.includes("debris")
-  ) {
+  if (t.includes("disposal") || t.includes("waste") || t.includes("debris")) {
     return "DISPOSAL";
   }
   if (t.includes("ppe") || t.includes("protective")) return "PROTECTIVE";
@@ -136,7 +132,10 @@ function categoryToScopeCategory(itemType: string): ScopeCategory {
   return "MATERIALS";
 }
 
-function buildEstimate(scope: ScopeItem[], unitCostByItem: Map<string, number>): AssessmentEstimate {
+function buildEstimate(
+  scope: ScopeItem[],
+  unitCostByItem: Map<string, number>,
+): AssessmentEstimate {
   const lines: EstimateLine[] = scope.map((item) => {
     const rate = unitCostByItem.get(item.description) ?? 0;
     const lineTotalExGst = +(item.quantity * rate).toFixed(2);
@@ -253,7 +252,9 @@ function buildReport(args: {
     // Dedupe by section identity.
     .filter(
       (c, i, arr) =>
-        arr.findIndex((d) => d.standard === c.standard && d.section === c.section) === i,
+        arr.findIndex(
+          (d) => d.standard === c.standard && d.section === c.section,
+        ) === i,
     );
 
   return { report: { sections }, citations };

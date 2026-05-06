@@ -83,7 +83,11 @@ export async function bootstrapSession(
       `[pilot-tester auth] CSRF fetch failed: ${csrfRes.status} ${csrfRes.statusText}`,
     );
   }
-  await captureSetCookies(csrfRes.headers as unknown as Headers, jar, opts.baseUrl);
+  await captureSetCookies(
+    csrfRes.headers as unknown as Headers,
+    jar,
+    opts.baseUrl,
+  );
   const { csrfToken } = (await csrfRes.json()) as { csrfToken: string };
 
   const body = new URLSearchParams({
@@ -108,7 +112,11 @@ export async function bootstrapSession(
       redirect: "manual",
     },
   );
-  await captureSetCookies(loginRes.headers as unknown as Headers, jar, opts.baseUrl);
+  await captureSetCookies(
+    loginRes.headers as unknown as Headers,
+    jar,
+    opts.baseUrl,
+  );
 
   // NextAuth returns 302 → /dashboard on success, 200 with error JSON
   // on failure. Sanity-check by hitting a known authenticated endpoint.

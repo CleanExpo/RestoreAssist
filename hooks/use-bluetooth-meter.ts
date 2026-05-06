@@ -44,8 +44,11 @@ export interface UseBluetoothMeterReturn {
   disconnect: () => Promise<void>;
 }
 
-export function useBluetoothMeter(deviceKey: DeviceKey): UseBluetoothMeterReturn {
-  const [availability, setAvailability] = useState<BluetoothAvailability | null>(null);
+export function useBluetoothMeter(
+  deviceKey: DeviceKey,
+): UseBluetoothMeterReturn {
+  const [availability, setAvailability] =
+    useState<BluetoothAvailability | null>(null);
   const [paired, setPaired] = useState<PairedDevice | null>(null);
   const [pairing, setPairing] = useState(false);
   const [reading, setReading] = useState(false);
@@ -105,12 +108,23 @@ export function useBluetoothMeter(deviceKey: DeviceKey): UseBluetoothMeterReturn
     pairedRef.current = null;
   }, []);
 
-  return { availability, paired, pairing, reading, lastReading, pair, read, disconnect };
+  return {
+    availability,
+    paired,
+    pairing,
+    reading,
+    lastReading,
+    pair,
+    read,
+    disconnect,
+  };
 }
 
 // ─── Type guards ──────────────────────────────────────────────────────────────
 
-export function isEnvironmentalReading(r: DeviceReading): r is EnvironmentalReading {
+export function isEnvironmentalReading(
+  r: DeviceReading,
+): r is EnvironmentalReading {
   return "relativeHumidityPercent" in r;
 }
 

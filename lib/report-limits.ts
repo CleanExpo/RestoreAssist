@@ -290,10 +290,7 @@ export async function incrementReportUsage(userId: string): Promise<void> {
     const resetResult = await prisma.user.updateMany({
       where: {
         id: targetUserId,
-        OR: [
-          { monthlyResetDate: null },
-          { monthlyResetDate: { lt: now } },
-        ],
+        OR: [{ monthlyResetDate: null }, { monthlyResetDate: { lt: now } }],
       },
       data: {
         monthlyReportsUsed: 1,
@@ -386,10 +383,7 @@ export async function deductCreditsAndTrackUsage(
     const resetResult = await prisma.user.updateMany({
       where: {
         id: adminId,
-        OR: [
-          { monthlyResetDate: null },
-          { monthlyResetDate: { lt: now } },
-        ],
+        OR: [{ monthlyResetDate: null }, { monthlyResetDate: { lt: now } }],
       },
       data: {
         monthlyReportsUsed: 1,

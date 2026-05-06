@@ -42,9 +42,7 @@ test.describe("@smoke pilot workflow — public surfaces", () => {
     // getByLabel(/password/i) under Playwright strict mode.
     await expect(page.locator("#email")).toBeVisible();
     await expect(page.locator("#password")).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: /^sign in/i }),
-    ).toBeVisible();
+    await expect(page.getByRole("button", { name: /^sign in/i })).toBeVisible();
   });
 
   test("/signup renders without crashing", async ({ page }) => {

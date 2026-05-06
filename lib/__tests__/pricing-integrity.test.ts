@@ -30,13 +30,20 @@ describe("RA-1585 pricing-config integrity", () => {
 
   it("every tier declares a positive reportLimit", () => {
     for (const [key, plan] of Object.entries(PRICING_CONFIG.pricing)) {
-      expect((plan as { reportLimit: number }).reportLimit, `tier ${key} reportLimit`).toBeGreaterThan(0);
+      expect(
+        (plan as { reportLimit: number }).reportLimit,
+        `tier ${key} reportLimit`,
+      ).toBeGreaterThan(0);
     }
   });
 
   it("every addon is priced in AUD and has a positive amount + report credit", () => {
     for (const [key, addon] of Object.entries(PRICING_CONFIG.addons)) {
-      const a = addon as { currency: string; amount: number; reportLimit: number };
+      const a = addon as {
+        currency: string;
+        amount: number;
+        reportLimit: number;
+      };
       expect(a.currency, `addon ${key} currency`).toBe("AUD");
       expect(a.amount, `addon ${key} amount`).toBeGreaterThan(0);
       expect(a.reportLimit, `addon ${key} reportLimit`).toBeGreaterThan(0);
@@ -47,7 +54,10 @@ describe("RA-1585 pricing-config integrity", () => {
     for (const [key, plan] of Object.entries(PRICING_CONFIG.pricing)) {
       const features = (plan as { features: unknown[] }).features;
       expect(Array.isArray(features), `tier ${key} features array`).toBe(true);
-      expect(features.length, `tier ${key} feature count`).toBeGreaterThanOrEqual(3);
+      expect(
+        features.length,
+        `tier ${key} feature count`,
+      ).toBeGreaterThanOrEqual(3);
     }
   });
 });

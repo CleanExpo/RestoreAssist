@@ -115,7 +115,10 @@ export async function generateAndStoreImage(
 
     // Build contents array. If reference image given, include it as an
     // inlineData part alongside the prompt.
-    type Part = { text?: string; inlineData?: { data: string; mimeType: string } };
+    type Part = {
+      text?: string;
+      inlineData?: { data: string; mimeType: string };
+    };
     const parts: Part[] = [{ text: input.prompt }];
     if (input.reference_image_url) {
       const ref = await fetchReferenceBytes(input.reference_image_url);

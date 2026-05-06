@@ -47,7 +47,11 @@ function itemTypes(smokeType: SmokeType, charLevel: 1 | 2 | 3 | 4) {
 describe("generateFireScope — wet smoke", () => {
   it("produces degreaser_clean, hepa_vacuum, ozone_treatment", () => {
     const types = itemTypes("wet", 1);
-    expect(types).toEqual(["degreaser_clean", "hepa_vacuum", "ozone_treatment"]);
+    expect(types).toEqual([
+      "degreaser_clean",
+      "hepa_vacuum",
+      "ozone_treatment",
+    ]);
   });
 
   it("includes no structural items at charLevel 1", () => {
@@ -170,7 +174,9 @@ describe("generateFireScope — quantity scaling", () => {
       affectedAreaM2: 50,
       pricingConfig: MOCK_PRICING,
     });
-    const assessment = items.find((i) => i.itemType === "structural_assessment");
+    const assessment = items.find(
+      (i) => i.itemType === "structural_assessment",
+    );
     expect(assessment).toBeDefined();
     expect(assessment?.quantity).toBeUndefined();
   });

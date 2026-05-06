@@ -77,13 +77,10 @@ export function calculateStormEquipment(
   const airMovers = Math.ceil(areaM2 / AIR_MOVER_AREA_PER_UNIT);
 
   // Dehumidifiers: 1 LGR per 80 m² per day.
-  const dehumidifiers = Math.ceil(
-    (areaM2 * days) / LGR_AREA_PER_UNIT_PER_DAY,
-  );
+  const dehumidifiers = Math.ceil((areaM2 * days) / LGR_AREA_PER_UNIT_PER_DAY);
 
   // Shrink-wrap perimeter estimate: 4 × sqrt(area) metres + 20% overage.
-  const shrinkWrapRollsM =
-    4 * Math.sqrt(areaM2) * SHRINK_WRAP_OVERAGE;
+  const shrinkWrapRollsM = 4 * Math.sqrt(areaM2) * SHRINK_WRAP_OVERAGE;
 
   return {
     truckMountExtractors,

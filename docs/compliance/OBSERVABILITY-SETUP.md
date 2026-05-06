@@ -6,14 +6,14 @@ RestoreAssist uses **Vercel's native observability stack** — no third-party er
 
 ## What we use
 
-| Layer | Vercel product | What it captures | Where to see it |
-|-------|----------------|-------------------|-----------------|
-| Runtime logs (Functions + Edge) | **Vercel Observability** (built-in) | `console.log/warn/error`, uncaught exceptions, function duration, memory | Project → Observability → Logs |
-| Request traces | **Vercel Observability — Spans** | HTTP spans, external fetches, DB call timing | Project → Observability → Spans |
-| Client errors + Web Vitals | **Vercel Analytics** (enabled via `@vercel/analytics`) | Unhandled browser errors, LCP / CLS / INP, route-level performance | Project → Analytics |
-| Incident investigation | **Vercel Agent** (public beta) | AI-powered root-cause analysis on anomalies | Project → Agent |
-| Bot detection | **Vercel BotID** | Auto-rejected abusive traffic | Project → Observability → BotID |
-| Log drains (optional) | **Vercel Log Drain** → Datadog / S3 / HTTP sink | Long-term log retention beyond 30-day default | Project → Settings → Log Drains |
+| Layer                           | Vercel product                                         | What it captures                                                         | Where to see it                 |
+| ------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------ | ------------------------------- |
+| Runtime logs (Functions + Edge) | **Vercel Observability** (built-in)                    | `console.log/warn/error`, uncaught exceptions, function duration, memory | Project → Observability → Logs  |
+| Request traces                  | **Vercel Observability — Spans**                       | HTTP spans, external fetches, DB call timing                             | Project → Observability → Spans |
+| Client errors + Web Vitals      | **Vercel Analytics** (enabled via `@vercel/analytics`) | Unhandled browser errors, LCP / CLS / INP, route-level performance       | Project → Analytics             |
+| Incident investigation          | **Vercel Agent** (public beta)                         | AI-powered root-cause analysis on anomalies                              | Project → Agent                 |
+| Bot detection                   | **Vercel BotID**                                       | Auto-rejected abusive traffic                                            | Project → Observability → BotID |
+| Log drains (optional)           | **Vercel Log Drain** → Datadog / S3 / HTTP sink        | Long-term log retention beyond 30-day default                            | Project → Settings → Log Drains |
 
 ## What this PR ships
 

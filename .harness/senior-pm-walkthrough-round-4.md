@@ -1,4 +1,5 @@
 # Senior PM Walkthrough — Round 4 — 2026-04-22
+
 ## Round rubric: does every surface pass WCAG 2.1 AA + RA-1109 surface-treatment rules?
 
 **Exit criterion:** Lighthouse accessibility ≥ 95; every async action has a progress surface; no silent success.
@@ -41,7 +42,7 @@
    - `app/dashboard/inspections/[id]/contents/page.tsx` — icon-only filter clear, no aria-label
    - `app/dashboard/inspections/schedule/page.tsx` (2 occurrences) — toolbar chevrons, no aria-label
    - `app/dashboard/inspections/[id]/voice/page.tsx` — mic toggle, no aria-label
-   **≈ 6 of 14 icon buttons fail SC 4.1.2.** Easy mass fix.
+     **≈ 6 of 14 icon buttons fail SC 4.1.2.** Easy mass fix.
 
 5. **Low-contrast text on pale backgrounds (rubric #4).** `text-slate-(300|400)` / `text-gray-(300|400)` appears **2,276 times across 223 files**. On a white card (`bg-white`/`bg-card`) slate-400 sits at ~3.9:1 — fails AA for body (needs 4.5:1). Worst concentrations: `components/NIRTechnicianInputForm.tsx` (68 uses), `components/PricingConfiguration.tsx` (54), `app/dashboard/clients/[id]/page.tsx` (47), `app/dashboard/invoices/credit-notes/page.tsx` (38), `app/dashboard/reports/page.tsx` (33), `components/EstimationEngine.tsx` (32), `components/IICRCReportBuilder.tsx` (30). Many of these are on `bg-slate-50` cards which makes the ratio even tighter. Bulk codemod `text-slate-400 → text-slate-600` is the canonical fix.
 
@@ -63,7 +64,12 @@
 - **Global reduced-motion block** in `app/globals.css`:
   ```css
   @media (prefers-reduced-motion: reduce) {
-    *,*::before,*::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
   }
   ```
 - **`components/ui/spinner.tsx`** — add `role="status"` + `<span className="sr-only">Loading…</span>`. One-line fix, dozens of surfaces benefit.
@@ -84,21 +90,21 @@
 
 ## Scorecard
 
-| Rubric | Status |
-|---|---|
-| 1. ARIA on icon buttons | ⚠ ~6/14 missing |
-| 2. Form label association | ❌ ~90-field gap |
-| 3. Keyboard traps (custom modals) | ⚠ 4 hand-rolled modals need audit |
-| 4. Colour contrast | ❌ 2,276 low-contrast class uses |
-| 5. Focus-visible | ✅ shadcn covers primitives |
-| 6. Image alt text | ✅ 0 unlabelled `<img>`/`<Image>` |
-| 7. SR status messaging | ❌ 21 live-region uses app-wide |
-| 8. Async progress surfaces (RA-1109) | ❌ ~30% coverage |
-| 9. Heading hierarchy | ⚠ skip-level on detail pages |
-| 10. Semantic elements | ✅ 0 `<div onClick>` |
-| 11. Dynamic content announcements | ❌ tied to #7 |
-| 12. Tab order | ✅ no `tabindex > 0` |
-| 13. Reduced motion | ❌ 10+ keyframes, 0 media query |
-| 14. Mobile target size | ⚠ default button 36px, below AAA 44px |
+| Rubric                               | Status                                |
+| ------------------------------------ | ------------------------------------- |
+| 1. ARIA on icon buttons              | ⚠ ~6/14 missing                       |
+| 2. Form label association            | ❌ ~90-field gap                      |
+| 3. Keyboard traps (custom modals)    | ⚠ 4 hand-rolled modals need audit     |
+| 4. Colour contrast                   | ❌ 2,276 low-contrast class uses      |
+| 5. Focus-visible                     | ✅ shadcn covers primitives           |
+| 6. Image alt text                    | ✅ 0 unlabelled `<img>`/`<Image>`     |
+| 7. SR status messaging               | ❌ 21 live-region uses app-wide       |
+| 8. Async progress surfaces (RA-1109) | ❌ ~30% coverage                      |
+| 9. Heading hierarchy                 | ⚠ skip-level on detail pages          |
+| 10. Semantic elements                | ✅ 0 `<div onClick>`                  |
+| 11. Dynamic content announcements    | ❌ tied to #7                         |
+| 12. Tab order                        | ✅ no `tabindex > 0`                  |
+| 13. Reduced motion                   | ❌ 10+ keyframes, 0 media query       |
+| 14. Mobile target size               | ⚠ default button 36px, below AAA 44px |
 
 **Lighthouse accessibility score (projected):** ~78-85 — misses ≥95 exit criterion. Blockers: form-label gap, low contrast, and motion. Those three alone likely account for 15+ Lighthouse points.

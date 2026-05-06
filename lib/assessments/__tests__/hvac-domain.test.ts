@@ -41,8 +41,12 @@ describe("hvacDomain — happy paths per condition", () => {
     if (!r.ok) throw new Error("unreachable");
     const descriptions = r.data.scope.items.map((i) => i.description);
     expect(descriptions.some((d) => d.includes("coil clean"))).toBe(true);
-    expect(descriptions.some((d) => d.toLowerCase().includes("duct"))).toBe(false);
-    expect(descriptions.some((d) => d.toLowerCase().includes("fog"))).toBe(false);
+    expect(descriptions.some((d) => d.toLowerCase().includes("duct"))).toBe(
+      false,
+    );
+    expect(descriptions.some((d) => d.toLowerCase().includes("fog"))).toBe(
+      false,
+    );
   });
 
   it("DUST_ACCUMULATION ducted: includes ductwork clean line", async () => {
@@ -117,8 +121,12 @@ describe("hvacDomain — system-type specifics", () => {
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error("unreachable");
     const descriptions = r.data.scope.items.map((i) => i.description);
-    expect(descriptions.some((d) => d.toLowerCase().includes("condensate"))).toBe(false);
-    expect(descriptions.some((d) => d.toLowerCase().includes("ductwork"))).toBe(false);
+    expect(
+      descriptions.some((d) => d.toLowerCase().includes("condensate")),
+    ).toBe(false);
+    expect(descriptions.some((d) => d.toLowerCase().includes("ductwork"))).toBe(
+      false,
+    );
     // Cleaning protocol body still surfaces evaporative-specific guidance
     const cleaning = r.data.report.sections.find(
       (s) => s.heading === "Cleaning protocol",
@@ -135,7 +143,9 @@ describe("hvacDomain — system-type specifics", () => {
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error("unreachable");
     expect(
-      r.data.scope.items.some((i) => i.description.toLowerCase().includes("ductwork")),
+      r.data.scope.items.some((i) =>
+        i.description.toLowerCase().includes("ductwork"),
+      ),
     ).toBe(false);
   });
 });
@@ -153,7 +163,9 @@ describe("hvacDomain — citations + ATP", () => {
     });
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error("unreachable");
-    expect(r.data.citations.some((c) => c.standard === "NADCA ACR 2021")).toBe(true);
+    expect(r.data.citations.some((c) => c.standard === "NADCA ACR 2021")).toBe(
+      true,
+    );
     expect(
       r.data.citations.some((c) => c.standard.startsWith("AS/NZS 3666")),
     ).toBe(true);
@@ -237,11 +249,14 @@ describe("hvacDomain — estimate self-consistency", () => {
       (s, l) => s + l.lineTotalExGst,
       0,
     );
-    expect(Math.abs(subtotal - r.data.estimate.totals.subtotalExGst)).toBeLessThan(0.05);
+    expect(
+      Math.abs(subtotal - r.data.estimate.totals.subtotalExGst),
+    ).toBeLessThan(0.05);
     expect(
       Math.abs(
         r.data.estimate.totals.totalIncGst -
-          (r.data.estimate.totals.subtotalExGst + r.data.estimate.totals.gstTotal),
+          (r.data.estimate.totals.subtotalExGst +
+            r.data.estimate.totals.gstTotal),
       ),
     ).toBeLessThan(0.05);
     expect(r.data.estimate.totals.gstRate).toBe(0.1);

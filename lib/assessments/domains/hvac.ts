@@ -173,8 +173,10 @@ function buildScope(opts: HvacOptions): BuiltScope {
     opts.systemType !== "evaporative" &&
     opts.condition !== "CLEAN"
   ) {
-    const ductLm = opts.ductLinearMetres ?? Math.max(20, opts.areaServedM2 ?? 0);
-    const ductDesc = "Ductwork clean (mechanical agitation + HEPA negative-air)";
+    const ductLm =
+      opts.ductLinearMetres ?? Math.max(20, opts.areaServedM2 ?? 0);
+    const ductDesc =
+      "Ductwork clean (mechanical agitation + HEPA negative-air)";
     items.push({
       description: ductDesc,
       category: "MATERIALS",
@@ -203,7 +205,8 @@ function buildScope(opts: HvacOptions): BuiltScope {
   }
 
   // Filter replacement — every system
-  const filterDesc = "Filter replacement (HEPA / MERV-13 as system rating allows)";
+  const filterDesc =
+    "Filter replacement (HEPA / MERV-13 as system rating allows)";
   items.push({
     description: filterDesc,
     category: "MATERIALS",
@@ -362,9 +365,19 @@ function buildReport(args: {
               `disposed pre-cleaning to prevent residue re-distribution.`,
     citations:
       args.condition === "MICROBIAL_GROWTH"
-        ? [{ standard: "IICRC S520:2015", section: S520_HVAC.replace(/^IICRC S520:2015\s*/, "") }]
+        ? [
+            {
+              standard: "IICRC S520:2015",
+              section: S520_HVAC.replace(/^IICRC S520:2015\s*/, ""),
+            },
+          ]
         : args.condition === "FIRE_SMOKE_RESIDUE"
-          ? [{ standard: "IICRC S700:2015", section: S700_HVAC.replace(/^IICRC S700:2015\s*/, "") }]
+          ? [
+              {
+                standard: "IICRC S700:2015",
+                section: S700_HVAC.replace(/^IICRC S700:2015\s*/, ""),
+              },
+            ]
           : undefined,
   });
 
@@ -450,7 +463,11 @@ export const hvacDomain: DomainPlugin = {
         select: { id: true, propertyAddress: true },
       });
       if (!inspection) {
-        return { ok: false, code: "NOT_FOUND", message: "Inspection not found" };
+        return {
+          ok: false,
+          code: "NOT_FOUND",
+          message: "Inspection not found",
+        };
       }
 
       const { items: scope, rateByDescription } = buildScope(opts);

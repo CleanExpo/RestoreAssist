@@ -57,7 +57,10 @@ export function isPublicTokenValid(
     publicTokenExpiresAt?: Date | null;
   } | null,
   supplied: string | null | undefined,
-): { valid: boolean; reason: "ok" | "missing" | "mismatch" | "expired" | "legacy_no_expiry" } {
+): {
+  valid: boolean;
+  reason: "ok" | "missing" | "mismatch" | "expired" | "legacy_no_expiry";
+} {
   if (!invoice || !invoice.publicToken || !supplied) {
     return { valid: false, reason: "missing" };
   }

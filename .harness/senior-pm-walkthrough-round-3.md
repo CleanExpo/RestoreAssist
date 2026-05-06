@@ -1,4 +1,5 @@
 # Senior PM Walkthrough — Round 3 — 2026-04-22
+
 ## Round rubric: is every touchpoint consistent (emails / API / UI)?
 
 **Exit criterion:** shared design tokens, unified validation shapes, single AU English voice.
@@ -13,7 +14,7 @@
 - **`lib/email-templates.ts`** — the five lifecycle templates (Inspection Submitted, Scope Ready, Invoice Generated, Drying Goal Achieved, Report Ready) share a single `layout()` / `badge()` / `infoTable()` / `ctaButton()` primitive set. Brand tokens (#0f172a / #3b82f6 / #f8fafc) consistent. Footer disclaimer, sign-off, subject-line pattern `{Event} — {Number}` all uniform. Invoice email correctly uses `Intl.NumberFormat("en-AU", AUD)`. **This file is the gold standard** — the rest of the app should look like this.
 - **AU voice in templates** — "colour" used in `badge()`, no US spellings surfaced in `lib/email-templates.ts`.
 - **Colocated `loading.tsx`** — 88 files across dashboard use `Skeleton`/`animate-pulse` reasonably consistently (shadcn `Skeleton`).
-- **No native `confirm()` in `/app/portal/**`** — 0 occurrences. Portal is clean.
+- **No native `confirm()` in `/app/portal/**`\*\* — 0 occurrences. Portal is clean.
 - **shadcn `AlertDialog` in use** — 119 references across 6 files (invoices/templates, restoration-documents, contractors/certifications, forms/interview, team, reports). Pattern exists; just needs to replace the 6 remaining `confirm()` calls.
 
 ---
@@ -77,17 +78,17 @@
 
 ## Scorecard
 
-| Rubric | Status |
-|---|---|
-| 1. API envelope consistency | ❌ 4/~160 adopted |
-| 2. Email voice consistency | ✅ Gold standard in `lib/email-templates.ts` |
-| 3. Toast surface | ❌ 2 libraries coexist |
-| 4. Button copy | ❌ 5 drift clusters |
-| 5. Empty states | ❌ No shared component |
-| 6. Formatters | ❌ No `lib/formatters.ts`, 226 inline uses |
-| 7. Status badges | ❌ No shared component, verbs drift |
-| 8. Breadcrumbs | ❌ Missing on detail pages |
-| 9. Loading skeletons | ⚠ 88 adopt, long tail mixes |
-| 10. Confirmation dialogs | ⚠ 6 native `confirm()` remain |
-| 11. AU English | ⚠ 58 drift occurrences |
-| 12. ATO tax terminology | ❌ Invoice PDF says "INVOICE", not "Tax Invoice" |
+| Rubric                      | Status                                           |
+| --------------------------- | ------------------------------------------------ |
+| 1. API envelope consistency | ❌ 4/~160 adopted                                |
+| 2. Email voice consistency  | ✅ Gold standard in `lib/email-templates.ts`     |
+| 3. Toast surface            | ❌ 2 libraries coexist                           |
+| 4. Button copy              | ❌ 5 drift clusters                              |
+| 5. Empty states             | ❌ No shared component                           |
+| 6. Formatters               | ❌ No `lib/formatters.ts`, 226 inline uses       |
+| 7. Status badges            | ❌ No shared component, verbs drift              |
+| 8. Breadcrumbs              | ❌ Missing on detail pages                       |
+| 9. Loading skeletons        | ⚠ 88 adopt, long tail mixes                      |
+| 10. Confirmation dialogs    | ⚠ 6 native `confirm()` remain                    |
+| 11. AU English              | ⚠ 58 drift occurrences                           |
+| 12. ATO tax terminology     | ❌ Invoice PDF says "INVOICE", not "Tax Invoice" |

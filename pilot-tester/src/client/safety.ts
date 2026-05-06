@@ -52,7 +52,10 @@ function looksLikeSandbox(value: string): boolean {
   return SANDBOX_HOSTNAME_HINTS.some((re) => re.test(value));
 }
 
-export function assertSandbox({ baseUrl, databaseUrl }: SandboxAssertion): void {
+export function assertSandbox({
+  baseUrl,
+  databaseUrl,
+}: SandboxAssertion): void {
   if (!baseUrl) {
     throw new ProdAccessRefused("baseUrl", "<empty>", "is required");
   }

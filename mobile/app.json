@@ -21,15 +21,9 @@
         "backgroundColor": "#050505"
       },
       "package": "com.restoreassist.app",
-      "permissions": [
-        "android.permission.RECORD_AUDIO"
-      ]
+      "permissions": ["android.permission.RECORD_AUDIO"]
     },
-    "plugins": [
-      "expo-router",
-      "expo-sqlite",
-      "expo-image-picker"
-    ],
+    "plugins": ["expo-router", "expo-sqlite", "expo-image-picker"],
     "extra": {
       "router": {
         "origin": false

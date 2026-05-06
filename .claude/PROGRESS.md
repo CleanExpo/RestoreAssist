@@ -7,33 +7,38 @@
 
 **Merge commit to main:** `80f05ae2` via PR #242 (MERGED 2026-04-17 16:08 UTC)
 
-| Issue  | PR   | Summary | Status |
-| ------ | ---- | ------- | ------ |
-| RA-868 | #234 | Centralised Xero token-manager (getValidXeroToken + refresh) | Done |
-| RA-869 | #236 | Per-category account code resolver + client-extensible mappings + LRU cache | Done |
-| RA-874 | #237 | Dashboard UI + API for account code mapping overrides | Done |
-| RA-875 | #239 | ATO-correct per-category GST treatment (fixes DISCOUNT bug) | Done |
-| RA-876 | #240 | Pre-invoice completeness check + DRAFT→INTERNAL_REVIEW gate | Done |
-| RA-871 | #241 | Extract verifyXeroWebhookSignature + 16 webhook-processor tests | Done |
-| —      | #243 | CodeRabbit-flagged fixes (CLAUDE.md rule 4 + TOCTOU race) | Done |
+| Issue  | PR   | Summary                                                                     | Status |
+| ------ | ---- | --------------------------------------------------------------------------- | ------ |
+| RA-868 | #234 | Centralised Xero token-manager (getValidXeroToken + refresh)                | Done   |
+| RA-869 | #236 | Per-category account code resolver + client-extensible mappings + LRU cache | Done   |
+| RA-874 | #237 | Dashboard UI + API for account code mapping overrides                       | Done   |
+| RA-875 | #239 | ATO-correct per-category GST treatment (fixes DISCOUNT bug)                 | Done   |
+| RA-876 | #240 | Pre-invoice completeness check + DRAFT→INTERNAL_REVIEW gate                 | Done   |
+| RA-871 | #241 | Extract verifyXeroWebhookSignature + 16 webhook-processor tests             | Done   |
+| —      | #243 | CodeRabbit-flagged fixes (CLAUDE.md rule 4 + TOCTOU race)                   | Done   |
 
 ### Migration applied
+
 - `20260417152430_add_estimate_metadata` — adds `Estimate.metadata TEXT` column (nullable JSON blob for dismissedWarnings + future per-estimate state). Purely additive.
 
 ### Test coverage added
+
 - 121 new/updated unit tests across token-manager, account-code-resolver, webhook-processor, xero-account-mapping API, gst-treatment-rules, billing-completeness-check
 
 ### Earlier in session (PR #230/#231)
+
 - Track 3 migration (BrandAmbassadorPost + InvoiceSyncJob) applied to prod
 - Billing schema drift fix (11 CompanyPricingConfig columns)
 - Next 16 cleanup + pre-push smoke test script
 
 ### Infrastructure follow-up (chip queued)
+
 - Import Pi-Dev-Ops design-intelligence + design-audit + design-system skills into `.claude/skills/`
 - Bootstrap RestoreAssist `DESIGN.md` (9-section format)
 - Re-run audit on RA-874 xero-mapping page for polish pass
 
 ### CodeRabbit follow-ups (deferred, non-blocking)
+
 - Minor: add transition graph validation to `/api/estimates/[id]/status` (LOCKED→DRAFT currently permitted)
 - Minor: `CONTENTS_NO_S760` handle `s760ChecklistCompleted = null` (currently silent)
 - Minor: `isKnownCategory` use `Object.hasOwn` instead of `in` (prototype safety)
@@ -44,22 +49,25 @@
 
 ## Current Session (2026-04-14) — Track 3
 
-| Issue  | Fix | Status |
-| ------ | --- | ------ |
-| RA-910 | `sync-invoices/route.ts` — replaced inline string comparison with `verifyCronAuth` (timing-safe) | Done |
-| RA-922 | `authority-forms/templates/route.ts` — added `getServerSession` auth check | Done |
-| RA-919 | `reports/[id]/pdf/route.ts` — added `applyRateLimit` (10 req / 5 min) | Done |
-| RA-912 | `webhooks/github/route.ts` — create AppRelease immediately, fire-and-forget AI notes + notifications | Done |
-| RA-911 | `lib/cron/brand-ambassador.ts` — created file with idempotency guard via `BrandAmbassadorPost` Prisma model | Done |
-| RA-902 | `lib/integrations/sync-queue.ts` — replaced in-memory array with `InvoiceSyncJob` Prisma-backed queue | Done |
-| RA-914 | `lib/hooks/useFetch.ts` — created; migrated 4 priority dashboard pages | Done |
+| Issue  | Fix                                                                                                         | Status |
+| ------ | ----------------------------------------------------------------------------------------------------------- | ------ |
+| RA-910 | `sync-invoices/route.ts` — replaced inline string comparison with `verifyCronAuth` (timing-safe)            | Done   |
+| RA-922 | `authority-forms/templates/route.ts` — added `getServerSession` auth check                                  | Done   |
+| RA-919 | `reports/[id]/pdf/route.ts` — added `applyRateLimit` (10 req / 5 min)                                       | Done   |
+| RA-912 | `webhooks/github/route.ts` — create AppRelease immediately, fire-and-forget AI notes + notifications        | Done   |
+| RA-911 | `lib/cron/brand-ambassador.ts` — created file with idempotency guard via `BrandAmbassadorPost` Prisma model | Done   |
+| RA-902 | `lib/integrations/sync-queue.ts` — replaced in-memory array with `InvoiceSyncJob` Prisma-backed queue       | Done   |
+| RA-914 | `lib/hooks/useFetch.ts` — created; migrated 4 priority dashboard pages                                      | Done   |
 
 ### Schema changes (migration required)
+
 Two new models added to `prisma/schema.prisma`:
+
 - `BrandAmbassadorPost` — idempotency dedup for weekly Telegram delivery
 - `InvoiceSyncJob` — durable invoice sync queue (replaces in-memory array)
 
 **After merging, run:**
+
 ```
 npx prisma migrate dev --name track3_brand_ambassador_invoice_sync_queue
 pnpm prisma:generate
@@ -67,6 +75,7 @@ pnpm type-check
 ```
 
 ### Git state
+
 - **Branch:** `sandbox`
 - **PR:** #180 (sandbox → main, open)
 - All Track 3 changes committed in this session
@@ -680,6 +689,7 @@ Audited production: `restoreassist-okzjr4l3g-unite-group.vercel.app` (latest Pro
 ## 2026-04-13 17:44 — Session End
 
 ## 2026-04-13 17:46 — Session End
+
 ## 2026-04-16 23:18 — Session End
 
 ## 2026-04-17 14:41 — Session End
@@ -697,3 +707,49 @@ Audited production: `restoreassist-okzjr4l3g-unite-group.vercel.app` (latest Pro
 ## 2026-04-25 23:24 — Session End
 
 ## 2026-05-02 23:27 — Session End
+
+## 2026-05-04 19:54 — Session End
+
+## 2026-05-04 20:04 — Session End
+
+## 2026-05-04 20:18 — Session End
+
+## 2026-05-04 20:22 — Session End
+
+## 2026-05-04 20:26 — Session End
+
+## 2026-05-04 20:36 — Session End
+
+## 2026-05-04 20:43 — Session End
+
+## 2026-05-04 21:31 — Session End
+
+## 2026-05-04 21:31 — Session End
+
+## 2026-05-04 21:32 — Session End
+
+## 2026-05-04 21:32 — Session End
+
+## 2026-05-04 21:34 — Session End
+
+## 2026-05-04 21:37 — Session End
+
+## 2026-05-04 21:42 — Session End
+
+## 2026-05-04 21:46 — Session End
+
+## 2026-05-04 21:54 — Session End
+
+## 2026-05-04 21:55 — Session End
+
+## 2026-05-04 22:08 — Session End
+
+## 2026-05-04 22:16 — Session End
+
+## 2026-05-06 18:40 — Session End
+
+## 2026-05-06 19:09 — Session End
+
+## 2026-05-06 19:09 — Session End
+
+## 2026-05-06 19:09 — Session End

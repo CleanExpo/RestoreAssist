@@ -25,10 +25,7 @@ import {
   type SyntheticCompany,
 } from "../companies/fixtures.js";
 import { JOBS, type JobTemplate } from "../jobs/index.js";
-import {
-  pickImagesForTopic,
-  readCachedImage,
-} from "../images/source.js";
+import { pickImagesForTopic, readCachedImage } from "../images/source.js";
 import { gradeAssessment, type GradedAssessment } from "./grader.js";
 
 export interface RunOptions {
@@ -79,9 +76,7 @@ export async function runHarness(opts: RunOptions): Promise<RunReport> {
   const companies = opts.companyKey
     ? SYNTHETIC_COMPANIES.filter((c) => c.key === opts.companyKey)
     : SYNTHETIC_COMPANIES;
-  const jobs = opts.jobKey
-    ? JOBS.filter((j) => j.key === opts.jobKey)
-    : JOBS;
+  const jobs = opts.jobKey ? JOBS.filter((j) => j.key === opts.jobKey) : JOBS;
 
   if (companies.length === 0) {
     throw new Error(

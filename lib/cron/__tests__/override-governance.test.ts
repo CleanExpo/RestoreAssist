@@ -15,13 +15,17 @@ import {
   __M15_INTERNAL,
 } from "../override-governance";
 
-const findMany = (prisma as unknown as {
-  progressTransition: { findMany: ReturnType<typeof vi.fn> };
-}).progressTransition.findMany;
+const findMany = (
+  prisma as unknown as {
+    progressTransition: { findMany: ReturnType<typeof vi.fn> };
+  }
+).progressTransition.findMany;
 
-const upsert = (prisma as unknown as {
-  overrideGovernanceReport: { upsert: ReturnType<typeof vi.fn> };
-}).overrideGovernanceReport.upsert;
+const upsert = (
+  prisma as unknown as {
+    overrideGovernanceReport: { upsert: ReturnType<typeof vi.fn> };
+  }
+).overrideGovernanceReport.upsert;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -63,7 +67,10 @@ describe("runOverrideGovernance", () => {
   it("aggregates SOFT-gap counts across transitions", async () => {
     findMany.mockResolvedValueOnce([
       { id: "t1", softGaps: ["evidence.photo.coverage"] },
-      { id: "t2", softGaps: ["evidence.photo.coverage", "evidence.note.populated"] },
+      {
+        id: "t2",
+        softGaps: ["evidence.photo.coverage", "evidence.note.populated"],
+      },
       { id: "t3", softGaps: null },
     ]);
 
@@ -125,11 +132,8 @@ describe("runOverrideGovernance", () => {
     const before = __M15_INTERNAL.priorMonthStart();
     const now = new Date();
     const expectedYear =
-      now.getUTCMonth() === 0
-        ? now.getUTCFullYear() - 1
-        : now.getUTCFullYear();
-    const expectedMonth =
-      now.getUTCMonth() === 0 ? 11 : now.getUTCMonth() - 1;
+      now.getUTCMonth() === 0 ? now.getUTCFullYear() - 1 : now.getUTCFullYear();
+    const expectedMonth = now.getUTCMonth() === 0 ? 11 : now.getUTCMonth() - 1;
     expect(before.getUTCFullYear()).toBe(expectedYear);
     expect(before.getUTCMonth()).toBe(expectedMonth);
     expect(before.getUTCDate()).toBe(1);

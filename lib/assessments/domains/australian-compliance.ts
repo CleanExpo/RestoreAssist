@@ -131,7 +131,10 @@ function resolveState(
 
 // ─── Scope (documentation deliverables) ─────────────────────────────────────
 
-function buildScope(opts: ComplianceOptions, state: AustralianState): {
+function buildScope(
+  opts: ComplianceOptions,
+  state: AustralianState,
+): {
   items: ScopeItem[];
   rateByDescription: Map<string, number>;
 } {
@@ -305,9 +308,7 @@ function buildReport(args: {
       `Subsequent status updates at agreed intervals. Notification log ` +
       `is retained 7 years (matches NDB record-retention floor). ` +
       `Departures from the SLA must be recorded with rationale.`,
-    citations: [
-      cite("General Insurance Code of Practice 2020", "§4.2"),
-    ],
+    citations: [cite("General Insurance Code of Practice 2020", "§4.2")],
   });
 
   if (args.hasLabourHire) {
@@ -354,9 +355,7 @@ function buildReport(args: {
         `${args.state} EPA regulations. Manifest issued prior to ` +
         `transport off-site; clinical-waste-licensed transporter only. ` +
         `Manifest retained 7 years.`,
-      citations: [
-        cite(`${args.state} EPA`, "Controlled / clinical waste"),
-      ],
+      citations: [cite(`${args.state} EPA`, "Controlled / clinical waste")],
     });
   }
 
@@ -372,9 +371,7 @@ function buildReport(args: {
           `${args.iicrcCertifications.join(", ")}. Verify currency + ` +
           `member-firm status against the IICRC certifications portal ` +
           `before invoicing; retain certificate scans on file.`,
-    citations: [
-      cite("IICRC", "Member-firm operating standard"),
-    ],
+    citations: [cite("IICRC", "Member-firm operating standard")],
   });
 
   sections.push({
@@ -419,7 +416,11 @@ export const australianComplianceDomain: DomainPlugin = {
         },
       });
       if (!inspection) {
-        return { ok: false, code: "NOT_FOUND", message: "Inspection not found" };
+        return {
+          ok: false,
+          code: "NOT_FOUND",
+          message: "Inspection not found",
+        };
       }
 
       const state = resolveState(opts.state, inspection.propertyPostcode);

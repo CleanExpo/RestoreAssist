@@ -3,7 +3,7 @@
 Status: scaffold (RA-1574). Shipped with no breaking classname renames.
 Long-tail codemod of 2,276 `text-slate-400` / `text-gray-400`
 occurrences is tracked per-surface; this doc is the source of truth
-for which token to choose *going forward*.
+for which token to choose _going forward_.
 
 ## Body / supporting text
 
@@ -30,14 +30,15 @@ visually lighter, reach for font-size or opacity rather than
 ## Disabled / placeholder text
 
 WCAG explicitly exempts disabled controls from 1.4.3. `text-slate-400`
-is acceptable on `<input>`/`<textarea>` *placeholders* and disabled
+is acceptable on `<input>`/`<textarea>` _placeholders_ and disabled
 buttons. Anywhere else, it is a finding.
 
 ## Inline error copy
 
 Use `text-rose-600` on light and `text-rose-400` on dark (verified
->4.5:1). Pair with `role="alert"` on the element when the error
-appears in response to a user action.
+
+> 4.5:1). Pair with `role="alert"` on the element when the error
+> appears in response to a user action.
 
 ## Success state copy
 

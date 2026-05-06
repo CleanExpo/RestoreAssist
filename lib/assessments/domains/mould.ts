@@ -234,12 +234,7 @@ function buildReport(args: {
       `(S520 §7.2). Estimated electrical load: ${args.totalEstimatedAmps.toFixed(1)} A ` +
       `across ${args.recommendedCircuits} circuit(s) — verify against the ` +
       `property's circuit availability before deployment.`,
-    citations: [
-      cite("§12.3"),
-      cite("§12.4"),
-      cite("§8.4.3"),
-      cite("§7.2"),
-    ],
+    citations: [cite("§12.3"), cite("§12.4"), cite("§8.4.3"), cite("§7.2")],
   });
 
   sections.push({
@@ -308,7 +303,11 @@ export const mouldDomain: DomainPlugin = {
         },
       });
       if (!inspection) {
-        return { ok: false, code: "NOT_FOUND", message: "Inspection not found" };
+        return {
+          ok: false,
+          code: "NOT_FOUND",
+          message: "Inspection not found",
+        };
       }
 
       const affectedAreaM2 = inspection.affectedAreas.reduce(
@@ -331,7 +330,8 @@ export const mouldDomain: DomainPlugin = {
         ambientRelativeHumidity: opts.ambientRelativeHumidity,
       });
 
-      const days = opts.days ?? estimatedDaysFromCondition(opts.condition, affectedAreaM2);
+      const days =
+        opts.days ?? estimatedDaysFromCondition(opts.condition, affectedAreaM2);
 
       const scope: ScopeItem[] = calc.equipmentList.map((it) =>
         equipmentToScopeItem(it, days),

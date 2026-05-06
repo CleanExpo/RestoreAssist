@@ -12,44 +12,44 @@
 
 ## §A — Play Console → All apps → Create app
 
-| Field | Value |
-|---|---|
-| App name | `RestoreAssist` |
-| Default language | `English (Australia) – en-AU` |
-| App or game | App |
-| Free or paid | Free |
-| Declarations | acknowledge Developer Program Policies + US export laws |
+| Field            | Value                                                   |
+| ---------------- | ------------------------------------------------------- |
+| App name         | `RestoreAssist`                                         |
+| Default language | `English (Australia) – en-AU`                           |
+| App or game      | App                                                     |
+| Free or paid     | Free                                                    |
+| Declarations     | acknowledge Developer Program Policies + US export laws |
 
 ---
 
 ## §B — Setup → App content (Policy section, required for review)
 
-| # | Item | Value |
-|---|---|---|
-| 1 | **Privacy policy** | URL: `https://restoreassist.app/privacy` |
-| 2 | **App access** | "All functionality is available without special access" → **NO** — provide reviewer creds (see §E below) |
-| 3 | **Ads** | "No, my app does not contain ads" |
-| 4 | **Content rating** | Run questionnaire — see §F below |
-| 5 | **Target audience** | 18+ (professional tool; not for children) |
-| 6 | **News app** | No |
-| 7 | **COVID-19 contact tracing** | No |
-| 8 | **Data safety** | Fill from §D below (paste-ready) |
-| 9 | **Government apps** | No |
-| 10 | **Financial features** | No (Stripe payment is processing only, not a financial product) |
-| 11 | **Health** | No |
+| #   | Item                         | Value                                                                                                    |
+| --- | ---------------------------- | -------------------------------------------------------------------------------------------------------- |
+| 1   | **Privacy policy**           | URL: `https://restoreassist.app/privacy`                                                                 |
+| 2   | **App access**               | "All functionality is available without special access" → **NO** — provide reviewer creds (see §E below) |
+| 3   | **Ads**                      | "No, my app does not contain ads"                                                                        |
+| 4   | **Content rating**           | Run questionnaire — see §F below                                                                         |
+| 5   | **Target audience**          | 18+ (professional tool; not for children)                                                                |
+| 6   | **News app**                 | No                                                                                                       |
+| 7   | **COVID-19 contact tracing** | No                                                                                                       |
+| 8   | **Data safety**              | Fill from §D below (paste-ready)                                                                         |
+| 9   | **Government apps**          | No                                                                                                       |
+| 10  | **Financial features**       | No (Stripe payment is processing only, not a financial product)                                          |
+| 11  | **Health**                   | No                                                                                                       |
 
 ---
 
 ## §C — Setup → Store settings
 
-| Field | Value |
-|---|---|
-| App category — Primary | `Business` |
-| App category — Secondary | `Productivity` |
-| Tags | `compliance`, `field-service`, `IICRC`, `restoration` |
-| Email address | (operator email — must be valid + monitored for review-team replies) |
-| Phone (optional) | (your AU mobile, optional) |
-| Website | `https://restoreassist.app` |
+| Field                    | Value                                                                |
+| ------------------------ | -------------------------------------------------------------------- |
+| App category — Primary   | `Business`                                                           |
+| App category — Secondary | `Productivity`                                                       |
+| Tags                     | `compliance`, `field-service`, `IICRC`, `restoration`                |
+| Email address            | (operator email — must be valid + monitored for review-team replies) |
+| Phone (optional)         | (your AU mobile, optional)                                           |
+| Website                  | `https://restoreassist.app`                                          |
 
 ---
 
@@ -59,33 +59,33 @@ Source: `distribution/PRIVACY_DISCLOSURES.md` § "Google Play Console — Data S
 
 ### D.1 Data collection and security
 
-| Question | Answer |
-|---|---|
-| Does your app collect or share any of the required user data types? | **Yes** |
-| Is all of the user data collected by your app encrypted in transit? | **Yes** (HTTPS only — no cleartext per `capacitor.config.ts: cleartext: false`) |
+| Question                                                              | Answer                                                                                         |
+| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Does your app collect or share any of the required user data types?   | **Yes**                                                                                        |
+| Is all of the user data collected by your app encrypted in transit?   | **Yes** (HTTPS only — no cleartext per `capacitor.config.ts: cleartext: false`)                |
 | Do you provide a way for users to request that their data is deleted? | **Yes** — `/api/user/account` DELETE endpoint per RA-1350 (Privacy Act 1988 APP 11 compliance) |
 
 ### D.2 Data types collected (mark each)
 
-| Category | Data Type | Collected | Shared | Optional/Required | Purpose |
-|---|---|---|---|---|---|
-| Personal info | Name | ✅ | ❌ | Required | Account management, App functionality |
-| Personal info | Email address | ✅ | ❌ | Required | Account management, App functionality |
-| Personal info | Phone number | ✅ | ❌ | Optional | App functionality (SMS notifications) |
-| Personal info | Address | ✅ | ❌ | Required | App functionality (property addresses) |
-| Personal info | Other info (free-text notes) | ✅ | ❌ | Optional | App functionality |
-| Financial info | Payment info | ✅ (via Stripe) | ❌ | Required for paid tier | Account management — disclosed as third-party (Stripe) |
-| Location | Approximate location | ✅ | ❌ | Optional | App functionality (postcode → state derivation; photo EXIF) |
-| Location | Precise location | ❌ | — | — | We do NOT request `whenInUse` GPS |
-| Photos and videos | Photos | ✅ | ❌ | Optional | App functionality (inspection documentation) |
-| Photos and videos | Videos | ❌ | — | — | (not in v1) |
-| Audio files | Voice or sound recordings | ✅ (only if voice-observation feature used) | ❌ | Optional | App functionality |
-| App activity | App interactions | ✅ | ❌ | Required | Analytics (Vercel Analytics — anonymised) |
-| App activity | In-app search history | ❌ | — | — | (not collected) |
-| App activity | Other actions | ❌ | — | — | (not collected) |
-| App info and performance | Crash logs | ✅ | ❌ | Required | App functionality (Vercel Runtime Logs) |
-| App info and performance | Diagnostics | ✅ | ❌ | Required | App functionality |
-| Device or other IDs | Device or other IDs | ❌ | — | — | (we do not read IDFA/IDFV/Advertising ID) |
+| Category                 | Data Type                    | Collected                                   | Shared | Optional/Required      | Purpose                                                     |
+| ------------------------ | ---------------------------- | ------------------------------------------- | ------ | ---------------------- | ----------------------------------------------------------- |
+| Personal info            | Name                         | ✅                                          | ❌     | Required               | Account management, App functionality                       |
+| Personal info            | Email address                | ✅                                          | ❌     | Required               | Account management, App functionality                       |
+| Personal info            | Phone number                 | ✅                                          | ❌     | Optional               | App functionality (SMS notifications)                       |
+| Personal info            | Address                      | ✅                                          | ❌     | Required               | App functionality (property addresses)                      |
+| Personal info            | Other info (free-text notes) | ✅                                          | ❌     | Optional               | App functionality                                           |
+| Financial info           | Payment info                 | ✅ (via Stripe)                             | ❌     | Required for paid tier | Account management — disclosed as third-party (Stripe)      |
+| Location                 | Approximate location         | ✅                                          | ❌     | Optional               | App functionality (postcode → state derivation; photo EXIF) |
+| Location                 | Precise location             | ❌                                          | —      | —                      | We do NOT request `whenInUse` GPS                           |
+| Photos and videos        | Photos                       | ✅                                          | ❌     | Optional               | App functionality (inspection documentation)                |
+| Photos and videos        | Videos                       | ❌                                          | —      | —                      | (not in v1)                                                 |
+| Audio files              | Voice or sound recordings    | ✅ (only if voice-observation feature used) | ❌     | Optional               | App functionality                                           |
+| App activity             | App interactions             | ✅                                          | ❌     | Required               | Analytics (Vercel Analytics — anonymised)                   |
+| App activity             | In-app search history        | ❌                                          | —      | —                      | (not collected)                                             |
+| App activity             | Other actions                | ❌                                          | —      | —                      | (not collected)                                             |
+| App info and performance | Crash logs                   | ✅                                          | ❌     | Required               | App functionality (Vercel Runtime Logs)                     |
+| App info and performance | Diagnostics                  | ✅                                          | ❌     | Required               | App functionality                                           |
+| Device or other IDs      | Device or other IDs          | ❌                                          | —      | —                      | (we do not read IDFA/IDFV/Advertising ID)                   |
 
 ### D.3 Security practices
 
@@ -100,12 +100,12 @@ Source: `distribution/PRIVACY_DISCLOSURES.md` § "Google Play Console — Data S
 
 Per Play Console § Setup → App content → App access:
 
-| Field | Value |
-|---|---|
-| App access | `All or some functionality is restricted` |
-| Username | `reviewer@restoreassist.app` |
-| Password | (provisioned per §K below — fresh, scoped to a clean reviewer workspace) |
-| Notes | "Sign in with email + password. The dashboard shows recent inspections. Tap any inspection to view its room-by-room moisture readings, photos, and scope of works. The 'New Inspection' flow demonstrates offline-first capture; toggle airplane mode to see queueing." |
+| Field      | Value                                                                                                                                                                                                                                                                   |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| App access | `All or some functionality is restricted`                                                                                                                                                                                                                               |
+| Username   | `reviewer@restoreassist.app`                                                                                                                                                                                                                                            |
+| Password   | (provisioned per §K below — fresh, scoped to a clean reviewer workspace)                                                                                                                                                                                                |
+| Notes      | "Sign in with email + password. The dashboard shows recent inspections. Tap any inspection to view its room-by-room moisture readings, photos, and scope of works. The 'New Inspection' flow demonstrates offline-first capture; toggle airplane mode to see queueing." |
 
 ⚠️ Provision the reviewer workspace fresh — DO NOT use real pilot creds.
 
@@ -115,31 +115,31 @@ Per Play Console § Setup → App content → App access:
 
 Per Play Console → App content → Content rating. Answer the IARC questionnaire as **business/productivity tool**:
 
-| Section | Answer |
-|---|---|
-| Violence | None |
-| Sexual content | None |
-| Strong language | None |
-| Controlled substances | None |
-| Gambling | None |
+| Section                           | Answer                                                                                                                           |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Violence                          | None                                                                                                                             |
+| Sexual content                    | None                                                                                                                             |
+| Strong language                   | None                                                                                                                             |
+| Controlled substances             | None                                                                                                                             |
+| Gambling                          | None                                                                                                                             |
 | User-generated content moderation | "User content (photos, notes) is internal to the user's workspace; not publicly visible. Workspace owners moderate their teams." |
-| User communication features | None — no in-app chat or messaging visible to other users |
-| Location sharing | "Approximate location only, used for property addresses on inspections. Not shared with other users." |
-| Personal info sharing | "Within workspace only — between team members the workspace owner has invited." |
-| Digital purchases | None (subscription via web, not in-app) |
-| Result | Expected: **Everyone** / IARC: All ages |
+| User communication features       | None — no in-app chat or messaging visible to other users                                                                        |
+| Location sharing                  | "Approximate location only, used for property addresses on inspections. Not shared with other users."                            |
+| Personal info sharing             | "Within workspace only — between team members the workspace owner has invited."                                                  |
+| Digital purchases                 | None (subscription via web, not in-app)                                                                                          |
+| Result                            | Expected: **Everyone** / IARC: All ages                                                                                          |
 
 ---
 
 ## §G — Pricing & distribution
 
-| Field | Value |
-|---|---|
-| Free or paid | Free |
-| Countries / regions | **Australia + New Zealand** for v1 (limit per `MOBILE_RELEASE_RUNBOOK.md`) |
-| Devices | Phone, 7" tablet, 10" tablet (Capacitor adaptive layout) |
-| Contains ads | No |
-| Designed for families | No (B2B professional tool, 18+) |
+| Field                 | Value                                                                      |
+| --------------------- | -------------------------------------------------------------------------- |
+| Free or paid          | Free                                                                       |
+| Countries / regions   | **Australia + New Zealand** for v1 (limit per `MOBILE_RELEASE_RUNBOOK.md`) |
+| Devices               | Phone, 7" tablet, 10" tablet (Capacitor adaptive layout)                   |
+| Contains ads          | No                                                                         |
+| Designed for families | No (B2B professional tool, 18+)                                            |
 
 ---
 
@@ -147,19 +147,19 @@ Per Play Console → App content → Content rating. Answer the IARC questionnai
 
 Source: `distribution/store-listings.md` § Google Play Store + `distribution/icon-source/out/`
 
-| Field | Path / Value |
-|---|---|
-| App name | `RestoreAssist — Water Damage Compliance` |
-| Short description (80 chars) | `IICRC-compliant water damage restoration platform for Australian professionals` |
-| Full description (4000 chars) | (paste from §I below) |
-| App icon (512×512) | `distribution/icon-source/out/android-512.png` |
-| Adaptive icon — foreground (432×432) | `distribution/icon-source/out/adaptive-fg-432.png` |
-| Adaptive icon — background (432×432) | `distribution/icon-source/out/adaptive-bg-432.png` |
-| Feature graphic (1024×500) | `distribution/icon-source/out/android-feature-graphic.png` |
+| Field                                                    | Path / Value                                                                                              |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| App name                                                 | `RestoreAssist — Water Damage Compliance`                                                                 |
+| Short description (80 chars)                             | `IICRC-compliant water damage restoration platform for Australian professionals`                          |
+| Full description (4000 chars)                            | (paste from §I below)                                                                                     |
+| App icon (512×512)                                       | `distribution/icon-source/out/android-512.png`                                                            |
+| Adaptive icon — foreground (432×432)                     | `distribution/icon-source/out/adaptive-fg-432.png`                                                        |
+| Adaptive icon — background (432×432)                     | `distribution/icon-source/out/adaptive-bg-432.png`                                                        |
+| Feature graphic (1024×500)                               | `distribution/icon-source/out/android-feature-graphic.png`                                                |
 | Phone screenshots (≥2, max 8, 16:9 or 9:16, min 320×320) | `distribution/screenshots/play-store/phone/*.png` (run `node distribution/capture-screenshots.mjs` first) |
-| 7" tablet screenshots | `distribution/screenshots/play-store/tablet-7/*.png` |
-| 10" tablet screenshots | `distribution/screenshots/play-store/tablet-10/*.png` |
-| Promo video (optional) | None for v1 |
+| 7" tablet screenshots                                    | `distribution/screenshots/play-store/tablet-7/*.png`                                                      |
+| 10" tablet screenshots                                   | `distribution/screenshots/play-store/tablet-10/*.png`                                                     |
+| Promo video (optional)                                   | None for v1                                                                                               |
 
 ---
 
@@ -248,12 +248,12 @@ When all 13 items above are checked: click **Send for review** on the Production
 
 ## §L — After submission
 
-| Stage | Typical duration | Notes |
-|---|---|---|
-| `Pending publication` | minutes | Play has indexed the AAB |
-| `In review` | 24-72h for new app, 2-7 days for sensitive permissions | Pure WebView wrapping a public site = usually faster |
-| `Live in production` | within 1-3h after approval | If staged rollout 5% → only 1 in 20 users will see it. Monitor Vitals. |
-| Rejected | typically requires Data Safety form or content-rating refinement | Read reviewer's email, fix, resubmit |
+| Stage                 | Typical duration                                                 | Notes                                                                  |
+| --------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `Pending publication` | minutes                                                          | Play has indexed the AAB                                               |
+| `In review`           | 24-72h for new app, 2-7 days for sensitive permissions           | Pure WebView wrapping a public site = usually faster                   |
+| `Live in production`  | within 1-3h after approval                                       | If staged rollout 5% → only 1 in 20 users will see it. Monitor Vitals. |
+| Rejected              | typically requires Data Safety form or content-rating refinement | Read reviewer's email, fix, resubmit                                   |
 
 ---
 

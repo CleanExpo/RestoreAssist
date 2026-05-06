@@ -20,6 +20,7 @@ fetch handler that may work but skips the optimisation pipeline
 → Add new (Production + Preview).
 
 **How to get the value:**
+
 1. Sign in at https://cloudinary.com/console
 2. Account Details → Environment variable → copy the `CLOUDINARY_URL`
    line verbatim (already in the right format)
@@ -41,6 +42,7 @@ breaks silently.
 **Where to set:** same as above. Production + Preview.
 
 **How to get the value:**
+
 1. Sign in at https://developer.xero.com/myapps
 2. Pick the RestoreAssist app → Webhooks tab
 3. The webhook key is shown there. If a key was generated previously,
@@ -57,16 +59,16 @@ test payload.
 These are documented here so the next operator doesn't accidentally
 remove them.
 
-| Var | What it does |
-|---|---|
-| `DATABASE_URL` | Supabase Postgres connection string (Prisma) |
-| `DIRECT_URL` | Supabase direct connection (migrations) |
-| `NEXTAUTH_URL` | NextAuth canonical URL (https://restoreassist.app) |
-| `NEXTAUTH_SECRET` | NextAuth session/JWT signing secret |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth provider |
-| `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | Stripe billing |
-| `ANTHROPIC_API_KEY` | Claude API for AI-assisted reports |
-| `GITHUB_TOKEN` | GitHub releases / artefact uploads |
+| Var                                           | What it does                                       |
+| --------------------------------------------- | -------------------------------------------------- |
+| `DATABASE_URL`                                | Supabase Postgres connection string (Prisma)       |
+| `DIRECT_URL`                                  | Supabase direct connection (migrations)            |
+| `NEXTAUTH_URL`                                | NextAuth canonical URL (https://restoreassist.app) |
+| `NEXTAUTH_SECRET`                             | NextAuth session/JWT signing secret                |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`   | Google OAuth provider                              |
+| `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | Stripe billing                                     |
+| `ANTHROPIC_API_KEY`                           | Claude API for AI-assisted reports                 |
+| `GITHUB_TOKEN`                                | GitHub releases / artefact uploads                 |
 
 ## Pending (RA-1842 follow-up — not yet wired)
 

@@ -14,17 +14,18 @@ codemods or product-decision gates).
 
 ## Rounds + exit criteria
 
-| Round | Rubric | Outcome |
-|------:|--------|---------|
-| 1 | Does every flow complete without errors? | 6 of 7 shipped (RA-1539/1540/1541/1543/1544/1545). RA-1542 closed as PM false positive (cron auth already present). |
-| 2 | Does every edge case degrade gracefully? | 11 of 12 shipped; RA-1557 (integration-health banner) deferred as design-decision. |
-| 3 | Is every touchpoint consistent (emails/API/UI)? | 5 of 11 shipped (RA-1559/1563/1564/1565/1566). Remainder are L/XL codemods queued as follow-up (RA-1560/1561/1562/1567/1568/1569). |
-| 4 | Does every surface pass WCAG 2.1 AA + RA-1109? | 4 of 10 shipped (RA-1571/1572/1573/1579). Remainder are codemod labour against form inputs, colour tokens, and heading hierarchy. Lighthouse a11y projected 78–85; exit criterion of ≥95 not met. |
-| 5 | Is the product sellable? | All 3 Urgent launch blockers shipped (RA-1580/1581/1582). High items (RA-1583/1584/1585) and Medium (RA-1586) queued for pre-GA. |
+| Round | Rubric                                          | Outcome                                                                                                                                                                                           |
+| ----: | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|     1 | Does every flow complete without errors?        | 6 of 7 shipped (RA-1539/1540/1541/1543/1544/1545). RA-1542 closed as PM false positive (cron auth already present).                                                                               |
+|     2 | Does every edge case degrade gracefully?        | 11 of 12 shipped; RA-1557 (integration-health banner) deferred as design-decision.                                                                                                                |
+|     3 | Is every touchpoint consistent (emails/API/UI)? | 5 of 11 shipped (RA-1559/1563/1564/1565/1566). Remainder are L/XL codemods queued as follow-up (RA-1560/1561/1562/1567/1568/1569).                                                                |
+|     4 | Does every surface pass WCAG 2.1 AA + RA-1109?  | 4 of 10 shipped (RA-1571/1572/1573/1579). Remainder are codemod labour against form inputs, colour tokens, and heading hierarchy. Lighthouse a11y projected 78–85; exit criterion of ≥95 not met. |
+|     5 | Is the product sellable?                        | All 3 Urgent launch blockers shipped (RA-1580/1581/1582). High items (RA-1583/1584/1585) and Medium (RA-1586) queued for pre-GA.                                                                  |
 
 ## What shipped in this sweep (23 PRs merged to main)
 
 ### Foundational helpers (reusable primitives)
+
 - `lib/api-errors.ts` — unified envelope + Prisma error mapping (RA-1548/1554)
 - `lib/fetch-with-retry.ts` — 429 / Retry-After aware fetch (RA-1550)
 - `lib/client/parse-api-error.ts` — client-side envelope parser (RA-1555)
@@ -41,6 +42,7 @@ codemods or product-decision gates).
 - `components/LiveRegion.tsx` — polite/assertive aria-live announcer (RA-1572)
 
 ### Route-level fixes
+
 - Middleware default rate-limit baseline on `/api/*` mutations (RA-1540)
 - Admin migrate-v2 third-layer auth + adminUserId logging (RA-1539)
 - Admin impersonate CSRF + per-admin rate-limit (RA-1545)

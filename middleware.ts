@@ -29,7 +29,7 @@ const API_MUTATION_METHODS = new Set(["POST", "PATCH", "PUT", "DELETE"]);
 // should be exempt from the middleware's permissive baseline.
 const API_RATE_LIMIT_SKIP = [
   "/api/webhooks/", // inbound webhooks — providers retry with bursts
-  "/api/auth/",     // NextAuth internal endpoints manage their own flow
+  "/api/auth/", // NextAuth internal endpoints manage their own flow
 ];
 
 function shouldSkipApiRateLimit(pathname: string): boolean {

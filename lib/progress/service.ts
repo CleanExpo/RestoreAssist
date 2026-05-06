@@ -471,10 +471,7 @@ async function runGuard(ctx: {
   return guard(prisma, ctx);
 }
 
-async function dispatchIntegrations(
-  transitionId: string,
-  key: TransitionKey,
-) {
+async function dispatchIntegrations(transitionId: string, key: TransitionKey) {
   // M-19: attest_stabilisation triggers the carrier packet submission.
   // Env-gated — when GUIDEWIRE_SANDBOX_URL is unset, this is a no-op.
   if (key === "attest_stabilisation") {
@@ -486,9 +483,8 @@ async function dispatchIntegrations(
 async function dispatchStabilisationPacket(transitionId: string) {
   // Lazy import to keep the cold-path light and avoid pulling integration
   // code into the hot transition path bundle.
-  const { buildStabilisationPacket, submitToCarrier } = await import(
-    "./integrations/stabilisation-packet"
-  );
+  const { buildStabilisationPacket, submitToCarrier } =
+    await import("./integrations/stabilisation-packet");
 
   const built = await buildStabilisationPacket(transitionId, {
     loadTransition: async (id) => {

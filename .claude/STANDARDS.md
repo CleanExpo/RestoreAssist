@@ -122,7 +122,7 @@ The stage-gated claim lifecycle adds its own invariants above the general standa
 - `.claude/board-2026-04-18/progress-principles.md` — 8 engineering constraints
 - `CLAUDE.md` rules 21–28 — the enforceable summary
 
-**When touching any `lib/progress/**`, `app/api/progress/**`, `components/Progress*` surface:**
+**When touching any `lib/progress/**`, `app/api/progress/**`, `components/Progress\*` surface:**
 
 - Read `.claude/board-2026-04-18/progress-principles.md` before writing code.
 - `ProgressTransition` and `ProgressAttestation` are append-only — never `UPDATE`/`DELETE` outside `ClaimProgress` cascade.

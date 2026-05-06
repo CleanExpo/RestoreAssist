@@ -32,6 +32,7 @@ function _getCapacitor(): typeof CapacitorType | null {
   if (typeof window === "undefined") return null;
   if (_capacitor) return _capacitor;
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const mod = require("@capacitor/core") as {
       Capacitor: typeof CapacitorType;
     };

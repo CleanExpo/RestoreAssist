@@ -107,7 +107,10 @@ export function validateLabourHireAttestation(
   if (hours === null) {
     errors.push({
       field: "hours",
-      code: input.hours == null || input.hours === "" ? "MISSING" : "INVALID_NUMBER",
+      code:
+        input.hours == null || input.hours === ""
+          ? "MISSING"
+          : "INVALID_NUMBER",
       message: "hours is required and must be a number",
     });
   } else if (hours <= 0 || hours > LABOUR_HIRE_MAX_HOURS) {
@@ -134,7 +137,10 @@ export function validateLabourHireAttestation(
   if (superRate === null) {
     errors.push({
       field: "superRate",
-      code: input.superRate == null || input.superRate === "" ? "MISSING" : "INVALID_NUMBER",
+      code:
+        input.superRate == null || input.superRate === ""
+          ? "MISSING"
+          : "INVALID_NUMBER",
       message: "superRate is required and must be a number",
     });
   } else if (superRate < LABOUR_HIRE_SG_MIN_RATE) {

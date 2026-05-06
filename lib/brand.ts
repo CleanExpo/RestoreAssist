@@ -15,7 +15,8 @@ export const BRAND = {
     secondary: { label: "See How It Works", href: "/how-it-works" },
   },
   meta: {
-    title: "RestoreAssist — Australia's first Australian-designed Restoration CRM",
+    title:
+      "RestoreAssist — Australia's first Australian-designed Restoration CRM",
     description:
       "Australia's first Australian-designed full CRM — Office and Field Management System for the Australian Restoration Industry. Inbuilt IICRC, WHS, and Australian Building Code compliance. AI assists, never replaces.",
     ogDescription:

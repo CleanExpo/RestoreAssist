@@ -282,7 +282,9 @@ async function handlePaymentCreated(
   }
 
   // RA-855: Use Xero's AmountDue as source of truth for remaining balance (in dollars → cents)
-  const amountDueCents = Math.round((xeroPayment?.Invoice?.AmountDue ?? 0) * 100);
+  const amountDueCents = Math.round(
+    (xeroPayment?.Invoice?.AmountDue ?? 0) * 100,
+  );
 
   const invoice = await prisma.invoice.findFirst({
     where: { externalInvoiceId: xeroInvoiceId },
@@ -293,7 +295,10 @@ async function handlePaymentCreated(
     return; // Not found or already paid — idempotent
   }
 
-  const newAmountPaid = Math.max(0, (invoice.totalIncGST ?? 0) - amountDueCents);
+  const newAmountPaid = Math.max(
+    0,
+    (invoice.totalIncGST ?? 0) - amountDueCents,
+  );
   const isPaid = amountDueCents === 0;
 
   await prisma.invoice.update({
@@ -302,7 +307,10 @@ async function handlePaymentCreated(
       amountPaid: newAmountPaid,
       amountDue: amountDueCents,
       ...(isPaid
-        ? { status: "PAID", paidDate: new Date(payload.eventDateUtc ?? Date.now()) }
+        ? {
+            status: "PAID",
+            paidDate: new Date(payload.eventDateUtc ?? Date.now()),
+          }
         : {}),
     },
   });

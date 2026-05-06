@@ -270,10 +270,12 @@ describe("processXeroWebhookBatch — payment.created", () => {
     const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue(
       new Response(
         JSON.stringify({
-          Payments: [{
-            Amount: 1100,
-            Invoice: { InvoiceID: "xero-inv-pc-1", AmountDue: 0 },
-          }],
+          Payments: [
+            {
+              Amount: 1100,
+              Invoice: { InvoiceID: "xero-inv-pc-1", AmountDue: 0 },
+            },
+          ],
         }),
         { status: 200, headers: { "Content-Type": "application/json" } },
       ),

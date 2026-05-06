@@ -90,10 +90,7 @@ describe("gate-policy", () => {
     });
 
     it("collects unknown keys for the caller to log", () => {
-      const r = classifyGaps([
-        "evidence.swms.signed",
-        "evidence.totally.fake",
-      ]);
+      const r = classifyGaps(["evidence.swms.signed", "evidence.totally.fake"]);
       expect(r.hard).toEqual(["evidence.swms.signed"]);
       expect(r.unknown).toEqual(["evidence.totally.fake"]);
     });

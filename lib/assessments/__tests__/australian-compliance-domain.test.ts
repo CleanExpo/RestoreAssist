@@ -45,12 +45,22 @@ describe("australianComplianceDomain — base scope (no flags)", () => {
       descriptions.some((d) => d.toLowerCase().includes("whs site safety")),
     ).toBe(true);
     expect(descriptions.some((d) => d.includes("GICOP"))).toBe(true);
-    expect(descriptions.some((d) => d.toLowerCase().includes("privacy act"))).toBe(true);
-    expect(descriptions.some((d) => d.toLowerCase().includes("iicrc"))).toBe(true);
-    expect(descriptions.some((d) => d.toLowerCase().includes("consumer law"))).toBe(true);
+    expect(
+      descriptions.some((d) => d.toLowerCase().includes("privacy act")),
+    ).toBe(true);
+    expect(descriptions.some((d) => d.toLowerCase().includes("iicrc"))).toBe(
+      true,
+    );
+    expect(
+      descriptions.some((d) => d.toLowerCase().includes("consumer law")),
+    ).toBe(true);
     // No conditional items.
-    expect(descriptions.some((d) => d.toLowerCase().includes("labour-hire"))).toBe(false);
-    expect(descriptions.some((d) => d.toLowerCase().includes("epa"))).toBe(false);
+    expect(
+      descriptions.some((d) => d.toLowerCase().includes("labour-hire")),
+    ).toBe(false);
+    expect(descriptions.some((d) => d.toLowerCase().includes("epa"))).toBe(
+      false,
+    );
   });
 
   it("citations always include WHS / GICOP / Privacy / Consumer Law", async () => {
@@ -86,9 +96,9 @@ describe("australianComplianceDomain — conditional sections", () => {
       s.heading.toLowerCase().includes("fair work"),
     );
     expect(fwSection).toBeDefined();
-    expect(r.data.citations.some((c) => c.standard === "Fair Work Act 2009 (Cth)")).toBe(
-      true,
-    );
+    expect(
+      r.data.citations.some((c) => c.standard === "Fair Work Act 2009 (Cth)"),
+    ).toBe(true);
   });
 
   it("hasBiohazard=true adds state-specific EPA manifest line + section", async () => {
@@ -221,11 +231,14 @@ describe("australianComplianceDomain — estimate self-consistency", () => {
       (s, l) => s + l.lineTotalExGst,
       0,
     );
-    expect(Math.abs(subtotal - r.data.estimate.totals.subtotalExGst)).toBeLessThan(0.05);
+    expect(
+      Math.abs(subtotal - r.data.estimate.totals.subtotalExGst),
+    ).toBeLessThan(0.05);
     expect(
       Math.abs(
         r.data.estimate.totals.totalIncGst -
-          (r.data.estimate.totals.subtotalExGst + r.data.estimate.totals.gstTotal),
+          (r.data.estimate.totals.subtotalExGst +
+            r.data.estimate.totals.gstTotal),
       ),
     ).toBeLessThan(0.05);
     expect(r.data.estimate.totals.gstRate).toBe(0.1);

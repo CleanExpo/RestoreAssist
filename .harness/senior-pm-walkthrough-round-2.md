@@ -1,4 +1,5 @@
 # Senior PM Walkthrough — Round 2 — 2026-04-22
+
 ## Round rubric: does every edge case degrade gracefully?
 
 **Method:** static analysis on `/tmp/pi-ceo-workspaces/ra-1494-directurl/` (post Round 1, RA-1539/40/41/43/44/45 shipped). Sampled ~264 API routes and ~150 dashboard client pages for error paths, loading/error UI branches, and background-work status surfacing.
@@ -61,9 +62,10 @@
 ## Round-1 regressions — none observed
 
 Spot-checked RA-1539/1540/1541/1543/1544/1545 surfaces:
+
 - `app/dashboard/error.tsx` + `app/portal/error.tsx` both import `reportClientError` ✓
 - `app/api/webhooks/github/route.ts` length-guard pre-`timingSafeEqual` — re-read not done, flag to confirm.
 - `features/page.tsx` "mould" — re-read not done, flag to confirm.
-No visible regressions in Round 2's sampling.
+  No visible regressions in Round 2's sampling.
 
 End of round.

@@ -50,12 +50,16 @@ function renderMarkdown(
   lines.push(`- Started: ${report.startedAt}`);
   lines.push(`- Finished: ${report.finishedAt}`);
   lines.push(`- Duration: ${(report.totalMs / 1000).toFixed(1)}s`);
-  lines.push(`- Outcome: ${report.success ? "✅ all jobs ran" : "⚠️ failures"}`);
+  lines.push(
+    `- Outcome: ${report.success ? "✅ all jobs ran" : "⚠️ failures"}`,
+  );
   lines.push("");
 
   const ok = report.results.filter((r) => !r.error).length;
   const fail = report.results.length - ok;
-  const fullyGraded = report.results.filter((r) => r.graded?.fullyGraded).length;
+  const fullyGraded = report.results.filter(
+    (r) => r.graded?.fullyGraded,
+  ).length;
   const avgComposite = average(
     report.results
       .map((r) => r.graded?.deterministic?.composite)
@@ -76,7 +80,9 @@ function renderMarkdown(
 
   lines.push(`## Per-job`);
   lines.push("");
-  lines.push("| Company | Job | Domain | Status | Det | Judge | Adj | Latency |");
+  lines.push(
+    "| Company | Job | Domain | Status | Det | Judge | Adj | Latency |",
+  );
   lines.push("|---|---|---|---|---|---|---|---|");
   for (const r of report.results) {
     const det = r.graded?.deterministic?.composite;
@@ -95,10 +101,16 @@ function renderMarkdown(
     lines.push(`## Baseline regression`);
     lines.push("");
     if (!regression.baselineFound) {
-      lines.push(`- ⚠️  No baseline found. First run, or baseline file deleted.`);
-      lines.push(`- Run \`tsx pilot-tester/src/runner/baseline.ts promote <report.json>\` to seed one.`);
+      lines.push(
+        `- ⚠️  No baseline found. First run, or baseline file deleted.`,
+      );
+      lines.push(
+        `- Run \`tsx pilot-tester/src/runner/baseline.ts promote <report.json>\` to seed one.`,
+      );
     } else {
-      lines.push(`- ${regression.pass ? "✅ pass" : "🚨 FAIL"} (cell tol ±${regression.cellTolerance}, mean tol ±${regression.meanTolerance})`);
+      lines.push(
+        `- ${regression.pass ? "✅ pass" : "🚨 FAIL"} (cell tol ±${regression.cellTolerance}, mean tol ±${regression.meanTolerance})`,
+      );
       if (regression.meanBefore !== null && regression.meanAfter !== null) {
         const delta = regression.meanAfter - regression.meanBefore;
         lines.push(
@@ -109,7 +121,11 @@ function renderMarkdown(
         lines.push(`- ${regression.findings.length} finding(s):`);
         for (const f of regression.findings) {
           const tag =
-            f.severity === "hard" ? "🚨" : f.severity === "coverage" ? "⚠️" : "ℹ️";
+            f.severity === "hard"
+              ? "🚨"
+              : f.severity === "coverage"
+                ? "⚠️"
+                : "ℹ️";
           lines.push(`  - ${tag} ${f.message}`);
         }
       }
@@ -131,7 +147,9 @@ function renderMarkdown(
     lines.push(`## Per-domain mean deterministic composite`);
     lines.push("");
     for (const [domain, scores] of [...byDomain.entries()].sort()) {
-      lines.push(`- ${domain}: ${average(scores)!.toFixed(1)}/100 (n=${scores.length})`);
+      lines.push(
+        `- ${domain}: ${average(scores)!.toFixed(1)}/100 (n=${scores.length})`,
+      );
     }
     lines.push("");
   }

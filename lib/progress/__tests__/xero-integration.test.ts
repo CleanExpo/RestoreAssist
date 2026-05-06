@@ -24,9 +24,15 @@ function makeDelegate(): XeroDelegate & {
   appendDisputeMemo: ReturnType<typeof vi.fn>;
 } {
   return {
-    createInvoice: vi.fn().mockResolvedValue({ ok: true, reason: "invoice created" }),
-    recordPayment: vi.fn().mockResolvedValue({ ok: true, reason: "payment recorded" }),
-    appendDisputeMemo: vi.fn().mockResolvedValue({ ok: true, reason: "memo appended" }),
+    createInvoice: vi
+      .fn()
+      .mockResolvedValue({ ok: true, reason: "invoice created" }),
+    recordPayment: vi
+      .fn()
+      .mockResolvedValue({ ok: true, reason: "payment recorded" }),
+    appendDisputeMemo: vi
+      .fn()
+      .mockResolvedValue({ ok: true, reason: "memo appended" }),
   };
 }
 
@@ -41,7 +47,9 @@ function makeTransition(transitionKey: string, id = "tx_123"): TransitionRow {
   };
 }
 
-function makeClaim(overrides: Partial<ClaimProgressRow> = {}): ClaimProgressRow {
+function makeClaim(
+  overrides: Partial<ClaimProgressRow> = {},
+): ClaimProgressRow {
   return {
     id: "cp_1",
     reportId: "rep_42",
@@ -168,7 +176,9 @@ describe("handleProgressTransitionForXero — defensive guards", () => {
 
   it("rule 13: delegate throw is caught, returns ok:false with reason", async () => {
     const delegate = makeDelegate();
-    delegate.createInvoice.mockRejectedValue(new Error("Xero 500 — try again later"));
+    delegate.createInvoice.mockRejectedValue(
+      new Error("Xero 500 — try again later"),
+    );
     const result = await handleProgressTransitionForXero({
       transition: makeTransition("issue_invoice"),
       claimProgress: makeClaim(),
@@ -202,12 +212,7 @@ describe("handleProgressTransitionForXero — defensive guards", () => {
 describe("handleProgressTransitionForXero — reason strings (principle 3)", () => {
   it("every returned reason is non-empty", async () => {
     const delegate = makeDelegate();
-    const keys = [
-      "issue_invoice",
-      "record_payment",
-      "dispute",
-      "noop_example",
-    ];
+    const keys = ["issue_invoice", "record_payment", "dispute", "noop_example"];
     for (const key of keys) {
       const r = await handleProgressTransitionForXero({
         transition: makeTransition(key),

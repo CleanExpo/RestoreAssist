@@ -78,7 +78,10 @@ export function createCachedSystemPrompt(
  * 1-hour TTL strategy needs the explicit `ttl` field — Anthropic's
  * default is 5 minutes, which matches "standard" / "session".
  */
-function buildCacheControl(strategy: CacheStrategy): { type: "ephemeral"; ttl?: "5m" | "1h" } {
+function buildCacheControl(strategy: CacheStrategy): {
+  type: "ephemeral";
+  ttl?: "5m" | "1h";
+} {
   if (strategy === "long-running") {
     return { type: "ephemeral", ttl: "1h" };
   }
@@ -90,12 +93,17 @@ function buildCacheControl(strategy: CacheStrategy): { type: "ephemeral"; ttl?: 
  * Useful for agents with multi-part system prompts
  */
 export function createCachedSystemPrompts(
-  prompts: Array<{ content: string; cached?: boolean; strategy?: CacheStrategy }>,
+  prompts: Array<{
+    content: string;
+    cached?: boolean;
+    strategy?: CacheStrategy;
+  }>,
   defaultCache: boolean = true,
   defaultStrategy: CacheStrategy = "standard",
 ): Anthropic.Messages.TextBlockParam[] {
-  return prompts.map(({ content, cached = defaultCache, strategy = defaultStrategy }) =>
-    createCachedSystemPrompt(content, cached, strategy),
+  return prompts.map(
+    ({ content, cached = defaultCache, strategy = defaultStrategy }) =>
+      createCachedSystemPrompt(content, cached, strategy),
   );
 }
 

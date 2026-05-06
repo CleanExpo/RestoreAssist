@@ -36,12 +36,12 @@ section documents both so future PRs can migrate to the semantic system only.
 
 ### Brand tokens (CLAUDE.md, authoritative)
 
-| Role              | Hex        | Use                                           |
-| ----------------- | ---------- | --------------------------------------------- |
-| Brand primary     | `#1C2E47`  | Navy — headings on light surface, data labels |
-| Brand warm        | `#8A6B4E`  | Secondary accent, section dividers            |
-| Brand light       | `#D4A574`  | Tertiary highlight, timeline markers          |
-| Canvas (dark)     | `#050505`  | Full-bleed backgrounds (true black avoided)   |
+| Role          | Hex       | Use                                           |
+| ------------- | --------- | --------------------------------------------- |
+| Brand primary | `#1C2E47` | Navy — headings on light surface, data labels |
+| Brand warm    | `#8A6B4E` | Secondary accent, section dividers            |
+| Brand light   | `#D4A574` | Tertiary highlight, timeline markers          |
+| Canvas (dark) | `#050505` | Full-bleed backgrounds (true black avoided)   |
 
 ### Semantic tokens (app/globals.css — OKLCH)
 
@@ -49,34 +49,34 @@ Consumed as Tailwind classes — `bg-background`, `text-foreground`,
 `bg-card`, `border-border`, `text-muted-foreground`, etc. These auto-switch
 between light and dark via `ThemeProvider` (class-based).
 
-| Token                   | Light                  | Dark                   | Role                      |
-| ----------------------- | ---------------------- | ---------------------- | ------------------------- |
-| `--background`          | `oklch(1 0 0)`         | `oklch(0.145 0 0)`     | Page canvas               |
-| `--foreground`          | `oklch(0.145 0 0)`     | `oklch(0.985 0 0)`     | Body text                 |
-| `--card`                | `oklch(1 0 0)`         | `oklch(0.145 0 0)`     | Elevated surface          |
-| `--primary`             | `oklch(0.205 0 0)`     | `oklch(0.985 0 0)`     | Primary CTA               |
-| `--secondary`           | `oklch(0.97 0 0)`      | `oklch(0.269 0 0)`     | Secondary CTA             |
-| `--muted`               | `oklch(0.97 0 0)`      | `oklch(0.269 0 0)`     | Inactive surface          |
-| `--muted-foreground`    | `oklch(0.556 0 0)`     | `oklch(0.708 0 0)`     | Caption text              |
-| `--destructive`         | `oklch(0.577 0.245 27)` | `oklch(0.396 0.141 26)` | Danger action             |
-| `--border`              | `oklch(0.922 0 0)`     | `oklch(0.269 0 0)`     | Hairline between surfaces |
-| `--ring`                | `oklch(0.708 0 0)`     | `oklch(0.439 0 0)`     | Focus ring                |
+| Token                | Light                   | Dark                    | Role                      |
+| -------------------- | ----------------------- | ----------------------- | ------------------------- |
+| `--background`       | `oklch(1 0 0)`          | `oklch(0.145 0 0)`      | Page canvas               |
+| `--foreground`       | `oklch(0.145 0 0)`      | `oklch(0.985 0 0)`      | Body text                 |
+| `--card`             | `oklch(1 0 0)`          | `oklch(0.145 0 0)`      | Elevated surface          |
+| `--primary`          | `oklch(0.205 0 0)`      | `oklch(0.985 0 0)`      | Primary CTA               |
+| `--secondary`        | `oklch(0.97 0 0)`       | `oklch(0.269 0 0)`      | Secondary CTA             |
+| `--muted`            | `oklch(0.97 0 0)`       | `oklch(0.269 0 0)`      | Inactive surface          |
+| `--muted-foreground` | `oklch(0.556 0 0)`      | `oklch(0.708 0 0)`      | Caption text              |
+| `--destructive`      | `oklch(0.577 0.245 27)` | `oklch(0.396 0.141 26)` | Danger action             |
+| `--border`           | `oklch(0.922 0 0)`      | `oklch(0.269 0 0)`      | Hairline between surfaces |
+| `--ring`             | `oklch(0.708 0 0)`      | `oklch(0.439 0 0)`      | Focus ring                |
 
 ### Status / accent palette (globals.css `@theme inline`)
 
-| Role       | Hex         | Use                               |
-| ---------- | ----------- | --------------------------------- |
-| Accent     | `#3b82f6`   | Primary link, info state          |
-| Info       | `#06b6d4`   | Secondary info, chart cyan        |
-| Success    | `#10b981`   | Positive state, toast success     |
-| Warning    | `#f59e0b`   | Caution state                     |
-| Error      | `#f43f5e`   | Destructive, toast error          |
-| Surface    | `#0f172a`   | `slate-950` — dark canvas default |
-| Surface-1  | `#1e293b`   | `slate-800` — toast / card        |
-| Surface-2  | `#334155`   | `slate-700` — borders             |
-| Text hi    | `#f8fafc`   | `slate-50` — primary text (dark)  |
-| Text mid   | `#cbd5e1`   | `slate-300`                       |
-| Text lo    | `#94a3b8`   | `slate-400`                       |
+| Role      | Hex       | Use                               |
+| --------- | --------- | --------------------------------- |
+| Accent    | `#3b82f6` | Primary link, info state          |
+| Info      | `#06b6d4` | Secondary info, chart cyan        |
+| Success   | `#10b981` | Positive state, toast success     |
+| Warning   | `#f59e0b` | Caution state                     |
+| Error     | `#f43f5e` | Destructive, toast error          |
+| Surface   | `#0f172a` | `slate-950` — dark canvas default |
+| Surface-1 | `#1e293b` | `slate-800` — toast / card        |
+| Surface-2 | `#334155` | `slate-700` — borders             |
+| Text hi   | `#f8fafc` | `slate-50` — primary text (dark)  |
+| Text mid  | `#cbd5e1` | `slate-300`                       |
+| Text lo   | `#94a3b8` | `slate-400`                       |
 
 ### Rules
 
@@ -106,17 +106,17 @@ Nexus stack. Geist's engineered precision matches the 3-word test
 
 ### Hierarchy
 
-| Role       | Class (Tailwind)                              | Weight | Use                       |
-| ---------- | --------------------------------------------- | ------ | ------------------------- |
-| Display    | `text-4xl font-bold tracking-tight`           | 700    | Marketing hero            |
-| H1         | `text-2xl font-bold`                          | 700    | Page title                |
-| H2         | `text-xl font-semibold`                       | 600    | Section heading           |
-| H3         | `text-lg font-semibold`                       | 600    | Card title                |
-| Body       | `text-sm`                                     | 400    | Default paragraph         |
-| Body-lg    | `text-base`                                   | 400    | Marketing body            |
-| Caption    | `text-xs text-muted-foreground`               | 400    | Helper text, row subtitle |
-| Mono       | `font-mono tabular-nums`                      | 400    | IDs, codes, metrics       |
-| Data table | `tabular-nums`                                | —      | Numeric columns           |
+| Role       | Class (Tailwind)                    | Weight | Use                       |
+| ---------- | ----------------------------------- | ------ | ------------------------- |
+| Display    | `text-4xl font-bold tracking-tight` | 700    | Marketing hero            |
+| H1         | `text-2xl font-bold`                | 700    | Page title                |
+| H2         | `text-xl font-semibold`             | 600    | Section heading           |
+| H3         | `text-lg font-semibold`             | 600    | Card title                |
+| Body       | `text-sm`                           | 400    | Default paragraph         |
+| Body-lg    | `text-base`                         | 400    | Marketing body            |
+| Caption    | `text-xs text-muted-foreground`     | 400    | Helper text, row subtitle |
+| Mono       | `font-mono tabular-nums`            | 400    | IDs, codes, metrics       |
+| Data table | `tabular-nums`                      | —      | Numeric columns           |
 
 Rules:
 
@@ -138,14 +138,14 @@ tabs, toast (via react-hot-toast).
 
 ### Button variants (components/ui/button.tsx)
 
-| Variant       | Visual                                    | Use                             |
-| ------------- | ----------------------------------------- | ------------------------------- |
-| `default`     | `bg-primary` filled                       | Primary CTA — one per view      |
-| `destructive` | `bg-destructive` red                      | Delete, cancel-sync, irreversible |
-| `outline`     | Bordered, `bg-background`                 | Secondary action                |
-| `secondary`   | `bg-secondary` subdued fill               | Tertiary action                 |
-| `ghost`       | Transparent, hover fill                   | In-row actions, icon buttons    |
-| `link`        | Underline on hover, no chrome             | Inline navigation               |
+| Variant       | Visual                        | Use                               |
+| ------------- | ----------------------------- | --------------------------------- |
+| `default`     | `bg-primary` filled           | Primary CTA — one per view        |
+| `destructive` | `bg-destructive` red          | Delete, cancel-sync, irreversible |
+| `outline`     | Bordered, `bg-background`     | Secondary action                  |
+| `secondary`   | `bg-secondary` subdued fill   | Tertiary action                   |
+| `ghost`       | Transparent, hover fill       | In-row actions, icon buttons      |
+| `link`        | Underline on hover, no chrome | Inline navigation                 |
 
 Sizes: `sm` (h-8), `default` (h-9), `lg` (h-10), `icon*` (square 8/9/10).
 
@@ -207,13 +207,13 @@ math** (`flex: 0 0 33.333%` — breaks at gap edge cases). Use `grid-cols-3 gap-
 
 ### Border radius
 
-| Token          | Value                    | Use                             |
-| -------------- | ------------------------ | ------------------------------- |
-| `rounded-sm`   | `calc(0.625rem - 4px)`   | Inline chips                    |
-| `rounded-md`   | `calc(0.625rem - 2px)`   | Buttons, inputs (default)       |
-| `rounded-lg`   | `0.625rem`               | Cards, dialogs                  |
-| `rounded-xl`   | `calc(0.625rem + 4px)`   | Modal, hero card                |
-| `rounded-full` | 9999px                   | Avatars, pill badges            |
+| Token          | Value                  | Use                       |
+| -------------- | ---------------------- | ------------------------- |
+| `rounded-sm`   | `calc(0.625rem - 4px)` | Inline chips              |
+| `rounded-md`   | `calc(0.625rem - 2px)` | Buttons, inputs (default) |
+| `rounded-lg`   | `0.625rem`             | Cards, dialogs            |
+| `rounded-xl`   | `calc(0.625rem + 4px)` | Modal, hero card          |
+| `rounded-full` | 9999px                 | Avatars, pill badges      |
 
 Never `rounded-none` on interactive elements — users expect affordance.
 
@@ -231,14 +231,14 @@ Dark-theme UIs derive depth from **surface lightness**, not shadow. Shadows
 on dark backgrounds are invisible — use them sparingly and only when the
 surface is materially lighter than the canvas.
 
-| Level | Surface (dark)          | Shadow                         | Use                        |
-| ----- | ----------------------- | ------------------------------ | -------------------------- |
-| 0     | `bg-slate-950` (canvas) | none                           | Page background            |
-| 1     | `bg-card` / `slate-900` | none                           | Card resting state         |
-| 2     | `bg-slate-800`          | `shadow-sm`                    | Card hover / dropdown      |
-| 3     | `bg-slate-800`          | `shadow-md`                    | Popover, hover card        |
-| 4     | `bg-slate-800`          | `shadow-lg`                    | Dialog, command palette    |
-| 5     | `bg-slate-800`          | `shadow-xl shadow-primary/20`  | Modal centrepiece          |
+| Level | Surface (dark)          | Shadow                        | Use                     |
+| ----- | ----------------------- | ----------------------------- | ----------------------- |
+| 0     | `bg-slate-950` (canvas) | none                          | Page background         |
+| 1     | `bg-card` / `slate-900` | none                          | Card resting state      |
+| 2     | `bg-slate-800`          | `shadow-sm`                   | Card hover / dropdown   |
+| 3     | `bg-slate-800`          | `shadow-md`                   | Popover, hover card     |
+| 4     | `bg-slate-800`          | `shadow-lg`                   | Dialog, command palette |
+| 5     | `bg-slate-800`          | `shadow-xl shadow-primary/20` | Modal centrepiece       |
 
 Rules:
 
@@ -286,13 +286,13 @@ Rules:
 
 ### Breakpoints (Tailwind defaults)
 
-| Name  | Min width | Use                                     |
-| ----- | --------- | --------------------------------------- |
-| `sm`  | 640 px    | Large phone, small tablet portrait      |
+| Name  | Min width | Use                                      |
+| ----- | --------- | ---------------------------------------- |
+| `sm`  | 640 px    | Large phone, small tablet portrait       |
 | `md`  | 768 px    | Tablet portrait / small tablet landscape |
-| `lg`  | 1024 px   | Tablet landscape, small laptop          |
-| `xl`  | 1280 px   | Desktop                                 |
-| `2xl` | 1536 px   | Large desktop, site-wide max            |
+| `lg`  | 1024 px   | Tablet landscape, small laptop           |
+| `xl`  | 1280 px   | Desktop                                  |
+| `2xl` | 1536 px   | Large desktop, site-wide max             |
 
 ### Mobile-first collapsing rules
 
@@ -377,7 +377,7 @@ Font:      Inter (body) — Geist migration pending
 **5. Form field with validation**
 
 > `<div>` containing `<Label htmlFor="...">`, `<Input id="..." value={...}
-> onChange={...} aria-invalid={!!err} aria-describedby={err ? "...-err" : undefined} />`,
+onChange={...} aria-invalid={!!err} aria-describedby={err ? "...-err" : undefined} />`,
 > and — when `err` — `<div id="...-err" className="mt-1 text-xs text-destructive">{err}</div>`.
 > Clear the error on next keystroke. Never rely on colour alone for invalid
 > state — the `aria-invalid` ring and text message both carry the signal.

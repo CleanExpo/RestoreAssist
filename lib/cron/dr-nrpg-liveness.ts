@@ -22,7 +22,10 @@ export async function runDrNrpgLiveness(): Promise<CronJobResult> {
   });
 
   if (integrations.length === 0) {
-    return { itemsProcessed: 0, metadata: { reason: "no-active-integrations" } };
+    return {
+      itemsProcessed: 0,
+      metadata: { reason: "no-active-integrations" },
+    };
   }
 
   let passed = 0;
@@ -48,7 +51,11 @@ export async function runDrNrpgLiveness(): Promise<CronJobResult> {
     }
 
     failed++;
-    failures.push({ id: integ.id, userId: integ.userId, reason: outcome.reason });
+    failures.push({
+      id: integ.id,
+      userId: integ.userId,
+      reason: outcome.reason,
+    });
 
     // Count recent consecutive failures to decide on deactivation.
     // Heuristic: if lastSyncAt is older than 72h AND this probe failed auth,
@@ -81,9 +88,14 @@ export async function runDrNrpgLiveness(): Promise<CronJobResult> {
   };
 }
 
-type ProbeOutcome = { ok: true } | { ok: false; reason: string; isAuthFailure: boolean };
+type ProbeOutcome =
+  | { ok: true }
+  | { ok: false; reason: string; isAuthFailure: boolean };
 
-async function probeOne(baseUrl: string, apiKey: string): Promise<ProbeOutcome> {
+async function probeOne(
+  baseUrl: string,
+  apiKey: string,
+): Promise<ProbeOutcome> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
   try {
@@ -100,10 +112,18 @@ async function probeOne(baseUrl: string, apiKey: string): Promise<ProbeOutcome> 
       signal: controller.signal,
     });
     if (res.status === 401 || res.status === 403) {
-      return { ok: false, reason: `auth-failed-${res.status}`, isAuthFailure: true };
+      return {
+        ok: false,
+        reason: `auth-failed-${res.status}`,
+        isAuthFailure: true,
+      };
     }
     if (res.status >= 500) {
-      return { ok: false, reason: `upstream-${res.status}`, isAuthFailure: false };
+      return {
+        ok: false,
+        reason: `upstream-${res.status}`,
+        isAuthFailure: false,
+      };
     }
     return { ok: true };
   } catch (err) {

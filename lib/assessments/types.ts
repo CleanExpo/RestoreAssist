@@ -171,13 +171,16 @@ export interface DomainPlugin {
   /**
    * Concrete generation. Returns the result OR a typed error.
    */
-  generate(
-    input: DomainGenerateInput,
-  ): Promise<DomainGenerateResult>;
+  generate(input: DomainGenerateInput): Promise<DomainGenerateResult>;
 }
 
 export type DomainGenerateResult =
-  | { ok: true; data: Omit<AssessmentGenerationResult, "meta"> & { meta: Omit<GenerationMeta, "domain" | "generatedAt"> } }
+  | {
+      ok: true;
+      data: Omit<AssessmentGenerationResult, "meta"> & {
+        meta: Omit<GenerationMeta, "domain" | "generatedAt">;
+      };
+    }
   | { ok: false; code: DomainErrorCode; message: string };
 
 export type DomainErrorCode =
