@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import { isCapacitorIOS } from "@/lib/capacitor";
 import Link from "next/link";
 import {
   CreditCard,
@@ -112,6 +113,9 @@ function CreditsPageContent() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // RA-1842 — suppress billing links on iOS shell (Apple 3.1.1)
+  const [hideBillingEntry, setHideBillingEntry] = useState(false);
+  useEffect(() => { setHideBillingEntry(isCapacitorIOS()); }, []);
 
   const fetchData = async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -223,16 +227,18 @@ function CreditsPageContent() {
           >
             <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
           </button>
-          <Link
-            href="/dashboard/subscription"
-            className={cn(
-              "flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-              "bg-blue-600 hover:bg-blue-700 text-white",
-            )}
-          >
-            <ArrowUpRight size={14} />
-            Manage Subscription
-          </Link>
+          {!hideBillingEntry && (
+            <Link
+              href="/dashboard/subscription"
+              className={cn(
+                "flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+                "bg-blue-600 hover:bg-blue-700 text-white",
+              )}
+            >
+              <ArrowUpRight size={14} />
+              Manage Subscription
+            </Link>
+          )}
         </div>
       </div>
 
@@ -621,20 +627,22 @@ function CreditsPageContent() {
                 </p>
               </div>
             </div>
-            <Link
-              href="/dashboard/subscription"
-              className={cn(
-                "inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-colors flex-shrink-0",
-                isTrial
-                  ? "bg-indigo-600 hover:bg-indigo-700 text-white"
-                  : isExpiredOrCanceled
-                    ? "bg-red-600 hover:bg-red-700 text-white"
-                    : "bg-amber-600 hover:bg-amber-700 text-white",
-              )}
-            >
-              {isExpiredOrCanceled ? "Reactivate plan" : "View plans"}
-              <ArrowUpRight size={14} />
-            </Link>
+            {!hideBillingEntry && (
+              <Link
+                href="/dashboard/subscription"
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-colors flex-shrink-0",
+                  isTrial
+                    ? "bg-indigo-600 hover:bg-indigo-700 text-white"
+                    : isExpiredOrCanceled
+                      ? "bg-red-600 hover:bg-red-700 text-white"
+                      : "bg-amber-600 hover:bg-amber-700 text-white",
+                )}
+              >
+                {isExpiredOrCanceled ? "Reactivate plan" : "View plans"}
+                <ArrowUpRight size={14} />
+              </Link>
+            )}
           </div>
         </div>
       )}

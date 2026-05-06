@@ -64,6 +64,9 @@ export default function DashboardLayout({
   // SSR (matches the worst case) and refine on mount via useEffect below.
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // RA-1842 — suppress billing nav items on iOS shell (Apple 3.1.1).
+  const [hideBillingNav, setHideBillingNav] = useState(false);
+  useEffect(() => { setHideBillingNav(isCapacitorIOS()); }, []);
 
   // On mount, collapse sidebar by default for tablet-class viewports
   // (768px ≤ width < 1280px). Covers iPad portrait (1024px), iPad Pro 11"
@@ -197,8 +200,8 @@ export default function DashboardLayout({
     },
     { icon: MessageSquare, label: "Interviews", href: "/dashboard/interviews" },
     { icon: Camera, label: "Media Library", href: "/dashboard/media" },
-    // Hide Subscription for team members (Managers and Technicians)
-    ...(isTeamMember
+    // Hide Subscription for team members and on iOS shell (Apple 3.1.1)
+    ...(isTeamMember || hideBillingNav
       ? []
       : [
           {
@@ -457,8 +460,8 @@ export default function DashboardLayout({
               );
             })}
 
-            {/* Upgrade Package - Special styling - Hide for team members */}
-            {!isTeamMember && (
+            {/* Upgrade Package - Special styling - Hide for team members and iOS shell (Apple 3.1.1) */}
+            {!isTeamMember && !hideBillingNav && (
               <Link
                 href={upgradeItem.href}
                 className={cn(
