@@ -227,26 +227,138 @@ Keep each persona's contributions concise (3-5 sentences each). The goal is a de
 // Phase 3: Extract action items and create Linear issues
 // ---------------------------------------------------------------------------
 
+/**
+ * Truncate a title at a word boundary, falling back to a hard cut if no
+ * boundary exists within the budget. Always preserves leading content.
+ */
+function truncateTitle(text: string, maxLen: number): string {
+  if (text.length <= maxLen) return text;
+  // Look for the last space within maxLen — but only if it's >50% in,
+  // otherwise the truncation is too aggressive and we lose meaning.
+  const slice = text.slice(0, maxLen);
+  const lastSpace = slice.lastIndexOf(" ");
+  if (lastSpace > maxLen * 0.6) return slice.slice(0, lastSpace) + "…";
+  return slice + "…";
+}
+
+/**
+ * Detect if a line is a markdown-table structural row (separator or header)
+ * rather than a real action. Examples to reject:
+ *   |---|---|---|
+ *   | # | Action | Owner | Deadline |
+ *   |:--:|:--|:--|:--:|
+ */
+function isTableNonContent(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed.startsWith("|") || !trimmed.endsWith("|")) return false;
+  const cells = trimmed.slice(1, -1).split("|").map((c) => c.trim());
+  // Separator row: every cell is purely dashes, colons, or whitespace
+  if (cells.every((c) => /^[\s\-:=]+$/.test(c))) return true;
+  // Header row: every cell is a short label (≤20 chars, no sentence punctuation)
+  // and the row contains at least one of the canonical column names.
+  const headerLikely = cells.every((c) => c.length <= 20 && !/[.!?]/.test(c));
+  const hasColumnName = cells.some((c) =>
+    /^(#|action|owner|deadline|priority|due|task|description|notes?)$/i.test(c),
+  );
+  return headerLikely && hasColumnName;
+}
+
+/**
+ * If the actions text is rendered as a markdown table, extract the
+ * "Action" column from each data row. Returns null when no table is detected.
+ */
+function parseActionTable(actionsText: string): string[] | null {
+  const lines = actionsText.split("\n").map((l) => l.trim()).filter(Boolean);
+  // A table is present iff at least one line is a separator row
+  const sepIdx = lines.findIndex((l) =>
+    /^\|[\s\-:=|]+\|$/.test(l) && l.includes("-"),
+  );
+  if (sepIdx === -1) return null;
+
+  // The line immediately above the separator is the header (canonical position)
+  const headerLine = sepIdx > 0 ? lines[sepIdx - 1] : null;
+  if (!headerLine || !headerLine.startsWith("|")) return null;
+
+  const headers = headerLine
+    .slice(1, headerLine.endsWith("|") ? -1 : undefined)
+    .split("|")
+    .map((c) => c.trim().toLowerCase());
+
+  // Find the column most likely to contain the action text. Preference order:
+  // exact "action", "task", "description"; otherwise the longest header.
+  let actionCol = headers.findIndex((h) =>
+    /^(action|task|description)$/.test(h),
+  );
+  if (actionCol === -1) {
+    // Pick the column whose header isn't a known short-label column
+    actionCol = headers.findIndex(
+      (h) => !/^(#|owner|deadline|priority|due|notes?)$/.test(h) && h.length > 0,
+    );
+  }
+  if (actionCol === -1) return null;
+
+  const actions: string[] = [];
+  for (let i = sepIdx + 1; i < lines.length; i++) {
+    const row = lines[i];
+    if (!row.startsWith("|") || isTableNonContent(row)) continue;
+    const cells = row
+      .slice(1, row.endsWith("|") ? -1 : undefined)
+      .split("|")
+      .map((c) => c.trim());
+    const cell = cells[actionCol];
+    if (cell && cell.length > 10) actions.push(cell);
+  }
+  return actions.length > 0 ? actions : null;
+}
+
 function extractActionItems(
   memo: string,
 ): Array<{ title: string; description: string }> {
-  // Extract the NEXT ACTIONS section from the memo
+  // Extract the NEXT ACTIONS section from the memo.
+  //   - Front: `[ \t]*\n` matches only horizontal whitespace + a single
+  //     newline. Using `\s*\n` would slurp following blank lines, leaving the
+  //     lazy capture starting AFTER the section's leading blank — and an empty
+  //     section (NEXT ACTIONS\n\nRISK TO WATCH...) would then capture the RISK
+  //     line itself.
+  //   - End: `\s*\n\s*` permits arbitrary blank lines between the last action
+  //     and the boundary keyword.
   const actionsMatch = memo.match(
-    /NEXT ACTIONS\s*\n([\s\S]*?)(?:\n(?:RISK TO WATCH|═+)|$)/i,
+    /NEXT ACTIONS[ \t]*\n([\s\S]*?)(?:\s*\n\s*(?:RISK TO WATCH|═+)|$)/i,
   );
   if (!actionsMatch) return [];
 
   const actionsText = actionsMatch[1].trim();
+  const today = new Date().toISOString().split("T")[0];
   const items: Array<{ title: string; description: string }> = [];
 
-  // Parse numbered or bulleted action items
+  // Path A — the model emitted NEXT ACTIONS as a markdown table. Parse the
+  // table properly and pull the action-column cell from each data row.
+  const tableActions = parseActionTable(actionsText);
+  if (tableActions) {
+    for (const action of tableActions) {
+      const clean = action.replace(/^\*+|\*+$/g, "").trim();
+      if (clean.length > 10) {
+        items.push({
+          title: `[Board] ${truncateTitle(clean, 80)}`,
+          description: `Action item from automated CEO Board meeting (${today})\n\n${clean}`,
+        });
+      }
+    }
+    return items.slice(0, 3);
+  }
+
+  // Path B — line-by-line parser for numbered / bulleted lists. Skip any line
+  // that is structurally part of a markdown table (defensive — Path A handles
+  // proper tables, but fragments may slip through for malformed input).
   const lines = actionsText.split("\n").filter((l) => l.trim());
   for (const line of lines) {
+    if (isTableNonContent(line)) continue;
+    if (line.trim().startsWith("|")) continue; // orphan table row, no separator
     const clean = line.replace(/^[\d\.\-\*\s]+/, "").trim();
     if (clean.length > 10) {
       items.push({
-        title: `[Board] ${clean.slice(0, 80)}`,
-        description: `Action item from automated CEO Board meeting (${new Date().toISOString().split("T")[0]})\n\n${clean}`,
+        title: `[Board] ${truncateTitle(clean, 80)}`,
+        description: `Action item from automated CEO Board meeting (${today})\n\n${clean}`,
       });
     }
   }
