@@ -52,81 +52,72 @@ export async function GET(request: NextRequest) {
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    // 1. Paying customer count + MRR
-    const activeSubscribers = await prisma.user.findMany({
+    // 1. MRR via groupBy — one aggregation query instead of a full table scan
+    const planGroups = await prisma.user.groupBy({
+      by: ["subscriptionPlan"],
       where: { subscriptionStatus: "ACTIVE" },
-      select: { id: true, subscriptionPlan: true },
+      _count: { id: true },
     });
     let mrr = 0;
     let planUnmatched = 0;
-    for (const u of activeSubscribers) {
-      const plan = u.subscriptionPlan ?? "";
+    let payingCustomers = 0;
+    for (const group of planGroups) {
+      const plan = group.subscriptionPlan ?? "";
+      const count = group._count.id;
+      payingCustomers += count;
       const price = PLAN_PRICE_AUD[plan];
       if (price === undefined) {
-        planUnmatched++;
+        planUnmatched += count;
         continue;
       }
-      // Yearly → monthly equivalent
-      mrr += plan.toLowerCase().includes("year") ? price / 12 : price;
+      mrr += (plan.toLowerCase().includes("year") ? price / 12 : price) * count;
     }
 
-    // 2. New trials this month
-    const newTrialsThisMonth = await prisma.user.count({
-      where: {
-        subscriptionStatus: "TRIAL",
-        createdAt: { gte: monthStart },
-      },
-    });
+    // 2–4. Independent counts — run in parallel
+    const [newTrialsThisMonth, convertedThisMonth, churnedThisMonth] =
+      await Promise.all([
+        prisma.user.count({
+          where: { subscriptionStatus: "TRIAL", createdAt: { gte: monthStart } },
+        }),
+        prisma.user.count({
+          where: {
+            subscriptionStatus: "ACTIVE",
+            trialEndsAt: { gte: monthStart, lte: now },
+          },
+        }),
+        prisma.user.count({
+          where: {
+            subscriptionStatus: { in: ["CANCELED", "EXPIRED"] },
+            subscriptionEndsAt: { gte: monthStart, lte: now },
+          },
+        }),
+      ]);
 
-    // 3. Trial → paid conversion (users currently ACTIVE whose trial started this month)
-    //    Heuristic: trialEndsAt is set for trial users and carries over to ACTIVE.
-    const convertedThisMonth = await prisma.user.count({
-      where: {
-        subscriptionStatus: "ACTIVE",
-        trialEndsAt: { gte: monthStart, lte: now },
-      },
-    });
-
-    // 4. Churn this month (CANCELED or EXPIRED with subscriptionEndsAt in this month)
-    const churnedThisMonth = await prisma.user.count({
-      where: {
-        subscriptionStatus: { in: ["CANCELED", "EXPIRED"] },
-        subscriptionEndsAt: { gte: monthStart, lte: now },
-      },
-    });
-
-    // 5. Failed charges (last 30 days) — count distinct Stripe webhook events
-    let failedCharges30d = 0;
-    try {
-      failedCharges30d = await prisma.stripeWebhookEvent.count({
-        where: {
-          eventType: "invoice.payment_failed",
-          createdAt: { gte: thirtyDaysAgo },
-        },
-      });
-    } catch {
-      // If StripeWebhookEvent model doesn't exist in this deployment, show -1
-      failedCharges30d = -1;
-    }
-
-    // 6. Subscription deleted (last 30 days)
-    let subscriptionsDeleted30d = 0;
-    try {
-      subscriptionsDeleted30d = await prisma.stripeWebhookEvent.count({
-        where: {
-          eventType: "customer.subscription.deleted",
-          createdAt: { gte: thirtyDaysAgo },
-        },
-      });
-    } catch {
-      subscriptionsDeleted30d = -1;
-    }
+    // 5–6. Stripe webhook counts — independent, parallel, each may not exist
+    const [failedCharges30d, subscriptionsDeleted30d] = await Promise.all([
+      prisma.stripeWebhookEvent
+        .count({
+          where: {
+            eventType: "invoice.payment_failed",
+            createdAt: { gte: thirtyDaysAgo },
+          },
+        })
+        .catch(() => -1),
+      prisma.stripeWebhookEvent
+        .count({
+          where: {
+            eventType: "customer.subscription.deleted",
+            createdAt: { gte: thirtyDaysAgo },
+          },
+        })
+        .catch(() => -1),
+    ]);
 
     return NextResponse.json({
       generatedAt: now.toISOString(),
       currency: "AUD",
       mrr: Math.round(mrr * 100) / 100,
-      payingCustomers: activeSubscribers.length,
+      payingCustomers,
       planUnmatched,
       newTrialsThisMonth,
       convertedThisMonth,

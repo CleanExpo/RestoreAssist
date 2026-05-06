@@ -43,21 +43,23 @@ export async function GET(request: NextRequest) {
         reportId: { in: reportIds },
       };
 
-      const total = await prisma.inspection.count({ where });
-      const inspections = await prisma.inspection.findMany({
-        where,
-        select: {
-          id: true,
-          inspectionNumber: true,
-          propertyAddress: true,
-          status: true,
-          createdAt: true,
-          submittedAt: true,
-        },
-        orderBy: { createdAt: "desc" },
-        skip,
-        take: limit,
-      });
+      const [total, inspections] = await Promise.all([
+        prisma.inspection.count({ where }),
+        prisma.inspection.findMany({
+          where,
+          select: {
+            id: true,
+            inspectionNumber: true,
+            propertyAddress: true,
+            status: true,
+            createdAt: true,
+            submittedAt: true,
+          },
+          orderBy: { createdAt: "desc" },
+          skip,
+          take: limit,
+        }),
+      ]);
 
       return NextResponse.json({
         inspections,

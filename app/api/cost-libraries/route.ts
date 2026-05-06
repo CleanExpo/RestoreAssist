@@ -17,21 +17,24 @@ export async function GET(request: NextRequest) {
       where: {
         userId: session.user.id,
       },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        region: true,
+        description: true,
+        isDefault: true,
+        createdAt: true,
+        updatedAt: true,
         items: {
-          orderBy: {
-            category: "asc",
-          },
+          orderBy: { category: "asc" },
+          take: 500,
         },
         _count: {
-          select: {
-            items: true,
-          },
+          select: { items: true },
         },
       },
-      orderBy: {
-        createdAt: "desc",
-      },
+      orderBy: { createdAt: "desc" },
+      take: 50,
     });
 
     return NextResponse.json({ libraries });

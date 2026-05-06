@@ -152,7 +152,19 @@ export async function GET(
 
     const approvals = await prisma.reportApproval.findMany({
       where: { reportId },
+      select: {
+        id: true,
+        reportId: true,
+        approvalType: true,
+        status: true,
+        amount: true,
+        clientComments: true,
+        respondedAt: true,
+        createdAt: true,
+        updatedAt: true,
+      },
       orderBy: { createdAt: "desc" },
+      take: 50,
     });
 
     return NextResponse.json({ approvals });

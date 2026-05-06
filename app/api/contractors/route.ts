@@ -1,7 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { applyRateLimit } from "@/lib/rate-limiter";
 
+// Public endpoint — returns only isPubliclyVisible contractor profiles.
+// No auth required by design; rate-limited to prevent directory scraping.
 export async function GET(request: NextRequest) {
+  const limited = await applyRateLimit(request, {
+    prefix: "contractors",
+    windowMs: 60 * 1000,
+    maxRequests: 30,
+  });
+  if (limited) return limited;
+
   try {
     const { searchParams } = new URL(request.url);
 
