@@ -36,8 +36,12 @@ export async function verifyTurnstile(
 ): Promise<TurnstileResult> {
   const secret = process.env.TURNSTILE_SECRET_KEY;
   if (!secret) {
-    // No key configured — soft-allow. Callers get ok=true with a flag so
-    // they can log that CAPTCHA was bypassed.
+    // Production without a key is a misconfiguration — fail-closed so the
+    // endpoint stays protected even before the env var is set in Vercel.
+    // Dev / test / staging stay soft-allow for local developer ergonomics.
+    if (process.env.NODE_ENV === "production") {
+      return { ok: false, reason: "CAPTCHA not configured" };
+    }
     return { ok: true, disabled: true };
   }
 
