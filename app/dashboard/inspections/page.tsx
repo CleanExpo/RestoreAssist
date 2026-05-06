@@ -534,7 +534,7 @@ export default function InspectionsPage() {
                   className="flex items-center gap-1 flex-shrink-0"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {/* RA-1194: surface NIR → Report handoff for classified/scoped inspections */}
+                  {/* Next-step actions by status */}
                   {(insp.status === "CLASSIFIED" ||
                     insp.status === "SCOPED") && (
                     <button
@@ -551,6 +551,16 @@ export default function InspectionsPage() {
                       <FileText size={14} />
                       Generate report
                     </button>
+                  )}
+                  {insp.status === "DRAFT" && (
+                    <span className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                      Complete &amp; submit to classify
+                    </span>
+                  )}
+                  {insp.status === "SUBMITTED" && (
+                    <span className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800/40">
+                      Awaiting classification
+                    </span>
                   )}
                   <button
                     type="button"

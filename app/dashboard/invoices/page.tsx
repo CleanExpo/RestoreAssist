@@ -16,7 +16,7 @@ import {
   Plus,
   Search,
   Trash2,
-  X,
+
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
@@ -27,6 +27,7 @@ import { formatCurrencyCents, formatDate } from "@/lib/formatters";
 import toast from "react-hot-toast";
 import { EmptyState } from "@/components/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DeleteConfirmationDialog } from "@/components/DeleteConfirmationDialog";
 
 interface Invoice {
   id: string;
@@ -541,66 +542,15 @@ export default function InvoicesPage() {
         </div>
       )}
 
-      {/* Delete selected confirmation dialog */}
-      {showDeleteDialog && selectedCount > 0 && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-          onClick={() => !deleting && setShowDeleteDialog(false)}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="bulk-delete-dialog-title"
-        >
-          <div
-            className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 max-w-md w-full p-6 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h2
-                id="bulk-delete-dialog-title"
-                className="text-xl font-semibold text-red-600 dark:text-red-400"
-              >
-                Delete {selectedCount} invoice{selectedCount !== 1 ? "s" : ""}?
-              </h2>
-              <button
-                type="button"
-                onClick={() => !deleting && setShowDeleteDialog(false)}
-                disabled={deleting}
-                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors disabled:opacity-50"
-                aria-label="Close"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <p className="text-slate-600 dark:text-slate-300 mb-6">
-              This action cannot be undone. Only draft and cancelled invoices
-              can be deleted.
-            </p>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => !deleting && setShowDeleteDialog(false)}
-                disabled={deleting}
-                className="flex-1 px-4 py-2.5 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleBulkDelete}
-                disabled={deleting}
-                className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {deleting ? (
-                  <span className="inline-block h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <Trash2 className="h-4 w-4" />
-                )}
-                {deleting ? "Deleting..." : "Delete"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DeleteConfirmationDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        onConfirm={handleBulkDelete}
+        title={`Delete ${selectedCount} invoice${selectedCount !== 1 ? "s" : ""}?`}
+        description="Only draft and cancelled invoices can be deleted."
+        itemCount={selectedCount}
+        isLoading={deleting}
+      />
     </div>
   );
 }
