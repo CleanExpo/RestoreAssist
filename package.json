@@ -11,7 +11,9 @@
     "overrides": {
       "dompurify": "^3.4.2",
       "loader-utils": "^2.0.4",
-      "tar": "^7.5.13"
+      "tar": "^7.5.13",
+      "effect": ">=3.20.0",
+      "defu": ">=6.1.5"
     },
     "auditConfig": {
       "ignoreGhsas": [
