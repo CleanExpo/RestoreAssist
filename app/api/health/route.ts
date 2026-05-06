@@ -11,6 +11,36 @@ interface CheckResult {
   missing?: readonly string[];
 }
 
+// Wave-V: cache the database connectivity probe so 15-min smoke pings,
+// uptime monitors, and dashboard polling don't all pay the 1s+ Supabase
+// pooler-establishment cost on every request.
+//
+// TTL is short enough that a sudden DB outage is detected within ~10s
+// (acceptable for synthetic monitoring) but long enough that bursty
+// traffic (e.g. a status page pinging every second after a deploy)
+// doesn't multiply the connection cost.
+const DB_CHECK_CACHE_TTL_MS = 10_000;
+let cachedDbCheck: { result: CheckResult; expiresAt: number } | null = null;
+
+async function getDatabaseCheck(): Promise<CheckResult> {
+  const now = Date.now();
+  if (cachedDbCheck && cachedDbCheck.expiresAt > now) {
+    return cachedDbCheck.result;
+  }
+
+  let result: CheckResult;
+  try {
+    const dbStart = Date.now();
+    await prisma.$queryRaw`SELECT 1`;
+    result = { status: "ok", latencyMs: Date.now() - dbStart };
+  } catch {
+    result = { status: "error" };
+  }
+
+  cachedDbCheck = { result, expiresAt: now + DB_CHECK_CACHE_TTL_MS };
+  return result;
+}
+
 export async function GET(request: NextRequest) {
   // Rate limit: 60 requests per minute per IP
   const rateLimited = await applyRateLimit(request, {
@@ -22,14 +52,8 @@ export async function GET(request: NextRequest) {
 
   const checks: Record<string, CheckResult> = {};
 
-  // 1. Database connectivity check
-  try {
-    const dbStart = Date.now();
-    await prisma.$queryRaw`SELECT 1`;
-    checks.database = { status: "ok", latencyMs: Date.now() - dbStart };
-  } catch {
-    checks.database = { status: "error" };
-  }
+  // 1. Database connectivity check (cached — see DB_CHECK_CACHE_TTL_MS)
+  checks.database = await getDatabaseCheck();
 
   // 2. Env-var presence check.
   // RA-1799 / RA-1801 / RA-1802 / RA-1803 — without surfacing missing
