@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import BillingGate from "@/components/capacitor/BillingGate";
 
 const SUBSCRIPTION_STATUS_TONES: Record<string, StatusTone> = {
   ACTIVE: "success",
@@ -447,7 +448,8 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Subscription & Credits Sidebar */}
+        {/* Subscription & Credits Sidebar — hidden on iOS (Apple 3.1.1(b)) */}
+        <BillingGate fallback={null}>
         <div className="space-y-6">
           {/* Subscription Status */}
           <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
@@ -606,6 +608,7 @@ export default function SettingsPage() {
             </div>
           </div>
         </div>
+        </BillingGate>
       </div>
 
       <Dialog open={showDeleteModal} onOpenChange={(open) => { setShowDeleteModal(open); if (!open) setDeleteConfirmText(""); }}>
