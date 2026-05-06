@@ -1,0 +1,68 @@
+name: Smoke — Production
+
+# Hits the @smoke-tagged Playwright suite against https://restoreassist.app
+# every 15 minutes and on demand. Catches availability regressions that
+# Sentry only surfaces *after* a real customer triggers them.
+#
+# Wave-U follow-up of the 2026-05-06 production-readiness push.
+
+on:
+  schedule:
+    # Every 15 minutes, UTC. Keep this aligned with the synthetic-monitor
+    # SLO once one is set; for now 15min is a reasonable noise/coverage
+    # tradeoff (~96 runs/day, ~3000/month — well inside free GH Actions tier).
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Base URL to smoke (default: production)"
+        required: false
+        default: "https://restoreassist.app"
+        type: string
+
+concurrency:
+  # Skip overlapping runs. If a run is in flight when the next 15-min tick
+  # fires, the new run will be cancelled rather than queued — there's no
+  # value in stacking smoke runs.
+  group: smoke-prod-${{ github.event.inputs.base_url || 'default' }}
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: Smoke against prod
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Install Playwright browsers (chromium only — smoke is light)
+        run: npx playwright install --with-deps chromium
+
+      - name: Run @smoke against prod
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ github.event.inputs.base_url || 'https://restoreassist.app' }}
+          CI: true
+        run: npx playwright test --grep @smoke --reporter=line
+
+      - name: Upload report on failure
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: smoke-report-${{ github.run_id }}
+          path: playwright-report/
+          retention-days: 14

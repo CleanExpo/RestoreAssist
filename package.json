@@ -39,7 +39,9 @@
     "db:studio": "prisma studio",
     "script:grant-trial-credits": "npx tsx scripts/grant-trial-credits.ts",
     "test:smoke": "playwright test --grep @smoke",
-    "test:smoke:ci": "playwright test --grep @smoke --reporter=line"
+    "test:smoke:ci": "playwright test --grep @smoke --reporter=line",
+    "test:smoke:prod": "CI=true PLAYWRIGHT_BASE_URL=https://restoreassist.app playwright test --grep @smoke --reporter=line",
+    "test:smoke:sandbox": "CI=true PLAYWRIGHT_BASE_URL=https://restoreassist-sandbox.vercel.app playwright test --grep @smoke --reporter=line"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.74",
