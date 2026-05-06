@@ -66,6 +66,7 @@ export default function InvoicesPage() {
   const {
     data: invoiceData,
     loading,
+    error: fetchError,
     refetch: refetchInvoices,
   } = useFetch<{ invoices: Invoice[] }>(invoiceUrl);
   const invoices = invoiceData?.invoices ?? [];
@@ -334,6 +335,20 @@ export default function InvoicesPage() {
           </div>
         )}
       </div>
+
+      {/* Fetch error */}
+      {fetchError && !loading && (
+        <div className="flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-300 mb-4">
+          <span className="text-sm">Failed to load invoices — {fetchError}</span>
+          <button
+            type="button"
+            onClick={refetchInvoices}
+            className="flex-shrink-0 rounded px-3 py-1 text-sm border border-red-500/40 hover:bg-red-500/20 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Invoice Table */}
       {loading ? (

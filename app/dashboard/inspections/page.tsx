@@ -95,6 +95,7 @@ export default function InspectionsPage() {
   const {
     data: inspectionsData,
     loading,
+    error: fetchError,
     refetch: refetchInspections,
   } = useFetch<{ inspections: Inspection[] }>("/api/inspections");
   const inspections = inspectionsData?.inspections ?? [];
@@ -398,6 +399,20 @@ export default function InspectionsPage() {
               Delete selected ({selectedIds.size})
             </button>
           )}
+        </div>
+      )}
+
+      {/* Fetch error */}
+      {fetchError && !loading && (
+        <div className="flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-300">
+          <span className="text-sm">Failed to load inspections — {fetchError}</span>
+          <button
+            type="button"
+            onClick={refetchInspections}
+            className="flex-shrink-0 rounded px-3 py-1 text-sm border border-red-500/40 hover:bg-red-500/20 transition-colors"
+          >
+            Retry
+          </button>
         </div>
       )}
 

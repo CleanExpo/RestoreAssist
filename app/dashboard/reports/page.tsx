@@ -53,6 +53,7 @@ export default function ReportsPage() {
   const {
     data: reportsData,
     loading,
+    error: fetchError,
     refetch: refetchReports,
   } = useFetch<{ reports: ReportWithSessionData[] }>("/api/reports");
   const reports = reportsData?.reports ?? [];
@@ -549,6 +550,20 @@ export default function ReportsPage() {
               Clear All
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Fetch error */}
+      {fetchError && !loading && (
+        <div className="flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-300 mb-4">
+          <span className="text-sm">Failed to load reports — {fetchError}</span>
+          <button
+            type="button"
+            onClick={refetchReports}
+            className="flex-shrink-0 rounded px-3 py-1 text-sm border border-red-500/40 hover:bg-red-500/20 transition-colors"
+          >
+            Retry
+          </button>
         </div>
       )}
 
