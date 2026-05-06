@@ -26,6 +26,7 @@ import { useFetch } from "@/lib/hooks/useFetch";
 import { formatCurrencyCents, formatDate } from "@/lib/formatters";
 import toast from "react-hot-toast";
 import { EmptyState } from "@/components/EmptyState";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Invoice {
   id: string;
@@ -336,8 +337,17 @@ export default function InvoicesPage() {
 
       {/* Invoice Table */}
       {loading ? (
-        <div className="text-center py-12 text-slate-500 dark:text-slate-400">
-          Loading invoices...
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden divide-y divide-slate-200 dark:divide-slate-700">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-4 px-4 py-3">
+              <Skeleton className="h-4 w-28" />
+              <Skeleton className="h-4 w-40 flex-1" />
+              <Skeleton className="h-5 w-20 rounded-full" />
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-4 w-16" />
+              <Skeleton className="h-8 w-8 rounded" />
+            </div>
+          ))}
         </div>
       ) : invoices.length === 0 ? (
         <EmptyState
@@ -350,8 +360,43 @@ export default function InvoicesPage() {
         />
       ) : (
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
-          {/* RA-918: overflow-x-auto enables horizontal scroll on narrow viewports */}
-          <div className="overflow-x-auto">
+          {/* Mobile card layout — hidden at sm and above */}
+          <div className="sm:hidden divide-y divide-slate-200 dark:divide-slate-700">
+            {invoices.map((invoice) => (
+              <div
+                key={invoice.id}
+                className="px-4 py-3 flex items-start justify-between gap-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/30"
+                onClick={() => router.push(`/dashboard/invoices/${invoice.id}`)}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-medium text-slate-900 dark:text-white truncate">
+                      {invoice.invoiceNumber}
+                    </span>
+                    {getStatusBadge({ status: invoice.status, dueDate: invoice.dueDate, amountDue: invoice.amountDue })}
+                  </div>
+                  <div className="text-sm text-slate-600 dark:text-slate-300 mt-0.5 truncate">
+                    {invoice.customerName}
+                  </div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Due {formatDate(invoice.dueDate)}
+                  </div>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <div className="text-sm font-semibold text-slate-900 dark:text-white">
+                    {formatCurrencyCents(invoice.totalIncGST)}
+                  </div>
+                  {invoice.amountPaid > 0 && (
+                    <div className="text-xs text-green-600 dark:text-green-400">
+                      {formatCurrencyCents(invoice.amountPaid)} paid
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Desktop table — hidden below sm */}
+          <div className="hidden sm:block overflow-x-auto">
             <table className="w-full">
               <thead className="bg-slate-50 dark:bg-slate-700/50">
                 <tr>

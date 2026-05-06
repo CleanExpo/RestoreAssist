@@ -32,6 +32,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
 import { EmptyState } from "@/components/EmptyState";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate } from "@/lib/formatters";
 import type { ReportWithSessionData } from "@/lib/session-types";
 
@@ -554,9 +555,17 @@ export default function ReportsPage() {
       {/* Reports Table */}
       <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 overflow-hidden mb-4">
         {loading ? (
-          <div className="p-8 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500 mx-auto mb-4"></div>
-            <p className="text-slate-300">Loading reports...</p>
+          <div className="divide-y divide-slate-700/50">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-4 px-4 py-3">
+                <Skeleton className="h-4 w-4 rounded" />
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-4 w-48 flex-1" />
+                <Skeleton className="h-5 w-20 rounded-full" />
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-16" />
+              </div>
+            ))}
           </div>
         ) : (
           <>
