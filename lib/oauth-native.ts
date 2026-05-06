@@ -45,7 +45,7 @@
 import { signIn, type SignInOptions } from "next-auth/react";
 import { isCapacitorIOS, openInAppBrowser } from "@/lib/capacitor";
 
-export type OAuthProvider = "google";
+export type OAuthProvider = "google" | "apple";
 
 /**
  * Sign in with an external OAuth provider, using the Capacitor in-app
