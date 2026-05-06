@@ -243,6 +243,9 @@ model User {
   // RA-1246 — activation funnel events
   activationEvents ActivationEvent[]
 
+  // RA-1842 — APNS/FCM device tokens for push notifications
+  deviceTokens DeviceToken[]
+
   // RA-1352 — admin impersonation audit (as initiator and as target)
   adminImpersonationsAsAdmin  AdminImpersonation[] @relation("AdminImpersonationAsAdmin")
   adminImpersonationsAsTarget AdminImpersonation[] @relation("AdminImpersonationAsTarget")
@@ -5787,4 +5790,19 @@ model ActivationEvent {
 
   @@index([userId, eventName])
   @@index([createdAt])
+}
+
+/// RA-1842 — APNS / FCM device tokens for push notifications.
+/// Registered after first login on iOS (or Android) native shell.
+model DeviceToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  platform  String   // "ios" | "android"
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

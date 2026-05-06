@@ -57,5 +57,7 @@
 	<string>RestoreAssist saves inspection photos to your photo library.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>RestoreAssist uses your location to auto-fill the property address on new inspections.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>RestoreAssist uses Face ID to protect your account when the app resumes.</string>
 </dict>
 </plist>

@@ -386,17 +386,19 @@ function LoginForm() {
                 Forgot password?
               </Link>
             </div>
-            <div>
-              <p className="text-slate-400">
-                Don't have an account?{" "}
-                <Link
-                  href="/signup"
-                  className="text-cyan-400 hover:text-cyan-300 transition-colors font-medium"
-                >
-                  Sign up for free
-                </Link>
-              </p>
-            </div>
+            {!hideThirdPartyAuth && (
+              <div>
+                <p className="text-slate-400">
+                  Don't have an account?{" "}
+                  <Link
+                    href="/signup"
+                    className="text-cyan-400 hover:text-cyan-300 transition-colors font-medium"
+                  >
+                    Sign up for free
+                  </Link>
+                </p>
+              </div>
+            )}
           </div>
         </motion.div>
       </motion.div>

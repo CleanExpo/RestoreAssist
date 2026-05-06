@@ -21,6 +21,16 @@ import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
 import { isCapacitorIOS } from "@/lib/capacitor";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 const SUBSCRIPTION_STATUS_TONES: Record<string, StatusTone> = {
   ACTIVE: "success",
@@ -63,6 +73,13 @@ export default function SettingsPage() {
   const [hideBillingEntry, setHideBillingEntry] = useState(false);
   useEffect(() => {
     setHideBillingEntry(isCapacitorIOS());
+  }, []);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [biometricLock, setBiometricLock] = useState(false);
+  useEffect(() => {
+    setBiometricLock(localStorage.getItem("ra-biometric-lock") === "true");
   }, []);
 
   useEffect(() => {
@@ -202,6 +219,29 @@ export default function SettingsPage() {
         </p>
       </div>
     );
+  }
+
+  async function handleDeleteAccount() {
+    if (deleteConfirmText !== "DELETE MY ACCOUNT") return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch("/api/account/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmation: "DELETE MY ACCOUNT" }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        toast.error(data.error || "Failed to delete account");
+        return;
+      }
+      toast.success("Account deleted");
+      window.location.href = "/";
+    } catch {
+      toast.error("Failed to delete account");
+    } finally {
+      setIsDeleting(false);
+    }
   }
 
   return (
@@ -392,7 +432,10 @@ export default function SettingsPage() {
                 <span>Export Data</span>
               </button>
 
-              <button className="w-full flex items-center gap-3 px-4 py-3 border border-red-600 text-red-400 rounded-lg hover:bg-red-600/10 transition-colors">
+              <button
+                onClick={() => setShowDeleteModal(true)}
+                className="w-full flex items-center gap-3 px-4 py-3 border border-red-600 text-red-400 rounded-lg hover:bg-red-600/10 transition-colors"
+              >
                 <Trash2 className="w-4 h-4" />
                 <span>Delete Account</span>
               </button>
@@ -498,13 +541,15 @@ export default function SettingsPage() {
                 ></div>
               </div>
 
-              <a
-                href="/pricing"
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg font-medium hover:shadow-lg hover:shadow-yellow-500/50 transition-all"
-              >
-                <Crown className="w-4 h-4" />
-                Upgrade Package
-              </a>
+              {!hideBillingEntry && (
+                <a
+                  href="/pricing"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg font-medium hover:shadow-lg hover:shadow-yellow-500/50 transition-all"
+                >
+                  <Crown className="w-4 h-4" />
+                  Upgrade Package
+                </a>
+              )}
             </div>
           </div>
 
@@ -532,10 +577,59 @@ export default function SettingsPage() {
                 <span className="text-sm text-slate-300">Last Login</span>
                 <span className="text-xs text-slate-500">Today</span>
               </div>
+
+              {isCapacitorIOS() && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-300">
+                    Require Face ID to unlock
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={biometricLock}
+                    onChange={(e) => {
+                      localStorage.setItem(
+                        "ra-biometric-lock",
+                        String(e.target.checked),
+                      );
+                      setBiometricLock(e.target.checked);
+                    }}
+                    className="w-4 h-4 accent-cyan-500 cursor-pointer"
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
+
+      <Dialog open={showDeleteModal} onOpenChange={(open) => { setShowDeleteModal(open); if (!open) setDeleteConfirmText(""); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Account</DialogTitle>
+            <DialogDescription>
+              This permanently deletes your account and all associated data. Type{" "}
+              <strong>DELETE MY ACCOUNT</strong> to confirm.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={deleteConfirmText}
+            onChange={(e) => setDeleteConfirmText(e.target.value)}
+            placeholder="DELETE MY ACCOUNT"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteConfirmText !== "DELETE MY ACCOUNT" || isDeleting}
+              onClick={handleDeleteAccount}
+            >
+              {isDeleting ? "Deleting…" : "Delete Account"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

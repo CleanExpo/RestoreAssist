@@ -61,6 +61,9 @@ import {
   getWorkflowTemplate,
 } from "@/lib/evidence/workflow-definitions";
 import type { JobType } from "@/lib/evidence/workflow-definitions";
+import { captureEvidencePhoto } from "@/lib/evidence/ios-capture";
+import { useCapacitor } from "@/components/providers/CapacitorProvider";
+import { getQueuedDraftCount } from "@/lib/offline/inspection-store";
 import { AdaptiveGuidancePanel } from "@/components/inspections/adaptive-guidance-panel";
 import { SubmissionGatePanel } from "@/components/inspections/submission-gate-panel";
 import {
@@ -187,6 +190,8 @@ export default function CaptureWorkflowPage({
 }) {
   const { id: inspectionId } = use(params);
   const router = useRouter();
+  const { isNative } = useCapacitor();
+  const [offlineCount, setOfflineCount] = useState(0);
 
   // Core state
   const [loading, setLoading] = useState(true);
@@ -369,6 +374,44 @@ export default function CaptureWorkflowPage({
       toast.error("Failed to skip step");
     } finally {
       setSkipping(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isNative) return;
+    getQueuedDraftCount().then(setOfflineCount);
+  }, [isNative]);
+
+  const handleCaptureWithCamera = async (
+    stepId: string,
+    evidenceClass: EvidenceClass,
+  ) => {
+    try {
+      setUploadingEvidence(true);
+      setSelectedEvidenceClass(evidenceClass);
+      const capture = await captureEvidencePhoto();
+      const res = await fetch(`/api/inspections/${inspectionId}/evidence`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workflowStepId: stepId,
+          evidenceClass,
+          deviceType: "IOS_CAPACITOR",
+          capturedLat: capture.manifest.lat,
+          capturedLng: capture.manifest.lng,
+          structuredData: { c2paManifest: capture.manifest },
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to record evidence");
+      const data = await res.json();
+      setEvidenceItems((prev) => [data.evidenceItem, ...prev]);
+      setSelectedEvidenceClass(null);
+      toast.success(`${EVIDENCE_CLASS_LABELS[evidenceClass]} captured`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Camera capture failed";
+      toast.error(msg);
+    } finally {
+      setUploadingEvidence(false);
     }
   };
 
@@ -878,6 +921,12 @@ export default function CaptureWorkflowPage({
             onConfirmationsComplete={setConfirmationsComplete}
           />
 
+          {isNative && offlineCount > 0 && (
+            <div className="bg-amber-900/30 border border-amber-600/50 rounded-lg px-4 py-2 text-sm text-amber-300 mb-4">
+              Working offline — {offlineCount} item{offlineCount > 1 ? "s" : ""} queued
+            </div>
+          )}
+
           {/* ============================================ */}
           {/* REQUIRED EVIDENCE SECTION */}
           {/* ============================================ */}
@@ -938,14 +987,22 @@ export default function CaptureWorkflowPage({
                           size="sm"
                           className="h-7 text-xs"
                           onClick={() => {
-                            setSelectedEvidenceClass(cls);
-                            handleAddEvidence(activeStep.id, cls);
+                            if (isNative) {
+                              handleCaptureWithCamera(activeStep.id, cls);
+                            } else {
+                              setSelectedEvidenceClass(cls);
+                              handleAddEvidence(activeStep.id, cls);
+                            }
                           }}
                           disabled={uploadingEvidence}
                         >
                           {uploadingEvidence &&
                           selectedEvidenceClass === cls ? (
                             <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : isNative ? (
+                            <>
+                              <Camera className="h-3 w-3 mr-1" /> Capture
+                            </>
                           ) : (
                             <>
                               <Upload className="h-3 w-3 mr-1" /> Capture

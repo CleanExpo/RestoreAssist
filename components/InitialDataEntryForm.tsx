@@ -2369,7 +2369,7 @@ export default function InitialDataEntryForm({
       // RA-1842: iOS billing on web only.
       if (isCapacitorIOS()) {
         toast.error(
-          "No Quick Fill credits remaining. Subscriptions are managed on restoreassist.app.",
+          "No Quick Fill credits remaining. Contact your workspace admin to manage your subscription.",
         );
       } else {
         toast.error(
@@ -2397,7 +2397,7 @@ export default function InitialDataEntryForm({
           if (error.requiresUpgrade) {
             if (isCapacitorIOS()) {
               toast.error(
-                "No Quick Fill credits remaining. Subscriptions are managed on restoreassist.app.",
+                "No Quick Fill credits remaining. Contact your workspace admin to manage your subscription.",
               );
             } else {
               toast.error(

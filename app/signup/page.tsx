@@ -46,9 +46,11 @@ export default function SignupPage() {
   const router = useRouter();
 
   useEffect(() => {
-    setHideThirdPartyAuth(isCapacitorIOS());
+    const ios = isCapacitorIOS();
+    setHideThirdPartyAuth(ios);
     setAuthHydrated(true);
-  }, []);
+    if (ios) router.replace("/login");
+  }, [router]);
 
   useEffect(() => {
     if (shouldRedirect) {
