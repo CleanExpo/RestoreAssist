@@ -53,15 +53,9 @@ export default function BillingGate({ children, fallback }: BillingGateProps) {
           </h1>
           <p className="max-w-md text-sm text-muted-foreground">
             The RestoreAssist iOS app is free for field use. Subscriptions,
-            billing and account upgrades are managed on{" "}
-            <a
-              href="https://restoreassist.app"
-              className="underline hover:text-primary"
-            >
-              restoreassist.app
-            </a>
-            . Sign in with your workspace account once your employer activates a
-            subscription.
+            billing and account upgrades are managed by your workspace
+            administrator. Sign in with your workspace email once your employer
+            activates a subscription.
           </p>
         </div>
       )}

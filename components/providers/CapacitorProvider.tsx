@@ -22,6 +22,7 @@ import {
   type ReactNode,
 } from "react";
 import CapacitorFetchInit from "@/components/capacitor/CapacitorFetchInit";
+import { BiometricLockScreen } from "@/components/capacitor/BiometricLockScreen";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -91,6 +92,24 @@ export function CapacitorProvider({ children }: { children: ReactNode }) {
       // Android Chromium WebView supports Web Bluetooth natively
       hasNativeBluetooth: platform === "ios",
     });
+
+    if (platform === "ios") {
+      import("@capacitor/push-notifications")
+        .then(({ PushNotifications }) => {
+          PushNotifications.requestPermissions().then(({ receive }) => {
+            if (receive !== "granted") return;
+            PushNotifications.register();
+            PushNotifications.addListener("registration", ({ value: token }) => {
+              fetch("/api/push/subscribe", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ token, platform: "ios" }),
+              }).catch(() => {});
+            });
+          });
+        })
+        .catch(() => {});
+    }
   }, []);
 
   return (
@@ -98,6 +117,7 @@ export function CapacitorProvider({ children }: { children: ReactNode }) {
       {/* RA-1842 Path B — patch fetch on iOS so checkout APIs see
           X-Capacitor-Platform: ios and 403 client-side. Web noop. */}
       <CapacitorFetchInit />
+      <BiometricLockScreen />
       {children}
     </CapacitorContext.Provider>
   );

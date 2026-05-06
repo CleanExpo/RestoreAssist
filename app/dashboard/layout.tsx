@@ -386,7 +386,7 @@ export default function DashboardLayout({
                                 router.push("/dashboard/pricing");
                               } else {
                                 toast.error(
-                                  "Subscriptions are managed on restoreassist.app.",
+                                  "Contact your workspace admin to manage your subscription.",
                                 );
                               }
                               return;
