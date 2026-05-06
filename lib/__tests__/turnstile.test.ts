@@ -14,9 +14,21 @@ describe("verifyTurnstile", () => {
     globalThis.fetch = originalFetch;
   });
 
-  it("soft-allows when TURNSTILE_SECRET_KEY is unset (dev / staging)", async () => {
+  it("soft-allows when TURNSTILE_SECRET_KEY is unset in dev/test", async () => {
     const result = await verifyTurnstile("any-token");
     expect(result).toEqual({ ok: true, disabled: true });
+  });
+
+  it("fails-closed when TURNSTILE_SECRET_KEY is unset in production", async () => {
+    const originalEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      const result = await verifyTurnstile("any-token");
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.reason).toContain("not configured");
+    } finally {
+      process.env.NODE_ENV = originalEnv;
+    }
   });
 
   it("rejects when secret is configured but token is empty", async () => {
