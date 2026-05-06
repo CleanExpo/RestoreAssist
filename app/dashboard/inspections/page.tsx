@@ -311,6 +311,7 @@ export default function InspectionsPage() {
           />
           <input
             type="text"
+            aria-label="Search inspections"
             placeholder="Search by inspection number, address, or technician..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -319,10 +320,11 @@ export default function InspectionsPage() {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
-            <label className="text-xs font-medium text-neutral-500 dark:text-slate-400 whitespace-nowrap">
+            <label htmlFor="inspections-date-from" className="text-xs font-medium text-neutral-500 dark:text-slate-400 whitespace-nowrap">
               From
             </label>
             <input
+              id="inspections-date-from"
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
@@ -330,10 +332,11 @@ export default function InspectionsPage() {
             />
           </div>
           <div className="flex items-center gap-2">
-            <label className="text-xs font-medium text-neutral-500 dark:text-slate-400 whitespace-nowrap">
+            <label htmlFor="inspections-date-to" className="text-xs font-medium text-neutral-500 dark:text-slate-400 whitespace-nowrap">
               To
             </label>
             <input
+              id="inspections-date-to"
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}

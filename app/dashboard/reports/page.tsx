@@ -407,11 +407,12 @@ export default function ReportsPage() {
       <div className="flex gap-4 items-center mb-4">
         <div className="flex-1 relative">
           <Search
-            className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"
+            className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500 dark:text-slate-400"
             size={18}
           />
           <input
             type="text"
+            aria-label="Search reports"
             placeholder="Search by ID, client, address..."
             value={searchTerm}
             onChange={(e) => {
@@ -506,10 +507,11 @@ export default function ReportsPage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">
+              <label htmlFor="reports-date-from" className="block text-sm font-medium mb-2">
                 From Date
               </label>
               <input
+                id="reports-date-from"
                 type="date"
                 value={filters.dateFrom}
                 onChange={(e) =>
@@ -519,8 +521,9 @@ export default function ReportsPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">To Date</label>
+              <label htmlFor="reports-date-to" className="block text-sm font-medium mb-2">To Date</label>
               <input
+                id="reports-date-to"
                 type="date"
                 value={filters.dateTo}
                 onChange={(e) =>
@@ -612,7 +615,7 @@ export default function ReportsPage() {
                             ? "Deselect report"
                             : "Select report"
                         }
-                        className="mt-1 flex-shrink-0 text-slate-400 hover:text-white transition-colors min-h-[24px] min-w-[24px]"
+                        className="mt-1 flex-shrink-0 text-slate-500 dark:text-slate-400 hover:text-white transition-colors min-h-[24px] min-w-[24px]"
                       >
                         {selectedReports.includes(report.id) ? (
                           <CheckSquare size={20} className="text-cyan-400" />
@@ -650,14 +653,14 @@ export default function ReportsPage() {
                         </div>
                         {/* RA-1192: AI one-liner (mobile). Shown only when present. */}
                         {(localSynopsis[report.id] || report.aiSynopsis) && (
-                          <p className="text-xs text-slate-400 italic mt-0.5 mb-1 line-clamp-2">
+                          <p className="text-xs text-slate-500 dark:text-slate-400 italic mt-0.5 mb-1 line-clamp-2">
                             {localSynopsis[report.id] || report.aiSynopsis}
                           </p>
                         )}
                         <div className="text-xs text-slate-300 truncate mb-2">
                           {report.propertyAddress || "No address"}
                         </div>
-                        <div className="flex items-center gap-4 text-xs text-slate-400 flex-wrap">
+                        <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
                           <span className="font-medium text-slate-300">
                             {formatCost(report.estimatedCost)}
                           </span>
@@ -827,7 +830,7 @@ export default function ReportsPage() {
                           </div>
                           {/* RA-1192: AI one-liner beneath the client name. */}
                           {(localSynopsis[report.id] || report.aiSynopsis) && (
-                            <p className="text-xs text-slate-400 italic mt-0.5 line-clamp-2">
+                            <p className="text-xs text-slate-500 dark:text-slate-400 italic mt-0.5 line-clamp-2">
                               {localSynopsis[report.id] || report.aiSynopsis}
                             </p>
                           )}

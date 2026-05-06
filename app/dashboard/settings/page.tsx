@@ -588,10 +588,11 @@ export default function SettingsPage() {
 
               {isCapacitorIOS() && (
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-300">
+                  <label htmlFor="biometric-lock" className="text-sm text-slate-300 cursor-pointer">
                     Require Face ID to unlock
-                  </span>
+                  </label>
                   <input
+                    id="biometric-lock"
                     type="checkbox"
                     checked={biometricLock}
                     onChange={(e) => {

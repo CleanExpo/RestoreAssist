@@ -454,6 +454,7 @@ export default function ClientsPage() {
           />
           <input
             type="text"
+            aria-label="Search clients"
             placeholder="Search clients by name, email, phone, company..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
