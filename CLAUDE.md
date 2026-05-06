@@ -19,6 +19,7 @@ TypeScript / Next.js 15 App Router compliance platform for Australian water dama
 ## Rules
 
 ### Auth & Identity
+
 1. Every API route requires `getServerSession` — only `/api/auth/*`, `/api/cron/*` (bearer-token), and webhook endpoints are exempt
 2. Use `session.user.id` (JWT `sub`) as authoritative identifier — `session.user.email` can be stale
 3. Admin routes use `verifyAdminFromDb()` from `lib/admin-auth.ts` — JWT role claim can be stale; always re-validate from DB
@@ -28,6 +29,7 @@ TypeScript / Next.js 15 App Router compliance platform for Australian water dama
 **This repo is pnpm-only. Do not run `npm install`, `npm uninstall`, `yarn`, or `bun` against it.** `pnpm-lock.yaml` is the source of truth; CI uses `pnpm install --frozen-lockfile` and Vercel builds the same. Mixing package managers has bricked a session: `npm uninstall` wrote a partial `package.json`, left the pnpm lockfile untouched, Vercel then rejected the frozen lockfile, and the PR gate flipped red until the lockfile was regenerated.
 
 Any dependency change:
+
 1. Edit `package.json` by hand OR run `pnpm add <pkg>` / `pnpm remove <pkg>`.
 2. `pnpm install --lockfile-only` (or `pnpm install` for a full refresh).
 3. Commit `package.json` and `pnpm-lock.yaml` in the **same** commit.
@@ -125,6 +127,7 @@ Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-s
 **Don't assume. Don't hide confusion. Surface tradeoffs.**
 
 Before implementing:
+
 - State your assumptions explicitly. If uncertain, ask.
 - If multiple interpretations exist, present them - don't pick silently.
 - If a simpler approach exists, say so. Push back when warranted.
@@ -147,12 +150,14 @@ Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, sim
 **Touch only what you must. Clean up only your own mess.**
 
 When editing existing code:
+
 - Don't "improve" adjacent code, comments, or formatting.
 - Don't refactor things that aren't broken.
 - Match existing style, even if you'd do it differently.
 - If you notice unrelated dead code, mention it - don't delete it.
 
 When your changes create orphans:
+
 - Remove imports/variables/functions that YOUR changes made unused.
 - Don't remove pre-existing dead code unless asked.
 
@@ -163,11 +168,13 @@ The test: Every changed line should trace directly to the user's request.
 **Define success criteria. Loop until verified.**
 
 Transform tasks into verifiable goals:
+
 - "Add validation" → "Write tests for invalid inputs, then make them pass"
 - "Fix the bug" → "Write a test that reproduces it, then make it pass"
 - "Refactor X" → "Ensure tests pass before and after"
 
 For multi-step tasks, state a brief plan:
+
 ```
 1. [Step] → verify: [check]
 2. [Step] → verify: [check]

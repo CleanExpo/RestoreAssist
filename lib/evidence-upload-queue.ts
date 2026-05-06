@@ -123,9 +123,11 @@ export async function queueEvidenceUpload(input: {
     navigator.serviceWorker.ready
       .then((sw) =>
         // The DOM lib's SyncManager types are behind a flag — safe any-cast.
-        ((sw as unknown as { sync: { register: (tag: string) => Promise<void> } }).sync).register(
-          "evidence-upload-sync",
-        ),
+        (
+          sw as unknown as {
+            sync: { register: (tag: string) => Promise<void> };
+          }
+        ).sync.register("evidence-upload-sync"),
       )
       .catch(() => {
         /* SW not yet active, online event will still drain */

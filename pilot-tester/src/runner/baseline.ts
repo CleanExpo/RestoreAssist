@@ -95,7 +95,13 @@ export async function analyseRegression(
   for (const cell of currentCells) {
     const before = baselineByKey.get(cell.key);
     if (!before) continue;
-    pushDimensionFinding(findings, "deterministic", cell, before, cellTolerance);
+    pushDimensionFinding(
+      findings,
+      "deterministic",
+      cell,
+      before,
+      cellTolerance,
+    );
     pushDimensionFinding(findings, "judge", cell, before, cellTolerance);
   }
 
@@ -158,7 +164,9 @@ export async function analyseRegression(
   }
 
   const hardFails = findings.filter((f) => f.severity === "hard").length;
-  const coverageFails = findings.filter((f) => f.severity === "coverage").length;
+  const coverageFails = findings.filter(
+    (f) => f.severity === "coverage",
+  ).length;
 
   return {
     baselineFound: true,
@@ -237,7 +245,9 @@ export interface PromoteOptions {
  *
  *   tsx pilot-tester/src/runner/baseline.ts promote ./reports/<run>.json "<note>"
  */
-export async function promoteToBaseline(opts: PromoteOptions): Promise<Baseline> {
+export async function promoteToBaseline(
+  opts: PromoteOptions,
+): Promise<Baseline> {
   const baseline: Baseline = {
     generatedAt: new Date().toISOString(),
     note: opts.note,

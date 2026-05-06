@@ -65,7 +65,10 @@ async function linearFetch<T>(
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     reportError(err, { feature: "margot-linear" });
-    return { error: `Linear fetch failed: ${msg}`, retryable: classifyRetryable(msg) };
+    return {
+      error: `Linear fetch failed: ${msg}`,
+      retryable: classifyRetryable(msg),
+    };
   }
 }
 
@@ -111,9 +114,18 @@ export async function linearListIssues(
   const limit = Math.min(Math.max(params.limit ?? 10, 1), 20);
 
   const filters: string[] = [];
-  if (params.state) filters.push(`{ state: { name: { eqIgnoreCase: "${params.state.replace(/"/g, '\\"')}" } } }`);
-  if (params.team) filters.push(`{ team: { name: { eqIgnoreCase: "${params.team.replace(/"/g, '\\"')}" } } }`);
-  if (params.project) filters.push(`{ project: { name: { eqIgnoreCase: "${params.project.replace(/"/g, '\\"')}" } } }`);
+  if (params.state)
+    filters.push(
+      `{ state: { name: { eqIgnoreCase: "${params.state.replace(/"/g, '\\"')}" } } }`,
+    );
+  if (params.team)
+    filters.push(
+      `{ team: { name: { eqIgnoreCase: "${params.team.replace(/"/g, '\\"')}" } } }`,
+    );
+  if (params.project)
+    filters.push(
+      `{ project: { name: { eqIgnoreCase: "${params.project.replace(/"/g, '\\"')}" } } }`,
+    );
   const filterClause = filters.length
     ? `filter: { and: [${filters.join(", ")}] }`
     : "";
@@ -134,7 +146,9 @@ export async function linearListIssues(
     }
   }`;
 
-  const res = await linearFetch<LinearIssuesGql>(apiKey, query, { first: limit });
+  const res = await linearFetch<LinearIssuesGql>(apiKey, query, {
+    first: limit,
+  });
   if ("error" in res) return res;
 
   const issues = res.data.issues.nodes.map((n) => ({
@@ -172,7 +186,11 @@ async function resolveTeamId(
 ): Promise<string | LinearToolError> {
   if (!teamNameOrId) return DEFAULT_RA_TEAM_ID;
   // UUID shape → assume already an ID.
-  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(teamNameOrId)) {
+  if (
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      teamNameOrId,
+    )
+  ) {
     return teamNameOrId;
   }
 
@@ -181,11 +199,16 @@ async function resolveTeamId(
       nodes { id name key }
     }
   }`;
-  const res = await linearFetch<LinearTeamLookupGql>(apiKey, query, { name: teamNameOrId });
+  const res = await linearFetch<LinearTeamLookupGql>(apiKey, query, {
+    name: teamNameOrId,
+  });
   if ("error" in res) return res;
   const hit = res.data.teams.nodes[0];
   if (!hit) {
-    return { error: `Linear team "${teamNameOrId}" not found`, retryable: false };
+    return {
+      error: `Linear team "${teamNameOrId}" not found`,
+      retryable: false,
+    };
   }
   return hit.id;
 }
@@ -199,17 +222,26 @@ async function resolveProjectId(
   projectNameOrId: string | undefined,
 ): Promise<string | null | LinearToolError> {
   if (!projectNameOrId) return null;
-  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(projectNameOrId)) {
+  if (
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      projectNameOrId,
+    )
+  ) {
     return projectNameOrId;
   }
   const query = `query MargotProjectLookup($name: String!) {
     projects(filter: { name: { eqIgnoreCase: $name } }) { nodes { id name } }
   }`;
-  const res = await linearFetch<LinearProjectLookupGql>(apiKey, query, { name: projectNameOrId });
+  const res = await linearFetch<LinearProjectLookupGql>(apiKey, query, {
+    name: projectNameOrId,
+  });
   if ("error" in res) return res;
   const hit = res.data.projects.nodes[0];
   if (!hit) {
-    return { error: `Linear project "${projectNameOrId}" not found`, retryable: false };
+    return {
+      error: `Linear project "${projectNameOrId}" not found`,
+      retryable: false,
+    };
   }
   return hit.id;
 }
@@ -256,7 +288,10 @@ export async function linearCreateIssue(
   if ("error" in res) return res;
 
   if (!res.data.issueCreate.success || !res.data.issueCreate.issue) {
-    return { error: "Linear issueCreate returned success=false", retryable: true };
+    return {
+      error: "Linear issueCreate returned success=false",
+      retryable: true,
+    };
   }
 
   return res.data.issueCreate.issue;
@@ -295,7 +330,10 @@ export async function linearCommentOnIssue(
   if ("error" in res) return res;
 
   if (!res.data.commentCreate.success || !res.data.commentCreate.comment) {
-    return { error: "Linear commentCreate returned success=false", retryable: true };
+    return {
+      error: "Linear commentCreate returned success=false",
+      retryable: true,
+    };
   }
 
   return res.data.commentCreate.comment;

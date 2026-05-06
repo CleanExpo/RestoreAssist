@@ -7,12 +7,12 @@ sprint. No shadcn `Dialog` port in this PR — the ask was an audit.
 
 ## Components audited
 
-| File | Hand-rolled | Focus trap | Escape close | Backdrop click | Return focus | role=dialog + aria-* |
-|------|:-----------:|:----------:|:------------:|:--------------:|:------------:|:--------------------:|
-| `components/OnboardingModal.tsx` | yes | **no** | **no** | ignored | **no** | **no** |
-| `components/OnboardingStepModal.tsx` | yes | **no** | **no** | intentionally blocked | **no** | **no** |
-| `components/BulkOperationModal.tsx` | yes | **no** | **no** | ignored | **no** | **no** |
-| `components/authority-forms/SignatoryManager.tsx` | partial | **no** | **no** | n/a | **no** | **no** |
+| File                                              | Hand-rolled | Focus trap | Escape close |    Backdrop click     | Return focus | role=dialog + aria-\* |
+| ------------------------------------------------- | :---------: | :--------: | :----------: | :-------------------: | :----------: | :-------------------: |
+| `components/OnboardingModal.tsx`                  |     yes     |   **no**   |    **no**    |        ignored        |    **no**    |        **no**         |
+| `components/OnboardingStepModal.tsx`              |     yes     |   **no**   |    **no**    | intentionally blocked |    **no**    |        **no**         |
+| `components/BulkOperationModal.tsx`               |     yes     |   **no**   |    **no**    |        ignored        |    **no**    |        **no**         |
+| `components/authority-forms/SignatoryManager.tsx` |   partial   |   **no**   |    **no**    |          n/a          |    **no**    |        **no**         |
 
 ## Recommended migration
 
@@ -33,16 +33,16 @@ sprint. No shadcn `Dialog` port in this PR — the ask was an audit.
 
 Each migration PR must include a Playwright keyboard-only test:
 
-* Tab cycles through focusable descendants without leaving the modal.
-* Escape closes it and focus returns to the opener button.
-* Shift-Tab at the first focusable element wraps to the last.
-* Backdrop-click behaviour matches the original intent (the two
+- Tab cycles through focusable descendants without leaving the modal.
+- Escape closes it and focus returns to the opener button.
+- Shift-Tab at the first focusable element wraps to the last.
+- Backdrop-click behaviour matches the original intent (the two
   onboarding modals must NOT close on backdrop click; BulkOperation
   may).
 
 ## Not-in-scope for RA-1576
 
-* A generic `useFocusTrap` hook — shadcn Dialog's Radix primitive is
+- A generic `useFocusTrap` hook — shadcn Dialog's Radix primitive is
   the canonical focus trap in this codebase. Reimplementing is an
   anti-pattern. If a future non-dialog overlay needs trap behaviour,
   reach for `react-focus-lock` or Radix's FocusScope directly.

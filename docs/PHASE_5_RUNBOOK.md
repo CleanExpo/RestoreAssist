@@ -20,13 +20,13 @@ docs.
 
 ## 0. Pre-flight (read once, do once)
 
-| #   | Item                                                                         | Command / where                                                                                    | Done? |
-| --- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ----- |
+| #   | Item                                                                         | Command / where                                                                                                                                                                                 | Done? |
+| --- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
 | 0.1 | Confirm `main` HEAD matches expectation                                      | `git log origin/main --oneline -1` → expected at time of writing `0dd11c2`; actual on 2026-04-28 was `d3f3ca8a` after follow-on PRs (#822, #835, #836, #837, #821) — re-confirm before each run | ☐     |
-| 0.2 | Confirm 7 new migrations present in `prisma/migrations/`                     | `ls prisma/migrations \| grep 20260426 \| wc -l` → 7                                               | ☐     |
-| 0.3 | Confirm Vercel sandbox deploy is green for `main`                            | https://vercel.com/unite-group/restoreassist-sandbox                                               | ☐     |
-| 0.4 | Confirm pilot smoke test passes locally on the deployed sandbox              | `BASE_URL=https://restoreassist-sandbox.vercel.app npx playwright test e2e/pilot-workflow.spec.ts` | ☐     |
-| 0.5 | Confirm Vercel observability project is live (Logs + Speed Insights enabled) | https://vercel.com/unite-group/restoreassist (Observability tab)                                   | ☐     |
+| 0.2 | Confirm 7 new migrations present in `prisma/migrations/`                     | `ls prisma/migrations \| grep 20260426 \| wc -l` → 7                                                                                                                                            | ☐     |
+| 0.3 | Confirm Vercel sandbox deploy is green for `main`                            | https://vercel.com/unite-group/restoreassist-sandbox                                                                                                                                            | ☐     |
+| 0.4 | Confirm pilot smoke test passes locally on the deployed sandbox              | `BASE_URL=https://restoreassist-sandbox.vercel.app npx playwright test e2e/pilot-workflow.spec.ts`                                                                                              | ☐     |
+| 0.5 | Confirm Vercel observability project is live (Logs + Speed Insights enabled) | https://vercel.com/unite-group/restoreassist (Observability tab)                                                                                                                                | ☐     |
 
 > ⚠️ If 0.4 fails on sandbox, **stop**. Do not migrate prod against a
 > broken deploy.
@@ -71,13 +71,13 @@ grep -E "Applying migration|All migrations have been successfully applied" \
   /tmp/phase-5-shadow.log
 ```
 
-| #   | Item                                                                                       | Done? |
-| --- | ------------------------------------------------------------------------------------------ | ----- |
-| 2.1 | Shadow `migrate deploy` exits 0                                                            | ☐     |
-| 2.2 | Log shows all 7 new migrations applied                                                     | ☐     |
-| 2.3 | `psql $SHADOW_DATABASE_URL -c '\d "AssessmentGeneration"'` shows the new table + 3 indexes | ☐     |
+| #   | Item                                                                                                           | Done? |
+| --- | -------------------------------------------------------------------------------------------------------------- | ----- |
+| 2.1 | Shadow `migrate deploy` exits 0                                                                                | ☐     |
+| 2.2 | Log shows all 7 new migrations applied                                                                         | ☐     |
+| 2.3 | `psql $SHADOW_DATABASE_URL -c '\d "AssessmentGeneration"'` shows the new table + 3 indexes                     | ☐     |
 | 2.4 | `psql $SHADOW_DATABASE_URL -c '\d "Workspace"' \| grep aiDailyBudgetUsd` (RA-1707 — column add, not new table) | ☐     |
-| 2.5 | `psql $SHADOW_DATABASE_URL -c '\d "AttestationConsentToken"'` (RA-1708)                    | ☐     |
+| 2.5 | `psql $SHADOW_DATABASE_URL -c '\d "AttestationConsentToken"'` (RA-1708)                                        | ☐     |
 
 If anything in §2 fails, fix on a branch, push a new PR, do not proceed.
 

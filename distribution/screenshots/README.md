@@ -2,11 +2,11 @@
 
 ## What's in here
 
-| Folder | Source | Apple-acceptable? |
-|---|---|---|
+| Folder                 | Source                                                                    | Apple-acceptable?               |
+| ---------------------- | ------------------------------------------------------------------------- | ------------------------------- |
 | `appstore/iphone-6.9/` | Public marketing pages captured at iPhone 17 Pro Max viewport (1320×2868) | ✅ no OS chrome — passes 2.3.10 |
-| `appstore/iphone-6.7/` | Same, iPhone 15 Pro Max viewport (1290×2796) | ✅ |
-| `appstore/ipad-13/` | Same, iPad Pro 13 viewport (2064×2752) | ✅ |
+| `appstore/iphone-6.7/` | Same, iPhone 15 Pro Max viewport (1290×2796)                              | ✅                              |
+| `appstore/ipad-13/`    | Same, iPad Pro 13 viewport (2064×2752)                                    | ✅                              |
 
 Captured 2026-05-04 from `https://restoreassist-sandbox.vercel.app` via headless
 Chromium with no UA spoofing. Routes: `/`, `/features`, `/pricing`, `/login`.

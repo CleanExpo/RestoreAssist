@@ -17,26 +17,26 @@ Where multiple retention rules apply, **the longest window governs**. Documented
 
 ## Retention table (customer data)
 
-| Entity | TTL | Rationale | Enforcement |
-|--------|-----|-----------|-------------|
-| **Inspection reports** | **7 years** from `completedAt` | insurance claim limitation + ATO | **hold** — not auto-purged by cron (business-critical) |
-| **Inspection photos (originals)** | 7 years from parent inspection | same as parent | held with inspection; Cloudinary lifecycle rules mirror |
-| **Inspection photos (viewing copies)** | mirrored to user's cloud via RA-1459; originals deleted per above | customer-controlled | `lib/cloud-mirror/*` |
-| **Invoices / Estimates** | 7 years from `createdAt` | ATO + dispute | hold |
-| **Audit logs (financial)** | 7 years from `createdAt` | ATO + audit | hold |
-| **Audit logs (non-financial)** | 90 days from `createdAt` | operational debug only | **purged** by cleanup cron (planned — this ticket scaffolds) |
-| **AI interview transcripts** | 180 days from `createdAt` | quality review + model tuning; no legal hold | purged |
-| **Moisture readings** | retained with parent inspection | evidence for drying log | hold |
-| **Webhook events (StripeWebhookEvent)** | 90 days from `createdAt` | replay debugging only | **purged** — added in this PR |
-| **Webhook events (external integration)** | 90 days from `createdAt` | same | purged |
-| **Agent task logs** | 30 days | operational debug | purged (already) |
-| **Cron job runs** | 14 days | operational debug | purged (already) |
-| **Workflows** (terminal state) | 90 days from `completedAt` | operational debug | purged (already) |
-| **Password reset tokens** | 24 hours past expiry | security | purged (already) |
-| **Scheduled emails** (terminal state) | 30 days from `updatedAt` | operational debug | purged (already) |
-| **Security events** | 90 days from `createdAt` | SOC-2 / audit | purged (already) |
-| **Soft-deleted users** | 30 days from `deletedAt` grace window, then hard-purge | APP 11.2 destruction | **follow-up** — needs `User.deletedAt` column + purge job (tracked as RA-1354 part 2) |
-| **Organization-level deletion** | 30 days grace, then cascade hard-delete | APP 11.2 + customer self-service | follow-up |
+| Entity                                    | TTL                                                               | Rationale                                    | Enforcement                                                                           |
+| ----------------------------------------- | ----------------------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------- |
+| **Inspection reports**                    | **7 years** from `completedAt`                                    | insurance claim limitation + ATO             | **hold** — not auto-purged by cron (business-critical)                                |
+| **Inspection photos (originals)**         | 7 years from parent inspection                                    | same as parent                               | held with inspection; Cloudinary lifecycle rules mirror                               |
+| **Inspection photos (viewing copies)**    | mirrored to user's cloud via RA-1459; originals deleted per above | customer-controlled                          | `lib/cloud-mirror/*`                                                                  |
+| **Invoices / Estimates**                  | 7 years from `createdAt`                                          | ATO + dispute                                | hold                                                                                  |
+| **Audit logs (financial)**                | 7 years from `createdAt`                                          | ATO + audit                                  | hold                                                                                  |
+| **Audit logs (non-financial)**            | 90 days from `createdAt`                                          | operational debug only                       | **purged** by cleanup cron (planned — this ticket scaffolds)                          |
+| **AI interview transcripts**              | 180 days from `createdAt`                                         | quality review + model tuning; no legal hold | purged                                                                                |
+| **Moisture readings**                     | retained with parent inspection                                   | evidence for drying log                      | hold                                                                                  |
+| **Webhook events (StripeWebhookEvent)**   | 90 days from `createdAt`                                          | replay debugging only                        | **purged** — added in this PR                                                         |
+| **Webhook events (external integration)** | 90 days from `createdAt`                                          | same                                         | purged                                                                                |
+| **Agent task logs**                       | 30 days                                                           | operational debug                            | purged (already)                                                                      |
+| **Cron job runs**                         | 14 days                                                           | operational debug                            | purged (already)                                                                      |
+| **Workflows** (terminal state)            | 90 days from `completedAt`                                        | operational debug                            | purged (already)                                                                      |
+| **Password reset tokens**                 | 24 hours past expiry                                              | security                                     | purged (already)                                                                      |
+| **Scheduled emails** (terminal state)     | 30 days from `updatedAt`                                          | operational debug                            | purged (already)                                                                      |
+| **Security events**                       | 90 days from `createdAt`                                          | SOC-2 / audit                                | purged (already)                                                                      |
+| **Soft-deleted users**                    | 30 days from `deletedAt` grace window, then hard-purge            | APP 11.2 destruction                         | **follow-up** — needs `User.deletedAt` column + purge job (tracked as RA-1354 part 2) |
+| **Organization-level deletion**           | 30 days grace, then cascade hard-delete                           | APP 11.2 + customer self-service             | follow-up                                                                             |
 
 ## Customer-facing disclosure
 

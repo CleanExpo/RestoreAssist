@@ -96,7 +96,11 @@ function categoryFromItemType(itemType: string): ScopeCategory {
   ) {
     return "EQUIPMENT";
   }
-  if (t.includes("admin") || t.includes("call_out") || t.includes("mobilisation"))
+  if (
+    t.includes("admin") ||
+    t.includes("call_out") ||
+    t.includes("mobilisation")
+  )
     return "ADMIN";
   return "MATERIALS";
 }
@@ -159,7 +163,10 @@ function narrowOptions(
 ): StormOptions | null {
   if (!options || typeof options !== "object") return null;
   const t = options.entryType;
-  if (typeof t !== "string" || !VALID_ENTRY_TYPES.includes(t as StormEntryType)) {
+  if (
+    typeof t !== "string" ||
+    !VALID_ENTRY_TYPES.includes(t as StormEntryType)
+  ) {
     return null;
   }
   const c = options.waterCategory;
@@ -362,7 +369,11 @@ export const stormDomain: DomainPlugin = {
         },
       });
       if (!inspection) {
-        return { ok: false, code: "NOT_FOUND", message: "Inspection not found" };
+        return {
+          ok: false,
+          code: "NOT_FOUND",
+          message: "Inspection not found",
+        };
       }
 
       const affectedAreaM2 = inspection.affectedAreas.reduce(
@@ -384,7 +395,11 @@ export const stormDomain: DomainPlugin = {
       );
       const days =
         opts.days ??
-        estimatedDaysForStorm(opts.entryType, effectiveCategory, affectedAreaM2);
+        estimatedDaysForStorm(
+          opts.entryType,
+          effectiveCategory,
+          affectedAreaM2,
+        );
 
       const drafts = generateStormScope({
         entryType: opts.entryType,

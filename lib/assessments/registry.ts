@@ -34,9 +34,7 @@ const DOMAIN_REGISTRY = new Map<AssessmentDomain, DomainPlugin>(
 );
 
 /** Returns a plug-in for the given domain, or null if not registered. */
-export function getDomainPlugin(
-  domain: AssessmentDomain,
-): DomainPlugin | null {
+export function getDomainPlugin(domain: AssessmentDomain): DomainPlugin | null {
   return DOMAIN_REGISTRY.get(domain) ?? null;
 }
 

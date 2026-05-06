@@ -25,9 +25,9 @@ test.describe("Public Navigation", () => {
 
     // The H1 ships with inline opacity:0 (entrance animation start state) —
     // see RA-1730. Wait for the animation to settle before asserting.
-    await expect(
-      page.getByRole("heading", { level: 1 }),
-    ).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
+      timeout: 10_000,
+    });
 
     // Pricing page should show at least one pricing tier heading. The page
     // renders multiple "/month" texts and other pricing terms — pin to the

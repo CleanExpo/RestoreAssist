@@ -14,18 +14,26 @@ import {
   assertReportTenancy,
 } from "../assert-tenancy";
 
-const reportFindUnique = (prisma as unknown as {
-  report: { findUnique: ReturnType<typeof vi.fn> };
-}).report.findUnique;
-const reportFindFirst = (prisma as unknown as {
-  report: { findFirst: ReturnType<typeof vi.fn> };
-}).report.findFirst;
-const inspFindUnique = (prisma as unknown as {
-  inspection: { findUnique: ReturnType<typeof vi.fn> };
-}).inspection.findUnique;
-const inspFindFirst = (prisma as unknown as {
-  inspection: { findFirst: ReturnType<typeof vi.fn> };
-}).inspection.findFirst;
+const reportFindUnique = (
+  prisma as unknown as {
+    report: { findUnique: ReturnType<typeof vi.fn> };
+  }
+).report.findUnique;
+const reportFindFirst = (
+  prisma as unknown as {
+    report: { findFirst: ReturnType<typeof vi.fn> };
+  }
+).report.findFirst;
+const inspFindUnique = (
+  prisma as unknown as {
+    inspection: { findUnique: ReturnType<typeof vi.fn> };
+  }
+).inspection.findUnique;
+const inspFindFirst = (
+  prisma as unknown as {
+    inspection: { findFirst: ReturnType<typeof vi.fn> };
+  }
+).inspection.findFirst;
 
 beforeEach(() => {
   reportFindUnique.mockReset();
@@ -53,10 +61,7 @@ describe("assertReportTenancy", () => {
 
   it("404 when report does not exist", async () => {
     reportFindUnique.mockResolvedValueOnce(null);
-    const r = await assertReportTenancy(
-      { user: { id: "u_1" } },
-      "r_missing",
-    );
+    const r = await assertReportTenancy({ user: { id: "u_1" } }, "r_missing");
     expect(r.ok).toBe(false);
     if (r.ok) throw new Error("unreachable");
     expect(r.status).toBe(404);

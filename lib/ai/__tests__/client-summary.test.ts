@@ -55,13 +55,19 @@ describe("validate()", () => {
 
   it("rejects summaries that do not address the reader as 'you'", () => {
     // Replace whole-word "you", "your", "you're", "yours" only.
-    const neutralised = VALID_SAMPLE.replace(/\byou(r|rs|'re)?\b/gi, "the owner");
+    const neutralised = VALID_SAMPLE.replace(
+      /\byou(r|rs|'re)?\b/gi,
+      "the owner",
+    );
     const reason = validate(neutralised);
     expect(reason).toMatch(/you/);
   });
 
   it("rejects summaries missing the 'What this means for you:' closer", () => {
-    const noCloser = VALID_SAMPLE.replace(/What this means for you:[\s\S]*/, "");
+    const noCloser = VALID_SAMPLE.replace(
+      /What this means for you:[\s\S]*/,
+      "",
+    );
     const reason = validate(noCloser);
     expect(reason).toMatch(/What this means for you/);
   });
@@ -85,7 +91,8 @@ describe("validate()", () => {
   });
 
   it("rejects summaries that are far too short", () => {
-    const tooShort = "Your home was damaged (IICRC S500:3.1). What this means for you: we will fix it.";
+    const tooShort =
+      "Your home was damaged (IICRC S500:3.1). What this means for you: we will fix it.";
     expect(validate(tooShort)).toMatch(/words/);
   });
 });

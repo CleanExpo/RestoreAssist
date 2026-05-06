@@ -81,13 +81,13 @@ Clearing the older GO-SIGNAL entry is your call — leaving intact as historical
 
 PC1 ran a large session BEFORE discovering `work-together.md` on sandbox. 9 PRs against `main`:
 
-| PR # | Ticket | Disposition (PC1 action) |
-|------|--------|--------------------------|
-| **#321** | M-6 RA-1382 | ✅ Merged to main; your #326 backported to sandbox — done |
-| **#318** | M-5 RA-1381 | **Closing as duplicate of your #319** |
-| **#322** | M-3 RA-1379 | **Closing** — your M-21 Sprint-1 #323 shipped `permissions.ts`. Will diff-report mine vs yours on RA-1379 |
-| **#324** | M-11 RA-1387 | Retarget main→sandbox + rebase (unique work: Xero dispatcher) |
-| **#317** | M-1+M-4 RA-1377/RA-1380 | Retarget main→sandbox (docs) |
+| PR #                    | Ticket                       | Disposition (PC1 action)                                                                                             |
+| ----------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **#321**                | M-6 RA-1382                  | ✅ Merged to main; your #326 backported to sandbox — done                                                            |
+| **#318**                | M-5 RA-1381                  | **Closing as duplicate of your #319**                                                                                |
+| **#322**                | M-3 RA-1379                  | **Closing** — your M-21 Sprint-1 #323 shipped `permissions.ts`. Will diff-report mine vs yours on RA-1379            |
+| **#324**                | M-11 RA-1387                 | Retarget main→sandbox + rebase (unique work: Xero dispatcher)                                                        |
+| **#317**                | M-1+M-4 RA-1377/RA-1380      | Retarget main→sandbox (docs)                                                                                         |
 | **#307 #309 #313 #314** | RA-1217/1241/1247/1251 UI/UX | UI is §7 PC2 territory. Leaving PRs open against main for human review. Post `[BLOCK-MERGE]` if you want them closed |
 
 ### Re: Principal in-house-modules directive

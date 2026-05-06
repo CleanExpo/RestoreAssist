@@ -95,7 +95,9 @@ describe("validateLabourHireAttestation — required fields", () => {
     const r = validateLabourHireAttestation({ ...ok, awardClass: null });
     expect(r.ok).toBe(false);
     if (r.ok) throw new Error("unreachable");
-    expect(r.errors.find((e) => e.field === "awardClass")?.code).toBe("MISSING");
+    expect(r.errors.find((e) => e.field === "awardClass")?.code).toBe(
+      "MISSING",
+    );
   });
 
   it("rejects missing superRate", () => {
@@ -112,9 +114,9 @@ describe("validateLabourHireAttestation — required fields", () => {
     });
     expect(r.ok).toBe(false);
     if (r.ok) throw new Error("unreachable");
-    expect(
-      r.errors.find((e) => e.field === "inductionEvidenceId")?.code,
-    ).toBe("MISSING");
+    expect(r.errors.find((e) => e.field === "inductionEvidenceId")?.code).toBe(
+      "MISSING",
+    );
   });
 
   it("accumulates all errors at once (single pass)", () => {

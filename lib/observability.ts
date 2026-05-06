@@ -37,7 +37,10 @@ export function reportError(error: unknown, context: ErrorContext = {}): void {
  * the exception ends up in Vercel Function logs (server-side, queryable)
  * rather than only in browser console (non-queryable).
  */
-export async function reportClientError(error: unknown, context: ErrorContext = {}): Promise<void> {
+export async function reportClientError(
+  error: unknown,
+  context: ErrorContext = {},
+): Promise<void> {
   try {
     await fetch("/api/observability/client-error", {
       method: "POST",
@@ -47,7 +50,8 @@ export async function reportClientError(error: unknown, context: ErrorContext = 
         name: error instanceof Error ? error.name : "UnknownError",
         stack: error instanceof Error ? error.stack : undefined,
         url: typeof window !== "undefined" ? window.location.href : undefined,
-        userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+        userAgent:
+          typeof navigator !== "undefined" ? navigator.userAgent : undefined,
         ...context,
       }),
       keepalive: true, // Survives page unload

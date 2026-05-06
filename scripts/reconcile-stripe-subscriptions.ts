@@ -59,7 +59,7 @@ const args = process.argv.slice(2);
 const APPLY = args.includes("--apply");
 const customerArg = args.find((a) => a.startsWith("--customer"));
 const ONLY_CUSTOMER = customerArg
-  ? args[args.indexOf(customerArg) + 1] ?? customerArg.split("=")[1] ?? null
+  ? (args[args.indexOf(customerArg) + 1] ?? customerArg.split("=")[1] ?? null)
   : null;
 const maxArg = args.find((a) => a.startsWith("--max"));
 const MAX_USERS = maxArg
@@ -126,9 +126,15 @@ function deriveCreditsRemaining(
   status: SubscriptionStatus,
   currentCredits: number | null,
 ): number | null {
-  if (status === SubscriptionStatus.ACTIVE || status === SubscriptionStatus.TRIAL)
+  if (
+    status === SubscriptionStatus.ACTIVE ||
+    status === SubscriptionStatus.TRIAL
+  )
     return 999999;
-  if (status === SubscriptionStatus.EXPIRED || status === SubscriptionStatus.CANCELED)
+  if (
+    status === SubscriptionStatus.EXPIRED ||
+    status === SubscriptionStatus.CANCELED
+  )
     return 0;
   return currentCredits; // PAST_DUE — preserve grace
 }
@@ -265,7 +271,9 @@ function computeDiff(
   cmp("subscriptionStatus");
   cmp("subscriptionId");
   cmp("subscriptionPlan");
-  cmp("subscriptionEndsAt", (a, b) => dateEq(a as Date | null, b as Date | null));
+  cmp("subscriptionEndsAt", (a, b) =>
+    dateEq(a as Date | null, b as Date | null),
+  );
   cmp("nextBillingDate", (a, b) => dateEq(a as Date | null, b as Date | null));
   cmp("creditsRemaining");
   return diffs;

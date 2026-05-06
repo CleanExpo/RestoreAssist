@@ -185,7 +185,10 @@ export function verifyAttestationIntegrity(
     contentHash: attestation.contentHash ?? null,
   });
   if (!constantTimeEqual(expected, attestation.integrityHash)) {
-    return { ok: false, error: "integrity hash mismatch — attestation tampered" };
+    return {
+      ok: false,
+      error: "integrity hash mismatch — attestation tampered",
+    };
   }
   const legacy =
     !attestation.consentTokenId &&

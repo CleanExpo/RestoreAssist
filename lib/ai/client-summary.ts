@@ -186,10 +186,13 @@ function buildUserMessage(input: ClientSummaryInput): string {
       `Estimated drying time: ${input.estimatedDryingTime} hours (~${days} days)`,
     );
   }
-  if (input.biologicalMouldDetected) facts.push("Visible mould growth detected");
+  if (input.biologicalMouldDetected)
+    facts.push("Visible mould growth detected");
   if (input.safetyHazards) facts.push(`Safety hazards: ${input.safetyHazards}`);
   if (input.scopeOfWorks)
-    facts.push(`Scope of works (technical): ${truncate(input.scopeOfWorks, 2000)}`);
+    facts.push(
+      `Scope of works (technical): ${truncate(input.scopeOfWorks, 2000)}`,
+    );
 
   if (facts.length === 0) {
     facts.push("No structured assessment data recorded yet.");

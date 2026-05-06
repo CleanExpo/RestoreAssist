@@ -28,8 +28,8 @@ const RECOMMENDED_VARS = [
   "STRIPE_SECRET_KEY",
   "CLOUDINARY_URL",
   "RESEND_API_KEY",
-  "TURNSTILE_SECRET_KEY",  // RA-1799 — without it, register/forgot-password CAPTCHA fails open
-  "XERO_WEBHOOK_KEY",      // RA-1802 — without it, Xero invoice/payment events return 500
+  "TURNSTILE_SECRET_KEY", // RA-1799 — without it, register/forgot-password CAPTCHA fails open
+  "XERO_WEBHOOK_KEY", // RA-1802 — without it, Xero invoice/payment events return 500
   "GITHUB_WEBHOOK_SECRET", // RA-1803 — without it, auto-release-notes returns 500
 ] as const;
 

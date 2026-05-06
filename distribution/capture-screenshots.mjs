@@ -51,12 +51,12 @@ const SIZES = {
     { id: "iphone-6.7", w: 1290, h: 2796, label: "iPhone 15 Pro Max class" },
     { id: "iphone-6.5", w: 1284, h: 2778, label: "iPhone 11 Pro Max class" },
     { id: "iphone-5.5", w: 1242, h: 2208, label: "iPhone 8 Plus class" },
-    { id: "ipad-12.9", w: 2048, h: 2732, label: "iPad Pro 12.9\" class" },
+    { id: "ipad-12.9", w: 2048, h: 2732, label: 'iPad Pro 12.9" class' },
   ],
   playstore: [
     { id: "phone", w: 1080, h: 2400, label: "Pixel-class phone" },
-    { id: "tablet-7", w: 1200, h: 1920, label: "7\" tablet" },
-    { id: "tablet-10", w: 1600, h: 2560, label: "10\" tablet" },
+    { id: "tablet-7", w: 1200, h: 1920, label: '7" tablet' },
+    { id: "tablet-10", w: 1600, h: 2560, label: '10" tablet' },
   ],
 };
 
@@ -119,7 +119,10 @@ async function loadFirstPoolEntry(poolPath) {
 }
 
 async function captureFlow(page, baseUrl, flow, outDir) {
-  await page.goto(baseUrl + flow.path, { waitUntil: "networkidle", timeout: 30_000 });
+  await page.goto(baseUrl + flow.path, {
+    waitUntil: "networkidle",
+    timeout: 30_000,
+  });
   try {
     await page.waitForSelector(flow.waitFor, { timeout: 10_000 });
   } catch {
@@ -173,7 +176,9 @@ async function main() {
 
         const outDir = path.join(OUT_ROOT, store, size.id);
         await fs.mkdir(outDir, { recursive: true });
-        console.log(`\n${store} · ${size.id} (${size.w}×${size.h}) · ${size.label}`);
+        console.log(
+          `\n${store} · ${size.id} (${size.w}×${size.h}) · ${size.label}`,
+        );
 
         for (const flow of FLOWS) {
           await captureFlow(page, baseUrl, flow, outDir);

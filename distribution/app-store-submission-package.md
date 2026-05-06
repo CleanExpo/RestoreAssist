@@ -12,39 +12,39 @@
 
 ## §A — App Store Connect → My Apps → ＋ → New App
 
-| Field | Value |
-|---|---|
-| Platform | iOS |
-| Name | `RestoreAssist` |
-| Primary Language | `English (Australia)` |
-| Bundle ID | `com.restoreassist.app` (must match Xcode) |
-| SKU | `restoreassist-au-001` |
-| User Access | Full Access |
+| Field            | Value                                      |
+| ---------------- | ------------------------------------------ |
+| Platform         | iOS                                        |
+| Name             | `RestoreAssist`                            |
+| Primary Language | `English (Australia)`                      |
+| Bundle ID        | `com.restoreassist.app` (must match Xcode) |
+| SKU              | `restoreassist-au-001`                     |
+| User Access      | Full Access                                |
 
 ---
 
 ## §B — App Information
 
-| Field | Value |
-|---|---|
-| Subtitle (30 chars max) | `Water Damage Compliance` |
-| Category — Primary | `Business` |
-| Category — Secondary | `Productivity` |
-| Content Rights | "Does not use third-party content" |
-| Age Rating | `4+` (no objectionable content per `distribution/store-listings.md` § Apple App Store) |
-| Privacy Policy URL | `https://restoreassist.app/privacy` |
-| Support URL | `https://restoreassist.app/support` |
-| Marketing URL (optional) | `https://restoreassist.app` |
+| Field                    | Value                                                                                  |
+| ------------------------ | -------------------------------------------------------------------------------------- |
+| Subtitle (30 chars max)  | `Water Damage Compliance`                                                              |
+| Category — Primary       | `Business`                                                                             |
+| Category — Secondary     | `Productivity`                                                                         |
+| Content Rights           | "Does not use third-party content"                                                     |
+| Age Rating               | `4+` (no objectionable content per `distribution/store-listings.md` § Apple App Store) |
+| Privacy Policy URL       | `https://restoreassist.app/privacy`                                                    |
+| Support URL              | `https://restoreassist.app/support`                                                    |
+| Marketing URL (optional) | `https://restoreassist.app`                                                            |
 
 ---
 
 ## §C — Pricing and Availability
 
-| Field | Value |
-|---|---|
-| Price | Free (subscription paywall is a server-side gate, not an in-app product for v1) |
+| Field                  | Value                                                                            |
+| ---------------------- | -------------------------------------------------------------------------------- |
+| Price                  | Free (subscription paywall is a server-side gate, not an in-app product for v1)  |
 | Availability — Markets | **Australia + New Zealand only** for v1 (see §I below for In-App Purchases note) |
-| Pre-orders | Off |
+| Pre-orders             | Off                                                                              |
 
 ---
 
@@ -56,22 +56,22 @@ Source: `distribution/PRIVACY_DISCLOSURES.md` § "App Store Connect — Privacy 
 
 **Step 2**: Categories (paste each yes-row exactly into the App Store form):
 
-| Category | Data Type | Linked? | Used for | Tracking? |
-|---|---|---|---|---|
-| Contact Info | Name | Linked | App Functionality + Account | No |
-| Contact Info | Email Address | Linked | App Functionality + Account | No |
-| Contact Info | Phone Number | Linked | App Functionality | No |
-| Contact Info | Physical Address | Linked | App Functionality | No |
-| User Content | Photos or Videos | Linked | App Functionality | No |
-| User Content | Audio Data (only if voice-observation used) | Linked | App Functionality | No |
-| User Content | Other User Content (free-text notes) | Linked | App Functionality | No |
-| Identifiers | User ID | Linked | App Functionality + Analytics | No |
-| Usage Data | Product Interaction | Linked | Analytics + App Functionality | No |
-| Diagnostics | Crash Data | **Not linked** | App Functionality | No |
-| Diagnostics | Performance Data | Not linked | App Functionality | No |
-| Diagnostics | Other Diagnostic Data | Not linked | App Functionality | No |
-| Location | Coarse Location | Linked | App Functionality | No |
-| Financial Info | Payment Info | Disclosed as collected by **third party (Stripe)** — app itself does not see card numbers | — | No |
+| Category       | Data Type                                   | Linked?                                                                                   | Used for                      | Tracking? |
+| -------------- | ------------------------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------- | --------- |
+| Contact Info   | Name                                        | Linked                                                                                    | App Functionality + Account   | No        |
+| Contact Info   | Email Address                               | Linked                                                                                    | App Functionality + Account   | No        |
+| Contact Info   | Phone Number                                | Linked                                                                                    | App Functionality             | No        |
+| Contact Info   | Physical Address                            | Linked                                                                                    | App Functionality             | No        |
+| User Content   | Photos or Videos                            | Linked                                                                                    | App Functionality             | No        |
+| User Content   | Audio Data (only if voice-observation used) | Linked                                                                                    | App Functionality             | No        |
+| User Content   | Other User Content (free-text notes)        | Linked                                                                                    | App Functionality             | No        |
+| Identifiers    | User ID                                     | Linked                                                                                    | App Functionality + Analytics | No        |
+| Usage Data     | Product Interaction                         | Linked                                                                                    | Analytics + App Functionality | No        |
+| Diagnostics    | Crash Data                                  | **Not linked**                                                                            | App Functionality             | No        |
+| Diagnostics    | Performance Data                            | Not linked                                                                                | App Functionality             | No        |
+| Diagnostics    | Other Diagnostic Data                       | Not linked                                                                                | App Functionality             | No        |
+| Location       | Coarse Location                             | Linked                                                                                    | App Functionality             | No        |
+| Financial Info | Payment Info                                | Disclosed as collected by **third party (Stripe)** — app itself does not see card numbers | —                             | No        |
 
 **Note on `Tracking?` answers:** All "No". RestoreAssist does not link user data to third-party data for advertising or tracking.
 
@@ -79,33 +79,33 @@ Source: `distribution/PRIVACY_DISCLOSURES.md` § "App Store Connect — Privacy 
 
 ## §E — App Review Information
 
-| Field | Value |
-|---|---|
-| Sign-In Required | **Yes** |
-| Demo Account Username | **`reviewer@restoreassist.app`** ⚠️ provision via §J below; do NOT use real pilot creds |
-| Demo Account Password | (provisioned at §J) |
-| Demo Account Notes | "Sign in with email + password. After login, the dashboard shows recent inspections. Tap any inspection to view its room-by-room moisture readings, photos, and scope of works. The 'New Inspection' flow demonstrates offline-first capture; toggle airplane mode to see queueing." |
-| Contact Information | Phill McGurk · phill@unite-group.in (or substitute) · phone (your AU mobile) |
-| Notes (general) | "RestoreAssist is a server-hosted Capacitor WebView. The native shell wraps `https://restoreassist.app`. Apple's review team can sign in with the demo creds above to access the full IICRC-compliant inspection workflow without subscription." |
-| Attachment | (Optional) screen-recorded walkthrough video — not required if demo creds work |
+| Field                 | Value                                                                                                                                                                                                                                                                                |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Sign-In Required      | **Yes**                                                                                                                                                                                                                                                                              |
+| Demo Account Username | **`reviewer@restoreassist.app`** ⚠️ provision via §J below; do NOT use real pilot creds                                                                                                                                                                                              |
+| Demo Account Password | (provisioned at §J)                                                                                                                                                                                                                                                                  |
+| Demo Account Notes    | "Sign in with email + password. After login, the dashboard shows recent inspections. Tap any inspection to view its room-by-room moisture readings, photos, and scope of works. The 'New Inspection' flow demonstrates offline-first capture; toggle airplane mode to see queueing." |
+| Contact Information   | Phill McGurk · phill@unite-group.in (or substitute) · phone (your AU mobile)                                                                                                                                                                                                         |
+| Notes (general)       | "RestoreAssist is a server-hosted Capacitor WebView. The native shell wraps `https://restoreassist.app`. Apple's review team can sign in with the demo creds above to access the full IICRC-compliant inspection workflow without subscription."                                     |
+| Attachment            | (Optional) screen-recorded walkthrough video — not required if demo creds work                                                                                                                                                                                                       |
 
 ---
 
 ## §F — Version Information (v1.0)
 
-| Field | Value | Source |
-|---|---|---|
-| Version | `1.0` | matches Xcode `MARKETING_VERSION` |
-| Build | `1` | from `ios-release.yml` autobump |
-| What's New in This Version | (paste from `distribution/whatsnew/whatsnew-en-AU`, see §G below) | first release |
-| Promotional Text (170 chars) | "Now available for Australian restoration professionals. IICRC S500/S520/S700 compliant inspection workflows, AI photo analysis, and seamless Xero/MYOB/Ascora integration." | `store-listings.md` |
-| Description (4000 chars) | (paste full description below) | `store-listings.md` |
-| Keywords (100 chars) | `water damage,restoration,IICRC,moisture,mould,flood,insurance,scope,report,compliance,contractor` | `store-listings.md` |
-| Screenshot — 6.7" iPhone (1290×2796) | `distribution/screenshots/app-store/6.7-iphone/*.png` (run capture script first) | `capture-screenshots.mjs` |
-| Screenshot — 6.5" iPhone (1284×2778) | `distribution/screenshots/app-store/6.5-iphone/*.png` | same |
-| Screenshot — 5.5" iPhone (1242×2208) | `distribution/screenshots/app-store/5.5-iphone/*.png` | same |
-| Screenshot — 12.9" iPad (2048×2732) | `distribution/screenshots/app-store/12.9-ipad/*.png` | same |
-| App Icon (auto-pulled from binary) | `distribution/icon-source/out/ios-1024.png` (no alpha, 1024×1024) | already in icon-source |
+| Field                                | Value                                                                                                                                                                        | Source                            |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| Version                              | `1.0`                                                                                                                                                                        | matches Xcode `MARKETING_VERSION` |
+| Build                                | `1`                                                                                                                                                                          | from `ios-release.yml` autobump   |
+| What's New in This Version           | (paste from `distribution/whatsnew/whatsnew-en-AU`, see §G below)                                                                                                            | first release                     |
+| Promotional Text (170 chars)         | "Now available for Australian restoration professionals. IICRC S500/S520/S700 compliant inspection workflows, AI photo analysis, and seamless Xero/MYOB/Ascora integration." | `store-listings.md`               |
+| Description (4000 chars)             | (paste full description below)                                                                                                                                               | `store-listings.md`               |
+| Keywords (100 chars)                 | `water damage,restoration,IICRC,moisture,mould,flood,insurance,scope,report,compliance,contractor`                                                                           | `store-listings.md`               |
+| Screenshot — 6.7" iPhone (1290×2796) | `distribution/screenshots/app-store/6.7-iphone/*.png` (run capture script first)                                                                                             | `capture-screenshots.mjs`         |
+| Screenshot — 6.5" iPhone (1284×2778) | `distribution/screenshots/app-store/6.5-iphone/*.png`                                                                                                                        | same                              |
+| Screenshot — 5.5" iPhone (1242×2208) | `distribution/screenshots/app-store/5.5-iphone/*.png`                                                                                                                        | same                              |
+| Screenshot — 12.9" iPad (2048×2732)  | `distribution/screenshots/app-store/12.9-ipad/*.png`                                                                                                                         | same                              |
+| App Icon (auto-pulled from binary)   | `distribution/icon-source/out/ios-1024.png` (no alpha, 1024×1024)                                                                                                            | already in icon-source            |
 
 ---
 
@@ -208,13 +208,13 @@ When all 9 items above are checked: click **Submit for Review**.
 
 ## §K — After submission
 
-| Step | What to do |
-|---|---|
-| 1. Status `Waiting for Review` | Apple's queue — typically 24-72h |
-| 2. Status `In Review` | Active review — typically a few hours |
+| Step                                     | What to do                                                                                                                                                                                                                                  |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Status `Waiting for Review`           | Apple's queue — typically 24-72h                                                                                                                                                                                                            |
+| 2. Status `In Review`                    | Active review — typically a few hours                                                                                                                                                                                                       |
 | 3. Status `Ready for Sale` (or rejected) | If approved → app goes live in AU + NZ; if rejected → read the reviewer's notes, fix, resubmit. Typical first-rejection reasons: insufficient reviewer notes (§E), missing demo account access, screenshot doesn't match actual app surface |
-| 4. Phased Release (optional) | App Store Connect → Version → Phased Release → 7-day rollout. Recommended for v1.0. |
-| 5. TestFlight retiring | Once Ready for Sale, retire TestFlight build 1.0(1) so external testers move to the App Store version |
+| 4. Phased Release (optional)             | App Store Connect → Version → Phased Release → 7-day rollout. Recommended for v1.0.                                                                                                                                                         |
+| 5. TestFlight retiring                   | Once Ready for Sale, retire TestFlight build 1.0(1) so external testers move to the App Store version                                                                                                                                       |
 
 ---
 

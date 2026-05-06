@@ -4,10 +4,10 @@ Populates the `StandardsChunk` table with in-house authored clause summaries and
 
 ## Prerequisites
 
-| Variable | Description |
-|---|---|
-| `OPENAI_API_KEY` | OpenAI API key with embeddings access |
-| `DATABASE_URL` | PostgreSQL connection string (target DB) |
+| Variable         | Description                              |
+| ---------------- | ---------------------------------------- |
+| `OPENAI_API_KEY` | OpenAI API key with embeddings access    |
+| `DATABASE_URL`   | PostgreSQL connection string (target DB) |
 
 ## Run
 
@@ -27,15 +27,15 @@ text-embedding-3-small: $0.02 / 1M tokens
 
 `scripts/data/standards-corpus.json` — 25 in-house authored clause **summaries** (not verbatim text):
 
-| Standard | Entries |
-|---|---|
-| IICRC S500:2025 | 8 |
-| AS/NZS 4849.1:2019 | 4 |
-| AS/NZS 4360:2004 | 3 |
-| AS/NZS 3000:2018 | 3 |
-| NZBS E2:2004 | 3 |
-| NZBS E3:2004 | 2 |
-| NADCA ACR 2021 | 2 |
+| Standard           | Entries |
+| ------------------ | ------- |
+| IICRC S500:2025    | 8       |
+| AS/NZS 4849.1:2019 | 4       |
+| AS/NZS 4360:2004   | 3       |
+| AS/NZS 3000:2018   | 3       |
+| NZBS E2:2004       | 3       |
+| NZBS E3:2004       | 2       |
+| NADCA ACR 2021     | 2       |
 
 **Licensing note:** Full IICRC S500:2025 clause text ingestion is blocked pending legal clearance (tracked in RA-1132). This script only ingests in-house authored topic-level descriptions.
 

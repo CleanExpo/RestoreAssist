@@ -36,7 +36,7 @@ This Services ID becomes `APPLE_CLIENT_ID`.
 Apple's "client secret" is a JWT that you sign with a private key (`.p8` file). It must be re-generated periodically (max ttl: 6 months).
 
 - Apple Developer → Keys → register a new key with **Sign in with Apple** enabled, primary App ID = `com.restoreassist.app`. Download the `.p8` file (one-time download — store securely).
-- Note the Key ID (10-char alphanumeric) and your Team ID (10 chars). 
+- Note the Key ID (10-char alphanumeric) and your Team ID (10 chars).
 
 Generate the JWT (run on a workstation; output goes into `APPLE_CLIENT_SECRET`):
 
@@ -63,11 +63,11 @@ The output is a long JWT string. **This is the value of `APPLE_CLIENT_SECRET`.**
 
 In Vercel project settings → Environment Variables:
 
-| Name | Value | Notes |
-|---|---|---|
-| `APPLE_CLIENT_ID` | `com.restoreassist.signin` | Services ID from step 2 |
-| `APPLE_CLIENT_SECRET` | `<JWT from step 3>` | rotate before 180d ttl |
-| `NEXT_PUBLIC_APPLE_SIGNIN_ENABLED` | `true` | shows the UI button |
+| Name                               | Value                      | Notes                   |
+| ---------------------------------- | -------------------------- | ----------------------- |
+| `APPLE_CLIENT_ID`                  | `com.restoreassist.signin` | Services ID from step 2 |
+| `APPLE_CLIENT_SECRET`              | `<JWT from step 3>`        | rotate before 180d ttl  |
+| `NEXT_PUBLIC_APPLE_SIGNIN_ENABLED` | `true`                     | shows the UI button     |
 
 Redeploy with build cache **off** so Next picks up the env-driven button.
 

@@ -33,21 +33,29 @@ import {
 } from "../funnels";
 import { computeOverrideRate, computeTimeToInvoice } from "../kpis";
 
-const create = (prisma as unknown as {
-  progressTelemetryEvent: { create: ReturnType<typeof vi.fn> };
-}).progressTelemetryEvent.create;
+const create = (
+  prisma as unknown as {
+    progressTelemetryEvent: { create: ReturnType<typeof vi.fn> };
+  }
+).progressTelemetryEvent.create;
 
-const count = (prisma as unknown as {
-  progressTelemetryEvent: { count: ReturnType<typeof vi.fn> };
-}).progressTelemetryEvent.count;
+const count = (
+  prisma as unknown as {
+    progressTelemetryEvent: { count: ReturnType<typeof vi.fn> };
+  }
+).progressTelemetryEvent.count;
 
-const findMany = (prisma as unknown as {
-  progressTelemetryEvent: { findMany: ReturnType<typeof vi.fn> };
-}).progressTelemetryEvent.findMany;
+const findMany = (
+  prisma as unknown as {
+    progressTelemetryEvent: { findMany: ReturnType<typeof vi.fn> };
+  }
+).progressTelemetryEvent.findMany;
 
-const claimFindMany = (prisma as unknown as {
-  claimProgress: { findMany: ReturnType<typeof vi.fn> };
-}).claimProgress.findMany;
+const claimFindMany = (
+  prisma as unknown as {
+    claimProgress: { findMany: ReturnType<typeof vi.fn> };
+  }
+).claimProgress.findMany;
 
 beforeEach(() => {
   vi.clearAllMocks();

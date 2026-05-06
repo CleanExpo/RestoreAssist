@@ -119,22 +119,22 @@ deleted?** **Yes** — see `app/privacy/page.tsx` request flow + the
 
 ### Section 2 — Data types
 
-| Type | Collected | Shared | Optional? | Purposes |
-|---|---|---|---|---|
-| Personal info — Name | yes | no | no | Account management, App functionality |
-| Personal info — Email | yes | no | no | Account management, App functionality |
-| Personal info — Phone (SMS opt-in) | yes | no | yes | App functionality |
-| Personal info — Address (property addresses) | yes | no | no | App functionality |
-| Photos and videos — Photos | yes | no | no | App functionality |
-| Audio — Voice or sound recordings | yes (voice obs) | no | yes | App functionality |
-| Files and docs | yes (PDF reports) | no | no | App functionality |
-| Location — Approx | yes | no | yes | App functionality |
-| Location — Precise | no | — | — | — |
-| Financial info — Payment | yes (via Stripe) | no | no | App functionality |
-| App info & performance — Crash logs | yes | no | no | Analytics |
-| App info & performance — Diagnostics | yes | no | no | Analytics |
-| App activity — Interactions | yes | no | no | Analytics, App functionality |
-| Device or other IDs | no | — | — | — |
+| Type                                         | Collected         | Shared | Optional? | Purposes                              |
+| -------------------------------------------- | ----------------- | ------ | --------- | ------------------------------------- |
+| Personal info — Name                         | yes               | no     | no        | Account management, App functionality |
+| Personal info — Email                        | yes               | no     | no        | Account management, App functionality |
+| Personal info — Phone (SMS opt-in)           | yes               | no     | yes       | App functionality                     |
+| Personal info — Address (property addresses) | yes               | no     | no        | App functionality                     |
+| Photos and videos — Photos                   | yes               | no     | no        | App functionality                     |
+| Audio — Voice or sound recordings            | yes (voice obs)   | no     | yes       | App functionality                     |
+| Files and docs                               | yes (PDF reports) | no     | no        | App functionality                     |
+| Location — Approx                            | yes               | no     | yes       | App functionality                     |
+| Location — Precise                           | no                | —      | —         | —                                     |
+| Financial info — Payment                     | yes (via Stripe)  | no     | no        | App functionality                     |
+| App info & performance — Crash logs          | yes               | no     | no        | Analytics                             |
+| App info & performance — Diagnostics         | yes               | no     | no        | Analytics                             |
+| App activity — Interactions                  | yes               | no     | no        | Analytics, App functionality          |
+| Device or other IDs                          | no                | —      | —         | —                                     |
 
 ### Section 3 — Security practices
 

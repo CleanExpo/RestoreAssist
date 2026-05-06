@@ -53,8 +53,12 @@ describe("mouldDomain — happy path (Condition 3, ≥9 m²)", () => {
     expect(headings).toContain("Clearance criteria");
 
     // Citations include S520 + AIHA.
-    expect(r.data.citations.some((c) => c.standard === "IICRC S520:2015")).toBe(true);
-    expect(r.data.citations.some((c) => c.standard === "AIHA Z9.11")).toBe(true);
+    expect(r.data.citations.some((c) => c.standard === "IICRC S520:2015")).toBe(
+      true,
+    );
+    expect(r.data.citations.some((c) => c.standard === "AIHA Z9.11")).toBe(
+      true,
+    );
 
     // FULL containment chosen (Cond3 + 25 m²).
     const containment = r.data.report.sections.find(
@@ -76,11 +80,14 @@ describe("mouldDomain — happy path (Condition 3, ≥9 m²)", () => {
       (s, l) => s + l.lineTotalExGst,
       0,
     );
-    expect(Math.abs(subtotal - r.data.estimate.totals.subtotalExGst)).toBeLessThan(0.05);
+    expect(
+      Math.abs(subtotal - r.data.estimate.totals.subtotalExGst),
+    ).toBeLessThan(0.05);
     expect(
       Math.abs(
         r.data.estimate.totals.totalIncGst -
-          (r.data.estimate.totals.subtotalExGst + r.data.estimate.totals.gstTotal),
+          (r.data.estimate.totals.subtotalExGst +
+            r.data.estimate.totals.gstTotal),
       ),
     ).toBeLessThan(0.05);
     expect(r.data.estimate.totals.gstRate).toBe(0.1);
@@ -104,7 +111,9 @@ describe("mouldDomain — happy path (Condition 3, ≥9 m²)", () => {
     });
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error("unreachable");
-    const lgr = r.data.scope.items.find((i) => i.description.toLowerCase().includes("dehumidifier"));
+    const lgr = r.data.scope.items.find((i) =>
+      i.description.toLowerCase().includes("dehumidifier"),
+    );
     expect(lgr).toBeDefined();
   });
 
@@ -120,7 +129,9 @@ describe("mouldDomain — happy path (Condition 3, ≥9 m²)", () => {
     });
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error("unreachable");
-    const lgr = r.data.scope.items.find((i) => i.description.toLowerCase().includes("dehumidifier"));
+    const lgr = r.data.scope.items.find((i) =>
+      i.description.toLowerCase().includes("dehumidifier"),
+    );
     expect(lgr).toBeUndefined();
   });
 });
@@ -172,7 +183,11 @@ describe("mouldDomain — overrides", () => {
     });
     const r = await mouldDomain.generate({
       ...baseInput,
-      options: { condition: "CONDITION_3", ambientRelativeHumidity: 50, days: 21 },
+      options: {
+        condition: "CONDITION_3",
+        ambientRelativeHumidity: 50,
+        days: 21,
+      },
     });
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error("unreachable");

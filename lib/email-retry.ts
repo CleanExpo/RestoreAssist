@@ -49,11 +49,15 @@ export async function sendWithRetry<T>(
         retrying: attempt < maxAttempts - 1,
       });
       if (attempt === maxAttempts - 1) break;
-      await new Promise((r) => setTimeout(r, jitteredDelay(attempt, baseDelayMs)));
+      await new Promise((r) =>
+        setTimeout(r, jitteredDelay(attempt, baseDelayMs)),
+      );
     }
   }
 
   throw lastErr instanceof Error
     ? lastErr
-    : new Error(`Email send failed after ${maxAttempts} attempts: ${String(lastErr)}`);
+    : new Error(
+        `Email send failed after ${maxAttempts} attempts: ${String(lastErr)}`,
+      );
 }

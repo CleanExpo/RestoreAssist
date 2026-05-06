@@ -54,7 +54,10 @@ export async function checkWorkspaceBudget(
 ): Promise<BudgetCheckResult> {
   // Read budget — caller override wins, then per-workspace, then env default.
   let budgetUsd: number;
-  if (typeof args.budgetOverrideUsd === "number" && args.budgetOverrideUsd >= 0) {
+  if (
+    typeof args.budgetOverrideUsd === "number" &&
+    args.budgetOverrideUsd >= 0
+  ) {
     budgetUsd = args.budgetOverrideUsd;
   } else {
     let workspaceBudget: number | null = null;

@@ -84,7 +84,10 @@ export async function sendTrialReminders(): Promise<CronJobResult> {
       const lastIso = stored?.[win.label];
       if (lastIso) {
         const last = Date.parse(lastIso);
-        if (Number.isFinite(last) && now.getTime() - last < IDEMPOTENCY_WINDOW_MS) {
+        if (
+          Number.isFinite(last) &&
+          now.getTime() - last < IDEMPOTENCY_WINDOW_MS
+        ) {
           skippedDuplicate++;
           continue;
         }

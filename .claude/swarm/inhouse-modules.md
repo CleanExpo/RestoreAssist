@@ -15,28 +15,28 @@ Not every vendor should be replaced. The decision per vendor is **cost vs. contr
 
 ### REPLACE (high leverage, feasible)
 
-| Vendor | In-house replacement | Why | Foundation ticket |
-|---|---|---|---|
-| **DocuSign** (e-sign) | `modules/esign` — hash-chain + C2PA-manifest signing | We already build the chain-of-custody manifest (M-10 RA-1386). Legal paper §4 identifies that our hash chain is *stronger* than DocuSign's because we control every link. DocuSign's model is "third-party witnesses a hash"; ours is "the record itself is hash-evidenced, per attestation". Carrier/court evidentiary test met by both; ours costs ~$0/signature vs DocuSign's ~$0.60. | Blocked on M-10 RA-1386 shipping. |
-| **Twilio** (SMS + voice) | `modules/notify` — email-first + SMS via a commodity SMS gateway (e.g. AWS SNS, MessageBird) | Twilio's product is fine; their *margin* is not. We use ≤5 notification types (claim ack, drying-day-N reminder, invoice-issued, dispute-opened, dispute-resolved). Thin wrapper over a cheaper SMS carrier + a retry/idempotency log table beats Twilio's priced API. | New ticket. |
-| **Intercom / Zendesk** (in-app chat) | `modules/support` — thread UI + email bridge | Low complexity; commoditised. Owning the data + routing is a real win for our support ops. | New ticket. |
+| Vendor                               | In-house replacement                                                                         | Why                                                                                                                                                                                                                                                                                                                                                                                      | Foundation ticket                 |
+| ------------------------------------ | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| **DocuSign** (e-sign)                | `modules/esign` — hash-chain + C2PA-manifest signing                                         | We already build the chain-of-custody manifest (M-10 RA-1386). Legal paper §4 identifies that our hash chain is _stronger_ than DocuSign's because we control every link. DocuSign's model is "third-party witnesses a hash"; ours is "the record itself is hash-evidenced, per attestation". Carrier/court evidentiary test met by both; ours costs ~$0/signature vs DocuSign's ~$0.60. | Blocked on M-10 RA-1386 shipping. |
+| **Twilio** (SMS + voice)             | `modules/notify` — email-first + SMS via a commodity SMS gateway (e.g. AWS SNS, MessageBird) | Twilio's product is fine; their _margin_ is not. We use ≤5 notification types (claim ack, drying-day-N reminder, invoice-issued, dispute-opened, dispute-resolved). Thin wrapper over a cheaper SMS carrier + a retry/idempotency log table beats Twilio's priced API.                                                                                                                   | New ticket.                       |
+| **Intercom / Zendesk** (in-app chat) | `modules/support` — thread UI + email bridge                                                 | Low complexity; commoditised. Owning the data + routing is a real win for our support ops.                                                                                                                                                                                                                                                                                               | New ticket.                       |
 
 ### KEEP (replacing is bad economics or bad engineering)
 
-| Vendor | Why keep |
-|---|---|
-| **Stripe** | Payments is a regulated speciality. PCI, dispute handling, chargebacks, card-brand rules. Building an in-house replacement is a negative-ROI project. |
-| **Xero** | Accounting is not our product. Customers expect to see claims in their own Xero. Replacing Xero means *forcing* our customers to give up *their* accountant's tool. Wrong direction. |
-| **Cloudinary** | Image CDN + transforms. Could be replaced with Vercel Image Optimisation + Vercel Blob for the storage, and that migration is a separate cost-optimisation project (not an "in-house" project). Defer. |
-| **Sentry** | Replacing an error-reporting SaaS with a bespoke log pipeline creates an SRE project we don't want. |
-| **Anthropic / OpenAI** | Obvious keep — we consume, not produce, the model. |
+| Vendor                 | Why keep                                                                                                                                                                                               |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Stripe**             | Payments is a regulated speciality. PCI, dispute handling, chargebacks, card-brand rules. Building an in-house replacement is a negative-ROI project.                                                  |
+| **Xero**               | Accounting is not our product. Customers expect to see claims in their own Xero. Replacing Xero means _forcing_ our customers to give up _their_ accountant's tool. Wrong direction.                   |
+| **Cloudinary**         | Image CDN + transforms. Could be replaced with Vercel Image Optimisation + Vercel Blob for the storage, and that migration is a separate cost-optimisation project (not an "in-house" project). Defer. |
+| **Sentry**             | Replacing an error-reporting SaaS with a bespoke log pipeline creates an SRE project we don't want.                                                                                                    |
+| **Anthropic / OpenAI** | Obvious keep — we consume, not produce, the model.                                                                                                                                                     |
 
 ### DEFER (revisit when core is stable)
 
-| Vendor | Why defer |
-|---|---|
-| **Guidewire** (carrier integration) | Carrier-side integration is the hardest module because the counterparty (insurers) owns the interface. M-18 (RA-1393) is a procurement working group. Build the replacement only after carrier contracts are running through the stub, so we know what to build. |
-| **MessageBird / Mailgun** (transactional email) | Only replace when `modules/notify` ships and we've measured Twilio-replacement savings. Sequential, not parallel. |
+| Vendor                                          | Why defer                                                                                                                                                                                                                                                        |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Guidewire** (carrier integration)             | Carrier-side integration is the hardest module because the counterparty (insurers) owns the interface. M-18 (RA-1393) is a procurement working group. Build the replacement only after carrier contracts are running through the stub, so we know what to build. |
+| **MessageBird / Mailgun** (transactional email) | Only replace when `modules/notify` ships and we've measured Twilio-replacement savings. Sequential, not parallel.                                                                                                                                                |
 
 ## Architecture
 
@@ -111,7 +111,7 @@ Legal paper §4 is the acceptance test. The carrier-authorisation step (M-2 tran
 
 ## Open questions
 
-1. **Esign evidentiary weight.** Need Legal to confirm that a C2PA-manifest signature is admissible under Electronic Transactions Act 1999 (Cth). First-party hash-chain = stronger than third-party witness *technically*, but AU court precedent favours the known-vendor path. Ask Legal before Phase 4.
+1. **Esign evidentiary weight.** Need Legal to confirm that a C2PA-manifest signature is admissible under Electronic Transactions Act 1999 (Cth). First-party hash-chain = stronger than third-party witness _technically_, but AU court precedent favours the known-vendor path. Ask Legal before Phase 4.
 2. **Notify — SMS gateway selection.** AWS SNS vs MessageBird vs AU-regional provider. Depends on AU A2P delivery rate + per-message cost at our volume. Procurement working group.
 3. **Support — thread storage.** Reuse existing ClaimProgress schema or separate table? Recommend separate; support threads shouldn't bloat claim audit surface.
 

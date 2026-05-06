@@ -119,7 +119,8 @@ describe("stormDomain — duration heuristics", () => {
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error("unreachable");
     expect(
-      r.data.report.sections.find((s) => s.heading === "Estimated duration")?.body,
+      r.data.report.sections.find((s) => s.heading === "Estimated duration")
+        ?.body,
     ).toContain("21 days");
   });
 });
@@ -133,8 +134,12 @@ describe("stormDomain — citations + scope", () => {
     });
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error("unreachable");
-    expect(r.data.citations.some((c) => c.standard === "IICRC S500:2025")).toBe(true);
-    expect(r.data.citations.some((c) => c.standard === "NCC Volume 2")).toBe(true);
+    expect(r.data.citations.some((c) => c.standard === "IICRC S500:2025")).toBe(
+      true,
+    );
+    expect(r.data.citations.some((c) => c.standard === "NCC Volume 2")).toBe(
+      true,
+    );
   });
 
   it("every scope item carries an IICRC ref + positive quantity", async () => {

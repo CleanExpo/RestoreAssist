@@ -6,23 +6,23 @@ Source: Architect paper §3 (board minutes §8 M-1). Human-readable stage labels
 
 ## The 15 states
 
-| # | State | Purpose | Exit conditions |
-|---|---|---|---|
-| 1 | `INTAKE` | Initial claim recorded. Attestor collects minimum viable data to open a file. | Transition to `STABILISATION_ACTIVE` when tech is on-site. |
-| 2 | `STABILISATION_ACTIVE` | WHS controls in place; emergency protections being installed. | `attest_stabilisation` → `STABILISATION_COMPLETE`. `attest_whs_hazard` → `WHS_HOLD`. |
-| 3 | `WHS_HOLD` | Safety hazard paused on-site work; SMP/SWMS under review. | `attest_whs_cleared` → back to `STABILISATION_ACTIVE`. |
-| 4 | `STABILISATION_COMPLETE` | Property is safe and dry-standing. Carrier has been notified. | `submit_scope` → `SCOPE_DRAFT`. |
-| 5 | `SCOPE_DRAFT` | Scope of works drafted; pending carrier authorisation. | `carrier_authorise` → `SCOPE_APPROVED`. Carrier reject → back to `SCOPE_DRAFT` with notes. |
-| 6 | `SCOPE_APPROVED` | Carrier has signed off on the scope. Approval captured immutably. | `commence_drying` → `DRYING_ACTIVE`. |
-| 7 | `DRYING_ACTIVE` | Drying in progress; daily moisture readings being captured. | `certify_drying` → `DRYING_CERTIFIED`. Variation needed → `VARIATION_REVIEW`. |
-| 8 | `VARIATION_REVIEW` | Scope variation exceeds threshold (M-6: 20% / AUD 2,500). Requires carrier re-approval. | `carrier_authorise_variation` → back to `DRYING_ACTIVE`. |
-| 9 | `DRYING_CERTIFIED` | IICRC S500 dry standard achieved; technician signs certificate. | `commence_closeout` → `CLOSEOUT`. |
-| 10 | `CLOSEOUT` | Final photos, customer sign-off, paperwork complete. | `issue_invoice` → `INVOICE_ISSUED`. |
-| 11 | `INVOICE_ISSUED` | Invoice sent to carrier (or customer for out-of-pocket). Xero invoice created via M-11. | `record_payment` → `INVOICE_PAID`. Carrier dispute → `DISPUTED`. |
-| 12 | `INVOICE_PAID` | Payment confirmed. | `close` → `CLOSED`. |
-| 13 | `DISPUTED` | Carrier has disputed part or all of the invoice. Reserve held. | Resolution → `INVOICE_PAID` or `WITHDRAWN`. |
-| 14 | `CLOSED` | Claim fully resolved; retention clock started per M-8 class-based schedule. | Terminal. |
-| 15 | `WITHDRAWN` | Claim withdrawn before completion (customer decision or carrier denial). | Terminal. |
+| #   | State                    | Purpose                                                                                 | Exit conditions                                                                            |
+| --- | ------------------------ | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| 1   | `INTAKE`                 | Initial claim recorded. Attestor collects minimum viable data to open a file.           | Transition to `STABILISATION_ACTIVE` when tech is on-site.                                 |
+| 2   | `STABILISATION_ACTIVE`   | WHS controls in place; emergency protections being installed.                           | `attest_stabilisation` → `STABILISATION_COMPLETE`. `attest_whs_hazard` → `WHS_HOLD`.       |
+| 3   | `WHS_HOLD`               | Safety hazard paused on-site work; SMP/SWMS under review.                               | `attest_whs_cleared` → back to `STABILISATION_ACTIVE`.                                     |
+| 4   | `STABILISATION_COMPLETE` | Property is safe and dry-standing. Carrier has been notified.                           | `submit_scope` → `SCOPE_DRAFT`.                                                            |
+| 5   | `SCOPE_DRAFT`            | Scope of works drafted; pending carrier authorisation.                                  | `carrier_authorise` → `SCOPE_APPROVED`. Carrier reject → back to `SCOPE_DRAFT` with notes. |
+| 6   | `SCOPE_APPROVED`         | Carrier has signed off on the scope. Approval captured immutably.                       | `commence_drying` → `DRYING_ACTIVE`.                                                       |
+| 7   | `DRYING_ACTIVE`          | Drying in progress; daily moisture readings being captured.                             | `certify_drying` → `DRYING_CERTIFIED`. Variation needed → `VARIATION_REVIEW`.              |
+| 8   | `VARIATION_REVIEW`       | Scope variation exceeds threshold (M-6: 20% / AUD 2,500). Requires carrier re-approval. | `carrier_authorise_variation` → back to `DRYING_ACTIVE`.                                   |
+| 9   | `DRYING_CERTIFIED`       | IICRC S500 dry standard achieved; technician signs certificate.                         | `commence_closeout` → `CLOSEOUT`.                                                          |
+| 10  | `CLOSEOUT`               | Final photos, customer sign-off, paperwork complete.                                    | `issue_invoice` → `INVOICE_ISSUED`.                                                        |
+| 11  | `INVOICE_ISSUED`         | Invoice sent to carrier (or customer for out-of-pocket). Xero invoice created via M-11. | `record_payment` → `INVOICE_PAID`. Carrier dispute → `DISPUTED`.                           |
+| 12  | `INVOICE_PAID`           | Payment confirmed.                                                                      | `close` → `CLOSED`.                                                                        |
+| 13  | `DISPUTED`               | Carrier has disputed part or all of the invoice. Reserve held.                          | Resolution → `INVOICE_PAID` or `WITHDRAWN`.                                                |
+| 14  | `CLOSED`                 | Claim fully resolved; retention clock started per M-8 class-based schedule.             | Terminal.                                                                                  |
+| 15  | `WITHDRAWN`              | Claim withdrawn before completion (customer decision or carrier denial).                | Terminal.                                                                                  |
 
 ## Transition keys
 

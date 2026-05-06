@@ -23,9 +23,7 @@ const BATCH_SIZE = 1000;
 const MAX_BATCHES_PER_RUN = 20; // cap at 20k rows per cron invocation
 
 export async function pruneWebhookEvents(): Promise<CronJobResult> {
-  const cutoff = new Date(
-    Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000,
-  );
+  const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000);
 
   let stripeDeleted = 0;
   let genericDeleted = 0;

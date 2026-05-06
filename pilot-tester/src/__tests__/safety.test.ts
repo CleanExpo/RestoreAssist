@@ -31,9 +31,9 @@ describe("assertSandbox", () => {
   });
 
   it("refuses the bare prod domain", () => {
-    expect(() => assertSandbox({ baseUrl: "https://restoreassist.com.au" })).toThrow(
-      ProdAccessRefused,
-    );
+    expect(() =>
+      assertSandbox({ baseUrl: "https://restoreassist.com.au" }),
+    ).toThrow(ProdAccessRefused);
   });
 
   it("refuses an unknown hostname without a sandbox marker", () => {

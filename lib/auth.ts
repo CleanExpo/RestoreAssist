@@ -175,7 +175,8 @@ export const authOptions: NextAuthOptions = {
             });
             return null;
           }
-          const totp = typeof credentials.totp === "string" ? credentials.totp.trim() : "";
+          const totp =
+            typeof credentials.totp === "string" ? credentials.totp.trim() : "";
           if (!totp) {
             await logSecurityEvent({
               eventType: "LOGIN_FAILED",
@@ -194,7 +195,8 @@ export const authOptions: NextAuthOptions = {
           // so each is single-use.
           if (looksLikeRecoveryCode(totp)) {
             const storedHashes = parseRecoveryCodes(
-              (user as { twoFactorRecoveryCodes?: string | null }).twoFactorRecoveryCodes,
+              (user as { twoFactorRecoveryCodes?: string | null })
+                .twoFactorRecoveryCodes,
             );
             if (storedHashes.length === 0) {
               await logSecurityEvent({
@@ -374,7 +376,9 @@ export const authOptions: NextAuthOptions = {
             });
             if (revokeEvent) {
               const mintedAt = (token as any).mintedAt ?? 0;
-              const revokedAt = Math.floor(revokeEvent.createdAt.getTime() / 1000);
+              const revokedAt = Math.floor(
+                revokeEvent.createdAt.getTime() / 1000,
+              );
               if (mintedAt > 0 && revokedAt >= mintedAt) {
                 // Return a token shape NextAuth will refuse to serialise
                 // into a session — the next session() callback sees no

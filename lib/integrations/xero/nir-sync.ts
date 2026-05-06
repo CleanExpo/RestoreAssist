@@ -66,7 +66,14 @@ export interface NIRJobPayload {
   propertyAddress: string;
   propertyState?: string; // RA-855: Australian state for Xero Tracking Category (defaults to QLD)
   reportNumber: string;
-  damageType: "WATER" | "FIRE" | "MOULD" | "STORM" | "BIOHAZARD" | "CONTENTS" | "GENERAL";
+  damageType:
+    | "WATER"
+    | "FIRE"
+    | "MOULD"
+    | "STORM"
+    | "BIOHAZARD"
+    | "CONTENTS"
+    | "GENERAL";
   waterCategory?: "1" | "2" | "3";
   waterClass?: "1" | "2" | "3" | "4";
   scopeItems: NIRScopeItem[];

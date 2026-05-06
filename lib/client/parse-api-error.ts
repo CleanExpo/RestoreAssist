@@ -13,7 +13,10 @@
  * middleware) returns a sensible fallback.
  */
 
-import { formatRateLimitMessage, parseRetryAfter } from "@/lib/fetch-with-retry";
+import {
+  formatRateLimitMessage,
+  parseRetryAfter,
+} from "@/lib/fetch-with-retry";
 
 export interface ParsedApiError {
   code: string;
@@ -26,7 +29,9 @@ export interface ParsedApiError {
   retryAfterSeconds?: number;
 }
 
-export async function parseApiError(response: Response): Promise<ParsedApiError> {
+export async function parseApiError(
+  response: Response,
+): Promise<ParsedApiError> {
   if (response.status === 429) {
     const retryAfter = parseRetryAfter(response.headers.get("retry-after"));
     return {
@@ -60,7 +65,8 @@ export async function parseApiError(response: Response): Promise<ParsedApiError>
             ? envelope.message
             : "Something went wrong.",
         status: response.status,
-        eventId: typeof envelope.eventId === "string" ? envelope.eventId : undefined,
+        eventId:
+          typeof envelope.eventId === "string" ? envelope.eventId : undefined,
         fields:
           envelope.fields && typeof envelope.fields === "object"
             ? (envelope.fields as Record<string, string>)

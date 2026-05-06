@@ -75,7 +75,9 @@ export async function assertReportTenancy(
 export async function assertInspectionTenancy(
   session: SessionLike | null,
   inspectionId: string,
-): Promise<TenancyResult<{ id: string; userId: string; workspaceId: string | null }>> {
+): Promise<
+  TenancyResult<{ id: string; userId: string; workspaceId: string | null }>
+> {
   if (!session?.user?.id) {
     return { ok: false, status: 401, reason: "Unauthorized" };
   }
@@ -121,9 +123,11 @@ export async function assertInspectionTenancy(
  * `app/api/portal/reports/[id]/download/route.ts`.
  */
 export async function assertPortalReportTenancy(
-  session: SessionLike & {
-    user?: { userType?: string | null; clientId?: string | null } | null;
-  } | null,
+  session:
+    | (SessionLike & {
+        user?: { userType?: string | null; clientId?: string | null } | null;
+      })
+    | null,
   reportId: string,
 ): Promise<TenancyResult<{ id: string; clientId: string }>> {
   if (!session?.user?.id || session.user.userType !== "client") {

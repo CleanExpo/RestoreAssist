@@ -54,11 +54,7 @@ const ACTIVE_PROJECTS: Project[] = [
 
 // ─── Draft generation ─────────────────────────────────────────────────────────
 
-function buildPrompt(
-  project: Project,
-  isoWeek: number,
-  year: number,
-): string {
+function buildPrompt(project: Project, isoWeek: number, year: number): string {
   return `Write a short LinkedIn post for ${project.name} — ${project.tagline}.
 
 Audience: ${project.audience}
@@ -87,8 +83,7 @@ async function generateViaAnthropic(prompt: string): Promise<string> {
 }
 
 async function generateViaOllama(prompt: string): Promise<string> {
-  const baseUrl =
-    process.env.OLLAMA_BASE_URL ?? "http://localhost:11434/v1";
+  const baseUrl = process.env.OLLAMA_BASE_URL ?? "http://localhost:11434/v1";
   const model = process.env.OLLAMA_MODEL ?? "gemma4:latest";
   const res = await fetch(`${baseUrl}/chat/completions`, {
     method: "POST",

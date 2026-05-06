@@ -23,7 +23,10 @@ const ROOT_FOLDER_NAME = "RestoreAssist";
 const FOLDER_MIME = "application/vnd.google-apps.folder";
 const MAX_RETRY = 3;
 
-function getOAuthClient(accessToken: string, refreshToken: string | null): OAuth2Client {
+function getOAuthClient(
+  accessToken: string,
+  refreshToken: string | null,
+): OAuth2Client {
   const client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
@@ -89,10 +92,13 @@ async function withBackoff<T>(fn: () => Promise<T>): Promise<T> {
       return await fn();
     } catch (err) {
       lastErr = err;
-      const status = (err as { code?: number; response?: { status?: number } })?.response?.status ?? (err as { code?: number })?.code;
+      const status =
+        (err as { code?: number; response?: { status?: number } })?.response
+          ?.status ?? (err as { code?: number })?.code;
       // Only retry on transient/rate-limit errors. Auth and quota-exceeded
       // surface immediately so the caller can warn the user.
-      if (status !== 429 && status !== 500 && status !== 502 && status !== 503) throw err;
+      if (status !== 429 && status !== 500 && status !== 502 && status !== 503)
+        throw err;
       await new Promise((r) => setTimeout(r, 500 * 2 ** attempt));
     }
   }
@@ -104,13 +110,19 @@ export class DriveCloudMirror implements CloudMirrorProvider {
 
   constructor(private readonly userId: string) {}
 
-  async upload(input: CloudMirrorUploadInput): Promise<CloudMirrorUploadResult> {
+  async upload(
+    input: CloudMirrorUploadInput,
+  ): Promise<CloudMirrorUploadResult> {
     const { accessToken, refreshToken } = await getTokensForUser(this.userId);
     const auth = getOAuthClient(accessToken, refreshToken);
     const drive = google.drive({ version: "v3", auth });
 
     const rootId = await findOrCreateFolder(drive, ROOT_FOLDER_NAME, null);
-    const jobFolderId = await findOrCreateFolder(drive, input.jobNumber, rootId);
+    const jobFolderId = await findOrCreateFolder(
+      drive,
+      input.jobNumber,
+      rootId,
+    );
 
     const { data } = await withBackoff(() =>
       drive.files.create({
@@ -127,7 +139,9 @@ export class DriveCloudMirror implements CloudMirrorProvider {
     );
 
     if (!data.id || !data.webViewLink) {
-      throw new Error("Drive upload completed without returning id or webViewLink");
+      throw new Error(
+        "Drive upload completed without returning id or webViewLink",
+      );
     }
     return { providerFileId: data.id, viewUrl: data.webViewLink };
   }

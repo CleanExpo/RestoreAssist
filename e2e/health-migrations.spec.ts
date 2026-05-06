@@ -8,7 +8,9 @@ import { test, expect } from "@playwright/test";
  */
 
 test.describe("API Health: migrations", () => {
-  test("returns 200 with a fully-applied migration set", async ({ request }) => {
+  test("returns 200 with a fully-applied migration set", async ({
+    request,
+  }) => {
     const r = await request.get("/api/health/migrations");
     // Healthy = 200, drifted = 503. Both shapes are documented; we just
     // assert the response parses and carries the contract fields.

@@ -13,7 +13,11 @@ import { ICloudCloudMirror } from "./icloud";
 import { OneDriveCloudMirror } from "./onedrive";
 import type { CloudMirrorProvider, CloudMirrorProviderId } from "./provider";
 
-export { type CloudMirrorProvider, type CloudMirrorProviderId, NotImplementedError } from "./provider";
+export {
+  type CloudMirrorProvider,
+  type CloudMirrorProviderId,
+  NotImplementedError,
+} from "./provider";
 
 /** Human-facing metadata for the onboarding picker UI. */
 export const PROVIDER_CATALOG: {
@@ -66,11 +70,14 @@ export function buildProvider(
  * completed onboarding. Evidence pipeline calls this on each viewing-copy
  * handoff and no-ops when the return is null.
  */
-export async function getMirror(userId: string): Promise<CloudMirrorProvider | null> {
+export async function getMirror(
+  userId: string,
+): Promise<CloudMirrorProvider | null> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { cloudMirrorProvider: true },
   });
-  if (!user?.cloudMirrorProvider || !isProviderId(user.cloudMirrorProvider)) return null;
+  if (!user?.cloudMirrorProvider || !isProviderId(user.cloudMirrorProvider))
+    return null;
   return buildProvider(user.cloudMirrorProvider, userId);
 }

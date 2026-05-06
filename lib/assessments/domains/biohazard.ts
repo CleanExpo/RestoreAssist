@@ -161,7 +161,10 @@ function narrowOptions(
 ): BiohazardOptions | null {
   if (!options || typeof options !== "object") return null;
   const t = options.biohazardType;
-  if (typeof t !== "string" || !VALID_BIOHAZARD_TYPES.includes(t as BiohazardType)) {
+  if (
+    typeof t !== "string" ||
+    !VALID_BIOHAZARD_TYPES.includes(t as BiohazardType)
+  ) {
     return null;
   }
   const s = options.state;
@@ -324,7 +327,10 @@ function buildReport(args: {
             `concern. Document with meter readings + spill log.`,
     citations: [
       primary,
-      { standard: "AS 4276", section: "Microbiological standards (where applicable)" },
+      {
+        standard: "AS 4276",
+        section: "Microbiological standards (where applicable)",
+      },
     ],
   });
 
@@ -369,7 +375,11 @@ export const biohazardDomain: DomainPlugin = {
         },
       });
       if (!inspection) {
-        return { ok: false, code: "NOT_FOUND", message: "Inspection not found" };
+        return {
+          ok: false,
+          code: "NOT_FOUND",
+          message: "Inspection not found",
+        };
       }
 
       const affectedAreaM2 = inspection.affectedAreas.reduce(

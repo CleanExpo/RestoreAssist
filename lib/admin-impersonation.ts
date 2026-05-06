@@ -26,8 +26,12 @@ export interface ImpersonationToken {
 
 function hmac(payload: string): string {
   const secret = process.env.NEXTAUTH_SECRET;
-  if (!secret) throw new Error("NEXTAUTH_SECRET required for impersonation tokens");
-  return crypto.createHmac("sha256", secret).update(payload).digest("base64url");
+  if (!secret)
+    throw new Error("NEXTAUTH_SECRET required for impersonation tokens");
+  return crypto
+    .createHmac("sha256", secret)
+    .update(payload)
+    .digest("base64url");
 }
 
 export function issueImpersonationToken(
@@ -38,7 +42,13 @@ export function issueImpersonationToken(
   const jti = crypto.randomBytes(16).toString("base64url");
   const expiresAt = Date.now() + ttlMs;
   const payload = `${adminUserId}:${targetUserId}:${jti}:${expiresAt}`;
-  return { jti, adminUserId, targetUserId, expiresAt, signature: hmac(payload) };
+  return {
+    jti,
+    adminUserId,
+    targetUserId,
+    expiresAt,
+    signature: hmac(payload),
+  };
 }
 
 /** Serialize to the compact string sent as header. */
@@ -47,7 +57,9 @@ export function serializeToken(t: ImpersonationToken): string {
 }
 
 /** Parse + verify; returns null on any tamper, expiry, or version mismatch. */
-export function parseImpersonationToken(raw: string): ImpersonationToken | null {
+export function parseImpersonationToken(
+  raw: string,
+): ImpersonationToken | null {
   const parts = raw.split(".");
   if (parts.length !== 6) return null;
   const [version, jti, adminUserId, targetUserId, expStr, signature] = parts;

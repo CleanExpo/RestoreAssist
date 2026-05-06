@@ -61,7 +61,9 @@ export interface VariationResult {
  * Core guard. Returns a structured decision so the service layer, the UI,
  * and the audit log all read from the same shape.
  */
-export function requiresVariationReview(input: VariationInput): VariationResult {
+export function requiresVariationReview(
+  input: VariationInput,
+): VariationResult {
   const { originalAmountCents, proposedAmountCents } = input;
   const appliedThresholdPercent =
     input.thresholdPercent && input.thresholdPercent > 0
@@ -78,14 +80,17 @@ export function requiresVariationReview(input: VariationInput): VariationResult 
   ) {
     return {
       triggers: false,
-      reason: "Invalid amounts — original and proposed must be non-negative cents.",
+      reason:
+        "Invalid amounts — original and proposed must be non-negative cents.",
       percentDelta: 0,
       absoluteDeltaCents: 0,
       appliedThresholdPercent,
     };
   }
 
-  const absoluteDeltaCents = Math.abs(proposedAmountCents - originalAmountCents);
+  const absoluteDeltaCents = Math.abs(
+    proposedAmountCents - originalAmountCents,
+  );
 
   // Zero-original edge case: any positive proposed amount is conceptually
   // an infinite-percent change. Treat as "triggers if above the absolute

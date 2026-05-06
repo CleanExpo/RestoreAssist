@@ -91,7 +91,9 @@ export async function checkPasswordBreached(
  * otherwise returns a user-facing error message the caller can drop
  * into a 400 response without reshaping.
  */
-export async function rejectIfBreached(password: string): Promise<string | null> {
+export async function rejectIfBreached(
+  password: string,
+): Promise<string | null> {
   const result = await checkPasswordBreached(password);
   if (result.breached) {
     return `This password has appeared in ${result.occurrences.toLocaleString("en-AU")} known data breaches. Please choose a different one — a password manager can help generate a strong unique password.`;

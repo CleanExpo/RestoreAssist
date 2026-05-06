@@ -336,9 +336,7 @@ export async function getFailedEntries(
     req.onsuccess = () => {
       const all = req.result;
       resolve(
-        inspectionId
-          ? all.filter((e) => e.inspectionId === inspectionId)
-          : all,
+        inspectionId ? all.filter((e) => e.inspectionId === inspectionId) : all,
       );
     };
     req.onerror = () => reject(req.error);
@@ -487,7 +485,9 @@ async function drainQueueImpl(): Promise<number> {
       if (entry.type === "sketch-save") {
         const sketchPayload = entry.payload as SketchSavePayload | null;
         if (sketchPayload?.clientUpdatedAt != null) {
-          headers["x-client-updated-at"] = String(sketchPayload.clientUpdatedAt);
+          headers["x-client-updated-at"] = String(
+            sketchPayload.clientUpdatedAt,
+          );
         }
       }
 

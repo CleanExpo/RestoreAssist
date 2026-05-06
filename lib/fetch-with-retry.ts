@@ -58,7 +58,9 @@ export async function fetchWithRetry(
  * Format a user-visible message for a 429 without retry. Caller can pass
  * straight into a toast.
  */
-export function formatRateLimitMessage(retryAfterSeconds: number | null): string {
+export function formatRateLimitMessage(
+  retryAfterSeconds: number | null,
+): string {
   if (retryAfterSeconds == null) {
     return "You're sending requests too quickly. Please wait a moment and try again.";
   }

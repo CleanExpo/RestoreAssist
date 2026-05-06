@@ -55,7 +55,9 @@ describe("biohazardDomain — happy paths per type", () => {
     ]);
 
     // Citations include S500:2025 + state EPA.
-    expect(r.data.citations.some((c) => c.standard === "IICRC S500:2025")).toBe(true);
+    expect(r.data.citations.some((c) => c.standard === "IICRC S500:2025")).toBe(
+      true,
+    );
     expect(r.data.citations.some((c) => c.standard.includes("EPA"))).toBe(true);
 
     // Scope items all carry refs and quantities.
@@ -77,7 +79,9 @@ describe("biohazardDomain — happy paths per type", () => {
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error("unreachable");
 
-    expect(r.data.citations.some((c) => c.standard === "IICRC S540:2021")).toBe(true);
+    expect(r.data.citations.some((c) => c.standard === "IICRC S540:2021")).toBe(
+      true,
+    );
 
     const ppeSection = r.data.report.sections.find(
       (s) => s.heading === "PPE rationale",
@@ -113,7 +117,9 @@ describe("biohazardDomain — happy paths per type", () => {
 
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error("unreachable");
-    expect(r.data.citations.some((c) => c.standard === "AS/NZS 4360:2004")).toBe(true);
+    expect(
+      r.data.citations.some((c) => c.standard === "AS/NZS 4360:2004"),
+    ).toBe(true);
   });
 });
 
@@ -170,7 +176,9 @@ describe("biohazardDomain — state resolution", () => {
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error("unreachable");
     expect(
-      r.data.report.sections.find((s) => s.heading === "Controlled waste pathway")?.body,
+      r.data.report.sections.find(
+        (s) => s.heading === "Controlled waste pathway",
+      )?.body,
     ).toContain("NSW EPA");
   });
 });
@@ -246,11 +254,14 @@ describe("biohazardDomain — estimate self-consistency", () => {
       (s, l) => s + l.lineTotalExGst,
       0,
     );
-    expect(Math.abs(subtotal - r.data.estimate.totals.subtotalExGst)).toBeLessThan(0.05);
+    expect(
+      Math.abs(subtotal - r.data.estimate.totals.subtotalExGst),
+    ).toBeLessThan(0.05);
     expect(
       Math.abs(
         r.data.estimate.totals.totalIncGst -
-          (r.data.estimate.totals.subtotalExGst + r.data.estimate.totals.gstTotal),
+          (r.data.estimate.totals.subtotalExGst +
+            r.data.estimate.totals.gstTotal),
       ),
     ).toBeLessThan(0.05);
     expect(r.data.estimate.totals.gstRate).toBe(0.1);

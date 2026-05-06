@@ -60,7 +60,9 @@ describe("waterDomain — happy path", () => {
 
     // Citations aggregate IICRC S500 references.
     expect(r.data.citations.length).toBeGreaterThan(0);
-    expect(r.data.citations.every((c) => c.standard === "IICRC S500:2021")).toBe(true);
+    expect(
+      r.data.citations.every((c) => c.standard === "IICRC S500:2021"),
+    ).toBe(true);
 
     // Scope has at least the prelims set; every item carries an IICRC ref.
     expect(r.data.scope.items.length).toBeGreaterThan(0);
@@ -74,13 +76,16 @@ describe("waterDomain — happy path", () => {
       (s, l) => s + l.lineTotalExGst,
       0,
     );
-    expect(Math.abs(subtotal - r.data.estimate.totals.subtotalExGst)).toBeLessThan(0.05);
+    expect(
+      Math.abs(subtotal - r.data.estimate.totals.subtotalExGst),
+    ).toBeLessThan(0.05);
     expect(r.data.estimate.totals.gstRate).toBe(0.1);
     expect(r.data.estimate.totals.currency).toBe("AUD");
     expect(
       Math.abs(
         r.data.estimate.totals.totalIncGst -
-          (r.data.estimate.totals.subtotalExGst + r.data.estimate.totals.gstTotal),
+          (r.data.estimate.totals.subtotalExGst +
+            r.data.estimate.totals.gstTotal),
       ),
     ).toBeLessThan(0.05);
 

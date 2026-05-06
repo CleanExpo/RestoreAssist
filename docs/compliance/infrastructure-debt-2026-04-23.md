@@ -97,6 +97,7 @@ added. Landed in `.claude/plans/eager-herding-hejlsberg.md`.
 ## #5 — Toolchain corruption from mixing npm + pnpm
 
 **Observed:**
+
 - `npm uninstall sonner @radix-ui/react-toast` errored with
   `Cannot read properties of null (reading 'matches')`.
 - Lockfile drift from hand-editing `package.json` without regenerating
@@ -164,15 +165,15 @@ uncommitted edits are an implicit shared state.
 
 ## Summary table
 
-| # | Failure | Status | Owner |
-|---|---|---|---|
-| 1 | MCP auto-reconnect | external | Anthropic (file feedback) |
-| 2 | Worktree isolation | process ✅, config pending | RestoreAssist docs lookup |
-| 3 | Concurrent agent stomp | covered by #2 | n/a |
-| 4 | Duplicate component ship | ✅ plan template updated | n/a |
-| 5 | npm + pnpm mixing | ✅ CLAUDE.md rule | n/a |
-| 6 | Prisma migration drift | RA-1546 open | needs assignee |
-| 7 | Killed agent uncommitted state | ✅ checkpoint rule | n/a |
+| #   | Failure                        | Status                     | Owner                     |
+| --- | ------------------------------ | -------------------------- | ------------------------- |
+| 1   | MCP auto-reconnect             | external                   | Anthropic (file feedback) |
+| 2   | Worktree isolation             | process ✅, config pending | RestoreAssist docs lookup |
+| 3   | Concurrent agent stomp         | covered by #2              | n/a                       |
+| 4   | Duplicate component ship       | ✅ plan template updated   | n/a                       |
+| 5   | npm + pnpm mixing              | ✅ CLAUDE.md rule          | n/a                       |
+| 6   | Prisma migration drift         | RA-1546 open               | needs assignee            |
+| 7   | Killed agent uncommitted state | ✅ checkpoint rule         | n/a                       |
 
 Five of seven have a durable fix landed in this pass. #1 is external;
 #6 needs the RA-1546 CI pipeline follow-up.

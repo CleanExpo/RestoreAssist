@@ -1,6 +1,6 @@
 # Migration deduplication — the correct pattern
 
-*RA-1361: historical damage lesson codified so it doesn't repeat.*
+_RA-1361: historical damage lesson codified so it doesn't repeat._
 
 ## The failure that triggered this doc
 
@@ -20,7 +20,7 @@ DELETE FROM "Integration" WHERE id IN (
 );
 ```
 
-The author commented *"assuming cuid() generates sequential IDs"* — that
+The author commented _"assuming cuid() generates sequential IDs"_ — that
 assumption is wrong. `cuid()` has a millisecond-resolution timestamp
 prefix, but within the same millisecond (OAuth callback double-clicks,
 race-y webhook handlers) order is arbitrary. The `id DESC` rank could

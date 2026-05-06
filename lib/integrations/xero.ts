@@ -102,7 +102,8 @@ export async function syncInvoiceToXero(
         treatment.taxType === "OUTPUT" ? gst.xeroTaxType : treatment.taxType;
       // RA-855: Tracking categories let Xero reports slice by Damage Type + State
       const tracking: Array<{ Name: string; Option: string }> = [];
-      if (invoice.damageType) tracking.push({ Name: "Damage Type", Option: invoice.damageType });
+      if (invoice.damageType)
+        tracking.push({ Name: "Damage Type", Option: invoice.damageType });
       tracking.push({ Name: "State", Option: invoice.propertyState ?? "QLD" });
       return {
         Description:

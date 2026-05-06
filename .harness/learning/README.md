@@ -4,22 +4,22 @@ This directory is the **training-pipeline input** for the Pi-CEO autonomous syst
 
 ## How the loop closes
 
-| Pipeline | Mode | Cadence | Reads | Writes |
-|---|---|---|---|---|
-| Inference | Apply | Every session | `~/.claude/skills/`, `~/.claude/projects/.../memory/` | code, PRs, Linear tickets, **and entries here** |
-| Training | Distill | Weekly Sat 23:00 UTC | **entries here** + same of all portfolio repos | new skills, memory entries, CLAUDE.md mandates |
+| Pipeline  | Mode    | Cadence              | Reads                                                 | Writes                                          |
+| --------- | ------- | -------------------- | ----------------------------------------------------- | ----------------------------------------------- |
+| Inference | Apply   | Every session        | `~/.claude/skills/`, `~/.claude/projects/.../memory/` | code, PRs, Linear tickets, **and entries here** |
+| Training  | Distill | Weekly Sat 23:00 UTC | **entries here** + same of all portfolio repos        | new skills, memory entries, CLAUDE.md mandates  |
 
 Any agent finishing a piece of work in inference mode appends a structured row to one of the five logs below when it spots something the system could learn from. The training run reads all five, identifies recurring patterns (≥ 3 entries), and promotes them.
 
 ## The five logs
 
-| File | When to append |
-|---|---|
-| `adversary-disagreements.jsonl` | When `opus-adversary` flags a real concern Sonnet missed, or vice-versa. Captures the disagreement so the planner can be tuned. |
-| `ci-failures.jsonl` | When CI flips red **after** a local typecheck passed — captures the signal CI catches that local doesn't. |
-| `user-corrections.jsonl` | When the user reverses an agent decision (e.g. "we don't use Sentry"). Highest-value training data — direct preference correction. |
-| `false-positives.jsonl` | When a tool / linter / scanner / validator fires on a real-but-not-actionable finding. Stops future agents from re-acting on it. |
-| `incident-postmortems.jsonl` | After resolving an outage, capture root cause + recovery steps + prevention. Future agents use this to recognise the shape early. |
+| File                            | When to append                                                                                                                     |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `adversary-disagreements.jsonl` | When `opus-adversary` flags a real concern Sonnet missed, or vice-versa. Captures the disagreement so the planner can be tuned.    |
+| `ci-failures.jsonl`             | When CI flips red **after** a local typecheck passed — captures the signal CI catches that local doesn't.                          |
+| `user-corrections.jsonl`        | When the user reverses an agent decision (e.g. "we don't use Sentry"). Highest-value training data — direct preference correction. |
+| `false-positives.jsonl`         | When a tool / linter / scanner / validator fires on a real-but-not-actionable finding. Stops future agents from re-acting on it.   |
+| `incident-postmortems.jsonl`    | After resolving an outage, capture root cause + recovery steps + prevention. Future agents use this to recognise the shape early.  |
 
 ## Append shape
 
@@ -43,6 +43,7 @@ Each file is JSONL — one JSON object per line. Required fields:
 ## Why per-repo, not central
 
 Each portfolio repo has its own `.harness/learning/` so:
+
 - Signal is co-located with the code it's about (easier to read in PR review)
 - Per-repo CLAUDE.md mandates evolve from per-repo signal
 - The weekly distiller can rank patterns by repo (e.g. "Prisma drift hits restoreassist + restoreassist-sandbox + carsi → cross-repo skill")

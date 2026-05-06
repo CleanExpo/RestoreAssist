@@ -15,6 +15,7 @@ This doc is a baseline so the user can approve each prune. This PR does **NOT** 
 **Verdict:** **Decide.** Confirm runtime reach via grep. If only Anthropic is on the hot path, the other two can stay installed but lazy-load. Pi-CEO's `model_policy.py` + `@/lib/ai-provider.ts` suggest a routing layer exists — make sure all three are truly reachable before pruning.
 
 Prune check:
+
 ```
 rg -l "from ['\"]@anthropic-ai/sdk['\"]" lib/ app/
 rg -l "from ['\"]@google/generative-ai['\"]" lib/ app/
@@ -36,6 +37,7 @@ rg -l "from ['\"]openai['\"]" lib/ app/
 **Installed:** `canvas-confetti`, `fabric`, `html2canvas`, `sharp`
 
 **Verdict:** **Decide.**
+
 - `sharp` — server-side Cloudinary fallback, keep
 - `fabric` — sketch tool (RA-1125), keep
 - `html2canvas` — is it used? If only for PDF export, may duplicate `pdf-lib`

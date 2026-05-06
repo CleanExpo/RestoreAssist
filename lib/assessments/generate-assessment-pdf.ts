@@ -10,7 +10,13 @@
  * input gets sanitised through `ascii()` before drawing.
  */
 
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
+import {
+  PDFDocument,
+  StandardFonts,
+  rgb,
+  type PDFFont,
+  type PDFPage,
+} from "pdf-lib";
 import type {
   AssessmentReport,
   EstimateLine,
@@ -76,11 +82,7 @@ function ensureSpace(
   if (ctx.y - needed < BOTTOM_Y) newPage(ctx, meta, title);
 }
 
-function drawHeader(
-  ctx: Ctx,
-  meta: AssessmentPdfInput["meta"],
-  title: string,
-) {
+function drawHeader(ctx: Ctx, meta: AssessmentPdfInput["meta"], title: string) {
   ctx.page.drawRectangle({
     x: 0,
     y: PAGE_H - HEADER_H,
@@ -102,9 +104,7 @@ function drawHeader(
     font: ctx.fontReg,
     color: rgb(0.85, 0.85, 0.85),
   });
-  const dateStr = ascii(
-    new Date(meta.generatedAt).toISOString().slice(0, 10),
-  );
+  const dateStr = ascii(new Date(meta.generatedAt).toISOString().slice(0, 10));
   const w = ctx.fontReg.widthOfTextAtSize(dateStr, 9);
   ctx.page.drawText(dateStr, {
     x: PAGE_W - MARGIN - w,
@@ -298,8 +298,7 @@ function renderTable(
       // Truncate to one line — assessment estimate cells are short.
       let display = text;
       while (
-        ctx.fontReg.widthOfTextAtSize(display, 8) >
-        col.width - 8 &&
+        ctx.fontReg.widthOfTextAtSize(display, 8) > col.width - 8 &&
         display.length > 1
       ) {
         display = display.slice(0, -1);

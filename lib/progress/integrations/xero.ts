@@ -36,9 +36,8 @@ const XERO_RELEVANT_TRANSITIONS = new Set([
   "dispute",
 ] as const);
 
-export type XeroRelevantTransitionKey = typeof XERO_RELEVANT_TRANSITIONS extends Set<infer U>
-  ? U
-  : never;
+export type XeroRelevantTransitionKey =
+  typeof XERO_RELEVANT_TRANSITIONS extends Set<infer U> ? U : never;
 
 /**
  * Minimal transition + claim-progress shape the handler needs. Kept as a
@@ -76,7 +75,12 @@ export interface XeroDispatchResult {
   /** Always populated — principle 3. */
   reason: string;
   /** Dispatched action, or null if no-op. */
-  action: "create_invoice" | "record_payment" | "append_dispute_memo" | "noop" | "error";
+  action:
+    | "create_invoice"
+    | "record_payment"
+    | "append_dispute_memo"
+    | "noop"
+    | "error";
   /** Idempotency key we used (or would have used on the no-op). */
   idempotencyKey: string;
 }
@@ -202,6 +206,10 @@ export async function handleProgressTransitionForXero(
 }
 
 /** Exported for tests — narrow type guard that also documents the dispatch set. */
-export function isXeroRelevant(transitionKey: string): transitionKey is XeroRelevantTransitionKey {
-  return XERO_RELEVANT_TRANSITIONS.has(transitionKey as XeroRelevantTransitionKey);
+export function isXeroRelevant(
+  transitionKey: string,
+): transitionKey is XeroRelevantTransitionKey {
+  return XERO_RELEVANT_TRANSITIONS.has(
+    transitionKey as XeroRelevantTransitionKey,
+  );
 }
