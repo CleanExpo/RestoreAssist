@@ -165,7 +165,7 @@ describe("PUT /api/xero-account-mapping", () => {
 
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toMatch(/Invalid account code/);
+    expect(body.error.message).toMatch(/Invalid account code/);
   });
 
   it("returns 409 when Xero integration not connected", async () => {
