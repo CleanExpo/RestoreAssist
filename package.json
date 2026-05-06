@@ -11,7 +11,15 @@
     "overrides": {
       "dompurify": "^3.4.2",
       "loader-utils": "^2.0.4",
-      "tar": "^7.5.13"
+      "tar": "^7.5.13",
+      "effect": ">=3.20.0",
+      "defu": ">=6.1.5",
+      "nodemailer": ">=8.0.5",
+      "postcss": ">=8.5.10",
+      "uuid": ">=11.1.1",
+      "ip-address": ">=10.1.1",
+      "brace-expansion": ">=2.0.3",
+      "@tootallnate/once": ">=3.0.1"
     },
     "auditConfig": {
       "ignoreGhsas": [
@@ -31,7 +39,9 @@
     "db:studio": "prisma studio",
     "script:grant-trial-credits": "npx tsx scripts/grant-trial-credits.ts",
     "test:smoke": "playwright test --grep @smoke",
-    "test:smoke:ci": "playwright test --grep @smoke --reporter=line"
+    "test:smoke:ci": "playwright test --grep @smoke --reporter=line",
+    "test:smoke:prod": "CI=true PLAYWRIGHT_BASE_URL=https://restoreassist.app playwright test --grep @smoke --reporter=line",
+    "test:smoke:sandbox": "CI=true PLAYWRIGHT_BASE_URL=https://restoreassist-sandbox.vercel.app playwright test --grep @smoke --reporter=line"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.74",
@@ -88,6 +98,7 @@
     "@radix-ui/react-use-controllable-state": "^1.2.2",
     "@remotion/lambda": "^4.0.456",
     "@rive-app/react-webgl2": "^4.28.3",
+    "@sentry/nextjs": "^10.0.0",
     "@streamdown/cjk": "^1.0.3",
     "@streamdown/code": "^1.1.1",
     "@streamdown/math": "^1.0.2",

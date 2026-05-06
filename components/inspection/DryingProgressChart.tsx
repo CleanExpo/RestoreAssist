@@ -458,7 +458,7 @@ export default function DryingProgressChart({
 
         <ResponsiveContainer width="100%" height={280}>
           <ComposedChart
-            data={chartData}
+            data={chartData as SeriesPoint[]}
             margin={{ top: 4, right: 8, left: -16, bottom: 4 }}
           >
             <CartesianGrid

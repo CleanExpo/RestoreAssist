@@ -166,11 +166,14 @@ export default function SettingsPage() {
     const onVisible = () => {
       if (document.visibilityState === "visible") fetchProfile();
     };
+    const onFocus = () => {
+      fetchProfile();
+    };
     document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("focus", fetchProfile);
+    window.addEventListener("focus", onFocus);
     return () => {
       document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("focus", fetchProfile);
+      window.removeEventListener("focus", onFocus);
     };
   }, []);
 
