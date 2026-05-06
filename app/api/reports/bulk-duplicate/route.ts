@@ -12,6 +12,7 @@ import {
   formatBulkResponse,
   getUnauthorizedReportIds,
 } from "@/lib/bulk-operations";
+import { apiError, fromException } from "@/lib/api-errors";
 
 interface BulkDuplicateRequest {
   ids: string[];
@@ -27,7 +28,11 @@ export async function POST(request: NextRequest) {
     // 1. Authenticate
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     // 2. Rate limit check
@@ -347,10 +352,6 @@ export async function POST(request: NextRequest) {
     }
 
     // RA-786: do not leak error.message to clients
-    console.error("bulk-duplicate failed:", error);
-    return NextResponse.json(
-      { error: "Duplication failed" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "create" });
   }
 }

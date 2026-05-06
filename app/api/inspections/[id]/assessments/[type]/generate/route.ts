@@ -21,13 +21,8 @@ import { applyRateLimit } from "@/lib/rate-limiter";
 import { validateCsrf } from "@/lib/csrf";
 import { prisma } from "@/lib/prisma";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
-import {
-  generateAssessment,
-} from "@/lib/assessments/generate";
-import {
-  isRegisteredDomain,
-  listDomainKeys,
-} from "@/lib/assessments/registry";
+import { generateAssessment } from "@/lib/assessments/generate";
+import { isRegisteredDomain, listDomainKeys } from "@/lib/assessments/registry";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import type { AssessmentDomain } from "@/lib/assessments/types";
 
@@ -95,10 +90,7 @@ export async function POST(
       }
     }
   } catch {
-    return NextResponse.json(
-      { error: "Invalid JSON body" },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
   // Resolve workspace (best-effort) for budget tracking. Null is OK for

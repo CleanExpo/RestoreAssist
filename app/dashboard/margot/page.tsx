@@ -48,9 +48,21 @@ import { Attachments } from "@/components/ai-elements/attachments";
 import { Button } from "@/components/ui/button";
 
 const RECENT_THREADS_STUB = [
-  { id: "t1", title: "Week-ahead briefing", preview: "3 focus items for the week…" },
-  { id: "t2", title: "NRPG pricing sweep", preview: "Corpus + public research merged." },
-  { id: "t3", title: "RA-1645 triage", preview: "Pi-CEO MCP connection flake." },
+  {
+    id: "t1",
+    title: "Week-ahead briefing",
+    preview: "3 focus items for the week…",
+  },
+  {
+    id: "t2",
+    title: "NRPG pricing sweep",
+    preview: "Corpus + public research merged.",
+  },
+  {
+    id: "t3",
+    title: "RA-1645 triage",
+    preview: "Pi-CEO MCP connection flake.",
+  },
 ];
 
 export default function MargotDashboardPage() {
@@ -62,7 +74,12 @@ export default function MargotDashboardPage() {
     [],
   );
 
-  const { messages, sendMessage, status: chatStatus, error } = useChat({
+  const {
+    messages,
+    sendMessage,
+    status: chatStatus,
+    error,
+  } = useChat({
     transport,
   });
 
@@ -174,7 +191,10 @@ export default function MargotDashboardPage() {
             </button>
           ))}
         </nav>
-        <div className="border-t px-4 py-3 text-xs opacity-60" style={{ borderColor: "#E7E0D3" }}>
+        <div
+          className="border-t px-4 py-3 text-xs opacity-60"
+          style={{ borderColor: "#E7E0D3" }}
+        >
           v1 · Claude + Margot persona
         </div>
       </aside>
@@ -217,7 +237,9 @@ export default function MargotDashboardPage() {
                       {message.parts.map((part, i) => {
                         if (part.type === "text") {
                           return message.role === "assistant" ? (
-                            <MessageResponse key={i}>{part.text}</MessageResponse>
+                            <MessageResponse key={i}>
+                              {part.text}
+                            </MessageResponse>
                           ) : (
                             <span key={i}>{part.text}</span>
                           );
@@ -305,7 +327,10 @@ export default function MargotDashboardPage() {
                             part.state === "input-streaming" ||
                             part.state === "input-available";
                           return (
-                            <Tool key={i} defaultOpen={part.state !== "output-available"}>
+                            <Tool
+                              key={i}
+                              defaultOpen={part.state !== "output-available"}
+                            >
                               <ToolHeader
                                 type="tool-image_generate"
                                 state={part.state}
@@ -342,7 +367,10 @@ export default function MargotDashboardPage() {
                             part.state === "input-streaming" ||
                             part.state === "input-available";
                           return (
-                            <Tool key={i} defaultOpen={part.state !== "output-available"}>
+                            <Tool
+                              key={i}
+                              defaultOpen={part.state !== "output-available"}
+                            >
                               <ToolHeader
                                 type="tool-deep_research"
                                 state={part.state}
@@ -465,9 +493,10 @@ function LinearIssueList({ output }: { output: unknown }) {
     );
   }
 
-  const parsed = output as
-    | { issues?: LinearIssueListItem[]; count?: number }
-    | null;
+  const parsed = output as {
+    issues?: LinearIssueListItem[];
+    count?: number;
+  } | null;
   const issues = parsed?.issues ?? [];
 
   if (issues.length === 0) {
@@ -548,23 +577,19 @@ function LinearWriteResult({
   onCancel: () => void;
 }) {
   if (isConfirmation(output)) {
-    const verb = output.action === "linear_create_issue" ? "create" : "comment on";
+    const verb =
+      output.action === "linear_create_issue" ? "create" : "comment on";
     return (
       <div
         className="rounded-md border px-3 py-3 text-sm"
         style={{ borderColor: "#E4C972", backgroundColor: "#FBF5E2" }}
       >
-        <div className="mb-2 font-medium">
-          Confirm: {verb} Linear issue?
-        </div>
+        <div className="mb-2 font-medium">Confirm: {verb} Linear issue?</div>
         <pre className="mb-3 max-h-48 overflow-auto rounded bg-white p-2 text-xs">
           {JSON.stringify(output.pending, null, 2)}
         </pre>
         <div className="flex gap-2">
-          <Button
-            size="sm"
-            onClick={() => onConfirm(action, output.pending)}
-          >
+          <Button size="sm" onClick={() => onConfirm(action, output.pending)}>
             Confirm
           </Button>
           <Button size="sm" variant="outline" onClick={onCancel}>
@@ -588,9 +613,11 @@ function LinearWriteResult({
     );
   }
 
-  const parsed = output as
-    | { identifier?: string; id?: string; url?: string }
-    | null;
+  const parsed = output as {
+    identifier?: string;
+    id?: string;
+    url?: string;
+  } | null;
 
   if (parsed?.url) {
     return (
@@ -655,7 +682,7 @@ function ImageGenResult({ output }: { output: unknown }) {
   const promptExcerpt =
     data.prompt && data.prompt.length > 140
       ? `${data.prompt.slice(0, 140)}…`
-      : data.prompt ?? "";
+      : (data.prompt ?? "");
 
   return (
     <figure

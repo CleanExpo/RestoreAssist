@@ -1,6 +1,7 @@
 "use client";
 
 import { Crown, XIcon } from "lucide-react";
+import BillingGate from "@/components/capacitor/BillingGate";
 
 interface UpgradeModalProps {
   open: boolean;
@@ -8,7 +9,7 @@ interface UpgradeModalProps {
   onUpgrade: () => void;
 }
 
-export function UpgradeModal({
+function UpgradeModalContent({
   open,
   onOpenChange,
   onUpgrade,
@@ -61,5 +62,13 @@ export function UpgradeModal({
         </div>
       </div>
     </div>
+  );
+}
+
+export function UpgradeModal(props: UpgradeModalProps) {
+  return (
+    <BillingGate fallback={null}>
+      <UpgradeModalContent {...props} />
+    </BillingGate>
   );
 }

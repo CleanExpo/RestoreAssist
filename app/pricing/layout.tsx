@@ -3,7 +3,7 @@ import { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Pricing - Restoration Report Software Plans Australia",
   description:
-    "RestoreAssist pricing plans starting from affordable monthly subscriptions. Choose the right plan for your restoration business with features like unlimited reports, IICRC compliance, and AI-powered assessments.",
+    "RestoreAssist pricing plans starting from affordable monthly subscriptions. Choose the right plan for your restoration business with features like unlimited reports, IICRC S500 alignment, and AI-assisted assessments used by certified restorers.",
   keywords: [
     "restoration software pricing",
     "restoration report software cost",
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     title:
       "Pricing - Restoration Report Software Plans Australia | Restore Assist",
     description:
-      "Affordable pricing plans for restoration professionals. Unlimited reports, IICRC compliance included.",
+      "Affordable pricing plans for restoration professionals. Unlimited reports, IICRC S500 alignment included.",
     type: "website",
     images: [
       { url: "/logo.png", width: 512, height: 512, alt: "Restore Assist" },

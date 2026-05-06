@@ -8,6 +8,8 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { isCapacitorIOS } from "@/lib/capacitor";
+import BillingGate from "@/components/capacitor/BillingGate";
 import {
   Card,
   CardContent,
@@ -1336,8 +1338,9 @@ export function GuidedInterviewPanel({
         onCancel={onCancel}
       />
 
-      {/* Tier Gating - Upgrade Prompt */}
+      {/* Tier Gating - Upgrade Prompt — gated for iOS App Review (RA-1842) */}
       {showUpgradePrompt && lockedTier && (
+        <BillingGate fallback={null}>
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <Card className="max-w-md w-full">
             <CardHeader>
@@ -1374,7 +1377,9 @@ export function GuidedInterviewPanel({
                 </Button>
                 <Button
                   onClick={() => {
-                    router.push("/dashboard/pricing?upgrade=true");
+                    if (!isCapacitorIOS()) {
+                      router.push("/dashboard/pricing?upgrade=true");
+                    }
                   }}
                   className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
                 >
@@ -1385,6 +1390,7 @@ export function GuidedInterviewPanel({
             </CardContent>
           </Card>
         </div>
+        </BillingGate>
       )}
     </div>
   );

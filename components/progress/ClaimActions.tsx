@@ -119,14 +119,12 @@ export default function ClaimActions({
   // the ProgressTransition row), then post the signature against the
   // resulting transitionId. Order matters because the attest endpoint
   // verifies transitionId belongs to the claim.
-  const onAttested = (
-    _r: {
-      id: string;
-      attestationType: string;
-      attestedAt: string;
-      integrityHash: string;
-    },
-  ) => {
+  const onAttested = (_r: {
+    id: string;
+    attestationType: string;
+    attestedAt: string;
+    integrityHash: string;
+  }) => {
     setOpenAction(null);
     router.refresh();
   };
@@ -150,9 +148,7 @@ export default function ClaimActions({
       {openAction ? (
         <div className="rounded-md border p-4 space-y-3 bg-muted/30">
           <div className="flex items-baseline justify-between">
-            <h3 className="font-medium">
-              Confirm: {openAction.label}
-            </h3>
+            <h3 className="font-medium">Confirm: {openAction.label}</h3>
             <button
               type="button"
               onClick={() => setOpenAction(null)}
@@ -179,9 +175,9 @@ export default function ClaimActions({
           {openAction.requiresAttestation && openAction.attestationType ? (
             <div className="space-y-2">
               <p className="text-xs text-muted-foreground">
-                This step requires your signature. The transition commits
-                first; the signature is hashed onto the resulting
-                attestation row for tamper-evident audit.
+                This step requires your signature. The transition commits first;
+                the signature is hashed onto the resulting attestation row for
+                tamper-evident audit.
               </p>
               <AttestFlow
                 action={openAction}
@@ -206,9 +202,7 @@ export default function ClaimActions({
             </div>
           )}
 
-          {error ? (
-            <p className="text-sm text-red-600">{error}</p>
-          ) : null}
+          {error ? <p className="text-sm text-red-600">{error}</p> : null}
         </div>
       ) : null}
     </div>

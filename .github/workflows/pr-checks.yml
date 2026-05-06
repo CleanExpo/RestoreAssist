@@ -2,7 +2,7 @@ name: PR Quality Gates
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, sandbox]
     types: [opened, synchronize, reopened]
 
 concurrency:
@@ -21,7 +21,12 @@ jobs:
     # that relying on "check it in prod" is not a gate.
     services:
       postgres:
-        image: postgres:16-alpine
+        # pgvector/pgvector:pg16 ships postgres:16 with the pgvector
+        # extension preinstalled. The 20260406_iicrc_chunk_pgvector
+        # migration creates a vector(...) column and would otherwise
+        # fail with `extension "vector" is not available` against
+        # plain postgres:16-alpine.
+        image: pgvector/pgvector:pg16
         env:
           POSTGRES_USER: ci
           POSTGRES_PASSWORD: ci
@@ -36,15 +41,15 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 9
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 20
 
@@ -58,6 +63,50 @@ jobs:
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
 
+      # Must run BEFORE Build — `pnpm build` invokes `prisma migrate deploy`
+      # via scripts/build.sh whenever DATABASE_URL is set (and VERCEL_ENV
+      # isn't preview/development). On vanilla postgres:16-alpine the
+      # 20260403010000_add_evidence_schema migration fails with
+      # `schema "auth" does not exist`, which writes a failed row into
+      # `_prisma_migrations`. Even though Build has continue-on-error,
+      # the failed migration row poisons the database for the later
+      # `Prisma migration drift check` step (P3009). Stubbing the auth
+      # schema HERE — before any step touches Postgres — keeps the DB
+      # clean. Production unaffected: Supabase ships `auth.uid()` and
+      # the CREATE OR REPLACE never runs there because the workflow only
+      # runs in CI.
+      - name: Bootstrap Supabase auth.uid() stub for CI
+        run: |
+          PGPASSWORD=ci psql -h localhost -U ci -d ci -c "
+            CREATE SCHEMA IF NOT EXISTS auth;
+            CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid
+              LANGUAGE sql STABLE AS \$\$ SELECT NULL::uuid \$\$;
+          "
+
+      # RA-1548 follow-up — pre-resolve migrations that use
+      # `CREATE INDEX CONCURRENTLY`. Prisma wraps each migration in a
+      # transaction; CONCURRENTLY can't run inside one. These migrations
+      # apply cleanly on Supabase (which uses a different mechanism)
+      # but fail on the plain pgvector/pgvector:pg16 used in CI, leaving
+      # a failed row in `_prisma_migrations` that poisons every later
+      # `migrate deploy` (P3009) and turns this gate red on every PR.
+      #
+      # Marking them `--applied` here means CI agrees they're considered
+      # applied without actually running them. The indexes they would
+      # have created don't exist in CI's ephemeral DB, but no test in
+      # this gate depends on those indexes existing.
+      #
+      # If a NEW migration file uses `CREATE INDEX CONCURRENTLY` and
+      # this gate goes red again, append the migration name to the list
+      # below.
+      - name: Pre-resolve CONCURRENTLY migrations (Supabase-only syntax)
+        run: |
+          npx prisma migrate resolve --applied 20260407_n1_performance_indexes
+          npx prisma migrate resolve --applied 20260407_perf_composite_indexes
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+          DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+
       - name: TypeScript Check
         run: npx tsc --noEmit
         continue-on-error: true
@@ -66,9 +115,15 @@ jobs:
         run: pnpm lint
         continue-on-error: true
 
+      # Build flipped to enforcing 2026-05-06 (Wave 1 PR-B production-readiness push).
+      # Vercel previews already pass `pnpm build` against both `restoreassist` and
+      # `restoreassist-sandbox` projects on every PR, so flipping this from
+      # `continue-on-error: true` to enforcing closes the gap where a CI build
+      # break could merge silently while Vercel happened to succeed for an
+      # unrelated reason. tsc and lint stay non-blocking until the type-check
+      # baseline ratchet (Wave 3 PR-E) lands.
       - name: Build
         run: pnpm build
-        continue-on-error: true
         env:
           NODE_OPTIONS: --max-old-space-size=4096
           SKIP_ENV_VALIDATION: true

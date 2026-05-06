@@ -21,7 +21,11 @@ import { Textarea } from "@/components/ui/textarea";
 type Category = "general" | "billing" | "technical" | "feature_request" | "bug";
 type Priority = "low" | "normal" | "high" | "urgent";
 
-export function SupportTicketForm({ onSubmitted }: { onSubmitted?: () => void }) {
+export function SupportTicketForm({
+  onSubmitted,
+}: {
+  onSubmitted?: () => void;
+}) {
   const { data: session } = useSession();
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
@@ -60,7 +64,8 @@ export function SupportTicketForm({ onSubmitted }: { onSubmitted?: () => void })
       setPriority("normal");
       onSubmitted?.();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to submit ticket";
+      const msg =
+        err instanceof Error ? err.message : "Failed to submit ticket";
       toast.error(msg);
       console.error("[support-ticket-form]", err);
     } finally {

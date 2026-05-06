@@ -5,6 +5,7 @@ import type React from "react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
+import { isCapacitorIOS } from "@/lib/capacitor";
 import {
   LayoutDashboard,
   FileText,
@@ -56,8 +57,25 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // Default: collapsed (icon-only) on tablets to give the content pane
+  // breathing room. Apple App Review (1.0.2) flagged the iPad layout because
+  // an expanded 256px sidebar on iPad portrait left the main pane cramped
+  // and pushed cards off-screen. Lazy SSR-safe init: assume collapsed during
+  // SSR (matches the worst case) and refine on mount via useEffect below.
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // On mount, collapse sidebar by default for tablet-class viewports
+  // (768px ≤ width < 1280px). Covers iPad portrait (1024px), iPad Pro 11"
+  // portrait (1180px), and iPad Pro 13" portrait (1024px). Desktop (≥ 1280px)
+  // and tablet landscape default expanded. Mobile (< 768px) uses overlay menu.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const w = window.innerWidth;
+    if (w >= 768 && w < 1280) {
+      setSidebarOpen(false);
+    }
+  }, []);
   // NotificationBell manages its own open/close state
   const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(
     null,
@@ -246,9 +264,8 @@ export default function DashboardLayout({
             aria-live="polite"
             className="w-full bg-amber-500 text-amber-950 text-sm font-medium text-center px-4 py-2"
           >
-            DEMO MODE — you're signed in as the sample account. Data
-            shown is illustrative; changes are shared with other demo
-            viewers.
+            DEMO MODE — you're signed in as the sample account. Data shown is
+            illustrative; changes are shared with other demo viewers.
           </div>
         )}
         {/* Mobile backdrop */}
@@ -364,7 +381,14 @@ export default function DashboardLayout({
                               return;
                             }
                             if (!data.canCreate) {
-                              router.push("/dashboard/pricing");
+                              // RA-1842: iOS billing happens on web; do not auto-redirect.
+                              if (!isCapacitorIOS()) {
+                                router.push("/dashboard/pricing");
+                              } else {
+                                toast.error(
+                                  "Subscriptions are managed on restoreassist.app.",
+                                );
+                              }
                               return;
                             }
                           }

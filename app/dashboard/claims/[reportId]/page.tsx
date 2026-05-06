@@ -206,8 +206,8 @@ export default async function ClaimDetailPage({ params }: Props) {
             </span>
           ) : (
             <span className="text-muted-foreground">
-              Updated {new Date(cp.updatedAt).toISOString().slice(0, 10)} ·
-              v{cp.version}
+              Updated {new Date(cp.updatedAt).toISOString().slice(0, 10)} · v
+              {cp.version}
             </span>
           )}
           {cp.report.inspection ? (
@@ -258,7 +258,10 @@ export default async function ClaimDetailPage({ params }: Props) {
                 {recentTransitions.map((t) => (
                   <tr key={t.id} className="border-t">
                     <td className="px-3 py-2 text-muted-foreground">
-                      {new Date(t.transitionedAt).toISOString().slice(0, 16).replace("T", " ")}
+                      {new Date(t.transitionedAt)
+                        .toISOString()
+                        .slice(0, 16)
+                        .replace("T", " ")}
                     </td>
                     <td className="px-3 py-2 font-mono text-xs">
                       {t.transitionKey}
@@ -274,8 +277,16 @@ export default async function ClaimDetailPage({ params }: Props) {
                     </td>
                     <td className="px-3 py-2">
                       <GapBadges
-                        soft={Array.isArray(t.softGaps) ? (t.softGaps as string[]) : []}
-                        audit={Array.isArray(t.auditGaps) ? (t.auditGaps as string[]) : []}
+                        soft={
+                          Array.isArray(t.softGaps)
+                            ? (t.softGaps as string[])
+                            : []
+                        }
+                        audit={
+                          Array.isArray(t.auditGaps)
+                            ? (t.auditGaps as string[])
+                            : []
+                        }
                       />
                     </td>
                   </tr>
@@ -346,7 +357,10 @@ export default async function ClaimDetailPage({ params }: Props) {
                     {a.attestorName} ({a.attestorRole})
                   </div>
                   <div className="text-muted-foreground text-xs">
-                    {new Date(a.attestedAt).toISOString().slice(0, 16).replace("T", " ")}
+                    {new Date(a.attestedAt)
+                      .toISOString()
+                      .slice(0, 16)
+                      .replace("T", " ")}
                   </div>
                 </div>
               </div>

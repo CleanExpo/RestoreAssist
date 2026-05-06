@@ -17,14 +17,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError } from "@/lib/api-errors";
 
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const REFRESH_WINDOW_S = 5 * 60; // skip refresh if access_token has >5 min left
 
-export async function POST(_req: NextRequest) {
+export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -90,8 +95,7 @@ export async function POST(_req: NextRequest) {
 
   if (!res.ok) {
     const text = await res.text();
-    const isInvalidGrant =
-      res.status === 400 && text.includes("invalid_grant");
+    const isInvalidGrant = res.status === 400 && text.includes("invalid_grant");
     if (isInvalidGrant) {
       // Kill the dead refresh token so the UI can prompt re-consent.
       await prisma.account.update({

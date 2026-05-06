@@ -6,13 +6,18 @@ import { generateDetailedReport } from "@/lib/anthropic";
 import { withIdempotency } from "@/lib/idempotency";
 import { track, isFirstTime } from "@/lib/analytics/track";
 import { parseDate } from "@/lib/parse-date";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { searchParams } = new URL(request.url);
@@ -93,11 +98,7 @@ export async function GET(request: NextRequest) {
         : { total }),
     });
   } catch (error) {
-    console.error("Error fetching reports:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "list" });
   }
 }
 
@@ -105,7 +106,11 @@ export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -117,10 +122,11 @@ export async function POST(request: NextRequest) {
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
 
       // Validate required fields
@@ -134,10 +140,11 @@ export async function POST(request: NextRequest) {
 
       for (const field of requiredFields) {
         if (!body[field]) {
-          return NextResponse.json(
-            { error: `Missing required field: ${field}` },
-            { status: 400 },
-          );
+          return apiError(request, {
+            code: "VALIDATION",
+            message: `Missing required field: ${field}`,
+            status: 400,
+          });
         }
       }
 
@@ -150,27 +157,25 @@ export async function POST(request: NextRequest) {
       if (body.inspectionDate !== undefined && body.inspectionDate !== null) {
         inspectionDateParsed = parseDate(body.inspectionDate);
         if (inspectionDateParsed === null) {
-          return NextResponse.json(
-            {
-              error:
-                "inspectionDate is not a valid date (expected ISO-8601 or similar)",
-              field: "inspectionDate",
-            },
-            { status: 400 },
-          );
+          return apiError(request, {
+            code: "VALIDATION",
+            message:
+              "inspectionDate is not a valid date (expected ISO-8601 or similar)",
+            status: 400,
+            fields: { inspectionDate: "invalid date" },
+          });
         }
       }
       if (body.completionDate !== undefined && body.completionDate !== null) {
         completionDateParsed = parseDate(body.completionDate);
         if (completionDateParsed === null) {
-          return NextResponse.json(
-            {
-              error:
-                "completionDate is not a valid date (expected ISO-8601 or similar)",
-              field: "completionDate",
-            },
-            { status: 400 },
-          );
+          return apiError(request, {
+            code: "VALIDATION",
+            message:
+              "completionDate is not a valid date (expected ISO-8601 or similar)",
+            status: 400,
+            fields: { completionDate: "invalid date" },
+          });
         }
       }
 
@@ -386,11 +391,7 @@ export async function POST(request: NextRequest) {
         { status: 201 },
       );
     } catch (error) {
-      console.error("Error creating report:", error);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "create" });
     }
   });
 }

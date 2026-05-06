@@ -22,9 +22,16 @@ import {
   Shield,
   Zap,
   Eye,
+  Locate,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { cn } from "@/lib/utils";
+import {
+  isCapacitorIOS,
+  getCurrentLocation,
+  fireHaptic,
+  scheduleFollowUpReminder,
+} from "@/lib/capacitor";
 import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas";
 import ClassificationSuggestion from "@/components/inspection/ClassificationSuggestion";
 import {
@@ -295,6 +302,50 @@ export default function NIRTechnicianInputForm({
   // Property Address (required)
   const [propertyAddress, setPropertyAddress] = useState("");
   const [propertyPostcode, setPropertyPostcode] = useState("");
+
+  // RA-1842 — Native iOS only: surface "Use my current location" button so
+  // App Review can observe meaningful native functionality (Guideline 4.2).
+  const [isNativeIOS, setIsNativeIOS] = useState(false);
+  const [locating, setLocating] = useState(false);
+  useEffect(() => {
+    setIsNativeIOS(isCapacitorIOS());
+  }, []);
+
+  const handleUseCurrentLocation = async () => {
+    setLocating(true);
+    try {
+      const coords = await getCurrentLocation();
+      if (!coords) {
+        await fireHaptic("warning");
+        toast.error(
+          "Couldn't get your location. Check Location permission in Settings.",
+        );
+        return;
+      }
+      const url = new URL("https://nominatim.openstreetmap.org/reverse");
+      url.searchParams.set("format", "json");
+      url.searchParams.set("lat", String(coords.latitude));
+      url.searchParams.set("lon", String(coords.longitude));
+      url.searchParams.set("addressdetails", "1");
+      const res = await fetch(url.toString(), {
+        headers: { "Accept-Language": "en-AU" },
+      });
+      if (!res.ok) throw new Error("reverse_geocode_failed");
+      const data = (await res.json()) as {
+        display_name?: string;
+        address?: { postcode?: string };
+      };
+      if (data.display_name) setPropertyAddress(data.display_name);
+      if (data.address?.postcode) setPropertyPostcode(data.address.postcode);
+      await fireHaptic("success");
+      toast.success("Location captured");
+    } catch {
+      await fireHaptic("warning");
+      toast.error("Couldn't reverse-geocode that location");
+    } finally {
+      setLocating(false);
+    }
+  };
   const [technicianName, setTechnicianName] = useState("");
 
   // Validation state
@@ -1343,19 +1394,49 @@ export default function NIRTechnicianInputForm({
         throw new Error(error.error || "Failed to submit inspection");
       }
 
+      void fireHaptic("success");
       toast.success(
         "Inspection submitted successfully! Processing classification and scope determination...",
       );
+
+      // RA-1842 — Native iOS only: offer to schedule a local follow-up
+      // notification right after submission. Reviewers see real native
+      // notification permission + scheduling, satisfying Guideline 4.2.
+      if (currentInspectionId && isNativeIOS) {
+        void offerFollowUpReminder(currentInspectionId, propertyAddress);
+      }
 
       if (onComplete && currentInspectionId) {
         onComplete(currentInspectionId);
       }
     } catch (error: any) {
+      void fireHaptic("warning");
       toast.error(error.message || "Failed to submit inspection");
     } finally {
       setSaving(false);
     }
   };
+
+  // Lightweight prompt that schedules a +24h local notification when the
+  // user confirms. No-op if not running in the iOS shell or permission
+  // denied. Stays below the modal threshold to keep the submit path fast.
+  async function offerFollowUpReminder(
+    inspectionId: string,
+    address: string,
+  ): Promise<void> {
+    const wantsReminder = window.confirm(
+      "Schedule a 24-hour follow-up reminder for this site?",
+    );
+    if (!wantsReminder) return;
+    const ok = await scheduleFollowUpReminder({
+      id: Math.floor(Date.now() / 1000) % 2_147_483_647,
+      title: "Re-check site",
+      body: address ? `Follow-up due: ${address}` : "Follow-up inspection due",
+      at: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      extra: { inspectionId },
+    });
+    if (ok) toast.success("Reminder scheduled for 24 hours");
+  }
 
   // Calculate dew point (simplified)
   useEffect(() => {
@@ -2103,6 +2184,25 @@ export default function NIRTechnicianInputForm({
               )}
               placeholder="Full property address"
             />
+            {isNativeIOS && (
+              <button
+                type="button"
+                onClick={handleUseCurrentLocation}
+                disabled={locating}
+                className={cn(
+                  "mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-xs",
+                  "bg-cyan-600 hover:bg-cyan-700 text-white transition-colors",
+                  "disabled:opacity-50 disabled:cursor-not-allowed",
+                )}
+              >
+                {locating ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Locate className="w-3.5 h-3.5" />
+                )}
+                {locating ? "Locating…" : "Use my current location"}
+              </button>
+            )}
             {validationErrors.propertyAddress && (
               <p className="text-red-400 text-xs mt-1">
                 {validationErrors.propertyAddress}

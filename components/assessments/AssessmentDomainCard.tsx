@@ -282,9 +282,7 @@ export default function AssessmentDomainCard({
               {latest.modelUsed ? ` · ${latest.modelUsed}` : " · rule-based"}
             </p>
           ) : (
-            <p className="text-xs text-muted-foreground">
-              Not generated yet
-            </p>
+            <p className="text-xs text-muted-foreground">Not generated yet</p>
           )}
         </div>
         <code className="text-[10px] font-mono text-muted-foreground">
@@ -320,8 +318,8 @@ export default function AssessmentDomainCard({
             onChange={(e) => setEnhanceWithAi(e.target.checked)}
           />
           <span>
-            Enhance prose with AI (Claude Haiku · ~$0.005 · workspace
-            budget enforced)
+            Enhance prose with AI (Claude Haiku · ~$0.005 · workspace budget
+            enforced)
           </span>
         </label>
 
@@ -333,9 +331,7 @@ export default function AssessmentDomainCard({
           >
             {submitting ? "Generating…" : result ? "Re-generate" : "Generate"}
           </button>
-          {error ? (
-            <span className="text-xs text-red-600">{error}</span>
-          ) : null}
+          {error ? <span className="text-xs text-red-600">{error}</span> : null}
         </div>
       </form>
 

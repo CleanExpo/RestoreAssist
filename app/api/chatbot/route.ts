@@ -5,13 +5,18 @@ import { callAIProvider } from "@/lib/ai-provider";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user || !session.user.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const userId = session.user.id;
@@ -65,13 +70,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ messages });
   } catch (error: any) {
-    console.error("Chatbot GET error:", error);
-    return NextResponse.json(
-      {
-        error: "Failed to fetch chat history",
-      },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "chatbot-get" });
   }
 }
 
@@ -81,7 +80,11 @@ export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user || !session.user.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -102,47 +105,54 @@ export async function POST(request: NextRequest) {
       });
 
       if (!user) {
-        return NextResponse.json({ error: "User not found" }, { status: 404 });
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "User not found",
+          status: 404,
+        });
       }
 
       if (
         !ALLOWED_SUBSCRIPTION_STATUSES.includes(user.subscriptionStatus ?? "")
       ) {
-        return NextResponse.json(
-          { error: "Active subscription required" },
-          { status: 402 },
-        );
+        return apiError(request, {
+          code: "FORBIDDEN",
+          message: "Active subscription required",
+          status: 402,
+        });
       }
 
       let body: any;
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const { messages } = body;
 
       if (!messages || !Array.isArray(messages) || messages.length === 0) {
-        return NextResponse.json(
-          { error: "Messages array is required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Messages array is required",
+          status: 400,
+        });
       }
 
       // Use ANTHROPIC_API_KEY from environment variables
       const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
 
       if (!anthropicApiKey) {
-        return NextResponse.json(
-          {
-            error:
-              "ANTHROPIC_API_KEY is not configured. Please set it in your environment variables.",
-          },
-          { status: 500 },
-        );
+        return apiError(request, {
+          code: "INTERNAL",
+          message:
+            "ANTHROPIC_API_KEY is not configured. Please set it in your environment variables.",
+          status: 500,
+          stage: "chatbot-config",
+        });
       }
 
       // Create integration object for Anthropic

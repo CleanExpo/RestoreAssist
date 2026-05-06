@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { downloadDriveFile } from "@/lib/google-drive";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function GET(
   request: NextRequest,
@@ -17,16 +18,21 @@ export async function GET(
     const session = await getServerSession(authOptions);
 
     if (!session?.user || !session.user.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { fileId } = await params;
 
     if (!fileId) {
-      return NextResponse.json(
-        { error: "fileId is required" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "fileId is required",
+        status: 400,
+      });
     }
 
     // Download the file from Google Drive
@@ -40,11 +46,7 @@ export async function GET(
         "Cache-Control": "public, max-age=3600",
       },
     });
-  } catch (error: any) {
-    console.error("Error serving document:", error);
-    return NextResponse.json(
-      { error: "Failed to serve document" },
-      { status: 500 },
-    );
+  } catch (err) {
+    return fromException(request, err, { stage: "serve-document" });
   }
 }

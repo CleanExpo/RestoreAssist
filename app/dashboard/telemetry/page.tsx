@@ -12,7 +12,10 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { computeAllFunnels, type FunnelStat } from "@/lib/telemetry/funnels";
-import { computeOverrideRate, computeTimeToInvoice } from "@/lib/telemetry/kpis";
+import {
+  computeOverrideRate,
+  computeTimeToInvoice,
+} from "@/lib/telemetry/kpis";
 
 export const metadata = {
   title: "Progress Telemetry — Admin | RestoreAssist",
@@ -138,4 +141,3 @@ function FunnelRow({ f }: { f: FunnelStat }) {
     </tr>
   );
 }
-

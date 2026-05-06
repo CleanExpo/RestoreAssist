@@ -92,7 +92,10 @@ export async function POST(
     select: { id: true },
   });
   if (!inspection) {
-    return NextResponse.json({ error: "Inspection not found" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Inspection not found" },
+      { status: 404 },
+    );
   }
 
   // Rate limit
@@ -131,7 +134,10 @@ export async function POST(
   try {
     formData = await request.formData();
   } catch {
-    return NextResponse.json({ error: "Invalid multipart body" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid multipart body" },
+      { status: 400 },
+    );
   }
 
   const file = formData.get("file");
@@ -240,7 +246,10 @@ export async function POST(
   }
 
   // Parse JSON response — strip any accidental markdown fences
-  const jsonStr = raw.replace(/^```[a-z]*\n?/m, "").replace(/\n?```$/m, "").trim();
+  const jsonStr = raw
+    .replace(/^```[a-z]*\n?/m, "")
+    .replace(/\n?```$/m, "")
+    .trim();
   let parsed: { rooms: Room[] };
   try {
     parsed = JSON.parse(jsonStr);

@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { DollarSign, Save, RefreshCw, Plus, Trash2, Lock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import BillingGate from "@/components/capacitor/BillingGate";
+import { isCapacitorIOS } from "@/lib/capacitor";
 
 interface PricingConfigurationProps {
   isOnboarding?: boolean;
@@ -165,7 +167,11 @@ export default function PricingConfiguration({
         toast.error(
           "Pricing configuration is locked for free users. Upgrade to unlock this feature.",
         );
-        router.push("/dashboard/pricing");
+        // RA-1842: do not auto-redirect to billing surfaces on iOS Capacitor.
+        // Subscriptions are managed on the website per App Review Guideline 3.1.1.
+        if (!isCapacitorIOS()) {
+          router.push("/dashboard/pricing");
+        }
       } else {
         toast.error(
           "Pricing configuration cannot be modified after API key is set",
@@ -380,27 +386,30 @@ export default function PricingConfiguration({
 
   return (
     <div className="space-y-6">
-      {/* Locked Banner for Free Users */}
-      {subscriptionStatus === "TRIAL" && (
-        <div className="p-4 rounded-lg border border-amber-500/50 bg-amber-500/10 flex items-start gap-3">
-          <Lock className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <h3 className="font-semibold text-amber-400 mb-1">
-              Pricing Configuration Locked
-            </h3>
-            <p className="text-sm text-gray-700 dark:text-slate-300 mb-3">
-              Pricing configuration is locked for free users. Upgrade to unlock
-              this feature and customize your rates.
-            </p>
-            <button
-              onClick={() => router.push("/dashboard/pricing")}
-              className="px-4 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg font-medium hover:shadow-lg hover:shadow-orange-500/50 transition-all text-white text-sm"
-            >
-              Upgrade Now
-            </button>
+      {/* Locked Banner for Free Users — gated for iOS App Review (RA-1842) */}
+      <BillingGate fallback={null}>
+        {subscriptionStatus === "TRIAL" && (
+          <div className="p-4 rounded-lg border border-amber-500/50 bg-amber-500/10 flex items-start gap-3">
+            <Lock className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="font-semibold text-amber-400 mb-1">
+                Pricing Configuration Locked
+              </h3>
+              <p className="text-sm text-gray-700 dark:text-slate-300 mb-3">
+                Pricing configuration is locked for free users. Upgrade to
+                unlock this feature and customize your rates.
+              </p>
+              <button
+                onClick={() => router.push("/dashboard/pricing")}
+                className="px-4 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg font-medium hover:shadow-lg hover:shadow-orange-500/50 transition-all text-white text-sm"
+              >
+                Upgrade Now
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </BillingGate>
+
 
       <div className="flex items-center justify-between">
         <div></div>

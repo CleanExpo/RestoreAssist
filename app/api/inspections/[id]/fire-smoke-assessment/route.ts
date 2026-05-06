@@ -21,6 +21,15 @@ import { prisma } from "@/lib/prisma";
 import { softDelete } from "@/lib/prisma-helpers";
 import { z } from "zod";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import { apiError } from "@/lib/api-errors";
+
+function tenancyCode(
+  status: 401 | 403 | 404,
+): "UNAUTHORIZED" | "FORBIDDEN" | "NOT_FOUND" {
+  if (status === 401) return "UNAUTHORIZED";
+  if (status === 403) return "FORBIDDEN";
+  return "NOT_FOUND";
+}
 
 // ─── Validation ────────────────────────────────────────────────────────────────
 
@@ -67,12 +76,16 @@ function computeGates(data: z.infer<typeof fireSchema>) {
 // ─── GET ──────────────────────────────────────────────────────────────────────
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(req, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   const { id } = await params;
@@ -80,10 +93,11 @@ export async function GET(
   // RA-1711 batch 2 — shared tenancy helper (workspace-member + admin paths).
   const tenancy = await assertInspectionTenancy(session, id);
   if (!tenancy.ok) {
-    return NextResponse.json(
-      { error: tenancy.reason },
-      { status: tenancy.status },
-    );
+    return apiError(req, {
+      code: tenancyCode(tenancy.status),
+      message: tenancy.reason,
+      status: tenancy.status,
+    });
   }
 
   const inspection = await (prisma as any).inspection.findUnique({
@@ -104,17 +118,22 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(req, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   const { id } = await params;
 
   const tenancy = await assertInspectionTenancy(session, id);
   if (!tenancy.ok) {
-    return NextResponse.json(
-      { error: tenancy.reason },
-      { status: tenancy.status },
-    );
+    return apiError(req, {
+      code: tenancyCode(tenancy.status),
+      message: tenancy.reason,
+      status: tenancy.status,
+    });
   }
 
   const body = await req.json();
@@ -223,27 +242,39 @@ export async function POST(
 // ─── DELETE ───────────────────────────────────────────────────────────────────
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(req, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   const { id } = await params;
 
   const tenancy = await assertInspectionTenancy(session, id);
   if (!tenancy.ok) {
-    return NextResponse.json(
-      { error: tenancy.reason },
-      { status: tenancy.status },
-    );
+    return apiError(req, {
+      code: tenancyCode(tenancy.status),
+      message: tenancy.reason,
+      status: tenancy.status,
+    });
   }
 
   await softDelete(
-    () => (prisma as any).fireSmokeDamageAssessment.delete({ where: { inspectionId: id } }),
-    { route: "/api/inspections/[id]/fire-smoke-assessment", stage: "delete", inspectionId: id },
+    () =>
+      (prisma as any).fireSmokeDamageAssessment.delete({
+        where: { inspectionId: id },
+      }),
+    {
+      route: "/api/inspections/[id]/fire-smoke-assessment",
+      stage: "delete",
+      inspectionId: id,
+    },
   );
 
   await prisma.inspection.update({

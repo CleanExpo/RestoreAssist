@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NotificationType } from "@prisma/client";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 const TYPE_MAP: Record<string, string> = {
   INFO: "info",
@@ -19,12 +20,16 @@ const REVERSE_TYPE_MAP: Record<string, string> = {
   error: "ERROR",
 };
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     try {
@@ -56,12 +61,8 @@ export async function GET() {
         ],
       });
     }
-  } catch (error) {
-    console.error("Error fetching notifications:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch notifications" },
-      { status: 500 },
-    );
+  } catch (err) {
+    return fromException(request, err, { stage: "load" });
   }
 }
 
@@ -69,7 +70,11 @@ export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -80,18 +85,20 @@ export async function POST(request: NextRequest) {
       try {
         parsed = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const { title, message, type = "info", link } = parsed;
 
       if (!title || !message) {
-        return NextResponse.json(
-          { error: "Title and message are required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Title and message are required",
+          status: 400,
+        });
       }
 
       try {
@@ -111,18 +118,17 @@ export async function POST(request: NextRequest) {
             type: TYPE_MAP[notification.type] || "info",
           },
         });
-      } catch {
-        return NextResponse.json(
-          { error: "Notifications not available" },
-          { status: 503 },
-        );
+      } catch (err) {
+        return apiError(request, {
+          code: "UPSTREAM_FAILED",
+          message: "Notifications not available",
+          status: 503,
+          err,
+          stage: "create",
+        });
       }
-    } catch (error) {
-      console.error("Error creating notification:", error);
-      return NextResponse.json(
-        { error: "Failed to create notification" },
-        { status: 500 },
-      );
+    } catch (err) {
+      return fromException(request, err, { stage: "create" });
     }
   });
 }

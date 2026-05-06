@@ -9,6 +9,7 @@ import {
   validateBatchSize,
 } from "@/lib/bulk-operations";
 import { format } from "date-fns";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // Helper: Generate PDF for a report by calling the internal download endpoint
 async function generateReportPDF(reportId: string): Promise<Buffer | null> {
@@ -46,7 +47,11 @@ export async function POST(request: NextRequest) {
     // 1. Authenticate
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     // 2. Rate limit check
@@ -223,10 +228,6 @@ export async function POST(request: NextRequest) {
     }
 
     // RA-786: do not leak error.message to clients
-    console.error("bulk-export-zip failed:", error);
-    return NextResponse.json(
-      { error: "Export failed" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "export" });
   }
 }

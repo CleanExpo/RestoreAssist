@@ -5,6 +5,7 @@ import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import { PRICING_CONFIG } from "@/lib/pricing";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 /**
  * Manual verification endpoint for add-on purchases
@@ -14,7 +15,11 @@ export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -26,18 +31,20 @@ export async function POST(request: NextRequest) {
       try {
         parsed = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const { sessionId } = parsed;
 
       if (!sessionId) {
-        return NextResponse.json(
-          { error: "Session ID is required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Session ID is required",
+          status: 400,
+        });
       }
 
       try {
@@ -56,10 +63,11 @@ export async function POST(request: NextRequest) {
             sessionUserId,
             currentUserId: userId,
           });
-          return NextResponse.json(
-            { error: "Invalid session" },
-            { status: 403 },
-          );
+          return apiError(request, {
+            code: "FORBIDDEN",
+            message: "Invalid session",
+            status: 403,
+          });
         }
 
         // Check if this is an add-on purchase
@@ -67,13 +75,14 @@ export async function POST(request: NextRequest) {
           checkoutSession.mode !== "payment" ||
           checkoutSession.metadata?.type !== "addon"
         ) {
-          return NextResponse.json(
-            { error: "Not an add-on purchase" },
-            { status: 400 },
-          );
+          return apiError(request, {
+            code: "VALIDATION",
+            message: "Not an add-on purchase",
+            status: 400,
+          });
         }
 
-        // Check if payment was successful
+        // Check if payment was successful — preserve payment_status payload
         if (checkoutSession.payment_status !== "paid") {
           return NextResponse.json(
             {
@@ -92,10 +101,11 @@ export async function POST(request: NextRequest) {
           PRICING_CONFIG.addons[addonKey as keyof typeof PRICING_CONFIG.addons];
 
         if (!addonKey || addonReports <= 0 || !addon) {
-          return NextResponse.json(
-            { error: "Invalid add-on data" },
-            { status: 400 },
-          );
+          return apiError(request, {
+            code: "VALIDATION",
+            message: "Invalid add-on data",
+            status: 400,
+          });
         }
 
         // Check if already processed
@@ -179,20 +189,11 @@ export async function POST(request: NextRequest) {
           addonReports: updatedUser.addonReports,
           increment: addonReports,
         });
-      } catch (stripeError: any) {
-        // RA-786: do not leak stripeError.message to clients
-        console.error("❌ STRIPE ERROR:", stripeError);
-        return NextResponse.json(
-          { error: "Failed to verify add-on purchase" },
-          { status: 500 },
-        );
+      } catch (stripeError) {
+        return fromException(request, stripeError, { stage: "stripe-verify" });
       }
-    } catch (error: any) {
-      console.error("❌ ERROR IN ADD-ON VERIFICATION:", error);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+    } catch (err) {
+      return fromException(request, err, { stage: "verify" });
     }
   });
 }

@@ -49,7 +49,9 @@ function makePost(opts: {
   body: object;
   clientUpdatedAt?: string;
 }): NextRequest {
-  const headers: Record<string, string> = { "content-type": "application/json" };
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+  };
   if (opts.clientUpdatedAt) {
     headers["x-client-updated-at"] = opts.clientUpdatedAt;
   }

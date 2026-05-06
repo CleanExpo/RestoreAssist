@@ -3,7 +3,7 @@ import { Metadata } from "next";
 export const metadata: Metadata = {
   title: "About Us - Transforming Restoration Reporting",
   description:
-    "Learn about RestoreAssist, the Australian restoration software company revolutionizing water damage assessment and reporting with AI-powered technology and IICRC S500 compliance.",
+    "Learn about RestoreAssist, the Australian restoration software company helping restorers transform water damage assessment and reporting with AI-assisted technology and IICRC S500 alignment.",
   keywords: [
     "about RestoreAssist",
     "restoration software company",
@@ -12,9 +12,10 @@ export const metadata: Metadata = {
     "restoration industry innovation",
   ],
   openGraph: {
-    title: "About RestoreAssist - Restoration Software Leaders",
+    title:
+      "About RestoreAssist - Restoration Software for Australian Restorers",
     description:
-      "Revolutionizing restoration reporting with AI-powered technology and IICRC compliance.",
+      "Helping Australian restorers transform restoration reporting with AI-assisted technology and IICRC S500 alignment.",
     type: "website",
     images: [
       { url: "/logo.png", width: 512, height: 512, alt: "Restore Assist" },

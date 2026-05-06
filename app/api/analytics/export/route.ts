@@ -6,6 +6,7 @@ import { applyRateLimit } from "@/lib/rate-limiter";
 import ExcelJS from "exceljs";
 import jsPDF from "jspdf";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 interface ExportRequest {
   format: "csv" | "excel" | "pdf";
@@ -34,7 +35,11 @@ export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -52,10 +57,11 @@ export async function POST(request: NextRequest) {
       try {
         body = (rawBody ? JSON.parse(rawBody) : {}) as ExportRequest;
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const { format, dateRange, includeCharts = false } = body;
 
@@ -107,27 +113,34 @@ export async function POST(request: NextRequest) {
       }));
 
       if (format === "csv") {
-        return handleCSVExport(exportData);
+        return handleCSVExport(request, exportData);
       } else if (format === "excel") {
         return await handleExcelExport(exportData, reports, fromDate, toDate);
       } else if (format === "pdf") {
         return handlePDFExport(exportData, reports, fromDate, toDate);
       }
 
-      return NextResponse.json({ error: "Invalid format" }, { status: 400 });
-    } catch (error) {
-      console.error("Error exporting analytics:", error);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Invalid format",
+        status: 400,
+      });
+    } catch (err) {
+      return fromException(request, err, { stage: "export" });
     }
   });
 }
 
-function handleCSVExport(data: Array<Record<string, string>>): NextResponse {
+function handleCSVExport(
+  request: NextRequest,
+  data: Array<Record<string, string>>,
+): NextResponse {
   if (data.length === 0) {
-    return NextResponse.json({ error: "No data to export" }, { status: 400 });
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "No data to export",
+      status: 400,
+    });
   }
 
   // Get headers from first row

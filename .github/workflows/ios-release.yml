@@ -11,17 +11,23 @@ permissions:
 
 jobs:
   release-ios:
-    runs-on: macos-latest
+    # macos-26 ships Xcode 26 (iOS 26 SDK). Apple began REQUIRING the
+    # iOS 26 SDK for App Store Connect uploads in early 2026, so
+    # macos-latest (Xcode 16.4 / iOS 18.5 SDK) now gets rejected at
+    # altool with: "SDK version issue. This app was built with the
+    # iOS 18.5 SDK. All iOS and iPadOS apps must be built with the
+    # iOS 26 SDK or later." (RA-1842 run #25243191151, 2026-05-02)
+    runs-on: macos-26
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 9
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: "22"
           cache: "pnpm"
@@ -97,6 +103,23 @@ jobs:
           #      bundle id to the profile name during `exportArchive`.
           # Without (2), run #4 failed with:
           #   exportArchive "App.app" requires a provisioning profile.
+          #
+          # SPM-target signing problem (RA-1842, runs #25242757701 +
+          # #25242921134, 2026-05-02):
+          #
+          # When new SPM dependencies were pulled in (ion-ios-camera /
+          # IONCameraLib + @capacitor/browser / BrowserPlugin), the
+          # global xcargs PROVISIONING_PROFILE_SPECIFIER applied to
+          # library targets that don't accept profiles. Dropping it
+          # entirely (PR #870) caused the App target to lack a profile.
+          #
+          # Resolution: the signing config has been MOVED to the App
+          # target's Release block in ios/App/App.xcodeproj/project.pbxproj.
+          # That scopes the profile to the App target only — SPM library
+          # targets keep their default behaviour. xcargs is now used only
+          # for the team ID interpolation (DEVELOPMENT_TEAM is read from
+          # the env via $(APPLE_TEAM_ID) variable substitution in the
+          # pbxproj setting).
 
           cat > /tmp/ExportOptions.plist <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
@@ -122,6 +145,16 @@ jobs:
           </plist>
           EOF
 
+          # NOTE — DO NOT pass --codesigning_identity to fastlane gym.
+          # That flag applies globally to every target including SPM
+          # libraries (IONCameraLib, BrowserPlugin), which use automatic
+          # signing internally and reject a manually-specified identity:
+          #   "IONCameraLib has conflicting provisioning settings.
+          #    IONCameraLib is automatically signed, but code signing
+          #    identity 'Apple Distribution: ...' has been manually
+          #    specified."  (run #25243102693, 2026-05-02)
+          # The App target's pbxproj already pins the right identity
+          # via CODE_SIGN_IDENTITY[sdk=iphoneos*]; that's enough.
           fastlane gym \
             --project ios/App/App.xcodeproj \
             --scheme App \
@@ -129,8 +162,7 @@ jobs:
             --export_method app-store \
             --export_team_id "$APPLE_TEAM_ID" \
             --export_options /tmp/ExportOptions.plist \
-            --codesigning_identity "Apple Distribution: Phill McGurk ($APPLE_TEAM_ID)" \
-            --xcargs "DEVELOPMENT_TEAM=$APPLE_TEAM_ID CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY='Apple Distribution: Phill McGurk ($APPLE_TEAM_ID)' PROVISIONING_PROFILE_SPECIFIER='RestoreAssist App Store v1'" \
+            --xcargs "DEVELOPMENT_TEAM=$APPLE_TEAM_ID" \
             --output_directory ./build \
             --output_name RestoreAssist.ipa
 

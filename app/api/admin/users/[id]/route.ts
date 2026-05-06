@@ -33,7 +33,11 @@ export async function PATCH(
 
   const { id: targetUserId } = await params;
   if (!targetUserId) {
-    return apiError(request, { code: "VALIDATION", message: "User id required", status: 400 });
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "User id required",
+      status: 400,
+    });
   }
 
   // Same-org guard
@@ -42,9 +46,16 @@ export async function PATCH(
     select: { id: true, organizationId: true },
   });
   if (!target) {
-    return apiError(request, { code: "NOT_FOUND", message: "User not found", status: 404 });
+    return apiError(request, {
+      code: "NOT_FOUND",
+      message: "User not found",
+      status: 404,
+    });
   }
-  if (adminUser!.organizationId && target.organizationId !== adminUser!.organizationId) {
+  if (
+    adminUser!.organizationId &&
+    target.organizationId !== adminUser!.organizationId
+  ) {
     return apiError(request, {
       code: "FORBIDDEN",
       message: "Cannot edit users outside your organisation",
@@ -52,9 +63,9 @@ export async function PATCH(
     });
   }
 
-  const body = (await request.json().catch(() => null)) as
-    | { isJuniorTechnician?: unknown }
-    | null;
+  const body = (await request.json().catch(() => null)) as {
+    isJuniorTechnician?: unknown;
+  } | null;
 
   // Single-field whitelist — deliberately ignores other keys to avoid
   // mass-assignment (RA-1338 pattern).

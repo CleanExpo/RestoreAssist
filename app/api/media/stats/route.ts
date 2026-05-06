@@ -15,12 +15,17 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { checkPaymentGate } from "@/lib/workspace/payment-gate";
+import { apiError, fromException } from "@/lib/api-errors";
 
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     // RA-426: Workspace payment gate
@@ -106,11 +111,7 @@ export async function GET(_request: NextRequest) {
       })),
     });
   } catch (error) {
-    console.error("[GET /api/media/stats] Error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "media-stats" });
   }
 }
 

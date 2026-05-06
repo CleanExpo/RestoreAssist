@@ -5,6 +5,7 @@ import { useFetch } from "@/lib/hooks/useFetch";
 import { DeleteConfirmationDialog } from "@/components/DeleteConfirmationDialog";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { isCapacitorIOS } from "@/lib/capacitor";
 import {
   Search,
   Filter,
@@ -113,10 +114,12 @@ export default function ReportsPage() {
               },
             },
           );
-          // Redirect to pricing page
-          setTimeout(() => {
-            router.push("/dashboard/pricing");
-          }, 2000);
+          // RA-1842: iOS billing on web — skip auto-redirect on iOS Capacitor.
+          if (!isCapacitorIOS()) {
+            setTimeout(() => {
+              router.push("/dashboard/pricing");
+            }, 2000);
+          }
           return;
         }
 
@@ -147,7 +150,9 @@ export default function ReportsPage() {
           toast.error(
             payload.error || "Active subscription required for AI summaries.",
           );
-          setTimeout(() => router.push("/dashboard/pricing"), 1500);
+          if (!isCapacitorIOS()) {
+            setTimeout(() => router.push("/dashboard/pricing"), 1500);
+          }
           return;
         }
         if (response.status === 400) {
@@ -338,7 +343,6 @@ export default function ReportsPage() {
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage,
   );
-
 
   const hazardIcons = {
     "Category 1": "💧",
@@ -601,7 +605,10 @@ export default function ReportsPage() {
                             {report.reportNumber || report.id}
                           </Link>
                           <StatusBadge
-                            tone={REPORT_STATUS_TONES[report.status ?? ""] ?? "neutral"}
+                            tone={
+                              REPORT_STATUS_TONES[report.status ?? ""] ??
+                              "neutral"
+                            }
                           >
                             {report.status || "COMPLETED"}
                           </StatusBadge>
@@ -838,7 +845,10 @@ export default function ReportsPage() {
                         </td>
                         <td className="py-4 px-6">
                           <StatusBadge
-                            tone={REPORT_STATUS_TONES[report.status ?? ""] ?? "neutral"}
+                            tone={
+                              REPORT_STATUS_TONES[report.status ?? ""] ??
+                              "neutral"
+                            }
                           >
                             {report.status || "COMPLETED"}
                           </StatusBadge>

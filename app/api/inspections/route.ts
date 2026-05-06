@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { sanitizeString } from "@/lib/sanitize";
 import { randomBytes } from "crypto";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // GET - Get inspections (optionally filtered by reportId, with pagination and search)
 export async function GET(request: NextRequest) {
@@ -13,7 +14,11 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { searchParams } = new URL(request.url);
@@ -97,10 +102,11 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      return NextResponse.json(
-        { error: "Inspection not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Inspection not found",
+        status: 404,
+      });
     }
 
     // Get pagination parameters
@@ -255,11 +261,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Error fetching inspections:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "list" });
   }
 }
 
@@ -268,7 +270,11 @@ export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -281,25 +287,28 @@ export async function POST(request: NextRequest) {
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
 
       // Validate required fields
       if (!body.propertyAddress || !body.propertyAddress.trim()) {
-        return NextResponse.json(
-          { error: "Property address is required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Property address is required",
+          status: 400,
+        });
       }
 
       if (!body.propertyPostcode || !body.propertyPostcode.trim()) {
-        return NextResponse.json(
-          { error: "Property postcode is required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Property postcode is required",
+          status: 400,
+        });
       }
 
       // Validate reportId if provided
@@ -310,18 +319,20 @@ export async function POST(request: NextRequest) {
         });
 
         if (!report) {
-          return NextResponse.json(
-            { error: "Report not found" },
-            { status: 404 },
-          );
+          return apiError(request, {
+            code: "NOT_FOUND",
+            message: "Report not found",
+            status: 404,
+          });
         }
 
         // Verify the report belongs to the user
         if (report.userId !== userId) {
-          return NextResponse.json(
-            { error: "Unauthorized: Report does not belong to user" },
-            { status: 403 },
-          );
+          return apiError(request, {
+            code: "FORBIDDEN",
+            message: "Unauthorized: Report does not belong to user",
+            status: 403,
+          });
         }
       }
 
@@ -381,19 +392,9 @@ export async function POST(request: NextRequest) {
       }
 
       return NextResponse.json({ inspection }, { status: 201 });
-    } catch (error: any) {
-      console.error("Error creating inspection:", error);
-      console.error("Error details:", {
-        message: error.message,
-        code: error.code,
-        meta: error.meta,
-      });
-
-      // RA-786: do not leak error.message / error.code to clients
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+    } catch (error) {
+      // RA-786: do not leak error.message / error.code to clients — fromException handles that.
+      return fromException(request, error, { stage: "create" });
     }
   });
 }

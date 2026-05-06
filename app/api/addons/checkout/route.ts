@@ -6,12 +6,22 @@ import { prisma } from "@/lib/prisma";
 import { PRICING_CONFIG } from "@/lib/pricing";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
+import { rejectIfIOSCapacitor } from "@/lib/ios-billing-guard";
 
 export async function POST(request: NextRequest) {
+  // RA-1842 Path B — fail-closed for iOS Capacitor.
+  const iosBlocked = rejectIfIOSCapacitor(request);
+  if (iosBlocked) return iosBlocked;
+
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -50,25 +60,31 @@ export async function POST(request: NextRequest) {
       try {
         parsedBody = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const { addonKey } = parsedBody;
 
       if (!addonKey) {
-        return NextResponse.json(
-          { error: "Add-on key is required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Add-on key is required",
+          status: 400,
+        });
       }
 
       // Validate addon key
       const addon =
         PRICING_CONFIG.addons[addonKey as keyof typeof PRICING_CONFIG.addons];
       if (!addon) {
-        return NextResponse.json({ error: "Invalid add-on" }, { status: 400 });
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid add-on",
+          status: 400,
+        });
       }
 
       // Check if user has active subscription
@@ -82,10 +98,15 @@ export async function POST(request: NextRequest) {
       });
 
       if (!user) {
-        return NextResponse.json({ error: "User not found" }, { status: 404 });
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "User not found",
+          status: 404,
+        });
       }
 
       if (user.subscriptionStatus !== "ACTIVE") {
+        // Preserve upgradeRequired flag for client UX
         return NextResponse.json(
           {
             error: "Active subscription required to purchase add-ons",
@@ -114,11 +135,9 @@ export async function POST(request: NextRequest) {
             data: { stripeCustomerId: customerId },
           });
         } catch (stripeError) {
-          console.error("Error creating Stripe customer:", stripeError);
-          return NextResponse.json(
-            { error: "Failed to create customer" },
-            { status: 500 },
-          );
+          return fromException(request, stripeError, {
+            stage: "stripe-customer-create",
+          });
         }
       }
 
@@ -168,25 +187,18 @@ export async function POST(request: NextRequest) {
           },
         });
 
+        // Preserve rich Stripe success payload (sessionId, url)
         return NextResponse.json({
           sessionId: checkoutSession.id,
           url: checkoutSession.url,
         });
-      } catch (error: any) {
-        console.error("Error creating add-on checkout session:", error);
-        return NextResponse.json(
-          {
-            error: "Failed to create checkout session",
-          },
-          { status: 500 },
-        );
+      } catch (stripeError) {
+        return fromException(request, stripeError, {
+          stage: "stripe-checkout-create",
+        });
       }
-    } catch (error) {
-      console.error("Error in add-on checkout:", error);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+    } catch (err) {
+      return fromException(request, err, { stage: "checkout" });
     }
   });
 }

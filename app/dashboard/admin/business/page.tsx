@@ -34,7 +34,9 @@ interface Metrics {
 }
 
 function formatCurrency(amount: number, currency: string) {
-  return new Intl.NumberFormat("en-AU", { style: "currency", currency }).format(amount);
+  return new Intl.NumberFormat("en-AU", { style: "currency", currency }).format(
+    amount,
+  );
 }
 
 export default function BusinessMetricsPage() {
@@ -99,10 +101,15 @@ export default function BusinessMetricsPage() {
         <div>
           <h1 className="text-2xl font-semibold">Business metrics</h1>
           <p className="text-sm text-muted-foreground">
-            MRR, conversion, churn, failed charges. Refreshed on load — hit refresh for current values.
+            MRR, conversion, churn, failed charges. Refreshed on load — hit
+            refresh for current values.
           </p>
         </div>
-        <Button variant="outline" onClick={() => fetchMetrics(true)} disabled={refreshing}>
+        <Button
+          variant="outline"
+          onClick={() => fetchMetrics(true)}
+          disabled={refreshing}
+        >
           {refreshing ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
@@ -133,7 +140,9 @@ export default function BusinessMetricsPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>New trials (this month)</CardDescription>
-            <CardTitle className="text-3xl tabular-nums">{data.newTrialsThisMonth}</CardTitle>
+            <CardTitle className="text-3xl tabular-nums">
+              {data.newTrialsThisMonth}
+            </CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
             {data.convertedThisMonth} converted{" "}
@@ -144,7 +153,9 @@ export default function BusinessMetricsPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Churned (this month)</CardDescription>
-            <CardTitle className="text-3xl tabular-nums">{data.churnedThisMonth}</CardTitle>
+            <CardTitle className="text-3xl tabular-nums">
+              {data.churnedThisMonth}
+            </CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
             CANCELED or EXPIRED with end date this month
@@ -171,7 +182,9 @@ export default function BusinessMetricsPage() {
           <CardHeader className="pb-2">
             <CardDescription>Subscription deletions (30d)</CardDescription>
             <CardTitle className="text-3xl tabular-nums">
-              {data.subscriptionsDeleted30d === -1 ? "—" : data.subscriptionsDeleted30d}
+              {data.subscriptionsDeleted30d === -1
+                ? "—"
+                : data.subscriptionsDeleted30d}
             </CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">

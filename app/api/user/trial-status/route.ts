@@ -11,34 +11,50 @@
  *
  * Fire-and-forget friendly: never throws; on DB error returns a safe default.
  */
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError } from "@/lib/api-errors";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   try {
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { subscriptionStatus: true, trialEndsAt: true },
+      select: {
+        subscriptionStatus: true,
+        trialEndsAt: true,
+        lifetimeAccess: true,
+      } as any,
     });
 
-    const trialEndsAt = user?.trialEndsAt ?? null;
+    const trialEndsAt = (user as any)?.trialEndsAt ?? null;
     let daysRemaining: number | null = null;
     if (trialEndsAt) {
       const msRemaining = trialEndsAt.getTime() - Date.now();
-      daysRemaining = Math.max(0, Math.ceil(msRemaining / (1000 * 60 * 60 * 24)));
+      daysRemaining = Math.max(
+        0,
+        Math.ceil(msRemaining / (1000 * 60 * 60 * 24)),
+      );
     }
 
     return NextResponse.json({
-      subscriptionStatus: user?.subscriptionStatus ?? null,
+      subscriptionStatus: (user as any)?.subscriptionStatus ?? null,
       trialEndsAt: trialEndsAt ? trialEndsAt.toISOString() : null,
       daysRemaining,
+      // RA-XXXX — surfaced so TrialBanner can hide for lifetime/owner accounts
+      // (e.g. App Store reviewer demo account). Without this, lifetime users
+      // saw the urgency banner because the only signal was subscriptionStatus.
+      lifetimeAccess: (user as any)?.lifetimeAccess ?? false,
     });
   } catch (err) {
     // Never throw a 500 from a status-surface endpoint — dashboard would
@@ -48,6 +64,7 @@ export async function GET() {
       subscriptionStatus: null,
       trialEndsAt: null,
       daysRemaining: null,
+      lifetimeAccess: false,
     });
   }
 }

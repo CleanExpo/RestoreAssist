@@ -62,9 +62,7 @@ export const metadata: Metadata = {
     // For now, defaults to en_AU.
     locale: "en_AU",
     siteName: BRAND.name,
-    images: [
-      { url: "/logo.png", width: 512, height: 512, alt: BRAND.name },
-    ],
+    images: [{ url: "/logo.png", width: 512, height: 512, alt: BRAND.name }],
   },
   alternates: { canonical: "/" },
   twitter: {

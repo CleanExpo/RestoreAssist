@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 
 const TYPE_MAP: Record<string, string> = {
   INFO: "info",
@@ -18,7 +19,11 @@ export async function GET(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -45,28 +50,28 @@ export async function GET(
       });
 
       if (!notification) {
-        return NextResponse.json(
-          { error: "Notification not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Notification not found",
+          status: 404,
+        });
       }
 
       return NextResponse.json({
         ...notification,
         type: TYPE_MAP[notification.type] || "info",
       });
-    } catch {
-      return NextResponse.json(
-        { error: "Notifications not available" },
-        { status: 503 },
-      );
+    } catch (err) {
+      return apiError(request, {
+        code: "UPSTREAM_FAILED",
+        message: "Notifications not available",
+        status: 503,
+        err,
+        stage: "load",
+      });
     }
-  } catch (error) {
-    console.error("Error fetching notification:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch notification" },
-      { status: 500 },
-    );
+  } catch (err) {
+    return fromException(request, err, { stage: "load" });
   }
 }
 
@@ -78,7 +83,11 @@ export async function DELETE(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -97,10 +106,11 @@ export async function DELETE(
       });
 
       if (!notification) {
-        return NextResponse.json(
-          { error: "Notification not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Notification not found",
+          status: 404,
+        });
       }
 
       await prisma.notification.delete({
@@ -111,11 +121,7 @@ export async function DELETE(
     } catch {
       return NextResponse.json({ success: true });
     }
-  } catch (error) {
-    console.error("Error deleting notification:", error);
-    return NextResponse.json(
-      { error: "Failed to delete notification" },
-      { status: 500 },
-    );
+  } catch (err) {
+    return fromException(request, err, { stage: "delete" });
   }
 }

@@ -7,8 +7,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X } from "lucide-react";
 import Footer from "@/components/landing/Footer";
 import { PRICING_CONFIG } from "@/lib/pricing";
+import BillingGate from "@/components/capacitor/BillingGate";
 
-export default function PricingPage() {
+function PricingPageContent() {
   const [darkMode, setDarkMode] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -371,7 +372,8 @@ export default function PricingPage() {
                     <p
                       className={`text-xs mt-1 ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
                     >
-                      AUD, incl. GST. Tax invoices issued monthly. Cancel any time.
+                      AUD, incl. GST. Tax invoices issued monthly. Cancel any
+                      time.
                     </p>
                   )}
                   {plan.monthlyEquivalent && (
@@ -619,5 +621,13 @@ export default function PricingPage() {
 
       <Footer darkMode={darkMode} />
     </div>
+  );
+}
+
+export default function PricingPage() {
+  return (
+    <BillingGate>
+      <PricingPageContent />
+    </BillingGate>
   );
 }

@@ -200,8 +200,6 @@ export default function ClientDetailPage({
     }
   };
 
-
-
   const getDocTypeLabel = (type: string) => {
     if (type === "RESTORATION_INVOICE") return "Tax Invoice";
     return type.replace(/_/g, " ");
@@ -313,7 +311,9 @@ export default function ClientDetailPage({
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-slate-400">Status</span>
-              <StatusBadge tone={CLIENT_STATUS_TONES[client.status] ?? "neutral"}>
+              <StatusBadge
+                tone={CLIENT_STATUS_TONES[client.status] ?? "neutral"}
+              >
                 {client.status}
               </StatusBadge>
             </div>
@@ -507,9 +507,7 @@ export default function ClientDetailPage({
                 <div className="flex-1">
                   <h3 className="font-medium text-white">{report.title}</h3>
                   <div className="flex items-center gap-4 mt-1 text-sm text-slate-400">
-                    <span>
-                      {formatDate(report.createdAt)}
-                    </span>
+                    <span>{formatDate(report.createdAt)}</span>
                     {report.reportNumber && <span>#{report.reportNumber}</span>}
                     {report.waterCategory && (
                       <span>{report.waterCategory}</span>
@@ -524,7 +522,10 @@ export default function ClientDetailPage({
                     ${(report.totalCost || 0).toLocaleString()}
                   </span>
                   <StatusBadge
-                    tone={REPORT_STATUS_TONES[report.status.toLowerCase()] ?? "neutral"}
+                    tone={
+                      REPORT_STATUS_TONES[report.status.toLowerCase()] ??
+                      "neutral"
+                    }
                   >
                     {report.status.replace("_", " ")}
                   </StatusBadge>

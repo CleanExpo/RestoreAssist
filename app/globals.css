@@ -85,9 +85,9 @@
      `bg-brand-navy` + `text-brand-slate` replace the hex literals
      progressively. Both light and dark theme inherit these directly
      since the Portal is brand-themed in a single palette. */
-  --color-brand-navy: #1c2e47;     /* primary — headings, accents, strong text */
-  --color-brand-bronze: #8a6b4e;   /* secondary — CTAs, highlights, borders */
-  --color-brand-slate: #5a6a7b;    /* muted — body copy, meta text */
+  --color-brand-navy: #1c2e47; /* primary — headings, accents, strong text */
+  --color-brand-bronze: #8a6b4e; /* secondary — CTAs, highlights, borders */
+  --color-brand-slate: #5a6a7b; /* muted — body copy, meta text */
 
   /* Primary Colors */
   --color-slate-950: #0f172a;

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function PATCH(
   request: NextRequest,
@@ -10,7 +11,11 @@ export async function PATCH(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -19,7 +24,11 @@ export async function PATCH(
       where: { id, userId: session.user.id },
     });
     if (!existing) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Not found",
+        status: 404,
+      });
     }
 
     const body = await request.json();
@@ -49,16 +58,8 @@ export async function PATCH(
       updatedAt: updated.updatedAt,
       _count: { items: updated.items ? JSON.parse(updated.items).length : 0 },
     });
-  } catch (error: any) {
-    console.error("[scope-templates] PATCH error:", error);
-    return NextResponse.json(
-      {
-        error: "Failed to update scope template",
-        details:
-          process.env.NODE_ENV === "development" ? error?.message : undefined,
-      },
-      { status: 500 },
-    );
+  } catch (err) {
+    return fromException(request, err, { stage: "update" });
   }
 }
 
@@ -69,7 +70,11 @@ export async function DELETE(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -78,21 +83,17 @@ export async function DELETE(
       where: { id, userId: session.user.id },
     });
     if (!existing) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Not found",
+        status: 404,
+      });
     }
 
     await (prisma as any).scopeTemplate.delete({ where: { id } });
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
-    console.error("[scope-templates] DELETE error:", error);
-    return NextResponse.json(
-      {
-        error: "Failed to delete scope template",
-        details:
-          process.env.NODE_ENV === "development" ? error?.message : undefined,
-      },
-      { status: 500 },
-    );
+  } catch (err) {
+    return fromException(request, err, { stage: "delete" });
   }
 }

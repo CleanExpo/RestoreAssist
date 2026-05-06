@@ -25,7 +25,7 @@ export function OrganizationSchema() {
     url: "https://restoreassist.app",
     logo: "https://restoreassist.app/logo.png",
     description:
-      "AI-powered restoration report software for Australian water damage and disaster recovery professionals. IICRC S500 compliant.",
+      "Restoration report software used by Australian water damage and disaster recovery professionals. IICRC S500 aligned.",
     address: {
       "@type": "PostalAddress",
       addressCountry: "AU",
@@ -62,14 +62,14 @@ export function SoftwareApplicationSchema() {
       reviewCount: "50",
     },
     description:
-      "Professional restoration report software with AI-powered assessment, IICRC S500 compliance, and comprehensive cost estimation for Australian restoration contractors.",
+      "Restoration report software with AI-assisted assessment used by certified restorers, IICRC S500 alignment, and comprehensive cost estimation for Australian restoration contractors.",
     featureList: [
-      "AI-powered report generation",
-      "IICRC S500 compliance",
+      "AI-assisted report generation for restorers",
+      "IICRC S500 alignment",
       "Automated cost estimation",
       "Interactive inspection forms",
       "Real-time collaboration",
-      "Australian compliance standards",
+      "Australian standards alignment",
     ],
   };
 

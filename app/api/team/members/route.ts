@@ -1,17 +1,22 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
+import { apiError } from "@/lib/api-errors";
 
 function canViewTeam(role?: string | null) {
   // All authenticated users (ADMIN, MANAGER, USER/Technician) can view their team hierarchy
   return role === "ADMIN" || role === "MANAGER" || role === "USER";
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
 
   // CLAUDE.md rule 3: re-validate role from DB, not JWT claim
   const currentUser = await prisma.user.findUnique({
@@ -20,7 +25,11 @@ export async function GET() {
   });
 
   if (!canViewTeam(currentUser?.role))
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return apiError(request, {
+      code: "FORBIDDEN",
+      message: "Forbidden",
+      status: 403,
+    });
 
   if (!currentUser?.organizationId) {
     // Backward compatible: no org yet means "team" is just the current account.

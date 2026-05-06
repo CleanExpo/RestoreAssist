@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Header from "@/components/landing/Header";
 import Footer from "@/components/landing/Footer";
+import BillingGate from "@/components/capacitor/BillingGate";
 
 const fieldMappings = [
   {
@@ -334,12 +335,14 @@ export default function CompliancePage() {
               from your next inspection — no setup fee, no credit card required.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link
-                href="/signup"
-                className="inline-block rounded-lg bg-[#D4A574] px-8 py-3 font-semibold text-[#050505] hover:bg-[#8A6B4E] transition-colors"
-              >
-                Start free trial
-              </Link>
+              <BillingGate fallback={null}>
+                <Link
+                  href="/signup"
+                  className="inline-block rounded-lg bg-[#D4A574] px-8 py-3 font-semibold text-[#050505] hover:bg-[#8A6B4E] transition-colors"
+                >
+                  Start free trial
+                </Link>
+              </BillingGate>
               <Link
                 href="/how-it-works"
                 className={`inline-block rounded-lg border px-8 py-3 font-semibold transition-colors ${

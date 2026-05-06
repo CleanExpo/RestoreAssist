@@ -19,6 +19,7 @@ import {
   checkIntegrationAccess,
   createSubscriptionRequiredResponse,
 } from "@/lib/integrations/subscription-guard";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function POST(
   request: NextRequest,
@@ -27,7 +28,11 @@ export async function POST(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     // Check subscription status - external integrations require paid subscription
@@ -44,10 +49,11 @@ export async function POST(
 
     // Validate provider
     if (!PROVIDER_CONFIG[provider]) {
-      return NextResponse.json(
-        { error: `Invalid provider: ${providerParam}` },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: `Invalid provider: ${providerParam}`,
+        status: 400,
+      });
     }
 
     // Find integration
@@ -60,10 +66,11 @@ export async function POST(
     });
 
     if (!integration) {
-      return NextResponse.json(
-        { error: "Integration not found or not connected" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Integration not found or not connected",
+        status: 404,
+      });
     }
 
     // Parse request body for sync type
@@ -123,11 +130,6 @@ export async function POST(
       throw syncError;
     }
   } catch (error) {
-    // RA-786: do not leak error.message to clients
-    console.error("Sync error:", error);
-    return NextResponse.json(
-      { error: "Sync failed" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "sync" });
   }
 }

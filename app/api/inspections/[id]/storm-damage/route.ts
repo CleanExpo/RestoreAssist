@@ -18,6 +18,7 @@ import { prisma } from "@/lib/prisma";
 import { softDelete } from "@/lib/prisma-helpers";
 import { z } from "zod";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import { apiError } from "@/lib/api-errors";
 
 // ─── Validation ────────────────────────────────────────────────────────────────
 
@@ -50,12 +51,16 @@ const stormSchema = z.object({
 // ─── GET ──────────────────────────────────────────────────────────────────────
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(req, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   const { id } = await params;
@@ -85,7 +90,11 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(req, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   const { id } = await params;
@@ -191,12 +200,16 @@ export async function POST(
 // ─── DELETE ───────────────────────────────────────────────────────────────────
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(req, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   const { id } = await params;
@@ -210,8 +223,15 @@ export async function DELETE(
   }
 
   await softDelete(
-    () => (prisma as any).stormDamageAssessment.delete({ where: { inspectionId: id } }),
-    { route: "/api/inspections/[id]/storm-damage", stage: "delete", inspectionId: id },
+    () =>
+      (prisma as any).stormDamageAssessment.delete({
+        where: { inspectionId: id },
+      }),
+    {
+      route: "/api/inspections/[id]/storm-damage",
+      stage: "delete",
+      inspectionId: id,
+    },
   );
 
   await prisma.inspection.update({

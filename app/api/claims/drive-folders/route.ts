@@ -9,13 +9,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { listDriveItems } from "@/lib/google-drive";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user || !session.user.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const body = await request.json();
@@ -37,22 +42,26 @@ export async function POST(request: NextRequest) {
     ).length;
 
     return NextResponse.json({ folders, pdfCount });
-  } catch (error: any) {
-    console.error("[Drive Folders] Error:", error.message);
-
+  } catch (err) {
+    const error = err as { message?: string; code?: number };
     if (error.message?.includes("not found") || error.code === 404) {
-      return NextResponse.json({ error: "Folder not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Folder not found",
+        status: 404,
+        err,
+        stage: "list-folders",
+      });
     }
     if (error.message?.includes("permission") || error.code === 403) {
-      return NextResponse.json(
-        { error: "Permission denied to access this folder" },
-        { status: 403 },
-      );
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Permission denied to access this folder",
+        status: 403,
+        err,
+        stage: "list-folders",
+      });
     }
-
-    return NextResponse.json(
-      { error: "Failed to list folders" },
-      { status: 500 },
-    );
+    return fromException(request, err, { stage: "list-folders" });
   }
 }

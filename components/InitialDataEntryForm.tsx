@@ -50,6 +50,7 @@ import {
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { isCapacitorIOS } from "@/lib/capacitor";
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import type { InitialDataEntryFormProps } from "./initial-data-entry/types";
@@ -2365,10 +2366,17 @@ export default function InitialDataEntryForm({
       !hasUnlimitedQuickFill &&
       (quickFillCredits === null || quickFillCredits <= 0)
     ) {
-      toast.error(
-        "No Quick Fill credits remaining. Upgrade to unlock unlimited Quick Fill access.",
-      );
-      router.push("/dashboard/pricing");
+      // RA-1842: iOS billing on web only.
+      if (isCapacitorIOS()) {
+        toast.error(
+          "No Quick Fill credits remaining. Subscriptions are managed on restoreassist.app.",
+        );
+      } else {
+        toast.error(
+          "No Quick Fill credits remaining. Upgrade to unlock unlimited Quick Fill access.",
+        );
+        router.push("/dashboard/pricing");
+      }
       return;
     }
 
@@ -2387,10 +2395,16 @@ export default function InitialDataEntryForm({
         } else {
           const error = await response.json();
           if (error.requiresUpgrade) {
-            toast.error(
-              "No Quick Fill credits remaining. Upgrade to unlock unlimited Quick Fill access.",
-            );
-            router.push("/dashboard/pricing");
+            if (isCapacitorIOS()) {
+              toast.error(
+                "No Quick Fill credits remaining. Subscriptions are managed on restoreassist.app.",
+              );
+            } else {
+              toast.error(
+                "No Quick Fill credits remaining. Upgrade to unlock unlimited Quick Fill access.",
+              );
+              router.push("/dashboard/pricing");
+            }
           } else {
             toast.error(error.error || "Failed to use Quick Fill credit");
           }

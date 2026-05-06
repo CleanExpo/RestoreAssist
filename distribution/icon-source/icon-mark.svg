@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  RestoreAssist iOS app icon — brand mark only, no text.
+
+  Design:
+    Background: #1C2E47 (brand navy, matches login/header surfaces)
+    Mark: house silhouette + magnifying glass + foundation curves
+    Mark fill: white (high contrast, readable at 60×60 px)
+    Magnifier accent: #D4A574 (brand warm)
+
+  Composition rules:
+    1024×1024 canvas, full-bleed (iOS rounds the corners on device)
+    Mark sits inside ~80% safe zone so iOS, watchOS, and macOS masks
+      don't clip detail
+    Strokes are heavy (16-24 px @ 1024) so the mark survives
+      down-sampling to 60 px home-screen size
+
+  This is the "stripped" variant of the original metallic-coin logo.
+  The original (RestoreAssist Logo.png) is preserved in this folder.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Brand navy background, full bleed (iOS rounds corners on device) -->
+  <rect width="1024" height="1024" fill="#1C2E47"/>
+
+  <!-- House silhouette: roof + body, drawn as one heavy white outline.
+       Roof apex y≈300, eaves y≈460, body floor y≈720. -->
+  <g fill="none" stroke="#FFFFFF" stroke-width="42" stroke-linejoin="round" stroke-linecap="round">
+    <!-- Roof + body outline -->
+    <path d="M 252 480
+             L 252 720
+             L 772 720
+             L 772 480
+             M 188 504
+             L 512 256
+             L 836 504"/>
+  </g>
+
+  <!-- Foundation / "echo" curves underneath the house, signalling
+       restoration / motion. Two stacked arcs in cooler off-white. -->
+  <g fill="none" stroke="#9FB3CC" stroke-width="36" stroke-linecap="round">
+    <path d="M 220 778 Q 512 712 804 778"/>
+    <path d="M 280 850 Q 512 798 744 850"/>
+  </g>
+
+  <!-- Magnifying glass overlay, sitting on the roof/upper body. Warm
+       brand copper so it reads as the focal accent. -->
+  <g>
+    <!-- Lens ring -->
+    <circle cx="616" cy="448" r="92"
+            fill="#1C2E47" stroke="#D4A574" stroke-width="38"/>
+    <!-- Inner glass highlight -->
+    <circle cx="592" cy="424" r="22" fill="#FFFFFF" opacity="0.55"/>
+    <!-- Handle, angled down-right -->
+    <line x1="684" y1="516" x2="752" y2="584"
+          stroke="#D4A574" stroke-width="42" stroke-linecap="round"/>
+  </g>
+</svg>

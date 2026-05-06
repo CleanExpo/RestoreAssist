@@ -33,14 +33,20 @@ interface Ticket {
   resolvedAt: string | null;
 }
 
-const STATUS_VARIANT: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
+const STATUS_VARIANT: Record<
+  string,
+  "default" | "secondary" | "outline" | "destructive"
+> = {
   open: "default",
   in_progress: "secondary",
   resolved: "outline",
   closed: "outline",
 };
 
-const PRIORITY_VARIANT: Record<string, "default" | "destructive" | "secondary"> = {
+const PRIORITY_VARIANT: Record<
+  string,
+  "default" | "destructive" | "secondary"
+> = {
   urgent: "destructive",
   high: "destructive",
   normal: "default",
@@ -82,8 +88,9 @@ export default function ContactSupportPage() {
         <CardHeader>
           <CardTitle>New ticket</CardTitle>
           <CardDescription>
-            We&apos;ll use your signed-in name + email. Include what you expected vs what you see
-            now — the more detail, the faster we can help.
+            We&apos;ll use your signed-in name + email. Include what you
+            expected vs what you see now — the more detail, the faster we can
+            help.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -106,7 +113,9 @@ export default function ContactSupportPage() {
               <Loader2 className="h-4 w-4 animate-spin" /> Loading…
             </div>
           ) : error ? (
-            <p className="text-destructive text-sm">Couldn&apos;t load tickets: {error}</p>
+            <p className="text-destructive text-sm">
+              Couldn&apos;t load tickets: {error}
+            </p>
           ) : tickets.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               Your submitted tickets will appear here.
@@ -114,13 +123,21 @@ export default function ContactSupportPage() {
           ) : (
             <ul className="divide-y">
               {tickets.map((t) => (
-                <li key={t.id} className="py-3 flex items-start justify-between gap-4">
+                <li
+                  key={t.id}
+                  className="py-3 flex items-start justify-between gap-4"
+                >
                   <div className="min-w-0">
                     <p className="font-medium truncate">{t.subject}</p>
                     <p className="text-xs text-muted-foreground">
-                      {t.category} · opened {new Date(t.createdAt).toLocaleDateString("en-AU")}
+                      {t.category} · opened{" "}
+                      {new Date(t.createdAt).toLocaleDateString("en-AU")}
                       {t.resolvedAt && (
-                        <> · resolved {new Date(t.resolvedAt).toLocaleDateString("en-AU")}</>
+                        <>
+                          {" "}
+                          · resolved{" "}
+                          {new Date(t.resolvedAt).toLocaleDateString("en-AU")}
+                        </>
                       )}
                     </p>
                   </div>
@@ -128,7 +145,9 @@ export default function ContactSupportPage() {
                     <Badge variant={PRIORITY_VARIANT[t.priority] ?? "default"}>
                       {t.priority}
                     </Badge>
-                    <Badge variant={STATUS_VARIANT[t.status] ?? "default"}>{t.status}</Badge>
+                    <Badge variant={STATUS_VARIANT[t.status] ?? "default"}>
+                      {t.status}
+                    </Badge>
                   </div>
                 </li>
               ))}

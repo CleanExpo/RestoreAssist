@@ -14,7 +14,11 @@ export async function GET(
     const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const invoice = await prisma.invoice.findUnique({
@@ -68,7 +72,11 @@ export async function GET(
     });
 
     if (!invoice) {
-      return apiError(request, { code: "NOT_FOUND", message: "Invoice not found", status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Invoice not found",
+        status: 404,
+      });
     }
 
     return NextResponse.json({ invoice });
@@ -85,7 +93,11 @@ export async function PUT(
     const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     // Check if invoice exists and belongs to user
@@ -97,7 +109,11 @@ export async function PUT(
     });
 
     if (!existing) {
-      return apiError(request, { code: "NOT_FOUND", message: "Invoice not found", status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Invoice not found",
+        status: 404,
+      });
     }
 
     // Only allow updates to DRAFT invoices
@@ -281,7 +297,10 @@ export async function PUT(
         verb: "UPDATE",
         action: "invoice.update",
         actorUserId: session.user.id,
-        metadata: { invoiceNumber: existing.invoiceNumber, linesReplaced: false },
+        metadata: {
+          invoiceNumber: existing.invoiceNumber,
+          linesReplaced: false,
+        },
         request,
       });
       return NextResponse.json({ invoice });
@@ -299,7 +318,11 @@ export async function DELETE(
     const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     // Check if invoice exists and belongs to user
@@ -311,7 +334,11 @@ export async function DELETE(
     });
 
     if (!invoice) {
-      return apiError(request, { code: "NOT_FOUND", message: "Invoice not found", status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Invoice not found",
+        status: 404,
+      });
     }
 
     // Only allow deletion of DRAFT or CANCELLED invoices
@@ -334,7 +361,10 @@ export async function DELETE(
       verb: "DELETE",
       action: "invoice.delete",
       actorUserId: session.user.id,
-      metadata: { invoiceNumber: invoice.invoiceNumber, status: invoice.status },
+      metadata: {
+        invoiceNumber: invoice.invoiceNumber,
+        status: invoice.status,
+      },
       request,
     });
 

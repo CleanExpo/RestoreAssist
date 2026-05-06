@@ -8,6 +8,7 @@ import { validateCsrf } from "@/lib/csrf";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
 import { rejectIfBreached } from "@/lib/auth/password-breach";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function POST(request: NextRequest) {
   // CSRF validation (outside wrapper — returns early without consuming body)
@@ -23,7 +24,11 @@ export async function POST(request: NextRequest) {
 
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -35,34 +40,41 @@ export async function POST(request: NextRequest) {
       try {
         parsedBody = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const { currentPassword, newPassword } = parsedBody;
 
       if (!currentPassword || !newPassword) {
-        return NextResponse.json(
-          { error: "Current password and new password are required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Current password and new password are required",
+          status: 400,
+        });
       }
 
       // RA-1342 — aligned to registration min (12). Matches reset-password +
       // registration so the policy can't be bypassed by setting a weak
       // password via change-password after registering strong.
       if (newPassword.length < 12) {
-        return NextResponse.json(
-          { error: "New password must be at least 12 characters long" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "New password must be at least 12 characters long",
+          status: 400,
+        });
       }
 
       // RA-1591 — HIBP breach check before accepting the new password.
       const breachMsg = await rejectIfBreached(newPassword);
       if (breachMsg) {
-        return NextResponse.json({ error: breachMsg }, { status: 400 });
+        return apiError(request, {
+          code: "VALIDATION",
+          message: breachMsg,
+          status: 400,
+        });
       }
 
       // Get user with password
@@ -72,10 +84,11 @@ export async function POST(request: NextRequest) {
       });
 
       if (!user || !user.password) {
-        return NextResponse.json(
-          { error: "Password not set. Please contact support." },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Password not set. Please contact support.",
+          status: 400,
+        });
       }
 
       // Verify current password (works for both regular and forced password change)
@@ -97,10 +110,11 @@ export async function POST(request: NextRequest) {
             context: "change_password",
           },
         }).catch(() => {});
-        return NextResponse.json(
-          { error: "Current password is incorrect" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Current password is incorrect",
+          status: 400,
+        });
       }
 
       // Hash new password
@@ -131,12 +145,8 @@ export async function POST(request: NextRequest) {
         { message: "Password changed successfully" },
         { status: 200 },
       );
-    } catch (error) {
-      console.error("Change password error:", error);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
+    } catch (err) {
+      return fromException(request, err, { stage: "update" });
     }
   });
 }

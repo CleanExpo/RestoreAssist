@@ -29,10 +29,16 @@ vi.mock("@/lib/rate-limiter", () => ({
 
 vi.mock("@/lib/idempotency", () => ({
   // Bypass — invoke the inner callback with the raw request body verbatim.
-  withIdempotency: vi.fn(async (req: Request, _userId: string, fn: (raw: string) => Promise<Response>) => {
-    const raw = await req.text();
-    return fn(raw);
-  }),
+  withIdempotency: vi.fn(
+    async (
+      req: Request,
+      _userId: string,
+      fn: (raw: string) => Promise<Response>,
+    ) => {
+      const raw = await req.text();
+      return fn(raw);
+    },
+  ),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -49,12 +55,22 @@ import { prisma } from "@/lib/prisma";
 import { POST } from "../route";
 
 const mockSession = getServerSession as unknown as ReturnType<typeof vi.fn>;
-const mockFindFirst = (prisma as unknown as {
-  propertyLookup: { findFirst: ReturnType<typeof vi.fn>; upsert: ReturnType<typeof vi.fn> };
-}).propertyLookup.findFirst;
-const mockUpsert = (prisma as unknown as {
-  propertyLookup: { findFirst: ReturnType<typeof vi.fn>; upsert: ReturnType<typeof vi.fn> };
-}).propertyLookup.upsert;
+const mockFindFirst = (
+  prisma as unknown as {
+    propertyLookup: {
+      findFirst: ReturnType<typeof vi.fn>;
+      upsert: ReturnType<typeof vi.fn>;
+    };
+  }
+).propertyLookup.findFirst;
+const mockUpsert = (
+  prisma as unknown as {
+    propertyLookup: {
+      findFirst: ReturnType<typeof vi.fn>;
+      upsert: ReturnType<typeof vi.fn>;
+    };
+  }
+).propertyLookup.upsert;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -97,7 +113,9 @@ describe("RA-1761 — cache read filter widened to include domain.com.au", () =>
       propertyData: SAMPLE_DATA,
     });
 
-    const res = await POST(makePost({ address: "12 Smith St", postcode: "4000" }));
+    const res = await POST(
+      makePost({ address: "12 Smith St", postcode: "4000" }),
+    );
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json).toEqual({ data: SAMPLE_DATA, cached: true });
@@ -114,7 +132,9 @@ describe("RA-1761 — cache read filter widened to include domain.com.au", () =>
       propertyData: { ...SAMPLE_DATA, address: "34 OAK AVE, SYDNEY NSW 2000" },
     });
 
-    const res = await POST(makePost({ address: "34 Oak Ave", postcode: "2000" }));
+    const res = await POST(
+      makePost({ address: "34 Oak Ave", postcode: "2000" }),
+    );
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.cached).toBe(true);
@@ -139,7 +159,9 @@ describe("RA-1761 — cache read filter widened to include domain.com.au", () =>
 
   it("returns 401 when unauthenticated (no session)", async () => {
     mockSession.mockResolvedValueOnce(null);
-    const res = await POST(makePost({ address: "1 Test St", postcode: "1000" }));
+    const res = await POST(
+      makePost({ address: "1 Test St", postcode: "1000" }),
+    );
     expect(res.status).toBe(401);
     expect(mockFindFirst).not.toHaveBeenCalled();
   });

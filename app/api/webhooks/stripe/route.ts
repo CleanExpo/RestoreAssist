@@ -172,11 +172,15 @@ export async function POST(request: NextRequest) {
           // RA-1306: if no user matched, log a loud error so ops can trace
           // the customer. Don't throw — the webhook still returns 200 so
           // Stripe doesn't retry a non-recoverable "user not found" case.
-          warnIfZeroRows(activationResult, "stripe.checkout.completed.activate", {
-            customerId,
-            subscriptionId,
-            where,
-          });
+          warnIfZeroRows(
+            activationResult,
+            "stripe.checkout.completed.activate",
+            {
+              customerId,
+              subscriptionId,
+              where,
+            },
+          );
 
           // RA-1261: send branded activation receipt. Best-effort — never
           // block the webhook response on email delivery. Look up the user

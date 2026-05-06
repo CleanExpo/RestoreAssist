@@ -10,6 +10,7 @@ import {
   LIFETIME_PLAN_NAME,
 } from "@/lib/lifetime-pricing";
 import { withIdempotency } from "@/lib/idempotency";
+import { rejectIfIOSCapacitor } from "@/lib/ios-billing-guard";
 
 function getBaseUrl(request: NextRequest): string {
   let baseUrl = process.env.NEXTAUTH_URL;
@@ -28,6 +29,10 @@ function getBaseUrl(request: NextRequest): string {
 }
 
 export async function POST(request: NextRequest) {
+  // RA-1842 Path B — fail-closed for iOS Capacitor.
+  const iosBlocked = rejectIfIOSCapacitor(request);
+  if (iosBlocked) return iosBlocked;
+
   const session = await getServerSession(authOptions);
   if (!session?.user?.id || !session.user.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

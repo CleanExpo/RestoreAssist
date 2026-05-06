@@ -10,10 +10,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "22"
 
@@ -61,7 +61,7 @@ jobs:
             -Pandroid.injected.signing.key.password="${{ secrets.CET_ANDROID_KEY_PASSWORD }}"
 
       - name: Upload CET AAB as artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: restoreassist-cet-release-${{ github.sha }}
           path: apps/cet/android/app/build/outputs/bundle/release/app-release.aab

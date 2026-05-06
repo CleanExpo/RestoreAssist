@@ -152,7 +152,9 @@ export async function POST(
 
     const confidenceRaw = parsed["confidence"];
     const confidence =
-      typeof confidenceRaw === "number" && confidenceRaw >= 0 && confidenceRaw <= 1
+      typeof confidenceRaw === "number" &&
+      confidenceRaw >= 0 &&
+      confidenceRaw <= 1
         ? confidenceRaw
         : null;
     // Strip confidence from the labels payload — it lives in its own column

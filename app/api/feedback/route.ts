@@ -10,11 +10,16 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -32,10 +37,11 @@ export async function POST(request: NextRequest) {
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const { rating, whatDoing, whatHappened, page } = body;
 
@@ -57,13 +63,9 @@ export async function POST(request: NextRequest) {
       });
 
       return NextResponse.json({ id: feedback.id, success: true });
-    } catch (error: unknown) {
+    } catch (err) {
       // RA-786: do not leak error.message to clients
-      console.error("Feedback POST error:", error);
-      return NextResponse.json(
-        { error: "Failed to submit feedback" },
-        { status: 500 },
-      );
+      return fromException(request, err, { stage: "create" });
     }
   });
 }
@@ -72,7 +74,11 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { searchParams } = new URL(request.url);
@@ -134,12 +140,8 @@ export async function GET(request: NextRequest) {
       feedback: items,
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
-  } catch (error: unknown) {
+  } catch (err) {
     // RA-786: do not leak error.message to clients
-    console.error("Feedback GET error:", error);
-    return NextResponse.json(
-      { error: "Failed to load feedback" },
-      { status: 500 },
-    );
+    return fromException(request, err, { stage: "load" });
   }
 }
