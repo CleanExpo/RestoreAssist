@@ -97,10 +97,11 @@ Rules:
 export async function POST(req: NextRequest) {
   const secret = process.env.GITHUB_WEBHOOK_SECRET;
   if (!secret) {
-    return NextResponse.json(
-      { error: "Webhook secret not configured" },
-      { status: 500 },
-    );
+    // RA-1803: return 200 no-op instead of 500 — secret not configured means
+    // webhook isn't actively wired; returning 500 pollutes the error feed on
+    // every sandbox→main merge. GitHub will stop retrying on 200.
+    console.warn("[github-webhook] GITHUB_WEBHOOK_SECRET not set — request ignored");
+    return NextResponse.json({ ok: false, reason: "webhook not configured" }, { status: 200 });
   }
 
   const signature = req.headers.get("x-hub-signature-256");

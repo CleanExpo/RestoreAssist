@@ -28,8 +28,6 @@ type FeedbackItem = {
   user?: { id: string; name: string | null; email: string };
 };
 
-const INBOX_EMAIL = "mmlrana00@gmail.com";
-
 export default function FeedbackPage() {
   const { data: session, status } = useSession();
   const pathname = usePathname();
@@ -43,7 +41,8 @@ export default function FeedbackPage() {
   const [inboxPage, setInboxPage] = useState(1);
   const [inboxTotal, setInboxTotal] = useState(0);
 
-  const canViewInbox = session?.user?.email === INBOX_EMAIL;
+  // RA-1804: gate on ADMIN role, not a hardcoded personal email
+  const canViewInbox = (session?.user as { role?: string })?.role === "ADMIN";
 
   const loadInbox = async (page = 1, append = false) => {
     if (!canViewInbox) return;
