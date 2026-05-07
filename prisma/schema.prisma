@@ -958,6 +958,9 @@ model Integration {
   @@index([status])
   @@index([workspaceId])
   @@index([userId, status]) // health/metrics: WHERE userId=? AND status='CONNECTED'
+  @@index([tenantId])   // RA-1230 Xero webhook resolution
+  @@index([realmId])    // RA-1230 QuickBooks webhook resolution
+  @@index([companyId])  // RA-1230 ServiceM8/Ascora webhook resolution
 }
 
 model CostLibrary {
@@ -1055,6 +1058,7 @@ model ExternalJob {
   @@unique([integrationId, externalId])
   @@index([integrationId])
   @@index([claimId])
+  @@index([integrationId, clientExternalId]) // RA-1229 webhook resolution hot path
 }
 
 // Integration Sync Log (audit trail)
@@ -1129,6 +1133,7 @@ model XeroAccountCodeMapping {
 
   @@unique([integrationId, category])
   @@index([integrationId])
+  @@index([integrationId, accountCode]) // RA-1233 reverse lookup: accountCode → category
 }
 
 enum SubscriptionStatus {
@@ -3695,11 +3700,12 @@ model Invoice {
   template   InvoiceTemplate? @relation("InvoiceTemplate", fields: [templateId], references: [id], onDelete: SetNull)
 
   // External sync (accounting software)
-  externalInvoiceId    String? // Xero/QuickBooks invoice ID
-  externalSyncProvider String? // "XERO", "QUICKBOOKS", "MYOB"
-  externalSyncStatus   ExternalSyncStatus?
-  externalSyncedAt     DateTime?
-  externalSyncError    String?             @db.Text
+  externalInvoiceId      String? // Xero/QuickBooks invoice ID
+  externalSyncProvider   String? // "XERO", "QUICKBOOKS", "MYOB"
+  externalSyncStatus     ExternalSyncStatus?
+  externalSyncedAt       DateTime?
+  externalSyncError      String?             @db.Text
+  externalSyncRetryCount Int                 @default(0) // RA-1228 dead-letter gate
 
   // PDF
   pdfUrl         String? // Cloudinary URL
@@ -5127,6 +5133,7 @@ model DrNrpgJobSync {
   @@index([integrationId])
   @@index([status])
   @@index([lastEventAt])
+  @@index([claimNumber]) // RA-1232 claim lookup
 }
 
 model DrNrpgWebhookLog {
