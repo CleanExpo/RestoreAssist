@@ -1,54 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
 /**
- * Rate limiter — Upstash Redis when configured, in-memory fallback otherwise.
- *
- * Set UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN in Vercel env vars to
- * enable the persistent, cross-process rate limiter. Without these vars the
- * in-memory fallback is used (resets on serverless cold starts — acceptable
- * for development, not for production).
+ * In-memory rate limiter — sliding window per key.
+ * Resets on serverless cold starts (acceptable at current scale).
+ * No external dependencies required.
  */
-
-// ─── Upstash Redis path ───────────────────────────────────────────────────────
-
-let _upstashRatelimit: any = null;
-
-async function getUpstashRatelimit(windowMs: number, maxRequests: number) {
-  if (
-    !process.env.UPSTASH_REDIS_REST_URL ||
-    !process.env.UPSTASH_REDIS_REST_TOKEN
-  ) {
-    return null;
-  }
-
-  try {
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore — optional peer dep; installed in production, may be absent locally
-    const { Ratelimit } = await import("@upstash/ratelimit");
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const { Redis } = await import("@upstash/redis");
-
-    const redis = new Redis({
-      url: process.env.UPSTASH_REDIS_REST_URL,
-      token: process.env.UPSTASH_REDIS_REST_TOKEN,
-    });
-
-    return new Ratelimit({
-      redis,
-      limiter: Ratelimit.slidingWindow(
-        maxRequests,
-        `${Math.round(windowMs / 1000)} s`,
-      ),
-      analytics: false,
-    });
-  } catch {
-    // Package not installed or Redis unreachable — fall back to in-memory
-    return null;
-  }
-}
-
-// ─── In-memory fallback ───────────────────────────────────────────────────────
 
 const store = new Map<string, number[]>();
 
@@ -97,8 +53,6 @@ function rateLimitInMemory(
   return { success: true, remaining: opts.maxRequests - timestamps.length };
 }
 
-// ─── Shared helpers ───────────────────────────────────────────────────────────
-
 /**
  * Extract client IP from request headers.
  *
@@ -133,15 +87,13 @@ function build429(maxRequests: number, retryAfterSec: number): NextResponse {
   );
 }
 
-// ─── Public API ───────────────────────────────────────────────────────────────
-
 export interface RateLimitResult {
   success: boolean;
   remaining: number;
   retryAfterMs?: number;
 }
 
-/** Low-level rate limit check (in-memory only). Use applyRateLimit for routes. */
+/** Low-level rate limit check. Use applyRateLimit for route handlers. */
 export function rateLimit(
   key: string,
   opts: { windowMs: number; maxRequests: number },
@@ -152,9 +104,6 @@ export function rateLimit(
 /**
  * Apply rate limiting to a route handler request.
  * Returns a 429 NextResponse if the limit is exceeded, or null if allowed.
- *
- * Uses Upstash Redis sliding window when UPSTASH_REDIS_REST_URL +
- * UPSTASH_REDIS_REST_TOKEN are set; falls back to in-memory otherwise.
  */
 export async function applyRateLimit(
   req: NextRequest,
@@ -163,12 +112,7 @@ export async function applyRateLimit(
     maxRequests?: number;
     prefix?: string;
     key?: string;
-    /**
-     * RA-1319: when true, an Upstash outage returns 429 instead of falling
-     * back to in-memory. Use on AI-cost-sensitive endpoints where the
-     * per-instance in-memory cap multiplied by cold-start instance count
-     * would blow the Anthropic budget.
-     */
+    /** Kept for API compatibility — has no effect (no external rate limiter). */
     failClosedOnUpstashError?: boolean;
   } = {},
 ): Promise<NextResponse | null> {
@@ -177,37 +121,12 @@ export async function applyRateLimit(
     maxRequests = 5,
     prefix = "api",
     key: customKey,
-    failClosedOnUpstashError = false,
   } = opts;
+
   const rateLimitKey = customKey
     ? `${prefix}:${customKey}`
     : `${prefix}:${getClientIp(req)}`;
 
-  // Try Upstash first
-  const limiter = await getUpstashRatelimit(windowMs, maxRequests);
-  if (limiter) {
-    try {
-      const { success, remaining, reset } = await limiter.limit(rateLimitKey);
-      if (!success) {
-        const retryAfterSec = Math.max(
-          1,
-          Math.ceil((reset - Date.now()) / 1000),
-        );
-        return build429(maxRequests, retryAfterSec);
-      }
-      return null;
-    } catch {
-      // Redis error — fall through to in-memory unless caller opted in to fail-closed
-      console.warn(
-        "[rate-limiter] Upstash Redis error, falling back to in-memory",
-      );
-      if (failClosedOnUpstashError) {
-        return build429(maxRequests, 60);
-      }
-    }
-  }
-
-  // In-memory fallback
   const result = rateLimitInMemory(rateLimitKey, { windowMs, maxRequests });
   if (!result.success) {
     const retryAfterSec = Math.ceil((result.retryAfterMs || 0) / 1000);

@@ -56,7 +56,7 @@ const nextConfig = {
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data: blob: https://res.cloudinary.com https://*.stripe.com https://lh3.googleusercontent.com",
       "font-src 'self' data: https://fonts.gstatic.com",
-      "connect-src 'self' https://api.stripe.com https://*.supabase.co https://*.upstash.io wss://*.supabase.co https://api.cloudinary.com https://vitals.vercel-insights.com",
+      "connect-src 'self' https://api.stripe.com https://*.supabase.co wss://*.supabase.co https://api.cloudinary.com https://vitals.vercel-insights.com",
       "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com",
       "frame-ancestors 'none'",
       "form-action 'self'",

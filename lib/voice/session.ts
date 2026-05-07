@@ -2,7 +2,7 @@
  * RA-396: VoiceSession state machine and in-memory store.
  *
  * Phase 2: Sessions are in-memory per server instance (no DB persistence).
- * Phase 3: Will use Redis for cross-instance session sharing.
+ * Phase 3: Cross-instance session sharing via database if needed.
  */
 
 import { randomUUID } from "crypto";

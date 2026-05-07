@@ -14,7 +14,7 @@ import { createHash } from "crypto";
  * returns 409.
  *
  * Storage: in-memory only for now (per-instance). Adequate for the
- * retry window (seconds, same warm instance); Redis-backed store can
+ * retry window (seconds, same warm instance); Database-backed store can
  * slot in later via the same pluggable pattern as rate-limiter.ts.
  *
  * Scope is intentionally user-level — two users using "the same" key

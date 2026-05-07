@@ -49,7 +49,7 @@ A Fabric 6 → 7 upgrade is a dedicated, planned project with a full regression 
 
 These items were flagged during the 2026-04-07 security audit and are tracked in `.claude/PROGRESS.md`:
 
-- **F5** — In-memory rate limiter resets on cold starts. Code supports Upstash Redis fallback; only needs `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` env vars in Vercel.
+- **F5** — In-memory rate limiter resets on serverless cold starts. Acceptable at current scale; no external dependency required.
 - **F13** — jsPDF CVEs. Pending patched version release.
 - **F15** — CSP `unsafe-inline`/`unsafe-eval`. Needs nonce-based CSP; blocked by Next.js RSC hydration which requires `unsafe-inline` for `self.__next_f.push` until a future Next.js release.
 - **F2** — `session.user.email` references across 30+ routes. Largely migrated to `session.user.id` in `1bcc8540`; remaining uses are Stripe customer email (correct) or low-risk fallbacks.
