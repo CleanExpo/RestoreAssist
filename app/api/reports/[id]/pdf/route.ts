@@ -108,17 +108,42 @@ export async function GET(
 
     const pdfBytes = await generateIICRCReportPDF(reportData as any);
 
+    // RA-1331: guard against OOM on very large reports (embedded photos can
+    // reach 20-50 MB). 60 MB is a generous cap — beyond that, the Vercel
+    // function would likely OOM under concurrent generation.
+    const MAX_PDF_BYTES = 60 * 1024 * 1024; // 60 MB
+    if (pdfBytes.length > MAX_PDF_BYTES) {
+      console.warn(
+        `[reports/pdf] PDF too large (${Math.round(pdfBytes.length / 1024 / 1024)} MB) for report ${id}`,
+      );
+      return NextResponse.json(
+        {
+          error:
+            "This report is too large to generate inline. Please reduce the number of embedded photos and try again.",
+        },
+        { status: 413 },
+      );
+    }
+
     const filename = `RestoreAssist-${report.reportNumber ?? id}.pdf`.replace(
       /[^a-zA-Z0-9.\-_]/g,
       "-",
     );
 
-    return new NextResponse(Buffer.from(pdfBytes), {
+    // Stream via ReadableStream so Vercel can use chunked transfer encoding
+    // rather than buffering the entire response body before sending.
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(pdfBytes);
+        controller.close();
+      },
+    });
+
+    return new Response(stream, {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="${filename}"`,
-        "Content-Length": pdfBytes.length.toString(),
         "Cache-Control": "no-store",
       },
     });
