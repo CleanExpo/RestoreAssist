@@ -952,7 +952,9 @@ model Integration {
   webhookEvents       WebhookEvent[]
   xeroAccountMappings XeroAccountCodeMapping[] @relation("IntegrationXeroMappings")
 
-  @@unique([userId, provider])
+  // RA-1226: widened from (userId, provider) to include workspaceId so a user
+  // can connect Xero to two separate workspaces without hitting a unique violation.
+  @@unique([userId, workspaceId, provider])
   @@index([userId])
   @@index([provider])
   @@index([status])
@@ -979,6 +981,7 @@ model CostLibrary {
   workspaceId String?
   workspace   Workspace? @relation("CostLibraryWorkspace", fields: [workspaceId], references: [id], onDelete: SetNull)
 
+  @@unique([userId, name]) // RA-1225: prevent duplicate library names per user
   @@index([userId])
   @@index([workspaceId])
 }
