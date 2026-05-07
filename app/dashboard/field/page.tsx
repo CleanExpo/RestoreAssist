@@ -6,6 +6,11 @@
  * Mobile-first landing page for on-site technicians.
  * Shows today's active jobs, quick-start buttons, and recent activity.
  * Designed for Capacitor WebView on Android + iOS.
+ *
+ * Offline behaviour (RA-1842 Task #10):
+ * - On successful fetch → writes job list to IndexedDB via job-cache
+ * - On network failure → reads from IndexedDB and shows a staleness banner
+ * - @capacitor/network listener drives the isOffline state proactively
  */
 
 import { useState, useEffect } from "react";
@@ -21,22 +26,13 @@ import {
   CheckCircle2,
   AlertTriangle,
   RefreshCw,
+  WifiOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MobileNav } from "@/components/mobile/MobileNav";
-import { Badge } from "@/components/ui/badge";
-import { format, isToday, isYesterday } from "date-fns";
-
-interface ActiveInspection {
-  id: string;
-  inspectionNumber: string;
-  propertyAddress: string;
-  status: string;
-  inspectionDate: string;
-  moistureReadingCount: number;
-  criticalMissing: number;
-  readyToLeave: boolean;
-}
+import { format, isToday, isYesterday, formatDistanceToNow } from "date-fns";
+import { cacheJobs, getCachedJobs, type CachedJob } from "@/lib/offline/job-cache";
+import { isCapacitor } from "@/lib/capacitor";
 
 const STATUS_COLOR: Record<string, string> = {
   DRAFT: "text-white/50",
@@ -55,72 +51,117 @@ function formatInspectionDate(dateStr: string): string {
 }
 
 export default function FieldDashboardPage() {
-  const [inspections, setInspections] = useState<ActiveInspection[]>([]);
+  const [inspections, setInspections] = useState<CachedJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [greeting, setGreeting] = useState("Good morning");
+  const [isOffline, setIsOffline] = useState(false);
+  const [cacheAge, setCacheAge] = useState<string | null>(null);
+  const [fromCache, setFromCache] = useState(false);
 
+  // Greeting
   useEffect(() => {
     const h = new Date().getHours();
     if (h >= 12 && h < 17) setGreeting("Good afternoon");
     else if (h >= 17) setGreeting("Good evening");
+  }, []);
 
-    async function loadInspections() {
-      try {
-        const res = await fetch(
-          "/api/inspections?status=DRAFT,SUBMITTED,PROCESSING,CLASSIFIED,SCOPED&take=10",
+  // Network status listener (Capacitor native — proactive offline detection)
+  useEffect(() => {
+    if (!isCapacitor()) return;
+    let cleanup: (() => void) | undefined;
+    import("@capacitor/network").then(({ Network }) => {
+      // Seed initial state
+      Network.getStatus().then(({ connected }) => setIsOffline(!connected));
+      // Listen for changes
+      Network.addListener("networkStatusChange", ({ connected }) => {
+        setIsOffline(!connected);
+        if (connected) loadInspections();
+      }).then((handle) => {
+        cleanup = () => handle.remove();
+      });
+    }).catch(() => {});
+    return () => cleanup?.();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function loadInspections() {
+    setLoading(true);
+    try {
+      const res = await fetch(
+        "/api/inspections?status=DRAFT,SUBMITTED,PROCESSING,CLASSIFIED,SCOPED&take=10",
+      );
+      if (!res.ok) throw new Error("non-ok");
+      const data = await res.json();
+      const items = (data.inspections ?? data.data ?? []) as Array<{
+        id: string;
+        inspectionNumber: string;
+        propertyAddress: string;
+        status: string;
+        inspectionDate: string;
+        moistureReadings?: unknown[];
+      }>;
+
+      // Enrich with checklist status — best-effort, never blocks the list
+      const enriched = await Promise.all(
+        items.map(async (insp) => {
+          try {
+            const clRes = await fetch(
+              `/api/inspections/${insp.id}/voice/checklist`,
+            );
+            const cl = clRes.ok
+              ? await clRes.json()
+              : { criticalMissing: [], readyToLeave: false };
+            return {
+              id: insp.id,
+              inspectionNumber: insp.inspectionNumber,
+              propertyAddress: insp.propertyAddress,
+              status: insp.status,
+              inspectionDate: insp.inspectionDate,
+              moistureReadingCount: insp.moistureReadings?.length ?? 0,
+              criticalMissing: cl.criticalMissing?.length ?? 0,
+              readyToLeave: cl.readyToLeave ?? false,
+            } satisfies CachedJob;
+          } catch {
+            return {
+              id: insp.id,
+              inspectionNumber: insp.inspectionNumber,
+              propertyAddress: insp.propertyAddress,
+              status: insp.status,
+              inspectionDate: insp.inspectionDate,
+              moistureReadingCount: insp.moistureReadings?.length ?? 0,
+              criticalMissing: 0,
+              readyToLeave: false,
+            } satisfies CachedJob;
+          }
+        }),
+      );
+
+      setInspections(enriched);
+      setFromCache(false);
+      setCacheAge(null);
+      // Persist to IndexedDB for offline fallback
+      await cacheJobs(enriched);
+    } catch {
+      // Network failure — fall back to IndexedDB cache
+      const { jobs, fetchedAt } = await getCachedJobs();
+      if (jobs.length > 0) {
+        setInspections(jobs);
+        setFromCache(true);
+        setCacheAge(
+          fetchedAt
+            ? formatDistanceToNow(new Date(fetchedAt), { addSuffix: true })
+            : null,
         );
-        if (!res.ok) return;
-        const data = await res.json();
-        const items = (data.inspections ?? data.data ?? []) as Array<{
-          id: string;
-          inspectionNumber: string;
-          propertyAddress: string;
-          status: string;
-          inspectionDate: string;
-          moistureReadings?: unknown[];
-        }>;
-        // Enrich with checklist status
-        const enriched = await Promise.all(
-          items.map(async (insp) => {
-            try {
-              const clRes = await fetch(
-                `/api/inspections/${insp.id}/voice/checklist`,
-              );
-              const cl = clRes.ok
-                ? await clRes.json()
-                : { criticalMissing: [], readyToLeave: false };
-              return {
-                id: insp.id,
-                inspectionNumber: insp.inspectionNumber,
-                propertyAddress: insp.propertyAddress,
-                status: insp.status,
-                inspectionDate: insp.inspectionDate,
-                moistureReadingCount: insp.moistureReadings?.length ?? 0,
-                criticalMissing: cl.criticalMissing?.length ?? 0,
-                readyToLeave: cl.readyToLeave ?? false,
-              } satisfies ActiveInspection;
-            } catch {
-              return {
-                id: insp.id,
-                inspectionNumber: insp.inspectionNumber,
-                propertyAddress: insp.propertyAddress,
-                status: insp.status,
-                inspectionDate: insp.inspectionDate,
-                moistureReadingCount: insp.moistureReadings?.length ?? 0,
-                criticalMissing: 0,
-                readyToLeave: false,
-              } satisfies ActiveInspection;
-            }
-          }),
-        );
-        setInspections(enriched);
-      } catch {
-        // Network failure in field (Capacitor offline) — leave list empty, don't throw
-      } finally {
-        setLoading(false);
       }
+      setIsOffline(true);
+    } finally {
+      setLoading(false);
     }
+  }
+
+  useEffect(() => {
     loadInspections();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const activeJobs = inspections.filter((i) =>
@@ -131,12 +172,38 @@ export default function FieldDashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white pb-24">
+      {/* Offline / cached-data banner */}
+      {(isOffline || fromCache) && (
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-500/15 border-b border-amber-500/20 text-amber-300 text-xs">
+          <WifiOff className="h-3.5 w-3.5 shrink-0" />
+          <span className="flex-1">
+            {isOffline
+              ? fromCache && cacheAge
+                ? `Offline — showing snapshot from ${cacheAge}`
+                : "Offline — connect to load jobs"
+              : cacheAge
+                ? `Cached snapshot from ${cacheAge}`
+                : "Showing cached data"}
+          </span>
+          {!isOffline && (
+            <button
+              type="button"
+              onClick={loadInspections}
+              className="text-amber-300/70 hover:text-amber-200"
+              aria-label="Refresh job list"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Header */}
       <div className="px-4 pt-6 pb-4">
         <p className="text-white/50 text-sm">{greeting}</p>
         <h1 className="text-2xl font-bold text-white">Field Dashboard</h1>
         <p className="text-white/40 text-sm mt-0.5">
-          {activeJobs.length} active job{activeJobs.length !== 1 ? "s" : ""}
+          {loading ? "Loading…" : `${activeJobs.length} active job${activeJobs.length !== 1 ? "s" : ""}`}
         </p>
       </div>
 
@@ -184,12 +251,21 @@ export default function FieldDashboardPage() {
           <p className="text-xs text-white/40 uppercase tracking-wider">
             Active jobs
           </p>
-          <Link
-            href="/dashboard/inspections"
-            className="text-xs text-[#D4A574]"
-          >
-            All jobs
-          </Link>
+          <div className="flex items-center gap-3">
+            {!loading && !isOffline && (
+              <button
+                type="button"
+                onClick={loadInspections}
+                aria-label="Refresh job list"
+                className="text-white/30 hover:text-white/60 transition-colors"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+              </button>
+            )}
+            <Link href="/dashboard/inspections" className="text-xs text-[#D4A574]">
+              All jobs
+            </Link>
+          </div>
         </div>
 
         {loading ? (
@@ -198,14 +274,18 @@ export default function FieldDashboardPage() {
           </div>
         ) : activeJobs.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-white/30 text-sm mb-4">No active jobs</p>
-            <Link
-              href="/dashboard/inspections/new"
-              className="inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-[#1C2E47] text-white text-sm font-medium"
-            >
-              <Plus className="h-4 w-4" />
-              Start new inspection
-            </Link>
+            <p className="text-white/30 text-sm mb-4">
+              {isOffline ? "Go online to load your jobs" : "No active jobs"}
+            </p>
+            {!isOffline && (
+              <Link
+                href="/dashboard/inspections/new"
+                className="inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-[#1C2E47] text-white text-sm font-medium"
+              >
+                <Plus className="h-4 w-4" />
+                Start new inspection
+              </Link>
+            )}
           </div>
         ) : (
           <div className="space-y-3">
