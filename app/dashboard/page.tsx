@@ -268,7 +268,7 @@ export default function DashboardPage() {
             >
               Dashboard Overview
             </h1>
-            <p className="text-slate-400">
+            <p className="text-slate-500 dark:text-slate-400">
               Welcome back, {session?.user?.name?.split(" ")[0]}! Here's what's
               happening with your restoration reports.
             </p>
@@ -302,7 +302,7 @@ export default function DashboardPage() {
                   <p className={`text-3xl font-bold ${stat.color}`}>
                     {stat.value}
                   </p>
-                  <p className="text-slate-400 text-sm font-medium">
+                  <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">
                     {stat.label}
                   </p>
                 </div>
@@ -346,13 +346,13 @@ export default function DashboardPage() {
                           <h3 className="font-medium text-white group-hover:text-cyan-400 transition-colors">
                             {action.title}
                           </h3>
-                          <p className="text-slate-400 text-sm mt-1">
+                          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
                             {action.description}
                           </p>
                         </div>
                         <ArrowRight
                           size={16}
-                          className="text-slate-400 group-hover:text-cyan-400 transition-colors flex-shrink-0"
+                          className="text-slate-500 dark:text-slate-400 group-hover:text-cyan-400 transition-colors flex-shrink-0"
                         />
                       </div>
                     </motion.a>
@@ -400,7 +400,7 @@ export default function DashboardPage() {
                           <p className="text-white text-sm font-medium">
                             {activity.action}
                           </p>
-                          <p className="text-slate-400 text-xs">
+                          <p className="text-slate-500 dark:text-slate-400 text-xs">
                             {activity.time}
                           </p>
                         </div>
@@ -408,7 +408,7 @@ export default function DashboardPage() {
                     ))
                   ) : (
                     <div className="text-center py-4">
-                      <p className="text-slate-400 text-sm">
+                      <p className="text-slate-500 dark:text-slate-400 text-sm">
                         No recent activity
                       </p>
                       <p className="text-slate-500 text-xs mt-1">
@@ -483,7 +483,7 @@ export default function DashboardPage() {
                         className={`text-xs font-bold ${
                           dashboardData.totalClients > 0
                             ? "text-emerald-400"
-                            : "text-slate-400"
+                            : "text-slate-500 dark:text-slate-400"
                         }`}
                       >
                         2
@@ -493,7 +493,7 @@ export default function DashboardPage() {
                       className={`text-sm ${
                         dashboardData.totalClients > 0
                           ? "text-emerald-300"
-                          : "text-slate-400"
+                          : "text-slate-500 dark:text-slate-400"
                       }`}
                     >
                       {dashboardData.totalClients > 0
@@ -504,11 +504,11 @@ export default function DashboardPage() {
 
                   <div className="flex items-center gap-3 p-3 bg-slate-700/30 rounded-lg">
                     <div className="w-6 h-6 bg-slate-600/50 rounded-full flex items-center justify-center">
-                      <span className="text-slate-400 text-xs font-bold">
+                      <span className="text-slate-500 dark:text-slate-400 text-xs font-bold">
                         3
                       </span>
                     </div>
-                    <p className="text-slate-400 text-sm">
+                    <p className="text-slate-500 dark:text-slate-400 text-sm">
                       Explore analytics & insights
                     </p>
                   </div>
@@ -531,7 +531,7 @@ export default function DashboardPage() {
               >
                 Performance Overview
               </h2>
-              <div className="flex items-center gap-2 text-sm text-slate-400">
+              <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
                 <Activity size={16} />
                 <span>Last 30 days</span>
               </div>
@@ -547,7 +547,7 @@ export default function DashboardPage() {
                     ? "..."
                     : `${Math.round((dashboardData.totalReports / Math.max(dashboardData.totalClients, 1)) * 100)}%`}
                 </h3>
-                <p className="text-slate-400 text-sm">Reports per Client</p>
+                <p className="text-slate-500 dark:text-slate-400 text-sm">Reports per Client</p>
               </div>
 
               <div className="text-center">
@@ -559,7 +559,7 @@ export default function DashboardPage() {
                     ? "..."
                     : `${dashboardData.recentReports.filter((r: any) => r.status !== "Draft").length}/${dashboardData.totalReports || 1}`}
                 </h3>
-                <p className="text-slate-400 text-sm">Completed Reports</p>
+                <p className="text-slate-500 dark:text-slate-400 text-sm">Completed Reports</p>
               </div>
 
               <div className="text-center">
@@ -571,7 +571,7 @@ export default function DashboardPage() {
                     ? "..."
                     : `$${dashboardData.totalRevenue.toLocaleString()}`}
                 </h3>
-                <p className="text-slate-400 text-sm">Total Revenue</p>
+                <p className="text-slate-500 dark:text-slate-400 text-sm">Total Revenue</p>
               </div>
             </div>
           </motion.div>
@@ -606,7 +606,7 @@ export default function DashboardPage() {
             ) : dashboardData.recentReports.length === 0 ? (
               <div className="text-center py-8">
                 <FileText size={32} className="text-slate-600 mx-auto mb-3" />
-                <p className="text-slate-400 text-sm">No reports yet</p>
+                <p className="text-slate-500 dark:text-slate-400 text-sm">No reports yet</p>
                 <Link
                   href="/dashboard/reports/new"
                   className="inline-flex items-center gap-1.5 mt-3 text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
@@ -637,7 +637,7 @@ export default function DashboardPage() {
                           <p className="text-white text-sm font-medium truncate group-hover:text-cyan-400 transition-colors">
                             {report.title}
                           </p>
-                          <p className="text-slate-400 text-xs truncate mt-0.5">
+                          <p className="text-slate-500 dark:text-slate-400 text-xs truncate mt-0.5">
                             {report.clientName}
                           </p>
                         </div>
@@ -648,7 +648,7 @@ export default function DashboardPage() {
                               ? "bg-emerald-500/20 text-emerald-400"
                               : report.status === "PENDING"
                                 ? "bg-amber-500/20 text-amber-400"
-                                : "bg-slate-500/20 text-slate-400"
+                                : "bg-slate-500/20 text-slate-500 dark:text-slate-400"
                           }`}
                         >
                           {report.status}
@@ -656,7 +656,7 @@ export default function DashboardPage() {
                       </div>
 
                       {/* Cost + category row */}
-                      <div className="flex items-center gap-3 text-xs text-slate-400 mb-1">
+                      <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mb-1">
                         {report.waterCategory && (
                           <span>{report.waterCategory}</span>
                         )}
@@ -675,7 +675,7 @@ export default function DashboardPage() {
                       {hasSessionData && (
                         <div className="flex items-center gap-2 mt-2 flex-wrap">
                           {fanOutCount > 0 && (
-                            <span className="flex items-center gap-1 text-xs text-slate-400 bg-slate-700/50 px-1.5 py-0.5 rounded">
+                            <span className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 bg-slate-700/50 px-1.5 py-0.5 rounded">
                               <GitBranch size={10} />
                               {fanOutCount} sessions
                             </span>
@@ -698,7 +698,7 @@ export default function DashboardPage() {
                       {report.phases && report.phases.length > 0 && (
                         <div className="mt-3 pt-3 border-t border-slate-700/50">
                           <div className="flex items-center justify-between text-xs mb-1">
-                            <span className="text-slate-400">Phases</span>
+                            <span className="text-slate-500 dark:text-slate-400">Phases</span>
                             <span className="text-slate-300">
                               {report.phases.filter((p) => p.completed).length}/
                               {report.phases.length}
