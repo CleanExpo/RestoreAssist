@@ -14,6 +14,10 @@
  *   service/characteristic UUIDs are defined per device profile. Reading
  *   data is parsed into NIR form-ready types.
  *
+ *   On iOS (Capacitor WKWebView) Web Bluetooth is blocked. Phase 1 devices
+ *   (Testo 605-H1, Vaisala HM70) that use standard ESS UUIDs are served
+ *   by the Capacitor native bridge in lib/capacitor-bluetooth-bridge.ts.
+ *
  * IMPORTANT — UUID STATUS:
  *   The GATT UUIDs below are placeholder values. Final UUIDs must be validated
  *   against current device firmware from each manufacturer:
@@ -21,11 +25,9 @@
  *     Delmhorst: Contact support@delmhorst.com for BD-2100 BLE spec
  *     Testo:     Testo Smart App SDK (developer.testo.com)
  *     Vaisala:   Vaisala Insight PC software BLE profile documentation
- *
- * BROWSER ONLY: Requires HTTPS + Web Bluetooth API (Chromium 56+).
- * iOS Safari does not support Web Bluetooth — iOS field use requires
- * a native WebView wrapper or React Native bridge for Bluetooth access.
  */
+
+import { isCapacitorIOS } from "./capacitor";
 
 // ─── Web Bluetooth API type stubs (not in default lib.dom.d.ts) ──────────────
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -132,6 +134,12 @@ export interface PairedDevice {
   characteristic: BluetoothRemoteGATTCharacteristic;
   /** Remove notification listener and disconnect */
   disconnect: () => Promise<void>;
+  /**
+   * Set when the device is connected via the Capacitor native BLE bridge
+   * (iOS only). When present, reads are routed through the bridge instead
+   * of Web Bluetooth.
+   */
+  _capacitorDeviceId?: string;
 }
 
 export type BluetoothAvailability =
@@ -148,6 +156,11 @@ export type BluetoothAvailability =
  */
 export async function checkBluetoothAvailability(): Promise<BluetoothAvailability> {
   if (typeof window === "undefined") return "unavailable-no-api";
+
+  // iOS Capacitor shell: Web Bluetooth is blocked but the native bridge handles it
+  if (isCapacitorIOS()) {
+    return "available";
+  }
 
   // iOS Safari does not support Web Bluetooth
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
@@ -183,11 +196,37 @@ export async function checkBluetoothAvailability(): Promise<BluetoothAvailabilit
  * @returns PairedDevice with disconnect function
  */
 export async function pairDevice(deviceKey: DeviceKey): Promise<PairedDevice> {
+  const profile = DEVICE_PROFILES[deviceKey];
+
+  // iOS Capacitor path — Web Bluetooth is blocked; use the native bridge.
+  // Phase 1 supports ESS devices (Testo 605-H1 and Vaisala HM70) only.
+  if (isCapacitorIOS()) {
+    if (profile.category !== "thermo-hygrometer") {
+      throw new Error(
+        `${profile.name} is not supported on iOS in Phase 1. Only Testo 605-H1 and Vaisala HM70 are available.`,
+      );
+    }
+    const { scanAndConnect, disconnect: bridgeDisconnect } = await import(
+      "./capacitor-bluetooth-bridge"
+    );
+    const nameFilters = profile.filters.map((f) =>
+      "namePrefix" in f ? (f as { namePrefix: string }).namePrefix : "",
+    );
+    const capacitorDeviceId = await scanAndConnect(nameFilters);
+    return {
+      key: deviceKey,
+      name: profile.name,
+      category: profile.category,
+      bluetoothDevice: null,
+      characteristic: null,
+      _capacitorDeviceId: capacitorDeviceId,
+      disconnect: () => bridgeDisconnect(capacitorDeviceId),
+    };
+  }
+
   if (typeof window === "undefined" || !("bluetooth" in navigator)) {
     throw new Error("Web Bluetooth API not available in this environment");
   }
-
-  const profile = DEVICE_PROFILES[deviceKey];
 
   const bluetoothDevice = (await (navigator.bluetooth as any).requestDevice({
     filters: profile.filters,
@@ -250,6 +289,24 @@ export async function readEnvironmentalData(
 ): Promise<EnvironmentalReading> {
   if (device.category !== "thermo-hygrometer") {
     throw new Error(`Device ${device.name} is not a thermo-hygrometer`);
+  }
+
+  // iOS Capacitor path — reads go through the native bridge
+  if (device._capacitorDeviceId) {
+    const { readHumidity, readTemperature } = await import(
+      "./capacitor-bluetooth-bridge"
+    );
+    const rh = await readHumidity(device._capacitorDeviceId);
+    const temperatureCelsius = await readTemperature(device._capacitorDeviceId);
+    const dewPointCelsius = calculateDewPoint(rh, temperatureCelsius);
+    return {
+      deviceKey: device.key,
+      deviceName: device.name,
+      relativeHumidityPercent: rh,
+      temperatureCelsius,
+      dewPointCelsius,
+      readingTimestamp: new Date().toISOString(),
+    };
   }
 
   const rhValue = await device.characteristic.readValue();

@@ -59,5 +59,9 @@
 	<string>RestoreAssist uses your location to auto-fill the property address on new inspections.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>RestoreAssist uses Face ID to protect your account when the app resumes.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>RestoreAssist uses Bluetooth to connect to moisture meters on job sites.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>RestoreAssist uses Bluetooth to read moisture meter data.</string>
 </dict>
 </plist>
