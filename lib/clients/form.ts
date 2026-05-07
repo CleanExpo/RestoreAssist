@@ -2,7 +2,7 @@
 // app/dashboard/clients/page.tsx. Used by both the Add and Edit modals.
 
 import { z } from "zod";
-import type { useForm } from "react-hook-form";
+import type { UseFormReturn } from "react-hook-form";
 
 // RA-1215 — long add/edit client forms (10+ fields) previously showed
 // validation errors via react-hot-toast which disappears after 4s. Users
@@ -39,7 +39,9 @@ export const CLIENT_FORM_DEFAULTS: ClientFormValues = {
 // Returns true when a field error was set (render inline), false when caller
 // should fall back to toast (generic / unclassifiable).
 export function applyServerFieldError(
-  form: ReturnType<typeof useForm<ClientFormValues>>,
+  // RA-1940: hookform-resolvers v5 changed the third generic param; accept any
+  // UseFormReturn shape since we only use form.setError() here.
+  form: Pick<UseFormReturn<ClientFormValues>, "setError">,
   message: string | undefined,
 ): boolean {
   if (!message) return false;

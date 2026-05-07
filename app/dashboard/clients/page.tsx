@@ -14,7 +14,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { isCapacitorIOS } from "@/lib/capacitor";
 import { useEffect, useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, type Resolver, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
 import { cn } from "@/lib/utils";
@@ -121,8 +121,11 @@ export default function ClientsPage() {
 
   // RA-1215 — shared form instance for Add + Edit modals so validation
   // errors render inline against the offending field instead of a toast.
-  const form = useForm<ClientFormValues>({
-    resolver: zodResolver(clientFormSchema),
+  // RA-1940: hookform-resolvers v5 tightened resolver generics; explicit type
+  // annotation resolves the TFieldValues generic that TS can't infer through
+  // the zodResolver cast when optional-with-default fields split input/output.
+  const form: UseFormReturn<ClientFormValues> = useForm<ClientFormValues>({
+    resolver: zodResolver(clientFormSchema) as Resolver<ClientFormValues>,
     defaultValues: CLIENT_FORM_DEFAULTS,
     mode: "onBlur",
   });
