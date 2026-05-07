@@ -1,0 +1,28 @@
+{
+  "status": "partial",
+  "confidence": "high",
+  "source": "static-check",
+  "claims_total": 3,
+  "claims_verified": 0,
+  "claims_failed": 0,
+  "claims_unverified": 0,
+  "claims_warned": 3,
+  "verified": [],
+  "failed": [],
+  "unverified": [],
+  "warnings": [
+    {
+      "claim": "isCapacitorIOS() branch with no obvious early-return / redirect / BillingGate",
+      "path": "/Users/phill-mac/RestoreAssist/app/dashboard/credits/page.tsx"
+    },
+    {
+      "claim": "isCapacitorIOS() branch with no obvious early-return / redirect / BillingGate",
+      "path": "/Users/phill-mac/RestoreAssist/app/dashboard/layout.tsx"
+    },
+    {
+      "claim": "isCapacitorIOS() branch with no obvious early-return / redirect / BillingGate",
+      "path": "/Users/phill-mac/RestoreAssist/app/dashboard/settings/page.tsx"
+    }
+  ],
+  "feedback": ""
+}
