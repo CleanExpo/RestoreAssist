@@ -43,7 +43,10 @@ export async function GET(request: NextRequest) {
       }),
       prisma.report.findMany({
         where: { userId: session.user.id },
-        take: 10000, // CLAUDE.md rule 4 — export cap
+        // RA-1333: capped at 1000 to prevent OOM on large accounts.
+        // Nested lineItems removed — a full join on 10k reports × estimates
+        // × lineItems can produce 100MB+ JSON and OOM the Vercel function.
+        take: 1000,
         include: {
           client: {
             select: {
@@ -55,11 +58,16 @@ export async function GET(request: NextRequest) {
             },
           },
           estimates: {
-            include: {
-              lineItems: true,
+            select: {
+              id: true,
+              title: true,
+              status: true,
+              totalExGST: true,
+              createdAt: true,
             },
           },
         },
+        orderBy: { createdAt: "desc" },
       }),
       prisma.client.findMany({
         where: { userId: session.user.id },

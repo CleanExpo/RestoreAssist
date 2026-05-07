@@ -377,8 +377,15 @@ export async function POST(request: NextRequest) {
       });
 
       // After saving, trigger intelligent standards analysis in background
-      // This prepares standards context for when user generates the report
-      try {
+      // This prepares standards context for when user generates the report.
+      // RA-1325: gate behind ACTIVE/LIFETIME — TRIAL accounts can create 30
+      // reports and each fires an Anthropic call, enabling cost amplification
+      // via signup spam. TRIAL users still get standards at report-generation
+      // time (on demand) so feature parity is maintained.
+      const isUpgradedAccount = ["ACTIVE", "LIFETIME"].includes(
+        user.subscriptionStatus ?? "",
+      );
+      if (isUpgradedAccount) try {
         const { retrieveRelevantStandards } =
           await import("@/lib/standards-retrieval");
 

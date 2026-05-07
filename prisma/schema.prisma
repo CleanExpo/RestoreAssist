@@ -1111,6 +1111,7 @@ model WebhookEvent {
   @@index([status, createdAt])
   @@index([integrationId, status])
   @@index([provider, integrationId])
+  @@index([processedAt]) // RA-1231 retention cron + "last N events" query
 }
 
 // RA-848: Xero account code mappings — per-integration, per-category routing
@@ -3266,7 +3267,10 @@ model PropertyLookup {
 
   // Relations
   inspectionId String?     @unique // One property lookup per inspection (one-to-one)
-  inspection   Inspection? @relation(fields: [inspectionId], references: [id], onDelete: SetNull)
+  // RA-1326: Cascade so PropertyLookup is removed when Inspection is deleted —
+  // prevents orphaned cache rows and ensures AU Privacy Act compliance on
+  // account/inspection deletion.
+  inspection   Inspection? @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -3793,6 +3797,7 @@ model InvoiceLineItem {
   createdAt DateTime @default(now())
 
   @@index([invoiceId, sortOrder])
+  @@index([estimateLineItemId]) // RA-1227 lookup index (no formal @relation — ref only)
 }
 
 // Payment Records

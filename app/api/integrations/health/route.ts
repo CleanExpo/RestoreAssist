@@ -168,7 +168,42 @@ export async function GET(request: NextRequest) {
       overallStatus = "degraded";
     }
 
-    // Check 6: DR-NRPG integration freshness (RA-1287)
+    // Check 6: Ascora integration freshness (RA-1237)
+    const ascora = await (prisma as any).ascoraIntegration.findUnique({
+      where: { userId: session.user.id },
+      select: { isActive: true, lastSyncAt: true },
+    });
+
+    if (ascora) {
+      const lastSync: Date | null = ascora.lastSyncAt ?? null;
+      const ageMs = lastSync
+        ? Date.now() - lastSync.getTime()
+        : Number.POSITIVE_INFINITY;
+      const stale = ageMs > 48 * 60 * 60 * 1000;
+      const inactive = !ascora.isActive;
+
+      const ascoraStatus: "pass" | "warn" | "fail" = inactive
+        ? "fail"
+        : stale
+          ? "warn"
+          : "pass";
+
+      checks.push({
+        name: "Ascora Liveness",
+        status: ascoraStatus,
+        message: inactive
+          ? "Ascora integration is deactivated"
+          : stale
+            ? `Ascora last synced >${Math.floor(ageMs / 3_600_000)}h ago`
+            : "Ascora integration is fresh",
+        details: { isActive: ascora.isActive, lastSyncAt: lastSync },
+      });
+
+      if (inactive && overallStatus !== "unhealthy") overallStatus = "unhealthy";
+      else if (stale && overallStatus === "healthy") overallStatus = "degraded";
+    }
+
+    // Check 7: DR-NRPG integration freshness (RA-1287)
     // The DrNrpgIntegration model uses a long-lived API key; the daily
     // dr-nrpg-liveness cron pings it and updates lastSyncAt. If the last
     // successful probe is older than 48h, surface as degraded so the user
