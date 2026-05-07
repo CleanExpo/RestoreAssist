@@ -255,6 +255,18 @@ export async function POST(request: NextRequest) {
         { status: 201 },
       );
     } catch (e) {
+      // RA-1800 — P2002 from the user.create inside the transaction means a
+      // duplicate email slipped past the findUnique check (race condition).
+      // Return 400 CONFLICT, not 500, so the client can surface a useful message.
+      const eCode = (e as { code?: string; cause?: { code?: string } })?.code
+        ?? (e as { cause?: { code?: string } })?.cause?.code;
+      if (eCode === "P2002") {
+        return apiError(request, {
+          code: "CONFLICT",
+          message: "User with this email already exists",
+          status: 400,
+        });
+      }
       // RA-1305 — the previous fallback created a User-only row (no
       // Organization, no organizationId) and returned 201 with warning
       // text. That left an ADMIN user orphaned from any org, which
@@ -284,8 +296,11 @@ export async function POST(request: NextRequest) {
       message,
       stack ?? String(error),
     );
-    const prismaError = error as { code?: string };
-    if (prismaError?.code === "P2002") {
+    // RA-1800 — check both error.code and error.cause.code; Prisma wraps
+    // transaction P2002s differently depending on context.
+    const prismaError = error as { code?: string; cause?: { code?: string } };
+    const p2002 = prismaError?.code === "P2002" || prismaError?.cause?.code === "P2002";
+    if (p2002) {
       return apiError(request, {
         code: "CONFLICT",
         message: "User with this email already exists",

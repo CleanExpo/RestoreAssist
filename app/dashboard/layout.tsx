@@ -151,7 +151,12 @@ export default function DashboardLayout({
   }
 
   const handleLogout = async () => {
-    await signOut({ callbackUrl: "/" });
+    // RA-1818 — signOut({ callbackUrl }) can silently fail on prod when the
+    // Next.js router intercepts the redirect before the cookie is cleared.
+    // Using redirect:false + window.location forces a full navigation that
+    // guarantees the session cookie is gone before the page reloads.
+    await signOut({ redirect: false });
+    window.location.href = "/";
   };
 
   // Check if user is a Manager or Technician (they should be linked to an Admin)
