@@ -19,26 +19,37 @@
 // embedded browser when running in the iOS shell, and behaves
 // identically to the unwrapped `signIn` on web.
 //
-// ─── Known limitation (tracked for follow-up) ─────────────────────────
+// ─── Cookie handoff (RA-2073, 1.0.2) ──────────────────────────────────
 //
-// Cookie isolation: the SFSafariViewController has its own cookie jar
-// that does NOT share with the parent WKWebView. So when next-auth
-// completes the OAuth dance and sets a `restoreassist.app` session
-// cookie inside the SFSafariViewController, the user closes the
-// browser and lands back in the WebView WITHOUT a session.
+// SFSafariViewController has its own cookie jar that does NOT share with
+// the parent WKWebView. So when next-auth completes the OAuth dance and
+// sets `__Secure-next-auth.session-token` inside SFVC, the user lands
+// back in the WebView WITHOUT a session — that's the loop reported on
+// 1.0.1.
 //
-// Two follow-up fixes are tracked in RA-1842:
-//   1. Universal Links (Apple App Site Association at /.well-known/
-//      apple-app-site-association + associated-domains capability) —
-//      when the OAuth callback redirects to https://restoreassist.app/
-//      dashboard, iOS auto-closes SFSafariViewController and routes
-//      the URL into the WebView. The session cookie travels with it.
-//   2. Sign in with Apple (Apple guideline 4.8) — uses native
-//      ASAuthorizationController which has proper cookie integration
-//      with the parent app. Strongly preferred long-term for iOS.
+// Universal Links route URLs but not cookies, so they alone don't close
+// this gap (the original 1.0(11) assumption was wrong). The fix is the
+// RFC-8252-style token handoff used by Google App Flip and AppAuth-iOS:
 //
-// For PR #866 the goal is narrow: get past Apple's ground-3
-// rejection. The session-cookie UX gap closes when 1 or 2 ships.
+//   1. On iOS, this wrapper rewrites the OAuth callbackUrl to
+//      `/api/auth/handoff/initiate?next=<original>`. NextAuth lands
+//      users there post-callback (still inside SFVC, with the cookie
+//      set in SFVC's jar).
+//   2. /api/auth/handoff/initiate reads the cookie value verbatim,
+//      mints a one-time handoff token, persists token+JWT (60s TTL),
+//      and 302s to /auth/redeem?token=X&next=Y.
+//   3. /auth/redeem matches the AASA "/*" rule → iOS Universal Links
+//      intercepts the redirect, closes SFVC, opens /auth/redeem in
+//      the parent WKWebView.
+//   4. /auth/redeem returns 302 to `next` with `Set-Cookie:
+//      __Secure-next-auth.session-token=<persisted JWT>`. The
+//      cookie lands in WKWebView's jar (because it's a response to a
+//      WKWebView fetch) and the user lands on the target with a
+//      working session.
+//
+// On web (or non-iOS Capacitor), this wrapper falls through to plain
+// `signIn(provider, options)` and the handoff dance is skipped — the
+// cookie is set in the same browser context as the WebView.
 
 "use client";
 
@@ -54,9 +65,9 @@ export type OAuthProvider = "google" | "apple";
  * On web: identical behaviour to `next-auth/react#signIn(provider, options)`.
  *
  * On iOS Capacitor: opens `/api/auth/signin/{provider}?callbackUrl=...`
- * in SFSafariViewController. The user completes Google OAuth inside
- * the embedded browser. **Cookie sync to the WebView is a follow-up**
- * (Universal Links or Sign in with Apple).
+ * in SFSafariViewController, with the callbackUrl wrapped to route
+ * through `/api/auth/handoff/initiate` so the session cookie ferries
+ * cleanly into the WKWebView (RA-2073, see comment block above).
  */
 export async function signInWithOAuth(
   provider: OAuthProvider,
@@ -69,25 +80,40 @@ export async function signInWithOAuth(
   }
 
   // iOS — build the next-auth signin URL ourselves and hand it to
-  // SFSafariViewController. The redirect inside the embedded browser
-  // hits accounts.google.com → next-auth callback → restoreassist.app
-  // dashboard. iOS auto-closes the SFSafariViewController when the
-  // final redirect lands on a Universal-Linked URL (RA-1842 follow-up).
-  const callbackUrl = options?.callbackUrl ?? "/dashboard";
-  const absoluteCallback = callbackUrl.startsWith("http")
-    ? callbackUrl
-    : new URL(
-        callbackUrl,
-        typeof window !== "undefined"
-          ? window.location.origin
-          : "https://restoreassist.app",
-      ).toString();
-
-  const params = new URLSearchParams({ callbackUrl: absoluteCallback });
-  const url =
+  // SFSafariViewController.
+  const origin =
     typeof window !== "undefined"
-      ? new URL(`/api/auth/signin/${provider}?${params}`, window.location.origin).toString()
-      : `https://restoreassist.app/api/auth/signin/${provider}?${params}`;
+      ? window.location.origin
+      : "https://restoreassist.app";
+
+  const requestedCallback = options?.callbackUrl ?? "/dashboard";
+  const absoluteRequestedCallback = requestedCallback.startsWith("http")
+    ? requestedCallback
+    : new URL(requestedCallback, origin).toString();
+
+  // Route the OAuth callback through /api/auth/handoff/initiate so the
+  // session cookie set in SFVC's jar gets ferried into the WKWebView.
+  // The "next" query param is the URL the user actually wanted (e.g.
+  // /dashboard); /auth/redeem will 302 there with Set-Cookie.
+  const handoffUrl = new URL("/api/auth/handoff/initiate", origin);
+  // Pass `next` as a path or absolute URL — the initiate handler
+  // restricts to same-origin paths defensively.
+  const requestedAsPath = (() => {
+    try {
+      const u = new URL(absoluteRequestedCallback);
+      return u.origin === origin ? `${u.pathname}${u.search}${u.hash}` : "/dashboard";
+    } catch {
+      return "/dashboard";
+    }
+  })();
+  handoffUrl.searchParams.set("next", requestedAsPath);
+  const callbackUrlForOAuth = handoffUrl.toString();
+
+  const params = new URLSearchParams({ callbackUrl: callbackUrlForOAuth });
+  const url = new URL(
+    `/api/auth/signin/${provider}?${params}`,
+    origin,
+  ).toString();
 
   await openInAppBrowser(url, { presentationStyle: "fullscreen" });
 }

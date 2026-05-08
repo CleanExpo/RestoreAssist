@@ -24,8 +24,19 @@ DO $$ BEGIN
 END $$;
 
 -- RA-1233: XeroAccountCodeMapping reverse lookup — accountCode → category
+-- The original guard checked table existence, but on fresh CI databases the
+-- table exists without `integrationId` (the column lives in prod via schema
+-- drift not captured in any tracked migration). Adding a column guard skips
+-- the index on CI while preserving the prod-applied behaviour. Prod already
+-- has both column and index; `prisma migrate deploy` skips this migration
+-- as already-applied without re-validating the SQL checksum.
 DO $$ BEGIN
-  IF EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'XeroAccountCodeMapping') THEN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'XeroAccountCodeMapping'
+      AND column_name = 'integrationId'
+  ) THEN
     CREATE INDEX IF NOT EXISTS "XeroAccountCodeMapping_integrationId_accountCode_idx"
       ON "XeroAccountCodeMapping"("integrationId", "accountCode");
   END IF;
