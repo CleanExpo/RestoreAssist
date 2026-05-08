@@ -21,7 +21,11 @@ export type SecurityEventType =
   | "CSRF_REJECTED"
   // RA-1593 — global session revoke. JWT rotation picks this up on the
   // next refresh (max 24h lag given `updateAge: 86400`).
-  | "SESSIONS_REVOKED";
+  | "SESSIONS_REVOKED"
+  // RA-2073 (1.0.3) — native iOS Sign in with Apple via
+  // ASAuthorizationController. Logged on each call to
+  // /api/auth/native-token-exchange (success and failure paths).
+  | "OAUTH_NATIVE_TOKEN_EXCHANGE";
 
 export type SecuritySeverity = "INFO" | "WARNING" | "CRITICAL";
 

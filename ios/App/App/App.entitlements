@@ -7,5 +7,9 @@
 		<string>applinks:restoreassist.app</string>
 		<string>webcredentials:restoreassist.app</string>
 	</array>
+	<key>com.apple.developer.applesignin</key>
+	<array>
+		<string>Default</string>
+	</array>
 </dict>
 </plist>
