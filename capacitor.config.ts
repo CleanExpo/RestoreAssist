@@ -36,6 +36,14 @@ const config: CapacitorConfig = {
       style: "dark",
       backgroundColor: "#050505",
     },
+    // Native social-login plugin. Apple-only on iOS in 1.0.3 — see
+    // lib/oauth-native.ts for context. Google left out so guideline 4.8
+    // doesn't apply on iOS; web continues to offer Google via NextAuth.
+    SocialLogin: {
+      providers: {
+        apple: true,
+      },
+    },
   },
   ios: {
     contentInset: "automatic",
