@@ -2,12 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CAPACITOR_DEBUG</key>
+	<key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>RestoreAssist</string>
+	<string>RestoreAssist</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -26,6 +26,18 @@
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>RestoreAssist uses Bluetooth to read moisture meter data.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>RestoreAssist uses your camera to photograph moisture meters, thermo-hygrometers, and laser measures so readings can be automatically extracted into your inspection report.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>RestoreAssist uses Face ID to protect your account when the app resumes.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>RestoreAssist uses your location to auto-fill the property address on new inspections.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>RestoreAssist saves inspection photos to your photo library.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>RestoreAssist accesses your photo library to attach existing inspection photos to reports.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
@@ -49,19 +61,5 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
-	<key>NSCameraUsageDescription</key>
-	<string>RestoreAssist uses your camera to photograph moisture meters, thermo-hygrometers, and laser measures so readings can be automatically extracted into your inspection report.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>RestoreAssist accesses your photo library to attach existing inspection photos to reports.</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>RestoreAssist saves inspection photos to your photo library.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>RestoreAssist uses your location to auto-fill the property address on new inspections.</string>
-	<key>NSFaceIDUsageDescription</key>
-	<string>RestoreAssist uses Face ID to protect your account when the app resumes.</string>
-	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>RestoreAssist uses Bluetooth to connect to moisture meters on job sites.</string>
-	<key>NSBluetoothPeripheralUsageDescription</key>
-	<string>RestoreAssist uses Bluetooth to read moisture meter data.</string>
 </dict>
 </plist>
