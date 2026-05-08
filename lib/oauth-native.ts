@@ -1,73 +1,47 @@
-// lib/oauth-native.ts — RA-1842 / Apple guideline 4 (Ground 3)
+// lib/oauth-native.ts — iOS auth dispatcher
 //
-// Apple App Review (build 1.0(3), 2026-05-01):
-//   "We noticed that the user is taken to the default web browser to
-//    sign in or register for an account, which provides a poor user
-//    experience. To resolve this issue, please revise the app to
-//    enable users to sign in or register for an account in the app.
-//    You may also choose to implement the Safari View Controller API
-//    to display web content within the app."
+// History:
+//   - 1.0(3) Apple rejected on guideline 4 (OAuth opening Safari).
+//     Fix: wrap in @capacitor/browser → SFSafariViewController.
+//   - 1.0.1(11) un-gated Continue with Google + Continue with Apple.
+//     Result: production loop — SFVC sets cookie in its own jar,
+//     WKWebView never sees it.
+//   - 1.0.2(12) tried RFC-8252 token-handoff via Universal Links.
+//     Result: same loop. Universal Links don't reliably intercept
+//     server-side 302 redirects from inside SFSafariViewController.
 //
-// `next-auth`'s `signIn(provider, options)` does `window.location.href`
-// which on iOS Capacitor gets punted to Safari proper for any redirect
-// to a non-allow-listed origin (e.g. accounts.google.com). That's
-// what Apple's reviewer flagged.
+// 1.0.3 (RA-2073): bypass SFSafariViewController entirely on iOS.
+//   - Apple: native ASAuthorizationController via
+//     @capacitor-community/apple-sign-in. Plugin returns identity JWT
+//     to JS running INSIDE the WKWebView. JS POSTs to
+//     /api/auth/native-token-exchange (also from inside WKWebView), so
+//     Set-Cookie lands in WKWebView's jar — directly, no handoff.
+//   - Google: hidden on iOS in this build. The community Google
+//     Capacitor plugin is unmaintained; rather than ship a fragile
+//     dependency, iOS users sign in via Apple or email/password.
+//     (Apple guideline 4.8 only triggers when offering a third-party
+//     login alongside Apple; with no Google on iOS, 4.8 doesn't apply.)
 //
-// `@capacitor/browser` opens URLs in `SFSafariViewController` on iOS,
-// which Apple explicitly accepts as the in-app sign-in pattern. This
-// module wraps `next-auth` so the OAuth dance happens inside the
-// embedded browser when running in the iOS shell, and behaves
-// identically to the unwrapped `signIn` on web.
-//
-// ─── Cookie handoff (RA-2073, 1.0.2) ──────────────────────────────────
-//
-// SFSafariViewController has its own cookie jar that does NOT share with
-// the parent WKWebView. So when next-auth completes the OAuth dance and
-// sets `__Secure-next-auth.session-token` inside SFVC, the user lands
-// back in the WebView WITHOUT a session — that's the loop reported on
-// 1.0.1.
-//
-// Universal Links route URLs but not cookies, so they alone don't close
-// this gap (the original 1.0(11) assumption was wrong). The fix is the
-// RFC-8252-style token handoff used by Google App Flip and AppAuth-iOS:
-//
-//   1. On iOS, this wrapper rewrites the OAuth callbackUrl to
-//      `/api/auth/handoff/initiate?next=<original>`. NextAuth lands
-//      users there post-callback (still inside SFVC, with the cookie
-//      set in SFVC's jar).
-//   2. /api/auth/handoff/initiate reads the cookie value verbatim,
-//      mints a one-time handoff token, persists token+JWT (60s TTL),
-//      and 302s to /auth/redeem?token=X&next=Y.
-//   3. /auth/redeem matches the AASA "/*" rule → iOS Universal Links
-//      intercepts the redirect, closes SFVC, opens /auth/redeem in
-//      the parent WKWebView.
-//   4. /auth/redeem returns 302 to `next` with `Set-Cookie:
-//      __Secure-next-auth.session-token=<persisted JWT>`. The
-//      cookie lands in WKWebView's jar (because it's a response to a
-//      WKWebView fetch) and the user lands on the target with a
-//      working session.
-//
-// On web (or non-iOS Capacitor), this wrapper falls through to plain
-// `signIn(provider, options)` and the handoff dance is skipped — the
-// cookie is set in the same browser context as the WebView.
+// Web is unchanged: standard next-auth/react `signIn(provider, options)`.
 
 "use client";
 
 import { signIn, type SignInOptions } from "next-auth/react";
-import { isCapacitorIOS, openInAppBrowser } from "@/lib/capacitor";
+import { isCapacitorIOS } from "@/lib/capacitor";
 
 export type OAuthProvider = "google" | "apple";
 
+const APPLE_BUNDLE_ID =
+  process.env.NEXT_PUBLIC_APPLE_BUNDLE_ID ?? "com.restoreassist.app";
+
 /**
- * Sign in with an external OAuth provider, using the Capacitor in-app
- * browser when on iOS so the OAuth flow stays inside SFSafariViewController.
+ * Sign in with an external OAuth provider.
  *
- * On web: identical behaviour to `next-auth/react#signIn(provider, options)`.
+ * Web: identical to `next-auth/react#signIn(provider, options)`.
  *
- * On iOS Capacitor: opens `/api/auth/signin/{provider}?callbackUrl=...`
- * in SFSafariViewController, with the callbackUrl wrapped to route
- * through `/api/auth/handoff/initiate` so the session cookie ferries
- * cleanly into the WKWebView (RA-2073, see comment block above).
+ * iOS Capacitor:
+ *   - Apple → native ASAuthorizationController + token exchange.
+ *   - Google → not supported on iOS in 1.0.3; throws so UI bugs surface.
  */
 export async function signInWithOAuth(
   provider: OAuthProvider,
@@ -79,41 +53,108 @@ export async function signInWithOAuth(
     return;
   }
 
-  // iOS — build the next-auth signin URL ourselves and hand it to
-  // SFSafariViewController.
-  const origin =
-    typeof window !== "undefined"
-      ? window.location.origin
-      : "https://restoreassist.app";
+  // iOS branch
+  if (provider === "google") {
+    // Continue with Google is hidden on iOS in 1.0.3 (see app/login/page.tsx
+    // and app/signup/page.tsx — the iOS-detect effect sets hideGoogleOnIos).
+    // If we're here, the UI gate failed — surface the bug instead of falling
+    // back to the broken SFVC flow.
+    throw new Error(
+      "Continue with Google is not available on iOS in this build. " +
+        "Please use Continue with Apple or email/password.",
+    );
+  }
 
-  const requestedCallback = options?.callbackUrl ?? "/dashboard";
-  const absoluteRequestedCallback = requestedCallback.startsWith("http")
-    ? requestedCallback
-    : new URL(requestedCallback, origin).toString();
+  // Apple — native ASAuthorizationController via Capacitor plugin.
+  // Lazy-import so the web bundle doesn't pull in the plugin code.
+  const { SignInWithApple } = await import(
+    "@capacitor-community/apple-sign-in"
+  );
 
-  // Route the OAuth callback through /api/auth/handoff/initiate so the
-  // session cookie set in SFVC's jar gets ferried into the WKWebView.
-  // The "next" query param is the URL the user actually wanted (e.g.
-  // /dashboard); /auth/redeem will 302 there with Set-Cookie.
-  const handoffUrl = new URL("/api/auth/handoff/initiate", origin);
-  // Pass `next` as a path or absolute URL — the initiate handler
-  // restricts to same-origin paths defensively.
-  const requestedAsPath = (() => {
+  // Replay protection: random plaintext nonce. The plugin SHA-256s it
+  // before forwarding to Apple. The token's `nonce` claim contains the
+  // SHA-256 hex; the server verifies via the same hash.
+  const noncePlaintext = generateNonce(32);
+
+  let credential: Awaited<ReturnType<typeof SignInWithApple.authorize>>;
+  try {
+    credential = await SignInWithApple.authorize({
+      clientId: APPLE_BUNDLE_ID,
+      // The redirect URI is unused on native (ASAuthorizationController
+      // returns the credential to native code, not via HTTP redirect).
+      // The plugin still requires a string; pass our domain for clarity.
+      redirectURI: "https://restoreassist.app/api/auth/callback/apple",
+      scopes: "name email",
+      nonce: noncePlaintext,
+      state: generateNonce(16),
+    });
+  } catch (err) {
+    // User cancelled OR plugin error. The plugin throws on user cancel
+    // (Apple returns ASAuthorizationErrorCanceled). Re-throw with a
+    // user-friendly message for the login page to surface as a toast.
+    const msg =
+      err instanceof Error ? err.message : "Apple sign-in was cancelled.";
+    throw new Error(msg);
+  }
+
+  const idToken = credential.response?.identityToken;
+  if (!idToken) {
+    throw new Error("Apple did not return an identity token.");
+  }
+
+  // Exchange the JWT for a NextAuth session cookie. Because this fetch
+  // runs in WKWebView, the Set-Cookie response lands in WKWebView's
+  // cookie jar. That's the architectural fix.
+  const exchangeResponse = await fetch("/api/auth/native-token-exchange", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      provider: "apple",
+      idToken,
+      nonce: noncePlaintext,
+    }),
+  });
+
+  if (!exchangeResponse.ok) {
+    let details = "";
     try {
-      const u = new URL(absoluteRequestedCallback);
-      return u.origin === origin ? `${u.pathname}${u.search}${u.hash}` : "/dashboard";
+      const body = await exchangeResponse.json();
+      details =
+        body?.error?.message || body?.error?.code || `HTTP ${exchangeResponse.status}`;
     } catch {
-      return "/dashboard";
+      details = `HTTP ${exchangeResponse.status}`;
     }
-  })();
-  handoffUrl.searchParams.set("next", requestedAsPath);
-  const callbackUrlForOAuth = handoffUrl.toString();
+    throw new Error(`Apple sign-in failed: ${details}`);
+  }
 
-  const params = new URLSearchParams({ callbackUrl: callbackUrlForOAuth });
-  const url = new URL(
-    `/api/auth/signin/${provider}?${params}`,
-    origin,
-  ).toString();
+  // Cookie is now in WKWebView's jar. Navigate to the requested target.
+  const callbackUrl = options?.callbackUrl ?? "/dashboard";
+  if (typeof window !== "undefined") {
+    window.location.href = callbackUrl;
+  }
+}
 
-  await openInAppBrowser(url, { presentationStyle: "fullscreen" });
+/**
+ * Generate a URL-safe random nonce. Crypto-grade so an attacker can't
+ * predict the value and replay a captured token to a different session.
+ */
+function generateNonce(byteLength: number): string {
+  const bytes = new Uint8Array(byteLength);
+  if (typeof window !== "undefined" && window.crypto?.getRandomValues) {
+    window.crypto.getRandomValues(bytes);
+  } else {
+    // Server-side (shouldn't reach here in practice — this module is
+    // "use client") — fall back to Math.random which is NOT crypto-safe.
+    // Acceptable as a last resort because this branch never runs in
+    // production paths.
+    for (let i = 0; i < byteLength; i++) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+  }
+  // base64url, stripped of padding
+  return btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 }
