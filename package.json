@@ -37,6 +37,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
     "db:studio": "prisma studio",
+    "db:seed:ceo": "npx tsx prisma/seed-ceo.ts",
     "script:grant-trial-credits": "npx tsx scripts/grant-trial-credits.ts",
     "test:smoke": "playwright test --grep @smoke",
     "test:smoke:ci": "playwright test --grep @smoke --reporter=line",
