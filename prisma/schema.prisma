@@ -246,6 +246,9 @@ model User {
   // RA-1842 — APNS/FCM device tokens for push notifications
   deviceTokens DeviceToken[]
 
+  // RA-2073 — short-lived handoff tokens for SFVC→WKWebView session ferrying
+  oauthHandoffTokens OAuthHandoffToken[]
+
   // RA-1352 — admin impersonation audit (as initiator and as target)
   adminImpersonationsAsAdmin  AdminImpersonation[] @relation("AdminImpersonationAsAdmin")
   adminImpersonationsAsTarget AdminImpersonation[] @relation("AdminImpersonationAsTarget")
@@ -5819,5 +5822,32 @@ model DeviceToken {
   updatedAt DateTime @updatedAt
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
+}
+
+/// RA-2073 — OAuth session handoff between SFSafariViewController and WKWebView.
+///
+/// On iOS Capacitor, OAuth completes inside SFSafariViewController which has
+/// its own cookie jar isolated from the parent WKWebView. After NextAuth sets
+/// the session cookie post-callback, we mint a one-time handoff token, persist
+/// the encoded JWT alongside it, and 302 to /auth/redeem. Universal Links
+/// intercepts /auth/redeem → opens it in WKWebView → /auth/redeem returns
+/// Set-Cookie with the persisted JWT, landing the cookie in WKWebView's jar.
+///
+/// Tokens are single-use, short-lived (60s), and the row is deleted on
+/// successful redeem. tokenHash is sha256 of the plaintext token; plaintext
+/// is never persisted.
+model OAuthHandoffToken {
+  id         String    @id @default(cuid())
+  tokenHash  String    @unique
+  userId     String
+  encodedJwt String    @db.Text
+  expiresAt  DateTime
+  redeemedAt DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tokenHash])
+  @@index([expiresAt])
   @@index([userId])
 }
