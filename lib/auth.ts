@@ -73,6 +73,11 @@ export const authOptions: NextAuthOptions = {
         // has `twoFactorEnabled=true`. The login page collects it after
         // a `2FA_REQUIRED` error bounces the first submission.
         totp: { label: "6-digit authenticator code", type: "text" },
+        // RA-2074 — "Stay signed in" toggle from the login form. When
+        // "true" the JWT is stamped with a 90-day customExp instead of
+        // the default 7-day. Field technicians on iOS need long-lived
+        // sessions so they don't re-auth between shifts.
+        rememberMe: { label: "Stay signed in", type: "text" },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
@@ -247,31 +252,43 @@ export const authOptions: NextAuthOptions = {
           }
         }
 
+        // RA-2074 — propagate the rememberMe flag from the form into
+        // the User object so jwt() can read it and stamp the right
+        // customExp. Defaults to false when the form omits it (e.g.
+        // older clients) so we don't accidentally extend sessions.
+        const rememberMe = credentials.rememberMe === "true";
+
         return {
           id: user.id,
           email: user.email,
           name: user.name,
           image: user.image,
           role: user.role,
-        };
+          rememberMe,
+        } as any;
       },
     }),
   ],
   // RA-1593 — session hardening.
-  //   - `maxAge: 7d` — hard cap on session length. Longer sessions are
-  //     SaaS-friendly but anything beyond 7 days gets uncomfortable on
-  //     shared or lost devices.
+  // RA-2074 — stay-signed-in.
+  //   - `maxAge: 90d` — UPPER bound on session length. The actual
+  //     boundary for any given user is enforced by `customExp` stamped
+  //     in jwt() based on whether they ticked "Stay signed in":
+  //       * rememberMe = false  →  customExp = now + 7d  (old default)
+  //       * rememberMe = true   →  customExp = now + 90d
+  //       * OAuth (Google/Apple) → customExp = now + 90d (no checkbox shown)
+  //     The session() callback validates against customExp and refuses
+  //     to return a session past it.
   //   - `updateAge: 24h` — JWT rolls every day, picking up role
   //     changes + the global-revoke check in the jwt() callback.
-  //   - explicit cookie block — the NextAuth defaults are already
-  //     SameSite=lax + HttpOnly + Secure in production, but pinning
-  //     them here prevents accidental override via a future cookie-
-  //     name collision. Also sets `__Secure-` prefix in prod which
-  //     browsers refuse unless served over HTTPS — defence-in-depth
-  //     against accidental http:// deploys.
+  //   - cookie block — explicit `maxAge` matches `session.maxAge` so
+  //     WKWebView writes a persistent cookie (with Expires/Max-Age) and
+  //     not a session cookie. Without this, force-quitting the iOS app
+  //     was purging the session-token before the JWT expired. The
+  //     `__Secure-` prefix in prod is browser-enforced HTTPS-only.
   session: {
     strategy: "jwt",
-    maxAge: 7 * 24 * 60 * 60,
+    maxAge: 90 * 24 * 60 * 60,
     updateAge: 24 * 60 * 60,
   },
   cookies: {
@@ -285,6 +302,7 @@ export const authOptions: NextAuthOptions = {
         sameSite: "lax",
         path: "/",
         secure: process.env.NODE_ENV === "production",
+        maxAge: 90 * 24 * 60 * 60,
       },
     },
   },
@@ -320,13 +338,25 @@ export const authOptions: NextAuthOptions = {
     },
   },
   callbacks: {
-    async jwt({ token, user, trigger }) {
+    async jwt({ token, user, trigger, account }) {
       if (user) {
         token.role = (user as { role?: string }).role ?? "";
         // Stamp the mint time so the revoke check below has a `since`
         // anchor to compare against — `iat` is not always on the
         // NextAuth token type in TS so we track it ourselves.
         (token as any).mintedAt = Math.floor(Date.now() / 1000);
+
+        // RA-2074 — stamp customExp based on rememberMe. CredentialsProvider
+        // forwards the form's checkbox via `user.rememberMe`. OAuth
+        // providers (Google / Apple) don't show a checkbox so we default
+        // them to the long lifetime — once a user grants OAuth consent
+        // it's reasonable to honour that for 90 days.
+        const isOAuth = account?.provider && account.provider !== "credentials";
+        const remember = isOAuth || (user as any).rememberMe === true;
+        const lifetimeSeconds = remember ? 90 * 24 * 60 * 60 : 7 * 24 * 60 * 60;
+        (token as any).rememberMe = remember;
+        (token as any).customExp =
+          Math.floor(Date.now() / 1000) + lifetimeSeconds;
       }
       // RA-1259: keep `needsOnboarding` fresh on first mint and after the
       // client calls `update()` post-onboarding so middleware stops
@@ -398,6 +428,17 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
     async session({ session, token }) {
+      // RA-2074 — enforce customExp. session.maxAge is the UPPER bound
+      // (90d). The actual session length per user comes from customExp
+      // which is 7d for default logins and 90d when rememberMe ticked.
+      // Past customExp we strip user identity so middleware redirects.
+      const customExp = (token as any).customExp;
+      if (
+        typeof customExp === "number" &&
+        Math.floor(Date.now() / 1000) > customExp
+      ) {
+        return { ...session, user: undefined } as any;
+      }
       if (token && session.user) {
         session.user.id = token.sub!;
         session.user.role = token.role as string;

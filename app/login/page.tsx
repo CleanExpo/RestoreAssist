@@ -31,6 +31,12 @@ function LoginForm() {
   // follow-up submission carries them without re-prompting.
   const [totp, setTotp] = useState("");
   const [needsTotp, setNeedsTotp] = useState(false);
+  // RA-2074 — "Stay signed in" toggle. Defaults true on iOS shell
+  // (field technicians want long-lived sessions on company devices),
+  // false on web (shared browsers + better default for least-privilege).
+  // The actual default is set in the iOS-detect effect below so SSR
+  // hydration matches.
+  const [rememberMe, setRememberMe] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -46,8 +52,12 @@ function LoginForm() {
   // there. SSR + web users see the full set of buttons; the gate kicks
   // in once React hydrates on the client.
   useEffect(() => {
-    setHideThirdPartyAuth(isCapacitorIOS());
+    const onIos = isCapacitorIOS();
+    setHideThirdPartyAuth(onIos);
     setAuthHydrated(true);
+    // RA-2074 — default rememberMe TRUE on iOS shell so field techs
+    // get a 90-day session by default. Web users opt in via checkbox.
+    setRememberMe(onIos);
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -60,6 +70,9 @@ function LoginForm() {
         email,
         password,
         totp: totp || undefined,
+        // RA-2074 — forward "Stay signed in" to the server. CredentialsProvider
+        // reads this and stamps a 90-day customExp instead of 7-day.
+        rememberMe: rememberMe ? "true" : "false",
         redirect: false,
       });
 
@@ -259,6 +272,27 @@ function LoginForm() {
                 </p>
               </div>
             )}
+
+            {/* RA-2074 — "Stay signed in" toggle. Defaults true inside
+                the iOS Capacitor shell so field technicians get a
+                90-day session and don't re-auth between shifts.
+                Defaults false on web — shared-browser hygiene. */}
+            <div className="flex items-center justify-between">
+              <label
+                htmlFor="rememberMe"
+                className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer select-none"
+              >
+                <input
+                  id="rememberMe"
+                  name="rememberMe"
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-500 bg-slate-700 text-cyan-500 focus:ring-2 focus:ring-cyan-500/50"
+                />
+                Stay signed in
+              </label>
+            </div>
 
             {/* Error Message */}
             {error && (
