@@ -9,18 +9,22 @@
 //   - 1.0.2(12) tried RFC-8252 token-handoff via Universal Links.
 //     Result: same loop. Universal Links don't reliably intercept
 //     server-side 302 redirects from inside SFSafariViewController.
+//   - 1.0.3(13) shipped @capacitor-community/apple-sign-in. CI failed
+//     at IPA build: that package only declares Capacitor-Swift-PM
+//     7.x, but our project uses Capacitor 8.x. SwiftPM refused to
+//     resolve the conflicting peer dep.
 //
-// 1.0.3 (RA-2073): bypass SFSafariViewController entirely on iOS.
-//   - Apple: native ASAuthorizationController via
-//     @capacitor-community/apple-sign-in. Plugin returns identity JWT
-//     to JS running INSIDE the WKWebView. JS POSTs to
-//     /api/auth/native-token-exchange (also from inside WKWebView), so
-//     Set-Cookie lands in WKWebView's jar — directly, no handoff.
-//   - Google: hidden on iOS in this build. The community Google
-//     Capacitor plugin is unmaintained; rather than ship a fragile
-//     dependency, iOS users sign in via Apple or email/password.
-//     (Apple guideline 4.8 only triggers when offering a third-party
-//     login alongside Apple; with no Google on iOS, 4.8 doesn't apply.)
+// 1.0.3(14) (RA-2073): same architecture (native ASAuthorizationController,
+// JS-in-WKWebView token exchange) but routed through
+// @capgo/capacitor-social-login, which is actively maintained and
+// declares Capacitor 8 peer deps. Plugin returns identity JWT to JS
+// running INSIDE the WKWebView. JS POSTs to
+// /api/auth/native-token-exchange (also from inside WKWebView), so
+// Set-Cookie lands in WKWebView's jar — directly, no handoff.
+//
+// Google is hidden on iOS in this build. The capgo plugin does support
+// Google, but enabling it would re-trigger guideline 4.8 review
+// requirements; with Apple-only on iOS, 4.8 doesn't apply.
 //
 // Web is unchanged: standard next-auth/react `signIn(provider, options)`.
 
@@ -34,13 +38,18 @@ export type OAuthProvider = "google" | "apple";
 const APPLE_BUNDLE_ID =
   process.env.NEXT_PUBLIC_APPLE_BUNDLE_ID ?? "com.restoreassist.app";
 
+// SocialLogin.initialize() is idempotent according to the plugin docs,
+// but we still guard with a module-level flag so that repeated sign-in
+// attempts within the same JS context don't re-walk the native init path.
+let socialLoginInitialised = false;
+
 /**
  * Sign in with an external OAuth provider.
  *
  * Web: identical to `next-auth/react#signIn(provider, options)`.
  *
  * iOS Capacitor:
- *   - Apple → native ASAuthorizationController + token exchange.
+ *   - Apple → native ASAuthorizationController via capgo plugin + token exchange.
  *   - Google → not supported on iOS in 1.0.3; throws so UI bugs surface.
  */
 export async function signInWithOAuth(
@@ -65,39 +74,44 @@ export async function signInWithOAuth(
     );
   }
 
-  // Apple — native ASAuthorizationController via Capacitor plugin.
+  // Apple — native ASAuthorizationController via capgo Capacitor plugin.
   // Lazy-import so the web bundle doesn't pull in the plugin code.
-  const { SignInWithApple } = await import(
-    "@capacitor-community/apple-sign-in"
-  );
+  const { SocialLogin } = await import("@capgo/capacitor-social-login");
+
+  if (!socialLoginInitialised) {
+    await SocialLogin.initialize({
+      apple: {
+        clientId: APPLE_BUNDLE_ID,
+      },
+    });
+    socialLoginInitialised = true;
+  }
 
   // Replay protection: random plaintext nonce. The plugin SHA-256s it
   // before forwarding to Apple. The token's `nonce` claim contains the
   // SHA-256 hex; the server verifies via the same hash.
   const noncePlaintext = generateNonce(32);
 
-  let credential: Awaited<ReturnType<typeof SignInWithApple.authorize>>;
-  try {
-    credential = await SignInWithApple.authorize({
-      clientId: APPLE_BUNDLE_ID,
-      // The redirect URI is unused on native (ASAuthorizationController
-      // returns the credential to native code, not via HTTP redirect).
-      // The plugin still requires a string; pass our domain for clarity.
-      redirectURI: "https://restoreassist.app/api/auth/callback/apple",
-      scopes: "name email",
+  // SocialLogin.login is generic — passing `provider: "apple"` narrows
+  // the return type to `{ provider: "apple"; result: AppleProviderResponse }`.
+  // Letting TS infer (no explicit annotation) preserves that narrowing so
+  // `result.idToken` is accessible without a runtime discriminator check.
+  const loginResult = await SocialLogin.login({
+    provider: "apple",
+    options: {
+      scopes: ["email", "name"],
       nonce: noncePlaintext,
-      state: generateNonce(16),
-    });
-  } catch (err) {
+    },
+  }).catch((err: unknown) => {
     // User cancelled OR plugin error. The plugin throws on user cancel
     // (Apple returns ASAuthorizationErrorCanceled). Re-throw with a
     // user-friendly message for the login page to surface as a toast.
     const msg =
       err instanceof Error ? err.message : "Apple sign-in was cancelled.";
     throw new Error(msg);
-  }
+  });
 
-  const idToken = credential.response?.identityToken;
+  const idToken = loginResult.result?.idToken;
   if (!idToken) {
     throw new Error("Apple did not return an identity token.");
   }
