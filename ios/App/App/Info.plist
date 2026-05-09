@@ -61,5 +61,26 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<!--
+		1.0.4 (RA-2076): Google Sign-In URL scheme. The Google iOS OAuth
+		client (RestoreAssist iOS, project=restoreassist) uses the
+		reversed client ID as a URL scheme to receive its callback. This
+		entry MUST match the iOS-type OAuth client registered in Google
+		Cloud Console; if rotated, update both sides.
+
+		Note: OAuth client IDs are public per Google's documented model
+		(see https://developers.google.com/identity/sign-in/ios/start) —
+		the bundle ID + iOS app signature anchor verifies caller
+		identity, so this value can sit in source control safely.
+	-->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.292141944467-8hhd4eub33tplq6ep5lc9iltu8jcatvp</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

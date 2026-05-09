@@ -26,14 +26,10 @@ function LoginForm() {
   // bounce. New iOS users sign up via OAuth (Google/Apple), which the
   // PrismaAdapter auto-provisions on first sign-in.
   const [hideSignupLink, setHideSignupLink] = useState(false);
-  // RA-2073 (1.0.3) — Continue with Google is hidden on the iOS Capacitor
-  // shell. Native Google Sign-In is not implemented in this build (the
-  // community Capacitor Google plugin is unmaintained). Apple sign-in is
-  // available via the native ASAuthorizationController plugin instead.
-  // Apple guideline 4.8 only triggers when a third-party (non-Apple) login
-  // is offered alongside, so hiding Google keeps iOS compliant with just
-  // Apple + email/password.
-  const [hideGoogleOnIos, setHideGoogleOnIos] = useState(false);
+  // RA-2076 (1.0.4) — Continue with Google is now native on iOS (via the
+  // capgo plugin), so the 1.0.3 hide-on-iOS gate is removed. Apple
+  // guideline 4.8 still satisfied because Apple Sign-In is shown as a
+  // peer button.
   // RA-1587 — 2FA state. `totp` is the 6-digit code; `needsTotp` is
   // toggled true after the server bounces the first submission with
   // `2FA_REQUIRED`. We keep `email` + `password` in state so the
@@ -70,7 +66,6 @@ function LoginForm() {
     const onIos = isCapacitorIOS();
     setAuthHydrated(true);
     setHideSignupLink(onIos);
-    setHideGoogleOnIos(onIos);
     // RA-2074 — default rememberMe TRUE on iOS shell so field techs
     // get a 90-day session by default. Web users opt in via checkbox.
     setRememberMe(onIos);
@@ -192,7 +187,13 @@ function LoginForm() {
           <form
             onSubmit={handleSubmit}
             className="space-y-6"
-            autoComplete="off"
+            // 1.0.4 (RA-2076): on (was off) so iOS native AutoFill / iCloud
+            // Keychain offers to save the username + password after a
+            // successful sign-in, and pre-fills both fields on subsequent
+            // visits. AASA already declares the `webcredentials` block for
+            // restoreassist.app, so the iOS app shell shares its credential
+            // entries with Safari / other devices on the same iCloud account.
+            autoComplete="on"
           >
             {/* Email Field */}
             <div>
@@ -211,7 +212,11 @@ function LoginForm() {
                   id="email"
                   type="email"
                   name="email"
-                  autoComplete="off"
+                  // 1.0.4 (RA-2076): "username" pairs with "current-password"
+                  // on the password field to mark this as a sign-in form. iOS
+                  // AutoFill recognises that pair and offers Save / Use Saved
+                  // Password. "off" suppressed those prompts entirely.
+                  autoComplete="username"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all duration-300"
@@ -238,7 +243,11 @@ function LoginForm() {
                   id="password"
                   type={showPassword ? "text" : "password"}
                   name="password"
-                  autoComplete="new-password"
+                  // 1.0.4 (RA-2076): "current-password" — this is a sign-in
+                  // form, not a registration form (the latter would use
+                  // "new-password"). iOS AutoFill needs this to offer Save
+                  // Password / Use Saved Password.
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-10 pr-12 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all duration-300"
@@ -352,12 +361,10 @@ function LoginForm() {
             <div className="flex-1 border-t border-slate-600/50" />
           </div>
 
-          {/* Google Sign In — hidden on iOS shell in 1.0.3+ (no native
-              Google plugin shipped). Web users keep this button.
-              Pre-hydration we render for SSR; the gate kicks in once
-              authHydrated flips. */}
-          {(!authHydrated || !hideGoogleOnIos) && (
-            <motion.button
+          {/* Google Sign In — 1.0.4 (RA-2076) re-enables this on iOS via
+              the @capgo/capacitor-social-login native plugin (same one
+              that backs Apple). Web behaviour unchanged. */}
+          <motion.button
               onClick={handleGoogleSignIn}
               disabled={isLoading}
               className="w-full py-3 bg-white/10 border border-slate-600/50 rounded-xl font-medium text-white hover:bg-white/20 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
@@ -391,7 +398,6 @@ function LoginForm() {
                 </>
               )}
             </motion.button>
-          )}
 
           {/* Sign in with Apple. Apple guideline 4.8 requires this option
               whenever a third-party login is offered. Button only renders
