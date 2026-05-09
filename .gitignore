@@ -91,3 +91,4 @@ proxy.ts
 .claude/swarm/identity.local.md
 scripts/__pycache__/
 .DS_Store
+.claude/verifier-reports/
