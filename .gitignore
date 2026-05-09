@@ -92,3 +92,5 @@ proxy.ts
 scripts/__pycache__/
 .DS_Store
 .claude/verifier-reports/
+.claude/PROGRESS.md
+.claude/verifier-reports/
