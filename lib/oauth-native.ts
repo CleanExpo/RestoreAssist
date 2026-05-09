@@ -13,18 +13,22 @@
 //     at IPA build: that package only declares Capacitor-Swift-PM
 //     7.x, but our project uses Capacitor 8.x. SwiftPM refused to
 //     resolve the conflicting peer dep.
+//   - 1.0.3(14) (RA-2073): same architecture (native ASAuthorizationController,
+//     JS-in-WKWebView token exchange) but routed through
+//     @capgo/capacitor-social-login, which is actively maintained and
+//     declares Capacitor 8 peer deps. Apple-only on iOS to keep 1.0.3
+//     scope tight; Google hidden.
 //
-// 1.0.3(14) (RA-2073): same architecture (native ASAuthorizationController,
-// JS-in-WKWebView token exchange) but routed through
-// @capgo/capacitor-social-login, which is actively maintained and
-// declares Capacitor 8 peer deps. Plugin returns identity JWT to JS
-// running INSIDE the WKWebView. JS POSTs to
-// /api/auth/native-token-exchange (also from inside WKWebView), so
-// Set-Cookie lands in WKWebView's jar — directly, no handoff.
+// 1.0.4(15) (RA-2076): adds Google alongside Apple via the same capgo
+// plugin. Same WKWebView cookie-jar story:
+//   - Plugin presents Google's native sign-in sheet (no SFVC)
+//   - Plugin returns the Google identity JWT to JS in WKWebView
+//   - JS POSTs to /api/auth/native-token-exchange (also from inside
+//     WKWebView), so the Set-Cookie response lands in WKWebView's jar
 //
-// Google is hidden on iOS in this build. The capgo plugin does support
-// Google, but enabling it would re-trigger guideline 4.8 review
-// requirements; with Apple-only on iOS, 4.8 doesn't apply.
+// Apple guideline 4.8 stays satisfied because Apple Sign-In is the peer
+// option to Google in the UI (Apple required when ANY third-party
+// login is offered).
 //
 // Web is unchanged: standard next-auth/react `signIn(provider, options)`.
 
@@ -38,10 +42,30 @@ export type OAuthProvider = "google" | "apple";
 const APPLE_BUNDLE_ID =
   process.env.NEXT_PUBLIC_APPLE_BUNDLE_ID ?? "com.restoreassist.app";
 
+// Google iOS-type OAuth client (project=restoreassist, "RestoreAssist
+// iOS"). Bundle ID com.restoreassist.app, App Store ID 6761808113,
+// Team L3TJL6HUJ7. The reversed-client-ID URL scheme is in
+// ios/App/App/Info.plist (CFBundleURLTypes). Per Google's docs, this
+// value is not a secret — the bundle-ID + iOS app-signature anchor
+// is what authenticates the caller.
+const GOOGLE_IOS_CLIENT_ID =
+  process.env.NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID ??
+  "292141944467-8hhd4eub33tplq6ep5lc9iltu8jcatvp.apps.googleusercontent.com";
+
 // SocialLogin.initialize() is idempotent according to the plugin docs,
 // but we still guard with a module-level flag so that repeated sign-in
 // attempts within the same JS context don't re-walk the native init path.
 let socialLoginInitialised = false;
+
+async function ensureSocialLoginInitialised() {
+  if (socialLoginInitialised) return;
+  const { SocialLogin } = await import("@capgo/capacitor-social-login");
+  await SocialLogin.initialize({
+    apple: { clientId: APPLE_BUNDLE_ID },
+    google: { iOSClientId: GOOGLE_IOS_CLIENT_ID },
+  });
+  socialLoginInitialised = true;
+}
 
 /**
  * Sign in with an external OAuth provider.
@@ -50,7 +74,7 @@ let socialLoginInitialised = false;
  *
  * iOS Capacitor:
  *   - Apple → native ASAuthorizationController via capgo plugin + token exchange.
- *   - Google → not supported on iOS in 1.0.3; throws so UI bugs surface.
+ *   - Google → native Google sign-in sheet via capgo plugin + token exchange.
  */
 export async function signInWithOAuth(
   provider: OAuthProvider,
@@ -62,58 +86,54 @@ export async function signInWithOAuth(
     return;
   }
 
-  // iOS branch
-  if (provider === "google") {
-    // Continue with Google is hidden on iOS in 1.0.3 (see app/login/page.tsx
-    // and app/signup/page.tsx — the iOS-detect effect sets hideGoogleOnIos).
-    // If we're here, the UI gate failed — surface the bug instead of falling
-    // back to the broken SFVC flow.
-    throw new Error(
-      "Continue with Google is not available on iOS in this build. " +
-        "Please use Continue with Apple or email/password.",
-    );
-  }
-
-  // Apple — native ASAuthorizationController via capgo Capacitor plugin.
-  // Lazy-import so the web bundle doesn't pull in the plugin code.
+  // iOS branch — both providers share the same architecture
+  await ensureSocialLoginInitialised();
   const { SocialLogin } = await import("@capgo/capacitor-social-login");
 
-  if (!socialLoginInitialised) {
-    await SocialLogin.initialize({
-      apple: {
-        clientId: APPLE_BUNDLE_ID,
-      },
-    });
-    socialLoginInitialised = true;
-  }
-
   // Replay protection: random plaintext nonce. The plugin SHA-256s it
-  // before forwarding to Apple. The token's `nonce` claim contains the
-  // SHA-256 hex; the server verifies via the same hash.
+  // before forwarding to the IdP; the resulting JWT carries the SHA-256
+  // hex in its `nonce` claim. The server verifies via the same hash.
   const noncePlaintext = generateNonce(32);
 
-  // SocialLogin.login is generic — passing `provider: "apple"` narrows
-  // the return type to `{ provider: "apple"; result: AppleProviderResponse }`.
-  // Letting TS infer (no explicit annotation) preserves that narrowing so
-  // `result.idToken` is accessible without a runtime discriminator check.
-  const loginResult = await SocialLogin.login({
-    provider: "apple",
-    options: {
-      scopes: ["email", "name"],
-      nonce: noncePlaintext,
-    },
-  }).catch((err: unknown) => {
-    // User cancelled OR plugin error. The plugin throws on user cancel
-    // (Apple returns ASAuthorizationErrorCanceled). Re-throw with a
-    // user-friendly message for the login page to surface as a toast.
+  let idToken: string | undefined;
+  try {
+    if (provider === "apple") {
+      const result = await SocialLogin.login({
+        provider: "apple",
+        options: {
+          scopes: ["email", "name"],
+          nonce: noncePlaintext,
+        },
+      });
+      idToken = result.result?.idToken ?? undefined;
+    } else {
+      // Google — capgo plugin presents the native iOS Google sheet.
+      // We request the OpenID `email` + `profile` scopes (standard
+      // sign-in scopes); the resulting Google identity JWT carries the
+      // user's `sub`, email, name, and the SHA-256 of our nonce.
+      const result = await SocialLogin.login({
+        provider: "google",
+        options: {
+          scopes: ["email", "profile"],
+          nonce: noncePlaintext,
+        },
+      });
+      // GoogleLoginResponse exposes idToken at result.idToken (top-level
+      // string | null). Older versions of the plugin bury it under
+      // `authentication.idToken` — guard for both shapes.
+      const r = result.result as
+        | { idToken?: string | null; authentication?: { idToken?: string | null } }
+        | undefined;
+      idToken = r?.idToken ?? r?.authentication?.idToken ?? undefined;
+    }
+  } catch (err: unknown) {
     const msg =
-      err instanceof Error ? err.message : "Apple sign-in was cancelled.";
+      err instanceof Error ? err.message : `${provider} sign-in was cancelled.`;
     throw new Error(msg);
-  });
+  }
 
-  const idToken = loginResult.result?.idToken;
   if (!idToken) {
-    throw new Error("Apple did not return an identity token.");
+    throw new Error(`${provider} did not return an identity token.`);
   }
 
   // Exchange the JWT for a NextAuth session cookie. Because this fetch
@@ -124,7 +144,7 @@ export async function signInWithOAuth(
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      provider: "apple",
+      provider,
       idToken,
       nonce: noncePlaintext,
     }),
@@ -135,11 +155,13 @@ export async function signInWithOAuth(
     try {
       const body = await exchangeResponse.json();
       details =
-        body?.error?.message || body?.error?.code || `HTTP ${exchangeResponse.status}`;
+        body?.error?.message ||
+        body?.error?.code ||
+        `HTTP ${exchangeResponse.status}`;
     } catch {
       details = `HTTP ${exchangeResponse.status}`;
     }
-    throw new Error(`Apple sign-in failed: ${details}`);
+    throw new Error(`${provider} sign-in failed: ${details}`);
   }
 
   // Cookie is now in WKWebView's jar. Navigate to the requested target.

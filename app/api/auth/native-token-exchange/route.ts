@@ -1,27 +1,30 @@
-// RA-2073 (1.0.3) — Native iOS Sign in with Apple → NextAuth session.
+// Native iOS sign-in token exchange.
 //
-// The architectural fix for the iOS sign-in loop. Replaces the
-// SFSafariViewController + handoff approach (which failed because
-// Universal Links don't intercept server-side 302 redirects from
-// inside SFVC reliably).
+// History:
+//   - 1.0.3(14) (RA-2073): introduced this endpoint to back native Apple
+//     Sign-In on iOS. The architectural fix for the SFSafariViewController
+//     cookie-jar isolation that caused the 1.0.2(12) sign-in loop —
+//     because this endpoint is fetched from inside WKWebView, the
+//     Set-Cookie response lands in WKWebView's cookie jar directly.
+//   - 1.0.4(15) (RA-2076): adds Google native sign-in alongside Apple.
+//     Same architecture — the capgo plugin presents Google's native iOS
+//     sheet, returns the Google identity JWT to JS in WKWebView, JS POSTs
+//     here, we verify the JWT against Google's JWKS, find-or-create the
+//     User, and Set-Cookie the NextAuth session token.
 //
-// Flow on iOS:
-//   1. WKWebView JS calls native plugin: SignInWithApple.authorize()
-//      via @capacitor-community/apple-sign-in
-//   2. iOS shows native ASAuthorizationController sheet (Touch/Face ID)
-//   3. Plugin returns { idToken, authorizationCode, user, nonce } to JS
-//   4. JS POSTs the idToken to THIS endpoint via fetch() — the call
-//      originates in WKWebView, so Set-Cookie lands in WKWebView's
-//      cookie jar. That's the whole point.
+// Flow on iOS (per provider):
+//   1. WKWebView JS calls SocialLogin.login({ provider, options })
+//   2. Native plugin presents the iOS sheet (ASAuthorizationController for
+//      Apple, GIDSignIn for Google)
+//   3. Plugin returns the identity JWT to JS
+//   4. JS POSTs `{ provider, idToken, nonce }` to THIS endpoint via fetch()
 //   5. This endpoint:
-//        a. Verifies the JWT signature against Apple's JWKS
+//        a. Verifies the JWT signature against the provider's JWKS
 //        b. Validates iss / aud / exp / nonce
 //        c. Finds-or-creates the User (matching the field set
 //           events.createUser in lib/auth.ts:317-338 produces)
 //        d. Encodes a NextAuth-compatible session JWT via next-auth/jwt
-//           (so getServerSession + middleware accept it)
-//        e. Returns 200 with Set-Cookie matching the cookie config in
-//           lib/auth.ts:294-308
+//        e. Returns 200 with Set-Cookie matching lib/auth.ts:294-308
 //   6. JS reads response, navigates to /dashboard with valid session.
 //
 // Web is unchanged — this endpoint is iOS-only by convention; web users
@@ -29,7 +32,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { jwtVerify, createRemoteJWKSet } from "jose";
+import { jwtVerify, createRemoteJWKSet, type JWTPayload } from "jose";
 import { encode as encodeJwt } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
@@ -41,6 +44,15 @@ const APPLE_JWKS = createRemoteJWKSet(
 );
 const APPLE_ISSUER = "https://appleid.apple.com";
 
+// Google's public keys endpoint (JWKS). Verifying the signature against
+// these guarantees the token came from Google's auth server.
+const GOOGLE_JWKS = createRemoteJWKSet(
+  new URL("https://www.googleapis.com/oauth2/v3/certs"),
+);
+// Google issues tokens with either `https://accounts.google.com` or
+// `accounts.google.com`. Both are valid (per Google's docs).
+const GOOGLE_ISSUERS = ["https://accounts.google.com", "accounts.google.com"];
+
 // Match NextAuth's session config in lib/auth.ts:289-307. These constants
 // MUST stay in sync; if NextAuth's cookie config changes, update here too.
 const SESSION_COOKIE_NAME =
@@ -49,8 +61,10 @@ const SESSION_COOKIE_NAME =
     : "next-auth.session-token";
 const SESSION_MAX_AGE_SECONDS = 90 * 24 * 60 * 60;
 
+type Provider = "apple" | "google";
+
 interface ExchangeBody {
-  provider: "apple"; // future: extend with "google" when native plugin chosen
+  provider: Provider;
   idToken: string;
   nonce?: string;
 }
@@ -76,6 +90,98 @@ function jsonError(
   return NextResponse.json({ ok: false, error: { code, message } }, { status });
 }
 
+interface VerifiedClaims {
+  sub: string;
+  email: string | null;
+  emailVerified: boolean;
+  name: string | null;
+  picture: string | null;
+  // Apple-specific signals (undefined for Google)
+  isPrivateRelay?: boolean;
+}
+
+/**
+ * Verify the inbound idToken against the provider's JWKS and return a
+ * normalised claims object. Throws on verification failure.
+ */
+async function verifyAndNormaliseToken(
+  provider: Provider,
+  idToken: string,
+  noncePlaintext: string | undefined,
+): Promise<VerifiedClaims> {
+  let payload: JWTPayload;
+
+  if (provider === "apple") {
+    // Apple expects either the bundle ID (native ASAuthorizationController)
+    // or the Services ID (web Sign in with Apple). The plugin we ship in
+    // 1.0.3+ calls ASAuthorizationController which issues `aud = bundle ID`.
+    // Both audiences accepted so a future web-flow exchange also works.
+    const acceptedAudiences = [
+      process.env.APPLE_BUNDLE_ID || "com.restoreassist.app",
+      process.env.APPLE_CLIENT_ID, // Services ID like com.restoreassist.signin
+    ].filter(Boolean) as string[];
+
+    const { payload: verified } = await jwtVerify(idToken, APPLE_JWKS, {
+      issuer: APPLE_ISSUER,
+      audience: acceptedAudiences,
+    });
+    payload = verified;
+  } else {
+    // Google — JWKS at oauth2/v3/certs, audience = the iOS-type OAuth
+    // client ID (the same value used to initialise the plugin client-side).
+    const acceptedAudiences = [
+      process.env.GOOGLE_IOS_CLIENT_ID,
+      process.env.NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+      "292141944467-8hhd4eub33tplq6ep5lc9iltu8jcatvp.apps.googleusercontent.com",
+    ].filter(Boolean) as string[];
+
+    const { payload: verified } = await jwtVerify(idToken, GOOGLE_JWKS, {
+      issuer: GOOGLE_ISSUERS,
+      audience: acceptedAudiences,
+    });
+    payload = verified;
+  }
+
+  // Replay protection: the plugin SHA-256s the nonce we sent before
+  // forwarding it to the IdP. The IdP includes the SHA-256 hex back in
+  // the `nonce` claim. Verify ourselves to ensure this token was minted
+  // for this exact request, not replayed from another client.
+  if (noncePlaintext) {
+    const expected = crypto
+      .createHash("sha256")
+      .update(noncePlaintext)
+      .digest("hex");
+    if (payload.nonce !== expected) {
+      throw new Error("Nonce mismatch");
+    }
+  }
+
+  const sub = typeof payload.sub === "string" ? payload.sub : null;
+  if (!sub) throw new Error(`${provider} token missing sub claim`);
+
+  const email =
+    typeof payload.email === "string" ? payload.email.toLowerCase() : null;
+  const emailVerified =
+    payload.email_verified === true || payload.email_verified === "true";
+  const name = typeof payload.name === "string" ? payload.name : null;
+  const picture =
+    typeof payload.picture === "string" ? payload.picture : null;
+
+  if (provider === "apple") {
+    return {
+      sub,
+      email,
+      emailVerified,
+      name,
+      picture,
+      isPrivateRelay:
+        payload.is_private_email === true ||
+        payload.is_private_email === "true",
+    };
+  }
+  return { sub, email, emailVerified, name, picture };
+}
+
 export async function POST(request: NextRequest): Promise<NextResponse> {
   let body: ExchangeBody;
   try {
@@ -84,10 +190,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return jsonError(request, 400, "VALIDATION", "Invalid JSON body");
   }
 
-  if (body?.provider !== "apple") {
-    // Reserved for future Google native support. Today, the iOS app
-    // hides Continue with Google entirely (RA-2073 1.0.3 plan), so any
-    // non-Apple provider here is an unexpected client bug.
+  if (body?.provider !== "apple" && body?.provider !== "google") {
     return jsonError(
       request,
       400,
@@ -95,84 +198,39 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       `provider=${body?.provider} not supported on this endpoint`,
     );
   }
+  const provider: Provider = body.provider;
 
   if (typeof body.idToken !== "string" || body.idToken.length < 32) {
     return jsonError(request, 400, "VALIDATION", "Missing or malformed idToken");
   }
 
-  // Apple expects either the bundle ID (native ASAuthorizationController)
-  // or the Services ID (web Sign in with Apple). The plugin we ship in
-  // 1.0.3 calls ASAuthorizationController which issues `aud = bundle ID`.
-  // We accept both so a future web-flow token exchange is also valid.
-  const acceptedAudiences = [
-    process.env.APPLE_BUNDLE_ID || "com.restoreassist.app",
-    process.env.APPLE_CLIENT_ID, // Services ID like com.restoreassist.signin
-  ].filter(Boolean) as string[];
-
-  let payload: {
-    sub?: unknown;
-    email?: unknown;
-    email_verified?: unknown;
-    is_private_email?: unknown;
-    nonce?: unknown;
-    aud?: unknown;
-    iss?: unknown;
-    exp?: unknown;
-  };
+  let claims: VerifiedClaims;
   try {
-    const { payload: verified } = await jwtVerify(body.idToken, APPLE_JWKS, {
-      issuer: APPLE_ISSUER,
-      audience: acceptedAudiences,
-    });
-    payload = verified;
+    claims = await verifyAndNormaliseToken(provider, body.idToken, body.nonce);
   } catch (err) {
     return jsonError(
       request,
       401,
       "TOKEN_VERIFICATION_FAILED",
-      err instanceof Error ? err.message : "Apple token verification failed",
+      err instanceof Error ? err.message : `${provider} token verification failed`,
     );
   }
 
-  // Replay protection: the plugin SHA-256s the nonce we sent before
-  // forwarding it to Apple. Apple includes the SHA-256 hex back in the
-  // `nonce` claim. Verify ourselves to ensure this token was minted for
-  // this exact request, not replayed from another client.
-  if (body.nonce) {
-    const expected = crypto
-      .createHash("sha256")
-      .update(body.nonce)
-      .digest("hex");
-    if (payload.nonce !== expected) {
-      return jsonError(request, 401, "NONCE_MISMATCH", "Nonce mismatch");
-    }
-  }
-
-  const sub = typeof payload.sub === "string" ? payload.sub : null;
-  const email =
-    typeof payload.email === "string" ? payload.email.toLowerCase() : null;
-  if (!sub) {
-    return jsonError(
-      request,
-      401,
-      "MISSING_SUB",
-      "Apple token missing sub claim",
-    );
-  }
-  if (!email) {
+  if (!claims.email) {
     // Apple sometimes omits email on subsequent sign-ins (only first
-    // returns it). For first sign-ins we require it; for subsequent
-    // sign-ins we'd need to look up by `sub` mapped to a stored
-    // appleSubject column — which we don't have today. Treat as failure
-    // and surface clearly.
+    // returns it). Google omits it only if the user revoked the email
+    // scope. We require it for find-or-create today; a future change
+    // could store appleSubject/googleSubject and look up by sub.
     return jsonError(
       request,
       401,
       "MISSING_EMAIL",
-      "Apple token missing email claim. On a subsequent sign-in, sign out of Sign in with Apple in iOS Settings → Apple ID → Sign in with Apple, then retry.",
-      undefined,
+      provider === "apple"
+        ? "Apple token missing email claim. On a subsequent sign-in, sign out of Sign in with Apple in iOS Settings → Apple ID → Sign in with Apple, then retry."
+        : "Google token missing email claim. Re-grant the email scope and retry.",
     );
   }
+  const email = claims.email;
 
   // Find-or-create user. PrismaAdapter normally handles this for OAuth;
   // for our native flow we replicate the same shape — including the
@@ -185,10 +243,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       user = await prisma.user.create({
         data: {
           email,
-          // Apple may include name on first auth via the `user` field on
-          // the plugin response, but it's not in the JWT. Plugin caller
-          // could pass it through; defer to follow-up.
-          name: null,
+          name: claims.name,
+          image: claims.picture,
           needsOnboarding: true,
           role: "ADMIN",
           subscriptionStatus: "TRIAL",
@@ -197,10 +253,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           quickFillCreditsRemaining: 30,
           totalQuickFillUsed: 0,
-          emailVerified:
-            payload.email_verified === true || payload.email_verified === "true"
-              ? new Date()
-              : null,
+          emailVerified: claims.emailVerified ? new Date() : null,
         } as any,
       });
     } catch (err) {
@@ -228,7 +281,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     mintedAt: nowSec,
     rememberMe: true,
     customExp: nowSec + SESSION_MAX_AGE_SECONDS,
-    needsOnboarding: Boolean((user as { needsOnboarding?: boolean }).needsOnboarding),
+    needsOnboarding: Boolean(
+      (user as { needsOnboarding?: boolean }).needsOnboarding,
+    ),
   };
 
   let sessionToken: string;
@@ -257,11 +312,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     ...ctx,
     details: {
       ok: true,
-      provider: "apple",
+      provider,
       isNewUser,
-      sub,
-      privateRelay:
-        payload.is_private_email === true || payload.is_private_email === "true",
+      sub: claims.sub,
+      privateRelay: claims.isPrivateRelay ?? false,
     },
   }).catch(() => {});
 

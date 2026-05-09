@@ -36,12 +36,23 @@ const config: CapacitorConfig = {
       style: "dark",
       backgroundColor: "#050505",
     },
-    // Native social-login plugin. Apple-only on iOS in 1.0.3 — see
-    // lib/oauth-native.ts for context. Google left out so guideline 4.8
-    // doesn't apply on iOS; web continues to offer Google via NextAuth.
+    // Native social-login plugin. 1.0.4 enables Google alongside Apple
+    // (1.0.3 was Apple-only because the loop fix was urgent and we
+    // wanted the smallest possible change for review).
+    //
+    // Apple guideline 4.8 still applies; we satisfy it because Apple
+    // Sign-In is offered as a peer option (not below or smaller than
+    // Google in the UI). The capgo plugin presents Google's native
+    // sign-in sheet (no SFVC), so the same WKWebView cookie-jar fix
+    // shipped for Apple in 1.0.3 covers Google in 1.0.4 too.
+    //
+    // The iOS clientId is the Google iOS-type OAuth client provisioned
+    // in Google Cloud Console (project=restoreassist, "RestoreAssist
+    // iOS"). The reversed-client-ID URL scheme lives in Info.plist.
     SocialLogin: {
       providers: {
         apple: true,
+        google: true,
       },
     },
   },
