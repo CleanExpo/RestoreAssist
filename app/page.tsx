@@ -640,6 +640,26 @@ export default function Home() {
                       FAQ
                     </Link>
                   </li>
+                  {/* RA-2078: Privacy Policy + Terms of Service required by
+                      Google OAuth verification. Both routes already exist
+                      (app/privacy/page.tsx, app/terms/page.tsx); they were
+                      just not linked from the home-page footer. */}
+                  <li>
+                    <Link
+                      href="/privacy"
+                      className={`transition-colors hover:text-white`}
+                    >
+                      Privacy Policy
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      href="/terms"
+                      className={`transition-colors hover:text-white`}
+                    >
+                      Terms of Service
+                    </Link>
+                  </li>
                 </ul>
               </div>
             </div>

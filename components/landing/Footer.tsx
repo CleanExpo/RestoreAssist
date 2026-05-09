@@ -300,6 +300,24 @@ export default function Footer({ darkMode }: FooterProps) {
                     FAQ
                   </Link>
                 </li>
+                {/* RA-2078: Privacy Policy + Terms of Service required by
+                    Google OAuth verification. */}
+                <li>
+                  <Link
+                    href="/privacy"
+                    className={`transition-colors ${darkMode ? "hover:text-[#F4F5F6]" : "hover:text-[#1C2E47]"}`}
+                  >
+                    Privacy Policy
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/terms"
+                    className={`transition-colors ${darkMode ? "hover:text-[#F4F5F6]" : "hover:text-[#1C2E47]"}`}
+                  >
+                    Terms of Service
+                  </Link>
+                </li>
               </ul>
             </div>
           </div>
