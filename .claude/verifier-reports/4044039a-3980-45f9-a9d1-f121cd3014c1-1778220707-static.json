@@ -1,0 +1,15 @@
+{
+  "status": "static-clean",
+  "confidence": "high",
+  "source": "static-check",
+  "claims_total": 0,
+  "claims_verified": 0,
+  "claims_failed": 0,
+  "claims_unverified": 0,
+  "claims_warned": 0,
+  "verified": [],
+  "failed": [],
+  "unverified": [],
+  "warnings": [],
+  "feedback": ""
+}
