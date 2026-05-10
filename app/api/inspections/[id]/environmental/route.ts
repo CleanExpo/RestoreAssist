@@ -45,9 +45,9 @@ export async function POST(
       }
 
       if (body.ambientTemperature !== undefined) {
-        if (body.ambientTemperature < -20 || body.ambientTemperature > 130) {
+        if (body.ambientTemperature < -20 || body.ambientTemperature > 55) {
           return NextResponse.json(
-            { error: "Temperature must be between -20°F and 130°F" },
+            { error: "Temperature must be between -20°C and 55°C" },
             { status: 400 },
           );
         }

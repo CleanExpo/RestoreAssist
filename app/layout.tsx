@@ -109,7 +109,7 @@ export default function RootLayout({
         <SoftwareApplicationSchema />
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
+          defaultTheme="dark"
           enableSystem
           disableTransitionOnChange
         >

@@ -865,9 +865,9 @@ export default function NIRTechnicianInputForm({
     // Validate environmental data ranges
     if (
       environmentalData.ambientTemperature < -20 ||
-      environmentalData.ambientTemperature > 130
+      environmentalData.ambientTemperature > 55
     ) {
-      errors.temperature = "Temperature must be between -20°F and 130°F";
+      errors.temperature = "Temperature must be between -20°C and 55°C";
     }
 
     if (
@@ -1572,7 +1572,7 @@ export default function NIRTechnicianInputForm({
                   "text-neutral-900 dark:text-white",
                 )}
               >
-                {environmentalData.ambientTemperature}°F
+                {environmentalData.ambientTemperature}°C
               </p>
             </div>
             <div>
@@ -1598,7 +1598,7 @@ export default function NIRTechnicianInputForm({
                   "text-neutral-900 dark:text-white",
                 )}
               >
-                {environmentalData.dewPoint.toFixed(1)}°F
+                {environmentalData.dewPoint.toFixed(1)}°C
               </p>
             </div>
             <div>
@@ -2290,12 +2290,12 @@ export default function NIRTechnicianInputForm({
                 "text-neutral-700 dark:text-slate-300",
               )}
             >
-              Ambient Temperature (°F)
+              Ambient Temperature (°C)
             </label>
             <input
               type="number"
               min="-20"
-              max="130"
+              max="55"
               value={environmentalData.ambientTemperature}
               onChange={(e) =>
                 setEnvironmentalData((prev) => ({
@@ -2356,7 +2356,7 @@ export default function NIRTechnicianInputForm({
                 "text-neutral-700 dark:text-slate-300",
               )}
             >
-              Dew Point (°F)
+              Dew Point (°C)
             </label>
             <input
               type="number"

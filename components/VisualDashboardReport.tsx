@@ -763,7 +763,7 @@ function DetailedReportPages({
                       Temperature
                     </p>
                     <p className="text-2xl font-bold text-slate-900">
-                      {fullData.environmental.ambientTemperature}°F
+                      {fullData.environmental.ambientTemperature}°C
                     </p>
                   </div>
                 )}
@@ -785,7 +785,7 @@ function DetailedReportPages({
                       Dew Point
                     </p>
                     <p className="text-2xl font-bold text-slate-900">
-                      {fullData.environmental.dewPoint}°F
+                      {fullData.environmental.dewPoint}°C
                     </p>
                   </div>
                 )}
