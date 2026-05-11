@@ -22,6 +22,31 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # RA-3010 — pre-flight: assert Info.plist reversed-client-ID matches the
+      # GitHub repo variable GOOGLE_IOS_REVERSED_CLIENT_ID. Catches plist
+      # drift between staging/prod before notarisation. Skips gracefully if
+      # the variable isn't configured yet so existing releases aren't blocked.
+      - name: Verify Info.plist reversed-client-ID matches GOOGLE_IOS_REVERSED_CLIENT_ID
+        env:
+          EXPECTED_REVERSED_CLIENT_ID: ${{ vars.GOOGLE_IOS_REVERSED_CLIENT_ID }}
+        run: |
+          if [ -z "$EXPECTED_REVERSED_CLIENT_ID" ]; then
+            echo "::warning::GOOGLE_IOS_REVERSED_CLIENT_ID not configured — skipping plist drift check (RA-3010)"
+            exit 0
+          fi
+          PLIST_VALUE=$(grep -oE 'com\.googleusercontent\.apps\.[0-9]+-[a-z0-9]+' ios/App/App/Info.plist | head -1 || true)
+          if [ -z "$PLIST_VALUE" ]; then
+            echo "::error::Info.plist contains no reversed-client-ID — Google Sign-In will fail at runtime (RA-3010)"
+            exit 1
+          fi
+          if [ "$PLIST_VALUE" != "$EXPECTED_REVERSED_CLIENT_ID" ]; then
+            echo "::error::Info.plist reversed-client-ID drift (RA-3010)"
+            echo "  expected: $EXPECTED_REVERSED_CLIENT_ID"
+            echo "  in plist: $PLIST_VALUE"
+            exit 1
+          fi
+          echo "Info.plist reversed-client-ID matches GOOGLE_IOS_REVERSED_CLIENT_ID ✓"
+
       - name: Install pnpm
         uses: pnpm/action-setup@v6
         with:
