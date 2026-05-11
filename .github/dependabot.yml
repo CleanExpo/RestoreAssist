@@ -23,6 +23,15 @@ updates:
           - "patch"
     # Security advisories always open a PR immediately — they bypass
     # the grouped schedule and appear with the `security` label.
+    ignore:
+      # Prisma 7.x is incompatible with @auth/prisma-adapter@2.11.2 (NextAuth
+      # session breaks at runtime — `/api/auth/error` 500s on every credentials
+      # sign-in). Hold at 6.x until @auth/prisma-adapter ships a 7-compatible
+      # release. See PR #926 (closed) for the failing upgrade attempt.
+      - dependency-name: "prisma"
+        versions: [">=7.0.0"]
+      - dependency-name: "@prisma/client"
+        versions: [">=7.0.0"]
 
   - package-ecosystem: "github-actions"
     directory: "/"

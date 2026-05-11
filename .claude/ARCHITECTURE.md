@@ -4,7 +4,7 @@
 
 RestoreAssist is a full-stack compliance platform for Australian water damage restoration companies. The web app handles inspection management, IICRC-compliant report generation (AI-powered), client portals, invoicing, equipment tracking, and integration syncing with accounting/job management platforms (Xero, QuickBooks, MYOB, ServiceM8, Ascora).
 
-The platform runs as a Next.js App Router application deployed on DigitalOcean App Platform, with Vercel used for PR preview deployments. PostgreSQL (Supabase-hosted) is the primary datastore via Prisma ORM. Authentication uses NextAuth.js with Google OAuth + Firebase for mobile auth flows.
+The platform runs as a Next.js App Router application deployed on Vercel (both production at `restoreassist.app` and per-PR preview deployments). PostgreSQL (Supabase-hosted) is the primary datastore via Prisma ORM. Authentication uses NextAuth.js with Google OAuth + Firebase for mobile auth flows.
 
 A Capacitor-based mobile app wraps the web app in a native WebView for Android/iOS (server-hosted — loads restoreassist.app directly). A separate React Native/Expo scaffold exists in `mobile/` for future native field capture features.
 
@@ -42,8 +42,7 @@ restoreassist/
 ├── ios/                          # Capacitor iOS native project
 ├── mobile/                       # Expo/React Native scaffold (field capture — future)
 ├── e2e/                          # Playwright e2e test specs
-├── .github/workflows/            # CI: PR quality gates, Android AAB builds, DO deploy
-└── .do/app.yaml                  # DigitalOcean App Platform config
+└── .github/workflows/            # CI: PR quality gates, Android AAB builds, iOS release
 ```
 
 ## Module Boundaries
@@ -118,4 +117,4 @@ restoreassist/
 | 120+ Prisma models in single schema      | Monolith-first approach; domain boundaries enforced by file structure, not services |
 | `ignoreBuildErrors: true` in next.config | Large codebase with some TS strictness gaps; CI uses separate type-check step       |
 | pnpm over npm                            | Faster installs, strict dependency resolution, workspace support                    |
-| DigitalOcean over Vercel for prod        | Server Actions stability, WebSocket support, predictable pricing                    |
+| Vercel for prod + previews               | Simplest Next.js host; native App Router + edge runtime support; per-PR preview URLs |

@@ -1,6 +1,6 @@
 /**
  * POST /api/admin/migrate-v2
- * One-time endpoint to create V2 tables on DO managed database.
+ * One-time endpoint to create V2 tables on the managed Postgres database.
  *
  * RA-1539 — defence-in-depth auth layering:
  *   1. `ADMIN_MIGRATE_V2_ENABLED=true` env flag (infra toggle)

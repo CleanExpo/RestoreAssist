@@ -336,7 +336,7 @@ export async function POST(request: NextRequest) {
       if (cronErr) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
-      // Cron auth passed — auto-create V2 tables if missing (DO managed DB)
+      // Cron auth passed — auto-create V2 tables if missing (managed Postgres)
       const tableCheck = (await prisma.$queryRaw`
         SELECT tablename FROM pg_tables
         WHERE schemaname = 'public' AND tablename = 'AscoraIntegration'`) as any[];

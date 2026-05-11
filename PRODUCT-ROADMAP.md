@@ -199,7 +199,7 @@ Backend interview engine works, but the guided interview UX is missing.
 | #   | Task                                                      | Priority | Complexity |
 | --- | --------------------------------------------------------- | -------- | ---------- |
 | 1   | Build LiDAR capture integration (iPhone/iPad LiDAR API)   | P0       | XL         |
-| 2   | Point cloud upload and storage (DigitalOcean Spaces / S3) | P0       | Large      |
+| 2   | Point cloud upload and storage (S3 / Cloudflare R2 / Vercel Blob) | P0       | Large      |
 | 3   | 3D viewer component (Three.js / WebGL)                    | P0       | XL         |
 | 4   | Auto-generate 2D floor plan from point cloud              | P1       | XL         |
 | 5   | Overlay moisture readings on 3D model                     | P1       | Large      |
