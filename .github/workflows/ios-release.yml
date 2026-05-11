@@ -244,20 +244,35 @@ jobs:
         # own tool, signs the JWT itself with the correct curve, and
         # has no dependency on the brewed openssl that broke runs #6
         # and #7. Validate first, then upload.
+        #
+        # altool exits 0 even when the upload is rejected by ASC
+        # (e.g. ENTITY_ERROR.ATTRIBUTE.INVALID.DUPLICATE when the build
+        # number was not bumped — observed across runs 25656902174 and
+        # 25661807333 today, where five tag releases reported green
+        # but nothing reached TestFlight). We grep altool's output
+        # for the known failure markers and force exit 1 ourselves.
         run: |
           xcrun altool --validate-app \
             --type ios \
             --file ./build/RestoreAssist.ipa \
             --apiKey "$ASC_API_KEY_ID" \
             --apiIssuer "$ASC_ISSUER_ID" \
-            --output-format normal
+            --output-format normal 2>&1 | tee /tmp/altool-validate.log
+          if grep -Eq 'ERROR ITMS|Failed to validate|iris-code|ENTITY_ERROR' /tmp/altool-validate.log; then
+            echo "::error ::altool validation reported an error — failing the workflow"
+            exit 1
+          fi
 
           xcrun altool --upload-app \
             --type ios \
             --file ./build/RestoreAssist.ipa \
             --apiKey "$ASC_API_KEY_ID" \
             --apiIssuer "$ASC_ISSUER_ID" \
-            --output-format normal
+            --output-format normal 2>&1 | tee /tmp/altool-upload.log
+          if grep -Eq 'ERROR ITMS|Failed to upload|iris-code|ENTITY_ERROR' /tmp/altool-upload.log; then
+            echo "::error ::altool upload reported an error — failing the workflow"
+            exit 1
+          fi
 
       - name: Cleanup secrets
         if: always()
