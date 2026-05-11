@@ -4646,6 +4646,11 @@ model Workspace {
   // checkWorkspaceBudget() in lib/ai/budget-guard.ts reads this.
   aiDailyBudgetUsd Float?
 
+  // RA-2967 — When true, the inspection detail page auto-fetches the floor plan
+  // underlay the first time a tech opens an inspection that has a propertyAddress.
+  // Defaults OFF so existing workspaces see no behavioural change.
+  autoFetchFloorPlanOnInspection Boolean @default(false)
+
   // Relations
   members WorkspaceMember[]
   roles   WorkspaceRole[]
