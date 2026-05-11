@@ -33,4 +33,12 @@ describe('lookupAbn', () => {
     await expect(lookupAbn('invalid')).resolves.toMatchObject({ ok: false });
     expect(spy).not.toHaveBeenCalled();
   });
+
+  it('returns MALFORMED on network failure (rejected fetch)', async () => {
+    global.fetch = vi.fn().mockRejectedValue(new Error('network down'));
+    const result = await lookupAbn('53004085616');
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe('MALFORMED');
+  });
 });
