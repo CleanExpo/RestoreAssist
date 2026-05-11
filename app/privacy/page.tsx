@@ -161,8 +161,7 @@ export default function PrivacyPage() {
                 infrastructure (Remotion Lambda)
               </li>
               <li>
-                <strong>DigitalOcean</strong> — Application hosting
-                infrastructure
+                <strong>Vercel</strong> — Application hosting infrastructure
               </li>
             </ul>
           </section>

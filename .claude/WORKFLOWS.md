@@ -47,19 +47,19 @@ Scope: Linear issue ID (`RA-XXX`) or area (`ci`, `auth`, `prisma`)
 
 ## Deployment
 
-### Production (DigitalOcean)
+### Production (Vercel)
 
 - Auto-deploys from `main` branch
-- Config: `.do/app.yaml`
-- Region: Sydney (`syd`)
-- Build: `npm run build` (runs prisma generate + migrate deploy + next build)
-- Env vars set in DO App Platform dashboard
+- Project: `unite-group/restoreassist` at `restoreassist.app`
+- Build: `pnpm build` (runs prisma generate + migrate deploy + next build)
+- Env vars set in Vercel project dashboard
 
 ### Preview (Vercel)
 
 - Auto-deploys on every PR
-- Project: `unite-group/restoreassist`
-- Used for visual review only — production runs on DO
+- Project: `unite-group/restoreassist` (same as production, separate Preview environment)
+- Each PR gets a unique `restoreassist-git-<branch>-<hash>-unite-group.vercel.app` URL
+- Preview environment uses Preview-scoped env vars (separate from Production)
 
 ### Android Builds (GitHub Actions)
 
