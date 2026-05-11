@@ -1,0 +1,8 @@
+# DESIGN.md lint baseline — RestoreAssist
+# Generated 2026-05-11 when DESIGN.md adoption shipped.
+# These counts represent pre-existing violations the lint warns about but does
+# not block on. New violations above these numbers will fail CI.
+#
+# To lower a baseline after a migration: rerun the lint locally, copy the new
+# count here, and commit.
+icon_imports=353
