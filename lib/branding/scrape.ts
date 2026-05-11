@@ -13,8 +13,10 @@ export async function scrapeWebsite(url: string): Promise<
     browser = await chromium.launch();
     const ctx = await browser.newContext({ userAgent: 'RestoreAssistSetupBot/1.0' });
     const page = await ctx.newPage();
+    page.setDefaultTimeout(5000);
     const response = await page.goto(url, { timeout: 5000, waitUntil: 'domcontentloaded' });
-    if (!response || !response.ok()) return { ok: false, reason: `HTTP ${response?.status() ?? 'NONE'}` };
+    if (!response) return { ok: false, reason: 'No response' };
+    if (!response.ok()) return { ok: false, reason: `HTTP ${response.status()}` };
 
     const data = await page.evaluate(() => {
       const ogImage = document.querySelector('meta[property="og:image"]')?.getAttribute('content');
