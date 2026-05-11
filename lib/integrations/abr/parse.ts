@@ -52,7 +52,7 @@ export function parseAbrResponse(raw: unknown): ParseResult {
       acn: typeof r.Acn === 'string' && r.Acn.length > 0 ? r.Acn : null,
       entityType: ENTITY_TYPE_MAP[entityCode] ?? 'OTHER',
       gstRegistered: typeof r.Gst === 'string' && r.Gst.length > 0,
-      gstEffectiveFrom: typeof r.Gst === 'string' ? r.Gst : null,
+      gstEffectiveFrom: typeof r.Gst === 'string' && r.Gst.length > 0 ? r.Gst : null,
       state: typeof r.AddressState === 'string' ? r.AddressState : null,
       postcode: typeof r.AddressPostcode === 'string' ? r.AddressPostcode : null,
       asAt: typeof r.AddressDate === 'string' ? r.AddressDate : new Date().toISOString(),

@@ -23,6 +23,7 @@ describe('parseAbrResponse', () => {
     if (!result.ok) return;
     expect(result.data.entityType).toBe('SOLE_TRADER');
     expect(result.data.acn).toBeNull();
+    expect(result.data.gstEffectiveFrom).toBeNull();
   });
 
   it('returns no-record on ABR Message text', () => {
