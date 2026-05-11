@@ -115,7 +115,9 @@ function CreditsPageContent() {
   const [error, setError] = useState<string | null>(null);
   // RA-1842 — suppress billing links on iOS shell (Apple 3.1.1)
   const [hideBillingEntry, setHideBillingEntry] = useState(false);
-  useEffect(() => { setHideBillingEntry(isCapacitorIOS()); }, []);
+  useEffect(() => {
+    setHideBillingEntry(isCapacitorIOS());
+  }, []);
 
   const fetchData = async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);

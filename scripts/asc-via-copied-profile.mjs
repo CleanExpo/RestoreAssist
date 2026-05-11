@@ -8,14 +8,20 @@ fs.mkdirSync(OUT, { recursive: true });
 // Set up a temp user-data-dir with copied Default profile
 fs.mkdirSync(PROFILE_COPY, { recursive: true });
 if (!fs.existsSync(`${PROFILE_COPY}/Default`)) {
-  fs.cpSync("/tmp/chrome-profile-copy", `${PROFILE_COPY}/Default`, { recursive: true });
+  fs.cpSync("/tmp/chrome-profile-copy", `${PROFILE_COPY}/Default`, {
+    recursive: true,
+  });
 }
 
 console.log("[asc] launching with copied Chrome profile...");
 const browser = await chromium.launchPersistentContext(PROFILE_COPY, {
   channel: "chrome",
   headless: false,
-  args: ["--no-sandbox", "--disable-dev-shm-usage", "--profile-directory=Default"],
+  args: [
+    "--no-sandbox",
+    "--disable-dev-shm-usage",
+    "--profile-directory=Default",
+  ],
   viewport: { width: 1440, height: 900 },
 });
 

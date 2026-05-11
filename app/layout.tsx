@@ -77,9 +77,9 @@ export const metadata: Metadata = {
   metadataBase: new URL(
     process.env.NEXTAUTH_URL || "https://restoreassist.app",
   ),
-    verification: {
-          google: 'M9EIUGX0MryheGqhUpcXK-rqZMre1-CZE6TIqUsK7ro',
-    },
+  verification: {
+    google: "M9EIUGX0MryheGqhUpcXK-rqZMre1-CZE6TIqUsK7ro",
+  },
 };
 
 // viewport-fit=cover is required for iPhone notch (iPhone 13+) in Capacitor WebView

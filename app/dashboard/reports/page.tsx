@@ -507,7 +507,10 @@ export default function ReportsPage() {
               </select>
             </div>
             <div>
-              <label htmlFor="reports-date-from" className="block text-sm font-medium mb-2">
+              <label
+                htmlFor="reports-date-from"
+                className="block text-sm font-medium mb-2"
+              >
                 From Date
               </label>
               <input
@@ -521,7 +524,12 @@ export default function ReportsPage() {
               />
             </div>
             <div>
-              <label htmlFor="reports-date-to" className="block text-sm font-medium mb-2">To Date</label>
+              <label
+                htmlFor="reports-date-to"
+                className="block text-sm font-medium mb-2"
+              >
+                To Date
+              </label>
               <input
                 id="reports-date-to"
                 type="date"

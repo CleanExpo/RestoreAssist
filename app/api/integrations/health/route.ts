@@ -199,7 +199,8 @@ export async function GET(request: NextRequest) {
         details: { isActive: ascora.isActive, lastSyncAt: lastSync },
       });
 
-      if (inactive && overallStatus !== "unhealthy") overallStatus = "unhealthy";
+      if (inactive && overallStatus !== "unhealthy")
+        overallStatus = "unhealthy";
       else if (stale && overallStatus === "healthy") overallStatus = "degraded";
     }
 

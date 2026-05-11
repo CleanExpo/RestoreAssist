@@ -923,7 +923,8 @@ export default function CaptureWorkflowPage({
 
           {isNative && offlineCount > 0 && (
             <div className="bg-amber-900/30 border border-amber-600/50 rounded-lg px-4 py-2 text-sm text-amber-300 mb-4">
-              Working offline — {offlineCount} item{offlineCount > 1 ? "s" : ""} queued
+              Working offline — {offlineCount} item{offlineCount > 1 ? "s" : ""}{" "}
+              queued
             </div>
           )}
 

@@ -66,7 +66,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     // No cookie present — user landed here without completing OAuth.
     // Redirect to /login. (This is the Path B fallback if the OAuth
     // callback failed silently.)
-    return NextResponse.redirect(new URL("/login", url.origin), { status: 302 });
+    return NextResponse.redirect(new URL("/login", url.origin), {
+      status: 302,
+    });
   }
 
   const session = await getServerSession(authOptions);

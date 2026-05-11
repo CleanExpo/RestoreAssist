@@ -66,7 +66,9 @@ export default function DashboardLayout({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   // RA-1842 — suppress billing nav items on iOS shell (Apple 3.1.1).
   const [hideBillingNav, setHideBillingNav] = useState(false);
-  useEffect(() => { setHideBillingNav(isCapacitorIOS()); }, []);
+  useEffect(() => {
+    setHideBillingNav(isCapacitorIOS());
+  }, []);
 
   // On mount, collapse sidebar by default for tablet-class viewports
   // (768px ≤ width < 1280px). Covers iPad portrait (1024px), iPad Pro 11"

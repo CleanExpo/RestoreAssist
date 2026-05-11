@@ -278,16 +278,15 @@ type HapticKind = "light" | "success" | "warning" | "error";
 export async function fireHaptic(kind: HapticKind): Promise<void> {
   if (!isCapacitor()) return;
   try {
-    const { Haptics, ImpactStyle, NotificationType } = (await import(
-      "@capacitor/haptics"
-    )) as {
-      Haptics: {
-        impact: (opts: { style: string }) => Promise<void>;
-        notification: (opts: { type: string }) => Promise<void>;
+    const { Haptics, ImpactStyle, NotificationType } =
+      (await import("@capacitor/haptics")) as {
+        Haptics: {
+          impact: (opts: { style: string }) => Promise<void>;
+          notification: (opts: { type: string }) => Promise<void>;
+        };
+        ImpactStyle: { Light: string; Medium: string; Heavy: string };
+        NotificationType: { Success: string; Warning: string; Error: string };
       };
-      ImpactStyle: { Light: string; Medium: string; Heavy: string };
-      NotificationType: { Success: string; Warning: string; Error: string };
-    };
     if (kind === "light") {
       await Haptics.impact({ style: ImpactStyle.Light });
     } else if (kind === "success") {
@@ -322,22 +321,21 @@ export async function scheduleFollowUpReminder(
 ): Promise<boolean> {
   if (!isCapacitor()) return false;
   try {
-    const { LocalNotifications } = (await import(
-      "@capacitor/local-notifications"
-    )) as {
-      LocalNotifications: {
-        requestPermissions: () => Promise<{ display: string }>;
-        schedule: (opts: {
-          notifications: Array<{
-            id: number;
-            title: string;
-            body: string;
-            schedule: { at: Date };
-            extra?: Record<string, unknown>;
-          }>;
-        }) => Promise<unknown>;
+    const { LocalNotifications } =
+      (await import("@capacitor/local-notifications")) as {
+        LocalNotifications: {
+          requestPermissions: () => Promise<{ display: string }>;
+          schedule: (opts: {
+            notifications: Array<{
+              id: number;
+              title: string;
+              body: string;
+              schedule: { at: Date };
+              extra?: Record<string, unknown>;
+            }>;
+          }) => Promise<unknown>;
+        };
       };
-    };
     const perm = await LocalNotifications.requestPermissions();
     if (perm.display !== "granted") return false;
     await LocalNotifications.schedule({

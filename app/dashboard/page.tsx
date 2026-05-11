@@ -547,7 +547,9 @@ export default function DashboardPage() {
                     ? "..."
                     : `${Math.round((dashboardData.totalReports / Math.max(dashboardData.totalClients, 1)) * 100)}%`}
                 </h3>
-                <p className="text-slate-500 dark:text-slate-400 text-sm">Reports per Client</p>
+                <p className="text-slate-500 dark:text-slate-400 text-sm">
+                  Reports per Client
+                </p>
               </div>
 
               <div className="text-center">
@@ -559,7 +561,9 @@ export default function DashboardPage() {
                     ? "..."
                     : `${dashboardData.recentReports.filter((r: any) => r.status !== "Draft").length}/${dashboardData.totalReports || 1}`}
                 </h3>
-                <p className="text-slate-500 dark:text-slate-400 text-sm">Completed Reports</p>
+                <p className="text-slate-500 dark:text-slate-400 text-sm">
+                  Completed Reports
+                </p>
               </div>
 
               <div className="text-center">
@@ -571,7 +575,9 @@ export default function DashboardPage() {
                     ? "..."
                     : `$${dashboardData.totalRevenue.toLocaleString()}`}
                 </h3>
-                <p className="text-slate-500 dark:text-slate-400 text-sm">Total Revenue</p>
+                <p className="text-slate-500 dark:text-slate-400 text-sm">
+                  Total Revenue
+                </p>
               </div>
             </div>
           </motion.div>
@@ -606,7 +612,9 @@ export default function DashboardPage() {
             ) : dashboardData.recentReports.length === 0 ? (
               <div className="text-center py-8">
                 <FileText size={32} className="text-slate-600 mx-auto mb-3" />
-                <p className="text-slate-500 dark:text-slate-400 text-sm">No reports yet</p>
+                <p className="text-slate-500 dark:text-slate-400 text-sm">
+                  No reports yet
+                </p>
                 <Link
                   href="/dashboard/reports/new"
                   className="inline-flex items-center gap-1.5 mt-3 text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
@@ -698,7 +706,9 @@ export default function DashboardPage() {
                       {report.phases && report.phases.length > 0 && (
                         <div className="mt-3 pt-3 border-t border-slate-700/50">
                           <div className="flex items-center justify-between text-xs mb-1">
-                            <span className="text-slate-500 dark:text-slate-400">Phases</span>
+                            <span className="text-slate-500 dark:text-slate-400">
+                              Phases
+                            </span>
                             <span className="text-slate-300">
                               {report.phases.filter((p) => p.completed).length}/
                               {report.phases.length}

@@ -20,21 +20,31 @@ const WHAT_TO_TEST = `RestoreAssist 1.0 (Build 10) — Key areas to test:
 Reviewer account: reviewer@restoreassist.app
 Password: LX8#xHDHKTB^&$DHN7Au`;
 
-const TESTFLIGHT_URL = "https://appstoreconnect.apple.com/apps/6761808113/testflight/ios";
+const TESTFLIGHT_URL =
+  "https://appstoreconnect.apple.com/apps/6761808113/testflight/ios";
 
 async function ss(page, name) {
-  await page.screenshot({ path: `${SS}/${name}.png`, fullPage: true }).catch(() => {});
+  await page
+    .screenshot({ path: `${SS}/${name}.png`, fullPage: true })
+    .catch(() => {});
   console.log("[tf] screenshot: " + name);
 }
 
 const browser = await chromium.launchPersistentContext(PROFILE, {
-  channel: "chrome", headless: false,
-  args: ["--no-sandbox", "--disable-dev-shm-usage", "--profile-directory=Default"],
+  channel: "chrome",
+  headless: false,
+  args: [
+    "--no-sandbox",
+    "--disable-dev-shm-usage",
+    "--profile-directory=Default",
+  ],
   viewport: { width: 1440, height: 900 },
 });
 
 const page = await browser.newPage();
-await page.goto(TESTFLIGHT_URL, { timeout: 30000, waitUntil: "domcontentloaded" }).catch(() => {});
+await page
+  .goto(TESTFLIGHT_URL, { timeout: 30000, waitUntil: "domcontentloaded" })
+  .catch(() => {});
 await page.waitForTimeout(2000);
 
 if (page.url().includes("login") || page.url().includes("FAILED")) {
@@ -60,7 +70,10 @@ console.log("[tf] looking for build 10...");
 const build10Links = await page.locator("a, td, tr").all();
 for (const el of build10Links) {
   const txt = (await el.textContent().catch(() => "")).trim();
-  if (txt.includes("1.0 (10)") || txt.match(/\b10\b/) && txt.includes("1.0")) {
+  if (
+    txt.includes("1.0 (10)") ||
+    (txt.match(/\b10\b/) && txt.includes("1.0"))
+  ) {
     await el.click();
     console.log("[tf] clicked build 10:", txt.slice(0, 60));
     await page.waitForTimeout(3000);
@@ -75,10 +88,14 @@ const tas = await page.locator("textarea").all();
 console.log(`[tf] found ${tas.length} textareas`);
 let filled = false;
 for (const ta of tas) {
-  const ph = (await ta.getAttribute("placeholder").catch(() => "") || "");
-  const label = (await ta.getAttribute("aria-label").catch(() => "") || "");
+  const ph = (await ta.getAttribute("placeholder").catch(() => "")) || "";
+  const label = (await ta.getAttribute("aria-label").catch(() => "")) || "";
   console.log(`  textarea: placeholder="${ph}" label="${label}"`);
-  if (ph.toLowerCase().includes("test") || label.toLowerCase().includes("test") || tas.length === 1) {
+  if (
+    ph.toLowerCase().includes("test") ||
+    label.toLowerCase().includes("test") ||
+    tas.length === 1
+  ) {
     await ta.click();
     await page.keyboard.selectAll();
     await ta.fill(WHAT_TO_TEST);
@@ -100,7 +117,8 @@ await ss(page, "03-filled");
 // Save
 const saveBtn = page.getByRole("button", { name: /^Save$/i }).first();
 if (await saveBtn.isVisible({ timeout: 5000 })) {
-  await saveBtn.click(); await page.waitForTimeout(3000);
+  await saveBtn.click();
+  await page.waitForTimeout(3000);
   console.log("[tf] saved");
 }
 await ss(page, "04-saved");

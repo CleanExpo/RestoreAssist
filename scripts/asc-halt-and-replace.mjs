@@ -113,7 +113,11 @@ async function waitForSignIn(page) {
 const browser = await chromium.launchPersistentContext(PROFILE, {
   channel: "chrome",
   headless: false,
-  args: ["--no-sandbox", "--disable-dev-shm-usage", "--profile-directory=Default"],
+  args: [
+    "--no-sandbox",
+    "--disable-dev-shm-usage",
+    "--profile-directory=Default",
+  ],
   viewport: { width: 1440, height: 900 },
 });
 const page = await browser.newPage();
@@ -123,7 +127,9 @@ const page = await browser.newPage();
 // =============================================================================
 console.log("[asc] === PHASE A: halt 1.0.2 auto-release ===");
 const URL_1_0_2 = `https://appstoreconnect.apple.com/apps/${APP_ID}/distribution/ios/version/deliverable`;
-await page.goto(URL_1_0_2, { timeout: 60000, waitUntil: "domcontentloaded" }).catch(() => {});
+await page
+  .goto(URL_1_0_2, { timeout: 60000, waitUntil: "domcontentloaded" })
+  .catch(() => {});
 await page.waitForTimeout(4000);
 await waitForSignIn(page);
 await page.waitForTimeout(3000);
@@ -135,8 +141,14 @@ async function clickManualRelease() {
   // Try multiple matchers — Apple's HTML uses a radio set
   const candidates = [
     page.getByLabel(/Manually release this version/i).first(),
-    page.locator("input[type='radio']").filter({ hasText: /Manually/i }).first(),
-    page.locator("label").filter({ hasText: /^Manually release this version$/i }).first(),
+    page
+      .locator("input[type='radio']")
+      .filter({ hasText: /Manually/i })
+      .first(),
+    page
+      .locator("label")
+      .filter({ hasText: /^Manually release this version$/i })
+      .first(),
   ];
   for (const c of candidates) {
     if (await c.isVisible({ timeout: 2000 }).catch(() => false)) {
@@ -176,7 +188,11 @@ if (!flipped) {
   // Save
   const saveBtn = page.getByRole("button", { name: /^Save$/i }).first();
   if (await saveBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-    for (let i = 0; i < 10 && !(await saveBtn.isEnabled().catch(() => false)); i++) {
+    for (
+      let i = 0;
+      i < 10 && !(await saveBtn.isEnabled().catch(() => false));
+      i++
+    ) {
       await page.waitForTimeout(500);
     }
     if (await saveBtn.isEnabled().catch(() => false)) {
@@ -211,8 +227,12 @@ await ss(page, "B1-distribution");
 //   - "+ New Version" or "+ Add Version" or "+ Version or Platform"
 async function clickAddVersion() {
   const candidates = [
-    page.getByRole("button", { name: /(\+\s*)?(New|Add)\s*(iOS\s*)?Version/i }).first(),
-    page.getByRole("link", { name: /(\+\s*)?(New|Add)\s*(iOS\s*)?Version/i }).first(),
+    page
+      .getByRole("button", { name: /(\+\s*)?(New|Add)\s*(iOS\s*)?Version/i })
+      .first(),
+    page
+      .getByRole("link", { name: /(\+\s*)?(New|Add)\s*(iOS\s*)?Version/i })
+      .first(),
     page.locator("[aria-label*='Add Version' i]").first(),
     page.locator("[aria-label*='Add iOS Version' i]").first(),
     page.locator("[aria-label*='New Version' i]").first(),
@@ -233,7 +253,11 @@ if (!openedAddVersion) {
   console.log("[asc] no Add Version button visible — dumping page");
   await dumpButtons(page, "B-distribution");
   // Try clicking the "+" pill near "iOS App" sidebar
-  const plus = page.locator("text=iOS App").locator("..").locator("[aria-label*='Add' i]").first();
+  const plus = page
+    .locator("text=iOS App")
+    .locator("..")
+    .locator("[aria-label*='Add' i]")
+    .first();
   if (await plus.isVisible({ timeout: 2000 }).catch(() => false)) {
     await plus.click();
     await page.waitForTimeout(1500);
@@ -268,7 +292,9 @@ if (openedAddVersion) {
   }
   await ss(page, "B3-version-filled");
 
-  const create = page.getByRole("button", { name: /^(Create|Add|Save|OK)$/i }).first();
+  const create = page
+    .getByRole("button", { name: /^(Create|Add|Save|OK)$/i })
+    .first();
   if (await create.isVisible({ timeout: 3000 }).catch(() => false)) {
     await create.click();
     await page.waitForTimeout(5000);
@@ -317,7 +343,9 @@ for (let attempt = 0; attempt < 12; attempt++) {
     pickerOpened = true;
     break;
   }
-  console.log(`[asc] build picker not visible — refresh + wait 30s (attempt ${attempt + 1}/12)`);
+  console.log(
+    `[asc] build picker not visible — refresh + wait 30s (attempt ${attempt + 1}/12)`,
+  );
   await page.waitForTimeout(30000);
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForTimeout(2500);
@@ -339,7 +367,9 @@ if (!pickerOpened) {
       console.log(`[asc] ${NEW_VERSION} (${TARGET_BUILD_NUMBER}) is processed`);
       break;
     }
-    console.log(`[asc] waiting for ${NEW_VERSION} (${TARGET_BUILD_NUMBER}) to process — 30s (${attempt + 1}/16)`);
+    console.log(
+      `[asc] waiting for ${NEW_VERSION} (${TARGET_BUILD_NUMBER}) to process — 30s (${attempt + 1}/16)`,
+    );
     await page.waitForTimeout(30000);
   }
 
@@ -348,7 +378,9 @@ if (!pickerOpened) {
     await ss(page, "B-FAIL-no-build");
   } else {
     // Click row containing 1.0.3 (14)
-    const rows = await page.locator("tr, li, [role='option'], [role='row']").all();
+    const rows = await page
+      .locator("tr, li, [role='option'], [role='row']")
+      .all();
     for (const row of rows) {
       const t = ((await row.textContent().catch(() => "")) || "").trim();
       if (t.includes(`${NEW_VERSION} (${TARGET_BUILD_NUMBER})`)) {
@@ -358,7 +390,9 @@ if (!pickerOpened) {
         break;
       }
     }
-    const done = page.getByRole("button", { name: /^(Done|Select|Add)$/i }).first();
+    const done = page
+      .getByRole("button", { name: /^(Done|Select|Add)$/i })
+      .first();
     if (await done.isVisible({ timeout: 3000 }).catch(() => false)) {
       await done.click();
       await page.waitForTimeout(3000);
@@ -370,8 +404,11 @@ if (!pickerOpened) {
     for (const ta of tas) {
       const id = (await ta.getAttribute("id").catch(() => "")) || "";
       const name = (await ta.getAttribute("name").catch(() => "")) || "";
-      const ph = ((await ta.getAttribute("placeholder").catch(() => "")) || "").toLowerCase();
-      const labelledBy = (await ta.getAttribute("aria-labelledby").catch(() => "")) || "";
+      const ph = (
+        (await ta.getAttribute("placeholder").catch(() => "")) || ""
+      ).toLowerCase();
+      const labelledBy =
+        (await ta.getAttribute("aria-labelledby").catch(() => "")) || "";
       const surrounding = `${id} ${name} ${ph} ${labelledBy}`.toLowerCase();
       if (
         surrounding.includes("whatsnew") ||
@@ -393,8 +430,11 @@ if (!pickerOpened) {
     for (const ta of tas) {
       const id = (await ta.getAttribute("id").catch(() => "")) || "";
       const name = (await ta.getAttribute("name").catch(() => "")) || "";
-      const ph = ((await ta.getAttribute("placeholder").catch(() => "")) || "").toLowerCase();
-      const labelledBy = (await ta.getAttribute("aria-labelledby").catch(() => "")) || "";
+      const ph = (
+        (await ta.getAttribute("placeholder").catch(() => "")) || ""
+      ).toLowerCase();
+      const labelledBy =
+        (await ta.getAttribute("aria-labelledby").catch(() => "")) || "";
       const surrounding = `${id} ${name} ${ph} ${labelledBy}`.toLowerCase();
       if (
         surrounding.includes("note") ||
@@ -413,7 +453,9 @@ if (!pickerOpened) {
     // ---- Reviewer creds ----
     const inputs = await page.locator("input").all();
     for (const inp of inputs) {
-      const ph = ((await inp.getAttribute("placeholder").catch(() => "")) || "").toLowerCase();
+      const ph = (
+        (await inp.getAttribute("placeholder").catch(() => "")) || ""
+      ).toLowerCase();
       const type = (await inp.getAttribute("type").catch(() => "")) || "";
       if (ph.match(/user.?name|email|sign.?in/) && type !== "password") {
         await inp.fill(REVIEWER_EMAIL);
@@ -427,7 +469,11 @@ if (!pickerOpened) {
     // ---- Save ----
     const saveBtn = page.getByRole("button", { name: /^Save$/i }).first();
     if (await saveBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-      for (let i = 0; i < 10 && !(await saveBtn.isEnabled().catch(() => false)); i++) {
+      for (
+        let i = 0;
+        i < 10 && !(await saveBtn.isEnabled().catch(() => false));
+        i++
+      ) {
         await page.waitForTimeout(500);
       }
       if (await saveBtn.isEnabled().catch(() => false)) {
@@ -439,11 +485,15 @@ if (!pickerOpened) {
     await ss(page, "B9-saved");
 
     // ---- Submit for Review ----
-    const submitBtn = page.getByRole("button", { name: /(Submit|Add).*Review/i }).first();
+    const submitBtn = page
+      .getByRole("button", { name: /(Submit|Add).*Review/i })
+      .first();
     if (await submitBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
       await submitBtn.click();
       await page.waitForTimeout(3000);
-      const conf = page.getByRole("button", { name: /^(Submit|Confirm|Yes)$/i }).first();
+      const conf = page
+        .getByRole("button", { name: /^(Submit|Confirm|Yes)$/i })
+        .first();
       if (await conf.isVisible({ timeout: 5000 }).catch(() => false)) {
         await conf.click();
         await page.waitForTimeout(5000);

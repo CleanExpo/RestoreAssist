@@ -10,17 +10,25 @@ async function ss(page, name) {
   console.log("[asc] screenshot: " + name);
 }
 
-const TARGET = "https://appstoreconnect.apple.com/apps/6761808113/distribution/ios/version/inflight";
+const TARGET =
+  "https://appstoreconnect.apple.com/apps/6761808113/distribution/ios/version/inflight";
 
 console.log("[asc] opening browser — sign in when prompted, DO NOT CLOSE");
 const browser = await chromium.launchPersistentContext(PROFILE, {
-  channel: "chrome", headless: false,
-  args: ["--no-sandbox", "--disable-dev-shm-usage", "--profile-directory=Default"],
+  channel: "chrome",
+  headless: false,
+  args: [
+    "--no-sandbox",
+    "--disable-dev-shm-usage",
+    "--profile-directory=Default",
+  ],
   viewport: { width: 1440, height: 900 },
 });
 
 const page = await browser.newPage();
-await page.goto(TARGET, { timeout: 30000, waitUntil: "domcontentloaded" }).catch(() => {});
+await page
+  .goto(TARGET, { timeout: 30000, waitUntil: "domcontentloaded" })
+  .catch(() => {});
 await page.waitForTimeout(2000);
 
 // Wait for login if needed
@@ -47,9 +55,13 @@ console.log("[asc] URL:", page.url());
 const removeBtn = page.getByRole("button", { name: /Remove from Review/i });
 if (await removeBtn.isVisible({ timeout: 5000 })) {
   console.log("[asc] removing from review first...");
-  await removeBtn.click(); await page.waitForTimeout(2000);
+  await removeBtn.click();
+  await page.waitForTimeout(2000);
   const ok = page.getByRole("button", { name: /Remove|OK|Confirm/i }).first();
-  if (await ok.isVisible({ timeout: 3000 })) { await ok.click(); await page.waitForTimeout(3000); }
+  if (await ok.isVisible({ timeout: 3000 })) {
+    await ok.click();
+    await page.waitForTimeout(3000);
+  }
   console.log("[asc] removed");
 }
 
@@ -77,10 +89,19 @@ if (await buildSection.isVisible({ timeout: 5000 })) {
 const allBtns = await page.locator("button, a[role='button']").all();
 console.log(`[asc] found ${allBtns.length} buttons`);
 for (const btn of allBtns) {
-  const label = (await btn.getAttribute("aria-label").catch(() => "") || "").toLowerCase();
+  const label = (
+    (await btn.getAttribute("aria-label").catch(() => "")) || ""
+  ).toLowerCase();
   const txt = (await btn.textContent().catch(() => "")).trim();
-  const title = (await btn.getAttribute("title").catch(() => "") || "").toLowerCase();
-  if (label.includes("remove") || title.includes("remove") || txt === "−" || txt === "-") {
+  const title = (
+    (await btn.getAttribute("title").catch(() => "")) || ""
+  ).toLowerCase();
+  if (
+    label.includes("remove") ||
+    title.includes("remove") ||
+    txt === "−" ||
+    txt === "-"
+  ) {
     console.log(`[asc] found remove button: label="${label}" txt="${txt}"`);
     await btn.scrollIntoViewIfNeeded();
     await btn.click();
@@ -95,9 +116,15 @@ await ss(page, "05-after-remove");
 console.log("[asc] looking for Add Build...");
 const allBtns2 = await page.locator("button, a[role='button']").all();
 for (const btn of allBtns2) {
-  const label = (await btn.getAttribute("aria-label").catch(() => "") || "").toLowerCase();
+  const label = (
+    (await btn.getAttribute("aria-label").catch(() => "")) || ""
+  ).toLowerCase();
   const txt = (await btn.textContent().catch(() => "")).trim();
-  if (label.includes("add") || txt.includes("+") || txt.toLowerCase().includes("add build")) {
+  if (
+    label.includes("add") ||
+    txt.includes("+") ||
+    txt.toLowerCase().includes("add build")
+  ) {
     console.log(`[asc] clicking add: "${txt}" / "${label}"`);
     await btn.scrollIntoViewIfNeeded();
     await btn.click();
@@ -109,7 +136,9 @@ await ss(page, "06-picker");
 
 // Select build 10 from picker
 console.log("[asc] looking for build 10 in picker...");
-const allCells = await page.locator("td, tr, li, [role='option'], [role='row'], div").all();
+const allCells = await page
+  .locator("td, tr, li, [role='option'], [role='row'], div")
+  .all();
 for (const cell of allCells) {
   const txt = (await cell.textContent().catch(() => "")).trim();
   if (txt.includes("1.0 (10)") || txt.match(/\(10\)/)) {
@@ -124,24 +153,37 @@ await ss(page, "07-build10-selected");
 // Done / Select button
 for (const name of ["Done", "Select", "Choose"]) {
   const b = page.getByRole("button", { name }).first();
-  if (await b.isVisible({ timeout: 2000 })) { await b.click(); await page.waitForTimeout(2000); break; }
+  if (await b.isVisible({ timeout: 2000 })) {
+    await b.click();
+    await page.waitForTimeout(2000);
+    break;
+  }
 }
 await ss(page, "08-done");
 
 // Save
 const saveBtn = page.getByRole("button", { name: /^Save$/i }).first();
 if (await saveBtn.isVisible({ timeout: 5000 })) {
-  await saveBtn.click(); await page.waitForTimeout(3000);
+  await saveBtn.click();
+  await page.waitForTimeout(3000);
   console.log("[asc] saved");
 }
 await ss(page, "09-saved");
 
 // Submit
-const submitBtn = page.getByRole("button", { name: /Submit for Review|Add for Review/i }).first();
+const submitBtn = page
+  .getByRole("button", { name: /Submit for Review|Add for Review/i })
+  .first();
 if (await submitBtn.isVisible({ timeout: 10000 })) {
-  await submitBtn.click(); await page.waitForTimeout(3000);
-  const confirmBtn = page.getByRole("button", { name: /Submit|Confirm/i }).first();
-  if (await confirmBtn.isVisible({ timeout: 3000 })) { await confirmBtn.click(); await page.waitForTimeout(3000); }
+  await submitBtn.click();
+  await page.waitForTimeout(3000);
+  const confirmBtn = page
+    .getByRole("button", { name: /Submit|Confirm/i })
+    .first();
+  if (await confirmBtn.isVisible({ timeout: 3000 })) {
+    await confirmBtn.click();
+    await page.waitForTimeout(3000);
+  }
   console.log("[asc] *** SUBMITTED WITH BUILD 10 ***");
 } else {
   console.log("[asc] no Submit button — check screenshot 09-saved.png");

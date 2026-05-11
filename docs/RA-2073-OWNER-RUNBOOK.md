@@ -56,6 +56,7 @@ This is the **private key** Apple uses to verify our JWTs. **You can only downlo
 8. **Note your Team ID** (`L3TJL6HUJ7`) — same one already in Vercel.
 
 **Three things you'll have when done:**
+
 - `.p8` file path (local only, never commit, never paste anywhere)
 - Key ID (10 chars, alphanumeric)
 - Team ID = `L3TJL6HUJ7`

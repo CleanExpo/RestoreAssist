@@ -12,6 +12,7 @@ GROUND 1 (3.1.1 — external purchase mechanism):
 The 1.0(6) iOS billing placeholder included a hyperlink to "restoreassist.app". That link has been removed entirely. The placeholder now reads "Managed by your workspace — Subscriptions are managed by your workspace administrator. Sign in with your workspace credentials to access RestoreAssist." There is no URL, no email, no CTA, and no copy referencing the website on this screen.
 
 Additional 3.1.1 hardening in 1.0(7):
+
 - The Credits page (/dashboard/credits) is now wrapped in the same client-side BillingGate, so iOS reviewers see the workspace-admin placeholder instead of upgrade or add-on CTAs.
 - The Settings page no longer renders a "Manage Subscription" button on iOS — the entry point is gone.
 - The server-side 403 payload returned by checkout endpoints (rejectIfIOSCapacitor) no longer includes a "web_billing_url" field. The body is now just { error, message } with no URLs.

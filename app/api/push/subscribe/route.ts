@@ -18,7 +18,10 @@ export async function POST(req: Request) {
 
   const { token, platform } = body;
   if (!token || !["ios", "android"].includes(platform ?? "")) {
-    return NextResponse.json({ error: "Invalid token or platform" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid token or platform" },
+      { status: 400 },
+    );
   }
 
   await prisma.deviceToken.upsert({

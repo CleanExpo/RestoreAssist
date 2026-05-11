@@ -19,7 +19,8 @@ if (dsn) {
     // 10% of transactions in prod, 100% in non-prod for visibility while we
     // tune signal-to-noise. Increase prod sample rate after the first month
     // of stable signal.
-    tracesSampleRate: process.env.NEXT_PUBLIC_VERCEL_ENV === "production" ? 0.1 : 1.0,
+    tracesSampleRate:
+      process.env.NEXT_PUBLIC_VERCEL_ENV === "production" ? 0.1 : 1.0,
 
     // Replay only on errors in prod to bound bandwidth + storage cost; full
     // recording in preview to make pre-merge regression debugging easy.

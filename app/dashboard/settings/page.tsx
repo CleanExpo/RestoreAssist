@@ -426,12 +426,18 @@ export default function SettingsPage() {
             </h2>
 
             <div className="space-y-4">
-              <button type="button" className="w-full flex items-center gap-3 px-4 py-3 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors touch-manipulation">
+              <button
+                type="button"
+                className="w-full flex items-center gap-3 px-4 py-3 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors touch-manipulation"
+              >
                 <Bell className="w-4 h-4" />
                 <span>Notification Preferences</span>
               </button>
 
-              <button type="button" className="w-full flex items-center gap-3 px-4 py-3 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors touch-manipulation">
+              <button
+                type="button"
+                className="w-full flex items-center gap-3 px-4 py-3 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors touch-manipulation"
+              >
                 <Download className="w-4 h-4" />
                 <span>Export Data</span>
               </button>
@@ -450,175 +456,190 @@ export default function SettingsPage() {
 
         {/* Subscription & Credits Sidebar — hidden on iOS (Apple 3.1.1(b)) */}
         <BillingGate fallback={null}>
-        <div className="space-y-6">
-          {/* Subscription Status */}
-          <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-              <Crown className="w-5 h-5" />
-              Subscription
-            </h2>
+          <div className="space-y-6">
+            {/* Subscription Status */}
+            <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <Crown className="w-5 h-5" />
+                Subscription
+              </h2>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Status</label>
-                <StatusBadge
-                  tone={
-                    SUBSCRIPTION_STATUS_TONES[
-                      profile?.subscriptionStatus ?? "TRIAL"
-                    ] ?? "neutral"
-                  }
-                >
-                  {getStatusText(profile?.subscriptionStatus || "TRIAL")}
-                </StatusBadge>
-              </div>
-
-              {profile?.subscriptionPlan && (
-                <div>
-                  <label className="block text-sm font-medium mb-2">Plan</label>
-                  <p className="text-slate-300">{profile.subscriptionPlan}</p>
-                </div>
-              )}
-
-              {profile?.trialEndsAt && (
+              <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium mb-2">
-                    Trial Ends
+                    Status
                   </label>
-                  <p className="text-slate-300">
-                    {formatDate(profile.trialEndsAt)}
-                  </p>
+                  <StatusBadge
+                    tone={
+                      SUBSCRIPTION_STATUS_TONES[
+                        profile?.subscriptionStatus ?? "TRIAL"
+                      ] ?? "neutral"
+                    }
+                  >
+                    {getStatusText(profile?.subscriptionStatus || "TRIAL")}
+                  </StatusBadge>
                 </div>
-              )}
 
-              {profile?.nextBillingDate && (
+                {profile?.subscriptionPlan && (
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Plan
+                    </label>
+                    <p className="text-slate-300">{profile.subscriptionPlan}</p>
+                  </div>
+                )}
+
+                {profile?.trialEndsAt && (
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Trial Ends
+                    </label>
+                    <p className="text-slate-300">
+                      {formatDate(profile.trialEndsAt)}
+                    </p>
+                  </div>
+                )}
+
+                {profile?.nextBillingDate && (
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Next Billing
+                    </label>
+                    <p className="text-slate-300">
+                      {formatDate(profile.nextBillingDate)}
+                    </p>
+                  </div>
+                )}
+
+                {!hideBillingEntry && (
+                  <a
+                    href="/dashboard/subscription"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+                  >
+                    <CreditCard className="w-4 h-4" />
+                    Manage Subscription
+                  </a>
+                )}
+              </div>
+            </div>
+
+            {/* Credits */}
+            <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <Zap className="w-5 h-5" />
+                Credits
+              </h2>
+
+              <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium mb-2">
-                    Next Billing
+                    Remaining
                   </label>
-                  <p className="text-slate-300">
-                    {formatDate(profile.nextBillingDate)}
-                  </p>
+                  <div className="text-2xl font-bold text-cyan-400 flex items-center gap-2">
+                    {refreshing && (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    )}
+                    {profile?.creditsRemaining || 0}
+                  </div>
                 </div>
-              )}
 
-              {!hideBillingEntry && (
-                <a
-                  href="/dashboard/subscription"
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
-                >
-                  <CreditCard className="w-4 h-4" />
-                  Manage Subscription
-                </a>
-              )}
-            </div>
-          </div>
-
-          {/* Credits */}
-          <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-              <Zap className="w-5 h-5" />
-              Credits
-            </h2>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Remaining
-                </label>
-                <div className="text-2xl font-bold text-cyan-400 flex items-center gap-2">
-                  {refreshing && <RefreshCw className="w-4 h-4 animate-spin" />}
-                  {profile?.creditsRemaining || 0}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Used This Month
-                </label>
-                <div className="text-lg text-slate-300">
-                  {profile?.totalCreditsUsed || 0}
-                </div>
-              </div>
-
-              <div className="w-full bg-slate-700 rounded-full h-2">
-                <div
-                  className="bg-gradient-to-r from-cyan-500 to-blue-500 h-2 rounded-full transition-all duration-300"
-                  style={{
-                    width: `${Math.min(100, ((profile?.totalCreditsUsed || 0) / ((profile?.totalCreditsUsed || 0) + (profile?.creditsRemaining || 0))) * 100)}%`,
-                  }}
-                ></div>
-              </div>
-
-              {!hideBillingEntry && (
-                <a
-                  href="/pricing"
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg font-medium hover:shadow-lg hover:shadow-yellow-500/50 transition-all"
-                >
-                  <Crown className="w-4 h-4" />
-                  Upgrade Package
-                </a>
-              )}
-            </div>
-          </div>
-
-          {/* Security */}
-          <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
-            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-              <Shield className="w-5 h-5" />
-              Security
-            </h2>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-300">
-                  Two-Factor Authentication
-                </span>
-                <span className="text-xs text-slate-500">Not enabled</span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-300">Login Sessions</span>
-                <span className="text-xs text-slate-500">1 active</span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-300">Last Login</span>
-                <span className="text-xs text-slate-500">Today</span>
-              </div>
-
-              {isCapacitorIOS() && (
-                <div className="flex items-center justify-between">
-                  <label htmlFor="biometric-lock" className="text-sm text-slate-300 cursor-pointer">
-                    Require Face ID to unlock
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Used This Month
                   </label>
-                  <input
-                    id="biometric-lock"
-                    type="checkbox"
-                    checked={biometricLock}
-                    onChange={(e) => {
-                      localStorage.setItem(
-                        "ra-biometric-lock",
-                        String(e.target.checked),
-                      );
-                      setBiometricLock(e.target.checked);
+                  <div className="text-lg text-slate-300">
+                    {profile?.totalCreditsUsed || 0}
+                  </div>
+                </div>
+
+                <div className="w-full bg-slate-700 rounded-full h-2">
+                  <div
+                    className="bg-gradient-to-r from-cyan-500 to-blue-500 h-2 rounded-full transition-all duration-300"
+                    style={{
+                      width: `${Math.min(100, ((profile?.totalCreditsUsed || 0) / ((profile?.totalCreditsUsed || 0) + (profile?.creditsRemaining || 0))) * 100)}%`,
                     }}
-                    className="w-4 h-4 accent-cyan-500 cursor-pointer"
-                  />
+                  ></div>
                 </div>
-              )}
+
+                {!hideBillingEntry && (
+                  <a
+                    href="/pricing"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg font-medium hover:shadow-lg hover:shadow-yellow-500/50 transition-all"
+                  >
+                    <Crown className="w-4 h-4" />
+                    Upgrade Package
+                  </a>
+                )}
+              </div>
+            </div>
+
+            {/* Security */}
+            <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <Shield className="w-5 h-5" />
+                Security
+              </h2>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-300">
+                    Two-Factor Authentication
+                  </span>
+                  <span className="text-xs text-slate-500">Not enabled</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-300">Login Sessions</span>
+                  <span className="text-xs text-slate-500">1 active</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-300">Last Login</span>
+                  <span className="text-xs text-slate-500">Today</span>
+                </div>
+
+                {isCapacitorIOS() && (
+                  <div className="flex items-center justify-between">
+                    <label
+                      htmlFor="biometric-lock"
+                      className="text-sm text-slate-300 cursor-pointer"
+                    >
+                      Require Face ID to unlock
+                    </label>
+                    <input
+                      id="biometric-lock"
+                      type="checkbox"
+                      checked={biometricLock}
+                      onChange={(e) => {
+                        localStorage.setItem(
+                          "ra-biometric-lock",
+                          String(e.target.checked),
+                        );
+                        setBiometricLock(e.target.checked);
+                      }}
+                      className="w-4 h-4 accent-cyan-500 cursor-pointer"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
         </BillingGate>
       </div>
 
-      <Dialog open={showDeleteModal} onOpenChange={(open) => { setShowDeleteModal(open); if (!open) setDeleteConfirmText(""); }}>
+      <Dialog
+        open={showDeleteModal}
+        onOpenChange={(open) => {
+          setShowDeleteModal(open);
+          if (!open) setDeleteConfirmText("");
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Account</DialogTitle>
             <DialogDescription>
-              This permanently deletes your account and all associated data. Type{" "}
-              <strong>DELETE MY ACCOUNT</strong> to confirm.
+              This permanently deletes your account and all associated data.
+              Type <strong>DELETE MY ACCOUNT</strong> to confirm.
             </DialogDescription>
           </DialogHeader>
           <Input

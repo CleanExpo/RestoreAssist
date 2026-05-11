@@ -122,7 +122,10 @@ export async function signInWithOAuth(
       // string | null). Older versions of the plugin bury it under
       // `authentication.idToken` — guard for both shapes.
       const r = result.result as
-        | { idToken?: string | null; authentication?: { idToken?: string | null } }
+        | {
+            idToken?: string | null;
+            authentication?: { idToken?: string | null };
+          }
         | undefined;
       idToken = r?.idToken ?? r?.authentication?.idToken ?? undefined;
     }
