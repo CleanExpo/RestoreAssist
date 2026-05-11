@@ -94,3 +94,5 @@ scripts/__pycache__/
 .claude/verifier-reports/
 .claude/PROGRESS.md
 .claude/verifier-reports/
+# Pi-CEO task-memory (auto-added by Pi-CEO session bootstrap, RA-1374)
+.pi-ceo/
