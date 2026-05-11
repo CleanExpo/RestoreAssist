@@ -79,7 +79,7 @@ git log --oneline -10
 # Revert on main
 git revert HEAD
 git push origin main
-# DO auto-deploys the revert
+# Vercel auto-deploys the revert
 ```
 
 ### Database
