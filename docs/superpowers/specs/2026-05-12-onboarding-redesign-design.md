@@ -199,6 +199,7 @@ These are flagged for follow-up brainstorming cycles after this sub-project ship
 - **Sub-project #3** — BYOK upgrade paths (post-setup "upgrade your AI" experience; platform-managed keys for paid plans)
 - **Sub-project #4** — platform-wide feature-health telemetry (sysadmin view of feature health across ALL tenants, alerting)
 - **Sub-project #5** — end-to-end "sign-in → job close" flow audit (the user's larger framing — beyond setup)
+- **Sub-project #6** — **Remotion Explainer Videos** (added 2026-05-12). Generate in-app video walkthroughs for: sign-in flow · sign-up flow · `/setup` wizard end-to-end (ABN → activation) · dashboard tour · first-report walkthrough · integrations + BYOK · workspace health. Embed a video player component inline within each wizard step / dashboard area so customers can self-serve learn the product. `packages/videos/` doesn't exist yet — needs scaffolding. Output destination: `public/videos/` (rendered MP4/WebM) + a `<VideoExplainer slug="setup-abn">` component that surfaces in-context.
 
 ---
 

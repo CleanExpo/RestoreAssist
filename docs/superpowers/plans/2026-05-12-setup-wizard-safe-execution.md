@@ -16,6 +16,18 @@ The reader is the controller executing the implementation plan (me, or a future 
 
 ---
 
+## Promotion path (decided 2026-05-12)
+
+`feat/setup-wizard` does NOT PR directly into `main`. Promotion sequence:
+
+1. **Branch:** `feat/setup-wizard` (off `origin/main` — 34 commits at time of writing)
+2. **PR target:** `origin/sandbox` (NOT main). Sandbox is currently ~61 commits behind main; before this PR opens, either (a) sandbox is fast-forwarded from main in a separate housekeeping PR, or (b) the setup-wizard PR is structured to include the sandbox catch-up
+3. **Verification:** Vercel preview attached to `feat/setup-wizard` confirms compile + deploy
+4. **Staging burn-in:** sandbox stays current with new code for 24-48h before any sandbox → main promotion
+5. **Production:** sandbox → main merge only after Phase 10 verification gate
+
+Why: increasing risk (Phase 6 middleware is hairy; Phase 7+ UI surfaces real customer code paths). Sandbox isolation keeps production untouched until we've burned-in the work in a sandbox-deploy environment first.
+
 ## Foundational gates (must be true before ANY further phase)
 
 These are non-negotiable. Phase 4 does not start until all four are green.
