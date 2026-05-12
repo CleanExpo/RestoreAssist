@@ -34,6 +34,7 @@ import {
   Activity,
   Smartphone,
   Camera,
+  PlayCircle,
 } from "lucide-react";
 import { useSession, signOut } from "next-auth/react";
 import dynamic from "next/dynamic";
@@ -217,6 +218,7 @@ export default function DashboardLayout({
         ]),
     { icon: Settings, label: "Settings", href: "/dashboard/settings" },
     { icon: MessageCircle, label: "Feedback", href: "/dashboard/feedback" },
+    { icon: PlayCircle, label: "Tutorials", href: "/dashboard/learn" },
     { icon: HelpCircle, label: "Help & Support", href: "/dashboard/help" },
     // Admin-only section — hidden from Managers and Technicians
     ...(isAdmin

@@ -1,0 +1,15 @@
+{
+  "Abn": "33333333333",
+  "AbnStatus": "Active",
+  "AbnStatusEffectiveFrom": "2010-11-30",
+  "Acn": "",
+  "AddressDate": "2023-12-05",
+  "AddressPostcode": "5000",
+  "AddressState": "SA",
+  "BusinessName": ["Smith & Jones Restoration"],
+  "EntityName": "SMITH & JONES",
+  "EntityTypeCode": "PTR",
+  "EntityTypeName": "Family Partnership",
+  "Gst": "2010-11-30",
+  "Message": ""
+}

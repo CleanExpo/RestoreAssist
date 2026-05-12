@@ -388,6 +388,34 @@ export const authOptions: NextAuthOptions = {
         }
       }
 
+      // C2+C5: keep setupCompletedAt fresh. Refresh when missing OR null so
+      // that invited admins (who have organizationId but aren't the owner)
+      // and users whose org gets activated mid-session both pick up the
+      // correct value without waiting up to 24h for JWT updateAge.
+      if (
+        token.sub &&
+        (trigger === "signIn" ||
+          trigger === "update" ||
+          (token as any).setupCompletedAt == null)
+      ) {
+        try {
+          const userWithOrg = await prisma.user.findUnique({
+            where: { id: token.sub as string },
+            select: { organization: { select: { setupCompletedAt: true } } },
+          });
+          const setupCompletedAt = (userWithOrg as any)?.organization
+            ?.setupCompletedAt;
+          (token as any).setupCompletedAt = setupCompletedAt
+            ? (setupCompletedAt as Date).toISOString()
+            : null;
+        } catch {
+          // Fail-open — don't break auth on a transient DB error.
+          if (!("setupCompletedAt" in token)) {
+            (token as any).setupCompletedAt = null;
+          }
+        }
+      }
+
       // RA-1593 — global revoke. A SESSIONS_REVOKED event written by
       // /api/auth/revoke-sessions invalidates every JWT minted before
       // the event. Checked only on refresh (not every request) so

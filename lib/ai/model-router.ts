@@ -29,6 +29,8 @@ import {
   isRestoreAssistAiHealthy,
   RESTOREASSIST_AI_PRICING,
 } from "./restoreassist-ai-client";
+import { callGemma } from "./gemma-client";
+import { prisma } from "@/lib/prisma";
 
 // ━━━ Task Classification ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -366,4 +368,83 @@ export async function getRouterStatus(): Promise<{
     basicTaskCount: taskTypes.filter((t) => t.tier === "basic").length,
     premiumTaskCount: taskTypes.filter((t) => t.tier === "premium").length,
   };
+}
+
+// ━━━ routeBasic — Setup-wizard Gemma path ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+export interface RouteOptions {
+  /** User ID for credit-gate enforcement. */
+  userId?: string;
+  /** Desired response format. Defaults to "text". */
+  responseFormat?: "text" | "json";
+  /**
+   * Skip the credit gate entirely.
+   * Used during setup hydration (wizard runs before any feature lands).
+   */
+  bypassCreditGate?: boolean;
+}
+
+export interface RouteBasicResult {
+  text: string;
+  confidence: number;
+}
+
+/**
+ * Route a prompt through the Gemma (basic) tier.
+ *
+ * - If userId is set and bypassCreditGate is not true, blocks users with
+ *   creditsRemaining === 0 by returning null.
+ * - Returns null on any error — callers must handle null gracefully.
+ * - confidence defaults to 0.7 for non-empty responses, 0.0 for empty.
+ * - If responseFormat is "json", attempts to parse the response and extract
+ *   text/confidence keys; falls back to { text: raw, confidence: 0.5 }.
+ */
+export async function routeBasic(
+  prompt: string,
+  opts?: RouteOptions,
+): Promise<RouteBasicResult | null> {
+  try {
+    // Credit gate — only enforce when userId is supplied and bypass not set
+    if (opts?.userId && !opts.bypassCreditGate) {
+      const user = await prisma.user.findUnique({
+        where: { id: opts.userId },
+        select: { creditsRemaining: true },
+      });
+      if (user && user.creditsRemaining !== null && user.creditsRemaining <= 0) {
+        return null;
+      }
+    }
+
+    const gemmaResult = await callGemma({
+      messages: [{ role: "user", content: prompt }],
+      responseFormat: opts?.responseFormat,
+    });
+
+    const raw = gemmaResult.text;
+
+    if (!raw) {
+      return { text: "", confidence: 0.0 };
+    }
+
+    if (opts?.responseFormat === "json") {
+      try {
+        const parsed = JSON.parse(raw) as unknown;
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          const obj = parsed as Record<string, unknown>;
+          const text =
+            typeof obj.text === "string" ? obj.text : JSON.stringify(parsed);
+          const confidence =
+            typeof obj.confidence === "number" ? obj.confidence : 0.5;
+          return { text, confidence };
+        }
+      } catch {
+        // JSON parse failed — fall through to raw text fallback
+      }
+      return { text: raw, confidence: 0.5 };
+    }
+
+    return { text: raw, confidence: 0.7 };
+  } catch {
+    return null;
+  }
 }

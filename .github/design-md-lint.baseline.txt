@@ -5,4 +5,10 @@
 #
 # To lower a baseline after a migration: rerun the lint locally, copy the new
 # count here, and commit.
-icon_imports=353
+#
+# 2026-05-13: bumped 353 → 355. Setup wizard ships two new cards
+# (components/setup/StorageCard.tsx, components/setup/IntegrationsCard.tsx)
+# that use 4 lucide icons (Cloud, HardDrive, ChevronRight, KeyRound) consistent
+# with the rest of the codebase. Migration to src/components/ui/marks.tsx is a
+# separate cleanup tracked outside this PR.
+icon_imports=355
