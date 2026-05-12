@@ -793,6 +793,29 @@ enum Role {
   MANAGER
 }
 
+enum TradingStatus {
+  ACTIVE
+  PRE_TRADING
+}
+
+enum SetupMode {
+  AI
+  MANUAL
+}
+
+enum HydrationKind {
+  ABR
+  WEBSITE
+  PRICING
+}
+
+enum HydrationStatus {
+  RUNNING
+  READY
+  ERROR
+  MANUAL
+}
+
 model Organization {
   id      String       @id @default(cuid())
   name    String
@@ -807,6 +830,29 @@ model Organization {
 
   // RA-1120: NZ locale support — "AU" | "NZ"
   country String @default("AU")
+
+  // Setup wizard additions (Migration A, 2026-05-12)
+  legalName        String?
+  tradingName      String?
+  abn              String?       @unique
+  acn              String?
+  state            String?
+  address          String?
+  phone            String?
+  email            String?
+  website          String?
+  logoUrl          String?
+  primaryColor     String?
+  accentColor      String?
+  aboutCopy        String?       @db.Text
+  tradingStatus    TradingStatus @default(ACTIVE)
+  setupStartedAt   DateTime?
+  setupCompletedAt DateTime?
+  setupMode        SetupMode     @default(AI)
+
+  // Relations to new models
+  hydrationJobs    HydrationJob[]
+  pricingConfig    OrganizationPricingConfig?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -5850,4 +5896,92 @@ model OAuthHandoffToken {
   @@index([tokenHash])
   @@index([expiresAt])
   @@index([userId])
+}
+
+// ---- Setup Wizard — Migration A (2026-05-12) ----
+
+model HydrationJob {
+  id             String          @id @default(cuid())
+  organizationId String
+  kind           HydrationKind
+  status         HydrationStatus
+  payload        Json?
+  errorMessage   String?
+  startedAt      DateTime        @default(now())
+  completedAt    DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, kind])
+  @@index([status, startedAt])
+}
+
+model AbnLookupCache {
+  abn       String   @id
+  payload   Json
+  fetchedAt DateTime @default(now())
+  expiresAt DateTime
+}
+
+model OrganizationPricingConfig {
+  id             String @id @default(cuid())
+  organizationId String @unique
+
+  // Labour Rates - Master Qualified Technician
+  masterQualifiedNormalHours Float
+  masterQualifiedSaturday    Float
+  masterQualifiedSunday      Float
+
+  // Labour Rates - Qualified Technician
+  qualifiedTechnicianNormalHours Float
+  qualifiedTechnicianSaturday    Float
+  qualifiedTechnicianSunday      Float
+
+  // Labour Rates - Labourer
+  labourerNormalHours Float
+  labourerSaturday    Float
+  labourerSunday      Float
+
+  // Equipment Daily Rental Rates
+  airMoverAxialDailyRate           Float
+  airMoverCentrifugalDailyRate     Float
+  dehumidifierLGRDailyRate         Float
+  dehumidifierDesiccantDailyRate   Float
+  afdUnitLargeDailyRate            Float
+  extractionTruckMountedHourlyRate Float
+  extractionElectricHourlyRate     Float
+  injectionDryingSystemDailyRate   Float
+
+  // Chemical Treatment Rates (per sqm)
+  antimicrobialTreatmentRate    Float
+  mouldRemediationTreatmentRate Float
+  biohazardTreatmentRate        Float
+
+  // Fees
+  administrationFee                 Float
+  callOutFee                        Float
+  thermalCameraUseCostPerAssessment Float
+
+  // Custom Fields (JSON: { category: [{ name: string, value: number }] })
+  customFields String? @db.Text
+
+  // RA-848: Optional equipment rates (nullable = not yet configured)
+  negativeAirMachineDailyRate Float?
+  hepaVacuumDailyRate         Float?
+  monitoringVisitDailyRate    Float?
+  mobilisationFee             Float?
+  wasteDisposalPerBinRate     Float?
+  photoDocumentationFee       Float?
+
+  // RA-848: Multipliers (NRPG standard defaults)
+  afterHoursMultiplier     Float @default(1.5)
+  saturdayMultiplier       Float @default(1.5)
+  sundayMultiplier         Float @default(2.0)
+  publicHolidayMultiplier  Float @default(2.5)
+  projectManagementPercent Float @default(8.0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 }

@@ -7,9 +7,16 @@ export default {
   test: {
     globals: true,
     environment: "node",
+    // Serialize test files — prevents concurrent DB mutations (e.g. backfill
+    // deleteMany) from racing against tests that hold long-lived DB fixtures.
+    maxWorkers: 1,
+    minWorkers: 1,
     include: [
       "lib/**/__tests__/**/*.test.ts",
       "app/api/**/__tests__/**/*.test.ts",
+      "scripts/__tests__/**/*.test.ts",
+      "components/**/__tests__/**/*.test.ts",
+      "components/**/__tests__/**/*.test.tsx",
     ],
     exclude: [
       "e2e/**",

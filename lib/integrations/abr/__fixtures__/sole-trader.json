@@ -1,0 +1,15 @@
+{
+  "Abn": "11111111111",
+  "AbnStatus": "Active",
+  "AbnStatusEffectiveFrom": "2015-06-15",
+  "Acn": "",
+  "AddressDate": "2024-03-12",
+  "AddressPostcode": "2000",
+  "AddressState": "NSW",
+  "BusinessName": ["Acme Restoration"],
+  "EntityName": "DOE, JOHN ROBERT",
+  "EntityTypeCode": "IND",
+  "EntityTypeName": "Individual/Sole Trader",
+  "Gst": "",
+  "Message": ""
+}
