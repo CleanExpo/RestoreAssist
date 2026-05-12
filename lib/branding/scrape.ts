@@ -15,8 +15,8 @@ export async function scrapeWebsite(url: string): Promise<
     const page = await ctx.newPage();
     page.setDefaultTimeout(5000);
     const response = await page.goto(url, { timeout: 5000, waitUntil: 'domcontentloaded' });
-    if (!response) return { ok: false, reason: 'No response' };
-    if (!response.ok()) return { ok: false, reason: `HTTP ${response.status()}` };
+    if (!response) return { ok: false, reason: 'UNREACHABLE' };
+    if (!response.ok()) return { ok: false, reason: 'FETCH_FAILED' };
 
     const data = await page.evaluate(() => {
       const ogImage = document.querySelector('meta[property="og:image"]')?.getAttribute('content');
@@ -33,8 +33,9 @@ export async function scrapeWebsite(url: string): Promise<
 
     const logoUrl = data.ogImage || (data.iconHref ? new URL(data.iconHref, url).toString() : null);
     return { ok: true, data: { logoUrl, hero: data.hero } };
-  } catch (err) {
-    return { ok: false, reason: err instanceof Error ? err.message : 'unknown' };
+  } catch {
+    // intentional: no err.message leaks via SSE (CLAUDE.md rule #7)
+    return { ok: false, reason: 'FETCH_FAILED' };
   } finally {
     await browser?.close();
   }

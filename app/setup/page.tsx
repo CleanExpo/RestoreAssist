@@ -19,6 +19,7 @@ export default async function SetupPage() {
       state: true, address: true, phone: true, email: true, website: true,
       logoUrl: true, primaryColor: true, accentColor: true, aboutCopy: true,
       tradingStatus: true, setupStartedAt: true, setupCompletedAt: true,
+      pricingConfig: true,
       hydrationJobs: { select: { kind: true, status: true } },
     },
   });

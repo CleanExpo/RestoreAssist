@@ -8,6 +8,7 @@
 import { prisma } from '@/lib/prisma';
 import { lookupAbn } from '@/lib/integrations/abr/client';
 import { scrapeWebsite } from '@/lib/branding/scrape';
+import { isPublicHttpUrl } from '@/lib/branding/url-validator';
 import { extractColors } from '@/lib/branding/extract-colors';
 import { extractAboutCopy } from '@/lib/branding/extract-about';
 import { getDefaultPricing, type AuState } from '@/lib/pricing/defaults-au';
@@ -61,6 +62,16 @@ export async function runAbrJob(orgId: string, abn: string): Promise<void> {
 // ── Website job ───────────────────────────────────────────────────────────────
 
 export async function runWebsiteJob(orgId: string, url: string): Promise<void> {
+  // Defense-in-depth SSRF guard — primary check is at the route boundary,
+  // but this function is also called from places that may bypass that.
+  const urlCheck = isPublicHttpUrl(url);
+  if (!urlCheck.ok) {
+    await prisma.hydrationJob.update({
+      where: { organizationId_kind: { organizationId: orgId, kind: 'WEBSITE' } },
+      data: { status: 'MANUAL', errorMessage: 'FETCH_FAILED', completedAt: new Date() },
+    });
+    return;
+  }
   const scrape = await scrapeWebsite(url);
   if (!scrape.ok) {
     await prisma.hydrationJob.update({
@@ -74,6 +85,10 @@ export async function runWebsiteJob(orgId: string, url: string): Promise<void> {
   let accentColor: string | null = null;
   if (scrape.data.logoUrl) {
     try {
+      // SSRF guard on the secondary logo fetch — og:image / icon href can be
+      // a private URL even when the page itself was public.
+      const logoCheck = isPublicHttpUrl(scrape.data.logoUrl);
+      if (!logoCheck.ok) throw new Error('FETCH_FAILED');
       const res = await fetch(scrape.data.logoUrl);
       if (res.ok) {
         const buf = Buffer.from(await res.arrayBuffer());

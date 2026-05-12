@@ -68,8 +68,13 @@ export function BrandCard() {
           </div>
         )}
 
-        {(status === 'ready' || status === 'manual') && (
+        {(status === 'ready' || status === 'manual' || status === 'error') && (
           <div className="space-y-4">
+            {status === 'error' && (
+              <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm">
+                Something went wrong loading your brand. You can fill it in manually below.
+              </div>
+            )}
             <div className="flex gap-4 items-start">
               {/* Logo */}
               <div className="flex flex-col gap-2 items-center">
@@ -144,12 +149,6 @@ export function BrandCard() {
           </div>
         )}
 
-        {status === 'error' && (
-          <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm">
-            Something went wrong loading your brand. You can fill it in manually below.
-            {/* Renders the same UI as ready/manual via the next render after status changes */}
-          </div>
-        )}
       </CardContent>
     </Card>
   );

@@ -388,23 +388,28 @@ export const authOptions: NextAuthOptions = {
         }
       }
 
-      // Phase 6 — inject setupCompletedAt from the user's primary org.
-      // Fetched on signIn, update, or first-load only — not every JWT
-      // decode — to avoid a DB hit on every authenticated request.
-      const shouldRefreshSetup =
-        trigger === "signIn" ||
-        trigger === "update" ||
-        !("setupCompletedAt" in token);
-      if (token.sub && shouldRefreshSetup) {
+      // C2+C5: keep setupCompletedAt fresh. Refresh when missing OR null so
+      // that invited admins (who have organizationId but aren't the owner)
+      // and users whose org gets activated mid-session both pick up the
+      // correct value without waiting up to 24h for JWT updateAge.
+      if (
+        token.sub &&
+        (trigger === "signIn" ||
+          trigger === "update" ||
+          (token as any).setupCompletedAt == null)
+      ) {
         try {
-          const org = await prisma.organization.findFirst({
-            where: { ownerId: token.sub as string },
-            select: { setupCompletedAt: true },
+          const userWithOrg = await prisma.user.findUnique({
+            where: { id: token.sub as string },
+            select: { organization: { select: { setupCompletedAt: true } } },
           });
-          (token as any).setupCompletedAt =
-            org?.setupCompletedAt?.toISOString() ?? null;
+          const setupCompletedAt = (userWithOrg as any)?.organization
+            ?.setupCompletedAt;
+          (token as any).setupCompletedAt = setupCompletedAt
+            ? (setupCompletedAt as Date).toISOString()
+            : null;
         } catch {
-          // Fail-open — a DB blip should not gate the user out.
+          // Fail-open — don't break auth on a transient DB error.
           if (!("setupCompletedAt" in token)) {
             (token as any).setupCompletedAt = null;
           }
