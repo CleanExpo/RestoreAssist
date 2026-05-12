@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { apiErrorMessage } from "@/lib/api-error-message";
 import {
   Mail,
   Lock,
@@ -107,7 +108,7 @@ function ForgotPasswordForm() {
           router.push("/login");
         }, 1500);
       } else {
-        setError(data.error || "Failed to reset password");
+        setError(apiErrorMessage(data) ?? "Failed to reset password");
         toast.error(data.error || "Failed to reset password");
         // If code was invalid/expired, go back to code step
         if (data.error?.includes("code") || data.error?.includes("expired")) {
