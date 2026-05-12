@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS "ScopeTemplate" (
 CREATE INDEX IF NOT EXISTS "ScopeTemplate_userId_idx" ON "ScopeTemplate"("userId");
 CREATE INDEX IF NOT EXISTS "ScopeTemplate_claimType_idx" ON "ScopeTemplate"("claimType");
 
+ALTER TABLE "ScopeTemplate" DROP CONSTRAINT IF EXISTS "ScopeTemplate_userId_fkey";
 ALTER TABLE "ScopeTemplate" ADD CONSTRAINT "ScopeTemplate_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- ── XeroAccountCodeMapping — drop legacy billing_v2 version, recreate ──────
@@ -78,4 +79,5 @@ CREATE UNIQUE INDEX "XeroAccountCodeMapping_integrationId_category_key" ON "Xero
 CREATE INDEX "XeroAccountCodeMapping_integrationId_idx" ON "XeroAccountCodeMapping"("integrationId");
 CREATE INDEX "XeroAccountCodeMapping_integrationId_accountCode_idx" ON "XeroAccountCodeMapping"("integrationId", "accountCode");
 
+ALTER TABLE "XeroAccountCodeMapping" DROP CONSTRAINT IF EXISTS "XeroAccountCodeMapping_integrationId_fkey";
 ALTER TABLE "XeroAccountCodeMapping" ADD CONSTRAINT "XeroAccountCodeMapping_integrationId_fkey" FOREIGN KEY ("integrationId") REFERENCES "Integration"("id") ON DELETE CASCADE ON UPDATE CASCADE;
