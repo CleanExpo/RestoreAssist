@@ -36,8 +36,62 @@ function shouldSkipApiRateLimit(pathname: string): boolean {
   return API_RATE_LIMIT_SKIP.some((prefix) => pathname.startsWith(prefix));
 }
 
+// Paths that bypass the setup gate even when the flag is on.
+const SETUP_GATE_BYPASS = [
+  "/setup",
+  "/api/setup/",
+  "/api/auth/",
+  "/api/cron/",
+  "/login",
+  "/signup",
+  "/portal/login",
+  "/portal/signup",
+  "/onboarding/",
+  "/_next/",
+  "/favicon",
+  "/icon",
+  "/apple-icon",
+  "/manifest",
+  "/sitemap",
+  "/robots",
+];
+
+function shouldBypassSetupGate(pathname: string): boolean {
+  // Exact match for /setup (without trailing slash)
+  if (pathname === "/setup") return true;
+  return SETUP_GATE_BYPASS.some((prefix) => pathname.startsWith(prefix));
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  // ── Setup wizard gate — FIRST check, flag-guarded (Phase 6, Task 18) ────────
+  // Safety lever: read env at request time so the flag can be toggled without
+  // redeploying. If the flag is off, this entire block is completely inert.
+  const SETUP_WIZARD_ENABLED = process.env.SETUP_WIZARD_ENABLED === "true";
+  if (SETUP_WIZARD_ENABLED && !shouldBypassSetupGate(pathname)) {
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    if (token) {
+      const role = (token as any).role as string | undefined;
+      if (role === "OWNER" || role === "ADMIN") {
+        const setupCompletedAt = (token as any).setupCompletedAt;
+        if (!setupCompletedAt) {
+          const url = req.nextUrl.clone();
+          url.pathname = "/setup";
+          url.search = "";
+          return NextResponse.redirect(url, 307);
+        }
+      } else if (role === "TECHNICIAN") {
+        const techOnboardedAt = (token as any).techOnboardedAt;
+        if (!techOnboardedAt) {
+          const url = req.nextUrl.clone();
+          url.pathname = "/onboarding/technician";
+          url.search = "";
+          return NextResponse.redirect(url, 307);
+        }
+      }
+    }
+  }
 
   // ── /api/* mutations — apply default IP rate-limit (RA-1540) ────────────────
   if (
@@ -79,6 +133,12 @@ export async function middleware(req: NextRequest) {
 export const config = {
   matcher: [
     "/dashboard/:path*",
+    "/reports/:path*",
+    "/compliance/:path*",
+    "/sign/:path*",
+    "/invite/:path*",
+    "/setup/:path*",
+    "/setup",
     // RA-1540 — baseline rate-limit on all /api/*. The middleware itself
     // filters to mutation methods; GETs pass through without overhead.
     "/api/:path*",

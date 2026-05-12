@@ -388,6 +388,29 @@ export const authOptions: NextAuthOptions = {
         }
       }
 
+      // Phase 6 — inject setupCompletedAt from the user's primary org.
+      // Fetched on signIn, update, or first-load only — not every JWT
+      // decode — to avoid a DB hit on every authenticated request.
+      const shouldRefreshSetup =
+        trigger === "signIn" ||
+        trigger === "update" ||
+        !("setupCompletedAt" in token);
+      if (token.sub && shouldRefreshSetup) {
+        try {
+          const org = await prisma.organization.findFirst({
+            where: { ownerId: token.sub as string },
+            select: { setupCompletedAt: true },
+          });
+          (token as any).setupCompletedAt =
+            org?.setupCompletedAt?.toISOString() ?? null;
+        } catch {
+          // Fail-open — a DB blip should not gate the user out.
+          if (!("setupCompletedAt" in token)) {
+            (token as any).setupCompletedAt = null;
+          }
+        }
+      }
+
       // RA-1593 — global revoke. A SESSIONS_REVOKED event written by
       // /api/auth/revoke-sessions invalidates every JWT minted before
       // the event. Checked only on refresh (not every request) so

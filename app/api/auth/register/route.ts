@@ -7,7 +7,6 @@ import { validateCsrf } from "@/lib/csrf";
 import { sendWelcomeEmail } from "@/lib/email";
 import { sendWithRetry } from "@/lib/email-retry";
 import { notifyWelcome } from "@/lib/notifications";
-import { seedDemoDataForNewUser } from "@/lib/demo-data";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
 import { rejectIfBreached } from "@/lib/auth/password-breach";
 import { verifyTurnstile } from "@/lib/turnstile";
@@ -155,10 +154,9 @@ export async function POST(request: NextRequest) {
       notifyWelcome(user.id).catch((err) =>
         console.error("[Register] notifyWelcome failed:", err),
       );
-      // RA-1239: seed demo data so trial users don't land on an empty dashboard
-      seedDemoDataForNewUser(user.id).catch((err) =>
-        console.error("[Register] seedDemoDataForNewUser failed:", err),
-      );
+      // Sample data is now seeded by /api/setup/activate (Phase 5+),
+      // branded with the user's hydrated business profile instead of
+      // generic placeholders. See docs/superpowers/specs/2026-05-12-onboarding-redesign-design.md.
       const reqCtx = extractRequestContext(request);
       logSecurityEvent({
         eventType: "ACCOUNT_REGISTERED",
@@ -233,10 +231,9 @@ export async function POST(request: NextRequest) {
         notifyWelcome(updatedUser.id).catch((err) =>
           console.error("[Register] notifyWelcome failed:", err),
         ),
-        // RA-1239: seed demo data so trial users don't land on an empty dashboard
-        seedDemoDataForNewUser(updatedUser.id).catch((err) =>
-          console.error("[Register] seedDemoDataForNewUser failed:", err),
-        ),
+        // Sample data is now seeded by /api/setup/activate (Phase 5+),
+        // branded with the user's hydrated business profile instead of
+        // generic placeholders. See docs/superpowers/specs/2026-05-12-onboarding-redesign-design.md.
         logSecurityEvent({
           eventType: "ACCOUNT_REGISTERED",
           userId: updatedUser.id,
@@ -258,8 +255,9 @@ export async function POST(request: NextRequest) {
       // RA-1800 — P2002 from the user.create inside the transaction means a
       // duplicate email slipped past the findUnique check (race condition).
       // Return 400 CONFLICT, not 500, so the client can surface a useful message.
-      const eCode = (e as { code?: string; cause?: { code?: string } })?.code
-        ?? (e as { cause?: { code?: string } })?.cause?.code;
+      const eCode =
+        (e as { code?: string; cause?: { code?: string } })?.code ??
+        (e as { cause?: { code?: string } })?.cause?.code;
       if (eCode === "P2002") {
         return apiError(request, {
           code: "CONFLICT",
@@ -299,7 +297,8 @@ export async function POST(request: NextRequest) {
     // RA-1800 — check both error.code and error.cause.code; Prisma wraps
     // transaction P2002s differently depending on context.
     const prismaError = error as { code?: string; cause?: { code?: string } };
-    const p2002 = prismaError?.code === "P2002" || prismaError?.cause?.code === "P2002";
+    const p2002 =
+      prismaError?.code === "P2002" || prismaError?.cause?.code === "P2002";
     if (p2002) {
       return apiError(request, {
         code: "CONFLICT",
