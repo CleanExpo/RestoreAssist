@@ -15,6 +15,7 @@ export async function backfill(): Promise<{
   orgsUpdated: number;
   pricingMoved: number;
 }> {
+  const PAGE_LIMIT = 10_000;
   const users = await prisma.user.findMany({
     select: {
       id: true,
@@ -28,14 +29,20 @@ export async function backfill(): Promise<{
       businessEmail: true,
       businessLogo: true,
     },
-    take: 10_000,
+    take: PAGE_LIMIT,
   });
+
+  if (users.length === PAGE_LIMIT) {
+    console.warn(`[backfill] WARNING: fetched ${PAGE_LIMIT} users (the limit). If you have more than ${PAGE_LIMIT} users in this database, results are truncated and a paginated re-run is required.`);
+  }
 
   let orgsUpdated = 0;
   let pricingMoved = 0;
+  let usersTouched = 0;
 
   for (const u of users) {
     if (!u.organizationId) continue;
+    usersTouched++;
 
     const org = await prisma.organization.findUnique({
       where: { id: u.organizationId },
@@ -91,7 +98,7 @@ export async function backfill(): Promise<{
     }
   }
 
-  return { usersTouched: users.length, orgsUpdated, pricingMoved };
+  return { usersTouched, orgsUpdated, pricingMoved };
 }
 
 // CLI entry point — ESM-compatible main check
