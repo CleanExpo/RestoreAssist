@@ -43,7 +43,7 @@ RestoreAssist is the Australian water-damage CRM that turns one field — your A
 ### Three proof bullets
 
 - **One field in. Eleven fields out.** Your ABN drives parallel hydration jobs against the Australian Business Register, your website, and a 2026 Australian pricing dataset.
-- **Every advertised capability proves itself before Activate.** Live checks on AI report generation, photo chain-of-custody (SHA-256 + UTC + GPS), sample-report render, and welcome-email delivery.
+- **Every advertised capability that's wired is checked before Activate.** Live checks on AI report generation and integration health. Chain-of-custody, sample-report render, and welcome-email gates ship in Phase 5+.
 - **IICRC S500:2025 §7.1 cited correctly in every report footer.** GST at 10%. ABN at 11 digits. State codes routed through the correct jurisdictional authority.
 
 ### Primary CTA
@@ -160,7 +160,7 @@ All six videos live at `https://www.youtube.com/watch?v={youtubeId}` and are emb
 > — The sample DRAFT report seeded during activation — opens with your own branding.
 > — Where to add your first real job, capture site photos with verifiable chain of custody, and generate the report.
 >
-> Photo chain-of-custody runs a C2PA-style manifest (SHA-256 + UTC + GPS + device + user hash) at capture, verified at read. Insurers can verify integrity without trusting the platform.
+> Photos are captured with cryptographic stamping today (SHA-256 + UTC). A C2PA-style manifest with GPS + device + user hash and read-time verification is the Phase 5+ plan.
 >
 > See the full walkthrough series: https://restoreassist.com.au/dashboard/learn
 

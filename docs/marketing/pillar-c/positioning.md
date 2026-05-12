@@ -21,7 +21,7 @@ RestoreAssist treats the **first 90 seconds** as the AI proof point. One field �
 2. Website scrape pulls your logo, primary colour, accent colour, and an "about us" paragraph.
 3. Pricing engine seeds state-specific labour and equipment rates from a 2026 Australian dataset, adjusted by business size.
 
-The setup wizard ends with a live Feature Health card that proves — for this tenant, on this device, right now — that AI report generation, photo chain-of-custody, sample-report rendering, and welcome-email delivery actually work. Then the dashboard opens with the user's own branding already in place and a draft sample report already written.
+The setup wizard ends with a live Feature Health card that proves — for this tenant, on this device, right now — that AI report generation and connected integrations actually work. Chain-of-custody, sample-report rendering, and welcome-email checks ship as live gates in Phase 5+. The dashboard then opens with the user's own branding already in place and a draft sample report already written.
 
 That is the difference between "AI-powered" as a marketing claim and AI-driven as a workflow.
 
@@ -60,7 +60,7 @@ We sit in the same shelf as ServiceM8 and Ascora, but we earn that position by b
 ## Proof points (verifiable today on `/setup`, `/dashboard/learn`, `/dashboard/settings/health`)
 
 - ABN-anchored setup at `/setup` — single input, three parallel hydration jobs, no static form-filling.
-- Workspace Health page at `/dashboard/settings/health` — live status of every advertised capability (AI generation, sample-report render, photo chain-of-custody, cloud storage, accounting integration, welcome-email delivery).
+- Workspace Health page at `/dashboard/settings/health` — live status of AI generation, cloud storage, and accounting integration. Sample-report render, photo chain-of-custody, and welcome-email gates roll out in Phase 5+.
 - Tutorials hub at `/dashboard/learn` — six short walk-throughs covering signup, sign-in, setup wizard, dashboard, integrations, and Workspace Health.
 - IICRC citations carry edition and section in every report footer.
-- Photo chain-of-custody runs a C2PA-style manifest (SHA-256 + UTC + GPS + device + user hash) at capture, verified at read.
+- Photos are stamped with SHA-256 + UTC at capture today. The full C2PA-style manifest with GPS + device + user hash and read-time verification is on the Phase 5+ roadmap.

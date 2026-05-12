@@ -29,7 +29,7 @@
 ### T-6 → Thursday 2026-05-14
 - **08:00–10:00** — Record the four new long-tail YouTube videos (writing an IICRC S500 report, Xero push, photo chain-of-custody on iPad, ABN setup). These ship across the first 30 days, not T-day.
 - **10:00–12:00** — Draft thumbnails for the 6 launch explainers + the new long-tails. Brand colours from `BrandConfig.colour` (primary `#E55A2B`, accent `#C5E063`).
-- **15:00–17:00** — Email send infrastructure check. Send one test email to a personal inbox + a Gmail + an Outlook. Verify DKIM, SPF, DMARC all aligned. Verify the From address `phill@restoreassist.com.au` is whitelisted.
+- **15:00–17:00** — Email send infrastructure check. Send one test email to a personal inbox + a Gmail + an Outlook. Verify DKIM, SPF, DMARC all aligned. Verify the From address `phill@restoreassist.com.au` is whitelisted. **Fallback:** if `restoreassist.com.au` DNS isn't fully propagated by 16:00, switch the launch email From to `phill@unite-group.in` (already provisioned) and update `copy-pack.md` email signature accordingly.
 
 ### T-5 → Friday 2026-05-15
 - **08:00–10:00** — RIA Australia newsletter — submit the 200-word column to editorial. Confirm placement for the June newsletter (closest to launch).
@@ -86,12 +86,12 @@
 - Quiet weekend. Reply to inbound. No new launch content.
 - Sunday evening: draft second LinkedIn post (Wednesday 2026-05-27 schedule).
 
-### T+5 → Monday 2026-05-26
+### T+5 → Monday 2026-05-25
 - **09:00** — Second LinkedIn post — operator story or behind-the-scenes of the launch week.
 - **14:00** — Facebook group post — "Ascora Users".
 - **End-of-day** — KPI dashboard read.
 
-### T+6 → Tuesday 2026-05-27
+### T+6 → Tuesday 2026-05-26
 - Quiet. Prepare for T+7 retro.
 
 ### T+7 → Wednesday 2026-05-27 — RETROSPECTIVE GATE
@@ -178,7 +178,7 @@ Tracked daily. Owner: Phill. Surface: a single page in the analytics tool (or a 
 
 **Response:**
 1. Check ABR API status (registered consumer key health — see `lib/integrations/abr/`).
-2. Check website scrape Playwright budget (3s per scrape on Vercel Node runtime).
+2. Check website scrape Playwright budget (5s per scrape on Vercel Node runtime, per `lib/branding/scrape.ts`).
 3. If ABR is broken: the wizard's daily auto-retry job picks up overnight — no immediate action, but post a transparent LinkedIn comment thread acknowledging the dependency on a public API.
 4. Update the in-app banner: "ABR is currently slow — your business details will populate within 24 hours."
 
