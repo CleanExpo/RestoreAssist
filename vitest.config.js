@@ -10,6 +10,7 @@ export default {
     include: [
       "lib/**/__tests__/**/*.test.ts",
       "app/api/**/__tests__/**/*.test.ts",
+      "scripts/__tests__/**/*.test.ts",
     ],
     exclude: [
       "e2e/**",
