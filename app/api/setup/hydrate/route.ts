@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { isValidAbn, normaliseAbn } from '@/lib/abn/checksum';
 import { applyRateLimit } from '@/lib/rate-limiter';
+import { isPublicHttpUrl } from '@/lib/branding/url-validator';
 import { runAbrJob, runWebsiteJob, runPricingJob } from '@/lib/setup/jobs';
 
 export async function POST(req: NextRequest) {
@@ -30,6 +31,14 @@ export async function POST(req: NextRequest) {
   const abn = normaliseAbn(body.abn ?? '');
   if (!abn || !isValidAbn(abn)) {
     return NextResponse.json({ error: 'Invalid ABN' }, { status: 400 });
+  }
+
+  // SSRF guard: block file://, loopback, RFC1918, link-local before any server-side fetch.
+  if (body.website) {
+    const check = isPublicHttpUrl(body.website);
+    if (!check.ok) {
+      return NextResponse.json({ error: 'Invalid website URL' }, { status: 400 });
+    }
   }
 
   const org = await prisma.organization.findFirst({

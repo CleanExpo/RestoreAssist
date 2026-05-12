@@ -21,6 +21,7 @@ export interface SetupOrganization {
   tradingStatus: 'ACTIVE' | 'PRE_TRADING';
   setupStartedAt: string | null;
   setupCompletedAt: string | null;
+  pricingConfig: Record<string, unknown> | null;
 }
 
 interface SetupState {

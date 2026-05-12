@@ -124,7 +124,7 @@ export function FeatureHealthCard({ postActivation = false }: { postActivation?:
               </p>
             )}
             {activateError && (
-              <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm">
+              <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm">
                 {activateError}
               </div>
             )}

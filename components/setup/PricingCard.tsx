@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useSetupStore } from './store';
@@ -59,9 +59,22 @@ async function patchPricing(key: string, value: number): Promise<void> {
 
 export function PricingCard() {
   const status = useSetupStore((s) => s.sections.pricing);
+  const org = useSetupStore((s) => s.org);
   const [expanded, setExpanded] = useState(false);
   const [values, setValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
+
+  // Populate values from the org's hydrated pricingConfig once available.
+  useEffect(() => {
+    const cfg = org?.pricingConfig;
+    if (cfg && typeof cfg === 'object') {
+      const next: Record<string, string> = {};
+      for (const [k, v] of Object.entries(cfg)) {
+        if (typeof v === 'number' && Number.isFinite(v)) next[k] = String(v);
+      }
+      setValues(next);
+    }
+  }, [org?.pricingConfig]);
 
   const handleBlur = async (key: string, raw: string) => {
     const n = Number(raw);
@@ -105,7 +118,7 @@ export function PricingCard() {
             <p className="text-sm text-muted-foreground">
               We&apos;ve prefilled industry defaults. Click any rate to adjust.
             </p>
-            <table className="w-full text-sm">
+            <table className="w-full text-sm" id="pricing-all-rates">
               <tbody>
                 {rows.map((row) => (
                   <tr key={row.key} className="border-b last:border-0">
@@ -116,7 +129,7 @@ export function PricingCard() {
                         type="number"
                         min="0"
                         step="any"
-                        defaultValue={values[row.key] ?? ''}
+                        value={values[row.key] ?? ''}
                         onChange={(e) =>
                           setValues((p) => ({ ...p, [row.key]: e.target.value }))
                         }
@@ -133,7 +146,13 @@ export function PricingCard() {
                 ))}
               </tbody>
             </table>
-            <Button variant="ghost" size="sm" onClick={() => setExpanded((v) => !v)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-expanded={expanded}
+              aria-controls="pricing-all-rates"
+              onClick={() => setExpanded((v) => !v)}
+            >
               {expanded ? 'Hide advanced rates' : 'Show all rates'}
             </Button>
           </>

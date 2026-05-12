@@ -71,25 +71,15 @@ export async function middleware(req: NextRequest) {
   const SETUP_WIZARD_ENABLED = process.env.SETUP_WIZARD_ENABLED === "true";
   if (SETUP_WIZARD_ENABLED && !shouldBypassSetupGate(pathname)) {
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-    if (token) {
-      const role = (token as any).role as string | undefined;
-      if (role === "OWNER" || role === "ADMIN") {
-        const setupCompletedAt = (token as any).setupCompletedAt;
-        if (!setupCompletedAt) {
-          const url = req.nextUrl.clone();
-          url.pathname = "/setup";
-          url.search = "";
-          return NextResponse.redirect(url, 307);
-        }
-      } else if (role === "TECHNICIAN") {
-        const techOnboardedAt = (token as any).techOnboardedAt;
-        if (!techOnboardedAt) {
-          const url = req.nextUrl.clone();
-          url.pathname = "/onboarding/technician";
-          url.search = "";
-          return NextResponse.redirect(url, 307);
-        }
-      }
+    // C1+C3 fix: gate on setupCompletedAt only — role-agnostic.
+    // The old OWNER/ADMIN/TECHNICIAN branches used role strings that don't
+    // exist in the schema (Role enum: USER | ADMIN | MANAGER), making the
+    // OWNER branch dead code and the TECHNICIAN branch a 404 trap.
+    if (token && !(token as any).setupCompletedAt) {
+      const url = req.nextUrl.clone();
+      url.pathname = "/setup";
+      url.search = "";
+      return NextResponse.redirect(url, 307);
     }
   }
 

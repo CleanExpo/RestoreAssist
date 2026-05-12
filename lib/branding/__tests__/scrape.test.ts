@@ -41,8 +41,11 @@ describe('scrapeWebsite', () => {
     expect(result.data.hero).toContain('ACME Restoration');
   });
 
-  it('returns ok:false on a 404', async () => {
+  it('returns ok:false with reason FETCH_FAILED on a 404', async () => {
     const result = await scrapeWebsite(`http://localhost:${port}/missing`);
     expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toBe('FETCH_FAILED');
+    }
   });
 });
