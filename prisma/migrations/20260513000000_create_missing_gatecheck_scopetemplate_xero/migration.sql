@@ -2,10 +2,13 @@
 -- Date: 2026-05-13
 -- Surfaced by the CI drift-check (see scripts/check-schema-drift.mjs).
 -- Three models existed in prisma/schema.prisma without a corresponding CREATE
--- TABLE migration. Sandbox has GateCheck (created via prior `db push`), but
--- ScopeTemplate and XeroAccountCodeMapping never made it to any environment.
--- Using IF NOT EXISTS so this is a no-op on environments where some/all of
--- these tables already exist.
+-- TABLE migration. This migration uses IF NOT EXISTS so it's a no-op on
+-- environments where the tables already exist (sandbox has GateCheck from a
+-- prior `db push`; sandbox also has ScopeTemplate + XeroAccountCodeMapping
+-- created directly via the Supabase MCP during the 2026-05-13 cleanup).
+-- On sandbox the corresponding _prisma_migrations row is inserted manually
+-- to mark this migration as applied so Prisma skips it (avoids ADD CONSTRAINT
+-- conflicts with the constraints already created).
 
 CREATE TABLE IF NOT EXISTS "GateCheck" (
     "id" TEXT NOT NULL,
@@ -42,9 +45,7 @@ CREATE TABLE IF NOT EXISTS "ScopeTemplate" (
 CREATE INDEX IF NOT EXISTS "ScopeTemplate_userId_idx" ON "ScopeTemplate"("userId");
 CREATE INDEX IF NOT EXISTS "ScopeTemplate_claimType_idx" ON "ScopeTemplate"("claimType");
 
-DO $$ BEGIN
-  ALTER TABLE "ScopeTemplate" ADD CONSTRAINT "ScopeTemplate_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+ALTER TABLE "ScopeTemplate" ADD CONSTRAINT "ScopeTemplate_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 CREATE TABLE IF NOT EXISTS "XeroAccountCodeMapping" (
     "id" TEXT NOT NULL,
@@ -63,6 +64,4 @@ CREATE UNIQUE INDEX IF NOT EXISTS "XeroAccountCodeMapping_integrationId_category
 CREATE INDEX IF NOT EXISTS "XeroAccountCodeMapping_integrationId_idx" ON "XeroAccountCodeMapping"("integrationId");
 CREATE INDEX IF NOT EXISTS "XeroAccountCodeMapping_integrationId_accountCode_idx" ON "XeroAccountCodeMapping"("integrationId", "accountCode");
 
-DO $$ BEGIN
-  ALTER TABLE "XeroAccountCodeMapping" ADD CONSTRAINT "XeroAccountCodeMapping_integrationId_fkey" FOREIGN KEY ("integrationId") REFERENCES "Integration"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+ALTER TABLE "XeroAccountCodeMapping" ADD CONSTRAINT "XeroAccountCodeMapping_integrationId_fkey" FOREIGN KEY ("integrationId") REFERENCES "Integration"("id") ON DELETE CASCADE ON UPDATE CASCADE;
