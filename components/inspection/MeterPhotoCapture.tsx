@@ -18,6 +18,7 @@
  */
 
 import { useRef, useState } from "react";
+import { apiErrorMessage } from "@/lib/api-error-message";
 import {
   Camera,
   Upload,
@@ -611,7 +612,7 @@ export function MeterPhotoCapture({
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error ?? "Analysis failed — please try again");
+        setError(apiErrorMessage(data) ?? "Analysis failed — please try again");
         return;
       }
 

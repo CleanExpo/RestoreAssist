@@ -19,6 +19,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 export default function SignupPage() {
   const [name, setName] = useState("");
@@ -138,7 +139,7 @@ export default function SignupPage() {
           }, 1000);
         }
       } else {
-        setError(data.error || "Registration failed");
+        setError(apiErrorMessage(data) ?? "Registration failed");
       }
     } catch (error) {
       setError("An error occurred. Please try again.");

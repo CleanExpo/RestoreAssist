@@ -9,6 +9,7 @@ import {
   Shield,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface Props {
   inspectionId: string;
@@ -91,7 +92,7 @@ export default function InspectionSignOff({
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error ?? "Failed to sign inspection");
+        setError(apiErrorMessage(data) ?? "Failed to sign inspection");
         return;
       }
 

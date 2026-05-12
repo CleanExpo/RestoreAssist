@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { apiErrorMessage } from "@/lib/api-error-message";
 import {
   ArrowLeft,
   Clock,
@@ -173,7 +174,7 @@ export default function InterviewDetailPage() {
         const res = await fetch(`/api/interviews/${id}`);
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          setError(data.error || "Interview not found");
+          setError(apiErrorMessage(data) ?? "Interview not found");
           return;
         }
         const data = await res.json();
