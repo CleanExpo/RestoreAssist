@@ -9,6 +9,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { apiErrorMessage } from "@/lib/api-error-message";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -52,7 +53,7 @@ export function SubmissionGatePanel({
       );
       if (!res.ok) {
         const data = await res.json();
-        setError(data.error || "Validation failed");
+        setError(apiErrorMessage(data) ?? "Validation failed");
         return;
       }
       const data = await res.json();
