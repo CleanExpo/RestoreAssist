@@ -12,53 +12,15 @@
  * grab the 11-char ID from the youtu.be/<id> URL, add a slug entry below.
  */
 import { useRef, useState } from "react";
+import {
+  VIDEO_REGISTRY,
+  type VideoExplainerSlug,
+  type RegistryEntry,
+} from "./video-registry";
 
-export type VideoExplainerSlug =
-  | "setup-wizard-signin"
-  | "setup-wizard-signup"
-  | "setup-wizard-setup"
-  | "setup-wizard-dashboard"
-  | "setup-wizard-integrations"
-  | "setup-wizard-health";
-
-export interface RegistryEntry {
-  youtubeId: string;
-  title: string;
-  durationSec: number;
-}
-
-export const VIDEO_REGISTRY: Record<VideoExplainerSlug, RegistryEntry> = {
-  "setup-wizard-signin": {
-    youtubeId: "tsmZpgLrn5Y",
-    title: "Signing in to RestoreAssist",
-    durationSec: 30,
-  },
-  "setup-wizard-signup": {
-    youtubeId: "wREGInp5yPQ",
-    title: "Creating your RestoreAssist account",
-    durationSec: 60,
-  },
-  "setup-wizard-setup": {
-    youtubeId: "G2CIyp-gDKA",
-    title: "The RestoreAssist Setup Wizard — end-to-end",
-    durationSec: 120,
-  },
-  "setup-wizard-dashboard": {
-    youtubeId: "sp3bMYSaZa8",
-    title: "Your RestoreAssist dashboard, post-activation",
-    durationSec: 120,
-  },
-  "setup-wizard-integrations": {
-    youtubeId: "P6rVHLOVNsQ",
-    title: "Connect Xero, MYOB, QuickBooks, ServiceM8 or Ascora",
-    durationSec: 90,
-  },
-  "setup-wizard-health": {
-    youtubeId: "UHUiqnhxGtw",
-    title: "Your RestoreAssist Workspace Health page",
-    durationSec: 60,
-  },
-};
+// Re-export so existing consumers keep working.
+export { VIDEO_REGISTRY };
+export type { VideoExplainerSlug, RegistryEntry };
 
 interface VideoExplainerProps {
   slug: VideoExplainerSlug;

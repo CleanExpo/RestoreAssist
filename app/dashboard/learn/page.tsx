@@ -1,4 +1,5 @@
-import { VideoExplainer, VIDEO_REGISTRY, type VideoExplainerSlug } from "@/components/setup/VideoExplainer";
+import { VideoExplainer } from "@/components/setup/VideoExplainer";
+import { VIDEO_REGISTRY, type VideoExplainerSlug } from "@/components/setup/video-registry";
 
 export const metadata = {
   title: "Tutorials · RestoreAssist",
