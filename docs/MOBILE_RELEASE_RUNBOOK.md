@@ -50,6 +50,58 @@
 
 ---
 
+## 1.5 GCP project coupling (rotation hazard) — RA-3010
+
+> 🚨 **One Google Cloud project (`292141944467`, label `restoreassist`)
+> currently anchors three independent release surfaces.** Disabling any
+> API on it — or rotating the project — breaks all three simultaneously.
+
+### Consumers of GCP project `292141944467`
+
+| Surface                                  | Where it reads                                                                         | Failure mode if project is touched                                          |
+| ---------------------------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| iOS native Google Sign-In (capgo plugin) | `ios/App/App/Info.plist` line 81 (`com.googleusercontent.apps.292141944467-…`)         | Sign-In returns immediately to the app with no token (silent failure)       |
+| iOS WebView OAuth fallback (NextAuth)    | `NEXTAUTH_GOOGLE_CLIENT_ID` env (web-client ID, same project)                          | Login screen returns `redirect_uri_mismatch` (visible error)                |
+| Android Play Console upload              | `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` secret (service account provisioned in the project) | `r0adkll/upload-google-play` job fails with `Developer API … is disabled`   |
+
+### Historical incidents tied to the coupling
+
+| Date       | What broke                                                                | Linear                                   |
+| ---------- | ------------------------------------------------------------------------- | ---------------------------------------- |
+| 2026-05-08 | Android pipeline outage — Play Developer API disabled on the GCP project  | run 25665767520; ticket: see RA-2997     |
+| 2026-05-04 | iOS Google Sign-In silent failure post-restore                            | RA-2119 ⇄ RA-2073 (re-enabled 3 times)   |
+
+### Long-term fix (operator action — not autonomous)
+
+1. Provision a **dedicated** `restoreassist-oauth-prod` GCP project for the
+   iOS + web OAuth clients. **Move the existing iOS client into it; rotate
+   the reversed-client-ID in the plist.**
+2. Provision a separate `restoreassist-play-publishing` project for the
+   Google Play upload service account.
+3. Each project gets one purpose. Disabling an API in one no longer takes
+   down the other two.
+
+### Short-term safeguard (already in place)
+
+The `ios-release.yml` workflow now runs a pre-flight check that asserts
+the reversed-client-ID in `Info.plist` matches the
+`GOOGLE_IOS_REVERSED_CLIENT_ID` GitHub Actions environment variable. If
+drift is detected — e.g., someone edits the plist by hand or copies a
+staging value into prod — the build fails fast before notarisation.
+
+To enable the safeguard, add a repo variable (NOT secret) named
+`GOOGLE_IOS_REVERSED_CLIENT_ID` set to the current production value:
+
+```
+com.googleusercontent.apps.292141944467-8hhd4eub33tplq6ep5lc9iltu8jcatvp
+```
+
+Until the long-term fix lands, treat the GCP project as a shared
+production resource: **do not disable APIs on it, do not delete service
+accounts, do not rotate the project number**.
+
+---
+
 ## 2. App Store Connect — create the app entry
 
 App Store Connect → My Apps → ＋ → New App.
