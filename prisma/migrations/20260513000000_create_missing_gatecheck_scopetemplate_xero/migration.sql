@@ -1,14 +1,22 @@
 -- Migration: create_missing_gatecheck_scopetemplate_xero
 -- Date: 2026-05-13
 -- Surfaced by the CI drift-check (see scripts/check-schema-drift.mjs).
--- Three models existed in prisma/schema.prisma without a corresponding CREATE
--- TABLE migration. This migration uses IF NOT EXISTS so it's a no-op on
--- environments where the tables already exist (sandbox has GateCheck from a
--- prior `db push`; sandbox also has ScopeTemplate + XeroAccountCodeMapping
--- created directly via the Supabase MCP during the 2026-05-13 cleanup).
--- On sandbox the corresponding _prisma_migrations row is inserted manually
--- to mark this migration as applied so Prisma skips it (avoids ADD CONSTRAINT
--- conflicts with the constraints already created).
+--
+-- Three issues this migration fixes:
+--   1. GateCheck — model in schema.prisma, no CREATE TABLE migration.
+--   2. ScopeTemplate — model in schema.prisma, no CREATE TABLE migration.
+--   3. XeroAccountCodeMapping — created by 20260416000001_billing_v2_schema_foundation
+--      with the OLD shape (userId, category, damageType + FK to User). Schema
+--      evolved to (integrationId, category, accountCode, taxType, description
+--      + FK to Integration) but no ALTER migration was ever written. We drop
+--      the incompatible legacy table and recreate it with the current shape.
+--      The feature is brand new — zero rows expected — so data loss is safe.
+--
+-- On sandbox this migration is pre-marked applied in _prisma_migrations because
+-- the tables were already created directly via Supabase MCP during the
+-- 2026-05-13 cleanup. CI fresh-DB and any other env runs it cleanly.
+
+-- ── GateCheck ───────────────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS "GateCheck" (
     "id" TEXT NOT NULL,
@@ -29,6 +37,8 @@ CREATE TABLE IF NOT EXISTS "GateCheck" (
 CREATE INDEX IF NOT EXISTS "GateCheck_projectKey_createdAt_idx" ON "GateCheck"("projectKey", "createdAt");
 CREATE INDEX IF NOT EXISTS "GateCheck_decision_createdAt_idx" ON "GateCheck"("decision", "createdAt");
 
+-- ── ScopeTemplate ───────────────────────────────────────────────────────────
+
 CREATE TABLE IF NOT EXISTS "ScopeTemplate" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
@@ -47,7 +57,11 @@ CREATE INDEX IF NOT EXISTS "ScopeTemplate_claimType_idx" ON "ScopeTemplate"("cla
 
 ALTER TABLE "ScopeTemplate" ADD CONSTRAINT "ScopeTemplate_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
-CREATE TABLE IF NOT EXISTS "XeroAccountCodeMapping" (
+-- ── XeroAccountCodeMapping — drop legacy billing_v2 version, recreate ──────
+
+DROP TABLE IF EXISTS "XeroAccountCodeMapping" CASCADE;
+
+CREATE TABLE "XeroAccountCodeMapping" (
     "id" TEXT NOT NULL,
     "integrationId" TEXT NOT NULL,
     "category" TEXT,
@@ -60,8 +74,8 @@ CREATE TABLE IF NOT EXISTS "XeroAccountCodeMapping" (
     CONSTRAINT "XeroAccountCodeMapping_pkey" PRIMARY KEY ("id")
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS "XeroAccountCodeMapping_integrationId_category_key" ON "XeroAccountCodeMapping"("integrationId", "category");
-CREATE INDEX IF NOT EXISTS "XeroAccountCodeMapping_integrationId_idx" ON "XeroAccountCodeMapping"("integrationId");
-CREATE INDEX IF NOT EXISTS "XeroAccountCodeMapping_integrationId_accountCode_idx" ON "XeroAccountCodeMapping"("integrationId", "accountCode");
+CREATE UNIQUE INDEX "XeroAccountCodeMapping_integrationId_category_key" ON "XeroAccountCodeMapping"("integrationId", "category");
+CREATE INDEX "XeroAccountCodeMapping_integrationId_idx" ON "XeroAccountCodeMapping"("integrationId");
+CREATE INDEX "XeroAccountCodeMapping_integrationId_accountCode_idx" ON "XeroAccountCodeMapping"("integrationId", "accountCode");
 
 ALTER TABLE "XeroAccountCodeMapping" ADD CONSTRAINT "XeroAccountCodeMapping_integrationId_fkey" FOREIGN KEY ("integrationId") REFERENCES "Integration"("id") ON DELETE CASCADE ON UPDATE CASCADE;
