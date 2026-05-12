@@ -120,4 +120,24 @@ describe('POST /api/setup/hydrate', () => {
     const jobs = await prisma.hydrationJob.findMany({ where: { organizationId: testOrgId } });
     expect(jobs).toHaveLength(3);  // still 3, not 6
   });
+
+  it('marks WEBSITE job as MANUAL when no website provided', async () => {
+    // Clean prior state from earlier tests
+    await prisma.hydrationJob.deleteMany({ where: { organizationId: testOrgId } });
+
+    const req = new Request('http://test/api/setup/hydrate', {
+      method: 'POST',
+      body: JSON.stringify({ abn: '53004085616' }),  // no website
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(202);
+
+    const jobs = await prisma.hydrationJob.findMany({ where: { organizationId: testOrgId } });
+    expect(jobs).toHaveLength(3);
+    const website = jobs.find((j) => j.kind === 'WEBSITE');
+    expect(website?.status).toBe('MANUAL');
+    expect(website?.completedAt).not.toBeNull();
+    const abr = jobs.find((j) => j.kind === 'ABR');
+    expect(abr?.status).toBe('RUNNING');
+  });
 });

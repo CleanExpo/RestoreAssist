@@ -40,13 +40,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No organization for this user' }, { status: 404 });
   }
 
-  // Upsert 3 jobs into RUNNING state (idempotent on re-submit)
-  const kinds = ['ABR', 'WEBSITE', 'PRICING'] as const;
-  for (const kind of kinds) {
+  // WEBSITE job is RUNNING only when a website was provided; otherwise MANUAL (user-driven).
+  const websiteInitialStatus: 'RUNNING' | 'MANUAL' = body.website ? 'RUNNING' : 'MANUAL';
+  const initialStatuses = {
+    ABR: 'RUNNING' as const,
+    WEBSITE: websiteInitialStatus,
+    PRICING: 'RUNNING' as const,
+  };
+  for (const [kind, status] of Object.entries(initialStatuses) as Array<['ABR' | 'WEBSITE' | 'PRICING', 'RUNNING' | 'MANUAL']>) {
     await prisma.hydrationJob.upsert({
       where: { organizationId_kind: { organizationId: org.id, kind } },
-      create: { organizationId: org.id, kind, status: 'RUNNING' },
-      update: { status: 'RUNNING', errorMessage: null, startedAt: new Date(), completedAt: null },
+      create: { organizationId: org.id, kind, status, completedAt: status === 'MANUAL' ? new Date() : null },
+      update: {
+        status,
+        errorMessage: null,
+        startedAt: new Date(),
+        completedAt: status === 'MANUAL' ? new Date() : null,
+      },
     });
   }
 
