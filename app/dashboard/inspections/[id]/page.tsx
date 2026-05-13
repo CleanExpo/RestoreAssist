@@ -2,7 +2,9 @@
 
 import { useState, useEffect, use, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
+import { EngagementLicenceModal } from "@/components/attestation/EngagementLicenceModal";
 import { cn } from "@/lib/utils";
 import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas";
 import { useConfirmDialog } from "@/components/ConfirmDialog";
@@ -277,6 +279,9 @@ export default function InspectionDetailPage({
   const { id } = use(params);
   const router = useRouter();
   const confirm = useConfirmDialog();
+  const { data: session } = useSession();
+  // T13: EngagementLicenceModal gate for IICRC report generation (rule 28).
+  const [licenceModalOpen, setLicenceModalOpen] = useState(false);
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -341,10 +346,34 @@ export default function InspectionDetailPage({
   const [shareExpiry, setShareExpiry] = useState<string | null>(null);
   const [shareLoading, setShareLoading] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
+  // RA-2967 — workspace-level auto-fetch toggle for floor plan underlay.
+  const [autoFetchFloorPlan, setAutoFetchFloorPlan] = useState(false);
 
   useEffect(() => {
     fetchInspection();
   }, [id]);
+
+  // RA-2967 — fetch workspace settings once per mount; non-blocking.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/workspace/settings");
+        if (!res.ok) return;
+        const json = (await res.json()) as {
+          settings?: { autoFetchFloorPlanOnInspection?: boolean };
+        };
+        if (!cancelled && json.settings?.autoFetchFloorPlanOnInspection) {
+          setAutoFetchFloorPlan(true);
+        }
+      } catch {
+        // Silent — auto-fetch is a nice-to-have; tech can still load manually.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const fetchInspection = async () => {
     try {
@@ -545,7 +574,7 @@ export default function InspectionDetailPage({
     }
   };
 
-  async function handleGenerateReport() {
+  async function performGenerateReport() {
     setGeneratingReport(true);
     try {
       const res = await fetch(
@@ -580,6 +609,29 @@ export default function InspectionDetailPage({
     } finally {
       setGeneratingReport(false);
     }
+  }
+
+  // T13: USER-role technicians must verify engagement-time credentials
+  // (rule 28) before generating an IICRC-cited report. ADMIN/MANAGER bypass.
+  async function handleGenerateReport() {
+    if (session?.user?.role !== "USER") {
+      return performGenerateReport();
+    }
+    try {
+      const res = await fetch("/api/authorisations/most-recent");
+      const data = await res.json().catch(() => ({ row: null }));
+      const verifiedAt = data?.row?.verifiedAt;
+      const ageOk =
+        verifiedAt &&
+        Date.now() - new Date(verifiedAt).getTime() <
+          90 * 24 * 60 * 60 * 1000;
+      if (ageOk) {
+        return performGenerateReport();
+      }
+    } catch {
+      // network failure → fall through to modal so user can re-attest
+    }
+    setLicenceModalOpen(true);
   }
 
   async function handleGenerateDisputePack() {
@@ -1590,6 +1642,7 @@ export default function InspectionDetailPage({
               inspectionId={inspection.id}
               propertyAddress={inspection.propertyAddress ?? undefined}
               propertyPostcode={inspection.propertyPostcode ?? undefined}
+              autoFetchFloorPlan={autoFetchFloorPlan}
             />
           </div>
         )}
@@ -2510,6 +2563,18 @@ export default function InspectionDetailPage({
 
       {/* Mobile bottom nav — field shortcuts on small screens */}
       <MobileNav inspectionId={inspection.id} />
+
+      {/* T13: engagement-time licence verification (rule 28) for USER-role
+          technicians before generating an IICRC-cited NIR report. */}
+      <EngagementLicenceModal
+        open={licenceModalOpen}
+        onOpenChange={setLicenceModalOpen}
+        inspectionId={inspection.id}
+        onConfirmed={() => {
+          setLicenceModalOpen(false);
+          void performGenerateReport();
+        }}
+      />
     </div>
   );
 }

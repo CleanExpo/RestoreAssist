@@ -38,6 +38,50 @@ export async function GET(
 
   const userId = session.user.id;
 
+  if ((session?.user as { role?: string } | undefined)?.role === "USER") {
+    const auth = await prisma.authorisation.findFirst({
+      where: { subjectUserId: userId },
+      select: { id: true, subjectLicenceNumber: true, whsCardNumber: true },
+    });
+
+    const hasAuth = !!auth?.subjectLicenceNumber && !!auth?.whsCardNumber;
+
+    const steps: FirstRunStep[] = [
+      {
+        id: "tech_iicrc",
+        title: "Add your IICRC certificate",
+        description: "Required before you can sign off evidence.",
+        href: "/dashboard/settings/credentials?focus=iicrc",
+        completed: !!auth?.subjectLicenceNumber,
+      },
+      {
+        id: "tech_whs",
+        title: "Add your WHS card",
+        description:
+          "White Card / WHS RIIWHS204D-... — required for site work.",
+        href: "/dashboard/settings/credentials?focus=whs",
+        completed: !!auth?.whsCardNumber,
+      },
+      {
+        id: "tech_state",
+        title: "Add your state licence (if applicable)",
+        description:
+          "QBCC, NSW Fair Trading, etc. Optional unless your state requires it.",
+        href: "/dashboard/settings/credentials?focus=state",
+        completed: !!auth,
+      },
+    ];
+
+    const completedCount = steps.filter((s) => s.completed).length;
+    return NextResponse.json({
+      dismissed: hasAuth,
+      allComplete: hasAuth,
+      completedCount,
+      totalCount: steps.length,
+      steps,
+    });
+  }
+
   const user = await (prisma as any).user.findUnique({
     where: { id: userId },
     select: { firstRunChecklistDismissedAt: true },
