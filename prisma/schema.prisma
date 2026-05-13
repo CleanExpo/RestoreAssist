@@ -1904,6 +1904,19 @@ model Inspection {
   psychrometricReadings     PsychrometricReading[]
   circuitAssessments        CircuitAssessment[]
 
+  // RA-261 NIR phase 2–5 — re-modelled here per issue #962 (PR-A).
+  // 3 of the 7 corrupt _prisma_migrations rows tracked in #962 (phase 2/3, 4, 5)
+  // never executed their DDL on prod, leaving 8 tables missing. Atomic
+  // schema+migration+route-cleanup mirroring PR #965 for phase 1.
+  fireSmokeDamageAssessment   FireSmokeDamageAssessment?
+  mouldRemediationAssessment  MouldRemediationAssessment?
+  contentsPackOutItems        ContentsPackOutItem[]
+  stormDamageAssessment       StormDamageAssessment?
+  biohazardAssessment         BiohazardAssessment?
+  carpetRestorationAssessment CarpetRestorationAssessment?
+  hvacAssessment              HVACAssessment?
+  australianComplianceRecord  AustralianComplianceRecord?
+
   @@index([userId])
   @@index([status])
   @@index([inspectionDate])
@@ -2177,6 +2190,391 @@ model CircuitAssessment {
 
   @@index([inspectionId])
   @@index([circuitLoadSafe])
+}
+
+// ─── RA-261 NIR phase 2–5 tables + enums (per issue #962 PR-A) ────────────────
+// Same pattern as phase 1 (PR #965): 3 of the 7 corrupt _prisma_migrations rows
+// recorded their DDL as applied with applied_steps_count: 0. The 8 tables below
+// + their 18 enums never existed on prod. Routes were using
+// (prisma as any).<tableName>.* casts before this change.
+//   - Phase 2/3: FireSmokeDamageAssessment, MouldRemediationAssessment,
+//                ContentsPackOutItem
+//   - Phase 4:   StormDamageAssessment, BiohazardAssessment,
+//                CarpetRestorationAssessment
+//   - Phase 5:   HVACAssessment, AustralianComplianceRecord
+
+enum StructuralStability {
+  SAFE
+  UNCERTAIN
+  COMPROMISED
+}
+
+enum SmokeResidueType {
+  WET
+  DRY
+  PROTEIN
+  FUEL_OIL
+}
+
+enum OdourType {
+  SMOKE
+  PROTEIN
+  CHEMICAL
+  FUEL
+}
+
+enum PackOutDecision {
+  CLEAN_ONSITE
+  PACK_OUT
+  TOTAL_LOSS
+}
+
+enum ConditionGrade {
+  EXCELLENT
+  GOOD
+  FAIR
+  POOR
+}
+
+enum MouldConditionLevel {
+  CONDITION_1
+  CONDITION_2
+  CONDITION_3
+}
+
+enum StormEventType {
+  STORM
+  CYCLONE
+  HAIL
+  DOWNBURST
+  TORNADO
+}
+
+enum DamagePenetration {
+  SURFACE
+  PARTIAL
+  FULL
+}
+
+enum RoofMaterialType {
+  COLORBOND
+  TERRACOTTA
+  SHINGLES
+  METAL
+  OTHER
+}
+
+enum BiohazardType {
+  SEWAGE_CAT3
+  BLOOD
+  BODILY_FLUIDS
+  CRIME_SCENE
+  UNATTENDED_DEATH
+}
+
+enum PPELevel {
+  LEVEL_1
+  LEVEL_2
+  LEVEL_3
+}
+
+enum CarpetFiberType {
+  WOOL
+  NYLON
+  POLYESTER
+  POLYPROPYLENE
+  OTHER
+}
+
+enum CarpetPileType {
+  CUT
+  LOOP
+  CUT_LOOP
+  FRIEZE
+}
+
+enum StainRemovalResult {
+  COMPLETE
+  PARTIAL
+  UNSUCCESSFUL
+}
+
+enum HVACContaminationLevel {
+  NONE
+  LIGHT
+  MODERATE
+  HEAVY
+}
+
+enum AustralianState {
+  NSW
+  VIC
+  QLD
+  WA
+  SA
+  TAS
+  ACT
+  NT
+}
+
+enum TechnicianCertification {
+  WRT
+  ASD
+  CMS
+  HST
+  OCT
+  CCT
+  MRS
+  OTHER
+}
+
+enum NRPGCategory {
+  SMALL
+  MEDIUM
+  LARGE
+  CATASTROPHIC
+}
+
+model FireSmokeDamageAssessment {
+  id           String     @id @default(uuid()) @db.Text
+  inspectionId String     @unique
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  structuralStability          StructuralStability?
+  electricalDisconnectVerified Boolean              @default(false)
+  gasShutoffVerified           Boolean              @default(false)
+  charringDepthMm              Float?
+  engineerClearanceRequired    Boolean              @default(false)
+
+  smokeResidueType   SmokeResidueType?
+  residueLocation    String?
+  surfacePH          Float?
+  pHMeterModel       String?
+  odourSeverityScore Int?
+  hvacAffected       Boolean           @default(false)
+  odourType          OdourType?
+
+  ozoneTreatmentDuration   Float?
+  ozoneConcentrationPpm    Float?
+  evacuationOrderTimestamp DateTime? @db.Timestamptz
+  reentryApprovalTimestamp DateTime? @db.Timestamptz
+  spaceVolumeM3            Float?
+
+  // Compliance gate flags
+  gateStructuralCleared Boolean @default(false)
+  gateElectricalCleared Boolean @default(false)
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz
+
+  @@index([inspectionId])
+  @@index([structuralStability])
+}
+
+model MouldRemediationAssessment {
+  id           String     @id @default(uuid()) @db.Text
+  inspectionId String     @unique
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  mouldConditionLevel      MouldConditionLevel?
+  visibleGrowthObserved    Boolean              @default(false)
+  affectedAreaM2           Float?
+  moistureSourceIdentified Boolean              @default(false)
+  rootCauseAddressed       Boolean              @default(false)
+
+  pressureDifferentialPa       Float?
+  airChangesPerHour            Float?
+  containmentBarrierMaterial   String?
+  negativePressureMachineModel String?
+
+  airSamplingRequired       Boolean   @default(false)
+  samplingDate              DateTime? @db.Timestamptz
+  labName                   String?
+  labReportReference        String?
+  sporeType                 String?
+  sporeCountPreRemediation  Float?
+  outdoorBaselineCount      Float?
+  sporeCountPostRemediation Float?
+  clearanceCriterion        String?
+  iepAssessmentRequired     Boolean   @default(false)
+
+  // Compliance gate flags
+  gateMoistureSourceFixed   Boolean @default(false)
+  gateContainmentSufficient Boolean @default(false)
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz
+
+  @@index([inspectionId])
+  @@index([mouldConditionLevel])
+}
+
+model ContentsPackOutItem {
+  id           String     @id @default(uuid()) @db.Text
+  inspectionId String
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  itemDescription   String
+  make              String?
+  model             String?
+  serialNumber      String?
+  ageYears          Int?
+  conditionPreLoss  ConditionGrade?
+  conditionPostLoss ConditionGrade?
+
+  replacementValueAud     Decimal? @db.Decimal(10, 2)
+  restorationCostEstimate Decimal? @db.Decimal(10, 2)
+
+  packOutDecision PackOutDecision?
+  packOutTag      String?
+  beforePhotoUrl  String?
+  afterPhotoUrl   String?
+  claimType       ClaimType?
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz
+
+  @@index([inspectionId])
+  @@index([packOutDecision])
+  @@index([claimType])
+}
+
+model StormDamageAssessment {
+  id           String     @id @default(uuid()) @db.Text
+  inspectionId String     @unique
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  bomEventReference String?
+  windSpeedKmh     Float?
+  eventType        StormEventType?
+  eventTimestamp   DateTime?       @db.Timestamptz
+
+  roofMaterialType   RoofMaterialType?
+  roofDamageAreaM2   Float?
+  damagePenetration  DamagePenetration?
+  waterIngressPoints String?
+
+  engineerClearanceRequired Boolean   @default(false)
+  emergencyTarpingCompleted Boolean   @default(false)
+  emergencyTarpingM2        Float?
+  emergencyTarpingTimestamp DateTime? @db.Timestamptz
+
+  waterCategory    WaterCategory?
+  asbestosRiskFlag Boolean        @default(false)
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz
+
+  @@index([inspectionId])
+  @@index([eventType])
+}
+
+model BiohazardAssessment {
+  id           String     @id @default(uuid()) @db.Text
+  inspectionId String     @unique
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  biohazardType       BiohazardType?
+  contaminationAreaM2 Float?
+  atpReadingPre       Float?
+  atpReadingPost      Float?
+  swmsCompleted       Boolean        @default(false)
+  ppeLevel            PPELevel?
+
+  wasteDisposalManifestId String?
+  disposalFacilityLicense String?
+  disposalCertificateUrl  String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz
+
+  @@index([inspectionId])
+  @@index([biohazardType])
+}
+
+model CarpetRestorationAssessment {
+  id           String     @id @default(uuid()) @db.Text
+  inspectionId String     @unique
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  fiberType   CarpetFiberType?
+  pileType    CarpetPileType?
+  backingType String?
+
+  standingWaterHours             Float?
+  extractionRateLitresPerHour    Float?
+  extractionPasses               Int?
+  residualMoisturePostExtraction Float?
+  delaminationTestResult         String?
+  finalMoisturePercent           Float?
+
+  stainType             String?
+  stainPH               Float?
+  stainTreatmentProduct String?
+  stainRemovalResult    StainRemovalResult?
+
+  restorationDecision String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz
+
+  @@index([inspectionId])
+}
+
+model HVACAssessment {
+  id           String     @id @default(uuid()) @db.Text
+  inspectionId String     @unique
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  hvacSystemInspected    Boolean                 @default(false)
+  ductContaminationLevel HVACContaminationLevel?
+  visibleSootInDucts     Boolean                 @default(false)
+  smokeOdourInDucts      Boolean                 @default(false)
+  filterCondition        String?
+  coilContaminationLevel HVACContaminationLevel?
+  hvacCleaningRequired   Boolean                 @default(false)
+
+  insulationResistanceMegaohm Float?
+  insulationTestPerformedBy   String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz
+
+  @@index([inspectionId])
+}
+
+model AustralianComplianceRecord {
+  id           String     @id @default(uuid()) @db.Text
+  inspectionId String     @unique
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  insurerName           String?
+  claimNumber           String?
+  lossAdjusterName      String?
+  lossAdjusterReference String?
+
+  nrpgCategory             NRPGCategory?
+  iicrcCertifiedTechnician Boolean                  @default(false)
+  technicianCertification  TechnicianCertification?
+  technicianLicenseNumber  String?
+
+  state             AustralianState?
+  propertyYearBuilt Int?
+
+  asbestosRiskAcknowledged Boolean @default(false)
+  friableAssessment        String?
+  workHalted               Boolean @default(false)
+  licensedAssessorName     String?
+  licensedAssessorLicense  String?
+  removalQuoteAud          Decimal? @db.Decimal(10, 2)
+  separateInvoiceRequired  Boolean  @default(true)
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz
+
+  @@index([inspectionId])
+  @@index([state])
+  @@index([nrpgCategory])
 }
 
 // Affected Areas (Room/Zone with Category/Class)
