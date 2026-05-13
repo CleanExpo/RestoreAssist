@@ -79,7 +79,7 @@ export async function GET(
 
   const { id } = await params;
 
-  const inspection = await (prisma as any).inspection.findUnique({
+  const inspection = await prisma.inspection.findUnique({
     where: { id, userId: session.user.id },
     select: { id: true, waterDamageClassification: true },
   });
@@ -91,9 +91,7 @@ export async function GET(
     );
   }
 
-  return NextResponse.json(
-    (inspection as any).waterDamageClassification ?? null,
-  );
+  return NextResponse.json(inspection.waterDamageClassification ?? null);
 }
 
 // ─── POST ─────────────────────────────────────────────────────────────────────
@@ -138,8 +136,8 @@ export async function POST(
 
   // Atomically upsert classification + stamp claimType — prevents split-brain
   // state if DB connection drops between the two writes.
-  const [record] = await (prisma as any).$transaction([
-    (prisma as any).waterDamageClassification.upsert({
+  const [record] = await prisma.$transaction([
+    prisma.waterDamageClassification.upsert({
       where: { inspectionId: id },
       create: {
         inspectionId: id,
@@ -175,7 +173,7 @@ export async function POST(
     }),
     prisma.inspection.update({
       where: { id },
-      data: { claimType: "WATER" } as any,
+      data: { claimType: "WATER" },
     }),
   ]);
 
@@ -207,13 +205,13 @@ export async function DELETE(
     );
   }
 
-  await (prisma as any).$transaction([
-    (prisma as any).waterDamageClassification.deleteMany({
+  await prisma.$transaction([
+    prisma.waterDamageClassification.deleteMany({
       where: { inspectionId: id },
     }),
     prisma.inspection.update({
       where: { id },
-      data: { claimType: null } as any,
+      data: { claimType: null },
     }),
   ]);
 
