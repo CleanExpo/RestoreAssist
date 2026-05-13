@@ -30,7 +30,7 @@ export async function DELETE(
   }
 
   // Verify item belongs to this inspection
-  const item = await (prisma as any).contentsPackOutItem.findFirst({
+  const item = await prisma.contentsPackOutItem.findFirst({
     where: { id: itemId, inspectionId: id },
   });
 
@@ -38,7 +38,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Item not found" }, { status: 404 });
   }
 
-  await (prisma as any).contentsPackOutItem.delete({
+  await prisma.contentsPackOutItem.delete({
     where: { id: itemId },
   });
 

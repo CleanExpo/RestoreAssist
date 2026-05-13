@@ -100,14 +100,12 @@ export async function GET(
     });
   }
 
-  const inspection = await (prisma as any).inspection.findUnique({
+  const inspection = await prisma.inspection.findUnique({
     where: { id },
     select: { fireSmokeDamageAssessment: true },
   });
 
-  return NextResponse.json(
-    (inspection as any)?.fireSmokeDamageAssessment ?? null,
-  );
+  return NextResponse.json(inspection?.fireSmokeDamageAssessment ?? null);
 }
 
 // ─── POST ─────────────────────────────────────────────────────────────────────
@@ -148,7 +146,7 @@ export async function POST(
   const data = parsed.data;
   const gates = computeGates(data);
 
-  const record = await (prisma as any).fireSmokeDamageAssessment.upsert({
+  const record = await prisma.fireSmokeDamageAssessment.upsert({
     where: { inspectionId: id },
     create: {
       inspectionId: id,
@@ -233,7 +231,7 @@ export async function POST(
 
   await prisma.inspection.update({
     where: { id },
-    data: { claimType: "FIRE" } as any,
+    data: { claimType: "FIRE" },
   });
 
   return NextResponse.json(record);
@@ -267,7 +265,7 @@ export async function DELETE(
 
   await softDelete(
     () =>
-      (prisma as any).fireSmokeDamageAssessment.delete({
+      prisma.fireSmokeDamageAssessment.delete({
         where: { inspectionId: id },
       }),
     {
@@ -279,7 +277,7 @@ export async function DELETE(
 
   await prisma.inspection.update({
     where: { id },
-    data: { claimType: null } as any,
+    data: { claimType: null },
   });
 
   return NextResponse.json({ deleted: true });
