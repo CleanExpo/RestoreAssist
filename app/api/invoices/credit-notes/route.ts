@@ -17,7 +17,21 @@ export async function GET(request: NextRequest) {
         invoice: {
           select: { invoiceNumber: true, customerName: true },
         },
-        lineItems: true,
+        lineItems: {
+          select: {
+            id: true,
+            description: true,
+            quantity: true,
+            unitPrice: true,
+            subtotal: true,
+            gstRate: true,
+            gstAmount: true,
+            total: true,
+            sortOrder: true,
+            creditNoteId: true,
+            createdAt: true,
+          },
+        },
       },
       orderBy: { createdAt: "desc" },
       take: 100,
@@ -140,7 +154,23 @@ export async function POST(request: NextRequest) {
             })),
           },
         },
-        include: { lineItems: true },
+        include: {
+          lineItems: {
+            select: {
+              id: true,
+              description: true,
+              quantity: true,
+              unitPrice: true,
+              subtotal: true,
+              gstRate: true,
+              gstAmount: true,
+              total: true,
+              sortOrder: true,
+              creditNoteId: true,
+              createdAt: true,
+            },
+          },
+        },
       });
 
       return NextResponse.json({ creditNote }, { status: 201 });
