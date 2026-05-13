@@ -30,20 +30,62 @@ export async function GET(
     }
 
     // Get all variations of this invoice
+    const variationsInclude = {
+      lineItems: {
+        orderBy: { sortOrder: "asc" } as const,
+        select: {
+          id: true,
+          description: true,
+          category: true,
+          quantity: true,
+          unitPrice: true,
+          xeroAccountCode: true,
+          subtotal: true,
+          gstRate: true,
+          gstAmount: true,
+          total: true,
+          discountAmount: true,
+          sortOrder: true,
+          invoiceId: true,
+          estimateLineItemId: true,
+          createdAt: true,
+        },
+      },
+      payments: {
+        select: {
+          id: true,
+          amount: true,
+          currency: true,
+          paymentMethod: true,
+          paymentDate: true,
+          reference: true,
+          notes: true,
+          stripePaymentIntentId: true,
+          stripeChargeId: true,
+          externalPaymentId: true,
+          externalProvider: true,
+          webhookEventId: true,
+          reconciled: true,
+          reconciledAt: true,
+          reconciledBy: true,
+          invoiceId: true,
+          userId: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      },
+    };
+
     const variations = await prisma.invoice.findMany({
       where: {
         originalInvoiceId: id,
         userId: session.user.id,
       },
-      include: {
-        lineItems: {
-          orderBy: { sortOrder: "asc" },
-        },
-        payments: true,
-      },
+      include: variationsInclude,
       orderBy: {
         createdAt: "asc",
       },
+      take: 200,
     });
 
     // If this invoice is itself a variation, get the original and all siblings
@@ -55,12 +97,7 @@ export async function GET(
         where: {
           id: invoice.originalInvoiceId,
         },
-        include: {
-          lineItems: {
-            orderBy: { sortOrder: "asc" },
-          },
-          payments: true,
-        },
+        include: variationsInclude,
       });
 
       // Get all variations of the original
@@ -69,15 +106,11 @@ export async function GET(
           originalInvoiceId: invoice.originalInvoiceId,
           userId: session.user.id,
         },
-        include: {
-          lineItems: {
-            orderBy: { sortOrder: "asc" },
-          },
-          payments: true,
-        },
+        include: variationsInclude,
         orderBy: {
           createdAt: "asc",
         },
+        take: 200,
       });
     }
 
@@ -129,7 +162,9 @@ export async function POST(
         terms,
       } = body;
 
-      // Get original invoice
+      // Get original invoice. Only parent scalars are read downstream;
+      // lineItems are minimally selected (id only) — kept in case future
+      // logic decides to clone or diff them.
       const originalInvoice = await prisma.invoice.findUnique({
         where: {
           id,
@@ -138,6 +173,7 @@ export async function POST(
         include: {
           lineItems: {
             orderBy: { sortOrder: "asc" },
+            select: { id: true },
           },
         },
       });
@@ -271,6 +307,23 @@ export async function POST(
         include: {
           lineItems: {
             orderBy: { sortOrder: "asc" },
+            select: {
+              id: true,
+              description: true,
+              category: true,
+              quantity: true,
+              unitPrice: true,
+              xeroAccountCode: true,
+              subtotal: true,
+              gstRate: true,
+              gstAmount: true,
+              total: true,
+              discountAmount: true,
+              sortOrder: true,
+              invoiceId: true,
+              estimateLineItemId: true,
+              createdAt: true,
+            },
           },
         },
       });
