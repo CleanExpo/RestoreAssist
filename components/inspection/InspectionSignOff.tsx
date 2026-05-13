@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSession } from "next-auth/react";
 import {
   PenLine,
   CheckCircle,
@@ -10,6 +11,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import { EngagementLicenceModal } from "@/components/attestation/EngagementLicenceModal";
 
 interface Props {
   inspectionId: string;
@@ -26,6 +28,7 @@ export default function InspectionSignOff({
   signedByName: initialSignedByName,
   onSigned,
 }: Props) {
+  const { data: session } = useSession();
   const [signatoryName, setSignatoryName] = useState("");
   const [role, setRole] = useState("Lead Technician");
   const [confirmed, setConfirmed] = useState(false);
@@ -37,6 +40,9 @@ export default function InspectionSignOff({
   const [signedByName, setSignedByName] = useState<string | null>(
     initialSignedByName ?? null,
   );
+  // T13: EngagementLicenceModal gate — rule 28 requires per-engagement
+  // verification of IICRC/WHS/state licence before evidence sign-off.
+  const [licenceModalOpen, setLicenceModalOpen] = useState(false);
 
   if (signedAt) {
     return (
@@ -66,16 +72,7 @@ export default function InspectionSignOff({
     );
   }
 
-  const handleSubmit = async () => {
-    if (!signatoryName.trim()) {
-      setError("Please enter your full name");
-      return;
-    }
-    if (!confirmed) {
-      setError("Please confirm you have authority to sign this inspection");
-      return;
-    }
-
+  const performSubmit = async () => {
     setSubmitting(true);
     setError(null);
 
@@ -107,7 +104,43 @@ export default function InspectionSignOff({
     }
   };
 
+  const handleSubmit = async () => {
+    if (!signatoryName.trim()) {
+      setError("Please enter your full name");
+      return;
+    }
+    if (!confirmed) {
+      setError("Please confirm you have authority to sign this inspection");
+      return;
+    }
+
+    // T13: USER-role technicians must verify engagement-time credentials
+    // (rule 28). ADMIN/MANAGER act on behalf of subjects, so skip the gate.
+    if (session?.user?.role !== "USER") {
+      return performSubmit();
+    }
+
+    // Client-side 90-day freshness check — server is authoritative on writes.
+    try {
+      const res = await fetch("/api/authorisations/most-recent");
+      const data = await res.json().catch(() => ({ row: null }));
+      const verifiedAt = data?.row?.verifiedAt;
+      const ageOk =
+        verifiedAt &&
+        Date.now() - new Date(verifiedAt).getTime() <
+          90 * 24 * 60 * 60 * 1000;
+      if (ageOk) {
+        return performSubmit();
+      }
+    } catch {
+      // network failure → fall through to modal so user can re-attest
+    }
+
+    setLicenceModalOpen(true);
+  };
+
   return (
+    <>
     <div className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 space-y-4">
       <div className="flex items-center gap-2">
         <PenLine className="h-5 w-5 text-cyan-500" />
@@ -191,5 +224,15 @@ export default function InspectionSignOff({
         </Button>
       </div>
     </div>
+    <EngagementLicenceModal
+      open={licenceModalOpen}
+      onOpenChange={setLicenceModalOpen}
+      inspectionId={inspectionId}
+      onConfirmed={() => {
+        setLicenceModalOpen(false);
+        void performSubmit();
+      }}
+    />
+    </>
   );
 }
