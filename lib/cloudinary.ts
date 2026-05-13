@@ -33,6 +33,24 @@ function ensureCloudinaryConfigured() {
 
 export { cloudinary, ensureCloudinaryConfigured };
 
+/**
+ * Upload a data: URL (e.g. "data:image/jpeg;base64,...") to Cloudinary
+ * and return the resulting secure URL. Used by the invited-technician
+ * onboarding flow to persist headshot captures.
+ */
+export async function uploadDataUrl(
+  dataUrl: string,
+  opts: { folder: string },
+): Promise<string> {
+  ensureCloudinaryConfigured();
+  const result = await cloudinary.uploader.upload(dataUrl, {
+    folder: opts.folder,
+    resource_type: "image",
+    overwrite: false,
+  });
+  return result.secure_url;
+}
+
 export interface UploadResult {
   secure_url: string;
   public_id: string;
