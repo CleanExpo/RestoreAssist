@@ -82,14 +82,12 @@ export async function GET(
     );
   }
 
-  const inspection = await (prisma as any).inspection.findUnique({
+  const inspection = await prisma.inspection.findUnique({
     where: { id },
     select: { mouldRemediationAssessment: true },
   });
 
-  return NextResponse.json(
-    (inspection as any)?.mouldRemediationAssessment ?? null,
-  );
+  return NextResponse.json(inspection?.mouldRemediationAssessment ?? null);
 }
 
 // ─── POST ─────────────────────────────────────────────────────────────────────
@@ -125,8 +123,8 @@ export async function POST(
   const data = parsed.data;
   const gates = computeGates(data);
 
-  const [record] = await (prisma as any).$transaction([
-    (prisma as any).mouldRemediationAssessment.upsert({
+  const [record] = await prisma.$transaction([
+    prisma.mouldRemediationAssessment.upsert({
       where: { inspectionId: id },
       create: {
         inspectionId: id,
@@ -214,7 +212,7 @@ export async function POST(
     }),
     prisma.inspection.update({
       where: { id },
-      data: { claimType: "MOULD" } as any,
+      data: { claimType: "MOULD" },
     }),
   ]);
 
@@ -242,13 +240,13 @@ export async function DELETE(
     );
   }
 
-  await (prisma as any).$transaction([
-    (prisma as any).mouldRemediationAssessment.deleteMany({
+  await prisma.$transaction([
+    prisma.mouldRemediationAssessment.deleteMany({
       where: { inspectionId: id },
     }),
     prisma.inspection.update({
       where: { id },
-      data: { claimType: null } as any,
+      data: { claimType: null },
     }),
   ]);
 

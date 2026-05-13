@@ -78,7 +78,7 @@ export async function GET(
     );
   }
 
-  const record = await (prisma as any).australianComplianceRecord.findUnique({
+  const record = await prisma.australianComplianceRecord.findUnique({
     where: { inspectionId: id },
   });
 
@@ -129,7 +129,7 @@ export async function POST(
       ? "Property built before 1990 — asbestos-containing materials must be assumed present until tested. Set asbestosRiskAcknowledged: true after review."
       : null;
 
-  const record = await (prisma as any).australianComplianceRecord.upsert({
+  const record = await prisma.australianComplianceRecord.upsert({
     where: { inspectionId: id },
     create: {
       inspectionId: id,
@@ -228,7 +228,7 @@ export async function DELETE(
 
   await softDelete(
     () =>
-      (prisma as any).australianComplianceRecord.delete({
+      prisma.australianComplianceRecord.delete({
         where: { inspectionId: id },
       }),
     {
