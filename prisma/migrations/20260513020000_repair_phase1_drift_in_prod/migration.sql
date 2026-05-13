@@ -24,6 +24,16 @@
 --   • Inspection.{claimType,lossDescription,generatedNarrative} — MISSING
 --   • MoistureReading.{mapX,mapY} — MISSING
 --   • Tables WaterDamageClassification, PsychrometricReading, CircuitAssessment — MISSING
+--     (NOT created in this hotfix — see end of file for rationale)
+--
+-- Scope (narrow on purpose):
+--   ✓ Creates 6 enums + 5 columns required by PR #959's schema.prisma
+--   ✗ Does NOT create 3 phase1 tables (no Prisma models declared anywhere;
+--     creating them without models leaves the (prisma as any) runtime bug
+--     unchanged)
+--   ✗ Does NOT repair the 7 OTHER corrupt _prisma_migrations rows discovered
+--     during review (phase2-5 NIR, prompt_experiments, content_automation,
+--     support_tickets, ascora_drnrpg_drying_goal) — tracked separately.
 --
 -- MeterType enum is deliberately EXCLUDED. PR #959 drops both the MeterType
 -- enum and MoistureReading.meterType column from sandbox (the column is text
@@ -31,11 +41,7 @@
 -- drift schema.prisma no longer declares.
 --
 -- This migration is fully idempotent. Sandbox (already aligned to schema.prisma)
--- is a no-op. Production gains the missing objects.
---
--- Out of scope (separate follow-up): converting ScopeItem.{claimType,scopeCategory,scopeUnit}
--- from TEXT to enum types in prod — needs a data audit and is outside the
--- "make PR #959 mergeable" goal.
+-- is a no-op. Production gains the 6 enums + 5 columns.
 
 -- ─── Enums (DO $$ guards because Postgres has no CREATE TYPE IF NOT EXISTS) ────
 
@@ -101,83 +107,19 @@ ALTER TABLE "MoistureReading"
   ADD COLUMN IF NOT EXISTS "mapX" DOUBLE PRECISION,
   ADD COLUMN IF NOT EXISTS "mapY" DOUBLE PRECISION;
 
--- ─── WaterDamageClassification ────────────────────────────────────────────────
-
-CREATE TABLE IF NOT EXISTS "WaterDamageClassification" (
-  "id"                          TEXT          NOT NULL PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
-  "inspectionId"                TEXT          NOT NULL UNIQUE,
-  "waterCategory"               "WaterCategory",
-  "damageClass"                 "DamageClass",
-  "lossSourceType"              "LossSourceType",
-  "lossSourceIdentified"        BOOLEAN       NOT NULL DEFAULT FALSE,
-  "lossSourceAddressed"         BOOLEAN       NOT NULL DEFAULT FALSE,
-  "hoursOfExposure"             DOUBLE PRECISION,
-  "gateClassificationComplete"  BOOLEAN       NOT NULL DEFAULT FALSE,
-  "gateLossSourceComplete"      BOOLEAN       NOT NULL DEFAULT FALSE,
-  "gatePhotosAttached"          BOOLEAN       NOT NULL DEFAULT FALSE,
-  "createdAt"                   TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-  "updatedAt"                   TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-  CONSTRAINT "WaterDamageClassification_inspectionId_fkey"
-    FOREIGN KEY ("inspectionId") REFERENCES "Inspection"("id") ON DELETE CASCADE
-);
-
-CREATE INDEX IF NOT EXISTS "WaterDamageClassification_inspectionId_idx"
-  ON "WaterDamageClassification"("inspectionId");
-CREATE INDEX IF NOT EXISTS "WaterDamageClassification_waterCategory_idx"
-  ON "WaterDamageClassification"("waterCategory");
-CREATE INDEX IF NOT EXISTS "WaterDamageClassification_damageClass_idx"
-  ON "WaterDamageClassification"("damageClass");
-
--- ─── PsychrometricReading ─────────────────────────────────────────────────────
-
-CREATE TABLE IF NOT EXISTS "PsychrometricReading" (
-  "id"               TEXT          NOT NULL PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
-  "inspectionId"     TEXT          NOT NULL,
-  "visitDate"        TIMESTAMPTZ   NOT NULL,
-  "visitNumber"      INTEGER       NOT NULL,
-  "technicianId"     TEXT,
-  "dryBulbTempC"     DOUBLE PRECISION,
-  "wetBulbTempC"     DOUBLE PRECISION,
-  "relativeHumidity" DOUBLE PRECISION,
-  "dewPointC"        DOUBLE PRECISION,
-  "grainsPerPound"   DOUBLE PRECISION,
-  "gramsPerKilogram" DOUBLE PRECISION,
-  "equipmentRunning" BOOLEAN       NOT NULL DEFAULT TRUE,
-  "notes"            TEXT,
-  "createdAt"        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-  "updatedAt"        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-  CONSTRAINT "PsychrometricReading_inspectionId_fkey"
-    FOREIGN KEY ("inspectionId") REFERENCES "Inspection"("id") ON DELETE CASCADE
-);
-
-CREATE INDEX IF NOT EXISTS "PsychrometricReading_inspectionId_idx"
-  ON "PsychrometricReading"("inspectionId");
-CREATE INDEX IF NOT EXISTS "PsychrometricReading_visitDate_idx"
-  ON "PsychrometricReading"("visitDate");
-CREATE INDEX IF NOT EXISTS "PsychrometricReading_visitNumber_idx"
-  ON "PsychrometricReading"("visitNumber");
-
--- ─── CircuitAssessment ────────────────────────────────────────────────────────
-
-CREATE TABLE IF NOT EXISTS "CircuitAssessment" (
-  "id"                   TEXT          NOT NULL PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
-  "inspectionId"         TEXT          NOT NULL,
-  "circuitId"            TEXT          NOT NULL,
-  "locationZone"         TEXT          NOT NULL,
-  "equipmentList"        JSONB         NOT NULL DEFAULT '[]',
-  "circuitBreakerRating" INTEGER       NOT NULL,
-  "rcdProtected"         BOOLEAN       NOT NULL DEFAULT FALSE,
-  "extensionCordGauge"   TEXT,
-  "totalCircuitLoad"     DOUBLE PRECISION,
-  "circuitLoadSafe"      BOOLEAN,
-  "circuitLoadWarning"   TEXT,
-  "createdAt"            TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-  "updatedAt"            TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-  CONSTRAINT "CircuitAssessment_inspectionId_fkey"
-    FOREIGN KEY ("inspectionId") REFERENCES "Inspection"("id") ON DELETE CASCADE
-);
-
-CREATE INDEX IF NOT EXISTS "CircuitAssessment_inspectionId_idx"
-  ON "CircuitAssessment"("inspectionId");
-CREATE INDEX IF NOT EXISTS "CircuitAssessment_circuitLoadSafe_idx"
-  ON "CircuitAssessment"("circuitLoadSafe");
+-- ─── Tables NOT created here (intentional narrowing per reviewer C1) ──────────
+--
+-- The original phase1 migration also creates WaterDamageClassification,
+-- PsychrometricReading, and CircuitAssessment. Those tables are deliberately
+-- EXCLUDED from this hotfix because:
+--   1. schema.prisma has no model declarations for them (both this branch and
+--      PR #959 leave them un-modelled).
+--   2. The routes that access them use `(prisma as any).circuitAssessment.*` —
+--      creating just the DB tables wouldn't fix the runtime undefined-model
+--      errors. The Prisma client still has no property for them.
+--   3. Without the models, this PR would do half a fix and leave the routes
+--      500-ing in a different way.
+--
+-- Tracked separately for atomic table+model fix: GitHub issue (link in PR body).
+-- This narrows the PR to exactly what unblocks PR #959 — the 6 enums + the
+-- 5 columns it declares.
