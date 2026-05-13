@@ -5276,6 +5276,9 @@ model Workspace {
   providerConnections ProviderConnection[] @relation("WorkspaceProviderConnections")
   aiUsageLogs         AiUsageLog[]         @relation("WorkspaceAiUsageLogs")
 
+  // RA-2966: Scraping provider BYOK (Apify, Bright Data, Zyte, Firecrawl)
+  scrapingProviderConnections ScrapingProviderConnection[] @relation("WorkspaceScrapingProviderConnections")
+
   // RA-416: media assets
   mediaAssets MediaAsset[] @relation("WorkspaceMediaAssets")
 
@@ -5510,6 +5513,47 @@ model ProviderConnection {
 
   // Encrypted credentials (server-side only; never sent to client)
   encryptedCredentials String @db.Text // AES-256-GCM encrypted JSON
+
+  // Validation tracking
+  lastValidatedAt DateTime?
+  lastError       String?   @db.Text
+
+  // Audit
+  createdByMemberId String? // WorkspaceMember.id of the member who added this key
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([workspaceId, provider])
+  @@index([workspaceId])
+  @@index([provider])
+  @@index([status])
+}
+
+// RA-2966: Scraping provider BYOK — parallel to AiProvider for property-data scraping.
+// SHARED is the default no-key path that uses the existing /api/properties/scrape direct
+// fetch against OnTheHouse.com.au + domain.com.au (RA2-021/RA2-022/RA2-026). Workspaces
+// that opt in can bring their own commercial scraping provider for higher throughput.
+enum ScrapingProvider {
+  APIFY
+  BRIGHTDATA
+  ZYTE
+  FIRECRAWL
+  SHARED
+}
+
+// ScrapingProviderConnection — per-workspace BYOK credential store for scraping providers.
+// Mirrors ProviderConnection (RA-414) in shape; reuses ProviderConnectionStatus enum.
+model ScrapingProviderConnection {
+  id          String                   @id @default(cuid())
+  workspaceId String
+  workspace   Workspace                @relation("WorkspaceScrapingProviderConnections", fields: [workspaceId], references: [id], onDelete: Cascade)
+  provider    ScrapingProvider
+  status      ProviderConnectionStatus @default(ACTIVE)
+
+  // Encrypted credentials (server-side only; never sent to client)
+  encryptedCredentials String  @db.Text // AES-256-GCM encrypted JSON { apiKey }
+  encryptedConfig      String? @db.Text // AES-256-GCM encrypted JSON (provider-specific tuning)
 
   // Validation tracking
   lastValidatedAt DateTime?
