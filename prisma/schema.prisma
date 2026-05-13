@@ -1785,6 +1785,24 @@ model Inspection {
   submittedAt DateTime?
   processedAt DateTime?
 
+  // RA-261: Claim type stamped by per-assessment routes (water/fire/mould/etc).
+  // Backs columns in app/api/inspections/[id]/{carpet,biohazard,hvac,fire-smoke,
+  // storm,mould-remediation,contents-pack-out,water-damage-classification}.
+  claimType ClaimType?
+
+  // RA-269: e-signature capture at inspection sign-off
+  // (app/api/inspections/[id]/sign).
+  signatureUrl String?
+  signedAt     DateTime? @db.Timestamptz
+  signedByName String?
+
+  // Free-text loss description from NIR form — used by scope-narrative generator.
+  lossDescription String? @db.Text
+
+  // Persisted output of the AI scope-narrative generator
+  // (app/api/inspections/[id]/generate-scope streaming endpoint).
+  generatedNarrative String? @db.Text
+
   // Relations
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1900,6 +1918,25 @@ enum InspectionStatus {
   REJECTED
 }
 
+// RA-261 (NIR Full Data Depth Matrix — Phase 1: Water Damage).
+// Created in DB by migration 20260330500000_add_nir_water_damage_phase1.
+// Added to Prisma schema in 20260513010000 to resolve dormant-column drift on
+// Inspection.claimType. ScopeItem.claimType + ContentsPackOutItem.claimType
+// remain typed as String in the DB / are not yet declared in this schema —
+// out of scope for the dormant-cols drift fix.
+enum ClaimType {
+  WATER
+  FIRE
+  MOULD
+  STORM
+  CONTENTS
+  BIOHAZARD
+  ODOUR
+  CARPET
+  HVAC
+  ASBESTOS
+}
+
 // RA-1140: WHS Incident Tracking (RA-80 was claimed Done but never shipped)
 model WHSIncident {
   id           String      @id @default(cuid())
@@ -2007,6 +2044,12 @@ model MoistureReading {
   // Lightweight text tag; deliberately not an FK to AffectedArea so grouping
   // works before the formal AffectedArea records exist on the inspection.
   affectedArea String?
+
+  // Floor-plan placement coordinates (normalised [0, 1]). Used by the
+  // MoistureMappingCanvas drag-and-drop UI; written through
+  // app/api/inspections/[id]/moisture.
+  mapX Float?
+  mapY Float?
 
   recordedAt DateTime @default(now())
   createdAt  DateTime @default(now())
