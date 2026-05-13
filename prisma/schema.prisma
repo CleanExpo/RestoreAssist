@@ -255,6 +255,11 @@ model User {
 
   // RA-1717 — assessment generation audit (who generated which artefact)
   assessmentGenerations AssessmentGeneration[] @relation("UserAssessmentGenerations")
+
+  // Issue #962 — back-relation for ContentJob (originally created by the
+  // 20260331000000_add_content_automation migration but never declared as a
+  // Prisma model; PR-B closes that drift).
+  contentJobs ContentJob[]
 }
 
 model Feedback {
@@ -6143,4 +6148,130 @@ model OrganizationPricingConfig {
   updatedAt DateTime @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+// ─── Issue #962 PR-B: orphan-table models ───────────────────────────────────
+// The following five tables were created by 20260330200000_add_prompt_experiments
+// (PromptVariant, EvaluationRun) and 20260331000000_add_content_automation
+// (ContentJob, ContentPost, ContentAnalytics) but no Prisma model was ever
+// declared, so the CI drift-check (scripts/check-schema-drift.mjs) flags them.
+// Declaring them brings schema.prisma into alignment with the live database.
+// No application code consumes these tables today — features are dormant on
+// the client side, the rows exist only at the DB layer.
+
+model PromptVariant {
+  id               String  @id @default(dbgenerated("gen_random_uuid()"))
+  claimType        String
+  promptText       String
+  version          Int     @default(1)
+  parentVariantId  String?
+  compositeScore   Float?
+  structuralScore  Float?
+  citationScore    Float?
+  equipmentScore   Float?
+  specificityScore Float?
+  categoryScore    Float?
+  isProduction     Boolean @default(false)
+  description      String?
+  createdAt        DateTime @default(now())
+
+  parent          PromptVariant?  @relation("PromptVariantParent", fields: [parentVariantId], references: [id])
+  children        PromptVariant[] @relation("PromptVariantParent")
+  evaluationRuns  EvaluationRun[]
+
+  @@index([claimType, isProduction])
+  @@index([claimType, compositeScore])
+}
+
+model EvaluationRun {
+  id               String  @id @default(dbgenerated("gen_random_uuid()"))
+  promptVariantId  String?
+  testCaseId       String
+  generatedScope   String
+  compositeScore   Float
+  structuralScore  Float?
+  citationScore    Float?
+  equipmentScore   Float?
+  specificityScore Float?
+  categoryScore    Float?
+  inputTokens      Int?
+  outputTokens     Int?
+  costAud          Float?
+  durationMs       Int?
+  model            String?
+  createdAt        DateTime @default(now())
+
+  promptVariant PromptVariant? @relation(fields: [promptVariantId], references: [id])
+
+  @@index([promptVariantId])
+  @@index([testCaseId])
+}
+
+model ContentJob {
+  id                String   @id @default(cuid())
+  userId            String
+  product           String
+  angle             String
+  platform          String
+  duration          Int
+  status            String   @default("PENDING")
+  hook              String?
+  agitation         String?
+  solution          String?
+  cta               String?
+  voiceoverText     String?
+  caption           String?
+  hashtags          String?
+  audioUrl          String?
+  videoUrl          String?
+  heygenRenderJobId String?
+  errorMessage      String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user  User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  posts ContentPost[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([platform])
+  @@index([createdAt])
+}
+
+model ContentPost {
+  id             String    @id @default(cuid())
+  jobId          String
+  platform       String
+  externalPostId String?
+  postUrl        String?
+  scheduledAt    DateTime?
+  postedAt       DateTime?
+  status         String    @default("DRAFT")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  job       ContentJob         @relation(fields: [jobId], references: [id], onDelete: Restrict)
+  analytics ContentAnalytics[]
+
+  @@index([jobId])
+  @@index([platform])
+  @@index([status])
+  @@index([scheduledAt])
+}
+
+model ContentAnalytics {
+  id         String   @id @default(cuid())
+  postId     String
+  views      Int      @default(0)
+  likes      Int      @default(0)
+  shares     Int      @default(0)
+  comments   Int      @default(0)
+  reach      Int      @default(0)
+  recordedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  post ContentPost @relation(fields: [postId], references: [id], onDelete: Restrict)
+
+  @@index([postId])
+  @@index([recordedAt])
 }
