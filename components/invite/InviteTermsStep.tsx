@@ -14,6 +14,12 @@ interface Props {
     acceptedChainOfCustody: boolean;
   }) => void;
   submitting: boolean;
+  /**
+   * When true, the submit button is disabled even if the user has ticked
+   * both checkboxes. Used by the Google-OAuth path on /invite/[token] so
+   * the user must fill phone + headshot before they can complete.
+   */
+  disabled?: boolean;
 }
 
 export function InviteTermsStep({
@@ -22,11 +28,13 @@ export function InviteTermsStep({
   roleLabel,
   onSubmit,
   submitting,
+  disabled = false,
 }: Props) {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [acceptedChainOfCustody, setAcceptedChainOfCustody] = useState(false);
 
-  const canSubmit = acceptedTerms && acceptedChainOfCustody && !submitting;
+  const canSubmit =
+    acceptedTerms && acceptedChainOfCustody && !submitting && !disabled;
 
   return (
     <div className="space-y-4">
