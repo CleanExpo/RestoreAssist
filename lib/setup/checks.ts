@@ -142,13 +142,129 @@ const byokKeysCheck: Check = async () => ({
   note: "Using platform Gemma — add BYOK key for premium models",
 });
 
-// TODO(setup-wizard Phase 5+): Resend/SES deliverability test to user.email
-const welcomeEmailCheck: Check = async () => ({
-  capability: "welcome_email",
-  label: "Welcome email",
-  status: "yellow",
-  note: "Not yet verified — placeholder. Will be wired in Phase 5+",
-});
+/**
+ * welcome_email — verifies the configured From domain has DKIM / SPF / DMARC
+ * aligned with Resend. Does NOT send an email; uses the Resend Domains API
+ * (`GET https://api.resend.com/domains`) and inspects `records[]` for the
+ * matching domain.
+ *
+ * - green  = DKIM + SPF + DMARC all `verified`
+ * - yellow = DKIM `verified` but SPF or DMARC missing/unverified
+ * - red    = DKIM not verified, no API key, domain not registered, or fetch error
+ *
+ * The `note` lists which DNS records are missing so the operator knows
+ * exactly which records to add.
+ */
+type ResendDnsRecord = {
+  record?: string;
+  type?: string;
+  name?: string;
+  status?: string;
+};
+type ResendDomain = {
+  id?: string;
+  name?: string;
+  status?: string;
+  records?: ResendDnsRecord[];
+};
+
+function extractFromDomain(fromEmail: string | undefined): string | null {
+  if (!fromEmail) return null;
+  // Accepts "Name <addr@domain>" or "addr@domain".
+  const angle = fromEmail.match(/<([^>]+)>/);
+  const addr = (angle ? angle[1] : fromEmail).trim();
+  const at = addr.lastIndexOf("@");
+  if (at < 0) return null;
+  return addr.slice(at + 1).toLowerCase();
+}
+
+const welcomeEmailCheck: Check = async () => {
+  const capability = "welcome_email";
+  const label = "Welcome email";
+
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    return {
+      capability,
+      label,
+      status: "red",
+      note: "RESEND_API_KEY not configured",
+    };
+  }
+
+  const fromDomain =
+    extractFromDomain(process.env.RESEND_FROM_EMAIL) ?? "restoreassist.app";
+
+  let body: { data?: ResendDomain[] } | null = null;
+  try {
+    const res = await fetch("https://api.resend.com/domains", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!res.ok) {
+      return {
+        capability,
+        label,
+        status: "red",
+        note: `Resend API returned ${res.status}`,
+      };
+    }
+    body = (await res.json()) as { data?: ResendDomain[] };
+  } catch {
+    return {
+      capability,
+      label,
+      status: "red",
+      note: "Resend API unreachable",
+    };
+  }
+
+  const domains = body?.data ?? [];
+  const domain = domains.find((d) => d.name?.toLowerCase() === fromDomain);
+  if (!domain) {
+    return {
+      capability,
+      label,
+      status: "red",
+      note: `From domain "${fromDomain}" not registered in Resend`,
+    };
+  }
+
+  const records = domain.records ?? [];
+  const isVerified = (kind: "SPF" | "DKIM" | "DMARC") =>
+    records.some(
+      (r) => r.record?.toUpperCase() === kind && r.status === "verified",
+    );
+
+  const dkim = isVerified("DKIM");
+  const spf = isVerified("SPF");
+  const dmarc = isVerified("DMARC");
+
+  if (dkim && spf && dmarc) {
+    return { capability, label, status: "green" };
+  }
+
+  const missing: string[] = [];
+  if (!dkim) missing.push("DKIM");
+  if (!spf) missing.push("SPF");
+  if (!dmarc) missing.push("DMARC");
+
+  if (dkim) {
+    return {
+      capability,
+      label,
+      status: "yellow",
+      note: `${fromDomain}: DKIM aligned, missing ${missing.join(" + ")}`,
+    };
+  }
+
+  return {
+    capability,
+    label,
+    status: "red",
+    note: `${fromDomain}: no DNS records aligned (missing ${missing.join(" + ")})`,
+  };
+};
 
 export const CHECKS: Check[] = [
   businessProfileCheck,
