@@ -36,6 +36,18 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Invite expired" }, { status: 410 });
   }
 
+  // Override the OAuth signup defaults (which assumed this user owns their
+  // own org — see lib/auth.ts events.createUser). Bind them to the invited
+  // org as a USER. Trial/credits stay intact — technicians still get a trial.
+  await prisma.user.update({
+    where: { id: session.user.id },
+    data: {
+      role: invite.role,
+      organizationId: invite.organizationId,
+      needsOnboarding: false,
+    } as any,
+  });
+
   await prisma.userInvite.update({
     where: { id: invite.id },
     data: { usedAt: new Date() },
