@@ -111,6 +111,17 @@ export async function GET(
         include: {
           lineItems: {
             orderBy: { displayOrder: "asc" },
+            select: {
+              id: true,
+              code: true,
+              category: true,
+              description: true,
+              qty: true,
+              unit: true,
+              rate: true,
+              subtotal: true,
+              displayOrder: true,
+            },
           },
         },
       });
