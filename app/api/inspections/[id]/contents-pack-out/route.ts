@@ -83,13 +83,13 @@ export async function GET(
     );
   }
 
-  const items = await (prisma as any).contentsPackOutItem.findMany({
+  const items = await prisma.contentsPackOutItem.findMany({
     where: { inspectionId: id },
     orderBy: { createdAt: "asc" },
   });
 
-  const totalReplacementValueAud = (items as any[]).reduce(
-    (sum: number, item: any) =>
+  const totalReplacementValueAud = items.reduce(
+    (sum, item) =>
       item.packOutDecision === "TOTAL_LOSS"
         ? sum + (Number(item.replacementValueAud) ?? 0)
         : sum,
@@ -100,15 +100,10 @@ export async function GET(
     items,
     summary: {
       totalItems: items.length,
-      cleanOnsite: (items as any[]).filter(
-        (i: any) => i.packOutDecision === "CLEAN_ONSITE",
-      ).length,
-      packOut: (items as any[]).filter(
-        (i: any) => i.packOutDecision === "PACK_OUT",
-      ).length,
-      totalLoss: (items as any[]).filter(
-        (i: any) => i.packOutDecision === "TOTAL_LOSS",
-      ).length,
+      cleanOnsite: items.filter((i) => i.packOutDecision === "CLEAN_ONSITE")
+        .length,
+      packOut: items.filter((i) => i.packOutDecision === "PACK_OUT").length,
+      totalLoss: items.filter((i) => i.packOutDecision === "TOTAL_LOSS").length,
       totalReplacementValueAud,
     },
   });
@@ -154,7 +149,7 @@ export async function POST(
 
     const data = parsed.data;
 
-    const record = await (prisma as any).contentsPackOutItem.create({
+    const record = await prisma.contentsPackOutItem.create({
       data: {
         inspectionId: id,
         itemDescription: data.itemDescription,
@@ -177,7 +172,7 @@ export async function POST(
     // Stamp Inspection.claimType = CONTENTS if no claim type already set
     await prisma.inspection.update({
       where: { id },
-      data: { claimType: "CONTENTS" } as any,
+      data: { claimType: "CONTENTS" },
     });
 
     return NextResponse.json(record, { status: 201 });
