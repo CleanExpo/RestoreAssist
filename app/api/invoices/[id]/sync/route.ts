@@ -51,6 +51,19 @@ export async function POST(
         include: {
           lineItems: {
             orderBy: { sortOrder: "asc" },
+            select: {
+              id: true,
+              description: true,
+              category: true,
+              quantity: true,
+              unitPrice: true,
+              xeroAccountCode: true,
+              subtotal: true,
+              gstRate: true,
+              gstAmount: true,
+              total: true,
+              sortOrder: true,
+            },
           },
           company: {
             select: {
