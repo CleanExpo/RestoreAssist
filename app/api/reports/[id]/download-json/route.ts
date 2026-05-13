@@ -96,6 +96,27 @@ export async function GET(
         include: {
           lineItems: {
             orderBy: { displayOrder: "asc" },
+            select: {
+              id: true,
+              estimateId: true,
+              code: true,
+              category: true,
+              description: true,
+              qty: true,
+              unit: true,
+              rate: true,
+              formula: true,
+              subtotal: true,
+              isScopeLinked: true,
+              isEstimatorAdded: true,
+              displayOrder: true,
+              createdBy: true,
+              modifiedBy: true,
+              modifiedAt: true,
+              changeReason: true,
+              createdAt: true,
+              updatedAt: true,
+            },
           },
         },
       });

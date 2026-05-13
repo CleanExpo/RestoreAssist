@@ -48,7 +48,9 @@ export async function POST(request: NextRequest) {
         businessPhone: true,
         businessEmail: true,
         subscriptionStatus: true,
-        pricingConfig: true,
+        // pricingConfig isn't read downstream in this route; selecting id
+        // keeps the relation contract explicit (CLAUDE.md rule 4).
+        pricingConfig: { select: { id: true } },
       },
     });
 
