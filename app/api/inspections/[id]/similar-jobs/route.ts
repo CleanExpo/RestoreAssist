@@ -58,8 +58,19 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const inspection = await prisma.inspection.findUnique({
       where: { id: inspectionId },
       include: {
-        classifications: { orderBy: { createdAt: "desc" }, take: 1 },
-        affectedAreas: true,
+        classifications: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: {
+            category: true,
+            class: true,
+          },
+        },
+        affectedAreas: {
+          select: {
+            affectedSquareFootage: true,
+          },
+        },
       },
     });
 

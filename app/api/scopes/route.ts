@@ -242,6 +242,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get all scopes for user
+    // RA-1376: bounded list query (CLAUDE.md rule 4).
     const scopes = await prisma.scope.findMany({
       where: { userId: session.user.id },
       include: {
@@ -255,6 +256,7 @@ export async function GET(request: NextRequest) {
         },
       },
       orderBy: { createdAt: "desc" },
+      take: 50,
     });
 
     return NextResponse.json(

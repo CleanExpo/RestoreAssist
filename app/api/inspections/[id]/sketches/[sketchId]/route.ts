@@ -43,7 +43,18 @@ export async function PUT(
             ? body.equipmentPoints
             : sketch.equipmentPoints,
       },
-      include: { annotations: true },
+      include: {
+        annotations: {
+          select: {
+            id: true,
+            sketchId: true,
+            type: true,
+            data: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+      },
     });
 
     return NextResponse.json(updated);

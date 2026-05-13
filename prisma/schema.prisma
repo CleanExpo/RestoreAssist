@@ -51,6 +51,7 @@ model User {
   email                        String    @unique
   emailVerified                DateTime?
   image                        String?
+  phone                        String?
   password                     String?
   role                         Role      @default(USER)
   /// RA-1255: timestamp of ToS + Privacy Policy acceptance.
@@ -6368,6 +6369,10 @@ model Authorisation {
 
   workCoverPolicyNumber String?
 
+  // WHS / White Card — required for technician self-attestation
+  whsCardNumber String?
+  whsCardExpiry DateTime?
+
   // Verification
   verifiedAt         DateTime @default(now())
   verifiedMethod     String // "DOCUMENT_UPLOAD" | "API_CHECK" | "PHONE_VERIFIED" | "VISUAL_INSPECTION"
@@ -6389,6 +6394,7 @@ model Authorisation {
   @@index([subjectContractorId])
   @@index([status])
   @@index([expiresAt])
+  @@index([subjectUserId, verifiedAt(sort: Desc)])
 }
 
 // ─── RA-1386 (Board M-10): Device signing keys ────────────────────────────────
