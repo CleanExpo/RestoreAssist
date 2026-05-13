@@ -131,7 +131,20 @@ export async function listScrapingProviderConnections(
 ): Promise<ScrapingProviderConnectionSummary[]> {
   const rows = await prisma.scrapingProviderConnection.findMany({
     where: { workspaceId },
+    select: {
+      id: true,
+      workspaceId: true,
+      provider: true,
+      status: true,
+      encryptedCredentials: true,
+      encryptedConfig: true,
+      lastValidatedAt: true,
+      lastError: true,
+      createdAt: true,
+      updatedAt: true,
+    },
     orderBy: { provider: "asc" },
+    take: 50,
   });
   return rows.map(toSummary);
 }
