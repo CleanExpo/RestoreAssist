@@ -41,13 +41,87 @@ export async function GET(
     const inspection = await prisma.inspection.findFirst({
       where: { id, userId: session.user.id },
       include: {
-        environmentalData: true,
-        moistureReadings: true,
-        affectedAreas: true,
-        scopeItems: { where: { isSelected: true } },
-        classifications: { orderBy: { createdAt: "desc" }, take: 1 },
-        costEstimates: true,
-        photos: { orderBy: { timestamp: "asc" } },
+        // Fields consumed via NirEnvironmentalData cast + Excel handler.
+        // (Note: cast type uses *Celsius suffixed names that don't match DB
+        // columns — pre-existing issue, not in scope for this refactor.)
+        environmentalData: {
+          select: {
+            id: true,
+            ambientTemperature: true,
+            humidityLevel: true,
+            dewPoint: true,
+            airCirculation: true,
+            recordedAt: true,
+          },
+        },
+        moistureReadings: {
+          select: {
+            id: true,
+            location: true,
+            surfaceType: true,
+            moistureLevel: true,
+            depth: true,
+            recordedAt: true,
+          },
+        },
+        affectedAreas: {
+          select: {
+            id: true,
+            roomZoneId: true,
+            affectedSquareFootage: true,
+            waterSource: true,
+            timeSinceLoss: true,
+            category: true,
+            class: true,
+          },
+        },
+        scopeItems: {
+          where: { isSelected: true },
+          select: {
+            id: true,
+            itemType: true,
+            description: true,
+            quantity: true,
+            unit: true,
+            justification: true,
+            isRequired: true,
+            isSelected: true,
+          },
+        },
+        classifications: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: {
+            id: true,
+            category: true,
+            class: true,
+            justification: true,
+            standardReference: true,
+            confidence: true,
+          },
+        },
+        costEstimates: {
+          select: {
+            id: true,
+            category: true,
+            description: true,
+            quantity: true,
+            unit: true,
+            rate: true,
+            subtotal: true,
+            contingency: true,
+            total: true,
+          },
+        },
+        photos: {
+          orderBy: { timestamp: "asc" },
+          select: {
+            id: true,
+            url: true,
+            location: true,
+            timestamp: true,
+          },
+        },
         report: {
           include: {
             user: {
