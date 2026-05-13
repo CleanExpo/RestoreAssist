@@ -199,10 +199,6 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   // by NextAuth when the invitee signed in with Google). We attach the org +
   // phone + headshot and mark the invite used.
   if (isGoogle) {
-    const { uploadDataUrl } = await import("@/lib/cloudinary");
-    const headshotUrl = await uploadDataUrl(body.headshotDataUrl, {
-      folder: "headshots",
-    });
     const existingByEmail = await prisma.user.findUnique({
       where: { email: invite.email.toLowerCase() },
       select: { id: true },
@@ -211,6 +207,22 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       return NextResponse.json(
         { error: "Google user not found for this invite" },
         { status: 400 },
+      );
+    }
+    const { uploadDataUrl } = await import("@/lib/cloudinary");
+    let headshotUrl: string;
+    try {
+      headshotUrl = await uploadDataUrl(body.headshotDataUrl, {
+        folder: "headshots",
+      });
+    } catch (err) {
+      console.error(
+        "[POST /api/invites/[token]] Cloudinary upload failed",
+        err,
+      );
+      return NextResponse.json(
+        { error: "Failed to upload headshot" },
+        { status: 502 },
       );
     }
     await prisma.user.update({
@@ -246,9 +258,21 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   // Upload the headshot before the DB transaction — network I/O does not
   // belong inside a Prisma transaction.
   const { uploadDataUrl } = await import("@/lib/cloudinary");
-  const headshotUrl = await uploadDataUrl(body.headshotDataUrl, {
-    folder: "headshots",
-  });
+  let headshotUrl: string;
+  try {
+    headshotUrl = await uploadDataUrl(body.headshotDataUrl, {
+      folder: "headshots",
+    });
+  } catch (err) {
+    console.error(
+      "[POST /api/invites/[token]] Cloudinary upload failed",
+      err,
+    );
+    return NextResponse.json(
+      { error: "Failed to upload headshot" },
+      { status: 502 },
+    );
+  }
 
   // Create the user and mark the invite used atomically.
   await prisma.$transaction(async (tx) => {

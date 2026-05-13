@@ -195,4 +195,30 @@ describe("POST /api/invites/[token] (extended)", () => {
     expect(res.status).toBe(200);
     expect(userUpdate).toHaveBeenCalled();
   });
+
+  it("on provider:'google' path, returns 400 when no existing Google user found for this invite", async () => {
+    inviteFindUnique.mockResolvedValueOnce({
+      id: "inv_1",
+      token: "abc123",
+      email: "jamie@example.com",
+      role: "USER",
+      organizationId: "org_1",
+      expiresAt: new Date(Date.now() + 86400000),
+      usedAt: null,
+    });
+    userFindUnique.mockResolvedValueOnce(null); // user not found
+    const res = await POST(
+      makeReq({
+        provider: "google",
+        name: "Jamie Tradie",
+        phone: "0412 345 678",
+        headshotDataUrl: "data:image/jpeg;base64,/9j/4AAQ...",
+        acceptedTerms: true,
+        acceptedChainOfCustody: true,
+      }),
+      await ctx(),
+    );
+    expect(res.status).toBe(400);
+    expect(cloudinaryUploadDataUrl).not.toHaveBeenCalled();
+  });
 });
