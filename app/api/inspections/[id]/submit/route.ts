@@ -51,11 +51,39 @@ export async function POST(
       const inspection = await prisma.inspection.findUnique({
         where: { id },
         include: {
-          environmentalData: true,
-          moistureReadings: true,
-          affectedAreas: true,
-          scopeItems: true,
-          photos: true,
+          environmentalData: {
+            select: {
+              id: true,
+              ambientTemperature: true,
+              humidityLevel: true,
+              dewPoint: true,
+              airCirculation: true,
+            },
+          },
+          moistureReadings: {
+            select: {
+              id: true,
+              location: true,
+              surfaceType: true,
+              moistureLevel: true,
+              depth: true,
+            },
+          },
+          affectedAreas: {
+            select: {
+              id: true,
+              roomZoneId: true,
+              affectedSquareFootage: true,
+              waterSource: true,
+              timeSinceLoss: true,
+              category: true,
+              class: true,
+            },
+          },
+          // Only `.length` is read by validateTieredCompletion.
+          scopeItems: { select: { id: true } },
+          // Only `.length` is read by validateTieredCompletion.
+          photos: { select: { id: true } },
         },
       });
 

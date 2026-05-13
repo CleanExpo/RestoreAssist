@@ -29,7 +29,17 @@ export async function GET(
     const sketches = await (prisma as any).claimSketch.findMany({
       where: { inspectionId: id },
       include: {
-        annotations: { orderBy: { createdAt: "asc" } },
+        annotations: {
+          orderBy: { createdAt: "asc" },
+          select: {
+            id: true,
+            sketchId: true,
+            type: true,
+            data: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
       },
       orderBy: [{ floorNumber: "asc" }, { createdAt: "asc" }],
     });

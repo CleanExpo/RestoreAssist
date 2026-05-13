@@ -122,20 +122,41 @@ export async function POST(
       include: {
         moistureReadings: {
           orderBy: { createdAt: "desc" },
+          select: {
+            location: true,
+            surfaceType: true,
+            moistureLevel: true,
+          },
         },
         // RA-1383 (M-7): EnvironmentalData is now a time-series. Use the most
         // recent reading for scope generation.
         environmentalData: {
           orderBy: { recordedAt: "desc" },
           take: 1,
+          select: {
+            ambientTemperature: true,
+            humidityLevel: true,
+            dewPoint: true,
+          },
         },
         classifications: {
           orderBy: { createdAt: "desc" },
           take: 1,
+          select: {
+            category: true,
+            class: true,
+          },
         },
         scopeItems: {
           where: { autoDetermined: true },
           orderBy: { createdAt: "asc" },
+          select: {
+            autoDetermined: true,
+            quantity: true,
+            description: true,
+            justification: true,
+            specification: true,
+          },
         },
       },
     });
