@@ -341,10 +341,34 @@ export default function InspectionDetailPage({
   const [shareExpiry, setShareExpiry] = useState<string | null>(null);
   const [shareLoading, setShareLoading] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
+  // RA-2967 — workspace-level auto-fetch toggle for floor plan underlay.
+  const [autoFetchFloorPlan, setAutoFetchFloorPlan] = useState(false);
 
   useEffect(() => {
     fetchInspection();
   }, [id]);
+
+  // RA-2967 — fetch workspace settings once per mount; non-blocking.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/workspace/settings");
+        if (!res.ok) return;
+        const json = (await res.json()) as {
+          settings?: { autoFetchFloorPlanOnInspection?: boolean };
+        };
+        if (!cancelled && json.settings?.autoFetchFloorPlanOnInspection) {
+          setAutoFetchFloorPlan(true);
+        }
+      } catch {
+        // Silent — auto-fetch is a nice-to-have; tech can still load manually.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const fetchInspection = async () => {
     try {
@@ -1590,6 +1614,7 @@ export default function InspectionDetailPage({
               inspectionId={inspection.id}
               propertyAddress={inspection.propertyAddress ?? undefined}
               propertyPostcode={inspection.propertyPostcode ?? undefined}
+              autoFetchFloorPlan={autoFetchFloorPlan}
             />
           </div>
         )}
