@@ -34,7 +34,15 @@ export async function GET(
       include: {
         steps: {
           orderBy: { stepOrder: "asc" },
-          include: {
+          select: {
+            id: true,
+            stepKey: true,
+            stepTitle: true,
+            status: true,
+            isMandatory: true,
+            riskTier: true,
+            minimumEvidenceCount: true,
+            requiredEvidenceClasses: true,
             _count: {
               select: { evidenceItems: true },
             },

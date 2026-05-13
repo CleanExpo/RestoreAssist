@@ -98,13 +98,43 @@ async function fetchInspectionForGuidewire(id: string) {
   return prisma.inspection.findUnique({
     where: { id },
     include: {
-      classifications: true,
-      scopeItems: true,
-      costEstimates: true,
-      affectedAreas: true,
-      moistureReadings: true,
-      photos: true,
-      environmentalData: true,
+      classifications: {
+        select: {
+          category: true,
+          class: true,
+          standardReference: true,
+          confidence: true,
+        },
+      },
+      scopeItems: {
+        select: {
+          id: true,
+          itemType: true,
+          description: true,
+          justification: true,
+          quantity: true,
+          unit: true,
+          isRequired: true,
+        },
+      },
+      costEstimates: {
+        select: {
+          description: true,
+          rate: true,
+        },
+      },
+      // affectedAreas / moistureReadings / environmentalData are loaded by the
+      // existing query but not read by buildNirReportOutput. Project to `id`
+      // only to bound payload while keeping the relation surface intact.
+      affectedAreas: { select: { id: true } },
+      moistureReadings: { select: { id: true } },
+      photos: {
+        select: {
+          id: true,
+          timestamp: true,
+        },
+      },
+      environmentalData: { select: { id: true } },
     },
   });
 }
