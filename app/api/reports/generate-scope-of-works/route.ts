@@ -32,7 +32,30 @@ export async function POST(request: NextRequest) {
     try {
       const user = await prisma.user.findUnique({
         where: { id: userId },
-        include: { pricingConfig: true },
+        include: {
+          pricingConfig: {
+            // Fields accessed directly + fields used by getEquipmentDailyRate
+            // (lib/equipment-matrix.ts) which does dynamic key lookup.
+            select: {
+              id: true,
+              administrationFee: true,
+              afdUnitLargeDailyRate: true,
+              airMoverAxialDailyRate: true,
+              antimicrobialTreatmentRate: true,
+              biohazardTreatmentRate: true,
+              callOutFee: true,
+              dehumidifierLGRDailyRate: true,
+              dehumidifierDesiccantDailyRate: true,
+              extractionTruckMountedHourlyRate: true,
+              injectionDryingSystemDailyRate: true,
+              labourerNormalHours: true,
+              masterQualifiedNormalHours: true,
+              mouldRemediationTreatmentRate: true,
+              qualifiedTechnicianNormalHours: true,
+              thermalCameraUseCostPerAssessment: true,
+            },
+          },
+        },
       });
 
       if (!user) {

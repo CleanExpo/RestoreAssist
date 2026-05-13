@@ -36,7 +36,26 @@ export async function POST(request: NextRequest) {
     try {
       const user = await prisma.user.findUnique({
         where: { id: userId },
-        include: { pricingConfig: true },
+        include: {
+          pricingConfig: {
+            select: {
+              id: true,
+              administrationFee: true,
+              antimicrobialTreatmentRate: true,
+              biohazardTreatmentRate: true,
+              callOutFee: true,
+              extractionTruckMountedHourlyRate: true,
+              injectionDryingSystemDailyRate: true,
+              labourerNormalHours: true,
+              masterQualifiedNormalHours: true,
+              masterQualifiedSaturday: true,
+              mouldRemediationTreatmentRate: true,
+              qualifiedTechnicianNormalHours: true,
+              qualifiedTechnicianSaturday: true,
+              thermalCameraUseCostPerAssessment: true,
+            },
+          },
+        },
       });
 
       if (!user) {

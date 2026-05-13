@@ -25,9 +25,28 @@ export async function GET(
       include: {
         lineItems: {
           orderBy: { sortOrder: "asc" },
+          select: {
+            id: true,
+            description: true,
+            category: true,
+            quantity: true,
+            unitPrice: true,
+            subtotal: true,
+            gstRate: true,
+            gstAmount: true,
+            total: true,
+            sortOrder: true,
+          },
         },
         payments: {
           orderBy: { paymentDate: "desc" },
+          select: {
+            id: true,
+            paymentDate: true,
+            amount: true,
+            paymentMethod: true,
+            reference: true,
+          },
         },
         user: {
           select: {

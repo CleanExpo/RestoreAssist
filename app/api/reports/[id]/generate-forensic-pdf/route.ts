@@ -49,7 +49,36 @@ export async function GET(
         businessABN: true,
         businessPhone: true,
         businessEmail: true,
-        pricingConfig: true,
+        // pricingConfig is passed through to the PDF generator as a
+        // JSON-like object — enumerate scalars used downstream.
+        pricingConfig: {
+          select: {
+            id: true,
+            masterQualifiedNormalHours: true,
+            masterQualifiedSaturday: true,
+            masterQualifiedSunday: true,
+            qualifiedTechnicianNormalHours: true,
+            qualifiedTechnicianSaturday: true,
+            qualifiedTechnicianSunday: true,
+            labourerNormalHours: true,
+            labourerSaturday: true,
+            labourerSunday: true,
+            airMoverAxialDailyRate: true,
+            airMoverCentrifugalDailyRate: true,
+            dehumidifierLGRDailyRate: true,
+            dehumidifierDesiccantDailyRate: true,
+            afdUnitLargeDailyRate: true,
+            extractionTruckMountedHourlyRate: true,
+            extractionElectricHourlyRate: true,
+            injectionDryingSystemDailyRate: true,
+            antimicrobialTreatmentRate: true,
+            mouldRemediationTreatmentRate: true,
+            biohazardTreatmentRate: true,
+            administrationFee: true,
+            callOutFee: true,
+            thermalCameraUseCostPerAssessment: true,
+          },
+        },
       },
     });
 

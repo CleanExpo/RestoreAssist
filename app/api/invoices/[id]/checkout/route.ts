@@ -31,8 +31,11 @@ export async function POST(
           userId,
         },
         include: {
+          // Only parent scalars are read below; lineItems are minimally
+          // selected to keep the relation contract explicit (CLAUDE.md rule 4).
           lineItems: {
             orderBy: { sortOrder: "asc" },
+            select: { id: true },
           },
         },
       });
