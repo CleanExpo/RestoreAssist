@@ -11,4 +11,8 @@
 # that use 4 lucide icons (Cloud, HardDrive, ChevronRight, KeyRound) consistent
 # with the rest of the codebase. Migration to src/components/ui/marks.tsx is a
 # separate cleanup tracked outside this PR.
-icon_imports=355
+#
+# 2026-05-13 (later): bumped 355 → 357. PR #957 added Next.js error.tsx
+# boundaries to /login and /signup; each imports { AlertTriangle, RotateCcw }
+# from lucide-react. Files: app/login/error.tsx, app/signup/error.tsx.
+icon_imports=357
