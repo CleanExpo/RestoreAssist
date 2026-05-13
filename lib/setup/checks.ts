@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { routeBasic } from "@/lib/ai/model-router";
 import { getValidXeroToken } from "@/lib/integrations/xero/token-manager";
@@ -7,6 +8,7 @@ import {
   validateProviderKey,
   type AiProvider,
 } from "@/lib/workspace/provider-connections";
+import { generateIICRCReportPDF } from "@/lib/generate-iicrc-report-pdf";
 
 export type CheckStatus = "green" | "yellow" | "red";
 
@@ -109,21 +111,99 @@ const aiGenerationCheck: Check = async () => {
   }
 };
 
-// TODO(setup-wizard Phase 5+): replace with in-memory PDF renderer using hydrated profile
-const sampleReportRenderCheck: Check = async () => ({
-  capability: "sample_report_render",
-  label: "Sample report rendering",
-  status: "yellow",
-  note: "Not yet verified — placeholder. Will be wired in Phase 5+",
-});
+// Renders a minimal IICRC PDF in-memory using the hydrated organization profile.
+// Green when pdf-lib returns a non-trivial byte buffer (> 1 KB); red on any throw.
+const sampleReportRenderCheck: Check = async (orgId) => {
+  try {
+    const org = await prisma.organization.findUnique({
+      where: { id: orgId },
+      select: {
+        legalName: true,
+        tradingName: true,
+        name: true,
+        abn: true,
+        address: true,
+      },
+    });
+    const businessName = org?.legalName ?? org?.tradingName ?? org?.name ?? "—";
+    const bytes = await generateIICRCReportPDF({
+      id: orgId || "setup-health-probe",
+      user: {
+        businessName,
+        businessAddress: org?.address ?? null,
+        businessABN: org?.abn ?? null,
+      },
+    });
+    if (bytes.byteLength <= 1024) {
+      return {
+        capability: "sample_report_render",
+        label: "Sample report rendering",
+        status: "red",
+        note: `PDF too small (${bytes.byteLength} bytes)`,
+      };
+    }
+    return {
+      capability: "sample_report_render",
+      label: "Sample report rendering",
+      status: "green",
+    };
+  } catch (err) {
+    return {
+      capability: "sample_report_render",
+      label: "Sample report rendering",
+      status: "red",
+      note: err instanceof Error ? err.message : "PDF render failed",
+    };
+  }
+};
 
-// TODO(setup-wizard Phase 5+): wire to C2PA manifest generator (CLAUDE.md rule #21)
-const chainOfCustodyCheck: Check = async () => ({
-  capability: "chain_of_custody",
-  label: "Photo chain-of-custody",
-  status: "yellow",
-  note: "Not yet verified — placeholder. Will be wired in Phase 5+",
-});
+// Smoke-tests the C2PA-style manifest primitives (CLAUDE.md rule #21): hashes a
+// 1-px PNG fixture with SHA-256 and stamps a UTC timestamp. Green when both
+// primitives return well-formed values; red on any throw. The fuller manifest
+// (GPS + device + user hash) is exercised at evidence-capture time — this check
+// confirms the crypto + clock primitives are available in the runtime.
+const ONE_PX_PNG_FIXTURE = Buffer.from(
+  "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c6300010000000500010d0a2db40000000049454e44ae426082",
+  "hex",
+);
+
+const chainOfCustodyCheck: Check = async () => {
+  try {
+    const sha256 = crypto
+      .createHash("sha256")
+      .update(ONE_PX_PNG_FIXTURE)
+      .digest("hex");
+    const capturedAt = new Date().toISOString();
+    if (!/^[a-f0-9]{64}$/.test(sha256)) {
+      return {
+        capability: "chain_of_custody",
+        label: "Photo chain-of-custody",
+        status: "red",
+        note: "SHA-256 returned malformed digest",
+      };
+    }
+    if (Number.isNaN(Date.parse(capturedAt))) {
+      return {
+        capability: "chain_of_custody",
+        label: "Photo chain-of-custody",
+        status: "red",
+        note: "UTC timestamp not parseable",
+      };
+    }
+    return {
+      capability: "chain_of_custody",
+      label: "Photo chain-of-custody",
+      status: "green",
+    };
+  } catch (err) {
+    return {
+      capability: "chain_of_custody",
+      label: "Photo chain-of-custody",
+      status: "red",
+      note: err instanceof Error ? err.message : "Manifest primitives failed",
+    };
+  }
+};
 
 // ─── cloud_storage ──────────────────────────────────────────────────────────
 //
@@ -360,13 +440,129 @@ const byokKeysCheck: Check = async (orgId) => {
   };
 };
 
-// TODO(setup-wizard Phase 5+): Resend/SES deliverability test to user.email
-const welcomeEmailCheck: Check = async () => ({
-  capability: "welcome_email",
-  label: "Welcome email",
-  status: "yellow",
-  note: "Not yet verified — placeholder. Will be wired in Phase 5+",
-});
+/**
+ * welcome_email — verifies the configured From domain has DKIM / SPF / DMARC
+ * aligned with Resend. Does NOT send an email; uses the Resend Domains API
+ * (`GET https://api.resend.com/domains`) and inspects `records[]` for the
+ * matching domain.
+ *
+ * - green  = DKIM + SPF + DMARC all `verified`
+ * - yellow = DKIM `verified` but SPF or DMARC missing/unverified
+ * - red    = DKIM not verified, no API key, domain not registered, or fetch error
+ *
+ * The `note` lists which DNS records are missing so the operator knows
+ * exactly which records to add.
+ */
+type ResendDnsRecord = {
+  record?: string;
+  type?: string;
+  name?: string;
+  status?: string;
+};
+type ResendDomain = {
+  id?: string;
+  name?: string;
+  status?: string;
+  records?: ResendDnsRecord[];
+};
+
+function extractFromDomain(fromEmail: string | undefined): string | null {
+  if (!fromEmail) return null;
+  // Accepts "Name <addr@domain>" or "addr@domain".
+  const angle = fromEmail.match(/<([^>]+)>/);
+  const addr = (angle ? angle[1] : fromEmail).trim();
+  const at = addr.lastIndexOf("@");
+  if (at < 0) return null;
+  return addr.slice(at + 1).toLowerCase();
+}
+
+const welcomeEmailCheck: Check = async () => {
+  const capability = "welcome_email";
+  const label = "Welcome email";
+
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    return {
+      capability,
+      label,
+      status: "red",
+      note: "RESEND_API_KEY not configured",
+    };
+  }
+
+  const fromDomain =
+    extractFromDomain(process.env.RESEND_FROM_EMAIL) ?? "restoreassist.app";
+
+  let body: { data?: ResendDomain[] } | null = null;
+  try {
+    const res = await fetch("https://api.resend.com/domains", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!res.ok) {
+      return {
+        capability,
+        label,
+        status: "red",
+        note: `Resend API returned ${res.status}`,
+      };
+    }
+    body = (await res.json()) as { data?: ResendDomain[] };
+  } catch {
+    return {
+      capability,
+      label,
+      status: "red",
+      note: "Resend API unreachable",
+    };
+  }
+
+  const domains = body?.data ?? [];
+  const domain = domains.find((d) => d.name?.toLowerCase() === fromDomain);
+  if (!domain) {
+    return {
+      capability,
+      label,
+      status: "red",
+      note: `From domain "${fromDomain}" not registered in Resend`,
+    };
+  }
+
+  const records = domain.records ?? [];
+  const isVerified = (kind: "SPF" | "DKIM" | "DMARC") =>
+    records.some(
+      (r) => r.record?.toUpperCase() === kind && r.status === "verified",
+    );
+
+  const dkim = isVerified("DKIM");
+  const spf = isVerified("SPF");
+  const dmarc = isVerified("DMARC");
+
+  if (dkim && spf && dmarc) {
+    return { capability, label, status: "green" };
+  }
+
+  const missing: string[] = [];
+  if (!dkim) missing.push("DKIM");
+  if (!spf) missing.push("SPF");
+  if (!dmarc) missing.push("DMARC");
+
+  if (dkim) {
+    return {
+      capability,
+      label,
+      status: "yellow",
+      note: `${fromDomain}: DKIM aligned, missing ${missing.join(" + ")}`,
+    };
+  }
+
+  return {
+    capability,
+    label,
+    status: "red",
+    note: `${fromDomain}: no DNS records aligned (missing ${missing.join(" + ")})`,
+  };
+};
 
 export const CHECKS: Check[] = [
   businessProfileCheck,

@@ -100,4 +100,199 @@ describe("runAllChecks", () => {
     const bp = results.find((r) => r.capability === "business_profile");
     expect(bp?.status).toBe("red");
   });
+
+  it("returns green for sample_report_render when pdf-lib produces a > 1 KB buffer", async () => {
+    const results = await runAllChecks(testOrgId);
+    const r = results.find((r) => r.capability === "sample_report_render");
+    expect(r?.status).toBe("green");
+    expect(r?.label).toBe("Sample report rendering");
+  });
+
+  it("still produces a sample_report_render result when the org does not exist", async () => {
+    // Org lookup returns null but the PDF generator tolerates minimal data,
+    // so this should still render a valid PDF (no throw, no DB dependency).
+    const results = await runAllChecks("non-existent-org-id");
+    const r = results.find((r) => r.capability === "sample_report_render");
+    expect(r?.status).toBe("green");
+  });
+
+  it("returns green for chain_of_custody when SHA-256 + UTC primitives work", async () => {
+    const results = await runAllChecks(testOrgId);
+    const r = results.find((r) => r.capability === "chain_of_custody");
+    expect(r?.status).toBe("green");
+    expect(r?.label).toBe("Photo chain-of-custody");
+  });
+});
+
+describe("welcomeEmailCheck (Resend domain probe)", () => {
+  const ORIGINAL_ENV = { ...process.env };
+  const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+  // The welcome-email check is the 10th registered check.
+  const welcomeEmailCheck = CHECKS[9];
+
+  function mockResendResponse(body: unknown, ok = true, status = 200) {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify(body), {
+        status: ok ? status : status,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+  }
+
+  beforeEach(() => {
+    fetchSpy.mockReset();
+    process.env = { ...ORIGINAL_ENV };
+    process.env.RESEND_API_KEY = "re_test_key";
+    process.env.RESEND_FROM_EMAIL = "RestoreAssist <noreply@restoreassist.app>";
+  });
+
+  afterAll(() => {
+    process.env = ORIGINAL_ENV;
+    fetchSpy.mockRestore();
+  });
+
+  it("returns red when RESEND_API_KEY is not set", async () => {
+    delete process.env.RESEND_API_KEY;
+    const r = await welcomeEmailCheck("any-org");
+    expect(r.status).toBe("red");
+    expect(r.note).toMatch(/RESEND_API_KEY/);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("returns green when SPF, DKIM and DMARC are all verified", async () => {
+    mockResendResponse({
+      data: [
+        {
+          id: "d1",
+          name: "restoreassist.app",
+          status: "verified",
+          records: [
+            { record: "SPF", status: "verified" },
+            { record: "DKIM", status: "verified" },
+            { record: "DMARC", status: "verified" },
+          ],
+        },
+      ],
+    });
+    const r = await welcomeEmailCheck("any-org");
+    expect(r.status).toBe("green");
+    expect(r.note).toBeUndefined();
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://api.resend.com/domains",
+      expect.objectContaining({
+        method: "GET",
+        headers: expect.objectContaining({
+          Authorization: "Bearer re_test_key",
+        }),
+      }),
+    );
+  });
+
+  it("returns yellow when DKIM aligned but SPF or DMARC missing", async () => {
+    mockResendResponse({
+      data: [
+        {
+          name: "restoreassist.app",
+          records: [
+            { record: "DKIM", status: "verified" },
+            { record: "SPF", status: "pending" },
+            { record: "DMARC", status: "not_started" },
+          ],
+        },
+      ],
+    });
+    const r = await welcomeEmailCheck("any-org");
+    expect(r.status).toBe("yellow");
+    expect(r.note).toMatch(/DKIM aligned/);
+    expect(r.note).toMatch(/SPF/);
+    expect(r.note).toMatch(/DMARC/);
+  });
+
+  it("returns red when DKIM is not verified", async () => {
+    mockResendResponse({
+      data: [
+        {
+          name: "restoreassist.app",
+          records: [
+            { record: "DKIM", status: "pending" },
+            { record: "SPF", status: "verified" },
+            { record: "DMARC", status: "not_started" },
+          ],
+        },
+      ],
+    });
+    const r = await welcomeEmailCheck("any-org");
+    expect(r.status).toBe("red");
+    expect(r.note).toMatch(/no DNS records aligned/);
+    expect(r.note).toMatch(/DKIM/);
+    expect(r.note).toMatch(/DMARC/);
+  });
+
+  it("returns red when the From domain is not registered in Resend", async () => {
+    mockResendResponse({
+      data: [
+        {
+          name: "some-other-domain.com",
+          records: [{ record: "DKIM", status: "verified" }],
+        },
+      ],
+    });
+    const r = await welcomeEmailCheck("any-org");
+    expect(r.status).toBe("red");
+    expect(r.note).toMatch(/not registered in Resend/);
+    expect(r.note).toMatch(/restoreassist\.app/);
+  });
+
+  it("returns red when Resend returns a non-2xx status", async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response("Unauthorized", { status: 401 }),
+    );
+    const r = await welcomeEmailCheck("any-org");
+    expect(r.status).toBe("red");
+    expect(r.note).toMatch(/401/);
+  });
+
+  it("returns red when the fetch throws (network failure)", async () => {
+    fetchSpy.mockRejectedValueOnce(new Error("ECONNRESET"));
+    const r = await welcomeEmailCheck("any-org");
+    expect(r.status).toBe("red");
+    expect(r.note).toMatch(/unreachable/);
+  });
+
+  it("extracts the domain from a plain-address RESEND_FROM_EMAIL", async () => {
+    process.env.RESEND_FROM_EMAIL = "hello@example.com";
+    mockResendResponse({
+      data: [
+        {
+          name: "example.com",
+          records: [
+            { record: "SPF", status: "verified" },
+            { record: "DKIM", status: "verified" },
+            { record: "DMARC", status: "verified" },
+          ],
+        },
+      ],
+    });
+    const r = await welcomeEmailCheck("any-org");
+    expect(r.status).toBe("green");
+  });
+
+  it("falls back to restoreassist.app when RESEND_FROM_EMAIL is unset", async () => {
+    delete process.env.RESEND_FROM_EMAIL;
+    mockResendResponse({
+      data: [
+        {
+          name: "restoreassist.app",
+          records: [
+            { record: "SPF", status: "verified" },
+            { record: "DKIM", status: "verified" },
+            { record: "DMARC", status: "verified" },
+          ],
+        },
+      ],
+    });
+    const r = await welcomeEmailCheck("any-org");
+    expect(r.status).toBe("green");
+  });
 });
