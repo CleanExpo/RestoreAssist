@@ -71,7 +71,7 @@ export async function GET(
     );
   }
 
-  const readings = await (prisma as any).psychrometricReading.findMany({
+  const readings = await prisma.psychrometricReading.findMany({
     where: { inspectionId: id },
     orderBy: { visitNumber: "asc" },
   });
@@ -148,7 +148,7 @@ export async function POST(
         ) / 10;
     }
 
-    const record = await (prisma as any).psychrometricReading.create({
+    const record = await prisma.psychrometricReading.create({
       data: {
         inspectionId: id,
         visitDate: new Date(data.visitDate),

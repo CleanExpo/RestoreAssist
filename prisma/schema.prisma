@@ -46,41 +46,41 @@ model Session {
 }
 
 model User {
-  id              String    @id @default(cuid())
-  name            String?
-  email           String    @unique
-  emailVerified   DateTime?
-  image           String?
-  password        String?
-  role            Role      @default(USER)
+  id                           String    @id @default(cuid())
+  name                         String?
+  email                        String    @unique
+  emailVerified                DateTime?
+  image                        String?
+  password                     String?
+  role                         Role      @default(USER)
   /// RA-1255: timestamp of ToS + Privacy Policy acceptance.
   /// Required for AU consumer law compliance. Null for legacy users
   /// (back-filled lazily via a "re-accept" prompt if ever needed).
-  acceptedTermsAt DateTime?
+  acceptedTermsAt              DateTime?
   /// RA-390: first-run sidebar checklist dismissal timestamp.
   firstRunChecklistDismissedAt DateTime?
   /// RA-1238: in-app product tour dismissal timestamp.
   /// Null means the tour has not been shown/completed yet; set on
   /// either "Skip tour" or tour completion.
-  productTourDismissedAt DateTime?
+  productTourDismissedAt       DateTime?
   /// RA-1363: trial-reminder cron idempotency. JSON shape:
   ///   { "3-day": "2026-04-18T08:00:00.000Z", "1-day": "2026-04-20T08:00:00.000Z" }
   /// The cron writes the ISO timestamp for a window before sending;
   /// subsequent fires within 20h short-circuit (covers Vercel Cron retries
   /// and overlapping invocations under maxDuration pressure).
-  trialReminderSentAt Json?
+  trialReminderSentAt          Json?
   /// RA-1459: cloud mirror provider chosen at onboarding.
   /// Values: "drive" | "onedrive" | "icloud". Null means not yet picked —
   /// viewing copies stay local until the user completes onboarding.
-  cloudMirrorProvider String?
+  cloudMirrorProvider          String?
   /// RA-1443 / M-16 — ring-fence for Junior Technician role. When true,
   /// `resolveProgressRole` returns TECHNICIAN_JUNIOR which
   /// `canPerformTransition` hard-blocks from any Progress transition
   /// beyond evidence capture. Defaults false so existing users are not
   /// regressed. Admin UI to flip this is tracked as a follow-up.
-  isJuniorTechnician Boolean @default(false)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  isJuniorTechnician           Boolean   @default(false)
+  createdAt                    DateTime  @default(now())
+  updatedAt                    DateTime  @updatedAt
 
   // Organisation & team hierarchy
   organizationId String?
@@ -121,15 +121,15 @@ model User {
   // RA-1260 — two-factor authentication (TOTP / RFC 6238).
   // secret is stored as a base32 string; encryption-at-rest is deferred
   // to the DB layer. `enabled` gates whether login prompts for a code.
-  twoFactorEnabled   Boolean   @default(false)
-  twoFactorSecret    String?   // base32-encoded TOTP shared secret
-  twoFactorEnabledAt DateTime?
+  twoFactorEnabled       Boolean   @default(false)
+  twoFactorSecret        String? // base32-encoded TOTP shared secret
+  twoFactorEnabledAt     DateTime?
   // RA-1588 — backup / recovery codes so losing the authenticator
   // device is not a permanent lockout. JSON array of bcrypt hashes;
   // each entry is consumed (spliced out) on use so codes are
   // strictly single-use. Null + twoFactorEnabled=true means the user
   // enrolled pre-RA-1588 and should be prompted to regenerate.
-  twoFactorRecoveryCodes String? @db.Text
+  twoFactorRecoveryCodes String?   @db.Text
 
   // Premium Features
   hasPremiumInspectionReports Boolean @default(false) // Access to 3-stakeholder PDF generator
@@ -254,7 +254,7 @@ model User {
   adminImpersonationsAsTarget AdminImpersonation[] @relation("AdminImpersonationAsTarget")
 
   // RA-1717 — assessment generation audit (who generated which artefact)
-  assessmentGenerations       AssessmentGeneration[] @relation("UserAssessmentGenerations")
+  assessmentGenerations AssessmentGeneration[] @relation("UserAssessmentGenerations")
 }
 
 model Feedback {
@@ -570,14 +570,14 @@ model Report {
   // lib/ai/client-summary.ts and exposed through
   // POST /api/reports/[id]/client-summary. Invalidated whenever the
   // report's scope changes; 5-minute rate limit per report.
-  clientSummaryCache     String?   @db.Text
-  clientSummaryCachedAt  DateTime?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  userId          String
-  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  clientId        String?
-  client          Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  clientSummaryCache    String?   @db.Text
+  clientSummaryCachedAt DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientId              String?
+  client                Client?   @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
   // Team assignment: For Technicians, assign to a Manager; For Managers, assign to an Admin
   assignedManagerId String? // Manager assigned to this report (for Technicians)
@@ -851,8 +851,8 @@ model Organization {
   setupMode        SetupMode     @default(AI)
 
   // Relations to new models
-  hydrationJobs    HydrationJob[]
-  pricingConfig    OrganizationPricingConfig?
+  hydrationJobs HydrationJob[]
+  pricingConfig OrganizationPricingConfig?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1009,9 +1009,9 @@ model Integration {
   @@index([status])
   @@index([workspaceId])
   @@index([userId, status]) // health/metrics: WHERE userId=? AND status='CONNECTED'
-  @@index([tenantId])   // RA-1230 Xero webhook resolution
-  @@index([realmId])    // RA-1230 QuickBooks webhook resolution
-  @@index([companyId])  // RA-1230 ServiceM8/Ascora webhook resolution
+  @@index([tenantId]) // RA-1230 Xero webhook resolution
+  @@index([realmId]) // RA-1230 QuickBooks webhook resolution
+  @@index([companyId]) // RA-1230 ServiceM8/Ascora webhook resolution
 }
 
 model CostLibrary {
@@ -1736,31 +1736,31 @@ enum StandardTemplateType {
 /// generatedAt is the canonical artefact for that inspection. Older
 /// rows are kept for audit + diff.
 model AssessmentGeneration {
-  id              String   @id @default(cuid())
-  inspectionId    String
-  inspection      Inspection @relation("InspectionAssessmentGenerations", fields: [inspectionId], references: [id], onDelete: Cascade)
+  id           String     @id @default(cuid())
+  inspectionId String
+  inspection   Inspection @relation("InspectionAssessmentGenerations", fields: [inspectionId], references: [id], onDelete: Cascade)
 
   /// Domain key from lib/assessments/registry.ts. e.g. "WATER" | "MOULD" |
   /// "BIOHAZARD" | "FIRE_SMOKE" | "HVAC" | "STORM" | "AUSTRALIAN_COMPLIANCE"
-  assessmentType  String
+  assessmentType String
 
   /// Structured artefacts. Stored as Json so the schema doesn't need to
   /// change for every domain plug-in. Shape is enforced at the lib layer.
-  reportSections  Json
-  scopeItems      Json
-  estimateLines   Json
-  citations       Json
+  reportSections Json
+  scopeItems     Json
+  estimateLines  Json
+  citations      Json
 
   /// Provenance for audit + cost tracking.
-  modelUsed         String?
-  latencyMs         Int
-  costEstimateUsd   Float?
+  modelUsed       String?
+  latencyMs       Int
+  costEstimateUsd Float?
   /// Workspace that paid for the generation (RA-1707 budget tracking).
-  workspaceId       String?
+  workspaceId     String?
 
-  generatedAt     DateTime @default(now())
-  generatedById   String?
-  generatedBy     User?    @relation("UserAssessmentGenerations", fields: [generatedById], references: [id], onDelete: SetNull)
+  generatedAt   DateTime @default(now())
+  generatedById String?
+  generatedBy   User?    @relation("UserAssessmentGenerations", fields: [generatedById], references: [id], onDelete: SetNull)
 
   @@index([inspectionId, generatedAt])
   @@index([assessmentType, generatedAt])
@@ -1896,6 +1896,13 @@ model Inspection {
   // RA-1381 (Board M-5): Progress framework back-relation
   claimProgress  ClaimProgress?
   authorisations Authorisation[]
+
+  // RA-261 NIR phase 1 — re-modelled here per issue #963.
+  // Tables existed on prod (via repair hotfix #960) but had no Prisma models.
+  // Routes were using (prisma as any).<tableName>.* casts before this change.
+  waterDamageClassification WaterDamageClassification?
+  psychrometricReadings     PsychrometricReading[]
+  circuitAssessments        CircuitAssessment[]
 
   @@index([userId])
   @@index([status])
@@ -2061,6 +2068,115 @@ model MoistureReading {
   @@index([inspectionId, isBaseline])
   @@index([inspectionId, isMonitoringPoint])
   @@index([inspectionId, affectedArea])
+}
+
+// ─── RA-261 NIR phase 1 enums (per issue #963) ────────────────────────────────
+// Originally declared in 20260330500000_add_nir_water_damage_phase1, which was
+// recorded as applied in prod but never ran its DDL. Repair hotfix #960 created
+// the enums on prod. This block declares them in schema.prisma so Prisma client
+// emits proper types for the models below.
+
+enum WaterCategory {
+  CAT_1
+  CAT_2
+  CAT_3
+}
+
+enum DamageClass {
+  CLASS_1
+  CLASS_2
+  CLASS_3
+  CLASS_4
+}
+
+enum LossSourceType {
+  PLUMBING
+  ROOF
+  APPLIANCE
+  FLOOD
+  GROUNDWATER
+  CONDENSATION
+  HVAC
+  UNKNOWN
+}
+
+// ─── RA-261 NIR phase 1 tables (per issue #963) ───────────────────────────────
+// Tables exist on prod (created by repair hotfix #960). Adding Prisma models
+// here so routes can drop their (prisma as any) casts and use typed access.
+
+model WaterDamageClassification {
+  id           String     @id @default(uuid()) @db.Text
+  inspectionId String     @unique
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  waterCategory  WaterCategory?
+  damageClass    DamageClass?
+  lossSourceType LossSourceType?
+
+  lossSourceIdentified Boolean @default(false)
+  lossSourceAddressed  Boolean @default(false)
+  hoursOfExposure      Float?
+
+  // Compliance gate flags — IICRC S500:2025 §7
+  gateClassificationComplete Boolean @default(false)
+  gateLossSourceComplete     Boolean @default(false)
+  gatePhotosAttached         Boolean @default(false)
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz
+
+  @@index([inspectionId])
+  @@index([waterCategory])
+  @@index([damageClass])
+}
+
+model PsychrometricReading {
+  id           String     @id @default(uuid()) @db.Text
+  inspectionId String
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  visitDate    DateTime @db.Timestamptz
+  visitNumber  Int
+  technicianId String?
+
+  dryBulbTempC     Float?
+  wetBulbTempC     Float?
+  relativeHumidity Float?
+  dewPointC        Float?
+  grainsPerPound   Float?
+  gramsPerKilogram Float?
+
+  equipmentRunning Boolean @default(true)
+  notes            String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz
+
+  @@index([inspectionId])
+  @@index([visitDate])
+  @@index([visitNumber])
+}
+
+model CircuitAssessment {
+  id           String     @id @default(uuid()) @db.Text
+  inspectionId String
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  circuitId            String
+  locationZone         String
+  equipmentList        Json     @default("[]")
+  circuitBreakerRating Int
+  rcdProtected         Boolean  @default(false)
+  extensionCordGauge   String?
+  totalCircuitLoad     Float?
+  circuitLoadSafe      Boolean?
+  circuitLoadWarning   String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz
+
+  @@index([inspectionId])
+  @@index([circuitLoadSafe])
 }
 
 // Affected Areas (Room/Zone with Category/Class)
@@ -2233,11 +2349,11 @@ model AdminImpersonation {
 
   /// Admin user who initiated the impersonation (Role.ADMIN required).
   adminUserId String
-  admin       User @relation("AdminImpersonationAsAdmin", fields: [adminUserId], references: [id], onDelete: Cascade)
+  admin       User   @relation("AdminImpersonationAsAdmin", fields: [adminUserId], references: [id], onDelete: Cascade)
 
   /// Target user being impersonated.
   targetUserId String
-  target       User @relation("AdminImpersonationAsTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+  target       User   @relation("AdminImpersonationAsTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
 
   /// Signed-token id (stored for revoke + audit). The JWT itself is
   /// NEVER stored — only the jti claim.
@@ -3811,8 +3927,8 @@ model Invoice {
   pdfGeneratedAt DateTime?
 
   // Public viewing
-  publicToken     String? @unique // For public invoice viewing
-  publicViewCount Int     @default(0)
+  publicToken          String?   @unique // For public invoice viewing
+  publicViewCount      Int       @default(0)
   // RA-1596 — token expiry + rotation. Null means the token is
   // either absent or (for rows minted before this column shipped)
   // legacy-unlimited. New tokens land with a 90-day expiry.
@@ -3836,6 +3952,13 @@ model Invoice {
   emails             InvoiceEmail[]
   reminders          PaymentReminder[]
 
+  // RA-1360: prevent duplicate invoice rows when an external sync (Xero / QBO /
+  // MYOB) re-imports the same invoice — webhook + cron double-fire, network
+  // retry, or two workspaces accidentally mapped to the same tenant. Sync code
+  // paths should upsert on this composite key. The partial-unique semantics
+  // (NULL values don't collide) are exactly what we want: local-only invoices
+  // (no external origin) can still have many rows with both columns NULL.
+  @@unique([externalSyncProvider, externalInvoiceId], name: "Invoice_external_sync_uniq")
   @@index([userId, invoiceNumber])
   @@index([userId, status])
   @@index([userId, invoiceDate])
@@ -3847,13 +3970,6 @@ model Invoice {
   @@index([externalInvoiceId])
   @@index([publicToken])
   @@index([workspaceId])
-  // RA-1360: prevent duplicate invoice rows when an external sync (Xero / QBO /
-  // MYOB) re-imports the same invoice — webhook + cron double-fire, network
-  // retry, or two workspaces accidentally mapped to the same tenant. Sync code
-  // paths should upsert on this composite key. The partial-unique semantics
-  // (NULL values don't collide) are exactly what we want: local-only invoices
-  // (no external origin) can still have many rows with both columns NULL.
-  @@unique([externalSyncProvider, externalInvoiceId], name: "Invoice_external_sync_uniq")
 }
 
 // Invoice Line Items (snapshot from estimate)
@@ -5635,21 +5751,21 @@ model ProgressAttestation {
   // RA-1388 / M-13 — Labour-hire per-job attestation matrix. Populated only
   // when attestationType = "LABOUR_HIRE_SELF". Validation lives in
   // lib/progress/labour-hire.ts (Fair Work compliance).
-  labourHireHours                Decimal? @db.Decimal(6, 2)
-  labourHireAwardClass           String?
-  labourHireSuperRate            Decimal? @db.Decimal(5, 4) // 0.12 = 12% (default from 1 Jul 2025)
-  labourHirePortableLslState     String? // "NSW" | "VIC" | "QLD" | "ACT" | "TAS" | null when N/A
-  labourHireInductionEvidenceId  String? // FK reference to an evidence row carrying induction proof
+  labourHireHours               Decimal? @db.Decimal(6, 2)
+  labourHireAwardClass          String?
+  labourHireSuperRate           Decimal? @db.Decimal(5, 4) // 0.12 = 12% (default from 1 Jul 2025)
+  labourHirePortableLslState    String? // "NSW" | "VIC" | "QLD" | "ACT" | "TAS" | null when N/A
+  labourHireInductionEvidenceId String? // FK reference to an evidence row carrying induction proof
 
   // RA-1708 / P0-4 — ETA 1999 (AU) §10 + ETA 2002 (NZ) §4 consent +
   // identification proof. consentTokenId points at the AttestationConsentToken
   // the signer redeemed; signerIp + signerUserAgent are captured at attest
   // time and hashed into integrityHash so post-write tampering of any of
   // these fields surfaces on read.
-  consentTokenId    String?
-  signerIp          String?
-  signerUserAgent   String? @db.Text
-  contentHash       String? // sha256 of the content summary the signer agreed to
+  consentTokenId  String?
+  signerIp        String?
+  signerUserAgent String? @db.Text
+  contentHash     String? // sha256 of the content summary the signer agreed to
 
   attestedAt DateTime @default(now())
 
@@ -5665,7 +5781,7 @@ model ProgressAttestation {
 /// to (userId, reportId, attestationType, contentHash) so the same token
 /// cannot be redeemed against a different document.
 model AttestationConsentToken {
-  id              String  @id @default(cuid())
+  id              String @id @default(cuid())
   userId          String
   reportId        String
   attestationType String
@@ -5676,9 +5792,9 @@ model AttestationConsentToken {
   ip        String?
   userAgent String? @db.Text
 
-  expiresAt   DateTime
-  consumedAt  DateTime?
-  createdAt   DateTime @default(now())
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
 
   @@index([userId, expiresAt])
   @@index([reportId])
@@ -5905,7 +6021,7 @@ model DeviceToken {
   id        String   @id @default(cuid())
   userId    String
   token     String   @unique
-  platform  String   // "ios" | "android"
+  platform  String // "ios" | "android"
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
