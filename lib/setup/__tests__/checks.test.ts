@@ -100,4 +100,26 @@ describe("runAllChecks", () => {
     const bp = results.find((r) => r.capability === "business_profile");
     expect(bp?.status).toBe("red");
   });
+
+  it("returns green for sample_report_render when pdf-lib produces a > 1 KB buffer", async () => {
+    const results = await runAllChecks(testOrgId);
+    const r = results.find((r) => r.capability === "sample_report_render");
+    expect(r?.status).toBe("green");
+    expect(r?.label).toBe("Sample report rendering");
+  });
+
+  it("still produces a sample_report_render result when the org does not exist", async () => {
+    // Org lookup returns null but the PDF generator tolerates minimal data,
+    // so this should still render a valid PDF (no throw, no DB dependency).
+    const results = await runAllChecks("non-existent-org-id");
+    const r = results.find((r) => r.capability === "sample_report_render");
+    expect(r?.status).toBe("green");
+  });
+
+  it("returns green for chain_of_custody when SHA-256 + UTC primitives work", async () => {
+    const results = await runAllChecks(testOrgId);
+    const r = results.find((r) => r.capability === "chain_of_custody");
+    expect(r?.status).toBe("green");
+    expect(r?.label).toBe("Photo chain-of-custody");
+  });
 });
