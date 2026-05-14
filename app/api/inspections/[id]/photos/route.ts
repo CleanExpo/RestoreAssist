@@ -8,6 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -200,6 +201,59 @@ export async function POST(
       );
     }
 
+    // Chain-of-custody (rule 21) — only enforced when client supplies cocoaSha256
+    const clientSha256 = formData.get("cocoaSha256");
+    let cocoaSha256: string | null = null;
+    let cocoaCapturedAtUtc: Date | null = null;
+    let cocoaUserHash: string | null = null;
+    let cocoaDeviceHint: string | null = null;
+
+    if (typeof clientSha256 === "string" && clientSha256.length > 0) {
+      const serverSha256 = crypto
+        .createHash("sha256")
+        .update(buffer)
+        .digest("hex");
+      if (serverSha256.toLowerCase() !== clientSha256.toLowerCase()) {
+        return NextResponse.json(
+          {
+            error:
+              "Hash mismatch — file may have been tampered with in transit",
+          },
+          { status: 400 },
+        );
+      }
+      cocoaSha256 = clientSha256;
+
+      const capturedAtRaw = formData.get("capturedAtUtc");
+      cocoaCapturedAtUtc =
+        typeof capturedAtRaw === "string" && capturedAtRaw.length > 0
+          ? new Date(capturedAtRaw)
+          : null;
+
+      // Authoritative — server computes from session, never trusts client
+      const userHashInput = `${session.user.id}:${session.user.image ?? ""}`;
+      cocoaUserHash = crypto
+        .createHash("sha256")
+        .update(userHashInput)
+        .digest("hex");
+
+      const userAgent = request.headers.get("user-agent");
+      cocoaDeviceHint = userAgent ? userAgent.slice(0, 200) : null;
+    }
+
+    // Optional GPS from FAB
+    const gpsLatRaw = formData.get("gpsLat");
+    const gpsLngRaw = formData.get("gpsLng");
+    const gpsLatitude =
+      typeof gpsLatRaw === "string" ? parseFloat(gpsLatRaw) : null;
+    const gpsLongitude =
+      typeof gpsLngRaw === "string" ? parseFloat(gpsLngRaw) : null;
+
+    // Optional caption from FAB → maps to description (existing column)
+    const caption = formData.get("caption");
+    const captionDescription =
+      typeof caption === "string" && caption.length > 0 ? caption : null;
+
     const storageProvider = await getStorageProvider(user?.organizationId);
 
     const uploadResult = await storageProvider.upload({
@@ -224,6 +278,22 @@ export async function POST(
         mimeType: file.type,
         timestamp: new Date(),
         ...labelData,
+        // Cocoa chain-of-custody
+        cocoaSha256,
+        cocoaCapturedAtUtc,
+        cocoaUserHash,
+        cocoaDeviceHint,
+        // FAB-supplied geo (only when present and valid)
+        ...(gpsLatitude !== null && !Number.isNaN(gpsLatitude)
+          ? { gpsLatitude }
+          : {}),
+        ...(gpsLongitude !== null && !Number.isNaN(gpsLongitude)
+          ? { gpsLongitude }
+          : {}),
+        // FAB-supplied caption → description (only when present & no labelData.description)
+        ...(captionDescription && !("description" in labelData)
+          ? { description: captionDescription }
+          : {}),
       },
     });
 
