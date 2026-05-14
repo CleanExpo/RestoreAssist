@@ -64,10 +64,20 @@ export async function POST(req: NextRequest) {
         name: `Test ${role}`,
         email,
         role,
+        // RC6: pre-dismiss the in-app product tour so its modal doesn't
+        // occlude the IICRC banner / other dashboard surfaces in E2E specs.
+        productTourDismissedAt: new Date(),
       },
       select: { id: true, email: true, organizationId: true },
     });
     user = created;
+  } else {
+    // RC6: idempotently re-assert the dismissal flag for test users that
+    // pre-date this fix (or had the field cleared by another test).
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { productTourDismissedAt: new Date() },
+    });
   }
 
   // Attach a stub org with setupCompletedAt so the setup-wizard middleware
