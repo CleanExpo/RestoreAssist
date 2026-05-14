@@ -313,6 +313,33 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      // RA-1029 P1 #7 — accept the IICRC claim type picked at inspection
+      // start. Only the 4 IICRC-governed values are valid via this picker;
+      // other ClaimType values (CARPET / HVAC / STORM / etc.) are stamped by
+      // their dedicated assessment routes.
+      const ALLOWED_PICKER_CLAIM_TYPES = [
+        "WATER",
+        "MOULD",
+        "BIOHAZARD",
+        "FIRE",
+      ] as const;
+      type PickerClaimType = (typeof ALLOWED_PICKER_CLAIM_TYPES)[number];
+      let pickedClaimType: PickerClaimType | null = null;
+      if (body.claimType !== undefined && body.claimType !== null) {
+        if (
+          typeof body.claimType !== "string" ||
+          !ALLOWED_PICKER_CLAIM_TYPES.includes(body.claimType as PickerClaimType)
+        ) {
+          return apiError(request, {
+            code: "VALIDATION",
+            message:
+              "claimType must be one of WATER, MOULD, BIOHAZARD, FIRE (the IICRC-governed picker options)",
+            status: 400,
+          });
+        }
+        pickedClaimType = body.claimType as PickerClaimType;
+      }
+
       // Validate reportId if provided
       if (body.reportId) {
         const report = await prisma.report.findUnique({
@@ -361,6 +388,7 @@ export async function POST(request: NextRequest) {
             ({
               lossDescription: sanitizeString(body.lossDescription, 2000),
             } as any)),
+          ...(pickedClaimType ? { claimType: pickedClaimType } : {}),
           reportId: body.reportId || null, // Link to report if provided
           userId,
           status: "DRAFT",
