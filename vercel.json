@@ -15,6 +15,7 @@
     { "path": "/api/cron/dr-nrpg-liveness", "schedule": "30 4 * * *" },
     { "path": "/api/cron/prune-webhook-events", "schedule": "30 3 * * *" },
     { "path": "/api/cron/override-governance", "schedule": "0 1 1 * *" },
-    { "path": "/api/cron/storage-mirror", "schedule": "* * * * *" }
+    { "path": "/api/cron/storage-mirror", "schedule": "* * * * *" },
+    { "path": "/api/cron/storage-mirror-recovery", "schedule": "*/15 * * * *" }
   ]
 }
