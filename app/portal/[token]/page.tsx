@@ -1,4 +1,6 @@
+import { notFound } from "next/navigation";
 import { verifyPortalToken } from "@/lib/portal-token";
+import { lookupPortalAccount } from "@/lib/portal/lookup-portal-account";
 import { prisma } from "@/lib/prisma";
 
 // Statuses shown in the public timeline (subset of internal statuses)
@@ -56,42 +58,44 @@ interface PageProps {
 export default async function ClientPortalPage({ params }: PageProps) {
   const { token } = await params;
 
-  // Verify token server-side
-  const verified = verifyPortalToken(token);
+  // ─── Lookup order (RA-4861 deliberation short-circuit #1) ─────────────
+  // 1. First try the new ClientPortalAccount table — revocable,
+  //    rotatable, client-scoped tokens. When this hits we surface the
+  //    client's most-recent inspection so the existing rich timeline UI
+  //    still renders against real data instead of changing shape.
+  // 2. Fall back to the legacy HMAC inspection-scoped tokens minted by
+  //    `lib/portal-token.ts` + `/api/portal/generate`. Existing links
+  //    in the wild MUST keep working — they're emailed with up to a
+  //    7-day TTL.
+  // 3. If neither resolves, render the framework 404 (notFound()).
+  //    The legacy "Link Expired" friendly card remains below for the
+  //    legacy-path miss case (verified but inspection deleted).
+  let inspectionId: string | null = null;
 
-  if (!verified) {
-    return (
-      <main className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center">
-          <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg
-              className="w-6 h-6 text-red-500"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-          </div>
-          <h1 className="text-xl font-semibold text-gray-900 mb-2">
-            Link Expired
-          </h1>
-          <p className="text-gray-500 text-sm">
-            This link has expired. Please contact your technician for a fresh
-            link.
-          </p>
-        </div>
-      </main>
-    );
+  const portalAccount = await lookupPortalAccount(token);
+  if (portalAccount) {
+    // Inspection has no direct `clientId` — it links to Client through
+    // `Report.clientId` (1:0..1 between Report and Inspection). Pick
+    // the newest Inspection whose Report points at this Client.
+    const latest = await prisma.inspection.findFirst({
+      where: { report: { clientId: portalAccount.clientId } },
+      orderBy: { createdAt: "desc" },
+      select: { id: true },
+    });
+    inspectionId = latest?.id ?? null;
+  }
+
+  if (!inspectionId) {
+    const verified = verifyPortalToken(token);
+    if (verified) inspectionId = verified.inspectionId;
+  }
+
+  if (!inspectionId) {
+    notFound();
   }
 
   const inspection = await prisma.inspection.findUnique({
-    where: { id: verified.inspectionId },
+    where: { id: inspectionId },
     include: {
       moistureReadings: true,
       affectedAreas: true,
