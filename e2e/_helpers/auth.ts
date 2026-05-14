@@ -26,7 +26,12 @@ export async function loginAs(page: Page, role: Role): Promise<void> {
 
 export async function seedInspection(
   page: Page,
-  body: { inspectionId?: string; status?: string } = {},
+  body: {
+    inspectionId?: string;
+    status?: string;
+    source?: string;
+    acceptedAt?: string | null;
+  } = {},
 ): Promise<void> {
   const res = await page.request.post("/api/test/seed-inspection", {
     data: body,
