@@ -54,13 +54,14 @@ export { cloudinary, ensureCloudinaryConfigured };
  */
 export async function uploadDataUrl(
   dataUrl: string,
-  opts: { folder: string },
+  opts: { folder: string; tags?: string[] },
 ): Promise<string> {
   ensureCloudinaryConfigured();
   const result = await cloudinary.uploader.upload(dataUrl, {
     folder: opts.folder,
     resource_type: "image",
     overwrite: false,
+    ...(opts.tags && opts.tags.length > 0 ? { tags: opts.tags } : {}),
   });
   return result.secure_url;
 }
