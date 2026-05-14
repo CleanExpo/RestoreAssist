@@ -3,7 +3,7 @@
  * the invited-technician E2E specs. Returns the invite token so Playwright
  * can navigate to /invite/<token>.
  *
- * HARD GUARD — returns 404 unless NODE_ENV !== "production".
+ * HARD GUARD — returns 404 unless ALLOW_TEST_HELPERS === "true".
  *
  * Body (all optional):
  *   - managerEmail   (string)  — manager User.email. Defaults to a unique value.
@@ -23,9 +23,12 @@ interface SeedBody {
 }
 
 export async function POST(req: NextRequest) {
-  if (process.env.NODE_ENV === "production") {
+  // Vercel preview deploys run with NODE_ENV=production, so we cannot use
+  // NODE_ENV to gate. The sandbox Vercel project sets ALLOW_TEST_HELPERS=true;
+  // prod does not. Local dev sets it via .env.local for the E2E suite to work.
+  if (process.env.ALLOW_TEST_HELPERS !== "true") {
     return NextResponse.json(
-      { error: "Not available in production" },
+      { error: "Test helpers are not enabled in this environment" },
       { status: 404 },
     );
   }

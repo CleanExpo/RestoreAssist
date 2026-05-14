@@ -34,8 +34,8 @@ beforeEach(() => {
 });
 
 describe("POST /api/test/sign-in-as", () => {
-  it("returns 404 in production", async () => {
-    vi.stubEnv("NODE_ENV", "production");
+  it("returns 404 when ALLOW_TEST_HELPERS is not 'true'", async () => {
+    vi.stubEnv("ALLOW_TEST_HELPERS", "");
     vi.resetModules();
     const { POST } = await import("../sign-in-as/route");
     const res = await POST(makeReq({ role: "USER" }));
@@ -44,13 +44,16 @@ describe("POST /api/test/sign-in-as", () => {
   });
 
   it("returns 400 when role is invalid", async () => {
+    vi.stubEnv("ALLOW_TEST_HELPERS", "true");
     vi.resetModules();
     const { POST } = await import("../sign-in-as/route");
     const res = await POST(makeReq({ role: "OWNER" }));
     expect(res.status).toBe(400);
+    vi.unstubAllEnvs();
   });
 
-  it("creates user + org and sets session cookie when user does not exist", async () => {
+  it("returns 200 happy path when ALLOW_TEST_HELPERS=true (creates user + org)", async () => {
+    vi.stubEnv("ALLOW_TEST_HELPERS", "true");
     userFindUnique.mockResolvedValueOnce(null);
     userCreate.mockResolvedValueOnce({
       id: "u_1",
@@ -73,9 +76,11 @@ describe("POST /api/test/sign-in-as", () => {
 
     expect(userCreate).toHaveBeenCalledTimes(1);
     expect(orgCreate).toHaveBeenCalledTimes(1);
+    vi.unstubAllEnvs();
   });
 
   it("reuses existing user (no create) and sets cookie", async () => {
+    vi.stubEnv("ALLOW_TEST_HELPERS", "true");
     userFindUnique.mockResolvedValueOnce({
       id: "u_2",
       email: "test-user@test.local",
@@ -89,5 +94,6 @@ describe("POST /api/test/sign-in-as", () => {
     expect(userCreate).not.toHaveBeenCalled();
     expect(orgCreate).not.toHaveBeenCalled();
     expect(res.headers.get("set-cookie")).toContain("next-auth.session-token=");
+    vi.unstubAllEnvs();
   });
 });
