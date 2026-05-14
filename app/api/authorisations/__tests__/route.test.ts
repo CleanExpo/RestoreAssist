@@ -151,6 +151,55 @@ describe("POST /api/authorisations", () => {
     );
   });
 
+  it("dual-writes subjectLicenceClass (string) + subjectLicenceClassEnum when caller passes the enum (P1 #19 step 1 of 2)", async () => {
+    getServerSession.mockResolvedValueOnce({ user: { id: "u_1" } });
+    userFindUnique.mockResolvedValueOnce({
+      id: "u_1",
+      organization: { name: "Acme", legalName: null, tradingName: null },
+    });
+    authCreate.mockResolvedValueOnce({ id: "auth_1" });
+    await POST(
+      makeReq({ ...validBody, subjectLicenceClassEnum: "OPEN" }),
+    );
+    expect(authCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          subjectLicenceClass: "Restoration",
+          subjectLicenceClassEnum: "OPEN",
+        }),
+      }),
+    );
+  });
+
+  it("writes subjectLicenceClassEnum=null when caller omits the enum (legacy callers unchanged)", async () => {
+    getServerSession.mockResolvedValueOnce({ user: { id: "u_1" } });
+    userFindUnique.mockResolvedValueOnce({
+      id: "u_1",
+      organization: { name: "Acme", legalName: null, tradingName: null },
+    });
+    authCreate.mockResolvedValueOnce({ id: "auth_1" });
+    await POST(makeReq(validBody));
+    expect(authCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          subjectLicenceClassEnum: null,
+        }),
+      }),
+    );
+  });
+
+  it("returns 400 when subjectLicenceClassEnum is not a valid enum member", async () => {
+    getServerSession.mockResolvedValueOnce({ user: { id: "u_1" } });
+    userFindUnique.mockResolvedValueOnce({
+      id: "u_1",
+      organization: { name: "Acme", legalName: null, tradingName: null },
+    });
+    const res = await POST(
+      makeReq({ ...validBody, subjectLicenceClassEnum: "NOT_REAL" }),
+    );
+    expect(res.status).toBe(400);
+  });
+
   it("returns 500 with generic error (rule 7) when DB throws", async () => {
     getServerSession.mockResolvedValueOnce({ user: { id: "u_1" } });
     userFindUnique.mockResolvedValueOnce({

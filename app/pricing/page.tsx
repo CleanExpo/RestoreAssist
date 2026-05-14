@@ -128,7 +128,7 @@ function PricingPageContent() {
 
           {/* Hamburger Menu - Right Side, Bigger Size, Always Visible */}
           <button
-            className="text-white hover:text-gray-300 transition-colors"
+            className="text-white hover:text-gray-300 transition-colors p-2 -mr-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             aria-label="Toggle menu"
           >
@@ -174,7 +174,7 @@ function PricingPageContent() {
                 </h2>
                 <button
                   onClick={() => setMobileMenuOpen(false)}
-                  className="text-white hover:text-gray-300 transition-colors p-2 -mr-2 rounded-lg hover:bg-white/10"
+                  className="text-white hover:text-gray-300 transition-colors p-2.5 -mr-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg hover:bg-white/10"
                   aria-label="Close menu"
                 >
                   <X size={24} />
@@ -219,14 +219,14 @@ function PricingPageContent() {
                   <div className="pt-6 mt-6 border-t border-white/10 space-y-3">
                     <Link
                       href="/pricing"
-                      className="block w-full px-6 py-3 bg-[#5A6A7B] text-white rounded-lg text-center font-medium hover:bg-[#5A6A7B]/80 transition-all duration-200 shadow-lg"
+                      className="block w-full px-6 py-3 bg-[#546272] text-white rounded-lg text-center font-medium hover:bg-[#445163] transition-all duration-200 shadow-lg"
                       onClick={() => setMobileMenuOpen(false)}
                     >
                       Pricing
                     </Link>
                     <Link
                       href="/login"
-                      className="block w-full px-6 py-3 bg-[#8A6B4E] text-white rounded-lg text-center font-medium hover:bg-[#8A6B4E]/80 transition-all duration-200 shadow-lg"
+                      className="block w-full px-6 py-3 bg-[#765C43] text-white rounded-lg text-center font-medium hover:bg-[#634A2F] transition-all duration-200 shadow-lg"
                       onClick={() => setMobileMenuOpen(false)}
                     >
                       Log In
@@ -296,7 +296,7 @@ function PricingPageContent() {
               >
                 {plan.isFree && (
                   <div
-                    className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-[#5A6A7B] text-[#F4F5F6] rounded-full text-sm font-medium"
+                    className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-[#546272] text-[#F4F5F6] rounded-full text-sm font-medium"
                     style={{
                       fontFamily:
                         '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -307,7 +307,7 @@ function PricingPageContent() {
                 )}
                 {plan.popular && !plan.isFree && (
                   <div
-                    className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-[#8A6B4E] text-[#F4F5F6] rounded-full text-sm font-medium"
+                    className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-[#765C43] text-[#F4F5F6] rounded-full text-sm font-medium"
                     style={{
                       fontFamily:
                         '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -318,7 +318,7 @@ function PricingPageContent() {
                 )}
                 {plan.badge && !plan.popular && !plan.isFree && (
                   <div
-                    className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-[#8A6B4E] text-[#F4F5F6] rounded-full text-sm font-medium"
+                    className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-[#765C43] text-[#F4F5F6] rounded-full text-sm font-medium"
                     style={{
                       fontFamily:
                         '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -490,7 +490,7 @@ function PricingPageContent() {
                 </ul>
                 <Link
                   href="/signup"
-                  className={`block w-full px-6 py-3 rounded-lg text-center font-medium transition-colors ${plan.isFree ? "bg-[#5A6A7B] text-[#F4F5F6] hover:bg-[#5A6A7B]/90" : plan.popular ? "bg-[#8A6B4E] text-[#F4F5F6] hover:bg-[#8A6B4E]/90" : "bg-[#5A6A7B] text-[#F4F5F6] hover:bg-[#5A6A7B]/90"}`}
+                  className={`block w-full px-6 py-3 rounded-lg text-center font-medium transition-colors ${plan.isFree ? "bg-[#546272] text-[#F4F5F6] hover:bg-[#445163]" : plan.popular ? "bg-[#765C43] text-[#F4F5F6] hover:bg-[#634A2F]" : "bg-[#546272] text-[#F4F5F6] hover:bg-[#445163]"}`}
                   style={{
                     fontFamily:
                       '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -545,7 +545,7 @@ function PricingPageContent() {
               >
                 {addon.popular && (
                   <div
-                    className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-[#8A6B4E] text-[#F4F5F6] rounded-full text-sm font-medium"
+                    className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-[#765C43] text-[#F4F5F6] rounded-full text-sm font-medium"
                     style={{
                       fontFamily:
                         '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -556,7 +556,7 @@ function PricingPageContent() {
                 )}
                 {addon.badge && !addon.popular && (
                   <div
-                    className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-[#8A6B4E] text-[#F4F5F6] rounded-full text-sm font-medium"
+                    className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-[#765C43] text-[#F4F5F6] rounded-full text-sm font-medium"
                     style={{
                       fontFamily:
                         '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -605,7 +605,7 @@ function PricingPageContent() {
                 </div>
                 <Link
                   href="/signup"
-                  className={`block w-full px-6 py-3 rounded-lg text-center font-medium transition-colors ${addon.popular ? "bg-[#8A6B4E] text-[#F4F5F6] hover:bg-[#8A6B4E]/90" : "bg-[#5A6A7B] text-[#F4F5F6] hover:bg-[#5A6A7B]/90"}`}
+                  className={`block w-full px-6 py-3 rounded-lg text-center font-medium transition-colors ${addon.popular ? "bg-[#765C43] text-[#F4F5F6] hover:bg-[#634A2F]" : "bg-[#546272] text-[#F4F5F6] hover:bg-[#445163]"}`}
                   style={{
                     fontFamily:
                       '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',

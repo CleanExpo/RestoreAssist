@@ -4,6 +4,10 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sanitizeString } from "@/lib/sanitize";
 import { apiError, fromException } from "@/lib/api-errors";
+import {
+  brandLogoUrlSchema,
+  brandPrimaryColorSchema,
+} from "@/lib/clients/brand";
 
 export async function GET(
   request: NextRequest,
@@ -111,6 +115,40 @@ export async function PUT(
       });
     }
 
+    // P1 #10 — client co-brand fields. Both optional; explicit null clears
+    // the value. Validation rejects HTTP / relative URLs and any color
+    // that isn't 6-char hex with leading `#`.
+    let brandLogoUrl: string | null | undefined = undefined;
+    if (body.brandLogoUrl === null) {
+      brandLogoUrl = null;
+    } else if (typeof body.brandLogoUrl === "string") {
+      const parsed = brandLogoUrlSchema.safeParse(body.brandLogoUrl);
+      if (!parsed.success) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: parsed.error.issues[0]?.message ?? "Invalid brandLogoUrl",
+          status: 400,
+        });
+      }
+      brandLogoUrl = parsed.data;
+    }
+
+    let brandPrimaryColor: string | null | undefined = undefined;
+    if (body.brandPrimaryColor === null) {
+      brandPrimaryColor = null;
+    } else if (typeof body.brandPrimaryColor === "string") {
+      const parsed = brandPrimaryColorSchema.safeParse(body.brandPrimaryColor);
+      if (!parsed.success) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message:
+            parsed.error.issues[0]?.message ?? "Invalid brandPrimaryColor",
+          status: 400,
+        });
+      }
+      brandPrimaryColor = parsed.data;
+    }
+
     // Check if client exists and belongs to user
     const existingClient = await prisma.client.findFirst({
       where: {
@@ -157,6 +195,11 @@ export async function PUT(
         contactPerson,
         notes,
         status,
+        // P1 #10 — only set when the field appeared in the payload, so an
+        // omitted field leaves the existing value untouched. An explicit
+        // null clears it (back to RA defaults at render time).
+        ...(brandLogoUrl !== undefined ? { brandLogoUrl } : {}),
+        ...(brandPrimaryColor !== undefined ? { brandPrimaryColor } : {}),
       },
       include: {
         _count: {

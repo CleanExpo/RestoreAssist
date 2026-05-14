@@ -27,6 +27,7 @@ import { getSupabaseServerClient } from "@/lib/supabase-server";
 import { BUCKET_ORIGINALS } from "@/lib/storage/types";
 import { buildJobPackageStream } from "@/lib/exports/job-package-zip";
 import { queueMirrorJob } from "@/lib/queue/storage-mirror";
+import { resolveClientBrandTheme } from "@/lib/clients/brand";
 
 export interface HandoverExportResult {
   storageKey: string;
@@ -42,6 +43,15 @@ export async function exportHandoverPackageToBYOKStorage(
     select: {
       id: true,
       user: { select: { organizationId: true } },
+      // P1 #10 — resolve client co-brand assets for the PDF header/accent.
+      // Null fields fall back to RA defaults inside resolveClientBrandTheme.
+      report: {
+        select: {
+          client: {
+            select: { brandLogoUrl: true, brandPrimaryColor: true },
+          },
+        },
+      },
     },
   });
 
@@ -52,11 +62,15 @@ export async function exportHandoverPackageToBYOKStorage(
   }
 
   const orgId = inspection.user.organizationId;
+  const theme = resolveClientBrandTheme(inspection.report?.client ?? null);
 
   // The ZIP composition (report + invoice ref + photos + audit log) is
   // identical to SP-E's close package — see plan §9.5 for the contract.
   // Reusing the builder keeps the ZIP layout stable across surfaces.
-  const { buffer, byteSize } = await buildJobPackageStream(inspectionId);
+  // The optional `theme` arg drives the PDF co-brand (P1 #10).
+  const { buffer, byteSize } = await buildJobPackageStream(inspectionId, {
+    theme,
+  });
 
   const storageKey = `handovers/${orgId}/${inspectionId}/handover-package.zip`;
   const supabase = getSupabaseServerClient();
