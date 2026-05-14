@@ -47,6 +47,12 @@ const InspectionSignOff = dynamic(
   () => import("@/components/inspection/InspectionSignOff"),
   { ssr: false },
 );
+// SP-A — close-job Sidekick card. Mounts conditional on IN_BILLING status
+// (or once-closed render of the locked terminal card via `completedAt`).
+const CloseJobPrompt = dynamic(
+  () => import("@/components/inspection/CloseJobPrompt"),
+  { ssr: false },
+);
 import {
   ArrowLeft,
   Loader2,
@@ -126,6 +132,10 @@ interface Inspection {
   processedAt: string | null;
   signedAt: string | null;
   signedByName: string | null;
+  // SP-A — terminal-state fields.
+  completedAt: string | null;
+  closeSummary: string | null;
+  closePackageStorageKey: string | null;
   environmentalData: {
     ambientTemperature: number;
     humidityLevel: number;
@@ -1019,6 +1029,19 @@ export default function InspectionDetailPage({
           signedAt={inspection.signedAt}
           signedByName={inspection.signedByName}
           onSigned={() => fetchInspection()}
+        />
+      )}
+
+      {/* SP-A close-job Sidekick card. Renders while the inspection is in
+          its pre-close billing state, and stays mounted in its locked
+          terminal state once `completedAt` is set. */}
+      {(inspection.status === "IN_BILLING" || inspection.completedAt) && (
+        <CloseJobPrompt
+          inspectionId={inspection.id}
+          inspectionNumber={inspection.inspectionNumber}
+          completedAt={inspection.completedAt}
+          closeSummary={inspection.closeSummary}
+          onClosed={() => fetchInspection()}
         />
       )}
 
