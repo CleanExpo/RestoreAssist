@@ -105,6 +105,50 @@ async function withBackoff<T>(fn: () => Promise<T>): Promise<T> {
   throw lastErr;
 }
 
+/**
+ * SP-E: Token-source-agnostic Drive uploader.
+ *
+ * Both the user-scoped `DriveCloudMirror.upload` (tokens from `Account`)
+ * and the org-scoped `GoogleDriveStorageProvider.upload` (tokens from
+ * `Organization.storageProviderRefreshToken`) delegate to this helper so
+ * the folder convention + retry-on-5xx logic is shared.
+ */
+export async function uploadToDrive(input: {
+  accessToken: string;
+  refreshToken: string | null;
+  jobNumber: string;
+  filename: string;
+  mimeType: string;
+  data: Buffer;
+}): Promise<{ providerFileId: string; viewUrl: string }> {
+  const auth = getOAuthClient(input.accessToken, input.refreshToken);
+  const drive = google.drive({ version: "v3", auth });
+
+  const rootId = await findOrCreateFolder(drive, ROOT_FOLDER_NAME, null);
+  const jobFolderId = await findOrCreateFolder(drive, input.jobNumber, rootId);
+
+  const { data } = await withBackoff(() =>
+    drive.files.create({
+      requestBody: {
+        name: input.filename,
+        parents: [jobFolderId],
+      },
+      media: {
+        mimeType: input.mimeType,
+        body: Readable.from(input.data),
+      },
+      fields: "id, webViewLink",
+    }),
+  );
+
+  if (!data.id || !data.webViewLink) {
+    throw new Error(
+      "Drive upload completed without returning id or webViewLink",
+    );
+  }
+  return { providerFileId: data.id, viewUrl: data.webViewLink };
+}
+
 export class DriveCloudMirror implements CloudMirrorProvider {
   readonly id = "drive" as const;
 
@@ -114,36 +158,14 @@ export class DriveCloudMirror implements CloudMirrorProvider {
     input: CloudMirrorUploadInput,
   ): Promise<CloudMirrorUploadResult> {
     const { accessToken, refreshToken } = await getTokensForUser(this.userId);
-    const auth = getOAuthClient(accessToken, refreshToken);
-    const drive = google.drive({ version: "v3", auth });
-
-    const rootId = await findOrCreateFolder(drive, ROOT_FOLDER_NAME, null);
-    const jobFolderId = await findOrCreateFolder(
-      drive,
-      input.jobNumber,
-      rootId,
-    );
-
-    const { data } = await withBackoff(() =>
-      drive.files.create({
-        requestBody: {
-          name: input.filename,
-          parents: [jobFolderId],
-        },
-        media: {
-          mimeType: input.mimeType,
-          body: Readable.from(input.data),
-        },
-        fields: "id, webViewLink",
-      }),
-    );
-
-    if (!data.id || !data.webViewLink) {
-      throw new Error(
-        "Drive upload completed without returning id or webViewLink",
-      );
-    }
-    return { providerFileId: data.id, viewUrl: data.webViewLink };
+    return uploadToDrive({
+      accessToken,
+      refreshToken,
+      jobNumber: input.jobNumber,
+      filename: input.filename,
+      mimeType: input.mimeType,
+      data: input.data,
+    });
   }
 
   async revoke(providerFileId: string): Promise<void> {

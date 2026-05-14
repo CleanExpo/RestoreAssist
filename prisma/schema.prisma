@@ -867,6 +867,9 @@ model Organization {
   hydrationJobs HydrationJob[]
   pricingConfig OrganizationPricingConfig?
 
+  // SP-E: Storage BYOK mirror queue
+  storageMirrorJobs StorageMirrorJob[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -1798,6 +1801,35 @@ model Inspection {
   submittedAt DateTime?
   processedAt DateTime?
 
+  // SP-A (Wave 1) — Job-close terminal-state columns.
+  // `completedAt` is the UTC timestamp the close-button was pressed (distinct
+  // from `signedAt` which records sign-off only). `closeSummary` stores the
+  // client-facing summary the user committed (AI draft from on-close hook,
+  // edited then committed). `closePackageStorageKey` is populated by the
+  // SP-E `exportClosedJobToBYOKStorage` fire-and-forget hook with the
+  // Supabase key of the close-package ZIP (`closures/<orgId>/<id>/...`).
+  closeSummary           String?   @db.Text
+  completedAt            DateTime?
+  closePackageStorageKey String?
+  // SP-J handover columns. `handoverCompletedAt` is the UTC timestamp the
+  // tradie pressed "Hand over to client" on a CLOSED inspection.
+  // `handoverPackageStorageKey` is the Supabase key of the handover ZIP
+  // (`handovers/<orgId>/<id>/handover-package.zip`) written by the SP-J
+  // route synchronously (the storage key is the route's response, unlike
+  // SP-A's fire-and-forget close package). Both nullable — handover is
+  // post-close and optional for legacy CLOSED rows.
+  handoverCompletedAt       DateTime?
+  handoverPackageStorageKey String?
+
+  // RA — DR/NRPG inbound-job tracking.
+  // `source` records where the inspection originated. For inbound jobs from
+  // DR/NRPG it is "DR_NRPG"; tradies manually creating an inspection get
+  // "MANUAL" (the DB default). `acceptedAt` is set when the tradie taps
+  // "Accept & Start" on the dashboard inbound-job alert. Until then,
+  // a DR/NRPG-sourced inspection sits in the alert banner waiting for triage.
+  source      String?   @default("MANUAL")
+  acceptedAt  DateTime?
+
   // RA-261: Claim type stamped by per-assessment routes (water/fire/mould/etc).
   // Backs columns in app/api/inspections/[id]/{carpet,biohazard,hvac,fire-smoke,
   // storm,mould-remediation,contents-pack-out,water-damage-classification}.
@@ -1947,8 +1979,16 @@ enum InspectionStatus {
   CLASSIFIED
   SCOPED
   ESTIMATED
+  // SP-A: Deprecated for new writes — SP-C will migrate consumers to CLOSED.
+  // Retained for back-compat on rows written before the SP-A enum extension.
   COMPLETED
   REJECTED
+  // SP-A (Wave 1) — pre-close billing state. Invoice issued, awaiting paid.
+  IN_BILLING
+  // SP-A (Wave 1) — terminal state written by POST /api/inspections/[id]/close.
+  CLOSED
+  // SP-A (Wave 1) — admin-archived state for long-term retention (SP-C consumer).
+  ARCHIVED
 }
 
 // RA-261 (NIR Full Data Depth Matrix — Phase 1: Water Damage).
@@ -5233,6 +5273,67 @@ enum StorageProviderType {
   GOOGLE_DRIVE
   ONEDRIVE
   LOCAL
+}
+
+// ============================================================
+// SP-E: Storage BYOK mirror queue (durable, Prisma-backed)
+// Models the dual-write pipeline that mirrors Supabase-resident
+// assets to the tenant's own Google Drive on a background tick.
+// ============================================================
+
+enum MirrorJobKind {
+  PHOTO
+  REPORT
+  INVOICE
+  JOB_PACKAGE
+  HANDOVER_PACKAGE
+  AUDIT_LOG
+}
+
+enum MirrorJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model StorageMirrorJob {
+  id           String          @id @default(cuid())
+  orgId        String
+  organization Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  kind         MirrorJobKind
+  status       MirrorJobStatus @default(PENDING)
+
+  // Soft FKs — only ONE is set per row (matches kind). No relation declared to
+  // keep deletions independent (a deleted Photo shouldn't cascade-delete its
+  // mirror history; we want the audit trail to outlive the source row).
+  photoId      String?
+  reportId     String?
+  invoiceId    String?
+  inspectionId String? // For JOB_PACKAGE + AUDIT_LOG
+
+  // Source — where we read the bytes from (Supabase path)
+  sourceStoragePath String
+  filename          String
+  mimeType          String
+
+  // Result — populated on COMPLETED
+  driveFileId  String?
+  driveViewUrl String?
+
+  attempts      Int       @default(0)
+  lastError     String?   @db.Text
+  lastAttemptAt DateTime?
+  nextAttemptAt DateTime  @default(now())
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  completedAt DateTime?
+
+  @@unique([orgId, kind, photoId, reportId, invoiceId, inspectionId], name: "idempotency")
+  @@index([orgId, status])
+  @@index([status, nextAttemptAt])
+  @@index([createdAt])
 }
 
 // ============================================================

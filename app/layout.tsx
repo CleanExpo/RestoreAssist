@@ -84,11 +84,13 @@ export const metadata: Metadata = {
 
 // viewport-fit=cover is required for iPhone notch (iPhone 13+) in Capacitor WebView
 // themeColor drives the browser address bar colour on Android + PWA splash — RA-1462
+// WCAG 1.4.4 (Resize Text, Level AA) — never lock zoom. Removed
+// maximumScale and userScalable; users must be able to zoom to 200%
+// without horizontal scroll. viewport-fit=cover retained for iPhone
+// notch in Capacitor WebView (RA-1462).
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   viewportFit: "cover",
   themeColor: "#2563eb",
 };

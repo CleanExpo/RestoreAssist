@@ -23,4 +23,17 @@
 #
 # 2026-05-14 (Seam C): bumped 358 → 359. Sub-project #7's
 # components/inspection/CapturePhotoFab.tsx imports { Camera } from lucide-react.
-icon_imports=359
+#
+# 2026-05-15 (Wave 1 release): bumped 359 → 362. Three new lucide imports
+# arrive via the sandbox→main release PR #1035:
+# 1. components/inspection/ClaimTypePicker.tsx — 4-option claim-type picker
+#    (S540 + WATER/MOULD/FIRE/TRAUMA). Landed via #1034 direct to main
+#    during swarm; baseline bump missed the merge.
+# 2. components/dashboard/InboundJobAlert.tsx — DR/NRPG inbound job
+#    alert card (AlertCircle, ArrowRight, Loader2).
+# 3. components/inspection/CloseJobPrompt.tsx — SP-A close-job prompt
+#    component invoked from the inspection-detail page.
+# All three consistent with the rest of components/inspection/* +
+# components/dashboard/*. Migration to src/components/ui/marks.tsx is a
+# separate cleanup tracked outside this PR.
+icon_imports=362

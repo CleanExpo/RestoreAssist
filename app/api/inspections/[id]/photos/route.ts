@@ -13,6 +13,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getStorageProvider } from "@/lib/storage";
+import { enqueueMirror } from "@/lib/storage/dual-write";
+import { MirrorJobKind } from "@prisma/client";
 import { extractAndSaveMediaAsset } from "@/lib/media/exif-extract";
 import { scheduleCatalog } from "@/lib/media/catalog";
 import { applyRateLimit } from "@/lib/rate-limiter";
@@ -313,6 +315,25 @@ export async function POST(
         }),
       },
     });
+
+    // SP-E: dual-write hook — enqueue a background mirror to the org's
+    // BYOK storage (Google Drive) if connected. Wrapped in try/catch so a
+    // mirror failure never breaks the user-facing 201 response.
+    try {
+      await enqueueMirror({
+        kind: MirrorJobKind.PHOTO,
+        orgId: user?.organizationId,
+        storagePath: uploadResult.storagePath,
+        filename: file.name,
+        mimeType: file.type || "image/jpeg",
+        photoId: photo.id,
+      });
+    } catch (mirrorErr) {
+      console.error(
+        `[Storage Mirror] enqueue failed for photo ${photo.id}:`,
+        mirrorErr,
+      );
+    }
 
     // RA-416: Extract EXIF metadata — fire-and-forget, never blocks upload response
     if (inspection.workspaceId) {

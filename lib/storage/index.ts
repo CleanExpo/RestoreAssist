@@ -7,6 +7,7 @@
 import { prisma } from "@/lib/prisma";
 import { SupabaseStorageProvider } from "./supabase-provider";
 import { ExternalS3Provider } from "./s3-provider";
+import { GoogleDriveStorageProvider } from "./google-drive-provider";
 import type { StorageProvider } from "./types";
 
 export { BUCKET_ORIGINALS, BUCKET_OPTIMISED } from "./types";
@@ -47,12 +48,42 @@ export async function getStorageProvider(
     case "GOOGLE_DRIVE":
     case "ONEDRIVE":
     case "LOCAL":
-      // SP-E will wire real providers. Until then, fall through to Supabase
-      // so uploads keep working the moment a tenant connects Drive — they
-      // just stay in Supabase until the dual-write mirror ships.
+      // SP-E ships dual-write: Supabase stays primary, the mirror queue
+      // pushes a background copy to Drive. The hot photo-upload path
+      // resolves Supabase here; only the queue invokes
+      // `getMirrorStorageProvider` below for the secondary Drive write.
       return new SupabaseStorageProvider();
     case "SUPABASE":
     default:
       return new SupabaseStorageProvider();
+  }
+}
+
+/**
+ * SP-E: Resolve the mirror-side storage provider for an org.
+ *
+ * Returns null if the org is not configured for dual-write (i.e. the
+ * primary provider IS its source of truth — no mirror needed).
+ *
+ * Only the mirror queue (`lib/queue/storage-mirror.ts`) should call this.
+ * Callers on the hot write path use `getStorageProvider` and stay on
+ * Supabase.
+ */
+export async function getMirrorStorageProvider(
+  orgId: string,
+): Promise<StorageProvider | null> {
+  const org = await prisma.organization.findUnique({
+    where: { id: orgId },
+    select: { storageProvider: true },
+  });
+
+  if (!org) return null;
+
+  switch (org.storageProvider) {
+    case "GOOGLE_DRIVE":
+      return new GoogleDriveStorageProvider(orgId);
+    // ONEDRIVE / LOCAL are placeholder enum values in v1 — no provider yet.
+    default:
+      return null;
   }
 }
