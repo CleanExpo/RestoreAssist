@@ -23,4 +23,10 @@
 #
 # 2026-05-14 (Seam C): bumped 358 → 359. Sub-project #7's
 # components/inspection/CapturePhotoFab.tsx imports { Camera } from lucide-react.
-icon_imports=359
+#
+# 2026-05-15 (B3b S540 + claim-type picker): bumped 359 → 360.
+# components/inspection/ClaimTypePicker.tsx imports a lucide-react icon for the
+# 4-option claim-type picker (WATER / MOULD / TRAUMA / FIRE). Consistent with
+# rest of components/inspection/* until the src/components/ui/marks.tsx
+# migration cleanup PR.
+icon_imports=360
