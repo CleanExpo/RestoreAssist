@@ -834,6 +834,13 @@ model Organization {
   storageProvider  StorageProviderType @default(SUPABASE)
   storageBucketUrl String? // For BYOS — S3/GCS/Azure bucket endpoint
 
+  // Onboarding hotfix (2026-05-14): BYOK Google Drive OAuth (SP-1 patch)
+  storageProviderRefreshToken   String? // AES-256-GCM via lib/credential-vault.ts
+  storageProviderAccessToken    String? // AES-256-GCM; short-lived, refreshable
+  storageProviderTokenExpiresAt DateTime?
+  storageProviderAccountEmail   String? // The gmail the user OAuth'd as — shown on StorageCard
+  storageProviderPkceVerifier   String? // Transient: cleared on successful callback
+
   // RA-1120: NZ locale support — "AU" | "NZ"
   country String @default("AU")
 
@@ -5223,6 +5230,9 @@ enum StorageProviderType {
   S3
   GCS
   AZURE
+  GOOGLE_DRIVE
+  ONEDRIVE
+  LOCAL
 }
 
 // ============================================================
