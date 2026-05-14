@@ -82,10 +82,27 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       });
     }
 
-    // 3. State-machine gate. The `complete_handover` transition is a
-    //    self-loop on CLOSED — fromStatus !== CLOSED surfaces as
-    //    `invalid_transition`. The required gate `handover_not_yet_done`
-    //    enforces idempotency.
+    // 3. Status gate — handover only runs on a CLOSED inspection. The
+    //    state machine treats `close_job` (IN_BILLING → CLOSED) and
+    //    `complete_handover` (CLOSED → CLOSED) as two distinct edges
+    //    sharing a `to` of CLOSED; we must short-circuit here so a
+    //    pre-close inspection doesn't trip the close-job preconditions
+    //    instead of the handover idempotency gate.
+    if (inspection.status !== InspectionStatus.CLOSED) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "CONFLICT",
+            message: "Inspection must be CLOSED before handover",
+            missing: ["invalid_transition"],
+          },
+        },
+        { status: 409 },
+      );
+    }
+
+    // State-machine gate — only the `complete_handover` self-loop now.
+    // The required `handover_not_yet_done` key enforces idempotency.
     const gate = canTransition(
       inspection.status,
       InspectionStatus.CLOSED,
@@ -96,12 +113,20 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       },
     );
     if (!gate.ok) {
-      return apiError(request, {
-        code: "CONFLICT",
-        message: "Inspection cannot be handed over in its current state",
-        status: 409,
-        context: { missing: gate.missing },
-      });
+      // 409 with `missing[]` — mirrors the close-route shape so a single
+      // client-side handler can drive both surfaces. We hand-roll the
+      // envelope (rather than going through apiError) because the
+      // RA-1548 helper doesn't yet surface arbitrary detail arrays.
+      return NextResponse.json(
+        {
+          error: {
+            code: "CONFLICT",
+            message: "Inspection cannot be handed over in its current state",
+            missing: gate.missing,
+          },
+        },
+        { status: 409 },
+      );
     }
 
     // 4. Build + upload the ZIP. Synchronous — failure is a hard 500.
@@ -134,12 +159,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       },
     });
     if (cas.count === 0) {
-      return apiError(request, {
-        code: "CONFLICT",
-        message: "Inspection status drifted during handover",
-        status: 409,
-        context: { missing: ["status_drift"] },
-      });
+      return NextResponse.json(
+        {
+          error: {
+            code: "CONFLICT",
+            message: "Inspection status drifted during handover",
+            missing: ["status_drift"],
+          },
+        },
+        { status: 409 },
+      );
     }
 
     // 6. Append-only ProgressTransition + AuditLog. CLOSED → CLOSED in
