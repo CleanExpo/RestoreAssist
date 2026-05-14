@@ -21,7 +21,7 @@ if (process.env.NODE_ENV === "production") {
 
 ## 2. `InspectionSignOff.tsx` must be mounted into a page (currently orphaned)
 
-The `tech-signoff-modal-fresh.spec.ts` and `tech-signoff-modal-cancel.spec.ts` rely on a "Submit for review" button on the inspection detail page. Today, `components/inspection/InspectionSignOff.tsx` is not rendered anywhere. Mount it under `app/dashboard/inspections/[id]/page.tsx` (likely behind a `status === "COMPLETED"` branch) and the specs will resolve.
+The `tech-signoff-modal-fresh.spec.ts` and `tech-signoff-modal-cancel.spec.ts` rely on a "Sign Inspection" button on the inspection detail page. Today, `components/inspection/InspectionSignOff.tsx` is not rendered anywhere. Mount it under `app/dashboard/inspections/[id]/page.tsx` (likely behind a `status === "COMPLETED"` branch) and the specs will resolve.
 
 ## 3. Chain-of-custody confirm UI does not exist
 

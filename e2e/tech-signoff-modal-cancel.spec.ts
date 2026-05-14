@@ -6,7 +6,7 @@ test("USER cancels the modal — returns to inspection without dropping evidence
 }) => {
   await request.post("/api/test/sign-in-as", { data: { role: "USER" } });
   await page.goto("/dashboard/inspections/test-inspection");
-  await page.getByRole("button", { name: /Submit for review/ }).click();
+  await page.getByRole("button", { name: /Sign Inspection/ }).click();
   await expect(page.getByText(/Add your credentials/)).toBeVisible();
 
   await page.keyboard.press("Escape");
