@@ -15,6 +15,11 @@
  */
 
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import {
+  hexToRgb,
+  RA_DEFAULT_PRIMARY_COLOR,
+  type ClientBrandTheme,
+} from "@/lib/clients/brand";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -275,14 +280,19 @@ function fmtCurrency(n: number | null | undefined): string {
 
 // ─── Header + Footer ──────────────────────────────────────────────────────────
 
-function drawPageHeader(w: PDFWriter, reportNumber: string, pageNum: number) {
+function drawPageHeader(
+  w: PDFWriter,
+  reportNumber: string,
+  pageNum: number,
+  accent: ReturnType<typeof rgb> = C_NAVY,
+) {
   const p = w.page;
   p.drawRectangle({
     x: 0,
     y: A4_H - 36,
     width: A4_W,
     height: 36,
-    color: C_NAVY,
+    color: accent,
   });
   p.drawText("RestoreAssist", {
     x: MARGIN,
@@ -307,9 +317,12 @@ function drawPageHeader(w: PDFWriter, reportNumber: string, pageNum: number) {
   });
 }
 
-function drawPageFooter(w: PDFWriter) {
+function drawPageFooter(
+  w: PDFWriter,
+  accent: ReturnType<typeof rgb> = C_NAVY,
+) {
   const p = w.page;
-  p.drawRectangle({ x: 0, y: 0, width: A4_W, height: 28, color: C_NAVY });
+  p.drawRectangle({ x: 0, y: 0, width: A4_W, height: 28, color: accent });
   p.drawText(
     "Compliant with IICRC S500:2025 | Australian Water Damage Restoration Standard",
     {
@@ -335,15 +348,61 @@ function drawPageFooter(w: PDFWriter) {
 // ─── Main Export ──────────────────────────────────────────────────────────────
 
 /**
+ * Optional PDF generator controls.
+ *
+ * `theme` (P1 #10) overrides the navy header/footer accent with the
+ * client's brand primary colour and, when supplied, embeds the client's
+ * logo image in the cover header. Null/undefined falls back to the
+ * RestoreAssist defaults.
+ */
+export interface GenerateIICRCReportOptions {
+  theme?: ClientBrandTheme;
+}
+
+/**
  * Generate an IICRC S500:2025-compliant PDF from RestoreAssist report data.
  * Returns a Uint8Array ready to stream as application/pdf.
  */
 export async function generateIICRCReportPDF(
   data: IICRCReportData,
+  options: GenerateIICRCReportOptions = {},
 ): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
   const regular = await doc.embedFont(StandardFonts.Helvetica);
+
+  // Resolve theme — fall back to RA navy when nothing supplied. We parse
+  // the hex up front so the per-page draw loop doesn't have to repeat the
+  // work; an unparseable hex would already have been rejected by the
+  // zod validator at write time.
+  const themeHex = options.theme?.primaryColor ?? RA_DEFAULT_PRIMARY_COLOR;
+  const themeRgb = (() => {
+    try {
+      const { r, g, b } = hexToRgb(themeHex);
+      return rgb(r, g, b);
+    } catch {
+      return C_NAVY;
+    }
+  })();
+
+  // Optional client logo — fetched once, embedded on the cover header.
+  // A non-HTTPS / unreachable / non-PNG/JPG URL silently falls back to
+  // the text-only header so a broken brand asset never blocks a handover.
+  let clientLogoImage: Awaited<ReturnType<PDFDocument["embedPng"]>> | null = null;
+  if (options.theme?.logoUrl && options.theme.logoUrl.startsWith("https://")) {
+    try {
+      const res = await fetch(options.theme.logoUrl);
+      if (res.ok) {
+        const bytes = new Uint8Array(await res.arrayBuffer());
+        const ct = (res.headers.get("content-type") ?? "").toLowerCase();
+        clientLogoImage = ct.includes("png")
+          ? await doc.embedPng(bytes)
+          : await doc.embedJpg(bytes);
+      }
+    } catch {
+      clientLogoImage = null;
+    }
+  }
 
   const w = new PDFWriter(doc, bold, regular);
   w.newPage();
@@ -353,8 +412,21 @@ export async function generateIICRCReportPDF(
   let pageNum = 1;
 
   // ── SECTION 1: Property & Claim Details ─────────────────────────────────────
-  drawPageHeader(w, reportNum, pageNum);
-  drawPageFooter(w);
+  drawPageHeader(w, reportNum, pageNum, themeRgb);
+  drawPageFooter(w, themeRgb);
+  if (clientLogoImage) {
+    // Render the logo inside the header band — top-right, height-capped
+    // to the band so it never bleeds into the page body.
+    const maxH = 24;
+    const scale = maxH / clientLogoImage.height;
+    const drawW = clientLogoImage.width * scale;
+    w.page.drawImage(clientLogoImage, {
+      x: A4_W - MARGIN - drawW,
+      y: A4_H - 32,
+      width: drawW,
+      height: maxH,
+    });
+  }
 
   w.y = A4_H - 60;
   w.text("PROFESSIONAL INSPECTION REPORT", {
@@ -648,8 +720,8 @@ export async function generateIICRCReportPDF(
     // New page for the narrative — it may be long
     w.newPage();
     pageNum++;
-    drawPageHeader(w, reportNum, pageNum);
-    drawPageFooter(w);
+    drawPageHeader(w, reportNum, pageNum, themeRgb);
+    drawPageFooter(w, themeRgb);
     w.y = A4_H - 60;
 
     w.sectionHeader("SECTION 7 — PROFESSIONAL INSPECTION REPORT NARRATIVE");
