@@ -1811,10 +1811,15 @@ model Inspection {
   closeSummary           String?   @db.Text
   completedAt            DateTime?
   closePackageStorageKey String?
-  // SP-J handover precondition surface. Nullable today — SP-J will write the
-  // timestamp when handover is recorded. SP-A treats absence as a soft gap,
-  // not a blocker (handover is optional for v1 close per plan §dependencies).
-  handoverCompletedAt    DateTime?
+  // SP-J handover columns. `handoverCompletedAt` is the UTC timestamp the
+  // tradie pressed "Hand over to client" on a CLOSED inspection.
+  // `handoverPackageStorageKey` is the Supabase key of the handover ZIP
+  // (`handovers/<orgId>/<id>/handover-package.zip`) written by the SP-J
+  // route synchronously (the storage key is the route's response, unlike
+  // SP-A's fire-and-forget close package). Both nullable — handover is
+  // post-close and optional for legacy CLOSED rows.
+  handoverCompletedAt       DateTime?
+  handoverPackageStorageKey String?
 
   // RA — DR/NRPG inbound-job tracking.
   // `source` records where the inspection originated. For inbound jobs from
@@ -5281,6 +5286,7 @@ enum MirrorJobKind {
   REPORT
   INVOICE
   JOB_PACKAGE
+  HANDOVER_PACKAGE
   AUDIT_LOG
 }
 

@@ -109,6 +109,15 @@ export const TRANSITION_REQUIREMENTS = {
     required: [] as const,
     soft: [] as const,
   },
+  // SP-J: CLOSED → CLOSED (self-loop) — the on-site handover moment.
+  // Status does not change (handover happens AFTER close per the brief);
+  // the transition records `handoverCompletedAt` + writes the package
+  // storage key. Gate: `handover_not_yet_done` enforces idempotency so a
+  // second call after a successful handover rejects with 409.
+  complete_handover: {
+    required: ["handover_not_yet_done"] as const,
+    soft: [] as const,
+  },
 } as const satisfies Record<string, RequirementSpec>;
 
 /**
@@ -135,6 +144,13 @@ const LEGAL_EDGES: Array<{
     to: InspectionStatus.ARCHIVED,
     transitionKey: "archive_job",
   },
+  // SP-J — self-loop on CLOSED. Status does not change; the route writes
+  // `handoverCompletedAt` + `handoverPackageStorageKey`.
+  {
+    from: InspectionStatus.CLOSED,
+    to: InspectionStatus.CLOSED,
+    transitionKey: "complete_handover",
+  },
 ];
 
 function findEdge(from: InspectionStatus, to: InspectionStatus) {
@@ -157,6 +173,12 @@ function evaluateGate(
         // semantic ever lands.
         if (ctx.reportStatus !== "COMPLETED" && ctx.reportStatus !== "SENT")
           missing.push(gate);
+        break;
+      case "handover_not_yet_done":
+        // SP-J idempotency gate: handover must NOT already be recorded.
+        // A second call after a successful handover surfaces this key in
+        // `missing` and the route returns 409.
+        if (ctx.handoverCompletedAt) missing.push("handover_already_done");
         break;
       default:
         // Unknown gate keys surface as missing so a typo can't silently
@@ -245,5 +267,7 @@ function labelFor(key: keyof typeof TRANSITION_REQUIREMENTS): string {
       return "Close this job";
     case "archive_job":
       return "Archive this job";
+    case "complete_handover":
+      return "Hand over to client";
   }
 }
