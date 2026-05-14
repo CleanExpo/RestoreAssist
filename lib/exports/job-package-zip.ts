@@ -19,6 +19,7 @@ import archiver from "archiver";
 import { PassThrough, Readable } from "node:stream";
 import { prisma } from "@/lib/prisma";
 import { generateIICRCReportPDF } from "@/lib/generate-iicrc-report-pdf";
+import type { ClientBrandTheme } from "@/lib/clients/brand";
 
 interface BuildResult {
   /** Buffer of the final ZIP — assembled in memory. Acceptable for v1
@@ -29,12 +30,25 @@ interface BuildResult {
 }
 
 /**
+ * Optional builder controls.
+ *
+ * `theme` (P1 #10) drives co-branding on report.pdf — logo in the header,
+ * primary colour as the accent. When omitted the PDF generator falls back
+ * to the RestoreAssist defaults; existing callers (SP-E close package)
+ * keep working unchanged.
+ */
+interface BuildOptions {
+  theme?: ClientBrandTheme;
+}
+
+/**
  * Build the close-package ZIP for an inspection.
  *
  * Throws if the inspection doesn't exist or has no linked report.
  */
 export async function buildJobPackageStream(
   inspectionId: string,
+  options: BuildOptions = {},
 ): Promise<BuildResult> {
   const inspection = await prisma.inspection.findUnique({
     where: { id: inspectionId },
@@ -94,7 +108,10 @@ export async function buildJobPackageStream(
         where: { id: inspection.reportId },
       });
       if (fullReport) {
-        const pdfBytes = await generateIICRCReportPDF(fullReport as unknown as Parameters<typeof generateIICRCReportPDF>[0]);
+        const pdfBytes = await generateIICRCReportPDF(
+          fullReport as unknown as Parameters<typeof generateIICRCReportPDF>[0],
+          { theme: options.theme },
+        );
         archive.append(Buffer.from(pdfBytes), { name: "report.pdf" });
       }
     } catch (err) {

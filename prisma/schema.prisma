@@ -334,6 +334,14 @@ model Client {
   notes         String?      @db.Text
   status        ClientStatus @default(ACTIVE)
   isSample      Boolean      @default(false) // RA-1239: seeded demo row
+
+  // P1 #10 (RA-4859..4868): client co-brand assets for handover packages.
+  // - brandLogoUrl    — HTTPS URL to the client's logo (header of report.pdf / invoice.pdf)
+  // - brandPrimaryColor — 6-char hex like "#1C2E47" used as the PDF accent.
+  // Both nullable; null falls back to RestoreAssist defaults (see lib/clients/brand.ts).
+  brandLogoUrl      String?
+  brandPrimaryColor String?
+
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
   userId        String
