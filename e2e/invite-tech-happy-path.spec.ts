@@ -24,7 +24,7 @@ test("invited technician — email/password happy path", async ({ page, request 
       mimeType: "image/jpeg",
       buffer: Buffer.alloc(1024),
     });
-  await page.getByRole("button", { name: /Continue/ }).click();
+  await page.getByRole("button", { name: "Continue →" }).click();
 
   await page.getByLabel(/Terms of Service/).check();
   await page.getByLabel(/chain-of-custody/).check();
