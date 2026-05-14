@@ -6,6 +6,7 @@ import Stripe from "stripe";
 import { SubscriptionStatus } from "@prisma/client";
 import { sendSubscriptionActivatedEmail } from "@/lib/email";
 import { warnIfZeroRows } from "@/lib/prisma-assert";
+import { onInvoicePaid } from "@/lib/lifecycle/subscribers/invoice-paid";
 
 /**
  * Best-effort human-readable plan name from a Stripe Subscription.
@@ -392,6 +393,20 @@ export async function POST(request: NextRequest) {
             paidDate: new Date(),
             amountDue: 0,
           },
+        });
+
+        // Punch-list P1 #21 — fire-and-forget invoice-paid subscriber.
+        // Notifies the tradie + writes AuditLog. Deliberately does NOT
+        // advance Inspection.status (SP-A §5.3 editability invariant —
+        // only the human presses "Close Job"). Per CLAUDE.md rule #13,
+        // the subscriber is fire-and-forget so its failure cannot block
+        // the webhook's 200 to Stripe. The subscriber catches internally
+        // and returns a result; .catch here is a defense-in-depth net.
+        void onInvoicePaid(invoiceId).catch((err) => {
+          console.error(
+            "[stripe-webhook] onInvoicePaid subscriber threw (non-fatal):",
+            err instanceof Error ? err.message : err,
+          );
         });
 
         break;
