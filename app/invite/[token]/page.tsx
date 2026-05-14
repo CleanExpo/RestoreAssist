@@ -137,7 +137,7 @@ export default function InviteAcceptPage() {
           <div className="text-center text-sm text-slate-400">
             Already have an account?{" "}
             <Link href="/login" className="text-cyan-400 hover:underline">
-              Sign in
+              Login
             </Link>
           </div>
         </div>
