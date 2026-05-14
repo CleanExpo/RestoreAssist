@@ -29,6 +29,7 @@ import Link from "next/link";
 import SessionMetadataCard, {
   EvaluatorScoreBadge,
 } from "@/components/SessionMetadataCard";
+import { TechLicenceBanner } from "@/components/dashboard/TechLicenceBanner";
 import type { ReportWithSessionData } from "@/lib/session-types";
 
 export default function DashboardPage() {
@@ -254,6 +255,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+      <TechLicenceBanner />
       {/* Header */}
       <div className="border-b border-slate-800/50 bg-slate-900/30 backdrop-blur-sm">
         <div className="px-6 py-6">

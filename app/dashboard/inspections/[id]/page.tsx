@@ -10,6 +10,7 @@ import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas
 import { useConfirmDialog } from "@/components/ConfirmDialog";
 import { NirPilotSurvey } from "@/components/nir-pilot-survey";
 import { MobileNav } from "@/components/mobile/MobileNav";
+import { CapturePhotoFab } from "@/components/inspection/CapturePhotoFab";
 import dynamic from "next/dynamic";
 const PortalInvitePanel = dynamic(
   () => import("@/components/inspection/PortalInvitePanel"),
@@ -629,8 +630,7 @@ export default function InspectionDetailPage({
       const verifiedAt = data?.row?.verifiedAt;
       const ageOk =
         verifiedAt &&
-        Date.now() - new Date(verifiedAt).getTime() <
-          90 * 24 * 60 * 60 * 1000;
+        Date.now() - new Date(verifiedAt).getTime() < 90 * 24 * 60 * 60 * 1000;
       if (ageOk) {
         return performGenerateReport();
       }
@@ -2579,6 +2579,14 @@ export default function InspectionDetailPage({
         inspectionId={inspection.id}
         inspectionStatus={inspection.status}
       />
+
+      {inspection.status !== "COMPLETED" && (
+        <CapturePhotoFab
+          inspectionId={inspection.id}
+          inspectionStatus={inspection.status}
+          onUploaded={fetchInspection}
+        />
+      )}
 
       {/* Mobile bottom nav — field shortcuts on small screens */}
       <MobileNav inspectionId={inspection.id} />
