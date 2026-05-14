@@ -80,6 +80,7 @@ export async function POST(req: NextRequest) {
         whsCardNumber: body.whsCardNumber,
         publicLiabilityInsurer: body.publicLiabilityInsurer ?? null,
         publicLiabilityPolicyNumber: body.publicLiabilityPolicyNumber ?? null,
+        publicLiabilityCoverAmount: body.publicLiabilityCoverAmount ?? null,
         verifiedMethod: "SELF_DECLARED",
         status: "VALID",
       },
