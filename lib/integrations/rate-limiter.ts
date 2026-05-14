@@ -215,6 +215,12 @@ export const PROVIDER_RATE_LIMITS: Record<string, RateLimiterOptions> = {
     tokensPerMinute: 60,
     maxBurst: 100,
   },
+  // SP-E: Google Drive — quota is 1000 req/100s/user for the v3 API.
+  // 60 req/min stays well under that while keeping headroom for bursts.
+  GOOGLE_DRIVE: {
+    tokensPerMinute: 60,
+    maxBurst: 100,
+  },
 };
 
 /**
