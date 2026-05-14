@@ -21,6 +21,12 @@ import type { InspectionStatus } from "@prisma/client";
 interface SeedBody {
   inspectionId?: string;
   status?: InspectionStatus;
+  /** When set (e.g. "DR_NRPG"), stamps Inspection.source so the
+   *  dashboard <InboundJobAlert> picks the row up. */
+  source?: string;
+  /** When provided, sets Inspection.acceptedAt explicitly (use null to
+   *  leave unset for the alert-pending state). */
+  acceptedAt?: string | null;
 }
 
 export async function POST(req: NextRequest) {
@@ -52,6 +58,17 @@ export async function POST(req: NextRequest) {
   // inspectionNumber constraint (the upsert key is `id`, not inspectionNumber).
   const inspectionNumber = `TEST-${id}`;
 
+  const extraCreate: Record<string, unknown> = {};
+  const extraUpdate: Record<string, unknown> = {};
+  if (typeof body.source === "string") {
+    extraCreate.source = body.source;
+    extraUpdate.source = body.source;
+  }
+  if (body.acceptedAt !== undefined) {
+    extraCreate.acceptedAt = body.acceptedAt ? new Date(body.acceptedAt) : null;
+    extraUpdate.acceptedAt = body.acceptedAt ? new Date(body.acceptedAt) : null;
+  }
+
   const inspection = await prisma.inspection.upsert({
     where: { id },
     create: {
@@ -61,8 +78,9 @@ export async function POST(req: NextRequest) {
       propertyPostcode: "4000",
       status,
       userId: session.user.id,
+      ...(extraCreate as any),
     },
-    update: { status },
+    update: { status, ...(extraUpdate as any) },
     select: { id: true },
   });
 

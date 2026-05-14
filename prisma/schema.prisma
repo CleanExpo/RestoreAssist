@@ -1798,6 +1798,15 @@ model Inspection {
   submittedAt DateTime?
   processedAt DateTime?
 
+  // RA — DR/NRPG inbound-job tracking.
+  // `source` records where the inspection originated. For inbound jobs from
+  // DR/NRPG it is "DR_NRPG"; tradies manually creating an inspection get
+  // "MANUAL" (the DB default). `acceptedAt` is set when the tradie taps
+  // "Accept & Start" on the dashboard inbound-job alert. Until then,
+  // a DR/NRPG-sourced inspection sits in the alert banner waiting for triage.
+  source      String?   @default("MANUAL")
+  acceptedAt  DateTime?
+
   // RA-261: Claim type stamped by per-assessment routes (water/fire/mould/etc).
   // Backs columns in app/api/inspections/[id]/{carpet,biohazard,hvac,fire-smoke,
   // storm,mould-remediation,contents-pack-out,water-damage-classification}.

@@ -32,6 +32,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual, randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { recordWebhookFailure } from "@/lib/webhook-audit";
+import { mapPayloadToInspection } from "@/lib/dr-nrpg/inbound-mapper";
 
 // ============================================================
 // HMAC-SHA256 signature verification
@@ -245,41 +246,38 @@ export async function POST(request: NextRequest) {
         });
 
         if (integration?.userId) {
-          // Extract postcode from address (AU 4-digit postcode at end of string)
-          const postcodeMatch =
-            payload.propertyAddress?.match(/\b(\d{4})\b\s*$/);
-          const propertyPostcode = postcodeMatch?.[1] ?? "0000"; // fallback — must be updated manually
-
-          // Generate NIR inspection number: NIR-YYYY-MM-{random 4 hex chars}{jobId suffix 4 chars}
-          const now = new Date(payload.timestamp);
-          const year = now.getFullYear();
-          const month = String(now.getMonth() + 1).padStart(2, "0");
-          const rand = randomBytes(2).toString("hex").toUpperCase(); // 4 hex chars
-          const suffix = jobId
-            .replace(/[^A-Z0-9]/gi, "")
-            .slice(-4)
-            .toUpperCase()
-            .padStart(4, "0");
-          const inspectionNumber = `NIR-${year}-${month}-${rand}${suffix}`;
-
-          const inspection = await prisma.inspection.create({
-            data: {
-              userId: integration.userId,
-              inspectionNumber,
-              propertyAddress: payload.propertyAddress,
-              propertyPostcode,
-              inspectionDate: new Date(payload.timestamp),
-              status: "DRAFT",
-              // claimNumber, insurer, policyHolder live on DrNrpgJobSync — not duplicated here
-            },
-            select: { id: true },
+          const mapped = mapPayloadToInspection({
+            payload,
+            randomHex: randomBytes(2).toString("hex"),
           });
 
-          // Link inspection to job sync
-          await (prisma as any).drNrpgJobSync.update({
-            where: { id: jobSync.id },
-            data: { inspectionId: inspection.id },
-          });
+          if (mapped) {
+            const inspection = await prisma.inspection.create({
+              data: {
+                userId: integration.userId,
+                inspectionNumber: mapped.inspectionNumber,
+                propertyAddress: mapped.propertyAddress,
+                propertyPostcode: mapped.propertyPostcode,
+                inspectionDate: mapped.inspectionDate,
+                status: mapped.status,
+                // source + claimType land via `as any` because the Prisma
+                // client types lag the schema until the next generate runs
+                // in CI. Migration 20260514110000 adds both columns.
+                ...({
+                  source: mapped.source,
+                  claimType: mapped.claimType ?? undefined,
+                } as any),
+                // claimNumber, insurer, policyHolder live on DrNrpgJobSync — not duplicated here
+              },
+              select: { id: true },
+            });
+
+            // Link inspection to job sync
+            await (prisma as any).drNrpgJobSync.update({
+              where: { id: jobSync.id },
+              data: { inspectionId: inspection.id },
+            });
+          }
         }
       } catch (inspectionErr) {
         // Non-fatal — job sync succeeded, inspection auto-creation is best-effort
