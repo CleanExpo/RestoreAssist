@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { TRIAL_DAYS } from "@/lib/billing/constants";
 
 export interface TrialStatus {
   isTrialActive: boolean;
@@ -44,7 +45,7 @@ export async function getTrialStatus(
   if (!trialEndsAt) {
     return {
       isTrialActive: true,
-      daysRemaining: 30,
+      daysRemaining: TRIAL_DAYS,
       trialEndsAt: null,
       hasTrialExpired: false,
       creditsRemaining: user.creditsRemaining || 0,
