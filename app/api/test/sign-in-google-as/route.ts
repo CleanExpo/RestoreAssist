@@ -5,7 +5,7 @@
  * the post-create flagging — needsOnboarding stays false so middleware
  * doesn't bounce the test).
  *
- * HARD GUARD — returns 404 unless NODE_ENV !== "production".
+ * HARD GUARD — returns 404 unless ALLOW_TEST_HELPERS === "true".
  *
  * Body: { email: string }
  * Returns: 200 with set-cookie for the NextAuth session token.
@@ -19,9 +19,12 @@ import {
 } from "../_helpers";
 
 export async function POST(req: NextRequest) {
-  if (process.env.NODE_ENV === "production") {
+  // Vercel preview deploys run with NODE_ENV=production, so we cannot use
+  // NODE_ENV to gate. The sandbox Vercel project sets ALLOW_TEST_HELPERS=true;
+  // prod does not. Local dev sets it via .env.local for the E2E suite to work.
+  if (process.env.ALLOW_TEST_HELPERS !== "true") {
     return NextResponse.json(
-      { error: "Not available in production" },
+      { error: "Test helpers are not enabled in this environment" },
       { status: 404 },
     );
   }

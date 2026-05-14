@@ -31,8 +31,8 @@ beforeEach(() => {
 });
 
 describe("POST /api/test/seed-authorisation", () => {
-  it("returns 404 in production", async () => {
-    vi.stubEnv("NODE_ENV", "production");
+  it("returns 404 when ALLOW_TEST_HELPERS is not 'true'", async () => {
+    vi.stubEnv("ALLOW_TEST_HELPERS", "");
     vi.resetModules();
     const { POST } = await import("../seed-authorisation/route");
     const res = await POST(makeReq({}));
@@ -41,14 +41,17 @@ describe("POST /api/test/seed-authorisation", () => {
   });
 
   it("returns 401 when no session", async () => {
+    vi.stubEnv("ALLOW_TEST_HELPERS", "true");
     getServerSession.mockResolvedValueOnce(null);
     vi.resetModules();
     const { POST } = await import("../seed-authorisation/route");
     const res = await POST(makeReq({}));
     expect(res.status).toBe(401);
+    vi.unstubAllEnvs();
   });
 
-  it("inserts Authorisation row with session user id", async () => {
+  it("returns 200 happy path when ALLOW_TEST_HELPERS=true (inserts Authorisation row)", async () => {
+    vi.stubEnv("ALLOW_TEST_HELPERS", "true");
     getServerSession.mockResolvedValueOnce({ user: { id: "u_test" } });
     userFindUnique.mockResolvedValueOnce({
       id: "u_test",
@@ -76,9 +79,11 @@ describe("POST /api/test/seed-authorisation", () => {
       }),
       select: { id: true },
     });
+    vi.unstubAllEnvs();
   });
 
   it("defaults licence + WHS values when omitted", async () => {
+    vi.stubEnv("ALLOW_TEST_HELPERS", "true");
     getServerSession.mockResolvedValueOnce({ user: { id: "u_test" } });
     userFindUnique.mockResolvedValueOnce({
       id: "u_test",
@@ -96,5 +101,6 @@ describe("POST /api/test/seed-authorisation", () => {
         }),
       }),
     );
+    vi.unstubAllEnvs();
   });
 });

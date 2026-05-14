@@ -37,8 +37,8 @@ beforeEach(() => {
 });
 
 describe("POST /api/test/seed-org-with-manager", () => {
-  it("returns 404 in production", async () => {
-    vi.stubEnv("NODE_ENV", "production");
+  it("returns 404 when ALLOW_TEST_HELPERS is not 'true'", async () => {
+    vi.stubEnv("ALLOW_TEST_HELPERS", "");
     vi.resetModules();
     const { POST } = await import("../seed-org-with-manager/route");
     const res = await POST(makeReq({}));
@@ -46,7 +46,8 @@ describe("POST /api/test/seed-org-with-manager", () => {
     vi.unstubAllEnvs();
   });
 
-  it("creates org + manager + invite and returns token + inviteeEmail", async () => {
+  it("returns 200 happy path when ALLOW_TEST_HELPERS=true", async () => {
+    vi.stubEnv("ALLOW_TEST_HELPERS", "true");
     vi.resetModules();
     const { POST } = await import("../seed-org-with-manager/route");
     const res = await POST(makeReq({}));
@@ -65,9 +66,11 @@ describe("POST /api/test/seed-org-with-manager", () => {
     };
     expect(inviteArgs.data.usedAt).toBeNull();
     expect(inviteArgs.data.expiresAt.getTime()).toBeGreaterThan(Date.now());
+    vi.unstubAllEnvs();
   });
 
   it("honours markUsed=true (sets usedAt)", async () => {
+    vi.stubEnv("ALLOW_TEST_HELPERS", "true");
     vi.resetModules();
     const { POST } = await import("../seed-org-with-manager/route");
     await POST(makeReq({ markUsed: true }));
@@ -75,9 +78,11 @@ describe("POST /api/test/seed-org-with-manager", () => {
       data: { usedAt: Date | null };
     };
     expect(inviteArgs.data.usedAt).toBeInstanceOf(Date);
+    vi.unstubAllEnvs();
   });
 
   it("honours negative expiresInDays (expired invite)", async () => {
+    vi.stubEnv("ALLOW_TEST_HELPERS", "true");
     vi.resetModules();
     const { POST } = await import("../seed-org-with-manager/route");
     await POST(makeReq({ expiresInDays: -1 }));
@@ -85,5 +90,6 @@ describe("POST /api/test/seed-org-with-manager", () => {
       data: { expiresAt: Date };
     };
     expect(inviteArgs.data.expiresAt.getTime()).toBeLessThan(Date.now());
+    vi.unstubAllEnvs();
   });
 });
