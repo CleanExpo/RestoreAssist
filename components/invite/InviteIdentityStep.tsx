@@ -50,9 +50,15 @@ export function InviteIdentityStep({
       setError(result.error);
       return;
     }
-    const dataUrl = await squareCropToDataUrl(file);
-    setHeadshotDataUrl(dataUrl);
-    setError(null);
+    try {
+      const dataUrl = await squareCropToDataUrl(file);
+      setHeadshotDataUrl(dataUrl);
+      setError(null);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to process image";
+      setError(`Headshot upload failed: ${message}`);
+    }
   }
 
   function handleContinue() {
