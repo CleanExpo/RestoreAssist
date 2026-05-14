@@ -3021,6 +3021,12 @@ model InspectionPhoto {
   @@index([inspectionId])
   @@index([timestamp])
   @@index([inspectionId, timestamp]) // photo gallery: WHERE inspectionId=? ORDER BY timestamp DESC
+  // --- Chain-of-custody (rule 21, sub-project #7 T4) ---
+  cocoaSha256        String?   // SHA-256 of file bytes
+  cocoaCapturedAtUtc DateTime? // UTC timestamp at capture moment
+  cocoaUserHash      String?   // server-computed SHA-256(user.id + ":" + user.image)
+  cocoaDeviceHint    String?   // first 200 chars of user-agent string
+
   @@index([roomType]) // RA-448 evidence screen filter
   @@index([damageCategory]) // RA-448 evidence screen filter
   @@index([photoStage]) // RA-448 evidence screen filter

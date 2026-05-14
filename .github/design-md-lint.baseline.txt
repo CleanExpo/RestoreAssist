@@ -20,4 +20,7 @@
 # opt-in) added app/dashboard/settings/floor-plan/page.tsx which imports
 # { Loader2, Map } from lucide-react, consistent with the rest of the
 # settings/* surface.
-icon_imports=358
+#
+# 2026-05-14 (Seam C): bumped 358 → 359. Sub-project #7's
+# components/inspection/CapturePhotoFab.tsx imports { Camera } from lucide-react.
+icon_imports=359
