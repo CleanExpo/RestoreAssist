@@ -7,9 +7,16 @@
  */
 import { encode } from "next-auth/jwt";
 
-// Always the dev cookie name — these routes 404 in production, so the
-// __Secure- prefix path is unreachable.
-export const SESSION_COOKIE_NAME = "next-auth.session-token";
+// Vercel preview/sandbox deploys run with NODE_ENV=production, which makes
+// NextAuth read `__Secure-next-auth.session-token` and refuse cookies missing
+// the `Secure` flag. The test helpers are gated by ALLOW_TEST_HELPERS (not
+// NODE_ENV), so they DO run on sandbox — we must mirror NextAuth's prod
+// cookie name + Secure flag, otherwise getServerSession can't see the
+// session and the page renders the logged-out shell.
+export const SESSION_COOKIE_NAME =
+  process.env.NODE_ENV === "production"
+    ? "__Secure-next-auth.session-token"
+    : "next-auth.session-token";
 
 interface ForgeArgs {
   userId: string;
@@ -55,5 +62,8 @@ export async function forgeSessionJwt(args: ForgeArgs): Promise<string> {
 }
 
 export function sessionCookieAttributes(maxAgeSeconds: number = MAX_AGE_SECONDS): string {
-  return `Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSeconds}`;
+  const base = `Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSeconds}`;
+  // NextAuth requires the Secure flag in production; the `__Secure-` cookie
+  // prefix is also browser-enforced HTTPS-only.
+  return process.env.NODE_ENV === "production" ? `${base}; Secure` : base;
 }

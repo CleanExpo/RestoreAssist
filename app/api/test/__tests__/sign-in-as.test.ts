@@ -96,4 +96,24 @@ describe("POST /api/test/sign-in-as", () => {
     expect(res.headers.get("set-cookie")).toContain("next-auth.session-token=");
     vi.unstubAllEnvs();
   });
+
+  it("uses __Secure- cookie name + Secure flag when NODE_ENV=production", async () => {
+    vi.stubEnv("ALLOW_TEST_HELPERS", "true");
+    vi.stubEnv("NODE_ENV", "production");
+    userFindUnique.mockResolvedValueOnce({
+      id: "u_3",
+      email: "test-user@test.local",
+      organizationId: "org_existing",
+    });
+
+    vi.resetModules();
+    const { POST } = await import("../sign-in-as/route");
+    const res = await POST(makeReq({ role: "USER" }));
+    expect(res.status).toBe(200);
+
+    const setCookie = res.headers.get("set-cookie");
+    expect(setCookie).toContain("__Secure-next-auth.session-token=");
+    expect(setCookie).toContain("Secure");
+    vi.unstubAllEnvs();
+  });
 });
