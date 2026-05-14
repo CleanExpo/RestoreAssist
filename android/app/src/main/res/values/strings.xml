@@ -4,4 +4,18 @@
     <string name="title_activity_main">RestoreAssist</string>
     <string name="package_name">com.restoreassist.app</string>
     <string name="custom_url_scheme">com.restoreassist.app</string>
+
+    <!--
+        Google Sign-In server client ID (belt-and-braces fallback).
+        The Android branch of `lib/oauth-native.ts` already passes
+        `webClientId` to capgo's SocialLogin.initialize() via the JS
+        config, so this resource is mainly a backstop for any native
+        Google Sign-In SDK path that reads from resources.
+
+        Replace TODO_... with the Web-type OAuth client ID from the
+        existing `restoreassist` Google Cloud Console project
+        (NOT the Android-type client). See:
+        docs/google-cloud-console-android-oauth.md
+    -->
+    <string name="server_client_id" translatable="false">TODO_REPLACE_WITH_GOOGLE_CLOUD_CONSOLE_WEB_CLIENT_ID</string>
 </resources>
