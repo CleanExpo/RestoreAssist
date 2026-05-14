@@ -7,8 +7,19 @@
  * HARD GUARD — returns 404 unless ALLOW_TEST_HELPERS === "true".
  *
  * Body (all optional):
- *   - inspectionId (string)  — defaults to "test-inspection" (stable ID for E2E).
- *   - status       (string)  — InspectionStatus enum value. Defaults to "COMPLETED".
+ *   - inspectionId  (string)  — defaults to "test-inspection" (stable ID for E2E).
+ *   - status        (string)  — InspectionStatus enum value. Defaults to "COMPLETED".
+ *                                Ignored when `readyForClose=true` (forced IN_BILLING).
+ *   - source        (string)  — Stamps Inspection.source (e.g. "DR_NRPG").
+ *   - acceptedAt    (string|null) — Sets Inspection.acceptedAt; null leaves unset.
+ *   - readyForClose (boolean) — When true, ALSO upserts a linked Report
+ *                                (status=COMPLETED), Invoice (status=PAID) and
+ *                                ClaimProgress so the SP-A close-route gate
+ *                                `canTransition(IN_BILLING → CLOSED)` passes.
+ *                                Inspection is forced to status=IN_BILLING.
+ *                                Deterministic IDs derived from inspectionId
+ *                                (e.g. `${inspectionId}-report`) — reruns are
+ *                                idempotent and produce no duplicates.
  *
  * Returns: { inspectionId: string }
  */
@@ -27,6 +38,8 @@ interface SeedBody {
   /** When provided, sets Inspection.acceptedAt explicitly (use null to
    *  leave unset for the alert-pending state). */
   acceptedAt?: string | null;
+  /** SP-A close-gate seed. See file header. */
+  readyForClose?: boolean;
 }
 
 export async function POST(req: NextRequest) {
@@ -53,7 +66,12 @@ export async function POST(req: NextRequest) {
   }
 
   const id = body.inspectionId ?? "test-inspection";
-  const status: InspectionStatus = body.status ?? "COMPLETED";
+  // When readyForClose=true the close route requires status=IN_BILLING for
+  // the CAS in /api/inspections/[id]/close. Caller override is ignored in
+  // that branch (documented above).
+  const status: InspectionStatus = body.readyForClose
+    ? "IN_BILLING"
+    : (body.status ?? "COMPLETED");
   // Derived from id so reruns of the same seed don't collide on the unique
   // inspectionNumber constraint (the upsert key is `id`, not inspectionNumber).
   const inspectionNumber = `TEST-${id}`;
@@ -67,6 +85,86 @@ export async function POST(req: NextRequest) {
   if (body.acceptedAt !== undefined) {
     extraCreate.acceptedAt = body.acceptedAt ? new Date(body.acceptedAt) : null;
     extraUpdate.acceptedAt = body.acceptedAt ? new Date(body.acceptedAt) : null;
+  }
+
+  // SP-A close-gate seed: create the linked Report + Invoice + ClaimProgress
+  // BEFORE the Inspection upsert so we can FK-link the Inspection to the
+  // Report (Inspection.reportId is the lookup path for loadTransitionContext).
+  // Deterministic IDs keyed off `id` make every rerun a no-op.
+  if (body.readyForClose) {
+    const reportId = `${id}-report`;
+    const invoiceId = `${id}-invoice`;
+    const progressId = `${id}-progress`;
+    const invoiceNumber = `TEST-${id}-INV`;
+
+    // Report — status COMPLETED is the state machine's `report_sent` gate.
+    // (ReportStatus enum has no "SENT" today; "COMPLETED" is the terminal value.)
+    await prisma.report.upsert({
+      where: { id: reportId },
+      create: {
+        id: reportId,
+        title: `Test Report ${id}`,
+        clientName: "Test Client",
+        propertyAddress: "1 Test St, Testville QLD 4000",
+        hazardType: "WATER",
+        insuranceType: "BUILDING",
+        status: "COMPLETED",
+        userId: session.user.id,
+      },
+      update: { status: "COMPLETED" },
+      select: { id: true },
+    });
+
+    // Invoice — status PAID is the state machine's `invoice_paid` gate.
+    // Invoice is FK'd to the Report (loadTransitionContext looks up by reportId).
+    const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    await prisma.invoice.upsert({
+      where: { id: invoiceId },
+      create: {
+        id: invoiceId,
+        invoiceNumber,
+        status: "PAID",
+        dueDate,
+        customerName: "Test Client",
+        customerEmail: "test@example.com",
+        subtotalExGST: 100000,
+        gstAmount: 10000,
+        totalIncGST: 110000,
+        amountPaid: 110000,
+        amountDue: 0,
+        paidDate: new Date(),
+        reportId,
+        userId: session.user.id,
+      },
+      update: {
+        status: "PAID",
+        amountPaid: 110000,
+        amountDue: 0,
+        paidDate: new Date(),
+      },
+      select: { id: true },
+    });
+
+    // ClaimProgress — anchored on inspectionId so the close route's
+    // `claimProgress.updateMany({ where: { inspectionId } })` mirror hits.
+    // ClaimProgress.reportId is required (@unique 1:1 with Report).
+    await prisma.claimProgress.upsert({
+      where: { id: progressId },
+      create: {
+        id: progressId,
+        reportId,
+        inspectionId: id,
+        currentState: "INVOICE_ISSUED",
+      },
+      update: {
+        inspectionId: id,
+        currentState: "INVOICE_ISSUED",
+      },
+      select: { id: true },
+    });
+
+    extraCreate.reportId = reportId;
+    extraUpdate.reportId = reportId;
   }
 
   const inspection = await prisma.inspection.upsert({
