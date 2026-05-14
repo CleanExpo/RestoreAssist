@@ -1,5 +1,6 @@
 import bundleAnalyzer from "@next/bundle-analyzer";
 import { withSentryConfig } from "@sentry/nextjs";
+import { withBotId } from "botid/next/config";
 
 const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
@@ -51,13 +52,14 @@ const nextConfig = {
     const cspDirectives = [
       "default-src 'self'",
       // 'unsafe-inline' + 'unsafe-eval' retained until nonce migration. Allow
-      // Stripe (checkout), Vercel Analytics, Cloudflare Turnstile, Cloudinary.
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://challenges.cloudflare.com https://widget.cloudinary.com https://upload-widget.cloudinary.com https://va.vercel-scripts.com",
+      // Stripe (checkout), Vercel Analytics, Cloudinary. Vercel BotID is
+      // proxied same-origin via withBotId() rewrites — no extra CSP entry.
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://widget.cloudinary.com https://upload-widget.cloudinary.com https://va.vercel-scripts.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data: blob: https://res.cloudinary.com https://*.stripe.com https://lh3.googleusercontent.com",
       "font-src 'self' data: https://fonts.gstatic.com",
       "connect-src 'self' https://api.stripe.com https://*.supabase.co wss://*.supabase.co https://api.cloudinary.com https://vitals.vercel-insights.com",
-      "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com",
+      "frame-src 'self' https://js.stripe.com https://hooks.stripe.com",
       "frame-ancestors 'none'",
       "form-action 'self'",
       "base-uri 'self'",
@@ -219,4 +221,10 @@ const nextConfig = {
   },
 };
 
-export default withSentryConfig(withBundleAnalyzer(nextConfig), sentryWebpackPluginOptions);
+// withBotId wraps nextConfig to add the rewrites Vercel BotID needs
+// to proxy its client-side challenge / detection scripts same-origin.
+// Docs: https://vercel.com/docs/vercel-botid
+export default withSentryConfig(
+  withBundleAnalyzer(withBotId(nextConfig)),
+  sentryWebpackPluginOptions,
+);

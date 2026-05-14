@@ -18,15 +18,12 @@
  *    that the sync succeeds (no live Xero token expected)
  *
  * Environment requirements:
- *  - TURNSTILE_SECRET_KEY must be set on the target deployment so the
- *    signup CAPTCHA gate (lib/turnstile.ts) soft-allows. Production
- *    requires this set; sandbox currently does NOT have it set, which
- *    causes the very first seam to fail with "CAPTCHA not configured".
- *    That is a real first-tradie production blocker and is the headline
- *    silver finding from this test.
- *  - Test is intended to run against the localhost dev server (NODE_ENV
- *    !== "production" → CAPTCHA soft-allows) or against any environment
- *    where TURNSTILE is configured for the test domain.
+ *  - Vercel BotID (lib/auth/botid.ts) auto-bypasses in dev / preview
+ *    (NODE_ENV !== "production"); production deployments are protected
+ *    automatically by the platform with no env var configuration. This
+ *    removes the previous Cloudflare Turnstile dependency.
+ *  - Test runs cleanly against localhost (NODE_ENV !== "production" →
+ *    BotID returns bypassed=true) or any Vercel preview/production URL.
  */
 import { test, expect } from "@playwright/test";
 
