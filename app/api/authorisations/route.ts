@@ -5,12 +5,30 @@ import { prisma } from "@/lib/prisma";
 import { validateCsrf } from "@/lib/csrf";
 import { invalidateAuthorisationCache } from "@/lib/authorisations/most-recent";
 
+// P1 #19 step 1 of 2 (CLAUDE.md rule #16 — two-step column rename).
+// Mirrors prisma/schema.prisma `enum AuthorisationLicenceClass`.
+const AUTHORISATION_LICENCE_CLASSES = [
+  "OPEN",
+  "PROVISIONAL",
+  "RESTRICTED",
+  "LEARNER",
+  "PROBATIONARY",
+  "HEAVY_VEHICLE",
+  "MOTORCYCLE",
+  "OTHER",
+] as const;
+type AuthorisationLicenceClass = (typeof AUTHORISATION_LICENCE_CLASSES)[number];
+
 interface PostBody {
   inspectionId?: string;
   subjectLicenceNumber?: string;
   whsCardNumber?: string;
   subjectLicenceState?: string;
   subjectLicenceClass?: string;
+  // Optional structured taxonomy. When supplied, written to the new
+  // `subjectLicenceClassEnum` column; legacy free-text col still set
+  // from `subjectLicenceClass`.
+  subjectLicenceClassEnum?: AuthorisationLicenceClass;
   publicLiabilityInsurer?: string;
   publicLiabilityPolicyNumber?: string;
   publicLiabilityCoverAmount?: number;
@@ -41,6 +59,17 @@ export async function POST(req: NextRequest) {
   if (!body.whsCardNumber || typeof body.whsCardNumber !== "string") {
     return NextResponse.json(
       { error: "whsCardNumber is required" },
+      { status: 400 },
+    );
+  }
+  if (
+    body.subjectLicenceClassEnum !== undefined &&
+    !AUTHORISATION_LICENCE_CLASSES.includes(
+      body.subjectLicenceClassEnum as AuthorisationLicenceClass,
+    )
+  ) {
+    return NextResponse.json(
+      { error: "subjectLicenceClassEnum is not a valid licence class" },
       { status: 400 },
     );
   }
@@ -77,6 +106,9 @@ export async function POST(req: NextRequest) {
         subjectLicenceNumber: body.subjectLicenceNumber,
         subjectLicenceState: body.subjectLicenceState ?? null,
         subjectLicenceClass: body.subjectLicenceClass ?? null,
+        // P1 #19 step 1 of 2: dual-write the enum column when caller supplies it.
+        // NULL for legacy callers; backfill PR populates from the free-text col.
+        subjectLicenceClassEnum: body.subjectLicenceClassEnum ?? null,
         whsCardNumber: body.whsCardNumber,
         publicLiabilityInsurer: body.publicLiabilityInsurer ?? null,
         publicLiabilityPolicyNumber: body.publicLiabilityPolicyNumber ?? null,
