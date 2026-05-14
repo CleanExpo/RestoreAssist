@@ -44,6 +44,13 @@ export async function getStorageProvider(
     case "GCS":
     case "AZURE":
       return new ExternalS3Provider(org.storageBucketUrl ?? "");
+    case "GOOGLE_DRIVE":
+    case "ONEDRIVE":
+    case "LOCAL":
+      // SP-E will wire real providers. Until then, fall through to Supabase
+      // so uploads keep working the moment a tenant connects Drive — they
+      // just stay in Supabase until the dual-write mirror ships.
+      return new SupabaseStorageProvider();
     case "SUPABASE":
     default:
       return new SupabaseStorageProvider();
