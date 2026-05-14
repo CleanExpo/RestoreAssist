@@ -1,0 +1,1 @@
+First release on Google Play. Android-native shell around restoreassist.app — native Google Sign-In, photo capture FAB, chain-of-custody evidence, offline-safe queueing. Min Android 8.0 (Oreo).
