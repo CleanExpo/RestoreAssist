@@ -7,12 +7,15 @@
  * working immediately. Idempotent: re-revoking a revoked row is a
  * no-op (returns 200 with the existing revokedAt).
  *
- * Writes an `AuditLog` row only when the account is attached to an
- * inspection-context — for now the model is Client-scoped and the
- * existing AuditLog schema is Inspection-scoped (FK constraint), so we
- * stamp the action on the response body and rely on the row's own
- * `revokedAt` timestamp as the audit record. A follow-up ticket can
- * widen AuditLog to allow Client-scoped rows.
+ * Audit trail: matches the pattern in
+ * `app/api/inspections/[id]/reopen/route.ts`. The existing `AuditLog`
+ * model is inspection-scoped (FK constraint on `inspectionId`), so we
+ * stamp the audit row against the Client's most-recent inspection when
+ * one exists. When the Client has no inspections (a freshly-created
+ * Client whose portal account was minted before any job started) we
+ * gracefully skip the audit row — the table's own `revokedAt` /
+ * `updatedAt` columns are the durable record in that case. A follow-up
+ * ticket can widen `AuditLog` to allow Client-scoped rows.
  */
 
 import { NextRequest } from "next/server";
@@ -29,6 +32,7 @@ export async function POST(
   const session = await getServerSession(authOptions);
   const auth = await verifyAdminFromDb(session);
   if (auth.response) return auth.response;
+  const adminUserId = auth.user!.id;
 
   const { id } = await params;
 
@@ -60,6 +64,30 @@ export async function POST(
       data: { revokedAt: new Date() },
       select: { id: true, clientId: true, revokedAt: true },
     });
+
+    // Audit trail. Scope to the most-recent inspection for the client so
+    // we satisfy the inspection-FK. If no inspection exists we skip the
+    // audit — the row's own `revokedAt` is still the durable record.
+    // Inspection has no direct `clientId` — it links to Client through
+    // `Report.clientId`. Pick the newest Inspection whose Report points
+    // at this Client; if none exists we skip the audit cleanly.
+    const anchor = await prisma.inspection.findFirst({
+      where: { report: { clientId: existing.clientId } },
+      orderBy: { createdAt: "desc" },
+      select: { id: true },
+    });
+    if (anchor) {
+      await prisma.auditLog.create({
+        data: {
+          inspectionId: anchor.id,
+          action: "CLIENT_PORTAL_ACCOUNT_REVOKED",
+          entityType: "ClientPortalAccount",
+          entityId: existing.id,
+          userId: adminUserId,
+          changes: JSON.stringify({ clientId: existing.clientId }),
+        },
+      });
+    }
 
     return Response.json({ data: updated });
   } catch (err) {
