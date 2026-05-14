@@ -30,6 +30,17 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  async redirects() {
+    // Legacy / muscle-memory auth route aliases. Password managers and
+    // browser autofill commonly point at /signin, /register, /onboarding;
+    // canonical routes in the app router are /login, /signup, /setup.
+    // 308 keeps method + body intact (matters for password-manager POSTs).
+    return [
+      { source: "/signin", destination: "/login", permanent: true },
+      { source: "/register", destination: "/signup", permanent: true },
+      { source: "/onboarding", destination: "/setup", permanent: true },
+    ];
+  },
   async headers() {
     // Shared security headers applied to every route
     // RA-1589 — static Content-Security-Policy stopgap.

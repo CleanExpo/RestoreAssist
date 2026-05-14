@@ -526,16 +526,16 @@ async function processInspectionComplete(
     });
   }
 
-  // Update status to ESTIMATED
+  // Update status to ESTIMATED — terminal state of the AI submit
+  // pipeline. Promotion to the COMPLETED terminal state is owned by
+  // the explicit user CloseJobPrompt flow (SP-A close gate, S500:2025
+  // §5.3 Editability invariant); auto-promoting here races the user's
+  // close action and strips editability before they confirm. Do NOT
+  // re-introduce a terminal-state write in this route — guarded by
+  // app/api/inspections/[id]/submit/__tests__/no-auto-complete.test.ts.
   await prisma.inspection.update({
     where: { id: inspectionId },
     data: { status: "ESTIMATED" },
-  });
-
-  // Step 6: Mark as COMPLETED
-  await prisma.inspection.update({
-    where: { id: inspectionId },
-    data: { status: "COMPLETED" },
   });
 
   return {
