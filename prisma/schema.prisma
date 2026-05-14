@@ -867,6 +867,9 @@ model Organization {
   hydrationJobs HydrationJob[]
   pricingConfig OrganizationPricingConfig?
 
+  // SP-E: Storage BYOK mirror queue
+  storageMirrorJobs StorageMirrorJob[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -5242,6 +5245,66 @@ enum StorageProviderType {
   GOOGLE_DRIVE
   ONEDRIVE
   LOCAL
+}
+
+// ============================================================
+// SP-E: Storage BYOK mirror queue (durable, Prisma-backed)
+// Models the dual-write pipeline that mirrors Supabase-resident
+// assets to the tenant's own Google Drive on a background tick.
+// ============================================================
+
+enum MirrorJobKind {
+  PHOTO
+  REPORT
+  INVOICE
+  JOB_PACKAGE
+  AUDIT_LOG
+}
+
+enum MirrorJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model StorageMirrorJob {
+  id           String          @id @default(cuid())
+  orgId        String
+  organization Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  kind         MirrorJobKind
+  status       MirrorJobStatus @default(PENDING)
+
+  // Soft FKs — only ONE is set per row (matches kind). No relation declared to
+  // keep deletions independent (a deleted Photo shouldn't cascade-delete its
+  // mirror history; we want the audit trail to outlive the source row).
+  photoId      String?
+  reportId     String?
+  invoiceId    String?
+  inspectionId String? // For JOB_PACKAGE + AUDIT_LOG
+
+  // Source — where we read the bytes from (Supabase path)
+  sourceStoragePath String
+  filename          String
+  mimeType          String
+
+  // Result — populated on COMPLETED
+  driveFileId  String?
+  driveViewUrl String?
+
+  attempts      Int       @default(0)
+  lastError     String?   @db.Text
+  lastAttemptAt DateTime?
+  nextAttemptAt DateTime  @default(now())
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  completedAt DateTime?
+
+  @@unique([orgId, kind, photoId, reportId, invoiceId, inspectionId], name: "idempotency")
+  @@index([orgId, status])
+  @@index([status, nextAttemptAt])
+  @@index([createdAt])
 }
 
 // ============================================================
