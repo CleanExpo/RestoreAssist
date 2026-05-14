@@ -11,6 +11,7 @@
  * Standards covered:
  *   IICRC S500 — Standard for Professional Water Damage Restoration (7th Ed)
  *   IICRC S520 — Standard for Professional Mould Remediation (3rd Ed)
+ *   IICRC S540 — Standard for Trauma and Crime Scene Cleanup (S540:2023)
  *   IICRC S700 — Standard for Professional Fire and Smoke Damage Restoration (2nd Ed)
  *   NCC 2022   — National Construction Code (Australia)
  */
@@ -456,11 +457,355 @@ export const S700_FIELD_MAP = {
   },
 } as const;
 
+// ─── S540 TRAUMA / BIOHAZARD FIELD MAP ────────────────────────────────────────
+//
+// Source: IICRC S540:2023 — Standard for Trauma and Crime Scene Cleanup
+// Citations follow CLAUDE.md rule #14 (edition + section, no abbreviation).
+// Coverage: §6 scoping · §7 worker protection · §8 cleaning · §9 verification ·
+// §10 documentation / regulated-waste chain-of-custody.
+
+export const S540_FIELD_MAP = {
+  /**
+   * Incident-type classification — drives jurisdictional reporting and PPE tier.
+   * Source: IICRC S540:2023 §6 — Project scoping and pre-job assessment.
+   */
+  incidentType: {
+    clauseRef: "IICRC S540:2023 §6.2",
+    definitions: {
+      crimeScene: {
+        label: "Crime Scene",
+        notes:
+          "Police clearance required before entry. Chain of custody is evidence-grade.",
+      },
+      unattendedDeath: {
+        label: "Unattended Death / Decomposition",
+        notes:
+          "Decomposition fluids classed as OPIM. Coronial release required.",
+      },
+      suicide: {
+        label: "Suicide",
+        notes:
+          "Family-sensitivity protocol; coronial release required before remediation.",
+      },
+      animalRemoval: {
+        label: "Animal Remains / Infestation",
+        notes:
+          "Carcass + faecal load; zoonotic disease risk drives PPE tier upward.",
+      },
+      hoarding: {
+        label: "Hoarding / Gross Filth",
+        notes:
+          "Volumetric assessment for regulated-waste streams; structural integrity risk.",
+      },
+    },
+    engineLogic:
+      "Map operator observation to incident type. Type drives jurisdictional notification matrix and PPE tier selection.",
+    adjusterValue:
+      "Scope is incident-classified — adjuster sees defensible reason for trauma-tier pricing.",
+  },
+
+  /**
+   * Regulated-waste classification — categorises what leaves site under
+   * Australian state biohazard-waste regulations.
+   * Source: IICRC S540:2023 §6.4 — Waste stream classification.
+   */
+  regulatedWasteClass: {
+    clauseRef: "IICRC S540:2023 §6.4",
+    classes: {
+      generalWaste: {
+        label: "General Waste",
+        description: "Non-contaminated packaging, cleaning materials.",
+      },
+      clinicalWaste: {
+        label: "Clinical / Biohazard Waste",
+        description:
+          "Anything saturated with blood or OPIM (Other Potentially Infectious Material). Yellow-bag stream.",
+      },
+      anatomicalWaste: {
+        label: "Anatomical Waste",
+        description:
+          "Recognisable body tissue or organs. Separate stream; coronial release required.",
+      },
+      sharps: {
+        label: "Sharps",
+        description: "Needles, glass, blades — rigid sharps container only.",
+      },
+    },
+    engineLogic:
+      "Operator categorises each waste stream at point of capture. Volume per class drives transport + disposal line items.",
+    adjusterValue:
+      "Disposal cost is regulated-stream-derived, not estimator judgement — defensible against state EPA requirements.",
+  },
+
+  /**
+   * Jurisdictional notification requirements — what must be filed and to whom.
+   * Source: IICRC S540:2023 §6.6 — Regulatory and jurisdictional compliance.
+   */
+  jurisdictionalNotifications: {
+    clauseRef: "IICRC S540:2023 §6.6",
+    gateCondition:
+      "MANDATORY — block scope submission until coronial / police release is recorded for applicable incident types.",
+    notifications: [
+      "Police release (crime scene)",
+      "Coronial release (unattended death, suicide)",
+      "State EPA notification (regulated waste transport)",
+      "WHS notifiable incident (worker exposure event)",
+    ],
+    engineLogic:
+      "Cross-reference incidentType against the AU jurisdictional matrix (lib/nir-jurisdictional-matrix.ts). Surface required filings as evidence-gate items.",
+    adjusterValue:
+      "Compliance posture is auditable — reduces re-work risk if an authority queries the file.",
+  },
+
+  /**
+   * PPE level (A/B/C/D) selection per pathogen exposure risk.
+   * Source: IICRC S540:2023 §7.2 — Worker protection and PPE selection.
+   *
+   * The A/B/C/D framework is shared with NIOSH / OSHA HAZWOPER and is the
+   * Australian de-facto standard for trauma response. Level scales DOWN as
+   * exposure risk drops; Level A is fully encapsulated / supplied-air.
+   */
+  ppeLevel: {
+    clauseRef: "IICRC S540:2023 §7.2",
+    levels: {
+      levelA: {
+        label: "Level A — Fully Encapsulated, Supplied Air",
+        trigger:
+          "Confirmed or suspected airborne pathogen, unknown bioburden, confined-space entry",
+        elements: [
+          "Fully encapsulating chemical-resistant suit",
+          "Self-contained breathing apparatus (SCBA) or supplied-air respirator",
+          "Inner + outer chemical-resistant gloves",
+          "Chemical-resistant boots",
+        ],
+      },
+      levelB: {
+        label: "Level B — Supplied Air, Non-Encapsulated",
+        trigger:
+          "Known liquid splash hazard, low airborne risk; most trauma jobs default here",
+        elements: [
+          "Hooded chemical-resistant suit",
+          "Supplied-air respirator or full-face PAPR with P3 cartridges",
+          "Inner + outer gloves; chemical-resistant boots",
+        ],
+      },
+      levelC: {
+        label: "Level C — Air-Purifying Respirator",
+        trigger:
+          "Contaminants identified, atmospheric exposure measured and within APR rating",
+        elements: [
+          "Full-face air-purifying respirator (APR) with HEPA + organic cartridges",
+          "Hooded chemical-resistant coverall",
+          "Inner + outer gloves",
+        ],
+      },
+      levelD: {
+        label: "Level D — Standard Work Uniform",
+        trigger:
+          "No respiratory or splash hazard. Decontamination tasks AFTER bulk material is removed.",
+        elements: [
+          "Coveralls, safety boots, eye protection",
+          "Gloves appropriate to chemicals in use",
+        ],
+      },
+    },
+    engineLogic:
+      "Map incidentType + bioburden assessment to PPE level. Block scope generation if PPE level is below the per-incident floor (e.g. anatomical waste cannot be handled at Level D).",
+    adjusterValue:
+      "PPE specification is risk-tier matched — defensible against WHS regulator if a worker exposure event occurs.",
+  },
+
+  /**
+   * Respiratory-protection class — recorded per the AS/NZS 1716 + S540 mapping.
+   * Source: IICRC S540:2023 §7.3 — Respiratory protection.
+   */
+  respiratoryProtectionClass: {
+    clauseRef: "IICRC S540:2023 §7.3",
+    classes: {
+      p2: {
+        label: "P2 Half-Face APR",
+        rating: "Particulate filter, low bioaerosol load only",
+        notFor: "Not for trauma response — insufficient for OPIM aerosolisation",
+      },
+      p3FullFace: {
+        label: "P3 Full-Face APR",
+        rating: "99.95% particulate efficiency, eye + airway protection",
+        suitableFor: "Most Level B/C trauma work post-bulk-removal",
+      },
+      paprP3: {
+        label: "PAPR with P3 + Organic Cartridges",
+        rating: "Powered, assigned protection factor 1000",
+        suitableFor:
+          "Decomposition odour, hoarding, chemical degreaser exposure during cleaning",
+      },
+      sar: {
+        label: "Supplied-Air Respirator (SAR) / SCBA",
+        rating: "Highest assigned protection factor; mandatory for Level A",
+        suitableFor: "Confined space, unknown atmospheric hazard, Level A entry",
+      },
+    },
+    engineLogic:
+      "Respirator class is auto-selected from PPE level + incident type. P2 is BLOCKED for any trauma response per S540:2023 §7.3.",
+    adjusterValue:
+      "Respiratory protection is auditable against AS/NZS 1716 — supports WHS due diligence.",
+  },
+
+  /**
+   * Worker decontamination protocol — the staged exit from a contaminated zone.
+   * Source: IICRC S540:2023 §7.5 — Worker decontamination.
+   */
+  decontaminationProtocol: {
+    clauseRef: "IICRC S540:2023 §7.5",
+    stages: [
+      "Tool & equipment gross-decon at the hot/warm boundary",
+      "Outer-PPE removal at the warm/cold boundary into clinical-waste bag",
+      "Inner-PPE removal in cold zone; hand hygiene before doffing respirator",
+      "Skin decontamination: hand wash + face wash before leaving the site",
+      "Final shower-out required for Level A/B and for known bloodborne-pathogen exposure",
+    ],
+    engineLogic:
+      "Render decontamination checklist on-site exit. Block sign-off if any stage is unchecked.",
+    adjusterValue:
+      "Worker-decon trail is documented — reduces post-job cross-contamination claims.",
+  },
+
+  /**
+   * Surface category — porous vs non-porous drives cleanable vs remove-and-replace.
+   * Source: IICRC S540:2023 §8.2 — Surface assessment.
+   */
+  surfaceCategory: {
+    clauseRef: "IICRC S540:2023 §8.2",
+    categories: {
+      nonPorous: {
+        label: "Non-Porous",
+        examples: "Sealed tile, stainless steel, glass, sealed timber",
+        treatment:
+          "Mechanical removal + EPA-registered disinfectant + verification swab",
+      },
+      semiPorous: {
+        label: "Semi-Porous",
+        examples: "Unsealed timber, vinyl, painted plasterboard",
+        treatment:
+          "Mechanical removal + enzymatic + disinfectant; encapsulation only if removal not practical",
+      },
+      porous: {
+        label: "Porous",
+        examples: "Carpet, underlay, raw plasterboard, insulation, fabric",
+        treatment:
+          "Remove and dispose — cannot be remediated to verifiable clearance",
+      },
+    },
+    engineLogic:
+      "Operator tags each affected surface. Porous surfaces auto-generate a removal line item; remediation alone is BLOCKED for porous.",
+    adjusterValue:
+      "Remove-vs-clean decisions are surface-classified, not estimator discretion — defensible against scope-padding accusations.",
+  },
+
+  /**
+   * Cleaning + disinfection sequence — the order of operations on a contaminated surface.
+   * Source: IICRC S540:2023 §8.4 — Cleaning, decontamination and disinfection.
+   */
+  cleaningSequence: {
+    clauseRef: "IICRC S540:2023 §8.4",
+    steps: [
+      "Gross-soil removal (mechanical / wet-vac with HEPA exhaust)",
+      "Enzymatic / detergent cleaning to lift residual protein",
+      "Rinse to remove cleaning agent (else interferes with disinfectant)",
+      "Apply EPA-registered hospital-grade disinfectant rated against bloodborne pathogens (HIV / HBV / HCV)",
+      "Observe required dwell time per product label (typically 5–10 min)",
+      "Final wipe + verification swab",
+    ],
+    engineLogic:
+      "Render sequence as ordered task list. Disinfectant dwell time is enforced — clearance is BLOCKED until dwell-time stamp is captured.",
+    adjusterValue:
+      "Procedure is verifiable; insurer can audit each step against the product TGA/EPA label.",
+  },
+
+  /**
+   * Regulated medical waste — disposal chain-of-custody.
+   * Source: IICRC S540:2023 §8.6 cross-ref §10 — Waste handling and documentation.
+   *
+   * Chain-of-custody is the strongest defensible artefact in a trauma file. Each
+   * bag is tagged, weighed, signed by the licensed transporter, and reconciled
+   * against the destination facility's incinerator/treatment receipt.
+   */
+  regulatedWasteDisposalChain: {
+    clauseRef: "IICRC S540:2023 §10.2",
+    requirements: [
+      "Each waste container uniquely identified (job# + sequence)",
+      "Container weight or volume recorded at point of seal",
+      "Hand-off signed by site operator AND licensed transporter",
+      "Transport manifest filed with state EPA-approved disposal facility",
+      "Final destruction receipt (incinerator/autoclave) attached to job file",
+      "Chain held with documents for retention period set by state (≥ 7 years)",
+    ],
+    engineLogic:
+      "Generate chain-of-custody record per waste container. BLOCK job closure until all containers have a destruction receipt attached.",
+    adjusterValue:
+      "Chain-of-custody is the strongest defensible artefact — survives EPA audit and supports any subsequent legal proceeding.",
+  },
+
+  /**
+   * Post-remediation verification — clearance test before re-occupation.
+   * Source: IICRC S540:2023 §9.2 — Verification of decontamination.
+   */
+  postRemediationVerification: {
+    clauseRef: "IICRC S540:2023 §9.2",
+    methods: {
+      visualInspection: {
+        label: "Post-Remediation Visual Inspection",
+        notes:
+          "Independent visual inspection at brightness ≥ 500 lux; first gate before any further testing.",
+      },
+      atpBioluminescence: {
+        label: "ATP Bioluminescence Swab",
+        notes:
+          "Rapid (60 s) RLU read against pre-set action threshold; documents organic residue post-clean.",
+      },
+      proteinResidueSwab: {
+        label: "Protein Residue Swab",
+        notes:
+          "Colourimetric protein detection — secondary verification for surfaces that failed ATP.",
+      },
+      microbialCultureSwab: {
+        label: "Microbial Culture Swab",
+        notes:
+          "Lab-grown culture; 48–72 hr turnaround. Reserved for high-stakes jobs (occupants immunocompromised, litigation pending).",
+      },
+    },
+    engineLogic:
+      "Verification method selected per occupancy risk profile. Failed verification re-opens the §8.4 cleaning sequence on the affected surface.",
+    adjusterValue:
+      "Clearance is independent + documented — re-occupation decision is defensible against subsequent illness claims.",
+  },
+
+  /**
+   * Photo + documentation requirements — the on-file evidence trail.
+   * Source: IICRC S540:2023 §10.4 — Project documentation.
+   */
+  photoDocumentation: {
+    clauseRef: "IICRC S540:2023 §10.4",
+    requirements: [
+      "Pre-remediation: overview of each affected zone with scale reference and timestamp",
+      "Bulk material removal: photo per regulated-waste container with tag number visible",
+      "Surface-by-surface cleaning evidence: before, mid-clean, post-clean for each tagged area",
+      "Decontamination station photos: warm/cold zone boundaries and worker doffing area",
+      "Verification swab placement photos with sample-ID label visible",
+      "Final post-remediation: same angles as pre-remediation for direct comparison",
+    ],
+    engineLogic:
+      "Auto-timestamp, GPS-stamp, and SHA-256 hash every photo per S540:2023 §10.4 + CLAUDE.md progress-framework rule #21 (chain-of-custody manifest).",
+    adjusterValue:
+      "Photo set is forensic-grade and timestamp-locked — admissible in any subsequent dispute or coronial inquiry.",
+  },
+} as const;
+
 // ─── STANDARDS VERSION TRACKING ───────────────────────────────────────────────
 
 export const STANDARDS_VERSIONS = {
   S500: { edition: "7th", year: 2021, nextRevisionExpected: 2027 },
   S520: { edition: "3rd", year: 2015, nextRevisionExpected: 2026 },
+  S540: { edition: "S540:2023", year: 2023, nextRevisionExpected: 2028 },
   S700: { edition: "2nd", year: 2015, nextRevisionExpected: 2026 },
   NCC: { edition: "2022", year: 2022, nextRevisionExpected: 2025 },
 } as const;
@@ -470,8 +815,87 @@ export const STANDARDS_VERSIONS = {
  * Used in PDF report generation to cite the governing clause
  */
 export function getStandardsCitation(fieldKey: string): string {
-  const allFields = { ...S500_FIELD_MAP, ...S520_FIELD_MAP, ...S700_FIELD_MAP };
+  const allFields = {
+    ...S500_FIELD_MAP,
+    ...S520_FIELD_MAP,
+    ...S540_FIELD_MAP,
+    ...S700_FIELD_MAP,
+  };
   const field = (allFields as Record<string, { clauseRef: string }>)[fieldKey];
   if (!field) return "Standards reference not found";
   return field.clauseRef;
+}
+
+// ─── CLAIM-TYPE PICKER + FIELD-MAP ROUTING ────────────────────────────────────
+//
+// Punch-list (PR #1029) VERIFIED P1 #7: a tradie selects the governing IICRC
+// standard at inspection start so the correct evidence-capture surface renders
+// downstream. The 4 options correspond to the 4 IICRC field maps in this file.
+
+/** Subset of Prisma ClaimType for the 4 IICRC-governed claim types. */
+export type IicrcClaimType = "WATER" | "MOULD" | "BIOHAZARD" | "FIRE";
+
+export interface ClaimTypePickerOption {
+  value: IicrcClaimType;
+  label: string;
+  description: string;
+}
+
+/**
+ * The 4-option picker rendered on inspection-start. Labels cite edition+year
+ * per CLAUDE.md rule #14.
+ */
+export const CLAIM_TYPE_PICKER_OPTIONS: readonly ClaimTypePickerOption[] = [
+  {
+    value: "WATER",
+    label: "Water Damage (IICRC S500:2025)",
+    description:
+      "Burst pipe, flood, roof leak. Category 1/2/3 + Class 1–4 classification, moisture monitoring, drying scope.",
+  },
+  {
+    value: "MOULD",
+    label: "Mould Remediation (IICRC S520:2024)",
+    description:
+      "Visible mould, post-water contamination. Condition 1/2/3 classification, containment, source identification.",
+  },
+  {
+    value: "BIOHAZARD",
+    label: "Trauma / Biohazard (IICRC S540:2023)",
+    description:
+      "Crime scene, unattended death, hoarding. Regulated-waste chain-of-custody, PPE level A/B/C/D, verification swabs.",
+  },
+  {
+    value: "FIRE",
+    label: "Fire & Smoke (IICRC S700:2025)",
+    description:
+      "Structure fire, smoke residue, odour. Wet/dry/protein/fuel residue typing, deodorisation, content pack-out.",
+  },
+] as const;
+
+/**
+ * Returns the field map that governs evidence capture for the selected claim
+ * type. The caller renders the form sections keyed by this map. Returns null
+ * for any non-IICRC claim type (CARPET, HVAC, etc.) — those use their own
+ * downstream assessment surfaces.
+ */
+export function getFieldMapForClaimType(
+  claimType: IicrcClaimType,
+):
+  | typeof S500_FIELD_MAP
+  | typeof S520_FIELD_MAP
+  | typeof S540_FIELD_MAP
+  | typeof S700_FIELD_MAP
+  | null {
+  switch (claimType) {
+    case "WATER":
+      return S500_FIELD_MAP;
+    case "MOULD":
+      return S520_FIELD_MAP;
+    case "BIOHAZARD":
+      return S540_FIELD_MAP;
+    case "FIRE":
+      return S700_FIELD_MAP;
+    default:
+      return null;
+  }
 }
