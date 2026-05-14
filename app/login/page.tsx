@@ -5,6 +5,7 @@ import { signIn, getSession } from "next-auth/react";
 import { signInWithOAuth } from "@/lib/oauth-native";
 import { isCapacitorIOS } from "@/lib/capacitor";
 import { useRouter, useSearchParams } from "next/navigation";
+import { safeCallbackUrl } from "@/lib/auth/safe-callback-url";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Mail, Lock, ArrowRight } from "lucide-react";
@@ -116,8 +117,12 @@ function LoginForm() {
           toast.success("Login successful! Please change your password.");
           router.push("/dashboard/change-password");
         } else {
+          // P1 #16 — honour `?callbackUrl=` from middleware-driven login
+          // redirects, validated against the same-origin allowlist so an
+          // attacker cannot weaponise the login flow into an open redirect.
+          const target = safeCallbackUrl(searchParams.get("callbackUrl"));
           toast.success("Login successful! Welcome back!");
-          router.push("/dashboard");
+          router.push(target);
         }
       }
     } catch (error) {
