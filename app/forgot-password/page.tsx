@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { BotIdClient } from "botid/client";
 import { apiErrorMessage } from "@/lib/api-error-message";
 import {
   Mail,
@@ -125,6 +126,13 @@ function ForgotPasswordForm() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center px-4">
+      {/* Vercel BotID — invisible bot signal for forgot/reset password. RA-1286. */}
+      <BotIdClient
+        protect={[
+          { path: "/api/auth/forgot-password", method: "POST" },
+          { path: "/api/auth/reset-password", method: "POST" },
+        ]}
+      />
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

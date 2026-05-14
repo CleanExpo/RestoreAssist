@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { applyRateLimit, getClientIp } from "@/lib/rate-limiter";
+import { applyRateLimit } from "@/lib/rate-limiter";
 import { sanitizeString } from "@/lib/sanitize";
 import { validateCsrf } from "@/lib/csrf";
 import { sendWelcomeEmail } from "@/lib/email";
@@ -9,7 +9,7 @@ import { sendWithRetry } from "@/lib/email-retry";
 import { notifyWelcome } from "@/lib/notifications";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
 import { rejectIfBreached } from "@/lib/auth/password-breach";
-import { verifyTurnstile } from "@/lib/turnstile";
+import { verifyBotId } from "@/lib/auth/botid";
 import { track } from "@/lib/analytics/track";
 import { apiError } from "@/lib/api-errors";
 
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     }
     const name = sanitizeString(body.name, 200);
     const email = sanitizeString(body.email, 320);
-    const { password, acceptedTerms, turnstileToken } = body;
+    const { password, acceptedTerms } = body;
 
     if (!name || !email || !password) {
       return apiError(request, {
@@ -48,16 +48,13 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // RA-1286: CAPTCHA gate on the public signup endpoint. Soft-allows
-    // when TURNSTILE_SECRET_KEY is unset (dev / staging).
-    const captcha = await verifyTurnstile(
-      typeof turnstileToken === "string" ? turnstileToken : null,
-      getClientIp(request),
-    );
-    if (!captcha.ok) {
+    // RA-1286: bot-detection gate on the public signup endpoint. Vercel BotID
+    // auto-bypasses in dev/preview (NODE_ENV !== "production").
+    const botCheck = await verifyBotId();
+    if (!botCheck.ok) {
       return apiError(request, {
         code: "VALIDATION",
-        message: captcha.reason,
+        message: botCheck.reason,
         status: 400,
       });
     }
