@@ -24,6 +24,20 @@ export async function loginAs(page: Page, role: Role): Promise<void> {
   }
 }
 
+export async function seedInspection(
+  page: Page,
+  body: { inspectionId?: string; status?: string } = {},
+): Promise<void> {
+  const res = await page.request.post("/api/test/seed-inspection", {
+    data: body,
+  });
+  if (!res.ok()) {
+    throw new Error(
+      `seed-inspection failed: ${res.status()} ${await res.text().catch(() => "")}`,
+    );
+  }
+}
+
 export async function seedAuthorisation(
   page: Page,
   body: {
