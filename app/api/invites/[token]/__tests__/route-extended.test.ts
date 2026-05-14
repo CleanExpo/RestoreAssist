@@ -63,11 +63,18 @@ beforeEach(() => {
   cloudinaryUploadDataUrl.mockReset();
 });
 
+// Tiny but real-magic JPEG (FF D8 FF E0 … FF D9) — passes the SP-7 Seam F
+// server-side magic-byte gate (lib/headshot/validate-data-url.ts).
+const VALID_JPEG_DATA_URL = `data:image/jpeg;base64,${Buffer.from([
+  0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0xff,
+  0xd9,
+]).toString("base64")}`;
+
 const baseBody = {
   name: "Jamie Tradie",
   password: "verysecurepassword12",
   phone: "0412 345 678",
-  headshotDataUrl: "data:image/jpeg;base64,/9j/4AAQ...",
+  headshotDataUrl: VALID_JPEG_DATA_URL,
   acceptedTerms: true,
   acceptedChainOfCustody: true,
 };
@@ -185,7 +192,7 @@ describe("POST /api/invites/[token] (extended)", () => {
         provider: "google",
         name: "Jamie Tradie",
         phone: "0412 345 678",
-        headshotDataUrl: "data:image/jpeg;base64,/9j/4AAQ...",
+        headshotDataUrl: VALID_JPEG_DATA_URL,
         acceptedTerms: true,
         acceptedChainOfCustody: true,
       }),
@@ -212,10 +219,56 @@ describe("POST /api/invites/[token] (extended)", () => {
         provider: "google",
         name: "Jamie Tradie",
         phone: "0412 345 678",
-        headshotDataUrl: "data:image/jpeg;base64,/9j/4AAQ...",
+        headshotDataUrl: VALID_JPEG_DATA_URL,
         acceptedTerms: true,
         acceptedChainOfCustody: true,
       }),
+      await ctx(),
+    );
+    expect(res.status).toBe(400);
+    expect(cloudinaryUploadDataUrl).not.toHaveBeenCalled();
+  });
+
+  // SP-7 Seam F — server-side magic-byte + size gates (rule 11).
+
+  it("returns 400 when headshotDataUrl bytes are not a JPEG or PNG", async () => {
+    inviteFindUnique.mockResolvedValueOnce({
+      id: "inv_1",
+      token: "abc123",
+      email: "jamie@example.com",
+      role: "USER",
+      organizationId: "org_1",
+      expiresAt: new Date(Date.now() + 86400000),
+      usedAt: null,
+    });
+    // PDF magic %PDF wrapped in a JPEG-looking data URL prefix.
+    const pdfBytes = Buffer.from([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e]);
+    const spoofed = `data:image/jpeg;base64,${pdfBytes.toString("base64")}`;
+    const res = await POST(
+      makeReq({ ...baseBody, headshotDataUrl: spoofed }),
+      await ctx(),
+    );
+    expect(res.status).toBe(400);
+    expect(cloudinaryUploadDataUrl).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when headshotDataUrl decoded size exceeds 6MB", async () => {
+    inviteFindUnique.mockResolvedValueOnce({
+      id: "inv_1",
+      token: "abc123",
+      email: "jamie@example.com",
+      role: "USER",
+      organizationId: "org_1",
+      expiresAt: new Date(Date.now() + 86400000),
+      usedAt: null,
+    });
+    const oversize = Buffer.alloc(6_500_000);
+    oversize[0] = 0xff;
+    oversize[1] = 0xd8;
+    oversize[2] = 0xff;
+    const big = `data:image/jpeg;base64,${oversize.toString("base64")}`;
+    const res = await POST(
+      makeReq({ ...baseBody, headshotDataUrl: big }),
       await ctx(),
     );
     expect(res.status).toBe(400);

@@ -135,9 +135,8 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
 
   // Phone is required on both paths.
   const rawPhone = typeof body.phone === "string" ? body.phone : "";
-  const { normaliseAuMobile, isValidAuMobile } = await import(
-    "@/components/invite/phone-validator"
-  );
+  const { normaliseAuMobile, isValidAuMobile } =
+    await import("@/components/invite/phone-validator");
   if (!isValidAuMobile(rawPhone)) {
     return NextResponse.json(
       { error: "Enter a 10-digit Australian mobile (04…)" },
@@ -146,16 +145,17 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   }
   const phone = normaliseAuMobile(rawPhone);
 
-  // Headshot is required on both paths.
-  if (
-    typeof body.headshotDataUrl !== "string" ||
-    !body.headshotDataUrl.startsWith("data:image/")
-  ) {
-    return NextResponse.json(
-      { error: "Headshot is required" },
-      { status: 400 },
-    );
+  // Headshot is required on both paths. SP-7 Seam F — magic-byte + size
+  // gate (CLAUDE.md rule 11). The client validator (validateHeadshotFile)
+  // is UX-only; this is the security gate.
+  const { validateHeadshotDataUrl } =
+    await import("@/lib/headshot/validate-data-url");
+  const headshotCheck = validateHeadshotDataUrl(body.headshotDataUrl);
+  if (!headshotCheck.ok) {
+    return NextResponse.json({ error: headshotCheck.error }, { status: 400 });
   }
+  // Narrow for the rest of the function — the helper just confirmed it's a string.
+  const headshotDataUrl: string = body.headshotDataUrl as string;
 
   if (body.acceptedChainOfCustody !== true) {
     return NextResponse.json(
@@ -212,8 +212,9 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     const { uploadDataUrl } = await import("@/lib/cloudinary");
     let headshotUrl: string;
     try {
-      headshotUrl = await uploadDataUrl(body.headshotDataUrl, {
+      headshotUrl = await uploadDataUrl(headshotDataUrl, {
         folder: "headshots",
+        tags: ["headshot", "invite"],
       });
     } catch (err) {
       console.error(
@@ -260,14 +261,12 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   const { uploadDataUrl } = await import("@/lib/cloudinary");
   let headshotUrl: string;
   try {
-    headshotUrl = await uploadDataUrl(body.headshotDataUrl, {
+    headshotUrl = await uploadDataUrl(headshotDataUrl, {
       folder: "headshots",
+      tags: ["headshot", "invite"],
     });
   } catch (err) {
-    console.error(
-      "[POST /api/invites/[token]] Cloudinary upload failed",
-      err,
-    );
+    console.error("[POST /api/invites/[token]] Cloudinary upload failed", err);
     return NextResponse.json(
       { error: "Failed to upload headshot" },
       { status: 502 },
