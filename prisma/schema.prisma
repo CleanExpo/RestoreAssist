@@ -1801,6 +1801,21 @@ model Inspection {
   submittedAt DateTime?
   processedAt DateTime?
 
+  // SP-A (Wave 1) — Job-close terminal-state columns.
+  // `completedAt` is the UTC timestamp the close-button was pressed (distinct
+  // from `signedAt` which records sign-off only). `closeSummary` stores the
+  // client-facing summary the user committed (AI draft from on-close hook,
+  // edited then committed). `closePackageStorageKey` is populated by the
+  // SP-E `exportClosedJobToBYOKStorage` fire-and-forget hook with the
+  // Supabase key of the close-package ZIP (`closures/<orgId>/<id>/...`).
+  closeSummary           String?   @db.Text
+  completedAt            DateTime?
+  closePackageStorageKey String?
+  // SP-J handover precondition surface. Nullable today — SP-J will write the
+  // timestamp when handover is recorded. SP-A treats absence as a soft gap,
+  // not a blocker (handover is optional for v1 close per plan §dependencies).
+  handoverCompletedAt    DateTime?
+
   // RA — DR/NRPG inbound-job tracking.
   // `source` records where the inspection originated. For inbound jobs from
   // DR/NRPG it is "DR_NRPG"; tradies manually creating an inspection get
@@ -1959,8 +1974,16 @@ enum InspectionStatus {
   CLASSIFIED
   SCOPED
   ESTIMATED
+  // SP-A: Deprecated for new writes — SP-C will migrate consumers to CLOSED.
+  // Retained for back-compat on rows written before the SP-A enum extension.
   COMPLETED
   REJECTED
+  // SP-A (Wave 1) — pre-close billing state. Invoice issued, awaiting paid.
+  IN_BILLING
+  // SP-A (Wave 1) — terminal state written by POST /api/inspections/[id]/close.
+  CLOSED
+  // SP-A (Wave 1) — admin-archived state for long-term retention (SP-C consumer).
+  ARCHIVED
 }
 
 // RA-261 (NIR Full Data Depth Matrix — Phase 1: Water Damage).
