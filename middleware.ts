@@ -36,6 +36,31 @@ function shouldSkipApiRateLimit(pathname: string): boolean {
   return API_RATE_LIMIT_SKIP.some((prefix) => pathname.startsWith(prefix));
 }
 
+// Prefixes that require an authenticated session. Anything matched by the
+// route-level `config.matcher` below that ALSO matches one of these prefixes
+// triggers the unauth → /login redirect with a `?callbackUrl=` carrying the
+// originally-requested path (RA-1376 / Punch-list P1 #16).
+//
+// `/invite/*` is intentionally NOT here — those URLs are token-protected
+// (the token in the path is the credential), so an unauthenticated visitor
+// is the expected case.
+const LOGIN_GATE_PREFIXES = [
+  "/dashboard/",
+  "/reports/",
+  "/reports",
+  "/compliance/",
+  "/compliance",
+  "/sign/",
+  "/sign",
+];
+
+function requiresLogin(pathname: string): boolean {
+  return LOGIN_GATE_PREFIXES.some(
+    (prefix) =>
+      pathname === prefix || pathname.startsWith(prefix.endsWith("/") ? prefix : `${prefix}/`),
+  );
+}
+
 // Paths that bypass the setup gate even when the flag is on.
 const SETUP_GATE_BYPASS = [
   "/setup",
@@ -99,22 +124,33 @@ export async function middleware(req: NextRequest) {
     // applyRateLimit it calls layers on top.
   }
 
-  // ── /dashboard/* — onboarding gate (RA-1259, unchanged) ─────────────────────
-  if (pathname.startsWith("/dashboard/")) {
+  // ── Unauth → /login redirect for protected surfaces (P1 #16) ────────────────
+  // Preserves the originally-requested path via `?callbackUrl=`. The login
+  // page validates the value against a same-origin allowlist before honouring
+  // it post-sign-in (see lib/auth/safe-callback-url.ts).
+  if (requiresLogin(pathname)) {
     const token = await getToken({
       req,
       secret: process.env.NEXTAUTH_SECRET,
     });
-    if (!token) return NextResponse.next();
-    const needsOnboarding = Boolean((token as any).needsOnboarding);
-    if (!needsOnboarding) return NextResponse.next();
-    if (pathname.startsWith("/onboarding/account-type")) {
-      return NextResponse.next();
+    if (!token) {
+      const url = req.nextUrl.clone();
+      url.pathname = "/login";
+      url.search = `?callbackUrl=${encodeURIComponent(pathname + (req.nextUrl.search || ""))}`;
+      return NextResponse.redirect(url, 307);
     }
-    const url = req.nextUrl.clone();
-    url.pathname = "/onboarding/account-type";
-    url.search = "";
-    return NextResponse.redirect(url);
+    // ── /dashboard/* — onboarding gate (RA-1259, unchanged) ──────────────────
+    if (pathname.startsWith("/dashboard/")) {
+      const needsOnboarding = Boolean((token as any).needsOnboarding);
+      if (!needsOnboarding) return NextResponse.next();
+      if (pathname.startsWith("/onboarding/account-type")) {
+        return NextResponse.next();
+      }
+      const url = req.nextUrl.clone();
+      url.pathname = "/onboarding/account-type";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
   }
 
   return NextResponse.next();
