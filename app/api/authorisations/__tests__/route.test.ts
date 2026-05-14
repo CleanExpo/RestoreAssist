@@ -121,6 +121,36 @@ describe("POST /api/authorisations", () => {
     expect(invalidateAuthorisationCache).toHaveBeenCalledWith("u_1");
   });
 
+  it("persists publicLiabilityCoverAmount when provided", async () => {
+    getServerSession.mockResolvedValueOnce({ user: { id: "u_1" } });
+    userFindUnique.mockResolvedValueOnce({
+      id: "u_1",
+      organization: { name: "Acme", legalName: null, tradingName: null },
+    });
+    authCreate.mockResolvedValueOnce({ id: "auth_1" });
+    await POST(makeReq({ ...validBody, publicLiabilityCoverAmount: 20000000 }));
+    expect(authCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ publicLiabilityCoverAmount: 20000000 }),
+      }),
+    );
+  });
+
+  it("persists null publicLiabilityCoverAmount when omitted", async () => {
+    getServerSession.mockResolvedValueOnce({ user: { id: "u_1" } });
+    userFindUnique.mockResolvedValueOnce({
+      id: "u_1",
+      organization: { name: "Acme", legalName: null, tradingName: null },
+    });
+    authCreate.mockResolvedValueOnce({ id: "auth_1" });
+    await POST(makeReq(validBody));
+    expect(authCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ publicLiabilityCoverAmount: null }),
+      }),
+    );
+  });
+
   it("returns 500 with generic error (rule 7) when DB throws", async () => {
     getServerSession.mockResolvedValueOnce({ user: { id: "u_1" } });
     userFindUnique.mockResolvedValueOnce({

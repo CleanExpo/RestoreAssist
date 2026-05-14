@@ -42,6 +42,10 @@ const AutoClassifyPanel = dynamic(
   () => import("@/components/inspection/AutoClassifyPanel"),
   { ssr: false },
 );
+const InspectionSignOff = dynamic(
+  () => import("@/components/inspection/InspectionSignOff"),
+  { ssr: false },
+);
 import {
   ArrowLeft,
   Loader2,
@@ -119,6 +123,8 @@ interface Inspection {
   createdAt: string;
   submittedAt: string | null;
   processedAt: string | null;
+  signedAt: string | null;
+  signedByName: string | null;
   environmentalData: {
     ambientTemperature: number;
     humidityLevel: number;
@@ -1002,6 +1008,19 @@ export default function InspectionDetailPage({
 
       {/* Status Timeline */}
       <StatusTimeline currentStatus={inspection.status} />
+
+      {/* Sign-off panel — mirrors the "Generate NIR Report" COMPLETED gate
+          (F1 from PR #989). T13 wired EngagementLicenceModal inside the
+          component, so the modal fires automatically on submit. */}
+      {inspection.status === "COMPLETED" && (
+        <InspectionSignOff
+          inspectionId={inspection.id}
+          inspectionNumber={inspection.inspectionNumber}
+          signedAt={inspection.signedAt}
+          signedByName={inspection.signedByName}
+          onSigned={() => fetchInspection()}
+        />
+      )}
 
       {/* Tabs */}
       <div

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import { applyRateLimit, getClientIp } from "@/lib/rate-limiter";
+import { applyRateLimit } from "@/lib/rate-limiter";
 import { sanitizeString } from "@/lib/sanitize";
 import { validateCsrf } from "@/lib/csrf";
 import { verifyResetCode } from "@/lib/password-reset-store";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
-import { verifyTurnstile } from "@/lib/turnstile";
+import { verifyBotId } from "@/lib/auth/botid";
 import { rejectIfBreached } from "@/lib/auth/password-breach";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -34,8 +34,6 @@ export async function POST(request: NextRequest) {
     const email = sanitizeString(body.email, 320).toLowerCase();
     const newPassword = body.newPassword;
     const code = sanitizeString(body.code, 10);
-    const turnstileToken =
-      typeof body.turnstileToken === "string" ? body.turnstileToken : null;
 
     if (!email || !newPassword || !code) {
       return apiError(request, {
@@ -45,12 +43,12 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // RA-1286: CAPTCHA gate. Soft-allow when TURNSTILE_SECRET_KEY unset.
-    const captcha = await verifyTurnstile(turnstileToken, getClientIp(request));
-    if (!captcha.ok) {
+    // RA-1286: bot-detection gate. Vercel BotID auto-bypasses in dev/preview.
+    const botCheck = await verifyBotId();
+    if (!botCheck.ok) {
       return apiError(request, {
         code: "VALIDATION",
-        message: captcha.reason,
+        message: botCheck.reason,
         status: 400,
       });
     }

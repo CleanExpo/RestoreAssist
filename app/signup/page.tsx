@@ -6,6 +6,7 @@ import { signInWithOAuth } from "@/lib/oauth-native";
 import { isCapacitorIOS } from "@/lib/capacitor";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { BotIdClient } from "botid/client";
 import {
   Eye,
   EyeOff,
@@ -177,6 +178,10 @@ export default function SignupPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center px-4">
+      {/* Vercel BotID — invisible bot signal for /api/auth/register. RA-1286. */}
+      <BotIdClient
+        protect={[{ path: "/api/auth/register", method: "POST" }]}
+      />
       <motion.div
         initial={{ opacity: 1, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

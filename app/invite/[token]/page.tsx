@@ -19,11 +19,21 @@ import Link from "next/link";
 import { AlertCircle, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   InviteIdentityStep,
   type IdentityValues,
 } from "@/components/invite/InviteIdentityStep";
 import { InviteTermsStep } from "@/components/invite/InviteTermsStep";
+import {
+  isValidAuMobile,
+  normaliseAuMobile,
+} from "@/components/invite/phone-validator";
+import {
+  validateHeadshotFile,
+  squareCropToDataUrl,
+} from "@/components/invite/headshot-utils";
 
 interface InvitePreview {
   email: string;
@@ -48,6 +58,34 @@ export default function InviteAcceptPage() {
   const [step, setStep] = useState<"identity" | "terms">(initialStep);
   const [identity, setIdentity] = useState<IdentityValues | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Google-OAuth path: when the user lands on Step 2 directly (no identity
+  // collected on Step 1) they still need to supply phone + headshot before
+  // the POST will validate. See F3 of PR #989.
+  const [googlePhone, setGooglePhone] = useState("");
+  const [googleHeadshotDataUrl, setGoogleHeadshotDataUrl] = useState("");
+  const [googleExtrasError, setGoogleExtrasError] = useState<string | null>(
+    null,
+  );
+
+  async function handleGoogleHeadshot(
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const result = validateHeadshotFile(file);
+    if (!result.ok) {
+      setGoogleExtrasError(result.error);
+      return;
+    }
+    const dataUrl = await squareCropToDataUrl(file);
+    setGoogleHeadshotDataUrl(dataUrl);
+    setGoogleExtrasError(null);
+  }
+
+  const isGooglePath = step === "terms" && !identity;
+  const googleExtrasValid =
+    isValidAuMobile(googlePhone) && Boolean(googleHeadshotDataUrl);
 
   useEffect(() => {
     if (!token) return;
@@ -117,6 +155,20 @@ export default function InviteAcceptPage() {
     acceptedChainOfCustody: boolean;
   }) {
     if (!preview || !token) return;
+
+    // Google path must supply phone + headshot before we POST, otherwise the
+    // server returns 400 on the empty fields.
+    if (!identity) {
+      if (!isValidAuMobile(googlePhone)) {
+        setGoogleExtrasError("Enter a 10-digit Australian mobile (04…)");
+        return;
+      }
+      if (!googleHeadshotDataUrl) {
+        setGoogleExtrasError("Please add a headshot");
+        return;
+      }
+    }
+
     setSubmitting(true);
     try {
       const body = identity
@@ -131,8 +183,8 @@ export default function InviteAcceptPage() {
         : {
             provider: "google" as const,
             name: preview.email.split("@")[0],
-            phone: "",
-            headshotDataUrl: "",
+            phone: normaliseAuMobile(googlePhone),
+            headshotDataUrl: googleHeadshotDataUrl,
             acceptedTerms: values.acceptedTerms,
             acceptedChainOfCustody: values.acceptedChainOfCustody,
           };
@@ -180,13 +232,69 @@ export default function InviteAcceptPage() {
               onContinue={handleIdentityContinue}
             />
           ) : (
-            <InviteTermsStep
-              organizationName={preview.organizationName}
-              inviterName={preview.inviterName}
-              roleLabel={preview.roleLabel}
-              submitting={submitting}
-              onSubmit={handleSubmit}
-            />
+            <>
+              {isGooglePath && (
+                <div
+                  className="space-y-4 pb-4 mb-4 border-b border-slate-800"
+                  data-testid="google-extras"
+                >
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      A couple more details before you finish joining:
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="google-phone">
+                      Mobile (used for SMS reminders)
+                    </Label>
+                    <Input
+                      id="google-phone"
+                      type="tel"
+                      inputMode="numeric"
+                      autoComplete="tel"
+                      value={googlePhone}
+                      onChange={(e) => setGooglePhone(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="google-headshot">
+                      Headshot · used on your evidence photos
+                    </Label>
+                    <Input
+                      id="google-headshot"
+                      type="file"
+                      accept="image/jpeg,image/png"
+                      capture="user"
+                      onChange={handleGoogleHeadshot}
+                    />
+                    {googleHeadshotDataUrl && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={googleHeadshotDataUrl}
+                        alt="Headshot preview"
+                        className="h-20 w-20 rounded-full object-cover"
+                      />
+                    )}
+                  </div>
+
+                  {googleExtrasError && (
+                    <p className="text-sm text-destructive">
+                      {googleExtrasError}
+                    </p>
+                  )}
+                </div>
+              )}
+              <InviteTermsStep
+                organizationName={preview.organizationName}
+                inviterName={preview.inviterName}
+                roleLabel={preview.roleLabel}
+                submitting={submitting}
+                disabled={isGooglePath && !googleExtrasValid}
+                onSubmit={handleSubmit}
+              />
+            </>
           )}
 
           <div className="mt-6 text-center text-xs text-slate-500">
