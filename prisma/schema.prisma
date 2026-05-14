@@ -343,10 +343,11 @@ model Client {
   workspaceId String?
   workspace   Workspace? @relation("ClientWorkspace", fields: [workspaceId], references: [id], onDelete: SetNull)
 
-  reports       Report[]
-  clientUser    ClientUser?
-  invitations   PortalInvitation[]
-  search_vector Unsupported("tsvector")?
+  reports        Report[]
+  clientUser     ClientUser?
+  invitations    PortalInvitation[]
+  portalAccounts ClientPortalAccount[]
+  search_vector  Unsupported("tsvector")?
 
   // Invoice relationships
   invoices          Invoice[]          @relation("ClientInvoices")
@@ -376,6 +377,30 @@ model ClientUser {
 
   @@index([email])
   @@index([clientId])
+}
+
+/// RA-4861 — first-class persistence for client portal access tokens.
+///
+/// Replaces the ad-hoc HMAC-signed string token used by
+/// `app/portal/[token]/page.tsx` with a revocable, rotatable, auditable
+/// row per Client. Token itself is generated with
+/// `crypto.randomBytes(32).toString("base64url")` (256-bit entropy) and
+/// stored verbatim — never hashed — so admin can re-display it once
+/// after rotation. Lookups go through `lib/portal/lookup-portal-account.ts`
+/// which filters out revoked rows and stamps `lastAccessedAt`.
+model ClientPortalAccount {
+  id             String    @id @default(cuid())
+  clientId       String
+  client         Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  token          String    @unique
+  tokenRotatedAt DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  lastAccessedAt DateTime?
+
+  @@index([clientId])
+  @@index([token])
 }
 
 model PortalInvitation {
