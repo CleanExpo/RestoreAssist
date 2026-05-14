@@ -25,6 +25,7 @@ import { canTransition } from "@/lib/lifecycle/inspection-state-machine";
 import { loadTransitionContext } from "@/lib/lifecycle/load-context";
 import { writeLifecycleTransition } from "@/lib/audit/lifecycle-event";
 import { exportClosedJobToBYOKStorage } from "@/lib/queue/exportClosedJobToBYOKStorage";
+import { onNextAction } from "@/lib/lifecycle/subscribers/next-action";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -145,6 +146,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           { status: result.code },
         );
       }
+
+      // P1 #11.1 — fire-and-forget next-action nudge ("ready to hand over").
+      void onNextAction(inspectionId, InspectionStatus.CLOSED).catch((err) =>
+        console.error("[next-action] CLOSED nudge failed:", err),
+      );
 
       // Fire-and-forget SP-E export (rule 13). On success, persist the
       // storage key so the UI can surface the closed package later.

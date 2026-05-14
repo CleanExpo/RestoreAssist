@@ -5332,6 +5332,11 @@ enum MirrorJobStatus {
   PROCESSING
   COMPLETED
   FAILED
+  /// Punch-list P1 #11.2 — mirror-recovery subscriber promotes FAILED jobs
+  /// to DEAD_LETTER when `attempts >= 5` and broadcasts to admins. Distinct
+  /// from FAILED so the recovery sweep can be idempotent (own status acts
+  /// as the guard — never re-process a DEAD_LETTER row).
+  DEAD_LETTER
 }
 
 model StorageMirrorJob {

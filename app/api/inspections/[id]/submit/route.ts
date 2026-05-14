@@ -19,6 +19,8 @@ import { detectMoistureTrendAnomalies } from "@/lib/compliance/moisture-trend-an
 import { detectDuplicateJob } from "@/lib/compliance/duplicate-detector";
 import { withIdempotency } from "@/lib/idempotency";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import { onNextAction } from "@/lib/lifecycle/subscribers/next-action";
+import { InspectionStatus } from "@prisma/client";
 
 // POST - Submit inspection for processing
 export async function POST(
@@ -230,6 +232,12 @@ export async function POST(
         where: { id, status: "DRAFT" },
         data: { status: "SUBMITTED", submittedAt: new Date() },
       });
+      // P1 #11.1 — fire-and-forget next-action nudge (CLAUDE.md rule #13).
+      if (submitGuard.count > 0) {
+        void onNextAction(id, InspectionStatus.SUBMITTED).catch((err) =>
+          console.error("[next-action] SUBMITTED nudge failed:", err),
+        );
+      }
       if (submitGuard.count === 0) {
         return NextResponse.json(
           {
@@ -428,6 +436,10 @@ async function processInspectionComplete(
     where: { id: inspectionId },
     data: { status: "CLASSIFIED" },
   });
+  // P1 #11.1 — fire-and-forget next-action nudge.
+  void onNextAction(inspectionId, InspectionStatus.CLASSIFIED).catch((err) =>
+    console.error("[next-action] CLASSIFIED nudge failed:", err),
+  );
 
   // Step 3: Check building code triggers
   const maxMoisture = Math.max(
@@ -495,6 +507,10 @@ async function processInspectionComplete(
     where: { id: inspectionId },
     data: { status: "SCOPED" },
   });
+  // P1 #11.1 — fire-and-forget next-action nudge.
+  void onNextAction(inspectionId, InspectionStatus.SCOPED).catch((err) =>
+    console.error("[next-action] SCOPED nudge failed:", err),
+  );
 
   // Step 5: Estimate costs — pass userId so the engine loads the company's
   // NRPG-validated pricing config. Falls back to NRPG midpoints if none saved.
@@ -537,6 +553,10 @@ async function processInspectionComplete(
     where: { id: inspectionId },
     data: { status: "ESTIMATED" },
   });
+  // P1 #11.1 — fire-and-forget next-action nudge.
+  void onNextAction(inspectionId, InspectionStatus.ESTIMATED).catch((err) =>
+    console.error("[next-action] ESTIMATED nudge failed:", err),
+  );
 
   return {
     classification: classifications[0],
