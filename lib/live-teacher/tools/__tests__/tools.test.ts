@@ -175,6 +175,67 @@ describe("flagWhsHazard", () => {
     expect(result.severity).toBe("CRITICAL");
     expect(result.createdAt).toEqual(createdAt);
   });
+
+  it("dual-writes free-text incidentType + incidentTypeEnum when caller passes the enum (P1 #20 step 1 of 2)", async () => {
+    mockPrisma.wHSIncident.create.mockResolvedValue({
+      id: "whs-2",
+      incidentType: "biohazard",
+      severity: "HIGH",
+      createdAt: new Date(),
+    });
+
+    await flagWhsHazard({
+      inspectionId: "insp-1",
+      hazardType: "biohazard",
+      severity: "HIGH",
+      incidentTypeEnum: "BIOHAZARD",
+    });
+
+    expect(mockPrisma.wHSIncident.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          incidentType: "biohazard",
+          incidentTypeEnum: "BIOHAZARD",
+        }),
+      }),
+    );
+  });
+
+  it("writes incidentTypeEnum=null when caller omits the enum (legacy callers unchanged)", async () => {
+    mockPrisma.wHSIncident.create.mockResolvedValue({
+      id: "whs-3",
+      incidentType: "electrical",
+      severity: "MEDIUM",
+      createdAt: new Date(),
+    });
+
+    await flagWhsHazard({
+      inspectionId: "insp-1",
+      hazardType: "electrical",
+      severity: "MEDIUM",
+    });
+
+    expect(mockPrisma.wHSIncident.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          incidentType: "electrical",
+          incidentTypeEnum: null,
+        }),
+      }),
+    );
+  });
+
+  it("rejects an invalid incidentTypeEnum value via zod", async () => {
+    await expect(
+      flagWhsHazard({
+        inspectionId: "insp-1",
+        hazardType: "biohazard",
+        severity: "HIGH",
+        // @ts-expect-error — invalid enum on purpose to verify zod rejection
+        incidentTypeEnum: "NOT_A_REAL_ENUM",
+      }),
+    ).rejects.toThrow();
+  });
 });
 
 // ─── 6. checkReportGaps ──────────────────────────────────────────────────────

@@ -4,6 +4,22 @@ import { prisma } from "@/lib/prisma";
 // WHSIncident now in Prisma schema (RA-1140).
 // Maps hazardType → incidentType, severity to uppercase, controls array → description bullets
 
+// P1 #20 step 1 of 2: WHSIncidentType enum (CLAUDE.md rule #16 — two-step rename).
+// Mirrors prisma/schema.prisma `enum WHSIncidentType`. Callers may pass the
+// strongly-typed enum alongside the legacy free-text `hazardType`; this tool
+// dual-writes both columns. Future PR backfills + drops the free-text column.
+export const WHS_INCIDENT_TYPES = [
+  "NEAR_MISS",
+  "FIRST_AID",
+  "MEDICAL_TREATMENT",
+  "LOST_TIME_INJURY",
+  "NOTIFIABLE_INCIDENT",
+  "PROPERTY_DAMAGE",
+  "ENVIRONMENTAL",
+  "BIOHAZARD",
+  "OTHER",
+] as const;
+
 export const flagWhsHazardSchema = z.object({
   inspectionId: z.string(),
   hazardType: z.enum(["confined_space", "asbestos", "biohazard", "electrical"]),
@@ -13,6 +29,10 @@ export const flagWhsHazardSchema = z.object({
   location: z.string().optional(),
   injuredParty: z.string().optional(),
   injuryDescription: z.string().optional(),
+  // Optional structured taxonomy (P1 #20 step 1). When supplied, written to
+  // the new `incidentTypeEnum` column; the free-text `incidentType` column
+  // still receives `hazardType` for backwards compatibility.
+  incidentTypeEnum: z.enum(WHS_INCIDENT_TYPES).optional(),
 });
 
 export type FlagWhsHazardArgs = z.infer<typeof flagWhsHazardSchema>;
@@ -27,6 +47,7 @@ export async function flagWhsHazard(args: FlagWhsHazardArgs) {
     location,
     injuredParty,
     injuryDescription,
+    incidentTypeEnum,
   } = flagWhsHazardSchema.parse(args);
 
   // Build description from controls array if provided
@@ -39,6 +60,9 @@ export async function flagWhsHazard(args: FlagWhsHazardArgs) {
     data: {
       inspectionId,
       incidentType: hazardType,
+      // P1 #20 step 1 of 2: dual-write the enum column when caller supplies it.
+      // NULL for legacy callers; backfill PR populates this from the free-text col.
+      incidentTypeEnum: incidentTypeEnum ?? null,
       severity,
       incidentDate: new Date(),
       location,

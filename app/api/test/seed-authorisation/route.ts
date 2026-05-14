@@ -14,11 +14,25 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+// P1 #19 step 1 of 2: enum mirror of prisma `enum AuthorisationLicenceClass`.
+const AUTHORISATION_LICENCE_CLASSES = [
+  "OPEN",
+  "PROVISIONAL",
+  "RESTRICTED",
+  "LEARNER",
+  "PROBATIONARY",
+  "HEAVY_VEHICLE",
+  "MOTORCYCLE",
+  "OTHER",
+] as const;
+type AuthorisationLicenceClass = (typeof AUTHORISATION_LICENCE_CLASSES)[number];
+
 interface SeedAuthBody {
   subjectLicenceNumber?: string;
   whsCardNumber?: string;
   subjectLicenceState?: string;
   subjectLicenceClass?: string;
+  subjectLicenceClassEnum?: AuthorisationLicenceClass;
   publicLiabilityInsurer?: string;
   publicLiabilityPolicyNumber?: string;
   publicLiabilityCoverAmount?: number;
@@ -74,6 +88,12 @@ export async function POST(req: NextRequest) {
       subjectLicenceNumber,
       subjectLicenceState: body.subjectLicenceState ?? null,
       subjectLicenceClass: body.subjectLicenceClass ?? null,
+      // P1 #19 step 1 of 2: dual-write enum col when caller supplies it.
+      subjectLicenceClassEnum:
+        body.subjectLicenceClassEnum &&
+        AUTHORISATION_LICENCE_CLASSES.includes(body.subjectLicenceClassEnum)
+          ? body.subjectLicenceClassEnum
+          : null,
       whsCardNumber,
       publicLiabilityInsurer: body.publicLiabilityInsurer ?? null,
       publicLiabilityPolicyNumber: body.publicLiabilityPolicyNumber ?? null,

@@ -2044,6 +2044,10 @@ model WHSIncident {
 
   // Incident details — shape matches app/dashboard/whs/page.tsx WHSIncident interface
   incidentType      String // free text: "slip_fall" | "electrical" | "biohazard" | etc.
+  // P1 #20 step 1 of 2 (CLAUDE.md rule #16): additive enum column.
+  // Nullable for legacy rows; future PR backfills + drops the free-text column.
+  // Taxonomy: WHS Act 2011 incident classifications.
+  incidentTypeEnum  WHSIncidentType?
   severity          String // "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"
   status            String   @default("OPEN") // "OPEN" | "UNDER_REVIEW" | "CLOSED" | "REQUIRES_ESCALATION"
   incidentDate      DateTime
@@ -6503,6 +6507,10 @@ model Authorisation {
   subjectLicenceNumber String?
   subjectLicenceState  String? // QLD | NSW | VIC | WA | SA | NT | TAS | ACT
   subjectLicenceClass  String? // e.g. "QBCC Completed Builder" or "Restoration"
+  // P1 #19 step 1 of 2 (CLAUDE.md rule #16): additive enum column.
+  // Nullable for legacy rows; future PR backfills + drops the free-text column.
+  // Taxonomy: standard AU state-licence classes.
+  subjectLicenceClassEnum AuthorisationLicenceClass?
 
   // Insurance
   publicLiabilityInsurer      String?
@@ -6596,6 +6604,36 @@ enum AuthorisationSource {
   DOCUSIGN
   PHONE_THEN_EMAIL_FOLLOWUP
   EMERGENCY_SELF
+}
+
+// P1 #19 step 1 of 2: enum for Authorisation.subjectLicenceClass.
+// Free-text column stays in place this PR; future PR backfills + drops it
+// (CLAUDE.md rule #16 — two-step column rename).
+enum AuthorisationLicenceClass {
+  OPEN
+  PROVISIONAL
+  RESTRICTED
+  LEARNER
+  PROBATIONARY
+  HEAVY_VEHICLE
+  MOTORCYCLE
+  OTHER
+}
+
+// P1 #20 step 1 of 2: enum for WHSIncident.incidentType.
+// Source: WHS Act 2011 incident classifications.
+// Free-text column stays in place this PR; future PR backfills + drops it
+// (CLAUDE.md rule #16 — two-step column rename).
+enum WHSIncidentType {
+  NEAR_MISS
+  FIRST_AID
+  MEDICAL_TREATMENT
+  LOST_TIME_INJURY
+  NOTIFIABLE_INCIDENT
+  PROPERTY_DAMAGE
+  ENVIRONMENTAL
+  BIOHAZARD
+  OTHER
 }
 
 /// RA-1246 — Activation funnel events.
