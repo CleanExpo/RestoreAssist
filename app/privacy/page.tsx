@@ -7,8 +7,10 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
-const EFFECTIVE_DATE = "26 March 2026";
+const EFFECTIVE_DATE = "14 May 2026";
 const CONTACT_EMAIL = "privacy@restoreassist.app";
+const BUSINESS_ADDRESS =
+  "Unite-Group Nexus Pty Ltd, Brisbane, Queensland 4000, Australia";
 
 export default function PrivacyPage() {
   return (
@@ -324,6 +326,112 @@ export default function PrivacyPage() {
               meters and environmental sensors. Bluetooth is used only to
               receive meter readings and is not used to track your location.
             </p>
+            <p className="mt-2">
+              The field app may request precise and approximate location access
+              while in use, exclusively to stamp GPS coordinates onto inspection
+              photographs and moisture readings. This is required for the
+              chain-of-custody manifest that backs each photo (C2PA-style:
+              SHA-256 + UTC + GPS + device + user hash). Location data is not
+              collected when no photo or reading is being captured and is never
+              tracked in the background.
+            </p>
+          </section>
+
+          <section id="exif-metadata">
+            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
+              6a. Photo metadata (EXIF, GPS, device fingerprint)
+            </h2>
+            <p>
+              Every photograph captured through the RestoreAssist field app is
+              stored together with its EXIF header (camera model, capture
+              timestamp, exposure settings) and, where you have granted
+              location permission, the GPS coordinates at the moment of
+              capture. This metadata is required by IICRC S500:2025 §10.5 for
+              admissible chain-of-custody and is signed by a per-device
+              Ed25519 key so the photograph cannot be silently altered after
+              capture.
+            </p>
+            <p className="mt-2">
+              EXIF and GPS metadata are not shared with third parties beyond
+              the storage providers listed in section 4. They remain accessible
+              only to authorised users on your account.
+            </p>
+          </section>
+
+          <section id="international-transfers">
+            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
+              6b. International data transfers
+            </h2>
+            <p>
+              RestoreAssist operates on a mixed-geography stack. Personal
+              information may be processed in the following jurisdictions:
+            </p>
+            <ul className="list-disc pl-5 mt-2 space-y-1">
+              <li>
+                <strong>Australia</strong> — primary database (Supabase
+                Postgres, AWS Sydney region) and file storage (Cloudinary
+                ap-southeast-2)
+              </li>
+              <li>
+                <strong>United States</strong> — application hosting (Vercel),
+                payment processing (Stripe)
+              </li>
+              <li>
+                <strong>Global</strong> — optional AI inference (Anthropic,
+                OpenAI, Google), used only when you invoke an AI feature or
+                supply your own API key
+              </li>
+            </ul>
+            <p className="mt-2">
+              By using RestoreAssist you consent to your personal information
+              being transferred to and processed in these jurisdictions. We
+              take reasonable steps (vendor due-diligence, contractual data
+              processing addenda, encryption in transit and at rest) to ensure
+              your information receives an equivalent standard of protection
+              to that required by Australian Privacy Principle 8.
+            </p>
+          </section>
+
+          <section id="children">
+            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
+              6c. Children
+            </h2>
+            <p>
+              RestoreAssist is an occupational tool for licenced restoration
+              technicians, insurance assessors, and business operators. The
+              service is not directed at children. We do not knowingly collect
+              personal information from anyone under 18. If you believe a
+              child has provided personal information to us, please contact{" "}
+              <a
+                href={`mailto:${CONTACT_EMAIL}`}
+                className="text-cyan-600 hover:underline"
+              >
+                {CONTACT_EMAIL}
+              </a>{" "}
+              and we will delete the information.
+            </p>
+          </section>
+
+          <section id="account-deletion">
+            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-3">
+              6d. Account deletion
+            </h2>
+            <p>
+              You can delete your RestoreAssist account at any time from{" "}
+              <strong>Settings → Account → Delete account</strong> inside the
+              app, or by emailing{" "}
+              <a
+                href={`mailto:${CONTACT_EMAIL}?subject=Account%20deletion%20request`}
+                className="text-cyan-600 hover:underline"
+              >
+                {CONTACT_EMAIL}
+              </a>{" "}
+              with the subject line &ldquo;Account deletion request&rdquo;.
+              Deletion requests submitted by email are completed within 30
+              days. Records that we are legally required to retain (see
+              section 5) will be quarantined from active access and destroyed
+              once their statutory retention period expires.
+            </p>
           </section>
 
           <section>
@@ -394,6 +502,9 @@ export default function PrivacyPage() {
             <p className="mt-2 text-neutral-400 text-xs">
               Restore Assist by Unite-Group Nexus Pty Ltd | Australia | ABN 95
               691 477 844
+            </p>
+            <p className="mt-1 text-neutral-400 text-xs">
+              Postal address: {BUSINESS_ADDRESS}
             </p>
           </section>
         </div>
