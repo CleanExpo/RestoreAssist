@@ -63,6 +63,11 @@ v2-signin.png
 
 # Android signing keystores (NEVER commit)
 *.jks
+*.keystore
+android/app/*.jks
+android/app/*.keystore
+android/keystore.properties
+android/app/keystore.properties
 .capacitor-native-notes/keystores/
 
 # Git worktrees (Claude Code isolated workspaces)
