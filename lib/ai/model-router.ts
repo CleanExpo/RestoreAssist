@@ -47,6 +47,7 @@ export type AiTaskType =
   | "basic_vision" // Simple photo tagging, OCR, basic identification
   | "summarisation" // Summarising inspection notes/readings
   | "translation" // Multi-language support
+  | "close_summary" // SP-A: client-facing close-summary draft
   // Premium tasks → BYOK
   | "s500_report" // Full S500:2025 compliance report generation
   | "contents_manifest" // AI-drafted contents manifest from photos
@@ -66,6 +67,7 @@ const TASK_TIER_MAP: Record<AiTaskType, TaskTier> = {
   basic_vision: "basic",
   summarisation: "basic",
   translation: "basic",
+  close_summary: "basic", // SP-A: short client-facing summary; Gemma is fine.
   // Premium → BYOK
   s500_report: "premium",
   contents_manifest: "premium",

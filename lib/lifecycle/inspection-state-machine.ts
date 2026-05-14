@@ -25,10 +25,38 @@ import { InspectionStatus } from "@prisma/client";
  * UI fetch) is responsible for hydrating this from the live DB.
  */
 export interface TransitionContext {
-  /** Current invoice status for the inspection's claim. `null` ⇒ no invoice issued yet. */
-  invoiceStatus: "DRAFT" | "ISSUED" | "PAID" | "VOID" | null;
-  /** Current report status. Per the Report model, "SENT" is the terminal good state. */
-  reportStatus: "DRAFT" | "SENT" | "REVIEWED" | null;
+  /**
+   * Current invoice status for the inspection's claim. `null` ⇒ no invoice
+   * issued yet. Mirrors the `InvoiceStatus` enum values consumed at the
+   * close-route boundary; the state machine only treats "PAID" as the
+   * unlock for `invoice_paid`.
+   */
+  invoiceStatus:
+    | "DRAFT"
+    | "SENT"
+    | "VIEWED"
+    | "PARTIALLY_PAID"
+    | "PAID"
+    | "OVERDUE"
+    | "CANCELLED"
+    | "WRITTEN_OFF"
+    | "REFUNDED"
+    | "ISSUED"
+    | "VOID"
+    | null;
+  /**
+   * Current report status. Per the `ReportStatus` enum, "COMPLETED" is the
+   * terminal good state (the report has been finalised + delivered). The
+   * spec's `report_sent` gate maps to ReportStatus === "COMPLETED".
+   */
+  reportStatus:
+    | "DRAFT"
+    | "PENDING"
+    | "APPROVED"
+    | "COMPLETED"
+    | "ARCHIVED"
+    | "SENT"
+    | null;
   /** SP-J handover completion timestamp. `null` ⇒ handover not recorded; soft gap, never blocker. */
   handoverCompletedAt: Date | null;
 }
@@ -124,7 +152,11 @@ function evaluateGate(
         if (ctx.invoiceStatus !== "PAID") missing.push(gate);
         break;
       case "report_sent":
-        if (ctx.reportStatus !== "SENT") missing.push(gate);
+        // Accept "COMPLETED" (the actual ReportStatus terminal value) or
+        // the alias "SENT" for forward-compat if a Report.sentAt-driven
+        // semantic ever lands.
+        if (ctx.reportStatus !== "COMPLETED" && ctx.reportStatus !== "SENT")
+          missing.push(gate);
         break;
       default:
         // Unknown gate keys surface as missing so a typo can't silently
