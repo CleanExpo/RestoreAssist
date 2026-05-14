@@ -34,6 +34,8 @@ import {
 } from "@/lib/capacitor";
 import MoistureMappingCanvas from "@/components/inspection/MoistureMappingCanvas";
 import ClassificationSuggestion from "@/components/inspection/ClassificationSuggestion";
+import ClaimTypePicker from "@/components/inspection/ClaimTypePicker";
+import type { IicrcClaimType } from "@/lib/nir-standards-mapping";
 import {
   Dialog,
   DialogContent,
@@ -298,6 +300,10 @@ export default function NIRTechnicianInputForm({
     Array<{ id: string; url: string; file: File | null; uploading?: boolean }>
   >([]);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
+
+  // Claim type — IICRC standard that governs this job. Picked BEFORE evidence
+  // capture starts so the correct field surface renders (RA-1029 P1 #7).
+  const [claimType, setClaimType] = useState<IicrcClaimType | null>(null);
 
   // Property Address (required)
   const [propertyAddress, setPropertyAddress] = useState("");
@@ -830,6 +836,11 @@ export default function NIRTechnicianInputForm({
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
 
+    if (!claimType) {
+      errors.claimType =
+        "Claim type is required — select the IICRC standard that governs this job";
+    }
+
     if (!propertyAddress.trim()) {
       errors.propertyAddress = "Property address is required";
     }
@@ -1204,7 +1215,7 @@ export default function NIRTechnicianInputForm({
       return inspectionId;
     }
 
-    if (!propertyAddress.trim() || !propertyPostcode.trim()) {
+    if (!claimType || !propertyAddress.trim() || !propertyPostcode.trim()) {
       return null;
     }
 
@@ -1217,6 +1228,7 @@ export default function NIRTechnicianInputForm({
           propertyAddress,
           propertyPostcode,
           technicianName: technicianName || undefined,
+          claimType: claimType || undefined,
         }),
       });
 
@@ -1244,9 +1256,12 @@ export default function NIRTechnicianInputForm({
     return null;
   };
 
-  // Auto-create inspection when property info changes (silent, no toast)
+  // Auto-create inspection when property info changes (silent, no toast).
+  // RA-1029 P1 #7 — also gate on claimType so the inspection is born with the
+  // correct IICRC standard stamped (rather than created early and patched).
   useEffect(() => {
     if (
+      claimType &&
       propertyAddress.trim() &&
       propertyPostcode.trim() &&
       !inspectionId &&
@@ -1258,7 +1273,7 @@ export default function NIRTechnicianInputForm({
 
       return () => clearTimeout(timer);
     }
-  }, [propertyAddress, propertyPostcode, inspectionId, loading]);
+  }, [claimType, propertyAddress, propertyPostcode, inspectionId, loading]);
 
   const handleSubmit = async () => {
     // Validate photos are required for final submission
@@ -2144,6 +2159,28 @@ export default function NIRTechnicianInputForm({
           </span>
         </button>
       </div>
+
+      {/* Claim type — IICRC standard governing this job (RA-1029 P1 #7) */}
+      <ClaimTypePicker
+        value={claimType}
+        onChange={(v) => {
+          setClaimType(v);
+          // Clear any prior validation error on selection.
+          if (validationErrors.claimType) {
+            setValidationErrors((prev) => {
+              const { claimType: _omit, ...rest } = prev;
+              return rest;
+            });
+          }
+        }}
+        error={validationErrors.claimType}
+      />
+
+      {/* TODO(RA-1029 SP-7 follow-up): conditional evidence-capture surface per
+          claimType (S540 trauma surface, S520 mould surface, etc.). Today the
+          form renders the water-damage surface for every type — picker stamps
+          the standard upstream so the per-claim downstream routes know which
+          assessment to load. */}
 
       {/* Property Information */}
       <div
