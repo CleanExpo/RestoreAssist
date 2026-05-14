@@ -59,12 +59,28 @@ let socialLoginInitialised = false;
 
 async function ensureSocialLoginInitialised() {
   if (socialLoginInitialised) return;
-  const { SocialLogin } = await import("@capgo/capacitor-social-login");
-  await SocialLogin.initialize({
-    apple: { clientId: APPLE_BUNDLE_ID },
-    google: { iOSClientId: GOOGLE_IOS_CLIENT_ID },
-  });
-  socialLoginInitialised = true;
+  try {
+    const { SocialLogin } = await import("@capgo/capacitor-social-login");
+    console.log("[oauth-native] SocialLogin.initialize starting", {
+      hasApple: Boolean(APPLE_BUNDLE_ID),
+      hasGoogleIos: Boolean(GOOGLE_IOS_CLIENT_ID),
+    });
+    await SocialLogin.initialize({
+      apple: { clientId: APPLE_BUNDLE_ID },
+      google: { iOSClientId: GOOGLE_IOS_CLIENT_ID },
+    });
+    socialLoginInitialised = true;
+    console.log("[oauth-native] SocialLogin.initialize OK");
+  } catch (err) {
+    const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+    console.error("[oauth-native] SocialLogin.initialize FAILED", msg);
+    // Surface to a visible alert so the WKWebView user sees the real cause,
+    // not a swallowed silent fail (toast may be clipped by iOS safe-area).
+    if (typeof window !== "undefined") {
+      window.alert(`Sign-in plugin failed to initialise:\n${msg}`);
+    }
+    throw err;
+  }
 }
 
 /**
@@ -127,8 +143,19 @@ export async function signInWithOAuth(
       idToken = r?.idToken ?? r?.authentication?.idToken ?? undefined;
     }
   } catch (err: unknown) {
-    const msg =
-      err instanceof Error ? err.message : `${provider} sign-in was cancelled.`;
+    const errName = err instanceof Error ? err.name : "Unknown";
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error(`[oauth-native] ${provider} SocialLogin.login FAILED`, {
+      name: errName,
+      message: errMsg,
+    });
+    // Surface to a visible alert for native debugging (toast may be clipped
+    // off-screen by iOS safe-area). Cancellation messages are passed through
+    // as-is — the user-visible alert helps when the failure is genuine.
+    if (typeof window !== "undefined" && !/cancel/i.test(errMsg)) {
+      window.alert(`${provider} sign-in failed:\n${errName}: ${errMsg}`);
+    }
+    const msg = err instanceof Error ? err.message : `${provider} sign-in was cancelled.`;
     throw new Error(msg);
   }
 
