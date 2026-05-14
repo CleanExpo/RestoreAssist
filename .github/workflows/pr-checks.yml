@@ -103,6 +103,7 @@ jobs:
         run: |
           npx prisma migrate resolve --applied 20260407_n1_performance_indexes
           npx prisma migrate resolve --applied 20260407_perf_composite_indexes
+          npx prisma migrate resolve --applied 20260516000000_inspection_close_terminal_state
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
           DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
