@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { FeatureHealthCard } from '@/components/setup/FeatureHealthCard';
+import { StorageMirrorHealthTile } from '@/components/settings/StorageMirrorHealthTile';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,6 +17,7 @@ export default async function WorkspaceHealthPage() {
         Live status of every capability your workspace depends on. Anything red? Tell us.
       </p>
       <FeatureHealthCard postActivation />
+      <StorageMirrorHealthTile />
     </main>
   );
 }
