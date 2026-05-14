@@ -86,6 +86,9 @@ describe("POST /api/test/sign-in-as", () => {
       email: "test-user@test.local",
       organizationId: "org_existing",
     });
+    // RC6: existing user gets an idempotent update to re-assert
+    // productTourDismissedAt.
+    userUpdate.mockResolvedValueOnce({ id: "u_2" });
 
     vi.resetModules();
     const { POST } = await import("../sign-in-as/route");
@@ -105,6 +108,7 @@ describe("POST /api/test/sign-in-as", () => {
       email: "test-user@test.local",
       organizationId: "org_existing",
     });
+    userUpdate.mockResolvedValueOnce({ id: "u_3" });
 
     vi.resetModules();
     const { POST } = await import("../sign-in-as/route");
@@ -114,6 +118,54 @@ describe("POST /api/test/sign-in-as", () => {
     const setCookie = res.headers.get("set-cookie");
     expect(setCookie).toContain("__Secure-next-auth.session-token=");
     expect(setCookie).toContain("Secure");
+    vi.unstubAllEnvs();
+  });
+
+  it("RC6: sets productTourDismissedAt on newly-created test user", async () => {
+    vi.stubEnv("ALLOW_TEST_HELPERS", "true");
+    userFindUnique.mockResolvedValueOnce(null);
+    userCreate.mockResolvedValueOnce({
+      id: "u_rc6_create",
+      email: "test-user@test.local",
+      organizationId: null,
+    });
+    orgCreate.mockResolvedValueOnce({ id: "org_rc6" });
+    userUpdate.mockResolvedValueOnce({ id: "u_rc6_create" });
+
+    vi.resetModules();
+    const { POST } = await import("../sign-in-as/route");
+    const res = await POST(makeReq({ role: "USER" }));
+    expect(res.status).toBe(200);
+
+    expect(userCreate).toHaveBeenCalledTimes(1);
+    const createArg = userCreate.mock.calls[0][0] as {
+      data: { productTourDismissedAt: unknown };
+    };
+    expect(createArg.data.productTourDismissedAt).toBeInstanceOf(Date);
+    vi.unstubAllEnvs();
+  });
+
+  it("RC6: re-asserts productTourDismissedAt on existing test user", async () => {
+    vi.stubEnv("ALLOW_TEST_HELPERS", "true");
+    userFindUnique.mockResolvedValueOnce({
+      id: "u_rc6_existing",
+      email: "test-user@test.local",
+      organizationId: "org_existing",
+    });
+    userUpdate.mockResolvedValueOnce({ id: "u_rc6_existing" });
+
+    vi.resetModules();
+    const { POST } = await import("../sign-in-as/route");
+    const res = await POST(makeReq({ role: "USER" }));
+    expect(res.status).toBe(200);
+
+    expect(userUpdate).toHaveBeenCalledTimes(1);
+    const updateArg = userUpdate.mock.calls[0][0] as {
+      where: { id: string };
+      data: { productTourDismissedAt: unknown };
+    };
+    expect(updateArg.where.id).toBe("u_rc6_existing");
+    expect(updateArg.data.productTourDismissedAt).toBeInstanceOf(Date);
     vi.unstubAllEnvs();
   });
 });
