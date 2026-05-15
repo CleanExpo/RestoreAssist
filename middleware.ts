@@ -87,6 +87,23 @@ function shouldBypassSetupGate(pathname: string): boolean {
   return SETUP_GATE_BYPASS.some((prefix) => pathname.startsWith(prefix));
 }
 
+// SP-3 T15 — paths that bypass the hard-paywall redirect even when the
+// user's trial has expired. Upgrade flow + billing webhooks + auth pages
+// must remain reachable so the user can actually pay.
+const HARD_PAYWALL_WHITELIST = [
+  "/billing/upgrade",
+  "/billing/success",
+  "/api/billing",
+  "/api/webhooks/stripe",
+  "/api/auth",
+  "/logout",
+  "/pricing",
+] as const;
+
+function isHardPaywallWhitelisted(pathname: string): boolean {
+  return HARD_PAYWALL_WHITELIST.some((p) => pathname.startsWith(p));
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
@@ -150,6 +167,24 @@ export async function middleware(req: NextRequest) {
       url.pathname = "/onboarding/account-type";
       url.search = "";
       return NextResponse.redirect(url);
+    }
+  }
+
+  // ── Hard-paywall — expired-trial redirect to /billing/upgrade (SP-3 T15) ────
+  // Runs AFTER auth/setup gates so unauthenticated and not-yet-onboarded users
+  // are routed first. Only authenticated users with a session token are
+  // checked; whitelisted paths (upgrade flow, billing webhooks, auth, logout,
+  // pricing) bypass so users can actually complete payment.
+  if (!isHardPaywallWhitelisted(pathname)) {
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    if (token?.sub) {
+      const { getTrialStatus } = await import("@/lib/trial-handling");
+      const trialStatus = await getTrialStatus(token.sub);
+      if (trialStatus?.showHardWall) {
+        return NextResponse.redirect(
+          new URL("/billing/upgrade?reason=trial-expired", req.url),
+        );
+      }
     }
   }
 

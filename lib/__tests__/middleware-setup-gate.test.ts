@@ -17,6 +17,12 @@ vi.mock("next-auth/jwt", () => ({ getToken: vi.fn() }));
 vi.mock("@/lib/rate-limiter", () => ({
   applyRateLimit: vi.fn().mockResolvedValue(null),
 }));
+// SP-3 T15 added a hard-paywall block that calls getTrialStatus when an
+// authenticated user lands on a non-whitelisted path. Mock it here so this
+// suite stays Prisma-free.
+vi.mock("@/lib/trial-handling", () => ({
+  getTrialStatus: vi.fn().mockResolvedValue({ showHardWall: false }),
+}));
 
 import { getToken } from "next-auth/jwt";
 import { middleware } from "../../middleware";
