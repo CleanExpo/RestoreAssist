@@ -12,7 +12,7 @@
 
 ## (a) LinkedIn T-day post — three voice variants
 
-Each variant is 200–300 words. Founder profile post, scheduled 09:00 AEST on 2026-05-20. Pinned for the week. No URL shorteners — paste the raw `https://restoreassist.com.au/setup` link.
+Each variant is 200–300 words. Founder profile post, scheduled 09:00 AEST on 2026-05-20. Pinned for the week. No URL shorteners — paste the raw `https://restoreassist.app/setup` link.
 
 ### Variant 1 — Phill-as-founder (direct, first-person, 246 words)
 
@@ -40,7 +40,7 @@ If the next claim dispute lands on your desk at 9pm, the report is already writt
 
 It is live today. Try it. Tell me what is still wrong.
 
-https://restoreassist.com.au/setup
+https://restoreassist.app/setup
 
 ---
 
@@ -62,7 +62,7 @@ Every report cites IICRC S500:2025 §7.1 by edition and section. GST is calculat
 
 Photo evidence carries a SHA-256 hash and UTC timestamp at capture. A C2PA-style manifest with GPS, device, and user hash is the next milestone on the public roadmap.
 
-The wizard is at https://restoreassist.com.au/setup.
+The wizard is at https://restoreassist.app/setup.
 
 ---
 
@@ -86,7 +86,7 @@ If you run a water-damage restoration business in Australia and your evening is 
 
 One field in. Workspace out.
 
-https://restoreassist.com.au/setup
+https://restoreassist.app/setup
 
 If the next claim dispute lands at 9pm and asks for photo evidence, the answer is already in the report.
 
@@ -126,7 +126,7 @@ Decide a winner at 48 hours by setup-wizard completion rate, not by open rate. O
 >
 > Your account is already routed to the new wizard. Pick up where you left off here:
 >
-> https://restoreassist.com.au/setup?utm_source=email-launch&utm_medium=email&utm_campaign=pillar-c-launch
+> https://restoreassist.app/setup?utm_source=email-launch&utm_medium=email&utm_campaign=pillar-c-launch
 >
 > If anything breaks, hit reply. I read every email that comes back to this address.
 >
@@ -158,7 +158,7 @@ Before you activate, a live check runs against every advertised feature. AI repo
 
 Every report cites IICRC S500:2025 §7.1 by edition and section. GST at 10%. ABN at 11 digits. State building codes route through the correct jurisdictional authority. Photo evidence carries a SHA-256 hash and UTC timestamp at capture.
 
-It is live now at https://restoreassist.com.au/setup. Built by a fellow operator. Honest feedback welcome.
+It is live now at https://restoreassist.app/setup. Built by a fellow operator. Honest feedback welcome.
 
 — Phill McGurk, Founder
 
@@ -213,7 +213,7 @@ Read aloud, top to bottom. Cadence is short. Every technical term has a plain-En
 
 - LinkedIn Variant 3 names a A$5,300 figure attributed to an operator conversation. Confirm the figure and the consent to publish before scheduling — if the operator did not agree to be referenced even anonymously, rewrite the opener around a composite case.
 - The email signature uses `phill@restoreassist.com.au`. If the T-6 DNS check (per `launch-runbook.md`) fails, swap to `phill@unite-group.in` here and in the email From header.
-- The RIA column closes with "Honest feedback welcome." That is editorial. RIA may want it removed for tone. Hold a backup line: "Live now at https://restoreassist.com.au/setup."
+- The RIA column closes with "Honest feedback welcome." That is editorial. RIA may want it removed for tone. Hold a backup line: "Live now at https://restoreassist.app/setup."
 - Thumbnail 3 references a "high-vis sleeve". If Phill prefers a more neutral hand, drop the sleeve and use a bare wrist. Either reads.
 - All three LinkedIn variants reference "live today" and "It is live today" in the closing third. Pick one variant for the post that goes out — running all three on rotation would read as duplicate content to LinkedIn's feed algorithm.
 - The phrase "live capability check" appears in every asset. Confirm the marketing language matches what `/dashboard/settings/health` is actually titled in the UI on T-day morning. If the page header reads "Workspace Health" (per positioning.md proof points), align the copy.

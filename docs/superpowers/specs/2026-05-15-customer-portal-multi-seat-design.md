@@ -1,10 +1,34 @@
 # Customer Portal + Multi-Seat Licensing — Strategic Wedge Design
 
-**Status:** Draft for Phill's review — research-backed. Margot `deep_research_max` returned 2026-05-15; findings folded into Strategic context, new "Margot research findings (2026-05-15)" section, Apple App Store, Privacy + ACL, Content strategy, and NRPG sections.
+**Status:** ✅ **APPROVED 2026-05-15** — research-backed + 13 open questions locked by Phill via interactive Q&A. Margot `deep_research_max` findings integrated. Ready for Wave 3 implementation plan generation.
 
-**Branch:** `feat/customer-portal-spec-design`
+**Branch:** `docs/customer-portal-spec-locked-decisions` (this commit)
 **Date:** 2026-05-15
 **Cross-business impact:** Disaster Recovery (tenant zero) · NRPG (content network) · RestoreAssist (platform) · Unite-Group ($2B exit thesis)
+
+## Locked decisions (2026-05-15 Q&A)
+
+| # | Question | LOCKED answer |
+|---|---|---|
+| 1 | Main user iPhone/iPad cost | **Strict $11 per user** (main user pays own $11 for mobile). Anti-share via email alerts on new-device sign-ins, NOT blocking. |
+| 2 | Per-user mobile coverage | **One $11 covers iPhone + iPad** for that user (device-agnostic per User). |
+| 3 | No-seat technician grace | **7-day grace + banner countdown → hard paywall** at `/billing/mobile-seat`. |
+| 4 | OAuth integration scope | **Hybrid:** API keys = org-shared; OAuth integrations (Xero, Google Drive) = admin choice per-integration (default "shared with org"). New `Integration.scope` field. |
+| 5 | Stripe billing | **Org-level Stripe customer + metered Subscription Items per seat**. One invoice to org owner. |
+| 6 | Apple IAP cut | **Absorb 30% cut; $11 everywhere**. Net $7.70 iOS year 1 / $9.35 year 2+. |
+| 7 | App Store IPA model | **Same IPA, multi-mode** (Tradie vs Customer). Per Apple Guideline 4.2.6 Anti-Templating (Margot-validated). |
+| 8 | Content authoring model | **🔒 SINGLE-SOURCE: PLATFORM authors only. Orgs CANNOT author or override content.** RA team owns 100% of editorial. (Major simplification from initial 4-tier proposal.) |
+| 9 | Customer Portal branding | **Org-only branding** — no RA logo visible to client. Optional tiny footer link for legal compliance. |
+| 10 | Customer Link expiry | **Job-closed + 90 days → auto-revoke**. Org admin can extend manually. |
+| 11 | AU state-by-state content | **Phase 1 national, Phase 2 state variants**. ICA + ACL terminology is ~95% identical across states (Margot Q3); only AFCA/tribunal escalation paths differ. |
+| 12 | NRPG content tier | **Bundled into NRPG membership.** NRPG-certified orgs auto-get NRPG_SEED content. Non-members do not have access. Reinforces NRPG's value prop. |
+| 13 | Customer-Mode AI Sidekick | **Defer to Phase 2** (~3 months post-launch). v1 ships with static content only (videos + articles + glossary). |
+
+### Notable simplifications enabled by locked answers
+
+- **Q8 collapses the content model from 4 tiers to 2 tiers.** No `ORG_CUSTOM` or `ORG_OVERRIDE` scope needed. `PortalContent` table only stores PLATFORM + NRPG_SEED rows. Cuts Wave 3 engineering scope by ~25%.
+- **Q1 strict-per-user pricing eliminates account-sharing math** but adds new requirement: device-fingerprint + email alert on new-device sign-in.
+- **Q13 defer-Sidekick simplifies Wave 3 to static content delivery only.** Reduces Phase 1 token costs to near-zero.
 
 ---
 
@@ -323,36 +347,33 @@ model ClientPortalAccount {
   portalContentTrack   String @default("standard")  // "standard" | "premium" (org-level upgrade for premium content)
 }
 
+// SIMPLIFIED per Q8 locked decision (2026-05-15) — single-source authoring.
+// Orgs CANNOT author or override. Only PLATFORM_DEFAULT + NRPG_SEED rows exist.
+// Removed: ORG_CUSTOM and ORG_OVERRIDE scopes + authorOrgId + orgId-bound rows.
 model PortalContent {
   id           String   @id @default(cuid())
-  scope        String   // "PLATFORM_DEFAULT" | "NRPG" | "ORG" | "OVERRIDE"
-  orgId        String?  // null for PLATFORM_DEFAULT + NRPG; set for ORG + OVERRIDE
+  scope        String   // ENUM: "PLATFORM_DEFAULT" | "NRPG_SEED"
   audience     String   @default("customer")  // "customer" | "technician" | "both"
   category     String   // "process" | "insurance" | "glossary" | "about" | "blog"
   slug         String
   mdxContent   String   @db.Text  // raw MDX
   videoSlug    String?  // optional reference into VIDEO_REGISTRY
   state        String   @default("DRAFT")  // "DRAFT" | "PUBLISHED" | "ARCHIVED"
-  authorOrgId  String?  // who wrote it (NRPG, RA platform team, or specific org)
   publishedAt  DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  @@unique([scope, orgId, slug])
-  @@index([orgId, audience, category, state])
+  @@unique([scope, slug])
+  @@index([audience, category, state])
   @@map("PortalContent")
 }
 
-model NrpgContentLicense {
-  id              String    @id @default(cuid())
-  contentId       String    // FK to PortalContent
-  licensedOrgId   String    // FK to Organization (the NRPG member)
-  licenseTier     String    // "MEMBER_STANDARD" | "MEMBER_PREMIUM"
-  expiresAt       DateTime?
-  createdAt       DateTime  @default(now())
-
-  @@unique([contentId, licensedOrgId])
-}
+// REMOVED per Q12 locked decision (2026-05-15) — NRPG content bundled into
+// NRPG membership, so access is determined by Organization.isNrpgMember boolean
+// (sourced from DR/NRPG integration), NOT a separate license table.
+//
+// model NrpgContentLicense — DELETED. Access check:
+//   const orgContent = nrpgMember ? [...platformDefault, ...nrpgSeed] : platformDefault;
 ```
 
 ### Migration strategy
@@ -367,33 +388,27 @@ Per CLAUDE.md rule #16 (two-step destructive migrations):
 
 ## Content strategy
 
-### Three-tier content hierarchy
+### Two-tier content hierarchy — locked Q8 single-source
+
+🔒 **LOCKED 2026-05-15 (Q8):** orgs CANNOT author or override content. RA platform team owns 100% of editorial. This was the major simplification from the initial 4-tier proposal — drops `ORG_CUSTOM` + `ORG_OVERRIDE` scopes entirely.
 
 ```
 PLATFORM_DEFAULT  (authored by RA platform team)
-  ├── Used by: every org out of the box
-  ├── Examples: "What is water damage restoration?", "How does my insurance claim work in Australia?"
+  ├── Used by: every org out of the box (including non-NRPG)
+  ├── Examples: "What is water damage restoration?", "How does my insurance claim work in Australia?", AU policy glossary
   └── Scope: national, generic, plain English
 
-NRPG_SEED        (authored by NRPG editorial)
-  ├── Used by: NRPG-member orgs (via NrpgContentLicense)
-  ├── Examples: "The 5-stage NRPG Method", "Why NRPG-certified contractors?"
+NRPG_SEED        (authored by NRPG editorial, gated to NRPG-member orgs)
+  ├── Used by: only NRPG-certified orgs (per Q12: bundled into NRPG membership)
+  ├── Examples: "The 5-stage NRPG Method", "Why NRPG-certified contractors?", DR Method exposure
   └── Scope: branded NRPG quality mark, methodology-specific
-
-ORG_CUSTOM       (authored by individual org)
-  ├── Used by: only that org
-  ├── Examples: "About Disaster Recovery", "Meet our team", "Our service area"
-  └── Scope: business-specific
-
-ORG_OVERRIDE     (org's customization of a PLATFORM_DEFAULT or NRPG_SEED article)
-  ├── Used by: that org, replaces the default for their Customer Portal
-  ├── Examples: org swaps "insurance claim general" for their own state-specific version
-  └── Scope: per-article override
 ```
 
-Resolution at runtime: `ORG_OVERRIDE` > `ORG_CUSTOM` > `NRPG_SEED` (if org has license) > `PLATFORM_DEFAULT`.
+Resolution at runtime: `NRPG_SEED` (if org is NRPG member) merges with `PLATFORM_DEFAULT`. Customer sees `PLATFORM_DEFAULT` + (if applicable) `NRPG_SEED` articles, all displayed under org's branding (per Q9). No per-org content variations beyond branding skin.
 
-**Vertical-SaaS network-effect precedent (Margot Q6, fetched Feb/Mar 2026):** the four-tier model maps onto Procore's Company-vs-Project boundary (procore.com) with NRPG_SEED inserted as the network-membership middle layer. ServiceTitan's TitanExchange (servicetitan.com) demonstrates the "golden pricebook" pattern — corporate parent pushes one canonical set down with a single click. Jobber's Client Hub (getjobber.com) proves shared infrastructure + per-tenant theming converts (NRR > 100%, ~5-7%/yr churn). Housecall Pro's template library (housecallpro.com) shows the duplicate-and-personalise pattern individual orgs can follow without writing content from scratch.
+**About-the-Business content:** Even with single-source authoring, the "About the Business" surface needs org-specific data (logo, team, BSafe certs, ACN). This is handled NOT via PortalContent overrides but via templated content that reads from `Organization` fields (logoUrl, tagline, customerPortalAboutCopy). Org admin edits the data via a structured form, not free-form MDX. Eliminates the "org went rogue with bad content" risk that Q8's locked single-source decision protects against.
+
+**Vertical-SaaS network-effect precedent (Margot Q6, fetched Feb/Mar 2026):** ServiceTitan's TitanExchange (servicetitan.com) is the closest precedent — "golden pricebook" central distribution with per-tenant theming, no per-tenant content authoring. Procore + Jobber + Housecall Pro all permit org authoring (which our Q8 specifically rejects to maintain RA editorial quality + IICRC + AFCA compliance posture). RA's stricter single-source approach trades flexibility for content-quality guarantee — appropriate for a regulated-insurance-adjacent surface.
 
 ### Audience tagging (key cost-saver)
 
@@ -503,57 +518,65 @@ Customer Portal must disclose:
 
 ---
 
-## Implementation phases (post-T-day)
+## Implementation phases (post-T-day) — scope-locked per Q&A 2026-05-15
 
 ### Wave 3.1 — Foundation (Week 1-2)
-- Prisma migration A (additive)
-- `PortalContent` model + admin CRUD
-- Customer Portal routing (Customer Mode in iOS shell)
-- Existing ClientPortalAccount auth flow extension
+- Prisma migration A (additive) — new fields per Q1/Q5/Q12 + simplified `PortalContent` (2 scopes only per Q8)
+- `PortalContent` model + **admin CRUD scoped to RA platform team only** (per Q8 — no org-level write API needed)
+- Customer Portal routing — Customer Mode in same iOS IPA (per Q7)
+- ClientPortalAccount auth flow extension with 90-day-post-job-close expiry (per Q10)
+- **NEW (per Q1):** `Session` model extension with `deviceFingerprint`/`signedInFromIp`/`userAgent` columns + new-device email-alert helper (`lib/security/device-alerts.ts`)
 
 ### Wave 3.2 — Multi-seat billing (Week 2-3)
-- Stripe Subscription Items refactor (desktop + mobile seat items)
-- Apple IAP wiring for $11 mobile seat
-- Middleware seat enforcement on iOS sign-in
-- Grace period logic (7 days)
+- Stripe Subscription Items refactor (1 desktop item + N \× $11 mobile seat items) per Q5 org-level customer
+- Apple IAP wiring for $11 mobile seat — **absorb 30% cut, $11 everywhere** per Q6
+- Middleware seat enforcement on iOS sign-in — 7-day grace per Q3 + `/billing/mobile-seat` paywall
+- New-device alert email template (transactional, via lib/email)
+- `Integration.scope` enum (org-shared vs user-level) per Q4
 
-### Wave 3.3 — Phase 1 content (Week 3-4)
-- 8 Customer Portal videos via Remotion (process + insurance categories)
-- 28 MDX articles (process, insurance, glossary, about template)
-- NRPG seed content (5-10 articles + 3 videos, authored by Phill + NRPG editorial)
+### Wave 3.3 — Phase 1 content (Week 3-4) — RA platform authoring only
+- 8 Customer Portal videos via Remotion (process + insurance categories) — RA platform team
+- 28 MDX articles (process + insurance + glossary + About template) — RA platform team
+- **NRPG seed content** — 5-10 articles + 3 videos, authored by Phill + NRPG editorial. Bundled into NRPG membership per Q12; gated by `Organization.isNrpgMember` flag (sources via DR/NRPG integration)
+- **National content only — state variants deferred to Phase 2** per Q11
+- **NO org-authored content** per Q8 — orgs cannot write MDX
 
 ### Wave 3.4 — Branding + UX (Week 4-5)
-- Org branding override pipeline (logo, colors) flows into Customer Portal
-- About-the-Business setup wizard for orgs
+- Org branding (logo + colors) flows into Customer Portal — per Q9 client sees ONLY org brand
+- About-the-Business setup wizard for orgs — **structured form filling Organization fields, NOT MDX authoring** (preserves Q8 single-source authoring)
 - Customer Mode UI polish (no tradie tools visible)
+- Optional tiny "Powered by RestoreAssist" footer link (legal compliance)
 
 ### Wave 3.5 — Compliance + launch (Week 5-6)
-- Privacy banner + TOS combined-doc generation
+- Privacy banner + TOS combined-doc generation (RA + org disclosures per Margot Q7)
 - AFCA / ACCC compliance audit
-- iOS 2.0.0 submission + App Store review
+- iOS 2.0.0 submission + App Store review (single IPA per Q7)
 - Stripe billing migration cutover
 
-**Total: 6 weeks post-T-day. Content authoring is the long pole.**
+### Deferred to Wave 4 (post-launch +90 days)
+- **Customer-Mode AI Sidekick** (subset of SP-G) — deferred per Q13. v1 ships static content only.
+- **State-by-state AU content variants** (NSW/VIC/QLD/etc) per Q11 — Phase 2 once tenant distribution by state is observable.
+- Phase 2 NRPG content expansion (full library beyond 5-10 seed articles).
+
+**Total: 6 weeks post-T-day. Content authoring (28 articles + 8 videos by RA platform team) is the long pole.** Engineering scope ~25% lower than initial spec due to Q8 single-source simplification.
 
 ---
 
-## Open questions (consolidated)
+## Open questions
 
-Numbered for Phill answer. One-line replies fine.
+✅ **All 13 open questions resolved 2026-05-15 via Phill Q&A.** See "Locked decisions" table at the top of this spec for verbatim answers. Implementation plan generation may now proceed.
 
-1. Main user's iPhone/iPad cost ($11 OR bundled into $99)?
-2. Per-user $11 covers iPhone + iPad combined: confirm.
-3. Technician without active $11: grace period length? Or hard paywall day 1?
-4. OAuth integration scope (Xero user-level OR org-shared)?
-5. Stripe billing: org-level customer with metered items: confirm.
-6. Apple IAP for $11 on iOS: 30% Apple cut. Pass-through to customer OR absorb?
-7. Same IPA multi-mode vs separate Customer Portal app: confirm same IPA.
-8. Content authoring: PLATFORM + NRPG + ORG hybrid: confirm.
-9. Branding: org branding shown to customer (no RA logo): confirm.
-10. Customer Link expiry: 90 days post-job-close: confirm.
-11. State-by-state AU content variants: Phase 1 national; Phase 2 state: confirm.
-12. NRPG content tier model: bundled into NRPG membership OR separate paid tier?
-13. Customer-Mode AI Sidekick: subset of SP-G or v0 deferred?
+### New scope impacts from locked answers (for implementation plan author)
+
+1. **Q8 single-source content model** — `PortalContent` table no longer needs `scope` enum values for `ORG_CUSTOM` or `ORG_OVERRIDE`. Only `PLATFORM_DEFAULT` and `NRPG_SEED`. Removes per-org content authoring API + admin UI + version-conflict resolution logic. Wave 3 engineering scope reduced ~25%.
+
+2. **Q1 strict per-user pricing + device-alert** — adds new requirements:
+   - `Session` Prisma model gains `deviceFingerprint`, `signedInFromIp`, `userAgent` columns
+   - New `lib/security/device-alerts.ts` helper detects new-device sign-ins (any device fingerprint unseen for that User in last 30 days) and emails the User
+   - No hard concurrent-session limit — multiple concurrent sessions on multiple devices are allowed for the SAME User account; just flagged
+   - Email template: "Someone signed in to your RestoreAssist account on a new device (iPhone 15, Sydney AU). Was this you?"
+
+3. **Q13 Customer-Mode AI Sidekick deferred** — Wave 3 Phase 1 ships static content only. SP-G Customer-Mode subset becomes Wave 4 work post-T-day+90.
 
 ---
 
