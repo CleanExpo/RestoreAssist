@@ -53,6 +53,8 @@ const Chatbot = dynamic(() => import("@/components/Chatbot"), { ssr: false });
 import GlobalSearch from "@/components/GlobalSearch";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AutoBreadcrumbs } from "@/components/AutoBreadcrumbs";
+import HowToDropdown from "@/components/help/HowToDropdown";
+import HelpSearchModal from "@/components/help/HelpSearchModal";
 import { cn } from "@/lib/utils";
 
 export default function DashboardLayout({
@@ -569,6 +571,9 @@ export default function DashboardLayout({
                   was queued vs. actually on the wire. */}
               <NirSyncStatusBadge />
 
+              {/* SP-8 T12 — How To dropdown (in-app Help Library entry point) */}
+              <HowToDropdown />
+
               {/* Theme Toggle */}
               <ThemeToggle />
 
@@ -646,6 +651,9 @@ export default function DashboardLayout({
       {/* SP-3 T16 — credit-exhaustion modal. Listens for the
           `credit-exhausted` event; self-portals via fixed positioning. */}
       <CreditExhaustModal />
+      {/* SP-8 T12 — global ⌘K help search modal. Self-portals via fixed
+          positioning; listens for the ⌘K / Ctrl+K shortcut. */}
+      <HelpSearchModal />
     </>
   );
 }
