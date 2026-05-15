@@ -24,6 +24,8 @@ successCriteria:
 
 Technicians can only be attached to a signed inspection or attestation once their IICRC, WHS, and state licences are on file. RestoreAssist verifies licences at engagement time — not at login — to satisfy IICRC `S500:2025 §5` attribution requirements.
 
+<VideoExplainer slug="help-team" />
+
 ## Send the invite
 
 From **Settings → Team**, click **Invite technician**. Enter their email and pick a role:
@@ -31,7 +33,11 @@ From **Settings → Team**, click **Invite technician**. Enter their email and p
 - **Senior Technician** — can sign off inspections and attestations
 - **Junior Technician** — evidence capture only; cannot sign off
 
-<Screenshot src="ra-help/team/invite-modal" alt="The invite technician modal with email and role fields" caption="Roles map to the role-based disclosure rules in lib/progress." />
+<Screenshot
+  src="ra-help/team/invite-modal"
+  alt="The invite technician modal with email and role fields"
+  caption="Roles map to the role-based disclosure rules in lib/progress."
+/>
 
 RestoreAssist emails the technician a single-use invite token valid for 7 days. The invite is bound to the email address — forwarding doesn't grant access.
 
@@ -51,7 +57,11 @@ The `EngagementLicenceModal` asks for three artefacts, all required:
 - **WHS licence** — state-issued white card or equivalent, expiry date
 - **State licence** — Queensland QBCC, NSW Fair Trading, VIC VBA, etc. Looked up against `lib/nir-jurisdictional-matrix.ts`
 
-<Screenshot src="ra-help/team/engagement-licence-modal" alt="The engagement licence modal showing IICRC, WHS, and state licence fields" caption="Each row stores a hashed authorisation record; the original numbers are never re-displayed in plaintext." />
+<Screenshot
+  src="ra-help/team/engagement-licence-modal"
+  alt="The engagement licence modal showing IICRC, WHS, and state licence fields"
+  caption="Each row stores a hashed authorisation record; the original numbers are never re-displayed in plaintext."
+/>
 
 ## Engagement-time verification
 
