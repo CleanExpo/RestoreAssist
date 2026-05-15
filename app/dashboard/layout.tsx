@@ -46,6 +46,8 @@ import { ProductTour } from "@/components/onboarding/ProductTour";
 import { TrialBanner } from "@/components/TrialBanner";
 import { PastDueBanner } from "@/components/billing/PastDueBanner";
 import { CancellationCountdownBanner } from "@/components/billing/CancellationCountdownBanner";
+import TrialCountdownBanner from "@/components/billing/TrialCountdownBanner";
+import CreditExhaustModal from "@/components/billing/CreditExhaustModal";
 
 const Chatbot = dynamic(() => import("@/components/Chatbot"), { ssr: false });
 import GlobalSearch from "@/components/GlobalSearch";
@@ -264,6 +266,10 @@ export default function DashboardLayout({
           "text-neutral-900 dark:text-slate-50",
         )}
       >
+        {/* SP-3 T16 — trial-countdown banner. Renders at the very top of
+            the dashboard chrome (above demo banner, sidebar, and nav) so
+            it's the first thing every trial user sees on every page. */}
+        <TrialCountdownBanner />
         {/* RA-1583 — demo-mode banner. Makes it obvious the user is
             exploring sample data (seeded via /api/admin/seed-demo) so
             data they create during the demo session isn't mistaken
@@ -637,6 +643,9 @@ export default function DashboardLayout({
       <WhatsNewModal />
       {/* Product tour — RA-1238, auto-fires once for new users */}
       <ProductTour />
+      {/* SP-3 T16 — credit-exhaustion modal. Listens for the
+          `credit-exhausted` event; self-portals via fixed positioning. */}
+      <CreditExhaustModal />
     </>
   );
 }
