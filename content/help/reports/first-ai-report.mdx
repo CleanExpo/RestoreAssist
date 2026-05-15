@@ -24,6 +24,8 @@ successCriteria:
 
 RestoreAssist drafts compliant S500 / S520 / S540 / S700 reports from the data you've captured on the inspection. The model writes; you review and sign off.
 
+<VideoExplainer slug="help-reports" />
+
 ## Before you start
 
 You need:
@@ -39,7 +41,11 @@ Without these inputs the **Generate report** button is disabled — the model ne
 
 Open the inspection's detail page and click **Generate report** in the top-right action bar.
 
-<Screenshot src="ra-help/reports/generate-report-button" alt="The Generate report button on an inspection detail page" caption="Generate report appears once minimum evidence is attached." />
+<Screenshot
+  src="ra-help/reports/generate-report-button"
+  alt="The Generate report button on an inspection detail page"
+  caption="Generate report appears once minimum evidence is attached."
+/>
 
 A premium task router (`lib/ai/model-router.ts`) picks the model based on claim complexity. Average turnaround is 10–30 seconds. Bring-your-own-key (BYOK) reduces token cost by 60–80% — set your key in **Settings → AI keys** if you want to use your own.
 
@@ -62,7 +68,11 @@ The draft is a starting point, not a finished document. Read every section. Comm
 - Re-classify category if the model under- or over-called it
 - Add narrative on access constraints or hidden moisture
 
-<Screenshot src="ra-help/reports/draft-editor" alt="The draft editor showing AI-generated report sections" caption="Each section is editable inline; the standards citations stay locked unless you remove them deliberately." />
+<Screenshot
+  src="ra-help/reports/draft-editor"
+  alt="The draft editor showing AI-generated report sections"
+  caption="Each section is editable inline; the standards citations stay locked unless you remove them deliberately."
+/>
 
 ## Save and sign off
 
