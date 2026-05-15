@@ -101,3 +101,6 @@ scripts/__pycache__/
 .claude/verifier-reports/
 .claude/PROGRESS.md
 .claude/verifier-reports/
+
+# Build artefacts
+public/help-index.json
