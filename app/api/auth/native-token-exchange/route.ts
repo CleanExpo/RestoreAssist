@@ -267,6 +267,27 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
+  // Stamp setupCompletedAt the SAME way the jwt() callback does in
+  // lib/auth.ts:396-418. Without this claim the middleware's setup-wizard
+  // gate (when SETUP_WIZARD_ENABLED=true) sees `!token.setupCompletedAt`
+  // as truthy and redirects EVERY iOS native sign-in to /setup, which
+  // doesn't render well inside WKWebView and produced a 3-day "app is
+  // dead" report on the App Store build. Fail-open on DB error — auth
+  // must not break on a transient Prisma blip.
+  let setupCompletedAt: string | null = null;
+  try {
+    const userWithOrg = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { organization: { select: { setupCompletedAt: true } } },
+    });
+    const value = (userWithOrg as { organization?: { setupCompletedAt: Date | null } } | null)
+      ?.organization?.setupCompletedAt;
+    setupCompletedAt = value ? (value as Date).toISOString() : null;
+  } catch {
+    // Fail-open — middleware will treat null the same as a real null
+    // from the DB.
+  }
+
   // Build the session JWT payload. Mirror what lib/auth.ts:341-360
   // jwt() callback would produce on a Provider sign-in. Subsequent
   // requests will run that callback again on `updateAge`-driven refresh
@@ -284,6 +305,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     needsOnboarding: Boolean(
       (user as { needsOnboarding?: boolean }).needsOnboarding,
     ),
+    setupCompletedAt,
   };
 
   let sessionToken: string;
