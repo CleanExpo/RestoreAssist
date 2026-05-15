@@ -28,7 +28,7 @@
 >
 > If the next claim dispute lands on your desk at 9pm with a missing-evidence question, the report is already written, IICRC S500:2025 §7.1 in the footer, and the photo manifests verify on read.
 >
-> Try it. Tell me what's still wrong: `https://restoreassist.com.au/setup`
+> Try it. Tell me what's still wrong: `https://restoreassist.app/setup`
 
 ---
 
@@ -78,7 +78,7 @@ A/B/C split: 33% / 33% / 34%. Decide a winner at 48 hours by setup-wizard comple
 >
 > Before you hit Activate, you see a live capability check — AI report generation, photo chain-of-custody, sample-report render, welcome-email delivery — all green or you don't activate.
 >
-> Your existing account is already routed to the new setup wizard. Pick up where you left off here: `https://restoreassist.com.au/setup`
+> Your existing account is already routed to the new setup wizard. Pick up where you left off here: `https://restoreassist.app/setup`
 >
 > If anything breaks, reply to this email. I read every one.
 >
@@ -101,7 +101,7 @@ All six videos live at `https://www.youtube.com/watch?v={youtubeId}` and are emb
 > RestoreAssist is an Australian water-damage restoration CRM. ABN-anchored setup. IICRC S500:2025 §7.1 references in every report. GST at 10%, calculated.
 >
 > Watch the full setup wizard walkthrough: https://www.youtube.com/watch?v=G2CIyp-gDKA
-> Start your account: https://restoreassist.com.au/signup
+> Start your account: https://restoreassist.app/signup
 >
 > Chapters
 > 0:00 What you need before signing up
@@ -118,7 +118,7 @@ All six videos live at `https://www.youtube.com/watch?v={youtubeId}` and are emb
 >
 > If you forget your password, the reset link lands in your inbox in under a minute. Two-factor authentication ships in a separate update.
 >
-> Sign in: https://restoreassist.com.au/login
+> Sign in: https://restoreassist.app/login
 
 ### 4.3 The RestoreAssist Setup Wizard — end-to-end
 **Video ID:** G2CIyp-gDKA
@@ -136,7 +136,7 @@ All six videos live at `https://www.youtube.com/watch?v={youtubeId}` and are emb
 >
 > Total real-time setup: under 90 seconds with a clean ABN and a working website URL.
 >
-> Try the wizard: https://restoreassist.com.au/setup
+> Try the wizard: https://restoreassist.app/setup
 >
 > Chapters
 > 0:00 The one-field-in promise
@@ -162,7 +162,7 @@ All six videos live at `https://www.youtube.com/watch?v={youtubeId}` and are emb
 >
 > Photos are captured with cryptographic stamping today (SHA-256 + UTC). A C2PA-style manifest with GPS + device + user hash and read-time verification is the Phase 5+ plan.
 >
-> See the full walkthrough series: https://restoreassist.com.au/dashboard/learn
+> See the full walkthrough series: https://restoreassist.app/dashboard/learn
 
 ### 4.5 Connect Xero, MYOB, QuickBooks, ServiceM8 or Ascora
 **Video ID:** P6rVHLOVNsQ
@@ -180,7 +180,7 @@ All six videos live at `https://www.youtube.com/watch?v={youtubeId}` and are emb
 >
 > Sync is fire-and-forget. Failures queue to a dead-letter and never block your user-facing requests.
 >
-> Connect your tools: https://restoreassist.com.au/dashboard/integrations
+> Connect your tools: https://restoreassist.app/dashboard/integrations
 
 ### 4.6 Your RestoreAssist Workspace Health page
 **Video ID:** UHUiqnhxGtw
@@ -198,7 +198,7 @@ All six videos live at `https://www.youtube.com/watch?v={youtubeId}` and are emb
 > — Welcome-email deliverability
 > — BYOK key validation (if entered)
 >
-> Anything red? Tell us. The page is at https://restoreassist.com.au/dashboard/settings/health
+> Anything red? Tell us. The page is at https://restoreassist.app/dashboard/settings/health
 
 ---
 
@@ -242,7 +242,7 @@ All six videos live at `https://www.youtube.com/watch?v={youtubeId}` and are emb
 >
 > One field in. Workspace out.
 >
-> https://restoreassist.com.au/setup
+> https://restoreassist.app/setup
 
 ---
 
