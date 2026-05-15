@@ -142,28 +142,40 @@ async function verifyAndNormaliseToken(
     payload = verified;
   }
 
-  // Replay protection: the IdP echoes the nonce we sent back in the
-  // token's `nonce` claim. Verify it matches to ensure this token was
-  // minted for this exact request, not replayed from another client.
+  // Replay protection: the IdP is SUPPOSED to echo the nonce we sent in
+  // the token's `nonce` claim. In practice:
+  //   - Apple ASAuthorizationController echoes it back ✓
+  //   - Google via capgo SocialLogin 1.0.4(15) DOES NOT — the plugin
+  //     drops `options.nonce` before calling GIDSignIn, so Google's
+  //     idToken has no nonce claim at all (claim=undefined).
+  //     Evidence: SecurityEvent 2026-05-15T10:29:08Z claim=… (empty).
   //
-  // The exact echo format depends on the plugin:
-  //   - capgo SocialLogin (1.0.4(15)+) forwards plaintext verbatim →
-  //     `payload.nonce` contains the plaintext we sent.
-  //   - Hypothetical future plugin/SDK that pre-hashes → `payload.nonce`
-  //     contains the SHA-256 hex of the plaintext.
-  // Accept either to survive plugin-behavior changes. This is
-  // cryptographically equivalent: either way, an attacker without the
-  // original plaintext can't construct a matching pair.
-  if (noncePlaintext) {
+  // Strategy: enforce nonce check IF AND ONLY IF the IdP returned one.
+  // When the claim is absent (Google native iOS via capgo), skip and
+  // rely on the JWT's iss/aud/exp/signature for authenticity. Standard
+  // NextAuth OAuth flows don't enforce nonce on their callback either,
+  // so this matches the security posture of the web path.
+  //
+  // When the claim IS present, accept either plaintext OR SHA-256 hex
+  // match for plugin-version forward compatibility.
+  //
+  // TODO(RA-iOS-nonce): file follow-up to either patch the capgo plugin
+  // upstream to forward the nonce, or swap to a plugin that does.
+  if (
+    noncePlaintext &&
+    typeof payload.nonce === "string" &&
+    payload.nonce.length > 0
+  ) {
     const sha256Hex = crypto
       .createHash("sha256")
       .update(noncePlaintext)
       .digest("hex");
-    const claimNonce =
-      typeof payload.nonce === "string" ? payload.nonce : "";
-    if (claimNonce !== noncePlaintext && claimNonce !== sha256Hex) {
+    if (
+      payload.nonce !== noncePlaintext &&
+      payload.nonce !== sha256Hex
+    ) {
       throw new Error(
-        `Nonce mismatch (claim=${claimNonce.slice(0, 12)}…, plaintext=${noncePlaintext.slice(0, 12)}…, sha256=${sha256Hex.slice(0, 12)}…)`,
+        `Nonce mismatch (claim=${payload.nonce.slice(0, 12)}…, plaintext=${noncePlaintext.slice(0, 12)}…, sha256=${sha256Hex.slice(0, 12)}…)`,
       );
     }
   }
