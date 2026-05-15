@@ -142,17 +142,29 @@ async function verifyAndNormaliseToken(
     payload = verified;
   }
 
-  // Replay protection: the plugin SHA-256s the nonce we sent before
-  // forwarding it to the IdP. The IdP includes the SHA-256 hex back in
-  // the `nonce` claim. Verify ourselves to ensure this token was minted
-  // for this exact request, not replayed from another client.
+  // Replay protection: the IdP echoes the nonce we sent back in the
+  // token's `nonce` claim. Verify it matches to ensure this token was
+  // minted for this exact request, not replayed from another client.
+  //
+  // The exact echo format depends on the plugin:
+  //   - capgo SocialLogin (1.0.4(15)+) forwards plaintext verbatim →
+  //     `payload.nonce` contains the plaintext we sent.
+  //   - Hypothetical future plugin/SDK that pre-hashes → `payload.nonce`
+  //     contains the SHA-256 hex of the plaintext.
+  // Accept either to survive plugin-behavior changes. This is
+  // cryptographically equivalent: either way, an attacker without the
+  // original plaintext can't construct a matching pair.
   if (noncePlaintext) {
-    const expected = crypto
+    const sha256Hex = crypto
       .createHash("sha256")
       .update(noncePlaintext)
       .digest("hex");
-    if (payload.nonce !== expected) {
-      throw new Error("Nonce mismatch");
+    const claimNonce =
+      typeof payload.nonce === "string" ? payload.nonce : "";
+    if (claimNonce !== noncePlaintext && claimNonce !== sha256Hex) {
+      throw new Error(
+        `Nonce mismatch (claim=${claimNonce.slice(0, 12)}…, plaintext=${noncePlaintext.slice(0, 12)}…, sha256=${sha256Hex.slice(0, 12)}…)`,
+      );
     }
   }
 
