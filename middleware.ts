@@ -170,23 +170,14 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  // ── Hard-paywall — expired-trial redirect to /billing/upgrade (SP-3 T15) ────
-  // Runs AFTER auth/setup gates so unauthenticated and not-yet-onboarded users
-  // are routed first. Only authenticated users with a session token are
-  // checked; whitelisted paths (upgrade flow, billing webhooks, auth, logout,
-  // pricing) bypass so users can actually complete payment.
-  if (!isHardPaywallWhitelisted(pathname)) {
-    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-    if (token?.sub) {
-      const { getTrialStatus } = await import("@/lib/trial-handling");
-      const trialStatus = await getTrialStatus(token.sub);
-      if (trialStatus?.showHardWall) {
-        return NextResponse.redirect(
-          new URL("/billing/upgrade?reason=trial-expired", req.url),
-        );
-      }
-    }
-  }
+  // ── Hard-paywall — DISABLED in middleware (SP-3 T15 hotfix) ────────────────
+  // Edge-runtime middleware cannot use Prisma (Node-binary engine); the
+  // previous getTrialStatus() call crashed every authenticated request and
+  // produced a prod sign-in loop. Trial-expired enforcement still runs in
+  // route handlers + server components (CLAUDE.md rule #8 — subscription
+  // gate before every AI call). When restored later this MUST read trial
+  // state from JWT claims stamped in jwt() (lib/auth.ts), not from Prisma.
+  void isHardPaywallWhitelisted;
 
   return NextResponse.next();
 }
