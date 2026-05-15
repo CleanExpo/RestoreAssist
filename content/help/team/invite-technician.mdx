@@ -1,0 +1,62 @@
+---
+title: "Invite a technician + verify their licence"
+slug: "invite-technician"
+category: "team"
+order: 1
+audience: ["admin"]
+readTimeMin: 5
+updatedAt: "2026-05-15"
+status: "published"
+heroImage: "ra-help/team/invite-technician-hero"
+relatedSlugs: []
+aiSummary: "Walks an admin through inviting a technician via single-use invite token, collecting their IICRC certification + WHS + state-licence numbers via the EngagementLicenceModal, and verifying engagement-time per IICRC S500:2025 §5 attribution rules."
+userIntents:
+  - "how do I invite a technician"
+  - "add a tech to my crew"
+  - "verify licence"
+  - "IICRC certification"
+  - "WHS licence"
+successCriteria:
+  - "Technician accepts invite and lands on the dashboard"
+  - "IICRC + WHS + state-licence numbers captured against the Authorisation record"
+  - "Technician can be attached to an inspection attestation"
+---
+
+Technicians can only be attached to a signed inspection or attestation once their IICRC, WHS, and state licences are on file. RestoreAssist verifies licences at engagement time — not at login — to satisfy IICRC `S500:2025 §5` attribution requirements.
+
+## Send the invite
+
+From **Settings → Team**, click **Invite technician**. Enter their email and pick a role:
+
+- **Senior Technician** — can sign off inspections and attestations
+- **Junior Technician** — evidence capture only; cannot sign off
+
+<Screenshot src="ra-help/team/invite-modal" alt="The invite technician modal with email and role fields" caption="Roles map to the role-based disclosure rules in lib/progress." />
+
+RestoreAssist emails the technician a single-use invite token valid for 7 days. The invite is bound to the email address — forwarding doesn't grant access.
+
+## Technician accepts the invite
+
+When the technician clicks the invite link, they're walked through:
+
+1. Set a password (or sign in with Google)
+2. Confirm name + mobile number
+3. Open the `EngagementLicenceModal` — the licence capture form
+
+## Capture the licences
+
+The `EngagementLicenceModal` asks for three artefacts, all required:
+
+- **IICRC certification** — certification number, level (WRT / ASD / AMRT / FSRT), expiry date
+- **WHS licence** — state-issued white card or equivalent, expiry date
+- **State licence** — Queensland QBCC, NSW Fair Trading, VIC VBA, etc. Looked up against `lib/nir-jurisdictional-matrix.ts`
+
+<Screenshot src="ra-help/team/engagement-licence-modal" alt="The engagement licence modal showing IICRC, WHS, and state licence fields" caption="Each row stores a hashed authorisation record; the original numbers are never re-displayed in plaintext." />
+
+## Engagement-time verification
+
+Each time the technician is attached to an attestation, RestoreAssist re-checks expiry against the `Authorisation` table. If any licence has lapsed, the attestation refuses to record and surfaces a `LicenceExpired` banner. The technician keeps using the app for evidence capture — they just can't sign anything.
+
+## Removing a technician
+
+From **Settings → Team → [name] → Remove access**, you can revoke a technician. Past attestations they signed stay intact (per immutable-attestation rule); they just can't sign new ones.
