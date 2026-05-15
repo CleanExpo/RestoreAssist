@@ -142,50 +142,12 @@ export async function POST(request: NextRequest) {
       }
 
       case "customer.subscription.updated": {
-        // RA-907/RA-893: SDK v19 current_period_end is on items.data[0]
-        const updatedSubscription = event.data.object as Stripe.Subscription;
-        const updatedEndsAt = new Date(
-          (updatedSubscription.items.data[0]?.current_period_end ?? 0) * 1000,
-        );
-
-        // Map full Stripe status spectrum → our internal enum.
-        // Previous code collapsed everything non-"active" to CANCELED which
-        // lost PAST_DUE / UNPAID distinctions and blocked dunning recovery.
-        const statusMap: Record<string, SubscriptionStatus> = {
-          active: SubscriptionStatus.ACTIVE,
-          trialing: SubscriptionStatus.TRIAL,
-          past_due: SubscriptionStatus.PAST_DUE,
-          unpaid: SubscriptionStatus.PAST_DUE,
-          canceled: SubscriptionStatus.CANCELED,
-          incomplete: SubscriptionStatus.TRIAL,
-          incomplete_expired: SubscriptionStatus.EXPIRED,
-          paused: SubscriptionStatus.CANCELED,
-        };
-        const mappedStatus =
-          statusMap[updatedSubscription.status] ?? SubscriptionStatus.CANCELED;
-
-        await prisma.user.updateMany({
-          where: { subscriptionId: updatedSubscription.id },
-          data: {
-            subscriptionStatus: mappedStatus,
-            subscriptionEndsAt: updatedEndsAt,
-            nextBillingDate: updatedEndsAt,
-          },
-        });
+        await handleSubscriptionUpdated(event);
         break;
       }
 
       case "customer.subscription.deleted": {
-        const deletedSubscription = event.data.object as Stripe.Subscription;
-
-        await prisma.user.updateMany({
-          where: { subscriptionId: deletedSubscription.id },
-          data: {
-            subscriptionStatus: "EXPIRED",
-            subscriptionEndsAt: new Date(),
-            creditsRemaining: 0,
-          },
-        });
+        await handleSubscriptionDeleted(event);
         break;
       }
 
@@ -532,4 +494,109 @@ export async function handleCheckoutCompleted(event: Stripe.Event) {
       err,
     );
   }
+}
+
+/**
+ * Maps Stripe's subscription status spectrum to our internal enum.
+ * Returns null for statuses we don't translate (e.g. "incomplete" → no flip).
+ */
+function stripeStatusToOurs(
+  s: Stripe.Subscription.Status,
+): "ACTIVE" | "PAST_DUE" | "CANCELED" | "EXPIRED" | null {
+  switch (s) {
+    case "active":
+    case "trialing":
+      return "ACTIVE";
+    case "past_due":
+    case "unpaid":
+      return "PAST_DUE";
+    case "canceled":
+      return "CANCELED";
+    case "incomplete_expired":
+      return "EXPIRED";
+    default:
+      return null;
+  }
+}
+
+/**
+ * SP-3 T8 — customer.subscription.updated handler.
+ *
+ * Reads the Stripe subscription status, maps to our internal enum, and
+ * flips User.subscriptionStatus only if the mapped value differs from
+ * the user's current status. No-op when unchanged (avoids spurious
+ * SubscriptionEvent rows). Dedupes by stripeEventId.
+ *
+ * Preserves the pre-existing RA-907/RA-893 behaviour of refreshing
+ * subscriptionEndsAt and nextBillingDate from the SubscriptionItem's
+ * current_period_end when available.
+ */
+export async function handleSubscriptionUpdated(event: Stripe.Event) {
+  const sub = event.data.object as Stripe.Subscription;
+  const subscriptionId = sub.id;
+  const stripeStatus = sub.status;
+
+  const user = await prisma.user.findFirst({
+    where: { subscriptionId },
+    select: { id: true, subscriptionStatus: true },
+  });
+  if (!user) return;
+
+  const mapped = stripeStatusToOurs(stripeStatus);
+  if (mapped === null || mapped === user.subscriptionStatus) return;
+
+  const recorded = await recordSubscriptionEvent({
+    userId: user.id,
+    eventType: mapped === "PAST_DUE" ? "PAYMENT_FAILED" : "TIER_CHANGED",
+    stripeEventId: event.id,
+    payload: { stripeStatus, previousStatus: user.subscriptionStatus },
+  });
+  if (recorded.kind === "deduped") return;
+
+  // Preserve RA-907/RA-893: refresh period-end fields if present.
+  const periodEnd = sub.items?.data?.[0]?.current_period_end;
+  const subscriptionEndsAt =
+    typeof periodEnd === "number" && periodEnd > 0
+      ? new Date(periodEnd * 1000)
+      : undefined;
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      subscriptionStatus: mapped,
+      subscriptionEndsAt,
+      nextBillingDate: subscriptionEndsAt,
+    },
+  });
+}
+
+/**
+ * SP-3 T8 — customer.subscription.deleted handler.
+ *
+ * Flips User.subscriptionStatus to CANCELED and writes a CANCELED
+ * SubscriptionEvent. Dedupes by stripeEventId.
+ */
+export async function handleSubscriptionDeleted(event: Stripe.Event) {
+  const sub = event.data.object as Stripe.Subscription;
+  const user = await prisma.user.findFirst({
+    where: { subscriptionId: sub.id },
+    select: { id: true },
+  });
+  if (!user) return;
+
+  const recorded = await recordSubscriptionEvent({
+    userId: user.id,
+    eventType: "CANCELED",
+    stripeEventId: event.id,
+    payload: { subscriptionId: sub.id },
+  });
+  if (recorded.kind === "deduped") return;
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      subscriptionStatus: "CANCELED",
+      subscriptionEndsAt: new Date(),
+    },
+  });
 }
