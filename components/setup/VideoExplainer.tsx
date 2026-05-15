@@ -39,11 +39,32 @@ export function VideoExplainer({ slug, className }: VideoExplainerProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   if (!entry) return null;
-  const { youtubeId, title, durationSec } = entry;
+  const { youtubeId, localPath, title, durationSec } = entry;
 
   const wrapperClass =
     className ??
     "relative aspect-video w-full overflow-hidden rounded-xl border-2 border-[#8A6B4E]/30 shadow-2xl bg-[#050505]";
+
+  // Repo-hosted MP4 — render a native <video> element. Used for slugs
+  // pending YouTube unlisted upload; replace with youtubeId once uploaded.
+  if (localPath) {
+    return (
+      <div className={wrapperClass}>
+        <video
+          src={localPath}
+          title={title}
+          controls
+          preload="metadata"
+          playsInline
+          className="h-full w-full bg-black"
+          aria-label={title}
+        />
+        <div className="pointer-events-none absolute bottom-3 right-3 rounded bg-black/70 px-2 py-1 text-xs text-white">
+          {formatDuration(durationSec)}
+        </div>
+      </div>
+    );
+  }
 
   if (isPlaying) {
     return (
@@ -87,7 +108,8 @@ export function VideoExplainer({ slug, className }: VideoExplainerProps) {
         className="h-full w-full object-cover"
         onError={(e) => {
           // Some uploads only generate hqdefault. Fall back.
-          (e.currentTarget as HTMLImageElement).src = `https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg`;
+          (e.currentTarget as HTMLImageElement).src =
+            `https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg`;
         }}
       />
       <div className="absolute inset-0 flex items-center justify-center bg-[#1C2E47]/60 transition-colors group-hover:bg-[#1C2E47]/40">

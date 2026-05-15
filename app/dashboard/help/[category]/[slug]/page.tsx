@@ -3,8 +3,13 @@ import { redirect, notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { loadArticle } from "@/lib/help/load-article";
-import { HELP_CATEGORIES, HELP_CATEGORY_LABELS, type HelpCategory } from "@/lib/help/types";
+import {
+  HELP_CATEGORIES,
+  HELP_CATEGORY_LABELS,
+  type HelpCategory,
+} from "@/lib/help/types";
 import Screenshot from "@/components/help/Screenshot";
+import { VideoExplainer } from "@/components/setup/VideoExplainer";
 import Link from "next/link";
 import { MDXRemote } from "next-mdx-remote/rsc";
 
@@ -16,7 +21,8 @@ function isCategory(input: string): input is HelpCategory {
 
 const mdxComponents = {
   Screenshot,
-  // Future: Callout, StepList, Kbd, VideoExplainer
+  VideoExplainer,
+  // Future: Callout, StepList, Kbd
 };
 
 export default async function HelpArticlePage({
@@ -26,7 +32,8 @@ export default async function HelpArticlePage({
 }) {
   const session = await getServerSession(authOptions);
   const { category, slug } = await params;
-  if (!session?.user?.id) redirect(`/login?callbackUrl=/dashboard/help/${category}/${slug}`);
+  if (!session?.user?.id)
+    redirect(`/login?callbackUrl=/dashboard/help/${category}/${slug}`);
   if (!isCategory(category)) notFound();
 
   const article = await loadArticle(category, slug);
@@ -37,14 +44,18 @@ export default async function HelpArticlePage({
   return (
     <main className="container mx-auto max-w-3xl p-6">
       <nav className="mb-4 text-sm text-white/50">
-        <Link href="/dashboard/help" className="hover:text-white">Help</Link>
+        <Link href="/dashboard/help" className="hover:text-white">
+          Help
+        </Link>
         <span className="mx-2">/</span>
         <Link href={`/dashboard/help/${category}`} className="hover:text-white">
           {HELP_CATEGORY_LABELS[category]}
         </Link>
       </nav>
 
-      <h1 className="text-3xl md:text-4xl font-semibold text-white leading-tight">{frontmatter.title}</h1>
+      <h1 className="text-3xl md:text-4xl font-semibold text-white leading-tight">
+        {frontmatter.title}
+      </h1>
 
       <div className="mt-4 flex items-center gap-3 text-sm text-white/60">
         <span>{frontmatter.readTimeMin} min read</span>
@@ -65,7 +76,9 @@ export default async function HelpArticlePage({
 
       {frontmatter.relatedSlugs.length > 0 && (
         <section className="mt-12 border-t border-white/10 pt-8">
-          <h2 className="text-lg font-medium text-white/80">Related articles</h2>
+          <h2 className="text-lg font-medium text-white/80">
+            Related articles
+          </h2>
           <ul className="mt-3 space-y-2">
             {frontmatter.relatedSlugs.map((s) => (
               <li key={s}>
