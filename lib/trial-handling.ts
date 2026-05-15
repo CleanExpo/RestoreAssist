@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { TRIAL_DAYS, T_MINUS_BANNER_DAYS } from "@/lib/billing/constants";
 
 export interface TrialStatus {
   isTrialActive: boolean;
@@ -6,6 +7,12 @@ export interface TrialStatus {
   trialEndsAt: Date | null;
   hasTrialExpired: boolean;
   creditsRemaining: number;
+  /** True when on TRIAL and 0 < daysRemaining <= T_MINUS_BANNER_DAYS. Drives <TrialCountdownBanner>. */
+  showCountdownBanner: boolean;
+  /** True when trial has expired AND subscriptionStatus !== ACTIVE AND !lifetimeAccess. Drives middleware hard-paywall. */
+  showHardWall: boolean;
+  /** Mirror of User.lifetimeAccess so callers can render lifetime-specific UI without a second query. */
+  lifetimeAccess: boolean | null;
 }
 
 /**
@@ -20,6 +27,7 @@ export async function getTrialStatus(
       subscriptionStatus: true,
       trialEndsAt: true,
       creditsRemaining: true,
+      lifetimeAccess: true,
     },
   });
 
@@ -29,12 +37,19 @@ export async function getTrialStatus(
 
   // Not on trial
   if (user.subscriptionStatus !== "TRIAL") {
+    const hasTrialExpired = false;
     return {
       isTrialActive: false,
       daysRemaining: 0,
       trialEndsAt: null,
-      hasTrialExpired: false,
+      hasTrialExpired,
       creditsRemaining: user.creditsRemaining || 0,
+      showCountdownBanner: false,
+      showHardWall:
+        hasTrialExpired &&
+        user.subscriptionStatus !== "ACTIVE" &&
+        !user.lifetimeAccess,
+      lifetimeAccess: user.lifetimeAccess,
     };
   }
 
@@ -44,10 +59,13 @@ export async function getTrialStatus(
   if (!trialEndsAt) {
     return {
       isTrialActive: true,
-      daysRemaining: 30,
+      daysRemaining: TRIAL_DAYS,
       trialEndsAt: null,
       hasTrialExpired: false,
       creditsRemaining: user.creditsRemaining || 0,
+      showCountdownBanner: false,
+      showHardWall: false,
+      lifetimeAccess: user.lifetimeAccess,
     };
   }
 
@@ -58,12 +76,23 @@ export async function getTrialStatus(
         (trialEndsAt.getTime() - now.getTime()) / (24 * 60 * 60 * 1000),
       );
 
+  const showCountdownBanner =
+    !hasTrialExpired &&
+    daysRemaining > 0 &&
+    daysRemaining <= T_MINUS_BANNER_DAYS;
+  // In this branch subscriptionStatus === "TRIAL" (narrowed), so the
+  // !== "ACTIVE" guard from the spec is implicitly satisfied here.
+  const showHardWall = hasTrialExpired && !user.lifetimeAccess;
+
   return {
     isTrialActive: !hasTrialExpired,
     daysRemaining,
     trialEndsAt,
     hasTrialExpired,
     creditsRemaining: user.creditsRemaining || 0,
+    showCountdownBanner,
+    showHardWall,
+    lifetimeAccess: user.lifetimeAccess,
   };
 }
 

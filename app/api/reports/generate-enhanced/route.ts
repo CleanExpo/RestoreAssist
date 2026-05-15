@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Get API key (required for all users in Integrations; trial has unlimited reports during 30-day period)
+      // Get API key (required for all users in Integrations; trial has unlimited reports during 15-day period)
       let anthropicApiKey: string;
       try {
         anthropicApiKey = await getAnthropicApiKey(userId);

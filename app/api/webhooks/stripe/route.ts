@@ -7,6 +7,7 @@ import { SubscriptionStatus } from "@prisma/client";
 import { sendSubscriptionActivatedEmail } from "@/lib/email";
 import { warnIfZeroRows } from "@/lib/prisma-assert";
 import { onInvoicePaid } from "@/lib/lifecycle/subscribers/invoice-paid";
+import { recordSubscriptionEvent } from "@/lib/billing/subscription-event";
 
 /**
  * Best-effort human-readable plan name from a Stripe Subscription.
@@ -105,117 +106,7 @@ export async function POST(request: NextRequest) {
   try {
     switch (event.type) {
       case "checkout.session.completed": {
-        // RA-907: session.subscription is a string ID in checkout events.
-        // Retrieve the full subscription to get the real current_period_end.
-        const session = event.data.object as Stripe.Checkout.Session;
-
-        if (session.mode === "subscription") {
-          const subscriptionId = session.subscription;
-          if (!subscriptionId || typeof subscriptionId !== "string") {
-            console.error(
-              "[Stripe] checkout.session.completed: no subscription ID on session",
-              session.id,
-            );
-            break;
-          }
-
-          // Prefer metadata.userId (set by /api/create-checkout-session).
-          // Fall back to stripeCustomerId match then email for older sessions.
-          // session.customer_email is frequently null when `customer:` is passed
-          // to checkout.sessions.create — the previous keying silently no-op'd.
-          const metadataUserId = session.metadata?.userId ?? null;
-          const customerId =
-            typeof session.customer === "string" ? session.customer : null;
-
-          // Retrieve full subscription for accurate period end date
-          const subscription =
-            await stripe.subscriptions.retrieve(subscriptionId);
-
-          // RA-893: In Stripe SDK v19 / API 2025-10-29.clover, current_period_end
-          // moved from Subscription top-level to SubscriptionItem level.
-          const subscriptionEndsAt = new Date(
-            (subscription.items.data[0]?.current_period_end ?? 0) * 1000,
-          );
-
-          // Derive subscriptionPlan from the Price/Product on the first item
-          // so the UI has a human-readable plan name. Previously only written
-          // by /api/verify-subscription; the webhook path left it NULL.
-          const subscriptionPlan = derivePlanNameFromSubscription(subscription);
-
-          const where = metadataUserId
-            ? { id: metadataUserId }
-            : customerId
-              ? { stripeCustomerId: customerId }
-              : session.customer_email
-                ? { email: session.customer_email }
-                : null;
-
-          if (!where) {
-            console.error(
-              "[Stripe] checkout.session.completed: no identifier to match user",
-              session.id,
-            );
-            break;
-          }
-
-          const activationResult = await prisma.user.updateMany({
-            where,
-            data: {
-              subscriptionStatus: "ACTIVE",
-              stripeCustomerId: customerId ?? undefined,
-              subscriptionId: subscriptionId,
-              subscriptionPlan: subscriptionPlan ?? undefined,
-              subscriptionEndsAt,
-              nextBillingDate: subscriptionEndsAt,
-              creditsRemaining: 999999, // Unlimited for paid plans
-            },
-          });
-          // RA-1306: if no user matched, log a loud error so ops can trace
-          // the customer. Don't throw — the webhook still returns 200 so
-          // Stripe doesn't retry a non-recoverable "user not found" case.
-          warnIfZeroRows(
-            activationResult,
-            "stripe.checkout.completed.activate",
-            {
-              customerId,
-              subscriptionId,
-              where,
-            },
-          );
-
-          // RA-1261: send branded activation receipt. Best-effort — never
-          // block the webhook response on email delivery. Look up the user
-          // we just matched so we have their email + name for the email.
-          try {
-            const user = await prisma.user.findFirst({
-              where,
-              select: { id: true, name: true, email: true },
-            });
-            if (user?.email) {
-              const amountTotal = session.amount_total ?? 0;
-              const baseUrl =
-                process.env.NEXTAUTH_URL ?? "https://restoreassist.app";
-              void sendSubscriptionActivatedEmail({
-                recipientEmail: user.email,
-                recipientName: user.name ?? "there",
-                planName: subscriptionPlan ?? "Restore Assist",
-                amount: amountTotal / 100, // Stripe amounts are in cents
-                currency: (session.currency ?? "aud").toUpperCase(),
-                invoiceUrl:
-                  typeof session.invoice === "string"
-                    ? null // Would need a second Stripe call to resolve to hosted URL
-                    : (session.invoice?.hosted_invoice_url ?? null),
-                dashboardUrl: `${baseUrl}/dashboard`,
-                nextBillingDate: subscriptionEndsAt,
-              });
-            }
-          } catch (err) {
-            console.error(
-              "[Stripe] Activation email lookup/send failed (non-fatal):",
-              err,
-            );
-          }
-        }
+        await handleCheckoutCompleted(event);
         break;
       }
 
@@ -251,50 +142,12 @@ export async function POST(request: NextRequest) {
       }
 
       case "customer.subscription.updated": {
-        // RA-907/RA-893: SDK v19 current_period_end is on items.data[0]
-        const updatedSubscription = event.data.object as Stripe.Subscription;
-        const updatedEndsAt = new Date(
-          (updatedSubscription.items.data[0]?.current_period_end ?? 0) * 1000,
-        );
-
-        // Map full Stripe status spectrum → our internal enum.
-        // Previous code collapsed everything non-"active" to CANCELED which
-        // lost PAST_DUE / UNPAID distinctions and blocked dunning recovery.
-        const statusMap: Record<string, SubscriptionStatus> = {
-          active: SubscriptionStatus.ACTIVE,
-          trialing: SubscriptionStatus.TRIAL,
-          past_due: SubscriptionStatus.PAST_DUE,
-          unpaid: SubscriptionStatus.PAST_DUE,
-          canceled: SubscriptionStatus.CANCELED,
-          incomplete: SubscriptionStatus.TRIAL,
-          incomplete_expired: SubscriptionStatus.EXPIRED,
-          paused: SubscriptionStatus.CANCELED,
-        };
-        const mappedStatus =
-          statusMap[updatedSubscription.status] ?? SubscriptionStatus.CANCELED;
-
-        await prisma.user.updateMany({
-          where: { subscriptionId: updatedSubscription.id },
-          data: {
-            subscriptionStatus: mappedStatus,
-            subscriptionEndsAt: updatedEndsAt,
-            nextBillingDate: updatedEndsAt,
-          },
-        });
+        await handleSubscriptionUpdated(event);
         break;
       }
 
       case "customer.subscription.deleted": {
-        const deletedSubscription = event.data.object as Stripe.Subscription;
-
-        await prisma.user.updateMany({
-          where: { subscriptionId: deletedSubscription.id },
-          data: {
-            subscriptionStatus: "EXPIRED",
-            subscriptionEndsAt: new Date(),
-            creditsRemaining: 0,
-          },
-        });
+        await handleSubscriptionDeleted(event);
         break;
       }
 
@@ -513,4 +366,237 @@ export async function POST(request: NextRequest) {
       { status: 500 },
     );
   }
+}
+
+/**
+ * SP-3 T7 — checkout.session.completed handler.
+ *
+ * Flips the user's subscriptionStatus to ACTIVE and writes a SubscriptionEvent
+ * row, deduping on stripeEventId. Preserves the pre-existing behaviour from
+ * RA-907 / RA-1261 / RA-1306: Stripe subscription retrieve for period end,
+ * plan-name derivation, and the branded activation receipt email — all
+ * best-effort and wrapped so a Stripe API failure or email failure cannot
+ * block the activation write.
+ *
+ * Exported so unit tests can call it directly with synthetic events.
+ */
+export async function handleCheckoutCompleted(event: Stripe.Event) {
+  const session = event.data.object as Stripe.Checkout.Session;
+  if (session.mode !== "subscription") return;
+
+  const metadataUserId = session.metadata?.userId ?? null;
+  const tier = session.metadata?.tier ?? null;
+  const customerId =
+    typeof session.customer === "string" ? session.customer : null;
+  const subscriptionId =
+    typeof session.subscription === "string" ? session.subscription : null;
+
+  if (!metadataUserId) {
+    console.error(
+      "[stripe-webhook] checkout.session.completed missing metadata.userId",
+      event.id,
+    );
+    return;
+  }
+
+  // Determine event type from prior subscription state — reactivation vs
+  // first-time activation are distinct lifecycle signals downstream.
+  const existing = await prisma.user.findUnique({
+    where: { id: metadataUserId },
+    select: { subscriptionStatus: true },
+  });
+  const eventType: "SUBSCRIPTION_ACTIVATED" | "SUBSCRIPTION_REACTIVATED" =
+    existing?.subscriptionStatus === SubscriptionStatus.CANCELED ||
+    existing?.subscriptionStatus === SubscriptionStatus.EXPIRED
+      ? "SUBSCRIPTION_REACTIVATED"
+      : "SUBSCRIPTION_ACTIVATED";
+
+  // Idempotency: record event first, bail on replay.
+  const recorded = await recordSubscriptionEvent({
+    userId: metadataUserId,
+    eventType,
+    stripeEventId: event.id,
+    payload: {
+      tier,
+      sessionId: session.id,
+      subscriptionId,
+    },
+  });
+  if (recorded.kind === "deduped") return;
+
+  // Best-effort: retrieve full subscription for accurate period end + plan
+  // name. A failure here (e.g. fake sub ID in tests) must not block the
+  // activation write — degrade gracefully.
+  let subscriptionEndsAt: Date | null = null;
+  let subscriptionPlan: string | null = null;
+  if (subscriptionId) {
+    try {
+      const subscription =
+        await stripe.subscriptions.retrieve(subscriptionId);
+      subscriptionEndsAt = new Date(
+        (subscription.items.data[0]?.current_period_end ?? 0) * 1000,
+      );
+      subscriptionPlan = derivePlanNameFromSubscription(subscription);
+    } catch (err) {
+      console.error(
+        "[stripe-webhook] subscriptions.retrieve failed (non-fatal):",
+        err instanceof Error ? err.message : err,
+      );
+    }
+  }
+
+  const activationResult = await prisma.user.updateMany({
+    where: { id: metadataUserId },
+    data: {
+      subscriptionStatus: SubscriptionStatus.ACTIVE,
+      stripeCustomerId: customerId ?? undefined,
+      subscriptionId: subscriptionId ?? undefined,
+      subscriptionPlan: subscriptionPlan ?? tier ?? undefined,
+      subscriptionEndsAt: subscriptionEndsAt ?? undefined,
+      nextBillingDate: subscriptionEndsAt ?? undefined,
+      lastBillingDate: new Date(),
+      creditsRemaining: 999999,
+    },
+  });
+  warnIfZeroRows(activationResult, "stripe.checkout.completed.activate", {
+    customerId,
+    subscriptionId,
+    userId: metadataUserId,
+  });
+
+  // RA-1261: best-effort branded activation receipt.
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: metadataUserId },
+      select: { id: true, name: true, email: true },
+    });
+    if (user?.email) {
+      const amountTotal = session.amount_total ?? 0;
+      const baseUrl =
+        process.env.NEXTAUTH_URL ?? "https://restoreassist.app";
+      void sendSubscriptionActivatedEmail({
+        recipientEmail: user.email,
+        recipientName: user.name ?? "there",
+        planName: subscriptionPlan ?? tier ?? "Restore Assist",
+        amount: amountTotal / 100,
+        currency: (session.currency ?? "aud").toUpperCase(),
+        invoiceUrl:
+          typeof session.invoice === "string"
+            ? null
+            : (session.invoice?.hosted_invoice_url ?? null),
+        dashboardUrl: `${baseUrl}/dashboard`,
+        nextBillingDate: subscriptionEndsAt ?? new Date(),
+      });
+    }
+  } catch (err) {
+    console.error(
+      "[stripe-webhook] activation email lookup/send failed (non-fatal):",
+      err,
+    );
+  }
+}
+
+/**
+ * Maps Stripe's subscription status spectrum to our internal enum.
+ * Returns null for statuses we don't translate (e.g. "incomplete" → no flip).
+ */
+function stripeStatusToOurs(
+  s: Stripe.Subscription.Status,
+): "ACTIVE" | "PAST_DUE" | "CANCELED" | "EXPIRED" | null {
+  switch (s) {
+    case "active":
+    case "trialing":
+      return "ACTIVE";
+    case "past_due":
+    case "unpaid":
+      return "PAST_DUE";
+    case "canceled":
+      return "CANCELED";
+    case "incomplete_expired":
+      return "EXPIRED";
+    default:
+      return null;
+  }
+}
+
+/**
+ * SP-3 T8 — customer.subscription.updated handler.
+ *
+ * Reads the Stripe subscription status, maps to our internal enum, and
+ * flips User.subscriptionStatus only if the mapped value differs from
+ * the user's current status. No-op when unchanged (avoids spurious
+ * SubscriptionEvent rows). Dedupes by stripeEventId.
+ *
+ * Preserves the pre-existing RA-907/RA-893 behaviour of refreshing
+ * subscriptionEndsAt and nextBillingDate from the SubscriptionItem's
+ * current_period_end when available.
+ */
+export async function handleSubscriptionUpdated(event: Stripe.Event) {
+  const sub = event.data.object as Stripe.Subscription;
+  const subscriptionId = sub.id;
+  const stripeStatus = sub.status;
+
+  const user = await prisma.user.findFirst({
+    where: { subscriptionId },
+    select: { id: true, subscriptionStatus: true },
+  });
+  if (!user) return;
+
+  const mapped = stripeStatusToOurs(stripeStatus);
+  if (mapped === null || mapped === user.subscriptionStatus) return;
+
+  const recorded = await recordSubscriptionEvent({
+    userId: user.id,
+    eventType: mapped === "PAST_DUE" ? "PAYMENT_FAILED" : "TIER_CHANGED",
+    stripeEventId: event.id,
+    payload: { stripeStatus, previousStatus: user.subscriptionStatus },
+  });
+  if (recorded.kind === "deduped") return;
+
+  // Preserve RA-907/RA-893: refresh period-end fields if present.
+  const periodEnd = sub.items?.data?.[0]?.current_period_end;
+  const subscriptionEndsAt =
+    typeof periodEnd === "number" && periodEnd > 0
+      ? new Date(periodEnd * 1000)
+      : undefined;
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      subscriptionStatus: mapped,
+      subscriptionEndsAt,
+      nextBillingDate: subscriptionEndsAt,
+    },
+  });
+}
+
+/**
+ * SP-3 T8 — customer.subscription.deleted handler.
+ *
+ * Flips User.subscriptionStatus to CANCELED and writes a CANCELED
+ * SubscriptionEvent. Dedupes by stripeEventId.
+ */
+export async function handleSubscriptionDeleted(event: Stripe.Event) {
+  const sub = event.data.object as Stripe.Subscription;
+  const user = await prisma.user.findFirst({
+    where: { subscriptionId: sub.id },
+    select: { id: true },
+  });
+  if (!user) return;
+
+  const recorded = await recordSubscriptionEvent({
+    userId: user.id,
+    eventType: "CANCELED",
+    stripeEventId: event.id,
+    payload: { subscriptionId: sub.id },
+  });
+  if (recorded.kind === "deduped") return;
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      subscriptionStatus: "CANCELED",
+      subscriptionEndsAt: new Date(),
+    },
+  });
 }

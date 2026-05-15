@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { runAllChecks } from '@/lib/setup/checks';
 import { sendWelcomeEmail } from '@/lib/email';
+import { TRIAL_DAYS } from '@/lib/billing/constants';
 
 // TODO(setup-wizard Phase 7+): wire to existing analytics if one emerges
 function recordActivationAnalytics(payload: Record<string, unknown>): void {
@@ -136,7 +137,7 @@ export async function POST() {
         recipientEmail: user.email,
         recipientName: user.name ?? user.email,
         loginUrl: `${process.env.NEXTAUTH_URL ?? 'https://app.restoreassist.com.au'}/dashboard`,
-        trialDays: 14,
+        trialDays: TRIAL_DAYS,
         trialCredits: 10,
       }),
     ).catch((err) => console.error('[setup] welcome email dispatch failed:', err));
