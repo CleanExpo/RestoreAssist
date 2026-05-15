@@ -46,6 +46,7 @@ function shouldSkipApiRateLimit(pathname: string): boolean {
 // is the expected case.
 const LOGIN_GATE_PREFIXES = [
   "/dashboard/",
+  "/dashboard",
   "/reports/",
   "/reports",
   "/compliance/",
@@ -184,13 +185,26 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
+    // Authenticated surfaces — match BOTH the bare path AND `:path*` so the
+    // middleware fires on /dashboard as well as /dashboard/foo. Next.js's
+    // path-to-regexp does NOT treat `:path*` as zero-or-more for the
+    // top-level segment — `/dashboard/:path*` only matches /dashboard/x,
+    // not bare /dashboard. Missing the bare path produced a 3-day prod
+    // sign-in loop: OAuth callback redirected to /dashboard, middleware
+    // skipped, the page rendered, client-side useSession() saw no session
+    // (because the JWT route also wasn't running its gate), and bounced
+    // the user back to /login. Repeat indefinitely.
+    "/dashboard",
     "/dashboard/:path*",
+    "/reports",
     "/reports/:path*",
+    "/compliance",
     "/compliance/:path*",
+    "/sign",
     "/sign/:path*",
     "/invite/:path*",
-    "/setup/:path*",
     "/setup",
+    "/setup/:path*",
     // RA-1540 — baseline rate-limit on all /api/*. The middleware itself
     // filters to mutation methods; GETs pass through without overhead.
     "/api/:path*",
