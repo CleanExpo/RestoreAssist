@@ -118,6 +118,8 @@ jobs:
       # ratchet rather than re-enabling continue-on-error globally.
       - name: TypeScript Check
         run: npx tsc --noEmit
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
 
       - name: Lint
         run: pnpm lint
