@@ -2,6 +2,8 @@
 
 Patterns that linters cannot catch. Reference before writing new modules or refactoring.
 
+> **Reading library internals?** Use opensrc — `rg "pattern" $(opensrc path <pkg>)`. See `.claude/PACKAGE_LOOKUPS.md`. Never invent dependency APIs from memory.
+
 ## API Route Pattern
 
 Every API route follows this structure (canonical: `app/api/inspections/route.ts`):

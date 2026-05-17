@@ -1,5 +1,7 @@
 # Architecture — RestoreAssist
 
+> **Need to read a dependency's source?** Don't guess — use opensrc (`opensrc path next prisma ...`). Patterns in `.claude/PACKAGE_LOOKUPS.md`. CLI vendored at `vendor/opensrc/`.
+
 ## System Overview
 
 RestoreAssist is a full-stack compliance platform for Australian water damage restoration companies. The web app handles inspection management, IICRC-compliant report generation (AI-powered), client portals, invoicing, equipment tracking, and integration syncing with accounting/job management platforms (Xero, QuickBooks, MYOB, ServiceM8, Ascora).
