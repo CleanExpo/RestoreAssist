@@ -1,0 +1,5 @@
+[mcp_servers.composio]
+url = "https://connect.composio.dev/mcp"
+
+[mcp_servers.composio.http_headers]
+x-consumer-api-key = "ck_-ftFB_rZgk_cjxBLp3Xc"

@@ -1,55 +1,19 @@
 {
-  "permissions": {
-    "allow": [
-      "Bash(ls:*)",
-      "Bash(pnpm *)",
-      "Bash(npx *)",
-      "Bash(git *)",
-      "Bash(gh *)",
-      "Bash(node *)",
-      "Bash(cat *)",
-      "Bash(head *)",
-      "Bash(tail *)",
-      "Bash(wc *)",
-      "Bash(find *)",
-      "Bash(curl *)",
-      "Bash(sleep *)",
-      "Bash(printf *)",
-      "Bash(mkdir *)",
-      "Bash(cp *)",
-      "Bash(mv *)",
-      "Bash(echo *)",
-      "Bash(grep *)",
-      "Bash(rg *)",
-      "Bash(sort *)",
-      "Bash(uniq *)",
-      "Bash(diff *)",
-      "Bash(vercel *)",
-      "Bash(jq *)",
-      "Bash(tsc *)",
-      "Bash(prettier *)",
-      "Bash(pwd *)",
-      "Bash(which *)",
-      "Bash(date *)",
-      "Bash(touch *)"
-    ],
-    "deny": [
-      "Bash(rm -rf *)",
-      "Bash(git push --force*)",
-      "Bash(git reset --hard*)",
-      "Bash(*DROP TABLE*)",
-      "Bash(*TRUNCATE*)",
-      "Bash(*--no-verify*)"
-    ]
-  },
   "hooks": {
-    "PostToolUse": [
+    "Stop": [
       {
-        "matcher": "Write|Edit",
         "hooks": [
           {
             "type": "command",
-            "command": "npx prettier --write \"$CLAUDE_FILE_PATH\" 2>/dev/null || true"
+            "command": "'/Users/phill-mac/RestoreAssist/.codex/hooks/stop-verifier.sh'"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf '\\n## %s — Session End\\n' \"$(date '+%Y-%m-%d %H:%M')\" >> \"$CLAUDE_PROJECT_DIR\"/.claude/PROGRESS.md 2>/dev/null || true"
           }
         ]
       }
@@ -74,6 +38,17 @@
         ]
       }
     ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx prettier --write \"$CLAUDE_FILE_PATH\" 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "matcher": "compact",
@@ -84,7 +59,6 @@
           }
         ]
       }
-    ],
-    "Stop": []
+    ]
   }
 }
