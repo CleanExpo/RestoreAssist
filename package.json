@@ -149,7 +149,7 @@
     "gray-matter": "^4.0.3",
     "html2canvas": "^1.4.1",
     "input-otp": "1.4.2",
-    "jose": "^5.10.0",
+    "jose": "^6.2.3",
     "jsonwebtoken": "^9.0.2",
     "jspdf": "^4.2.1",
     "lightningcss-win32-x64-msvc": "^1.32.0",
