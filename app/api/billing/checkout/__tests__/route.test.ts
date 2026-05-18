@@ -3,7 +3,8 @@ import { POST } from "../route";
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("stripe", () => {
-  const ctor = vi.fn().mockImplementation(() => ({
+  const ctor = vi.fn().mockImplementation(function () {
+    return ({
     checkout: {
       sessions: {
         create: vi
@@ -17,7 +18,8 @@ vi.mock("stripe", () => {
     customers: {
       create: vi.fn().mockResolvedValue({ id: "cus_test_123" }),
     },
-  }));
+  });
+  });
   return { default: ctor };
 });
 vi.mock("@/lib/prisma", () => ({

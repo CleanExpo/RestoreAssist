@@ -63,9 +63,11 @@ vi.mock("@/lib/credential-vault", () => ({
 }));
 
 vi.mock("@/lib/storage/supabase-provider", () => ({
-  SupabaseStorageProvider: vi.fn().mockImplementation(() => ({
+  SupabaseStorageProvider: vi.fn().mockImplementation(function () {
+    return ({
     download: vi.fn(async () => Buffer.from("photo-bytes")),
-  })),
+  });
+  }),
 }));
 
 vi.mock("@/lib/storage", async () => {

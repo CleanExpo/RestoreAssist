@@ -24,7 +24,12 @@ vi.mock("@/lib/anthropic-models", () => ({
 }));
 
 vi.mock("@anthropic-ai/sdk", () => {
-  const Anthropic: any = vi.fn().mockImplementation(() => ({}));
+  // vitest 4 requires `new`-able mocks be created from a function statement,
+  // not an arrow — arrow funcs can't be constructors in JS at all and
+  // vitest 3's previous wrapping behaviour was dropped.
+  const Anthropic: any = vi.fn(function MockAnthropic(this: any) {
+    return {};
+  });
   Anthropic.APIError = MockAPIError;
   Anthropic.RateLimitError = class MockRateLimitError extends Error {
     status = 429;

@@ -7,9 +7,11 @@ vi.mock("@/lib/integrations/oauth-handler", () => ({
   disconnectIntegration: vi.fn(),
 }));
 vi.mock("@/lib/integrations/xero/client", () => ({
-  XeroClient: vi.fn().mockImplementation(() => ({
+  XeroClient: vi.fn().mockImplementation(function () {
+    return ({
     refreshAccessToken: vi.fn().mockResolvedValue(undefined),
-  })),
+  });
+  }),
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -94,12 +96,13 @@ describe("getValidXeroAccessToken", () => {
 
     const { XeroClient } = await import("@/lib/integrations/xero/client");
     vi.mocked(XeroClient).mockImplementationOnce(
-      () =>
-        ({
+      function () {
+        return {
           refreshAccessToken: vi
             .fn()
             .mockRejectedValueOnce(new Error("invalid_grant")),
-        }) as never,
+        } as never;
+      } as never,
     );
 
     const r = await getValidXeroAccessToken("int-1");
@@ -144,10 +147,11 @@ describe("getValidXeroAccessToken", () => {
     const original = new Error("network down");
     const { XeroClient } = await import("@/lib/integrations/xero/client");
     vi.mocked(XeroClient).mockImplementationOnce(
-      () =>
-        ({
+      function () {
+        return {
           refreshAccessToken: vi.fn().mockRejectedValueOnce(original),
-        }) as never,
+        } as never;
+      } as never,
     );
 
     const r = await getValidXeroAccessToken("int-1");

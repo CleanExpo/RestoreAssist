@@ -25,9 +25,10 @@ const { mockMessagesCreate, MockRateLimitError, MockAPIError } = vi.hoisted(() =
 });
 
 vi.mock("@anthropic-ai/sdk", () => {
-  const Anthropic: any = vi
-    .fn()
-    .mockImplementation(() => ({ messages: { create: mockMessagesCreate } }));
+  // vitest 4: arrow-fn impl can't be `new`'d. Use a function statement.
+  const Anthropic: any = vi.fn(function MockAnthropic(this: any) {
+    return { messages: { create: mockMessagesCreate } };
+  });
   Anthropic.RateLimitError = MockRateLimitError;
   Anthropic.APIError = MockAPIError;
   return { default: Anthropic };
