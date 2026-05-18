@@ -131,6 +131,18 @@ The stage-gated claim lifecycle adds its own invariants above the general standa
 - Every transition goes through `lib/progress/service.ts` — never call Prisma directly for state changes.
 - Evidence guards return `{ ok: false, missing: string[] }` — surface the missing list to the UI, never a generic "failed".
 
+## Service Layer (2026-05-18)
+
+Route handlers (`app/api/**/route.ts`) own orchestration: auth, ownership, status transitions, audit events, persistence, HTTP error policy. Runtime mechanics — credential reads, retry loops, validation, readiness probes, restart helpers — live in `lib/services/<domain>/<concern>.ts` and return `ServiceResult<T, E>` (see `lib/services/_shared/result.ts`).
+
+Full pattern: `.claude/skills/service-layer-architecture/SKILL.md`.
+
+Canonical examples in this repo:
+- `lib/services/xero/credentials.ts` — gateway credential read with structured `XeroCredentialsReason`.
+- `lib/services/inspection/validate-submission.ts` — pure validation, no I/O.
+
+When extracting from an existing fat action, use TDD per the skill recipe. One concern extracted = one commit.
+
 ## Patterns to Avoid
 
 | Pattern                              | Why                                                       | Do instead                                         |
