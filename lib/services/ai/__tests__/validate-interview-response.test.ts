@@ -1,18 +1,18 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-// Mock the substrate helper directly — this service composes tryClaudeModels
-// (multi-model fallback) rather than the single-model anthropic-gateway.
-vi.mock("@/lib/anthropic-models", () => ({
-  tryClaudeModels: vi.fn(),
+// Mock the gateway helper — this service now composes
+// callAnthropicWithFallback (which wraps tryClaudeModels under the hood).
+vi.mock("../anthropic-gateway", () => ({
+  callAnthropicWithFallback: vi.fn(),
 }));
 
 import {
   validateInterviewResponse,
   type AnsweredQuestionForValidation,
 } from "../validate-interview-response";
-import { tryClaudeModels } from "@/lib/anthropic-models";
+import { callAnthropicWithFallback } from "../anthropic-gateway";
 
-function mockTextResponse(text: string) {
+function mockTextMessage(text: string) {
   return {
     id: "msg_xxx",
     content: [{ type: "text", text }],
@@ -35,15 +35,16 @@ const ANSWERED: AnsweredQuestionForValidation[] = [
 describe("validateInterviewResponse", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(tryClaudeModels).mockReset();
+    vi.mocked(callAnthropicWithFallback).mockReset();
   });
 
   it("returns ok with normalised findings on well-formed JSON output", async () => {
-    vi.mocked(tryClaudeModels).mockResolvedValueOnce(
-      mockTextResponse(
+    vi.mocked(callAnthropicWithFallback).mockResolvedValueOnce({
+      ok: true,
+      data: mockTextMessage(
         '{"findings":[{"questionId":"q1","severity":"error","message":"Category 3 water requires PPE per S500:2025 §10.6","suggestedFix":"Document PPE used"}]}',
-      ),
-    );
+      ) as any,
+    });
 
     const r = await validateInterviewResponse({
       apiKey: "sk-resolved",
@@ -60,13 +61,14 @@ describe("validateInterviewResponse", () => {
         suggestedFix: "Document PPE used",
       });
     }
-    expect(tryClaudeModels).toHaveBeenCalledTimes(1);
+    expect(callAnthropicWithFallback).toHaveBeenCalledTimes(1);
   });
 
   it("returns ok with empty findings array when model reports clean", async () => {
-    vi.mocked(tryClaudeModels).mockResolvedValueOnce(
-      mockTextResponse('{"findings": []}'),
-    );
+    vi.mocked(callAnthropicWithFallback).mockResolvedValueOnce({
+      ok: true,
+      data: mockTextMessage('{"findings": []}') as any,
+    });
 
     const r = await validateInterviewResponse({
       apiKey: "sk-resolved",
@@ -80,9 +82,10 @@ describe("validateInterviewResponse", () => {
   });
 
   it("gracefully falls back to empty findings when model output is not JSON", async () => {
-    vi.mocked(tryClaudeModels).mockResolvedValueOnce(
-      mockTextResponse("all good"),
-    );
+    vi.mocked(callAnthropicWithFallback).mockResolvedValueOnce({
+      ok: true,
+      data: mockTextMessage("all good") as any,
+    });
 
     const r = await validateInterviewResponse({
       apiKey: "sk-resolved",
@@ -95,10 +98,12 @@ describe("validateInterviewResponse", () => {
     }
   });
 
-  it("maps 429 from tryClaudeModels to RATE_LIMITED", async () => {
-    vi.mocked(tryClaudeModels).mockRejectedValueOnce({
-      status: 429,
-      message: "rate limit",
+  it("forwards RATE_LIMITED from the gateway", async () => {
+    vi.mocked(callAnthropicWithFallback).mockResolvedValueOnce({
+      ok: false,
+      reason: "RATE_LIMITED",
+      detail: "rate limit",
+      retryAfterMs: 30000,
     });
 
     const r = await validateInterviewResponse({
