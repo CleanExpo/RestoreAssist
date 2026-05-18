@@ -2,11 +2,12 @@
  * AI-driven IICRC S500:2025 compliance validator for guided inspection
  * interview answers.
  *
- * Wraps lib/anthropic-models.tryClaudeModels (multi-model fallback chain:
- * Haiku 4.5 then 3.5 fallback) with a structured ServiceResult envelope.
- * The route owns auth, rate-limit, subscription gate, request-validation
- * gates (MAX_INPUT_ANSWERS, empty-array 400), and response-shape
- * concerns (validatedAt ISO timestamp).
+ * Composes the multi-model-fallback gateway helper
+ * (lib/services/ai/anthropic-gateway.callAnthropicWithFallback). Uses the
+ * Haiku 4.5 → 3.5 fallback chain. The route owns auth, rate-limit,
+ * subscription gate, request-validation gates (MAX_INPUT_ANSWERS,
+ * empty-array 400), and response-shape concerns (validatedAt ISO
+ * timestamp).
  *
  * Graceful-PARSE-fail semantic: when the model output isn't valid JSON
  * or doesn't contain a `findings` array, the service logs internally and
@@ -14,17 +15,14 @@
  * as a ServiceResult failure. API/gateway failures still surface as
  * {ok: false, reason: AnthropicReason}.
  *
- * Why this service bypasses lib/services/ai/anthropic-gateway: the route
- * uses tryClaudeModels (multi-model fallback), which the single-model
- * gateway can't compose.
- *
  * @see .claude/skills/service-layer-architecture/SKILL.md
  */
 
-import Anthropic from "@anthropic-ai/sdk";
-import { tryClaudeModels } from "@/lib/anthropic-models";
-import { ok, fail, type ServiceResult } from "@/lib/services/_shared/result";
-import type { AnthropicReason } from "./anthropic-gateway";
+import { ok, type ServiceResult } from "@/lib/services/_shared/result";
+import {
+  callAnthropicWithFallback,
+  type AnthropicReason,
+} from "./anthropic-gateway";
 
 const MAX_FIELD_CHARS = 600;
 const MAX_FINDINGS = 20;
@@ -96,8 +94,6 @@ export async function validateInterviewResponse(args: {
 }): Promise<
   ServiceResult<{ findings: ValidationFinding[] }, ValidateInterviewReason>
 > {
-  const anthropic = new Anthropic({ apiKey: args.apiKey });
-
   const answeredBlock = args.answered
     .map((qa, i) => {
       const qid =
@@ -112,89 +108,73 @@ ${answeredBlock}
 
 Validate these answers against IICRC S500:2025 and return findings.`;
 
-  try {
-    const message = await tryClaudeModels(
-      anthropic,
-      {
-        system: SYSTEM_PROMPT,
-        max_tokens: 1200,
-        temperature: 0.2,
-        messages: [{ role: "user", content: userPrompt }],
-      },
-      [
-        { name: "claude-haiku-4-5-20251001", maxTokens: 1200 },
-        { name: "claude-3-5-haiku-20241022", maxTokens: 1200 },
-      ],
-      { agentName: "InterviewValidate" },
-    );
+  const gatewayResult = await callAnthropicWithFallback({
+    userId: "system",
+    apiKey: args.apiKey,
+    request: {
+      system: SYSTEM_PROMPT,
+      max_tokens: 1200,
+      temperature: 0.2,
+      messages: [{ role: "user", content: userPrompt }],
+    },
+    models: [
+      { name: "claude-haiku-4-5-20251001", maxTokens: 1200 },
+      { name: "claude-3-5-haiku-20241022", maxTokens: 1200 },
+    ],
+    agentName: "InterviewValidate",
+  });
 
-    const responseText =
-      message.content[0]?.type === "text" ? message.content[0].text.trim() : "";
-
-    // Extract JSON object defensively (model may wrap in text/backticks).
-    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-    const jsonStr = jsonMatch ? jsonMatch[0] : responseText;
-
-    let parsed: { findings?: unknown };
-    try {
-      parsed = JSON.parse(jsonStr);
-    } catch {
-      console.warn(
-        "[validate-interview-response] Failed to parse model output, returning empty findings",
-      );
-      return ok({ findings: [] });
-    }
-
-    if (!Array.isArray(parsed?.findings)) {
-      return ok({ findings: [] });
-    }
-
-    const findings: ValidationFinding[] = parsed.findings
-      .slice(0, MAX_FINDINGS)
-      .map((raw: unknown) => {
-        const r = (raw ?? {}) as Record<string, unknown>;
-        const message =
-          typeof r.message === "string" ? truncate(r.message.trim(), 500) : "";
-        if (!message) return null;
-        const questionId =
-          typeof r.questionId === "string" && r.questionId.trim().length > 0
-            ? r.questionId.trim()
-            : null;
-        const suggestedFix =
-          typeof r.suggestedFix === "string" && r.suggestedFix.trim().length > 0
-            ? truncate(r.suggestedFix.trim(), 300)
-            : undefined;
-        const finding: ValidationFinding = {
-          questionId,
-          severity: coerceSeverity(r.severity),
-          message,
-        };
-        if (suggestedFix) finding.suggestedFix = suggestedFix;
-        return finding;
-      })
-      .filter((f): f is ValidationFinding => f !== null);
-
-    return ok({ findings });
-  } catch (err: unknown) {
-    const status =
-      err &&
-      typeof err === "object" &&
-      "status" in err &&
-      typeof err.status === "number"
-        ? err.status
-        : undefined;
-    const detail = err instanceof Error ? err.message : String(err);
-
-    if (status === 429) {
-      return fail("RATE_LIMITED", { detail, retryAfterMs: 30000, cause: err });
-    }
-    if (status === 529) {
-      return fail("MODEL_OVERLOADED", {
-        detail,
-        retryAfterMs: 10000,
-        cause: err,
-      });
-    }
-    return fail("API_ERROR", { detail, cause: err });
+  if (!gatewayResult.ok) {
+    return gatewayResult;
   }
+
+  const message = gatewayResult.data;
+  const firstBlock = message.content[0];
+  const responseText =
+    firstBlock?.type === "text" ? firstBlock.text.trim() : "";
+
+  // Extract JSON object defensively (model may wrap in text/backticks).
+  const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+  const jsonStr = jsonMatch ? jsonMatch[0] : responseText;
+
+  let parsed: { findings?: unknown };
+  try {
+    parsed = JSON.parse(jsonStr);
+  } catch {
+    console.warn(
+      "[validate-interview-response] Failed to parse model output, returning empty findings",
+    );
+    return ok({ findings: [] });
+  }
+
+  if (!Array.isArray(parsed?.findings)) {
+    return ok({ findings: [] });
+  }
+
+  const findings: ValidationFinding[] = parsed.findings
+    .slice(0, MAX_FINDINGS)
+    .map((raw: unknown) => {
+      const r = (raw ?? {}) as Record<string, unknown>;
+      const message =
+        typeof r.message === "string" ? truncate(r.message.trim(), 500) : "";
+      if (!message) return null;
+      const questionId =
+        typeof r.questionId === "string" && r.questionId.trim().length > 0
+          ? r.questionId.trim()
+          : null;
+      const suggestedFix =
+        typeof r.suggestedFix === "string" && r.suggestedFix.trim().length > 0
+          ? truncate(r.suggestedFix.trim(), 300)
+          : undefined;
+      const finding: ValidationFinding = {
+        questionId,
+        severity: coerceSeverity(r.severity),
+        message,
+      };
+      if (suggestedFix) finding.suggestedFix = suggestedFix;
+      return finding;
+    })
+    .filter((f): f is ValidationFinding => f !== null);
+
+  return ok({ findings });
 }
