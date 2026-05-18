@@ -15,6 +15,13 @@ import { test, expect } from "@playwright/test";
 import { generateValidAbn } from "./helpers/abn";
 
 test.describe("@smoke onboarding hotfix — Google Drive storage card", () => {
+  // RA-4989 — slow sandbox DB (2-4s health latency) makes the full signup +
+  // wizard hydrate + OAuth round-trip routinely exceed the Playwright default
+  // 30s per-test timeout. Bumping to 90s absorbs slow-network/cold-pool
+  // sessions without masking real regressions (steady-state DB completes the
+  // flow in ~10s; a >90s failure would still surface).
+  test.describe.configure({ timeout: 90_000 });
+
   test("connects via mocked OAuth and shows 'Connected as <email>'", async ({
     page,
     context,
@@ -81,8 +88,15 @@ test.describe("@smoke onboarding hotfix — Google Drive storage card", () => {
     await page.getByRole("checkbox", { name: /i agree/i }).check();
     await page.getByRole("button", { name: /create account/i }).click();
 
-    // 5. Land on /setup.
-    await page.waitForURL(/\/(dashboard|setup)/);
+    // 5. Land on /setup. waitUntil="domcontentloaded" rather than the default
+    //    "load" because /setup mounts FeatureHealthCard which polls /api/setup/
+    //    checks every 5s — the page's `load` event waits for ALL subresources
+    //    and can take >30s under slow conditions, making the default flaky.
+    //    Per RA-4989 bug-chain unwind, the assertion we need here is "browser
+    //    arrived at the wizard URL", not "all subresources finished".
+    await page.waitForURL(/\/(dashboard|setup)/, {
+      waitUntil: "domcontentloaded",
+    });
     if (!page.url().includes("/setup")) {
       await page.goto("/setup");
     }
@@ -100,7 +114,10 @@ test.describe("@smoke onboarding hotfix — Google Drive storage card", () => {
 
     // 8. After the mocked OAuth round-trip, /setup re-renders with the
     //    connected state.
-    await page.waitForURL(/\/setup\?storage=connected/, { timeout: 15_000 });
+    await page.waitForURL(/\/setup\?storage=connected/, {
+      timeout: 15_000,
+      waitUntil: "domcontentloaded",
+    });
     await expect(page.getByText(/connected as/i)).toBeVisible({
       timeout: 10_000,
     });
