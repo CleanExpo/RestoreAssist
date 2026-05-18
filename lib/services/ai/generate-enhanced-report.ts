@@ -1,30 +1,27 @@
 /**
  * AI-driven enhanced inspection-report writer (RA-1266).
  *
- * Wraps lib/anthropic-models.tryClaudeModels (multi-model fallback chain)
- * with a structured ServiceResult envelope. The route owns auth, rate-limit,
- * idempotency, subscription gate, credits, persistence, and HTTP error
- * mapping.
+ * Composes the multi-model-fallback gateway helper
+ * (lib/services/ai/anthropic-gateway.callAnthropicWithFallback). The route
+ * owns auth, rate-limit, idempotency, subscription gate, credits,
+ * persistence, and HTTP error mapping.
  *
  * The legacy route did not parse model output — the report comes back as
  * plain Markdown / formatted text and is persisted verbatim. This service
- * preserves that behaviour: the only `ok({...})` failure mode is the
- * empty-content guard (which the legacy route mapped to 500). We surface
- * it as `API_ERROR` so the reason union stays AnthropicReason and the
- * route can map it cleanly.
- *
- * Why this service bypasses lib/services/ai/anthropic-gateway: the route
- * uses tryClaudeModels (multi-model fallback), which the single-model
- * gateway can't compose.
+ * preserves that behaviour: the only `fail({...})` failure mode beyond
+ * gateway forwarding is the empty-content guard (which the legacy route
+ * mapped to 500). We surface it as `API_ERROR` so the reason union stays
+ * AnthropicReason and the route can map it cleanly.
  *
  * @see .claude/skills/service-layer-architecture/SKILL.md
  */
 
-import Anthropic from "@anthropic-ai/sdk";
-import { tryClaudeModels } from "@/lib/anthropic-models";
 import { createCachedSystemPrompt } from "@/lib/anthropic/features/prompt-cache";
 import { ok, fail, type ServiceResult } from "@/lib/services/_shared/result";
-import type { AnthropicReason } from "./anthropic-gateway";
+import {
+  callAnthropicWithFallback,
+  type AnthropicReason,
+} from "./anthropic-gateway";
 
 const SYSTEM_PROMPT = `You are a professional water damage restoration report writer operating in Australia. Generate comprehensive, professional reports that strictly adhere to ALL relevant Australian standards, laws, regulations, and best practices. You MUST explicitly reference and mention specific standards, codes, and regulations throughout the report. Always use the actual client information provided (name, address, email, phone, technician name) - NEVER use "[Redacted for Privacy]" or placeholder text.`;
 
@@ -265,64 +262,42 @@ export async function generateEnhancedReport(args: {
   apiKey: string;
   input: GenerateEnhancedInput;
 }): Promise<ServiceResult<GenerateEnhancedResult, GenerateEnhancedReason>> {
-  const anthropic = new Anthropic({ apiKey: args.apiKey });
   const prompt = buildPrompt(args.input);
 
-  try {
-    const message = await tryClaudeModels(
-      anthropic,
-      {
-        system: [createCachedSystemPrompt(SYSTEM_PROMPT)],
-        max_tokens: MAX_TOKENS,
-        messages: [
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-      },
-      undefined, // use default models
-      {
-        agentName: "EnhancedReportGenerator",
-        enableCacheMetrics: true,
-      },
-    );
+  const gatewayResult = await callAnthropicWithFallback({
+    userId: "system",
+    apiKey: args.apiKey,
+    request: {
+      system: [createCachedSystemPrompt(SYSTEM_PROMPT)],
+      max_tokens: MAX_TOKENS,
+      messages: [
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+    },
+    agentName: "EnhancedReportGenerator",
+    enableCacheMetrics: true,
+  });
 
-    const enhancedReport =
-      message.content[0]?.type === "text"
-        ? message.content[0].text
-        : JSON.stringify(message.content[0]);
-
-    if (!enhancedReport) {
-      // Legacy 500 path — preserve by mapping to API_ERROR so the route
-      // returns a 500 with a structured reason for logging.
-      return fail("API_ERROR", {
-        detail:
-          "All model attempts failed. Please check your API key and model availability.",
-      });
-    }
-
-    return ok({ enhancedReport });
-  } catch (err: unknown) {
-    const status =
-      err &&
-      typeof err === "object" &&
-      "status" in err &&
-      typeof err.status === "number"
-        ? err.status
-        : undefined;
-    const detail = err instanceof Error ? err.message : String(err);
-
-    if (status === 429) {
-      return fail("RATE_LIMITED", { detail, retryAfterMs: 30000, cause: err });
-    }
-    if (status === 529) {
-      return fail("MODEL_OVERLOADED", {
-        detail,
-        retryAfterMs: 10000,
-        cause: err,
-      });
-    }
-    return fail("API_ERROR", { detail, cause: err });
+  if (!gatewayResult.ok) {
+    return gatewayResult;
   }
+
+  const message = gatewayResult.data;
+  const firstBlock = message.content[0];
+  const enhancedReport =
+    firstBlock?.type === "text" ? firstBlock.text : JSON.stringify(firstBlock);
+
+  if (!enhancedReport) {
+    // Legacy 500 path — preserve by mapping to API_ERROR so the route
+    // returns a 500 with a structured reason for logging.
+    return fail("API_ERROR", {
+      detail:
+        "All model attempts failed. Please check your API key and model availability.",
+    });
+  }
+
+  return ok({ enhancedReport });
 }

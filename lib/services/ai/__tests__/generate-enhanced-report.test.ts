@@ -1,13 +1,11 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-// Mock the substrate helper directly — this service composes tryClaudeModels
-// (multi-model fallback) rather than the single-model anthropic-gateway.
-vi.mock("@/lib/anthropic-models", () => ({
-  tryClaudeModels: vi.fn(),
+// Mock the gateway helper — this service now composes
+// callAnthropicWithFallback (which wraps tryClaudeModels under the hood).
+vi.mock("../anthropic-gateway", () => ({
+  callAnthropicWithFallback: vi.fn(),
 }));
 
-// Prompt-cache helper is harmless but imported by the service; stub it so the
-// test doesn't need to evaluate the real cache-block builder.
 vi.mock("@/lib/anthropic/features/prompt-cache", () => ({
   createCachedSystemPrompt: (text: string) => ({
     type: "text",
@@ -20,9 +18,9 @@ import {
   generateEnhancedReport,
   type GenerateEnhancedInput,
 } from "../generate-enhanced-report";
-import { tryClaudeModels } from "@/lib/anthropic-models";
+import { callAnthropicWithFallback } from "../anthropic-gateway";
 
-function mockTextResponse(text: string) {
+function mockTextMessage(text: string) {
   return {
     id: "msg_xxx",
     content: [{ type: "text", text }],
@@ -47,15 +45,16 @@ const INPUT: GenerateEnhancedInput = {
 describe("generateEnhancedReport", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(tryClaudeModels).mockReset();
+    vi.mocked(callAnthropicWithFallback).mockReset();
   });
 
   it("returns ok with enhancedReport when model returns text", async () => {
     const reportText =
       "# Professional Inspection Report\n\nDetailed report text referencing AS-IICRC S500:2025.";
-    vi.mocked(tryClaudeModels).mockResolvedValueOnce(
-      mockTextResponse(reportText),
-    );
+    vi.mocked(callAnthropicWithFallback).mockResolvedValueOnce({
+      ok: true,
+      data: mockTextMessage(reportText) as any,
+    });
 
     const r = await generateEnhancedReport({
       apiKey: "sk-resolved",
@@ -66,17 +65,20 @@ describe("generateEnhancedReport", () => {
     if (r.ok) {
       expect(r.data.enhancedReport).toBe(reportText);
     }
-    expect(tryClaudeModels).toHaveBeenCalledTimes(1);
+    expect(callAnthropicWithFallback).toHaveBeenCalledTimes(1);
   });
 
   it("returns ok with stringified content when first block is not text type", async () => {
     // Defensive: if the SDK returns a non-text block first, the service must
     // still produce a non-empty enhancedReport (matches legacy route behaviour).
     const nonTextBlock = { type: "tool_use", name: "fake", input: { x: 1 } };
-    vi.mocked(tryClaudeModels).mockResolvedValueOnce({
-      id: "msg_xxx",
-      content: [nonTextBlock],
-    } as never);
+    vi.mocked(callAnthropicWithFallback).mockResolvedValueOnce({
+      ok: true,
+      data: {
+        id: "msg_xxx",
+        content: [nonTextBlock],
+      } as any,
+    });
 
     const r = await generateEnhancedReport({
       apiKey: "sk-resolved",
@@ -90,10 +92,13 @@ describe("generateEnhancedReport", () => {
   });
 
   it("returns API_ERROR when model returns empty content (legacy 500 path)", async () => {
-    vi.mocked(tryClaudeModels).mockResolvedValueOnce({
-      id: "msg_xxx",
-      content: [{ type: "text", text: "" }],
-    } as never);
+    vi.mocked(callAnthropicWithFallback).mockResolvedValueOnce({
+      ok: true,
+      data: {
+        id: "msg_xxx",
+        content: [{ type: "text", text: "" }],
+      } as any,
+    });
 
     const r = await generateEnhancedReport({
       apiKey: "sk-resolved",
@@ -106,10 +111,12 @@ describe("generateEnhancedReport", () => {
     }
   });
 
-  it("maps 429 from tryClaudeModels to RATE_LIMITED", async () => {
-    vi.mocked(tryClaudeModels).mockRejectedValueOnce({
-      status: 429,
-      message: "rate limit",
+  it("forwards RATE_LIMITED from the gateway", async () => {
+    vi.mocked(callAnthropicWithFallback).mockResolvedValueOnce({
+      ok: false,
+      reason: "RATE_LIMITED",
+      detail: "rate limit",
+      retryAfterMs: 30000,
     });
 
     const r = await generateEnhancedReport({
