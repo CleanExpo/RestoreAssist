@@ -5,9 +5,20 @@ Files in this directory are read by `scripts/release-gate-score.ts` to verify th
 ## Rules
 
 - **Filename = criterion ID + `.md`** (e.g. `A3-no-sev1-sev2-open.md`).
-- The scorer counts a file as PASS only when:
-  - It exists.
-  - Its mtime is within the last 14 days (`EVIDENCE_MAX_AGE_DAYS` in the scorer).
+- **Required frontmatter** (every evidence file):
+  ```yaml
+  ---
+  criterion: <criterion-id>
+  status: pass | fail | deferred
+  verified: YYYY-MM-DD     # required when status: pass
+  tracking_ticket: RA-XXXX # required when status: deferred (Linear ticket that will resolve it)
+  ---
+  ```
+- The scorer counts a file as PASS only when **all three** hold:
+  - File exists.
+  - Mtime within the last 14 days (`EVIDENCE_MAX_AGE_DAYS` in the scorer).
+  - `status: pass` declared in frontmatter.
+- `status: deferred` is treated as FAIL by design — use it when the criterion's underlying work is tracked but not yet complete (e.g. C2 awaits RA-4985). The body documents the deferral; the frontmatter keeps the gate honest.
 - The body should contain the actual verification artifact (query result, screenshot reference, dashboard link, etc.) — not a stub.
 
 ## Refreshing evidence

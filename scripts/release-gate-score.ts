@@ -83,6 +83,21 @@ function shellOK(cmd: string, options: { timeout?: number } = {}): CriterionResu
   }
 }
 
+// Parses YAML-ish frontmatter `status:` value (pass | fail | deferred).
+// Returns null when no frontmatter or no status key — caller treats null as
+// a missing-status FAIL so legacy un-tagged evidence files do NOT silently
+// pass. The frontmatter requirement was added in 1.0.0 after the end-to-end
+// scorer test surfaced a DEFERRED file silently passing.
+function readEvidenceStatus(filePath: string): "pass" | "fail" | "deferred" | null {
+  const text = fs.readFileSync(filePath, "utf8");
+  if (!text.startsWith("---")) return null;
+  const end = text.indexOf("\n---", 3);
+  if (end < 0) return null;
+  const frontmatter = text.slice(3, end);
+  const m = frontmatter.match(/^\s*status\s*:\s*(pass|fail|deferred)\s*$/im);
+  return m ? (m[1].toLowerCase() as "pass" | "fail" | "deferred") : null;
+}
+
 function ownerEvidence(criterionId: string, gateVersion: string): CriterionResult {
   const dir = path.join(ROOT, "docs", "evidence", "release-gate", gateVersion);
   const file = path.join(dir, `${criterionId}.md`);
@@ -100,9 +115,22 @@ function ownerEvidence(criterionId: string, gateVersion: string): CriterionResul
       detail: `evidence file stale (${Math.round(ageDays)}d old, max ${EVIDENCE_MAX_AGE_DAYS}d): ${criterionId}.md`,
     };
   }
+  const declaredStatus = readEvidenceStatus(file);
+  if (declaredStatus === null) {
+    return {
+      status: "fail",
+      detail: `evidence file ${criterionId}.md is missing required frontmatter \`status: pass | fail | deferred\``,
+    };
+  }
+  if (declaredStatus !== "pass") {
+    return {
+      status: "fail",
+      detail: `evidence file declares status=${declaredStatus} (only \`pass\` counts toward the gate)`,
+    };
+  }
   return {
     status: "pass",
-    detail: `evidence file present, ${Math.round(ageDays)}d old: ${criterionId}.md`,
+    detail: `evidence file declares status=pass, ${Math.round(ageDays)}d old: ${criterionId}.md`,
   };
 }
 

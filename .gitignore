@@ -104,3 +104,4 @@ scripts/__pycache__/
 
 # Build artefacts
 public/help-index.json
+release-gate-report.json

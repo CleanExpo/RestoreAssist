@@ -1,3 +1,10 @@
+---
+criterion: C2-secrets-scan
+status: deferred
+tracking_ticket: RA-4985
+last_scanned: 2026-05-18
+---
+
 # C2 — Secrets scan + config sanity (5 pts)
 
 **Status:** DEFERRED (intentionally NOT PASS — the scorer continues to block on this until RA-4985 lands)

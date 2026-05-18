@@ -23,8 +23,19 @@ export type BotIdResult =
  * Verify the incoming request isn't a bot. Returns { ok: true } on success.
  * No token is passed in — BotID reads its own client-injected signal from
  * the request headers automatically.
+ *
+ * RA-4986 — Sandbox preview bypass. Vercel BotID's built-in dev bypass keys
+ * off NODE_ENV !== "production", but Vercel always builds preview deployments
+ * with NODE_ENV=production. So the documented bypass never fires on the
+ * sandbox preview, and the @smoke suite ran red for 30+ runs. Explicit
+ * VERCEL_ENV=preview check restores the bypass for sandbox without weakening
+ * the production gate (VERCEL_ENV=production on the live deploy).
  */
 export async function verifyBotId(): Promise<BotIdResult> {
+  // RA-4986 — sandbox/preview bypass (see header comment for rationale)
+  if (process.env.VERCEL_ENV === "preview") {
+    return { ok: true, disabled: true };
+  }
   try {
     const verification = await checkBotId();
     if (verification.bypassed) {

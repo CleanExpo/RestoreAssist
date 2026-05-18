@@ -1,3 +1,9 @@
+---
+criterion: F2-runbooks-sla
+status: pass
+verified: 2026-05-18
+---
+
 # F2 — Runbooks + P1 SLA + customer comms template (5 pts)
 
 **Status:** PASS
