@@ -46,6 +46,12 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      // RA-2119 Cause 4 — let a credentials user who later taps "Continue
+      // with Google" link the Google account to their existing User row
+      // instead of throwing OAuthAccountNotLinked and looping back to the
+      // login page. Google verifies email ownership, so this is safe for
+      // first-party email matching.
+      allowDangerousEmailAccountLinking: true,
     }),
     // RA-1842 Ground 2 — Sign in with Apple (Apple guideline 4.8).
     // Required by App Review because the app offers third-party login.
@@ -62,6 +68,12 @@ export const authOptions: NextAuthOptions = {
           AppleProvider({
             clientId: process.env.APPLE_CLIENT_ID,
             clientSecret: process.env.APPLE_CLIENT_SECRET,
+            // RA-2119 Cause 4 — same rationale as Google above. Apple
+            // verifies email ownership (private-relay or real-mail) so
+            // linking the Apple account to an existing credentials User
+            // by email is safe and prevents the OAuthAccountNotLinked
+            // loop on the iOS native Sign in with Apple flow.
+            allowDangerousEmailAccountLinking: true,
           }),
         ]
       : []),
