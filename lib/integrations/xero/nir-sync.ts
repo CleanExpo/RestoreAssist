@@ -9,7 +9,7 @@
  */
 
 import { markIntegrationError, logSync } from "../oauth-handler";
-import { getXeroTenantId } from "./token-manager";
+import { getXeroTenantId } from "@/lib/services/xero/tenant";
 import { getValidXeroAccessToken } from "@/lib/services/xero/credentials";
 import {
   resolveAccountCodes,
@@ -117,7 +117,18 @@ export async function syncNIRJobToXero(
     );
   }
   const accessToken = credResult.data;
-  const tenantId = await getXeroTenantId(integrationId);
+  const tenantResult = await getXeroTenantId(integrationId);
+  if (!tenantResult.ok) {
+    console.error("[XeroNirSync]", {
+      integrationId,
+      reason: tenantResult.reason,
+      detail: tenantResult.detail,
+    });
+    throw new Error(
+      `Xero tenant unavailable (${tenantResult.reason}): ${tenantResult.detail ?? "no detail"}`,
+    );
+  }
+  const tenantId = tenantResult.data;
 
   // RA-869: Per-category account code routing (cached per integration, 5-min TTL).
   // Supports client-configured mappings in XeroAccountCodeMapping; falls back to
