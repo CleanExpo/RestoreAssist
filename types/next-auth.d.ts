@@ -38,5 +38,10 @@ declare module "next-auth/jwt" {
     clientId?: string | null;
     contractorId?: string | null;
     needsOnboarding?: boolean;
+    // RA-4984 — subscription claims stamped in jwt() so middleware
+    // can enforce the hard-paywall in edge runtime without Prisma.
+    subscriptionStatus?: "TRIAL" | "ACTIVE" | "CANCELED" | "EXPIRED" | "PAST_DUE" | null;
+    trialEndsAt?: string | null;
+    lifetimeAccess?: boolean | null;
   }
 }

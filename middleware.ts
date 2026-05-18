@@ -105,6 +105,39 @@ function isHardPaywallWhitelisted(pathname: string): boolean {
   return HARD_PAYWALL_WHITELIST.some((p) => pathname.startsWith(p));
 }
 
+// RA-4984 — JWT-claim-driven hard-paywall. The middleware runs in edge
+// runtime where Prisma is unavailable, so this reads the subscription
+// claims stamped by jwt() in lib/auth.ts. Returns true when the user
+// should be blocked. Defense-in-depth only — the API-route subscription
+// gate (CLAUDE.md rule #5) remains the authoritative revenue check.
+//
+// Allowlist (NOT blocked):
+//   - lifetimeAccess === true
+//   - subscriptionStatus === "ACTIVE"
+//   - subscriptionStatus === "TRIAL" AND (trialEndsAt unset OR not expired)
+//
+// Everything else blocks: TRIAL with expired trialEndsAt, CANCELED,
+// EXPIRED, PAST_DUE. Tokens missing the claim entirely (legacy sessions
+// from before RA-4984 mint) are treated as allow — they refresh on next
+// updateAge tick. This matches the fail-open posture of trial-handling.ts.
+function shouldHardPaywall(token: {
+  subscriptionStatus?: string | null;
+  trialEndsAt?: string | null;
+  lifetimeAccess?: boolean | null;
+}): boolean {
+  if (token.lifetimeAccess === true) return false;
+  const status = token.subscriptionStatus;
+  if (status === "ACTIVE") return false;
+  if (status === "TRIAL") {
+    if (!token.trialEndsAt) return false;
+    const ends = Date.parse(token.trialEndsAt);
+    if (Number.isNaN(ends)) return false;
+    return Date.now() > ends;
+  }
+  if (status == null) return false;
+  return true;
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
@@ -171,14 +204,20 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  // ── Hard-paywall — DISABLED in middleware (SP-3 T15 hotfix) ────────────────
-  // Edge-runtime middleware cannot use Prisma (Node-binary engine); the
-  // previous getTrialStatus() call crashed every authenticated request and
-  // produced a prod sign-in loop. Trial-expired enforcement still runs in
-  // route handlers + server components (CLAUDE.md rule #8 — subscription
-  // gate before every AI call). When restored later this MUST read trial
-  // state from JWT claims stamped in jwt() (lib/auth.ts), not from Prisma.
-  void isHardPaywallWhitelisted;
+  // ── Hard-paywall — JWT-claim driven (RA-4984, restores SP-3 T15) ───────────
+  // Defense-in-depth only — the authoritative revenue check is the
+  // API-route subscription gate (CLAUDE.md rule #5). Edge-runtime safe:
+  // reads subscriptionStatus / trialEndsAt / lifetimeAccess directly
+  // from the JWT stamped in lib/auth.ts jwt(); no Prisma call.
+  if (requiresLogin(pathname) && !isHardPaywallWhitelisted(pathname)) {
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    if (token && shouldHardPaywall(token as any)) {
+      const url = req.nextUrl.clone();
+      url.pathname = "/billing/upgrade";
+      url.search = "?reason=trial-expired";
+      return NextResponse.redirect(url, 307);
+    }
+  }
 
   return NextResponse.next();
 }

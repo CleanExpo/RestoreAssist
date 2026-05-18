@@ -1,29 +1,34 @@
 /**
  * middleware-hard-paywall.test.ts
  *
- * SP-3 T15 — hard-paywall redirect for expired trials.
+ * RA-4984 — JWT-claim-driven hard-paywall in middleware. Restores
+ * SP-3 T15 behaviour without Prisma so the check survives edge runtime.
  *
- * When `getTrialStatus(token.sub).showHardWall === true` and the request
- * isn't on the hard-paywall whitelist, middleware redirects (307) to
- * /billing/upgrade?reason=trial-expired.
+ * The middleware reads subscriptionStatus / trialEndsAt / lifetimeAccess
+ * directly from the JWT (stamped in lib/auth.ts jwt()). When the user's
+ * claims indicate trial expiry / cancellation / past-due AND the path
+ * is not on the whitelist (e.g. /pricing, /billing/upgrade), middleware
+ * issues a 307 to /billing/upgrade?reason=trial-expired.
  *
- * Lives in lib/__tests__/ so vitest picks it up via the existing include
- * pattern. Follows the mock-shape conventions from middleware-setup-gate.test.ts.
+ * Allowlist (NOT blocked):
+ *   - lifetimeAccess === true
+ *   - subscriptionStatus === "ACTIVE"
+ *   - subscriptionStatus === "TRIAL" with trialEndsAt unset or in the future
+ *
+ * Block: TRIAL+expired, CANCELED, EXPIRED, PAST_DUE.
  */
 
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-// Mocks must be declared before importing middleware so module-level
-// imports inside middleware.ts resolve to the mocks.
 vi.mock("next-auth/jwt", () => ({ getToken: vi.fn() }));
 vi.mock("@/lib/rate-limiter", () => ({
   applyRateLimit: vi.fn().mockResolvedValue(null),
 }));
-vi.mock("@/lib/trial-handling", () => ({ getTrialStatus: vi.fn() }));
 
 import { getToken } from "next-auth/jwt";
-import { getTrialStatus } from "@/lib/trial-handling";
 import { middleware } from "../../middleware";
+
+const mockGetToken = vi.mocked(getToken);
 
 function mkReq(pathname: string, search: string = "") {
   return {
@@ -38,33 +43,26 @@ function mkReq(pathname: string, search: string = "") {
   } as any;
 }
 
-describe("middleware hard-paywall (SP-3 T15)", () => {
+function baseToken(overrides: Record<string, unknown> = {}) {
+  return {
+    sub: "u1",
+    setupCompletedAt: "2026-01-01T00:00:00Z",
+    needsOnboarding: false,
+    ...overrides,
+  };
+}
+
+describe("middleware hard-paywall (RA-4984 / SP-3 T15)", () => {
   beforeEach(() => {
-    vi.restoreAllMocks();
-    // Isolate hard-paywall logic — keep setup gate off so its 307 doesn't
-    // mask the assertions here.
+    mockGetToken.mockReset();
     process.env.SETUP_WIZARD_ENABLED = "false";
   });
 
-  // SP-3 T15 hotfix: hard-paywall enforcement disabled in middleware
-  // because edge runtime cannot run Prisma (Node engine binary not
-  // available on the edge). See middleware.ts lines marked
-  // "Hard-paywall — DISABLED in middleware (SP-3 T15 hotfix)".
-  // Trial-expired enforcement still runs in route handlers + server
-  // components per CLAUDE.md rule #8. This test asserts the pre-hotfix
-  // behaviour and will need to be re-enabled when (a) the middleware
-  // reads trial state from JWT claims stamped in jwt() instead of
-  // Prisma, OR (b) the hard wall is wired in a Node-runtime layer.
-  it.skip("redirects expired TRIAL user to /billing/upgrade?reason=trial-expired", async () => {
-    (getToken as any).mockResolvedValue({
-      sub: "u1",
-      setupCompletedAt: "2026-01-01T00:00:00Z",
-    });
-    (getTrialStatus as any).mockResolvedValue({
-      showHardWall: true,
-      hasTrialExpired: true,
-      subscriptionStatus: "TRIAL",
-    });
+  it("redirects expired TRIAL user to /billing/upgrade?reason=trial-expired", async () => {
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString();
+    mockGetToken.mockResolvedValue(
+      baseToken({ subscriptionStatus: "TRIAL", trialEndsAt: yesterday }) as any,
+    );
     const res = await middleware(mkReq("/dashboard"));
     expect((res as any).status).toBe(307);
     expect((res as any).headers.get("location")).toContain(
@@ -73,26 +71,74 @@ describe("middleware hard-paywall (SP-3 T15)", () => {
   });
 
   it("does NOT redirect ACTIVE user even with expired trialEndsAt", async () => {
-    (getToken as any).mockResolvedValue({
-      sub: "u1",
-      setupCompletedAt: "2026-01-01T00:00:00Z",
-    });
-    (getTrialStatus as any).mockResolvedValue({
-      showHardWall: false,
-      hasTrialExpired: true,
-      subscriptionStatus: "ACTIVE",
-    });
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString();
+    mockGetToken.mockResolvedValue(
+      baseToken({ subscriptionStatus: "ACTIVE", trialEndsAt: yesterday }) as any,
+    );
     const res = await middleware(mkReq("/dashboard"));
     expect((res as any).status).not.toBe(307);
   });
 
-  it("does NOT redirect whitelisted path /pricing", async () => {
-    (getToken as any).mockResolvedValue({
-      sub: "u1",
-      setupCompletedAt: "2026-01-01T00:00:00Z",
-    });
-    (getTrialStatus as any).mockResolvedValue({ showHardWall: true });
+  it("does NOT redirect TRIAL user with future trialEndsAt", async () => {
+    const tomorrow = new Date(Date.now() + 86_400_000).toISOString();
+    mockGetToken.mockResolvedValue(
+      baseToken({ subscriptionStatus: "TRIAL", trialEndsAt: tomorrow }) as any,
+    );
+    const res = await middleware(mkReq("/dashboard"));
+    expect((res as any).status).not.toBe(307);
+  });
+
+  it("does NOT redirect lifetimeAccess user regardless of status", async () => {
+    mockGetToken.mockResolvedValue(
+      baseToken({
+        subscriptionStatus: "CANCELED",
+        lifetimeAccess: true,
+      }) as any,
+    );
+    const res = await middleware(mkReq("/dashboard"));
+    expect((res as any).status).not.toBe(307);
+  });
+
+  it("redirects CANCELED user", async () => {
+    mockGetToken.mockResolvedValue(
+      baseToken({ subscriptionStatus: "CANCELED" }) as any,
+    );
+    const res = await middleware(mkReq("/dashboard"));
+    expect((res as any).status).toBe(307);
+    expect((res as any).headers.get("location")).toContain(
+      "/billing/upgrade?reason=trial-expired",
+    );
+  });
+
+  it("redirects PAST_DUE user", async () => {
+    mockGetToken.mockResolvedValue(
+      baseToken({ subscriptionStatus: "PAST_DUE" }) as any,
+    );
+    const res = await middleware(mkReq("/dashboard"));
+    expect((res as any).status).toBe(307);
+  });
+
+  it("does NOT redirect whitelisted path /pricing even when blocked", async () => {
+    mockGetToken.mockResolvedValue(
+      baseToken({ subscriptionStatus: "CANCELED" }) as any,
+    );
     const res = await middleware(mkReq("/pricing"));
+    expect((res as any).status).not.toBe(307);
+  });
+
+  it("does NOT redirect whitelisted path /billing/upgrade", async () => {
+    mockGetToken.mockResolvedValue(
+      baseToken({ subscriptionStatus: "CANCELED" }) as any,
+    );
+    const res = await middleware(mkReq("/billing/upgrade"));
+    expect((res as any).status).not.toBe(307);
+  });
+
+  it("does NOT redirect when subscriptionStatus is missing (legacy JWT — fail-open)", async () => {
+    mockGetToken.mockResolvedValue(
+      baseToken({ subscriptionStatus: undefined }) as any,
+    );
+    const res = await middleware(mkReq("/dashboard"));
     expect((res as any).status).not.toBe(307);
   });
 });
