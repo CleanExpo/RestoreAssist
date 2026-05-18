@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyCronAuth } from "@/lib/cron/auth";
 import { runCronJob } from "@/lib/cron/runner";
-import { getValidXeroToken } from "@/lib/integrations/xero/token-manager";
+import { getValidXeroAccessToken } from "@/lib/services/xero/credentials";
 import { processXeroWebhookBatch } from "@/lib/integrations/xero/webhook-processor";
 
 /**
@@ -74,8 +74,19 @@ async function syncXeroPaymentsOnce() {
     if (!integration.tenantId) continue;
 
     try {
-      // Get a fresh access token (RA-868 token manager handles refresh transparently)
-      const accessToken = await getValidXeroToken(integration.id);
+      // Service-layer credentials result — log + continue on failure so a single
+      // disconnected integration doesn't abort the rest of the cron run.
+      const credResult = await getValidXeroAccessToken(integration.id);
+      if (!credResult.ok) {
+        stats.integrationErrors++;
+        console.error("[CronSyncXeroPayments]", {
+          integrationId: integration.id,
+          reason: credResult.reason,
+          detail: credResult.detail,
+        });
+        continue;
+      }
+      const accessToken = credResult.data;
 
       // Find local invoices that are AUTHORISED (sent to Xero) but not yet PAID,
       // limited to 50 per integration to stay within cron time budget
