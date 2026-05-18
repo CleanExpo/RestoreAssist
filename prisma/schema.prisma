@@ -35,6 +35,7 @@ model Account {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
+  @@index([userId])
 }
 
 model Session {
@@ -43,6 +44,7 @@ model Session {
   userId       String
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
 }
 
 model User {
@@ -264,6 +266,9 @@ model User {
 
   // SP-3 T2 — subscription lifecycle event history (Stripe webhook idempotency + audit)
   subscriptionEvents SubscriptionEvent[]
+  @@index([managedById])
+  @@index([organizationId])
+  @@index([subscriptionTierId])
 }
 
 model Feedback {
@@ -827,6 +832,8 @@ model Report {
   @@index([clientId, createdAt])
   @@index([includeRegulatoryCitations]) // Index for efficient filtering
   @@index([workspaceId])
+  @@index([assignedAdminId])
+  @@index([assignedManagerId])
 }
 
 enum Role {
@@ -908,6 +915,7 @@ model Organization {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  @@index([ownerId])
 }
 
 model UserInvite {
@@ -932,6 +940,7 @@ model UserInvite {
   @@index([email])
   @@index([organizationId])
   @@index([createdById])
+  @@index([managedById])
 }
 
 enum ClientStatus {
@@ -1100,6 +1109,7 @@ model CostItem {
 
   // Back-reference: line items that were sourced from or promoted to this catalog entry
   estimateLineItems EstimateLineItem[]
+  @@index([libraryId])
 }
 
 enum IntegrationStatus {
@@ -1290,6 +1300,7 @@ model Scope {
   userId    String
 
   estimate Estimate?
+  @@index([userId])
 }
 
 // Estimate Models
@@ -1359,6 +1370,7 @@ model Estimate {
   invoices Invoice[] @relation("InvoiceEstimate")
 
   @@index([reportId, createdAt])
+  @@index([userId])
 }
 
 model EstimateLineItem {
@@ -1767,6 +1779,7 @@ model StandardTemplate {
   @@index([templateType])
   @@index([isActive])
   @@index([isDefault])
+  @@index([userId])
 }
 
 enum StandardTemplateType {
@@ -1817,6 +1830,7 @@ model AssessmentGeneration {
   @@index([inspectionId, generatedAt])
   @@index([assessmentType, generatedAt])
   @@index([workspaceId])
+  @@index([generatedById])
 }
 
 model Inspection {
@@ -2993,6 +3007,7 @@ model Citation {
   updatedAt DateTime @updatedAt
 
   @@index([shortReference])
+  @@index([documentId])
 }
 
 // Insurance-specific requirements
@@ -4467,6 +4482,9 @@ model Invoice {
   @@index([externalInvoiceId])
   @@index([publicToken])
   @@index([workspaceId])
+  @@index([originalInvoiceId])
+  @@index([recurringInvoiceId])
+  @@index([templateId])
 }
 
 // Invoice Line Items (snapshot from estimate)
@@ -5098,6 +5116,7 @@ model UserReleaseSeen {
 
   @@unique([userId, releaseId])
   @@index([userId])
+  @@index([releaseId])
 }
 
 // ============================================
@@ -6830,6 +6849,7 @@ model PromptVariant {
 
   @@index([claimType, isProduction])
   @@index([claimType, compositeScore])
+  @@index([parentVariantId])
 }
 
 model EvaluationRun {
