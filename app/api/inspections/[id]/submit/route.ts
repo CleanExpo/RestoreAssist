@@ -20,6 +20,7 @@ import { detectDuplicateJob } from "@/lib/compliance/duplicate-detector";
 import { withIdempotency } from "@/lib/idempotency";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { onNextAction } from "@/lib/lifecycle/subscribers/next-action";
+import { validateSubmissionPayload } from "@/lib/services/inspection/validate-submission";
 import { InspectionStatus } from "@prisma/client";
 
 // POST - Submit inspection for processing
@@ -93,6 +94,34 @@ export async function POST(
         return NextResponse.json(
           { error: "Inspection not found" },
           { status: 404 },
+        );
+      }
+
+      // ── Service-layer submission gate (Task 8 / Runtime Reconciliation) ───────
+      // Pure, fast precondition check before the heavier tiered/compliance gates.
+      // Sub-field names are remapped to satisfy the typed contract — the validator
+      // only inspects `.length` and `.status`, never the sub-field values.
+      const validation = validateSubmissionPayload({
+        id: inspection.id,
+        status: inspection.status,
+        affectedAreas: (inspection.affectedAreas ?? []).map((a) => ({
+          id: a.id,
+          roomName: a.roomZoneId,
+        })),
+        moistureReadings: (inspection.moistureReadings ?? []).map((m) => ({
+          id: m.id,
+          value: m.moistureLevel,
+        })),
+        photos: (inspection.photos ?? []).map((p) => ({
+          id: p.id,
+          url: "",
+        })),
+      });
+      if (!validation.ok) {
+        const status = validation.reason === "INVALID_STATUS" ? 409 : 422;
+        return NextResponse.json(
+          { error: validation.reason, detail: validation.detail },
+          { status },
         );
       }
 
