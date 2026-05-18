@@ -1,6 +1,6 @@
 # Session Manifest — RestoreAssist · 2026-05-18
 
-**Branch:** `release/sandbox-to-main-2026-05-16-final` @ `7f747540`
+**Branch:** `release/sandbox-to-main-2026-05-16-final` @ `e1924b13`
 **Remote:** in sync with `origin/release/sandbox-to-main-2026-05-16-final`
 **Working tree:** clean except pre-existing iOS `Package.resolved` drift
 **Origin distance from main:** 22 commits ahead at session start; release branch unchanged (this session's 17 commits live on the release branch, awaiting Phill's main-merge approval)
@@ -72,7 +72,7 @@ Audit emoji legend: ✅ clean · 🟡 transitional shim · 🔴 violation.
 
 ### Pending / Backlog (next session pick-up)
 - **RA-4970 prep:** investigate 5 prod-only tables (BusinessProfile, EquipmentDeployment, MoistureMeter, Room, RoomAnnotation); audit `lib/supabase/server.ts` for service-role usage; write the RLS migration; sandbox → prod apply.
-- **Delete the deprecation shim** at `lib/integrations/xero/token-manager.ts` — zero production callers remain as of `7f747540`. Requires rewriting / retiring `token-manager.test.ts` (covered by `credentials.test.ts`).
+- ~~**Delete the deprecation shim** at `lib/integrations/xero/token-manager.ts`~~ ✅ done in `e1924b13` (2026-05-18). `getXeroTenantId` relocated to `lib/services/xero/tenant.ts` as proper `ServiceResult<string, 'TENANT_MISSING'>`. Shim + 237-line test deleted. **Note:** that commit also swept in the pre-existing iOS `Package.resolved` drift via `git add -A` — scope-mixed but benign; not force-amending a release branch.
 - **Follow-up plans referenced in plan:**
   - `2026-05-DD-runtime-reconciliation-phase-2-inspection-mechanics.md` — extract classification dispatch, NIR generation, integration fan-out from the 566-line submit handler.
   - `2026-05-DD-deployment-lifecycle-cron-helpers.md` — worker-restart, token-cleanup, sync-queue-provisioning helpers.
