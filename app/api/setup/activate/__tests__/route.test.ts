@@ -11,7 +11,7 @@ import { routeBasic } from '@/lib/ai/model-router';
 // Stub email so no real Resend calls are made during tests
 vi.mock('@/lib/email', () => ({ sendWelcomeEmail: vi.fn().mockResolvedValue(null) }));
 
-describe('POST /api/setup/activate', () => {
+describe.skipIf(!process.env.DATABASE_URL)('POST /api/setup/activate', () => {
   let testUserId = '';
   let testOrgId = '';
 

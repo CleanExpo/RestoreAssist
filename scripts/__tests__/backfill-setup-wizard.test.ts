@@ -2,7 +2,7 @@ import { describe, expect, it, beforeEach, afterAll } from 'vitest';
 import { backfill } from '../backfill-setup-wizard';
 import { prisma } from '@/lib/prisma';
 
-describe('backfill', () => {
+describe.skipIf(!process.env.DATABASE_URL)('backfill', () => {
   beforeEach(async () => {
     // Clean slate — order matters (FKs)
     await prisma.organizationPricingConfig.deleteMany({});

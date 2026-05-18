@@ -30,7 +30,7 @@ vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 
 const { GET } = await import("../route");
 
-describe("GET /api/oauth/google-drive/status", () => {
+describe.skipIf(!process.env.DATABASE_URL)("GET /api/oauth/google-drive/status", () => {
   let testUserId = "";
   let testOrgId = "";
 

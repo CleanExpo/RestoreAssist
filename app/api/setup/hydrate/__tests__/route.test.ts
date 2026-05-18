@@ -43,7 +43,7 @@ function makeReq(body: unknown): NextRequest {
 
 // ── Fixtures ───────────────────────────────────────────────────────────────────
 
-describe('POST /api/setup/hydrate', () => {
+describe.skipIf(!process.env.DATABASE_URL)('POST /api/setup/hydrate', () => {
   let testUserId = '';
   let testOrgId = '';
 

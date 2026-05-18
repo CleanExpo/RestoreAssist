@@ -7,7 +7,7 @@ vi.mock('next-auth', () => ({
 }));
 import { getServerSession } from 'next-auth';
 
-describe('GET /api/setup/state', () => {
+describe.skipIf(!process.env.DATABASE_URL)('GET /api/setup/state', () => {
   let testUserId = '';
   let testOrgId = '';
 
@@ -74,7 +74,7 @@ describe('GET /api/setup/state', () => {
   });
 });
 
-describe('PATCH /api/setup/state', () => {
+describe.skipIf(!process.env.DATABASE_URL)('PATCH /api/setup/state', () => {
   let testUserId = '';
   let testOrgId = '';
 

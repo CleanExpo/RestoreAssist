@@ -37,7 +37,7 @@ function makeReq() {
   return new Request("http://localhost:3000/api/oauth/google-drive/start");
 }
 
-describe("GET /api/oauth/google-drive/start", () => {
+describe.skipIf(!process.env.DATABASE_URL)("GET /api/oauth/google-drive/start", () => {
   let testUserId = "";
   let testOrgId = "";
 
