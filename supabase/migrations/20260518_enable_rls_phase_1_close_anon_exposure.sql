@@ -9,6 +9,12 @@
 -- Prisma connects via DATABASE_URL as the postgres superuser
 -- (BYPASSRLS by definition).
 --
+-- Environment-tolerant: each table operation skips silently if the
+-- table does not exist in the target database. This lets the same
+-- migration apply cleanly against sandbox / dev / prod, where the
+-- table set can differ (prod-only tables like ScrapingProviderConnection
+-- raise "relation does not exist" on narrower schemas).
+--
 -- Bucketing rationale: .claude/aggregation/supabase/rls-categorisation.md
 --
 -- Shape:
@@ -19,231 +25,225 @@
 --     if a future feature needs it.
 --   - service-role + postgres roles bypass and need no policies.
 --
--- Idempotent. Re-running this migration is a no-op (DROP POLICY IF
--- EXISTS guards the public-ref policies; ENABLE ROW LEVEL SECURITY is
--- already idempotent in PostgreSQL).
+-- Idempotent. Re-running this migration is a no-op.
 
 BEGIN;
 
--- ─── Enable RLS on all 119 tables ──────────────────────────────────────────
+-- ─── Helper: enable RLS if the table exists ────────────────────────────────
+
+CREATE OR REPLACE FUNCTION pg_temp.enable_rls_if_exists(tbl text) RETURNS void AS $$
+BEGIN
+  IF to_regclass('public.' || quote_ident(tbl)) IS NOT NULL THEN
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', tbl);
+  ELSE
+    RAISE NOTICE 'RA-4970: skipped ENABLE RLS on missing table %', tbl;
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ─── Helper: create anon-SELECT policy if the table exists ─────────────────
+
+CREATE OR REPLACE FUNCTION pg_temp.create_anon_select_if_exists(tbl text) RETURNS void AS $$
+BEGIN
+  IF to_regclass('public.' || quote_ident(tbl)) IS NOT NULL THEN
+    EXECUTE format('DROP POLICY IF EXISTS "anon_select" ON public.%I', tbl);
+    EXECUTE format(
+      'CREATE POLICY "anon_select" ON public.%I FOR SELECT TO anon, authenticated USING (true)',
+      tbl
+    );
+  ELSE
+    RAISE NOTICE 'RA-4970: skipped anon_select policy on missing table %', tbl;
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ─── Enable RLS on all 119 tables (skips silently if missing) ──────────────
 
 -- workspace (2)
-ALTER TABLE "AssessmentGeneration" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "ScrapingProviderConnection" ENABLE ROW LEVEL SECURITY;
+SELECT pg_temp.enable_rls_if_exists('AssessmentGeneration');
+SELECT pg_temp.enable_rls_if_exists('ScrapingProviderConnection');
 
 -- organization (3)
-ALTER TABLE "OrganizationPricingConfig" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "User" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "UserInvite" ENABLE ROW LEVEL SECURITY;
+SELECT pg_temp.enable_rls_if_exists('OrganizationPricingConfig');
+SELECT pg_temp.enable_rls_if_exists('User');
+SELECT pg_temp.enable_rls_if_exists('UserInvite');
 
--- user (24 — incl. BusinessProfile, MoistureMeter resolved from investigate-first)
-ALTER TABLE "Account" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "AddonPurchase" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "BusinessProfile" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "ChatMessage" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "ClaimAnalysisBatch" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "CompanyPricingConfig" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "ContractorProfile" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "CreditNote" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "DeviceToken" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "Estimate" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "Feedback" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "InvoicePayment" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "MoistureMeter" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "Notification" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "PortalInvitation" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "RecurringInvoice" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "RestorationDocument" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "Scope" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "Session" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "StandardTemplate" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "SubscriptionEvent" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "UserReleaseSeen" ENABLE ROW LEVEL SECURITY;
+-- user (24)
+SELECT pg_temp.enable_rls_if_exists('Account');
+SELECT pg_temp.enable_rls_if_exists('AddonPurchase');
+SELECT pg_temp.enable_rls_if_exists('BusinessProfile');
+SELECT pg_temp.enable_rls_if_exists('ChatMessage');
+SELECT pg_temp.enable_rls_if_exists('ClaimAnalysisBatch');
+SELECT pg_temp.enable_rls_if_exists('CompanyPricingConfig');
+SELECT pg_temp.enable_rls_if_exists('ContractorProfile');
+SELECT pg_temp.enable_rls_if_exists('CreditNote');
+SELECT pg_temp.enable_rls_if_exists('DeviceToken');
+SELECT pg_temp.enable_rls_if_exists('Estimate');
+SELECT pg_temp.enable_rls_if_exists('Feedback');
+SELECT pg_temp.enable_rls_if_exists('InvoicePayment');
+SELECT pg_temp.enable_rls_if_exists('MoistureMeter');
+SELECT pg_temp.enable_rls_if_exists('Notification');
+SELECT pg_temp.enable_rls_if_exists('PortalInvitation');
+SELECT pg_temp.enable_rls_if_exists('RecurringInvoice');
+SELECT pg_temp.enable_rls_if_exists('RestorationDocument');
+SELECT pg_temp.enable_rls_if_exists('Scope');
+SELECT pg_temp.enable_rls_if_exists('Session');
+SELECT pg_temp.enable_rls_if_exists('StandardTemplate');
+SELECT pg_temp.enable_rls_if_exists('SubscriptionEvent');
+SELECT pg_temp.enable_rls_if_exists('UserReleaseSeen');
 
--- via-inspection (20 — incl. Room resolved from investigate-first)
-ALTER TABLE "AffectedArea" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "AustralianComplianceRecord" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "BiohazardAssessment" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "CarpetRestorationAssessment" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "CircuitAssessment" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "Classification" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "ContentsPackOutItem" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "CostEstimate" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "DryingGoalRecord" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "EnvironmentalData" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "FireSmokeDamageAssessment" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "HVACAssessment" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "InspectionPhoto" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "MoistureReading" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "MouldRemediationAssessment" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "PilotObservation" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "PsychrometricReading" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "Room" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "ScopeItem" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "StormDamageAssessment" ENABLE ROW LEVEL SECURITY;
+-- via-inspection (20)
+SELECT pg_temp.enable_rls_if_exists('AffectedArea');
+SELECT pg_temp.enable_rls_if_exists('AustralianComplianceRecord');
+SELECT pg_temp.enable_rls_if_exists('BiohazardAssessment');
+SELECT pg_temp.enable_rls_if_exists('CarpetRestorationAssessment');
+SELECT pg_temp.enable_rls_if_exists('CircuitAssessment');
+SELECT pg_temp.enable_rls_if_exists('Classification');
+SELECT pg_temp.enable_rls_if_exists('ContentsPackOutItem');
+SELECT pg_temp.enable_rls_if_exists('CostEstimate');
+SELECT pg_temp.enable_rls_if_exists('DryingGoalRecord');
+SELECT pg_temp.enable_rls_if_exists('EnvironmentalData');
+SELECT pg_temp.enable_rls_if_exists('FireSmokeDamageAssessment');
+SELECT pg_temp.enable_rls_if_exists('HVACAssessment');
+SELECT pg_temp.enable_rls_if_exists('InspectionPhoto');
+SELECT pg_temp.enable_rls_if_exists('MoistureReading');
+SELECT pg_temp.enable_rls_if_exists('MouldRemediationAssessment');
+SELECT pg_temp.enable_rls_if_exists('PilotObservation');
+SELECT pg_temp.enable_rls_if_exists('PsychrometricReading');
+SELECT pg_temp.enable_rls_if_exists('Room');
+SELECT pg_temp.enable_rls_if_exists('ScopeItem');
+SELECT pg_temp.enable_rls_if_exists('StormDamageAssessment');
 
--- via-report (4 — incl. EquipmentDeployment resolved from investigate-first)
-ALTER TABLE "AuthorityFormInstance" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "ContractorReview" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "EquipmentDeployment" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "ReportApproval" ENABLE ROW LEVEL SECURITY;
+-- via-report (4)
+SELECT pg_temp.enable_rls_if_exists('AuthorityFormInstance');
+SELECT pg_temp.enable_rls_if_exists('ContractorReview');
+SELECT pg_temp.enable_rls_if_exists('EquipmentDeployment');
+SELECT pg_temp.enable_rls_if_exists('ReportApproval');
 
 -- via-client (2)
-ALTER TABLE "ClientPortalAccount" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "ClientUser" ENABLE ROW LEVEL SECURITY;
+SELECT pg_temp.enable_rls_if_exists('ClientPortalAccount');
+SELECT pg_temp.enable_rls_if_exists('ClientUser');
 
 -- via-invoice (4)
-ALTER TABLE "InvoiceEmail" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "InvoiceLineItem" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "InvoicePaymentAllocation" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "PaymentReminder" ENABLE ROW LEVEL SECURITY;
+SELECT pg_temp.enable_rls_if_exists('InvoiceEmail');
+SELECT pg_temp.enable_rls_if_exists('InvoiceLineItem');
+SELECT pg_temp.enable_rls_if_exists('InvoicePaymentAllocation');
+SELECT pg_temp.enable_rls_if_exists('PaymentReminder');
 
 -- via-estimate (3)
-ALTER TABLE "EstimateLineItem" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "EstimateVariation" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "EstimateVersion" ENABLE ROW LEVEL SECURITY;
+SELECT pg_temp.enable_rls_if_exists('EstimateLineItem');
+SELECT pg_temp.enable_rls_if_exists('EstimateVariation');
+SELECT pg_temp.enable_rls_if_exists('EstimateVersion');
 
 -- via-integration (4)
-ALTER TABLE "ExternalClient" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "ExternalJob" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "IntegrationSyncLog" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "XeroAccountCodeMapping" ENABLE ROW LEVEL SECURITY;
+SELECT pg_temp.enable_rls_if_exists('ExternalClient');
+SELECT pg_temp.enable_rls_if_exists('ExternalJob');
+SELECT pg_temp.enable_rls_if_exists('IntegrationSyncLog');
+SELECT pg_temp.enable_rls_if_exists('XeroAccountCodeMapping');
 
 -- via-credit-note (1)
-ALTER TABLE "CreditNoteLineItem" ENABLE ROW LEVEL SECURITY;
+SELECT pg_temp.enable_rls_if_exists('CreditNoteLineItem');
 
 -- via-claim-analysis-batch (2)
-ALTER TABLE "ClaimAnalysis" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "MissingElement" ENABLE ROW LEVEL SECURITY;
+SELECT pg_temp.enable_rls_if_exists('ClaimAnalysis');
+SELECT pg_temp.enable_rls_if_exists('MissingElement');
 
 -- via-contractor-profile (2)
-ALTER TABLE "ContractorCertification" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "ContractorServiceArea" ENABLE ROW LEVEL SECURITY;
+SELECT pg_temp.enable_rls_if_exists('ContractorCertification');
+SELECT pg_temp.enable_rls_if_exists('ContractorServiceArea');
 
 -- via-cost-library (1)
-ALTER TABLE "CostItem" ENABLE ROW LEVEL SECURITY;
+SELECT pg_temp.enable_rls_if_exists('CostItem');
 
 -- via-authority-form-instance (1)
-ALTER TABLE "AuthorityFormSignature" ENABLE ROW LEVEL SECURITY;
+SELECT pg_temp.enable_rls_if_exists('AuthorityFormSignature');
 
--- via-room (1 — RoomAnnotation chained Room → Inspection)
-ALTER TABLE "RoomAnnotation" ENABLE ROW LEVEL SECURITY;
+-- via-room → Inspection (1)
+SELECT pg_temp.enable_rls_if_exists('RoomAnnotation');
 
--- public-ref (12) — RLS-enabled AND given an anon-SELECT policy
-ALTER TABLE "AbnLookupCache" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "AppRelease" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "AuthorityFormTemplate" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "BuildingCode" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "Citation" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "CostDatabase" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "IicrcChunk" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "InsurancePolicyRequirement" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "RegulatoryDocument" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "RegulatorySection" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "ScopePricingDatabase" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "WaterDamageClassification" ENABLE ROW LEVEL SECURITY;
+-- public-ref (12) — RLS-enabled, with anon_select policy created below
+SELECT pg_temp.enable_rls_if_exists('AbnLookupCache');
+SELECT pg_temp.enable_rls_if_exists('AppRelease');
+SELECT pg_temp.enable_rls_if_exists('AuthorityFormTemplate');
+SELECT pg_temp.enable_rls_if_exists('BuildingCode');
+SELECT pg_temp.enable_rls_if_exists('Citation');
+SELECT pg_temp.enable_rls_if_exists('CostDatabase');
+SELECT pg_temp.enable_rls_if_exists('IicrcChunk');
+SELECT pg_temp.enable_rls_if_exists('InsurancePolicyRequirement');
+SELECT pg_temp.enable_rls_if_exists('RegulatoryDocument');
+SELECT pg_temp.enable_rls_if_exists('RegulatorySection');
+SELECT pg_temp.enable_rls_if_exists('ScopePricingDatabase');
+SELECT pg_temp.enable_rls_if_exists('WaterDamageClassification');
 
 -- service-only (34)
-ALTER TABLE "AgentDefinition" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "AgentTask" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "AgentTaskLog" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "AgentWorkflow" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "AscoraIntegration" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "AscoraJob" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "AscoraLineItem" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "AscoraNote" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "AttestationConsentToken" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "AuditLog" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "ContentAnalytics" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "ContentJob" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "ContentPost" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "CronJobRun" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "DrNrpgIntegration" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "DrNrpgJobSync" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "DrNrpgWebhookLog" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "EvaluationRun" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "GateCheck" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "HydrationJob" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "InvoiceAuditLog" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "OAuthHandoffToken" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "OverrideGovernanceReport" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "ProgressTelemetryEvent" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "PromptVariant" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "PropertyLookup" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "ScheduledEmail" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "SecurityEvent" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "StorageMirrorJob" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "StripeWebhookEvent" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "WebhookEvent" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "_prisma_migrations" ENABLE ROW LEVEL SECURITY;
--- PasswordResetToken + VerificationToken (service-only auth tables)
-ALTER TABLE "PasswordResetToken" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "VerificationToken" ENABLE ROW LEVEL SECURITY;
+SELECT pg_temp.enable_rls_if_exists('AgentDefinition');
+SELECT pg_temp.enable_rls_if_exists('AgentTask');
+SELECT pg_temp.enable_rls_if_exists('AgentTaskLog');
+SELECT pg_temp.enable_rls_if_exists('AgentWorkflow');
+SELECT pg_temp.enable_rls_if_exists('AscoraIntegration');
+SELECT pg_temp.enable_rls_if_exists('AscoraJob');
+SELECT pg_temp.enable_rls_if_exists('AscoraLineItem');
+SELECT pg_temp.enable_rls_if_exists('AscoraNote');
+SELECT pg_temp.enable_rls_if_exists('AttestationConsentToken');
+SELECT pg_temp.enable_rls_if_exists('AuditLog');
+SELECT pg_temp.enable_rls_if_exists('ContentAnalytics');
+SELECT pg_temp.enable_rls_if_exists('ContentJob');
+SELECT pg_temp.enable_rls_if_exists('ContentPost');
+SELECT pg_temp.enable_rls_if_exists('CronJobRun');
+SELECT pg_temp.enable_rls_if_exists('DrNrpgIntegration');
+SELECT pg_temp.enable_rls_if_exists('DrNrpgJobSync');
+SELECT pg_temp.enable_rls_if_exists('DrNrpgWebhookLog');
+SELECT pg_temp.enable_rls_if_exists('EvaluationRun');
+SELECT pg_temp.enable_rls_if_exists('GateCheck');
+SELECT pg_temp.enable_rls_if_exists('HydrationJob');
+SELECT pg_temp.enable_rls_if_exists('InvoiceAuditLog');
+SELECT pg_temp.enable_rls_if_exists('OAuthHandoffToken');
+SELECT pg_temp.enable_rls_if_exists('OverrideGovernanceReport');
+SELECT pg_temp.enable_rls_if_exists('ProgressTelemetryEvent');
+SELECT pg_temp.enable_rls_if_exists('PromptVariant');
+SELECT pg_temp.enable_rls_if_exists('PropertyLookup');
+SELECT pg_temp.enable_rls_if_exists('ScheduledEmail');
+SELECT pg_temp.enable_rls_if_exists('SecurityEvent');
+SELECT pg_temp.enable_rls_if_exists('StorageMirrorJob');
+SELECT pg_temp.enable_rls_if_exists('StripeWebhookEvent');
+SELECT pg_temp.enable_rls_if_exists('WebhookEvent');
+SELECT pg_temp.enable_rls_if_exists('_prisma_migrations');
+SELECT pg_temp.enable_rls_if_exists('PasswordResetToken');
+SELECT pg_temp.enable_rls_if_exists('VerificationToken');
 
 -- special: Organization (1)
-ALTER TABLE "Organization" ENABLE ROW LEVEL SECURITY;
+SELECT pg_temp.enable_rls_if_exists('Organization');
 
 -- ─── Public-ref anon-SELECT policies (12) ──────────────────────────────────
--- These tables are read-only public reference data. The anon role gets
--- SELECT-only access; INSERT/UPDATE/DELETE require service-role.
 
-DROP POLICY IF EXISTS "anon_select" ON "AbnLookupCache";
-CREATE POLICY "anon_select" ON "AbnLookupCache"
-  FOR SELECT TO anon, authenticated USING (true);
-
-DROP POLICY IF EXISTS "anon_select" ON "AppRelease";
-CREATE POLICY "anon_select" ON "AppRelease"
-  FOR SELECT TO anon, authenticated USING (true);
-
-DROP POLICY IF EXISTS "anon_select" ON "AuthorityFormTemplate";
-CREATE POLICY "anon_select" ON "AuthorityFormTemplate"
-  FOR SELECT TO anon, authenticated USING (true);
-
-DROP POLICY IF EXISTS "anon_select" ON "BuildingCode";
-CREATE POLICY "anon_select" ON "BuildingCode"
-  FOR SELECT TO anon, authenticated USING (true);
-
-DROP POLICY IF EXISTS "anon_select" ON "Citation";
-CREATE POLICY "anon_select" ON "Citation"
-  FOR SELECT TO anon, authenticated USING (true);
-
-DROP POLICY IF EXISTS "anon_select" ON "CostDatabase";
-CREATE POLICY "anon_select" ON "CostDatabase"
-  FOR SELECT TO anon, authenticated USING (true);
-
-DROP POLICY IF EXISTS "anon_select" ON "IicrcChunk";
-CREATE POLICY "anon_select" ON "IicrcChunk"
-  FOR SELECT TO anon, authenticated USING (true);
-
-DROP POLICY IF EXISTS "anon_select" ON "InsurancePolicyRequirement";
-CREATE POLICY "anon_select" ON "InsurancePolicyRequirement"
-  FOR SELECT TO anon, authenticated USING (true);
-
-DROP POLICY IF EXISTS "anon_select" ON "RegulatoryDocument";
-CREATE POLICY "anon_select" ON "RegulatoryDocument"
-  FOR SELECT TO anon, authenticated USING (true);
-
-DROP POLICY IF EXISTS "anon_select" ON "RegulatorySection";
-CREATE POLICY "anon_select" ON "RegulatorySection"
-  FOR SELECT TO anon, authenticated USING (true);
-
-DROP POLICY IF EXISTS "anon_select" ON "ScopePricingDatabase";
-CREATE POLICY "anon_select" ON "ScopePricingDatabase"
-  FOR SELECT TO anon, authenticated USING (true);
-
-DROP POLICY IF EXISTS "anon_select" ON "WaterDamageClassification";
-CREATE POLICY "anon_select" ON "WaterDamageClassification"
-  FOR SELECT TO anon, authenticated USING (true);
+SELECT pg_temp.create_anon_select_if_exists('AbnLookupCache');
+SELECT pg_temp.create_anon_select_if_exists('AppRelease');
+SELECT pg_temp.create_anon_select_if_exists('AuthorityFormTemplate');
+SELECT pg_temp.create_anon_select_if_exists('BuildingCode');
+SELECT pg_temp.create_anon_select_if_exists('Citation');
+SELECT pg_temp.create_anon_select_if_exists('CostDatabase');
+SELECT pg_temp.create_anon_select_if_exists('IicrcChunk');
+SELECT pg_temp.create_anon_select_if_exists('InsurancePolicyRequirement');
+SELECT pg_temp.create_anon_select_if_exists('RegulatoryDocument');
+SELECT pg_temp.create_anon_select_if_exists('RegulatorySection');
+SELECT pg_temp.create_anon_select_if_exists('ScopePricingDatabase');
+SELECT pg_temp.create_anon_select_if_exists('WaterDamageClassification');
 
 COMMIT;
 
 -- Verification (run AFTER migration applies):
 --
 --   SELECT tablename FROM pg_tables WHERE schemaname='public' AND rowsecurity=false;
---   -- Expected: empty result (every public.* table has RLS enabled).
+--   -- Expected against prod: empty result (all 119 public.* tables have RLS enabled).
+--   -- Against narrower envs: empty result if those envs' tables are a subset of the 119.
 --
 --   SELECT count(*) FROM pg_policies WHERE schemaname='public' AND policyname='anon_select';
---   -- Expected: 12 (one per public-ref table).
+--   -- Expected: 12 against any env where the public-ref tables exist.
 --
 --   -- From the Supabase advisor:
 --   -- The "rls_disabled" critical advisory should now report 0 tables.
+--
+-- Skip notices:
+--   The migration emits a `NOTICE` line per missing table. Inspect the
+--   notices output to confirm only expected-missing tables were skipped
+--   (e.g. prod-only tables when applying to a stripped-down sandbox).
