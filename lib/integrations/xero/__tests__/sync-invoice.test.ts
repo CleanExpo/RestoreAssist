@@ -10,8 +10,8 @@ import type { Integration } from "@prisma/client";
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
-vi.mock("../../xero/token-manager", () => ({
-  getValidXeroToken: vi.fn(),
+vi.mock("@/lib/services/xero/credentials", () => ({
+  getValidXeroAccessToken: vi.fn(),
 }));
 
 vi.mock("../../gst-rules", () => ({
