@@ -17,9 +17,32 @@ gitleaks detect --no-banner --redact --exit-code 0 \
 
 Result (2026-05-18): **127 findings.**
 
-## Findings breakdown
+## Findings breakdown (history scan, 127 total)
 
-By rule:
+**Severity tiers — addressing "could be 110 cosmetic + 17 real":**
+
+| Tier | Count | Rule(s) | Likely classification |
+|---|---|---|---|
+| **HIGH-RISK** (real-secret-shaped) | **6** | `stripe-access-token` (2), `private-key` (2), `gcp-api-key` (2) | Must verify rotation status of each — these regex tiers do not fire on cosmetic strings |
+| **MEDIUM-RISK** (token-shaped) | 6 | `jwt` (6) | Mostly test fixtures, but each needs confirmation |
+| **LOW-RISK** (broad regex) | 88 | `generic-api-key` | High false-positive rate in markdown docs (placeholder strings, example curl) — triage per-occurrence |
+| **DOC EXAMPLE** | 27 | `curl-auth-header` | curl examples in deployment/setup docs — overwhelmingly cosmetic |
+
+The **6 HIGH-RISK findings alone** justify DEFERRED status independent of the LOW-RISK count. Even if every `generic-api-key`/`curl-auth-header` finding is confirmed cosmetic, 6 categorically-real-shaped findings require explicit rotation verification before C2 can claim PASS.
+
+## Working-tree scan (separately verified, 2026-05-18)
+
+`gitleaks detect --no-banner --redact --no-git` returned **877 findings**, but `git check-ignore` confirms every high-volume hit is in a gitignored local-secret file:
+
+| Source | Tracked in git? |
+|---|---|
+| `.env.local`, `.env.vercel-prod`, `.env.asc`, `.env.prod2`, `.env.production.local` | NO — matched by `.gitignore:21:.env*` and `.gitignore:95:.env*.local` |
+| `.claude/worktrees/agent-*/.env.local` | NO — agent scratch dirs are gitignored |
+| `.next/` build output | NO — gitignored build artifacts |
+
+Only `.env.example` and `.env.test.local.example` are tracked, and those are template files with placeholder values by design. So the high worktree count is expected/correct behaviour; the **127 history findings remain the only actual concern.**
+
+## Rule breakdown (history scan)
 
 | Count | Rule |
 |---|---|
