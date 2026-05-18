@@ -21,6 +21,7 @@ export function FeatureHealthCard({ postActivation = false }: { postActivation?:
 
   useEffect(() => {
     let cancelled = false;
+    let intervalId: number | null = null;
 
     const fetchChecks = async () => {
       try {
@@ -28,16 +29,34 @@ export function FeatureHealthCard({ postActivation = false }: { postActivation?:
         if (!r.ok) return;
         const j = await r.json();
         if (cancelled) return;
-        setChecks(Array.isArray(j?.data?.checks) ? j.data.checks : []);
+        const next = Array.isArray(j?.data?.checks) ? j.data.checks : [];
+        setChecks(next);
         setLoaded(true);
+
+        // RA-4990 — stop polling once everything's green. /api/setup/checks
+        // fires ~5 Prisma queries per call; on connection_limit=1 serverless
+        // pools, the runaway 5s interval keeps the pool perpetually busy and
+        // exhausts neighbours (OAuth-callback writes, status reads, ABR jobs).
+        // Once the wizard is in steady-state green, no more polling is needed
+        // — the user clicks Activate to leave the page, which clears the
+        // interval via the cleanup function below.
+        const allGreen =
+          next.length > 0 && next.every((c: CheckResult) => c.status === 'green');
+        if (allGreen && intervalId !== null) {
+          window.clearInterval(intervalId);
+          intervalId = null;
+        }
       } catch (err) {
         console.error('[setup] checks fetch failed:', err);
       }
     };
 
     void fetchChecks();
-    const id = window.setInterval(() => void fetchChecks(), 5000);
-    return () => { cancelled = true; window.clearInterval(id); };
+    intervalId = window.setInterval(() => void fetchChecks(), 5000);
+    return () => {
+      cancelled = true;
+      if (intervalId !== null) window.clearInterval(intervalId);
+    };
   }, []);
 
   const reds = checks.filter((c) => c.status === 'red');
