@@ -136,7 +136,7 @@ export async function POST() {
       sendWelcomeEmail({
         recipientEmail: user.email,
         recipientName: user.name ?? user.email,
-        loginUrl: `${process.env.NEXTAUTH_URL ?? 'https://app.restoreassist.com.au'}/dashboard`,
+        loginUrl: `${process.env.NEXTAUTH_URL ?? 'https://restoreassist.app'}/dashboard`,
         trialDays: TRIAL_DAYS,
         trialCredits: 10,
       }),
