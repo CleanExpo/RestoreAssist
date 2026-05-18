@@ -74,7 +74,7 @@
     "@capacitor/splash-screen": "^8.0.1",
     "@capacitor/status-bar": "^8.0.2",
     "@capgo/capacitor-social-login": "^8.3.22",
-    "@google/genai": "^2.3.0",
+    "@google/genai": "^2.4.0",
     "@google/generative-ai": "^0.24.1",
     "@hookform/resolvers": "^5.2.2",
     "@next/bundle-analyzer": "^16.2.6",
