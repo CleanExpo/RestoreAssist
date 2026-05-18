@@ -21,6 +21,10 @@ import type { MessageCreateParams } from "@anthropic-ai/sdk/resources/messages";
 import type { MessageStreamParams } from "@anthropic-ai/sdk/resources/messages/messages";
 import type { MessageStream } from "@anthropic-ai/sdk/lib/MessageStream";
 import { getAnthropicApiKey } from "@/lib/ai-provider";
+import {
+  tryClaudeModels,
+  type ModelConfig,
+} from "@/lib/anthropic-models";
 import { ok, fail, type ServiceResult } from "@/lib/services/_shared/result";
 
 export type AnthropicReason =
@@ -77,6 +81,102 @@ export async function callAnthropic(
     if (err instanceof Anthropic.APIError && err.status === 529) {
       return fail("MODEL_OVERLOADED", {
         detail: err.message,
+        retryAfterMs: 10000,
+        cause: err,
+      });
+    }
+    return fail("API_ERROR", {
+      detail: err instanceof Error ? err.message : String(err),
+      cause: err,
+    });
+  }
+}
+
+export interface AnthropicFallbackRequest {
+  userId: string;
+  /** Optional platform-key override. Same semantics as callAnthropic. */
+  apiKey?: string;
+  /** Same shape `tryClaudeModels` accepts — system, messages, max_tokens,
+   *  and optional sampling params. The wrapper does not constrain it
+   *  further so existing call sites can migrate without re-shaping. */
+  request: {
+    system?: MessageCreateParams["system"];
+    messages: MessageCreateParams["messages"];
+    max_tokens?: number;
+    temperature?: number;
+    top_p?: number;
+    top_k?: number;
+  };
+  /** Override the default model chain. Omit to use `getClaudeModels()`. */
+  models?: ModelConfig[];
+  /** Optional agent-name tag for cache-metrics logging. */
+  agentName?: string;
+  /** Enable cache-metrics extraction on successful response. */
+  enableCacheMetrics?: boolean;
+}
+
+/**
+ * Multi-model-fallback sibling of callAnthropic. Wraps `tryClaudeModels`
+ * with the same ServiceResult envelope so services that need fallback
+ * stop calling `tryClaudeModels` directly and instead consume this gateway.
+ *
+ * Error mapping mirrors callAnthropic:
+ *   - status 429 → RATE_LIMITED
+ *   - status 529 → MODEL_OVERLOADED
+ *   - all other throws (including the "API Usage Limit" / "credit balance"
+ *     pre-formatted errors from tryClaudeModels) → API_ERROR
+ *
+ * @see .claude/STANDARDS.md "Multi-model fallback routes"
+ */
+export async function callAnthropicWithFallback(
+  args: AnthropicFallbackRequest,
+): Promise<ServiceResult<Anthropic.Message, AnthropicReason>> {
+  let apiKey: string;
+  if (args.apiKey) {
+    apiKey = args.apiKey;
+  } else {
+    try {
+      apiKey = await getAnthropicApiKey(args.userId);
+    } catch (err) {
+      return fail("KEY_MISSING", {
+        detail: err instanceof Error ? err.message : String(err),
+        cause: err,
+      });
+    }
+  }
+
+  if (!apiKey) {
+    return fail("KEY_MISSING", {
+      detail: `No Anthropic key resolved for user ${args.userId}`,
+    });
+  }
+
+  const client = new Anthropic({ apiKey });
+
+  try {
+    const message = await tryClaudeModels(
+      client,
+      args.request,
+      args.models,
+      {
+        agentName: args.agentName,
+        enableCacheMetrics: args.enableCacheMetrics,
+      },
+    );
+    return ok(message as Anthropic.Message);
+  } catch (err) {
+    const status =
+      err instanceof Anthropic.APIError ? err.status : (err as any)?.status;
+    if (status === 429) {
+      return fail("RATE_LIMITED", {
+        detail: err instanceof Error ? err.message : String(err),
+        retryAfterMs: 30000,
+        cause: err,
+      });
+    }
+    if (status === 529) {
+      return fail("MODEL_OVERLOADED", {
+        detail: err instanceof Error ? err.message : String(err),
         retryAfterMs: 10000,
         cause: err,
       });
