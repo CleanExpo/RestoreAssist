@@ -143,6 +143,19 @@ Canonical examples in this repo:
 
 When extracting from an existing fat action, use TDD per the skill recipe. One concern extracted = one commit.
 
+### AI Service Pattern
+
+Routes that previously imported `@anthropic-ai/sdk` directly now go through `lib/services/ai/<task>.ts`, which composes `lib/services/ai/anthropic-gateway.ts`. Route → domain-task-service → gateway → SDK. Each layer returns `ServiceResult<T, Reason>`. Reasons compose: a route translates the union `AnthropicReason | <task-specific-reasons>` into HTTP status codes.
+
+Pattern boundaries:
+- **`lib/services/ai/anthropic-gateway.ts`** owns SDK instantiation + key resolution + retry envelope + error → reason mapping. Accepts either `userId` (uses `getAnthropicApiKey(userId)`) or an explicit `apiKey` override (platform flows).
+- **`lib/services/ai/<task>.ts`** owns prompt construction + response parsing + task-specific pre-flight validation.
+- **Routes** own auth, ownership, audit, persistence, HTTP error mapping.
+
+Canonical examples: `lib/services/ai/classify-inspection.ts`, `lib/services/ai/group-readings.ts`, `lib/services/ai/draft-support-ticket.ts`.
+
+When extracting a new AI route, copy the recipe from any of those three modules — do not invent a new shape.
+
 ## Patterns to Avoid
 
 | Pattern                              | Why                                                       | Do instead                                         |

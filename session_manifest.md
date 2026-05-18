@@ -78,7 +78,14 @@ Audit emoji legend: ✅ clean · 🟡 transitional shim · 🔴 violation.
   - `2026-05-DD-deployment-lifecycle-cron-helpers.md` — worker-restart, token-cleanup, sync-queue-provisioning helpers.
   - `2026-05-DD-credential-services-multi-provider.md` — Ascora / MYOB / QuickBooks / SM8 / Stripe — same pattern as Xero.
 - **Wiki re-ingest:** Margot's 4,500-word report still lives only in the interaction record. Run `wiki-ingest` skill to persist into `~/2nd Brain/2nd Brain/Wiki/`.
-- **AI Services Extraction Wave-1 started.** Plan at `docs/superpowers/plans/2026-05-18-ai-services-extraction-wave.md` (5 tasks, 3 of 8 routes). Task 1 done in `df6c5857 → 6b004603`: `lib/services/ai/anthropic-gateway.ts` is live with `ServiceResult<Anthropic.Message, "KEY_MISSING" | "RATE_LIMITED" | "MODEL_OVERLOADED" | "API_ERROR">`; 6/6 tests green; both reviewers APPROVED. **Next session pick up Tasks 2-4:** migrate `app/api/inspections/[id]/classify/route.ts`, `app/api/inspections/[id]/generate-scope/route.ts`, `app/api/support/tickets/[id]/draft/route.ts` to compose the new gateway. Tasks 5-9 (remaining 5 routes) wait for wave-2 plan once wave-1 ships.
+- **AI Services Extraction Wave-1 SHIPPED.** Plan at `docs/superpowers/plans/2026-05-18-ai-services-extraction-wave.md`. All wave-1 tasks complete; 19/19 tests green across `lib/services/ai/`.
+  - **Task 1** (gateway foundation) — `df6c5857 → 6b004603`. `lib/services/ai/anthropic-gateway.ts` live with `ServiceResult<Anthropic.Message, AnthropicReason>`; extended in `74fd8ea6` with optional `apiKey` override for platform flows (7/7 tests).
+  - **Task 2** (classify) — `c3b71402 → 1eb8f006`. `lib/services/ai/classify-inspection.ts` + route migration (4/4 tests).
+  - **Task 3** (group-readings, substituted from generate-scope) — `8f257cbd → c7a71699 → 74df47e0`. Streaming-free batch route; same shape as classify (4/4 tests).
+  - **Task 4** (support-ticket draft) — `70212870 → 78aaf317 → 1d646846`. Platform-key flow via the new `apiKey` override (4/4 tests).
+  - **Task 5** (docs + manifest) — STANDARDS.md "AI Service Pattern" section added; this manifest updated.
+  - **Generate-scope DEFERRED to wave-2** — uses `messages.stream(...)`, requires a `callAnthropicStream` extension on the gateway. Out of scope for wave-1.
+  - **5 remaining unmigrated AI routes for wave-2:** `app/api/inspections/[id]/generate-scope/route.ts` (streaming), `app/api/vision/extract-reading/route.ts`, `app/api/inspections/[id]/sketches/import-from-image/route.ts`, `app/api/ai/auto-classify-photo/[photoId]/route.ts`, `app/api/support/tickets/route.ts`. (Webhooks `app/api/webhooks/github/route.ts` etc. are legitimate direct-SDK consumers; do not migrate.) Wave-2 plan: `2026-05-DD-ai-services-extraction-wave-2.md`.
 - **Stale aggregation snapshot:** `.claude/aggregation/sources/repo-state.md` still lists archived files at `.claude/` root. Regenerate next aggregation pull.
 - **Untracked decision:** `.agents/` + `.codex/` were committed in `d63d02a7` but appear to have been regenerated since by some hook. Decide gitignore-or-recommit.
 
