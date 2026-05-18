@@ -7,12 +7,13 @@
  * and verified server-side via checkBotId().
  *
  * Behaviour parity with the old Turnstile gate (RA-1286):
- *   - Production: bot signal → { ok: false, reason: "Bot detected" }
- *   - Dev / preview: BotID returns bypassed=true via its built-in dev gate
- *     (NODE_ENV !== "production"), so this returns { ok: true, disabled: true }
+ *   - Production (restoreassist.app): bot signal → { ok: false, reason: "Bot detected" }
+ *   - Sandbox (restoreassist-sandbox.vercel.app): bypassed — feeds the @smoke suite
+ *   - Dev / preview (NODE_ENV !== "production"): bypassed via BotID's built-in gate
  *
  * Docs: https://vercel.com/docs/vercel-botid
  */
+import { headers } from "next/headers";
 import { checkBotId } from "botid/server";
 
 export type BotIdResult =
@@ -20,20 +21,46 @@ export type BotIdResult =
   | { ok: false; reason: string };
 
 /**
+ * Hostnames that bypass the BotID gate. Sandbox host is explicit; we do
+ * NOT bypass on `restoreassist.app` (production) or any other host.
+ *
+ * RA-4986 — the bypass cascade tried in order:
+ *   1. `VERCEL_ENV=preview` (Vercel preview deploy, e.g. PR previews)
+ *   2. Request host is on SANDBOX_HOSTS (sandbox project deployments —
+ *      VERCEL_ENV=production there too, so the env check alone misses it)
+ *   3. Vercel BotID's own `verification.bypassed` (dev gate)
+ */
+const SANDBOX_HOSTS = new Set<string>([
+  "restoreassist-sandbox.vercel.app",
+]);
+
+async function isSandboxHost(): Promise<boolean> {
+  try {
+    const h = await headers();
+    const host = h.get("host") || h.get("x-forwarded-host") || "";
+    // Exact-match against the allowlist. Wildcard subdomain matches are
+    // intentionally NOT supported — preview-deploy URLs of the form
+    // `restoreassist-sandbox-<hash>-unite-group.vercel.app` are correctly
+    // handled by the VERCEL_ENV=preview branch below; only the canonical
+    // sandbox alias hits this branch.
+    return SANDBOX_HOSTS.has(host.toLowerCase());
+  } catch {
+    // headers() throws in non-request contexts (e.g. cron). Fall through.
+    return false;
+  }
+}
+
+/**
  * Verify the incoming request isn't a bot. Returns { ok: true } on success.
  * No token is passed in — BotID reads its own client-injected signal from
  * the request headers automatically.
- *
- * RA-4986 — Sandbox preview bypass. Vercel BotID's built-in dev bypass keys
- * off NODE_ENV !== "production", but Vercel always builds preview deployments
- * with NODE_ENV=production. So the documented bypass never fires on the
- * sandbox preview, and the @smoke suite ran red for 30+ runs. Explicit
- * VERCEL_ENV=preview check restores the bypass for sandbox without weakening
- * the production gate (VERCEL_ENV=production on the live deploy).
  */
 export async function verifyBotId(): Promise<BotIdResult> {
-  // RA-4986 — sandbox/preview bypass (see header comment for rationale)
+  // RA-4986 — sandbox/preview bypass cascade.
   if (process.env.VERCEL_ENV === "preview") {
+    return { ok: true, disabled: true };
+  }
+  if (await isSandboxHost()) {
     return { ok: true, disabled: true };
   }
   try {
