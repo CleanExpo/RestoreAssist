@@ -15,7 +15,7 @@ test.skip("no ABN → pre-trading mode (Continue without ABN flow)", async ({
   await page.getByLabel(/full name/i).fill("E2E No ABN");
   await page.getByLabel(/email/i).fill(email);
   await page.getByLabel(/^password$/i).fill(password);
-  await page.getByLabel(/confirm password/i).fill(password);
+  await page.getByLabel(/^confirm password$/i).fill(password);
   await page.getByRole("checkbox", { name: /i agree/i }).check();
   await page.getByRole("button", { name: /create account/i }).click();
 

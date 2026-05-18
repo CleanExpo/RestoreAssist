@@ -14,7 +14,7 @@ test.skip("skip-to-manual: small escape hatch flips all sections to manual", asy
   await page.getByLabel(/full name/i).fill("E2E Skip Manual");
   await page.getByLabel(/email/i).fill(email);
   await page.getByLabel(/^password$/i).fill(password);
-  await page.getByLabel(/confirm password/i).fill(password);
+  await page.getByLabel(/^confirm password$/i).fill(password);
   await page.getByRole("checkbox", { name: /i agree/i }).check();
   await page.getByRole("button", { name: /create account/i }).click();
 
