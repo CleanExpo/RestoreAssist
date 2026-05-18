@@ -12,6 +12,7 @@
  */
 
 import { test, expect } from "@playwright/test";
+import { generateValidAbn } from "./helpers/abn";
 
 test.describe("@smoke onboarding hotfix — Google Drive storage card", () => {
   test("connects via mocked OAuth and shows 'Connected as <email>'", async ({
@@ -87,7 +88,11 @@ test.describe("@smoke onboarding hotfix — Google Drive storage card", () => {
     }
 
     // 6. Submit a valid ABN so the wizard advances past Business Details.
-    await page.getByPlaceholder(/e\.g\. 53 004 085 616/i).fill("53004085616");
+    //    RA-4989 — generate a fresh valid ABN each run so the Organization.abn
+    //    UNIQUE constraint doesn't reject the second-and-later smoke
+    //    iterations (which otherwise crashed hydrate with P2002).
+    const syntheticAbn = generateValidAbn();
+    await page.getByPlaceholder(/e\.g\. 53 004 085 616/i).fill(syntheticAbn);
     await page.getByRole("button", { name: /start setup/i }).click();
 
     // 7. Click "Google Drive" on the StorageCard.
