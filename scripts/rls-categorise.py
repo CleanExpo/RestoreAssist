@@ -15,6 +15,11 @@ REPO = Path(__file__).resolve().parents[1]
 SCHEMA = REPO / "prisma" / "schema.prisma"
 OUT = REPO / ".claude" / "aggregation" / "supabase" / "rls-categorisation.md"
 
+# Anything below this marker in the output file is preserved across
+# re-runs of the script — used for hand-written bucket-resolution notes
+# that would otherwise be stomped on regeneration.
+SENTINEL = "<!-- BEGIN MANUAL REVIEW — content below is preserved by rls-categorise.py -->"
+
 # 119 tables from Supabase advisor (restoreassist-prod-2026, udooysjajglluvuxkijp)
 # Source: aggregation/supabase/state.md
 RLS_DISABLED = """
@@ -184,10 +189,29 @@ def main():
         "2. For each bucket, write the policy template (see RA-4970 ticket body).",
         "3. Generate the migration: `scripts/rls-emit-migration.py` (TODO).",
         "4. Apply to sandbox first, smoke, then prod.",
+        "",
+        SENTINEL,
     ])
+
+    # Preserve any hand-written content after the sentinel from the existing
+    # file (e.g. the "## Manual review resolution" section). Without this,
+    # re-running the script silently destroys committed manual annotations
+    # — bug discovered 2026-05-18 when a regeneration stomped a 50-line
+    # bucket-resolution table.
+    preserved_tail = ""
+    if OUT.exists():
+        existing = OUT.read_text()
+        if SENTINEL in existing:
+            preserved_tail = existing.split(SENTINEL, 1)[1].lstrip("\n")
+
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text("\n".join(lines) + "\n")
+    body = "\n".join(lines) + "\n"
+    if preserved_tail:
+        body += "\n" + preserved_tail
+    OUT.write_text(body)
     print(f"Wrote {OUT}")
+    if preserved_tail:
+        print(f"(preserved {len(preserved_tail.splitlines())} lines below the manual-review sentinel)")
     print(f"\nBucket sizes:")
     for bucket in bucket_order:
         if bucket in buckets:

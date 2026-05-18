@@ -160,6 +160,15 @@
 - **Room** — model not found in schema
 - **RoomAnnotation** — model not found in schema
 
+## Next steps
+
+1. Manually review `unowned` + `unknown` buckets — these need a policy decision before migration.
+2. For each bucket, write the policy template (see RA-4970 ticket body).
+3. Generate the migration: `scripts/rls-emit-migration.py` (TODO).
+4. Apply to sandbox first, smoke, then prod.
+
+<!-- BEGIN MANUAL REVIEW — content below is preserved by rls-categorise.py -->
+
 ## Manual review resolution (2026-05-18)
 
 Schema inspection of the `unowned` bucket reveals chain ownership:
