@@ -10,7 +10,7 @@ test("website URL unreachable → BrandCard falls back to manual upload", async 
   await page.getByLabel(/full name/i).fill("E2E Web Fail");
   await page.getByLabel(/email/i).fill(email);
   await page.getByLabel(/^password$/i).fill(password);
-  await page.getByLabel(/confirm password/i).fill(password);
+  await page.getByLabel(/^confirm password$/i).fill(password);
   await page.getByRole("checkbox", { name: /i agree/i }).check();
   await page.getByRole("button", { name: /create account/i }).click();
 

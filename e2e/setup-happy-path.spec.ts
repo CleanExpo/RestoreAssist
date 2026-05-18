@@ -11,7 +11,7 @@ test("happy path: signup → ABN → all sections green → Activate → dashboa
   await page.getByLabel(/full name/i).fill("E2E Happy");
   await page.getByLabel(/email/i).fill(email);
   await page.getByLabel(/^password$/i).fill(password);
-  await page.getByLabel(/confirm password/i).fill(password);
+  await page.getByLabel(/^confirm password$/i).fill(password);
   await page.getByRole("checkbox", { name: /i agree/i }).check();
   await page.getByRole("button", { name: /create account/i }).click();
 

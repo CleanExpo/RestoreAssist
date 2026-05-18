@@ -13,7 +13,7 @@ test("resume: close tab mid-hydration → return → state restored", async ({
   await page1.getByLabel(/full name/i).fill("E2E Resume");
   await page1.getByLabel(/email/i).fill(email);
   await page1.getByLabel(/^password$/i).fill(password);
-  await page1.getByLabel(/confirm password/i).fill(password);
+  await page1.getByLabel(/^confirm password$/i).fill(password);
   await page1.getByRole("checkbox", { name: /i agree/i }).check();
   await page1.getByRole("button", { name: /create account/i }).click();
 
