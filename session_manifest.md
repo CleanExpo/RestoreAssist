@@ -1,9 +1,10 @@
 # Session Manifest — RestoreAssist · 2026-05-18
 
-**Branch:** `release/sandbox-to-main-2026-05-16-final` @ `6b004603`
+**Branch:** `release/sandbox-to-main-2026-05-16-final` @ `7bdfb410`
 **Remote:** in sync with `origin/release/sandbox-to-main-2026-05-16-final`
-**Working tree:** clean except pre-existing iOS `Package.resolved` drift
-**Origin distance from main:** 22 commits ahead at session start; release branch unchanged (this session's 17 commits live on the release branch, awaiting Phill's main-merge approval)
+**Working tree:** clean.
+**PR:** #1117 OPEN · MERGEABLE · UNSTABLE (CI re-running on the post-merge HEAD).
+**Origin distance from main:** ~88+ commits on this release branch; merged origin/main back in at `7bdfb410` to sync forward (bumped `@anthropic-ai/sdk` 0.95.2 → 0.96.0 — verified all 49 AI service tests still pass on 0.96.0).
 
 ## Architectural Tree (post-feature audit)
 
