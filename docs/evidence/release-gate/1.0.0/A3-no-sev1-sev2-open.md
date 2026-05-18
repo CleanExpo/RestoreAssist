@@ -1,3 +1,9 @@
+---
+criterion: A3-no-sev1-sev2-open
+status: pass
+verified: 2026-05-18
+---
+
 # A3 — No open Sev1/Sev2 defects (5 pts)
 
 **Status:** PASS
