@@ -1,0 +1,53 @@
+---
+title: RestoreAssist Support SLA
+version: 1.0.0
+owner: support@synthex.social
+applies_from: 2026-05-18
+review_cadence: quarterly
+---
+
+# RestoreAssist Support SLA
+
+Formal response-time commitments for paying customers (Trial, Active, Lifetime). Pi-CEO directive: this document is the source of truth — anything that promises faster (sales decks, demos) overrides this only when locked in writing for a specific customer.
+
+## Severity definitions
+
+| Severity | Definition | Examples |
+|---|---|---|
+| **P0** | Production fully down OR customer data at risk | All users 5xx on `/dashboard`; database unreachable; data corruption in flight |
+| **P1** | Production materially degraded; revenue or compliance impact | Auth flow broken for a subset; Stripe webhook silent; AI generation 5xx >5%; an IICRC standard miscited |
+| **P2** | Customer-impacting bug, workaround exists | One workspace can't export PDF; report layout broken on Safari |
+| **P3** | Cosmetic / feature gap / question | Brand colour off; onboarding wording confusing; "how do I X?" |
+
+## Response-time commitments
+
+| Severity | First human response | Status update cadence | Resolution target |
+|---|---|---|---|
+| **P0** | **≤30 min** (24/7) | Every 30 min until restored | Same business day |
+| **P1** | **≤1 h** (business hours AEST 08:00-18:00); ≤2 h outside | Every 2 h until resolved or downgraded | ≤24 h |
+| **P2** | ≤4 h (business hours) | Daily | ≤5 business days |
+| **P3** | ≤1 business day | On meaningful update | Best-effort, prioritised in backlog |
+
+**Business hours:** Mon-Fri 08:00-18:00 Australia/Brisbane (AEST/AEDT auto-adjusted). After hours: P0 only, paged via on-call rotation.
+
+## Channels
+
+| Channel | Use for | Response window |
+|---|---|---|
+| `support@synthex.social` | All severities (default channel) | Per table above |
+| In-app `/support` form | P2/P3 | Per table above |
+| Status page (when live) | P0/P1 broadcast | Updated within the cadence above |
+
+## Escalation
+
+- After 2× the SLA without first response: customer may CC `phill@synthex.social` (founder escalation)
+- Compliance/legal issues (IICRC miscite, ABN/GST error): always escalate to Phill immediately regardless of severity tier
+
+## Templates
+
+- **Outbound customer comms:** `docs/CUSTOMER_COMMS_TEMPLATE.md` — copy + adapt per incident
+- **Internal triage:** `docs/PILOT_CUTOVER_CHECKLIST.md` rollback decision tree
+
+## Refresh cadence
+
+This SLA is reviewed quarterly. Most recent review: 2026-05-18 (initial publication).
