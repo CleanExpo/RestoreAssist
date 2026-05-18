@@ -105,3 +105,7 @@ scripts/__pycache__/
 # Build artefacts
 public/help-index.json
 release-gate-report.json
+
+# RA-4985 — .codex/config.toml ships a real Composio API key when committed.
+# Per `feedback_never_leak_secrets`, personal toolchain config must stay local.
+.codex/
