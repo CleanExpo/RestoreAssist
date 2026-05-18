@@ -13,11 +13,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // ---------------------------------------------------------------------------
 vi.mock("@anthropic-ai/sdk", () => {
   const mockCreate = vi.fn();
-  const MockAnthropic = vi.fn().mockImplementation(() => ({
+  const MockAnthropic = vi.fn().mockImplementation(function () {
+    return ({
     messages: {
       create: mockCreate,
     },
-  }));
+  });
+  });
   // Expose the inner mock so tests can configure return values
   (MockAnthropic as any).__mockCreate = mockCreate;
   return { default: MockAnthropic };

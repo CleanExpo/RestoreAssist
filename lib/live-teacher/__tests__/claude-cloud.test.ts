@@ -27,14 +27,16 @@ const anthropicMock = {
 
 vi.mock("@anthropic-ai/sdk", () => {
   return {
-    default: vi.fn().mockImplementation(() => ({
+    default: vi.fn().mockImplementation(function () {
+    return ({
       messages: {
         // Indirect reference — safe because the object is initialised before
         // any test body runs (hoisting only affects the factory call site,
         // not module-level object creation).
         create: (...args: unknown[]) => anthropicMock.create(...args),
       },
-    })),
+    });
+  }),
   };
 });
 
