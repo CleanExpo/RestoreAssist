@@ -401,6 +401,43 @@ export const authOptions: NextAuthOptions = {
         }
       }
 
+      // RA-4984 — stamp subscription claims so middleware can enforce
+      // hard-paywall in edge runtime without Prisma. Refresh on signIn,
+      // explicit update(), or when any required claim is missing. The
+      // 24h JWT updateAge bounds staleness in steady state; webhook
+      // handlers (Stripe checkout.completed, subscription.deleted) call
+      // session().update() to force-refresh after a billing transition.
+      if (
+        token.sub &&
+        (trigger === "signIn" ||
+          trigger === "update" ||
+          (token as any).subscriptionStatus === undefined)
+      ) {
+        try {
+          const userSub = await prisma.user.findUnique({
+            where: { id: token.sub as string },
+            select: {
+              subscriptionStatus: true,
+              trialEndsAt: true,
+              lifetimeAccess: true,
+            },
+          });
+          token.subscriptionStatus = userSub?.subscriptionStatus ?? null;
+          token.trialEndsAt = userSub?.trialEndsAt
+            ? userSub.trialEndsAt.toISOString()
+            : null;
+          token.lifetimeAccess = userSub?.lifetimeAccess ?? null;
+        } catch {
+          // Fail-open — a DB blip should not log every user out. Stamp
+          // a permissive default; middleware will treat missing-status
+          // as allow, and the API-route gate (CLAUDE.md rule #5) still
+          // enforces revenue protection authoritatively.
+          token.subscriptionStatus = token.subscriptionStatus ?? null;
+          token.trialEndsAt = token.trialEndsAt ?? null;
+          token.lifetimeAccess = token.lifetimeAccess ?? null;
+        }
+      }
+
       // C2+C5: keep setupCompletedAt fresh. Refresh when missing OR null so
       // that invited admins (who have organizationId but aren't the owner)
       // and users whose org gets activated mid-session both pick up the
