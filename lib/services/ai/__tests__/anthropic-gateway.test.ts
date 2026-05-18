@@ -115,4 +115,24 @@ describe("callAnthropic", () => {
       expect(r.detail).toContain("network broke");
     }
   });
+
+  it("uses the provided apiKey override instead of calling getAnthropicApiKey", async () => {
+    // Even if the resolver would throw, the override should win.
+    vi.mocked(getAnthropicApiKey).mockRejectedValueOnce(
+      new Error("resolver should not be called"),
+    );
+    const fakeMessage = {
+      id: "msg_override",
+      content: [{ type: "text", text: "ok" }],
+    };
+    mockMessagesCreate.mockResolvedValueOnce(fakeMessage);
+
+    const r = await callAnthropic({
+      userId: "user-1",
+      apiKey: "sk-override",
+      request: baseReq.request,
+    });
+    expect(r.ok).toBe(true);
+    expect(vi.mocked(getAnthropicApiKey)).not.toHaveBeenCalled();
+  });
 });
