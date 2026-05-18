@@ -24,7 +24,8 @@
 
 ### Modified (3 of 8 routes — proof-of-pattern wave)
 - `app/api/inspections/[id]/classify/route.ts` (264 LOC → target ~120).
-- `app/api/inspections/[id]/generate-scope/route.ts` (482 LOC → target ~180).
+- ~~`app/api/inspections/[id]/generate-scope/route.ts`~~ **DEFERRED** — uses `messages.stream(...)`, not batch. Streaming gateway is out of scope for wave-1 (called out in Risk section). Wave-2 plan must extend the gateway with `callAnthropicStream`.
+- `app/api/inspections/[id]/group-readings/route.ts` (442 LOC → target ~180). **SUBSTITUTED for generate-scope** as the heavy-route extraction; same batch `messages.create` shape.
 - `app/api/support/tickets/[id]/draft/route.ts` (108 LOC → target ~70).
 
 ### Out of scope (this plan — follow-up)
