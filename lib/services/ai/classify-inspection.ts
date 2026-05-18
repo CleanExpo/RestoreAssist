@@ -60,8 +60,8 @@ export type ClassifyReason = AnthropicReason | "PARSE_FAILED";
 export interface ClassifyPayload {
   inspectionNumber: string;
   propertyPostcode: string | null;
-  moistureReadings: Array<{ id: string; [k: string]: unknown }>;
-  affectedAreas: Array<{ id: string; [k: string]: unknown }>;
+  moistureReadings: Array<Record<string, unknown>>;
+  affectedAreas: Array<Record<string, unknown>>;
 }
 
 export interface ClassifyResult {
