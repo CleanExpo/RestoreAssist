@@ -1,10 +1,12 @@
 # Session Manifest — RestoreAssist · 2026-05-18
 
-**Branch:** `release/sandbox-to-main-2026-05-16-final` @ `7bdfb410`
+**Branch:** `release/sandbox-to-main-2026-05-16-final` @ `66b5289e` (PR #1117)
 **Remote:** in sync with `origin/release/sandbox-to-main-2026-05-16-final`
 **Working tree:** clean.
-**PR:** #1117 OPEN · MERGEABLE · UNSTABLE (CI re-running on the post-merge HEAD).
-**Origin distance from main:** ~88+ commits on this release branch; merged origin/main back in at `7bdfb410` to sync forward (bumped `@anthropic-ai/sdk` 0.95.2 → 0.96.0 — verified all 49 AI service tests still pass on 0.96.0).
+**PR:** #1117 OPEN · MERGEABLE.
+**AI service suite:** 19 files / 81 tests passing.
+
+**Wave-3 SHIPPED in PR #1117:** 9 routes migrated this session (synopsis, client-summary, generate-question, suggest-next, validate, analyze-technician-report, narrative, generate-enhanced, upload). 2 routes skipped — `reports/generate-cost-estimation` + `reports/generate-scope-of-works` import `@anthropic-ai/sdk` but never invoke it (dead-code imports; comment hints AI was planned but unwired). Post-wave-3 audit: only legitimate `webhooks/github` retains a direct SDK import.
 
 ## Architectural Tree (post-feature audit)
 

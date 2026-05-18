@@ -158,6 +158,10 @@ When extracting a new AI route, copy the recipe from any of those modules — do
 
 **Streaming routes** consume `callAnthropicStream` from the same gateway. The service stays thin (wraps the request shape + cache-control system message); the route owns the SSE translation loop, client-disconnect `stream.abort()`, usage logging, and persistence. Pre-stream failures map to ServiceResult reasons BEFORE the `ReadableStream` opens; mid-stream errors are the route's concern via stream events.
 
+**Multi-model fallback routes** consume `tryClaudeModels` from `@/lib/anthropic-models` (substrate helper) inside the service module. The service constructs its own `new Anthropic({apiKey: args.apiKey})` and calls `tryClaudeModels(anthropic, params, modelChain, options)` directly — pragmatic deviation from the gateway pattern because `tryClaudeModels` IS a runtime mechanic the service owns. Map throw `status === 429 → RATE_LIMITED`, `status === 529 → MODEL_OVERLOADED`, else `API_ERROR`. Canonical: `lib/services/ai/generate-interview-question.ts` (wave-3 Task 3). Future Phase-4 work: `callAnthropicWithFallback` gateway extension would collapse these services to the gateway pattern.
+
+As of 2026-05-18 / PR #1117 the only remaining `@anthropic-ai/sdk` imports in `app/api/**` (excluding `__tests__`) are: `app/api/webhooks/github/route.ts` (legitimate signature verification) and two routes with **dead imports** (`reports/generate-cost-estimation/route.ts` + `reports/generate-scope-of-works/route.ts` — imports `Anthropic` + `tryClaudeModels` but never invokes them; comment hints AI integration was planned but never wired). Dead-imports cleanup deferred — would change the routes' 400 failure-mode behaviour and needs product input on whether AI was intended.
+
 ## Patterns to Avoid
 
 | Pattern                              | Why                                                       | Do instead                                         |
