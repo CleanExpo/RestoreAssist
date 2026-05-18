@@ -188,7 +188,7 @@
     "sharp": "^0.34.5",
     "shiki": "^4.0.2",
     "streamdown": "^2.5.0",
-    "stripe": "^19.1.0",
+    "stripe": "^22.1.1",
     "swr": "^2.4.1",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
