@@ -4,18 +4,26 @@ vi.mock("@/lib/ai-provider", () => ({
   getAnthropicApiKey: vi.fn(),
 }));
 
-// Mock the SDK — keep the static error classes accessible as Anthropic.RateLimitError etc.
-const mockMessagesCreate = vi.fn();
-class MockRateLimitError extends Error {
-  status = 429;
-}
-class MockAPIError extends Error {
-  status: number;
-  constructor(message: string, status: number) {
-    super(message);
-    this.status = status;
+// vi.mock factory is hoisted above top-level vars — use vi.hoisted() so the
+// mock fn + error classes are also hoisted and reachable from the factory.
+const { mockMessagesCreate, MockRateLimitError, MockAPIError } = vi.hoisted(() => {
+  class MockRateLimitError extends Error {
+    status = 429;
   }
-}
+  class MockAPIError extends Error {
+    status: number;
+    constructor(message: string, status: number) {
+      super(message);
+      this.status = status;
+    }
+  }
+  return {
+    mockMessagesCreate: vi.fn(),
+    MockRateLimitError,
+    MockAPIError,
+  };
+});
+
 vi.mock("@anthropic-ai/sdk", () => {
   const Anthropic: any = vi
     .fn()
