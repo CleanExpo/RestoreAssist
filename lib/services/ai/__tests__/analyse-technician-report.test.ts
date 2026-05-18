@@ -1,13 +1,11 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-// Mock the substrate helper directly — this service composes tryClaudeModels
-// (multi-model fallback) rather than the single-model anthropic-gateway.
-vi.mock("@/lib/anthropic-models", () => ({
-  tryClaudeModels: vi.fn(),
+// Mock the gateway helper — this service now composes
+// callAnthropicWithFallback (which wraps tryClaudeModels under the hood).
+vi.mock("../anthropic-gateway", () => ({
+  callAnthropicWithFallback: vi.fn(),
 }));
 
-// Prompt-cache helper is harmless but imported by the service; stub it so the
-// test doesn't need to evaluate the real cache-block builder.
 vi.mock("@/lib/anthropic/features/prompt-cache", () => ({
   createCachedSystemPrompt: (text: string) => ({
     type: "text",
@@ -20,9 +18,9 @@ import {
   analyseTechnicianReport,
   type TechReportInput,
 } from "../analyse-technician-report";
-import { tryClaudeModels } from "@/lib/anthropic-models";
+import { callAnthropicWithFallback } from "../anthropic-gateway";
 
-function mockTextResponse(text: string) {
+function mockTextMessage(text: string) {
   return {
     id: "msg_xxx",
     content: [{ type: "text", text }],
@@ -41,7 +39,7 @@ const REPORT: TechReportInput = {
 describe("analyseTechnicianReport", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(tryClaudeModels).mockReset();
+    vi.mocked(callAnthropicWithFallback).mockReset();
   });
 
   it("returns ok with parsed analysis when response is valid JSON", async () => {
@@ -56,9 +54,10 @@ describe("analyseTechnicianReport", () => {
       observations: "Cat 1 burst pipe, two areas affected.",
       complexityLevel: "moderate",
     };
-    vi.mocked(tryClaudeModels).mockResolvedValueOnce(
-      mockTextResponse(JSON.stringify(payload)),
-    );
+    vi.mocked(callAnthropicWithFallback).mockResolvedValueOnce({
+      ok: true,
+      data: mockTextMessage(JSON.stringify(payload)) as any,
+    });
 
     const r = await analyseTechnicianReport({
       apiKey: "sk-resolved",
@@ -71,7 +70,7 @@ describe("analyseTechnicianReport", () => {
       expect(r.data.analysis.waterCategory).toBe("Category 1");
       expect(r.data.analysis.complexityLevel).toBe("moderate");
     }
-    expect(tryClaudeModels).toHaveBeenCalledTimes(1);
+    expect(callAnthropicWithFallback).toHaveBeenCalledTimes(1);
   });
 
   it("extracts JSON wrapped in markdown fences", async () => {
@@ -87,7 +86,10 @@ describe("analyseTechnicianReport", () => {
       complexityLevel: "complex",
     };
     const fenced = "```json\n" + JSON.stringify(payload) + "\n```";
-    vi.mocked(tryClaudeModels).mockResolvedValueOnce(mockTextResponse(fenced));
+    vi.mocked(callAnthropicWithFallback).mockResolvedValueOnce({
+      ok: true,
+      data: mockTextMessage(fenced) as any,
+    });
 
     const r = await analyseTechnicianReport({
       apiKey: "sk-resolved",
@@ -106,9 +108,10 @@ describe("analyseTechnicianReport", () => {
 
   it("falls back to a graceful structured analysis when response is unparseable", async () => {
     const plainText = "Cannot parse this report";
-    vi.mocked(tryClaudeModels).mockResolvedValueOnce(
-      mockTextResponse(plainText),
-    );
+    vi.mocked(callAnthropicWithFallback).mockResolvedValueOnce({
+      ok: true,
+      data: mockTextMessage(plainText) as any,
+    });
 
     const r = await analyseTechnicianReport({
       apiKey: "sk-resolved",
@@ -129,10 +132,12 @@ describe("analyseTechnicianReport", () => {
     }
   });
 
-  it("maps 429 from tryClaudeModels to RATE_LIMITED", async () => {
-    vi.mocked(tryClaudeModels).mockRejectedValueOnce({
-      status: 429,
-      message: "rate limit",
+  it("forwards RATE_LIMITED from the gateway", async () => {
+    vi.mocked(callAnthropicWithFallback).mockResolvedValueOnce({
+      ok: false,
+      reason: "RATE_LIMITED",
+      detail: "rate limit",
+      retryAfterMs: 30000,
     });
 
     const r = await analyseTechnicianReport({
