@@ -9,7 +9,8 @@
  */
 
 import { markIntegrationError, logSync } from "../oauth-handler";
-import { getValidXeroToken, getXeroTenantId } from "./token-manager";
+import { getXeroTenantId } from "@/lib/services/xero/tenant";
+import { getValidXeroAccessToken } from "@/lib/services/xero/credentials";
 import {
   resolveAccountCodes,
   resolveAccountCodeForItemType,
@@ -102,9 +103,32 @@ export async function syncNIRJobToXero(
   xeroInvoiceNumber: string;
   status: string;
 }> {
-  // RA-868: Centralised token + tenant lookup (throws XeroTokenError on failure)
-  const accessToken = await getValidXeroToken(integrationId);
-  const tenantId = await getXeroTenantId(integrationId);
+  // Service-layer credentials result — preserve throw-based contract for this
+  // module (callers rely on the existing reject semantics on token failure).
+  const credResult = await getValidXeroAccessToken(integrationId);
+  if (!credResult.ok) {
+    console.error("[XeroNirSync]", {
+      integrationId,
+      reason: credResult.reason,
+      detail: credResult.detail,
+    });
+    throw new Error(
+      `Xero credentials unavailable (${credResult.reason}): ${credResult.detail ?? "no detail"}`,
+    );
+  }
+  const accessToken = credResult.data;
+  const tenantResult = await getXeroTenantId(integrationId);
+  if (!tenantResult.ok) {
+    console.error("[XeroNirSync]", {
+      integrationId,
+      reason: tenantResult.reason,
+      detail: tenantResult.detail,
+    });
+    throw new Error(
+      `Xero tenant unavailable (${tenantResult.reason}): ${tenantResult.detail ?? "no detail"}`,
+    );
+  }
+  const tenantId = tenantResult.data;
 
   // RA-869: Per-category account code routing (cached per integration, 5-min TTL).
   // Supports client-configured mappings in XeroAccountCodeMapping; falls back to

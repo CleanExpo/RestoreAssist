@@ -13,18 +13,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
-import Anthropic from "@anthropic-ai/sdk";
-import {
-  buildMeterExtractionMessages,
-  parseMeterResponse,
-  METER_EXTRACTION_SYSTEM_PROMPT,
-} from "@/lib/vision/meter-prompts";
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-  maxRetries: 2, // Retry on 429/500 with exponential backoff (SDK default)
-  timeout: 30_000, // 30s hard timeout — prevent hanging field requests
-});
+import { extractMeterReading } from "@/lib/services/ai/extract-reading";
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -118,31 +107,54 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const messages = buildMeterExtractionMessages(image, mediaType);
-
-      const response = await anthropic.messages.create({
-        model: "claude-sonnet-4-6",
-        max_tokens: 512,
-        system: METER_EXTRACTION_SYSTEM_PROMPT,
-        messages,
-      });
-
-      const responseText =
-        response.content[0]?.type === "text" ? response.content[0].text : "";
-
-      const reading = parseMeterResponse(responseText);
-
-      if (!reading) {
+      const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
+      if (!apiKey) {
+        console.error("[VisionExtractReading]", {
+          userId,
+          reason: "KEY_MISSING",
+          detail: "ANTHROPIC_API_KEY not configured",
+        });
         return NextResponse.json(
-          {
-            error: "Failed to parse meter reading from image",
-            raw: responseText,
-          },
-          { status: 422 },
+          { error: "KEY_MISSING", detail: "ANTHROPIC_API_KEY not configured" },
+          { status: 402 },
         );
       }
 
-      return NextResponse.json({ reading });
+      const result = await extractMeterReading({
+        apiKey,
+        image,
+        mediaType,
+      });
+
+      if (!result.ok) {
+        console.error("[VisionExtractReading]", {
+          userId,
+          reason: result.reason,
+          detail: result.detail,
+        });
+        const status =
+          result.reason === "KEY_MISSING"
+            ? 402
+            : result.reason === "RATE_LIMITED"
+              ? 429
+              : result.reason === "MODEL_OVERLOADED"
+                ? 503
+                : result.reason === "PARSE_FAILED"
+                  ? 502
+                  : result.reason === "NO_READING_DETECTED"
+                    ? 422
+                    : 500;
+        const headers: Record<string, string> =
+          result.retryAfterMs != null
+            ? { "Retry-After": String(Math.ceil(result.retryAfterMs / 1000)) }
+            : {};
+        return NextResponse.json(
+          { error: result.reason, detail: result.detail },
+          { status, headers },
+        );
+      }
+
+      return NextResponse.json({ reading: result.data });
     } catch (error) {
       console.error("[POST /api/vision/extract-reading] Error:", error);
       return NextResponse.json(

@@ -14,7 +14,7 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { queueInvoiceSync } from "@/lib/integrations/sync-queue";
-import { getValidXeroToken } from "./token-manager";
+import { getValidXeroAccessToken } from "@/lib/services/xero/credentials";
 
 /**
  * RA-871: Verify a Xero webhook HMAC-SHA256 signature (timing-safe).
@@ -249,8 +249,20 @@ async function handlePaymentCreated(
     throw new Error(`Integration ${integrationId} missing tenantId`);
   }
 
-  // Get a fresh token — RA-868 token manager handles refresh
-  const accessToken = await getValidXeroToken(integrationId);
+  // Service-layer credentials result — preserve throw-based contract so the
+  // outer batch loop marks the event FAILED (with the detail in errorMessage).
+  const credResult = await getValidXeroAccessToken(integrationId);
+  if (!credResult.ok) {
+    console.error("[XeroWebhookProcessor]", {
+      integrationId,
+      reason: credResult.reason,
+      detail: credResult.detail,
+    });
+    throw new Error(
+      `Xero credentials unavailable (${credResult.reason}): ${credResult.detail ?? "no detail"}`,
+    );
+  }
+  const accessToken = credResult.data;
 
   // Resolve PaymentID → InvoiceID via Xero Payments API
   const res = await fetch(

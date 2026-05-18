@@ -2,6 +2,8 @@
 
 Patterns that linters cannot catch. Reference before writing new modules or refactoring.
 
+> **Reading library internals?** Use opensrc — `rg "pattern" $(opensrc path <pkg>)`. See `.claude/PACKAGE_LOOKUPS.md`. Never invent dependency APIs from memory.
+
 ## API Route Pattern
 
 Every API route follows this structure (canonical: `app/api/inspections/route.ts`):
@@ -128,6 +130,37 @@ The stage-gated claim lifecycle adds its own invariants above the general standa
 - `ProgressTransition` and `ProgressAttestation` are append-only — never `UPDATE`/`DELETE` outside `ClaimProgress` cascade.
 - Every transition goes through `lib/progress/service.ts` — never call Prisma directly for state changes.
 - Evidence guards return `{ ok: false, missing: string[] }` — surface the missing list to the UI, never a generic "failed".
+
+## Service Layer (2026-05-18)
+
+Route handlers (`app/api/**/route.ts`) own orchestration: auth, ownership, status transitions, audit events, persistence, HTTP error policy. Runtime mechanics — credential reads, retry loops, validation, readiness probes, restart helpers — live in `lib/services/<domain>/<concern>.ts` and return `ServiceResult<T, E>` (see `lib/services/_shared/result.ts`).
+
+Full pattern: `.claude/skills/service-layer-architecture/SKILL.md`.
+
+Canonical examples in this repo:
+- `lib/services/xero/credentials.ts` — gateway credential read with structured `XeroCredentialsReason`.
+- `lib/services/inspection/validate-submission.ts` — pure validation, no I/O.
+
+When extracting from an existing fat action, use TDD per the skill recipe. One concern extracted = one commit.
+
+### AI Service Pattern
+
+Routes that previously imported `@anthropic-ai/sdk` directly now go through `lib/services/ai/<task>.ts`, which composes `lib/services/ai/anthropic-gateway.ts`. Route → domain-task-service → gateway → SDK. Each layer returns `ServiceResult<T, Reason>`. Reasons compose: a route translates the union `AnthropicReason | <task-specific-reasons>` into HTTP status codes.
+
+Pattern boundaries:
+- **`lib/services/ai/anthropic-gateway.ts`** owns SDK instantiation + key resolution + retry envelope + error → reason mapping. Accepts either `userId` (uses `getAnthropicApiKey(userId)`) or an explicit `apiKey` override (platform flows).
+- **`lib/services/ai/<task>.ts`** owns prompt construction + response parsing + task-specific pre-flight validation.
+- **Routes** own auth, ownership, audit, persistence, HTTP error mapping.
+
+Canonical examples: `lib/services/ai/classify-inspection.ts`, `lib/services/ai/group-readings.ts`, `lib/services/ai/draft-support-ticket.ts` (batch), `lib/services/ai/generate-scope.ts` (streaming).
+
+When extracting a new AI route, copy the recipe from any of those modules — do not invent a new shape.
+
+**Streaming routes** consume `callAnthropicStream` from the same gateway. The service stays thin (wraps the request shape + cache-control system message); the route owns the SSE translation loop, client-disconnect `stream.abort()`, usage logging, and persistence. Pre-stream failures map to ServiceResult reasons BEFORE the `ReadableStream` opens; mid-stream errors are the route's concern via stream events.
+
+**Multi-model fallback routes** consume `tryClaudeModels` from `@/lib/anthropic-models` (substrate helper) inside the service module. The service constructs its own `new Anthropic({apiKey: args.apiKey})` and calls `tryClaudeModels(anthropic, params, modelChain, options)` directly — pragmatic deviation from the gateway pattern because `tryClaudeModels` IS a runtime mechanic the service owns. Map throw `status === 429 → RATE_LIMITED`, `status === 529 → MODEL_OVERLOADED`, else `API_ERROR`. Canonical: `lib/services/ai/generate-interview-question.ts` (wave-3 Task 3). Future Phase-4 work: `callAnthropicWithFallback` gateway extension would collapse these services to the gateway pattern.
+
+As of 2026-05-18 / PR #1117 the only remaining `@anthropic-ai/sdk` imports in `app/api/**` (excluding `__tests__`) are: `app/api/webhooks/github/route.ts` (legitimate signature verification) and two routes with **dead imports** (`reports/generate-cost-estimation/route.ts` + `reports/generate-scope-of-works/route.ts` — imports `Anthropic` + `tryClaudeModels` but never invokes them; comment hints AI integration was planned but never wired). Dead-imports cleanup deferred — would change the routes' 400 failure-mode behaviour and needs product input on whether AI was intended.
 
 ## Patterns to Avoid
 

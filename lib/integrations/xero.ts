@@ -6,7 +6,7 @@
  */
 
 import { Integration } from "@prisma/client";
-import { getValidXeroToken } from "./xero/token-manager";
+import { getValidXeroAccessToken } from "@/lib/services/xero/credentials";
 import { type Country, getGstTreatment } from "../gst-rules";
 import { getGSTTreatment } from "../gst-treatment-rules";
 
@@ -225,20 +225,17 @@ export async function syncInvoiceToXero(
       console.warn(
         `[Xero] Token error (${response.status}) on integration ${integration.id} — refreshing token for next retry`,
       );
-      try {
-        // getValidXeroToken stores the refreshed token in the DB.
-        // The next _processJob run will load the fresh integration row.
-        await getValidXeroToken(integration.id);
-      } catch (refreshErr) {
+      const credResult = await getValidXeroAccessToken(integration.id);
+      if (!credResult.ok) {
         throw new Error(
-          `Xero token refresh failed (integration ${integration.id}): ${
-            refreshErr instanceof Error
-              ? refreshErr.message
-              : String(refreshErr)
+          `Xero token refresh failed (integration ${integration.id}): ${credResult.reason}${
+            credResult.detail ? ` — ${credResult.detail}` : ""
           }`,
-          { cause: refreshErr },
+          { cause: credResult.cause },
         );
       }
+      // The service stored the refreshed token in the DB; next _processJob
+      // run will load the fresh integration row.
       throw new Error(
         `Xero ${response.status} — token refreshed, will retry on next queue run`,
       );

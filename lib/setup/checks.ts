@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { routeBasic } from "@/lib/ai/model-router";
-import { getValidXeroToken } from "@/lib/integrations/xero/token-manager";
+import { getValidXeroAccessToken } from "@/lib/services/xero/credentials";
 import {
   getWorkspaceForUser,
   listProviderConnections,
@@ -289,8 +289,8 @@ const cloudStorageCheck: Check = async (orgId) => {
 // the `Integration` table keyed by userId. We probe Xero today — the other
 // providers fall through to yellow ("not connected") until they get their own
 // token-manager helper. The probe is `GET /connections`, the cheapest
-// authenticated call Xero exposes; `getValidXeroToken` already refreshes the
-// access token if it's near expiry.
+// authenticated call Xero exposes; `getValidXeroAccessToken` already refreshes
+// the access token if it's near expiry.
 const accountingCheck: Check = async (orgId) => {
   const capability = "accounting";
   const label = "Accounting integration";
@@ -325,17 +325,22 @@ const accountingCheck: Check = async (orgId) => {
     };
   }
 
-  let accessToken: string;
-  try {
-    accessToken = await getValidXeroToken(integration.id);
-  } catch {
-    return {
-      capability,
-      label,
-      status: "red",
-      note: "Xero token refresh failed — reconnect required",
-    };
+  const credResult = await getValidXeroAccessToken(integration.id);
+  if (!credResult.ok) {
+    const note =
+      credResult.reason === "DISCONNECTED"
+        ? "Xero not connected"
+        : credResult.reason === "RECONNECT_REQUIRED"
+          ? "Xero reconnect required (refresh token unavailable)"
+          : "Xero token refresh failed — reconnect required";
+    console.error("[SetupChecks/Xero]", {
+      integrationId: integration.id,
+      reason: credResult.reason,
+      detail: credResult.detail,
+    });
+    return { capability, label, status: "red", note };
   }
+  const accessToken = credResult.data;
 
   try {
     const res = await fetch("https://api.xero.com/connections", {

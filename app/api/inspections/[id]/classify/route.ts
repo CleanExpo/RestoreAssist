@@ -25,55 +25,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import Anthropic from "@anthropic-ai/sdk";
-import { getAnthropicApiKey } from "@/lib/ai-provider";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import { classifyInspection } from "@/lib/services/ai/classify-inspection";
 
 const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
-
-const SYSTEM_PROMPT = `You are an IICRC-certified water damage assessor operating under the Australian/New Zealand adoption of ANSI/IICRC S500:2025 (Standard for Professional Water Damage Restoration, 5th edition).
-
-Your task: given an inspection's moisture readings and affected areas, recommend a Water Category and Class of water intrusion. Output a single JSON object — no prose, no code fences.
-
-Schema (strict):
-{
-  "waterCategory": "CATEGORY_1" | "CATEGORY_2" | "CATEGORY_3",
-  "waterClass":    "CLASS_1" | "CLASS_2" | "CLASS_3" | "CLASS_4",
-  "confidence":    integer 0-100,
-  "reasoning":     string
-}
-
-Category definitions — cite S500:2025 §10.5.4 in your reasoning:
-- CATEGORY_1: "Clean water" — originates from a sanitary source (e.g. supply line, melted ice, rainwater without contamination). S500:2025 §10.5.4.1.
-- CATEGORY_2: "Significantly contaminated water" ("grey water") — contains significant contamination with potential to cause discomfort or sickness (e.g. dishwasher/washing-machine overflow, aquarium rupture, toilet overflow of urine only). S500:2025 §10.5.4.2.
-- CATEGORY_3: "Grossly contaminated water" ("black water") — contains pathogenic, toxigenic or otherwise harmful agents (e.g. sewage, rising ground/surface water, seawater intrusion, wind-driven rain from hurricanes, any Cat 1 or 2 that has remained stagnant >72 hours or has contacted building materials that may contribute contamination). S500:2025 §10.5.4.3.
-
-Class definitions — cite S500:2025 §10.5.5 in your reasoning. Class depends on the rate of evaporation (wetted surface area, porosity of materials, amount of water absorbed):
-- CLASS_1: Least amount of water absorbed. Only a portion of a room or area is affected; wet materials are low-porosity (e.g. plywood, concrete, structural wood). Minimal moisture has been absorbed. S500:2025 §10.5.5.1.
-- CLASS_2: Large amount of water absorbed. Entire room affected: carpet and cushion, wet up to 24 inches (~600 mm) up walls; moisture has wicked into structural materials. S500:2025 §10.5.5.2.
-- CLASS_3: Greatest amount of water absorbed. Water has typically come from overhead: ceilings, walls, insulation, carpet, cushion and sub-floor are saturated. S500:2025 §10.5.5.3.
-- CLASS_4: Specialty drying situations. Wet materials with very low porosity / deep pockets of saturation (hardwood, plaster, brick, concrete, stone, crawlspace). Requires longer drying times and special methods. S500:2025 §10.5.5.4.
-
-Heuristics when classifying:
-1. If any affected area records a water source of "sewage", "black", "ground", "flood", or "seawater" → CATEGORY_3.
-2. If water source is "grey", "dishwasher", "washing machine", "appliance discharge" → CATEGORY_2.
-3. If water source is "clean", "supply", "rainwater" AND hours-since-loss < 72 → CATEGORY_1; if >=72h AND contacted porous materials → escalate to CATEGORY_2.
-4. Class escalates with total wetted square metres, number of surfaces affected, and presence of low-porosity materials (concrete, hardwood, plaster, brick).
-5. Deeply saturated hardwood/plaster/brick/concrete → CLASS_4 regardless of area size.
-
-Confidence scoring:
-- 85-100: readings and areas give clear, consistent signal
-- 65-84:  signal is mostly clear but one or two data gaps
-- 40-64:  significant data missing; best-effort inference
-- <40:    insufficient data — still classify but flag in reasoning
-
-Reasoning field MUST:
-- Be 2-4 sentences, plain English, Australian spelling ("metres", "colour", "organisation").
-- Cite the exact S500:2025 section (e.g. "S500:2025 §10.5.4.2") supporting the chosen category AND the chosen class.
-- State which readings / areas drove the decision.
-
-Return ONLY the JSON object.`;
 
 export async function POST(
   req: NextRequest,
@@ -172,62 +128,44 @@ export async function POST(
       );
     }
 
-    let anthropicApiKey: string;
-    try {
-      anthropicApiKey = await getAnthropicApiKey(userId);
-    } catch {
-      return NextResponse.json(
-        { error: "Failed to get Anthropic API key" },
-        { status: 400 },
-      );
-    }
-
-    const anthropic = new Anthropic({ apiKey: anthropicApiKey });
-
-    const userPayload = {
-      inspectionNumber: inspection.inspectionNumber,
-      propertyPostcode: inspection.propertyPostcode,
-      moistureReadings: inspection.moistureReadings,
-      affectedAreas: inspection.affectedAreas,
-    };
-
-    const message = await anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 600,
-      system: SYSTEM_PROMPT,
-      messages: [
-        {
-          role: "user",
-          content: `Classify the following inspection per S500:2025. Return only the JSON object described in the system prompt.\n\n${JSON.stringify(userPayload, null, 2)}`,
-        },
-      ],
+    const result = await classifyInspection({
+      userId,
+      payload: {
+        inspectionNumber: inspection.inspectionNumber,
+        propertyPostcode: inspection.propertyPostcode,
+        moistureReadings: inspection.moistureReadings,
+        affectedAreas: inspection.affectedAreas,
+      },
     });
 
-    const textBlock = message.content.find((b) => b.type === "text");
-    const raw =
-      textBlock && textBlock.type === "text" ? textBlock.text.trim() : "";
-
-    // Tolerant parse: strip code fences if model added them.
-    const cleaned = raw
-      .replace(/^```(?:json)?\s*/i, "")
-      .replace(/```\s*$/i, "")
-      .trim();
-
-    let parsed: {
-      waterCategory: string;
-      waterClass: string;
-      confidence: number;
-      reasoning: string;
-    };
-    try {
-      parsed = JSON.parse(cleaned);
-    } catch {
-      console.error("RA-1195 classify: failed to parse model output", raw);
+    if (!result.ok) {
+      console.error("[InspectionsClassify]", {
+        inspectionId: inspection.id,
+        userId,
+        reason: result.reason,
+        detail: result.detail,
+      });
+      const status =
+        result.reason === "KEY_MISSING"
+          ? 402
+          : result.reason === "RATE_LIMITED"
+            ? 429
+            : result.reason === "MODEL_OVERLOADED"
+              ? 503
+              : result.reason === "PARSE_FAILED"
+                ? 502
+                : 500;
+      const headers: Record<string, string> =
+        result.retryAfterMs != null
+          ? { "Retry-After": String(Math.ceil(result.retryAfterMs / 1000)) }
+          : {};
       return NextResponse.json(
-        { error: "Could not parse classification response" },
-        { status: 502 },
+        { error: result.reason, detail: result.detail },
+        { status, headers },
       );
     }
+
+    const parsed = result.data;
 
     const validCats = ["CATEGORY_1", "CATEGORY_2", "CATEGORY_3"];
     const validClasses = ["CLASS_1", "CLASS_2", "CLASS_3", "CLASS_4"];

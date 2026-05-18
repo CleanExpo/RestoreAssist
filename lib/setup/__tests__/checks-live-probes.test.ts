@@ -20,8 +20,8 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
-vi.mock("@/lib/integrations/xero/token-manager", () => ({
-  getValidXeroToken: vi.fn(),
+vi.mock("@/lib/services/xero/credentials", () => ({
+  getValidXeroAccessToken: vi.fn(),
 }));
 
 vi.mock("@/lib/workspace/provider-connections", () => ({
@@ -36,7 +36,7 @@ vi.mock("@/lib/ai/model-router", () => ({
 
 import { runAllChecks } from "../checks";
 import { prisma } from "@/lib/prisma";
-import { getValidXeroToken } from "@/lib/integrations/xero/token-manager";
+import { getValidXeroAccessToken } from "@/lib/services/xero/credentials";
 import {
   getWorkspaceForUser,
   listProviderConnections,
@@ -52,7 +52,7 @@ const mocks = {
   integrationFindFirst: prisma.integration.findFirst as ReturnType<
     typeof vi.fn
   >,
-  getValidXeroToken: getValidXeroToken as ReturnType<typeof vi.fn>,
+  getValidXeroAccessToken: getValidXeroAccessToken as ReturnType<typeof vi.fn>,
   getWorkspaceForUser: getWorkspaceForUser as ReturnType<typeof vi.fn>,
   listProviderConnections: listProviderConnections as ReturnType<typeof vi.fn>,
   validateProviderKey: validateProviderKey as ReturnType<typeof vi.fn>,
@@ -149,7 +149,10 @@ describe("cloud_storage check", () => {
 describe("accounting check", () => {
   it("green when Xero integration is CONNECTED and /connections returns 200", async () => {
     mocks.integrationFindFirst.mockResolvedValueOnce({ id: "int1" });
-    mocks.getValidXeroToken.mockResolvedValueOnce("xero-token");
+    mocks.getValidXeroAccessToken.mockResolvedValueOnce({
+      ok: true,
+      data: "xero-token",
+    });
     globalThis.fetch = vi.fn(async () => ({
       ok: true,
       status: 200,
@@ -173,14 +176,16 @@ describe("accounting check", () => {
     const results = await runAllChecks("o1");
     const acc = results.find((r) => r.capability === "accounting");
     expect(acc?.status).toBe("yellow");
-    expect(mocks.getValidXeroToken).not.toHaveBeenCalled();
+    expect(mocks.getValidXeroAccessToken).not.toHaveBeenCalled();
   });
 
-  it("red when getValidXeroToken throws (refresh failed)", async () => {
+  it("red when getValidXeroAccessToken returns REFRESH_FAILED", async () => {
     mocks.integrationFindFirst.mockResolvedValueOnce({ id: "int1" });
-    mocks.getValidXeroToken.mockRejectedValueOnce(
-      new Error("refresh failed: 401"),
-    );
+    mocks.getValidXeroAccessToken.mockResolvedValueOnce({
+      ok: false,
+      reason: "REFRESH_FAILED",
+      detail: "refresh failed: 401",
+    });
     const results = await runAllChecks("o1");
     const acc = results.find((r) => r.capability === "accounting");
     expect(acc?.status).toBe("red");
@@ -189,7 +194,10 @@ describe("accounting check", () => {
 
   it("red when Xero /connections returns 401", async () => {
     mocks.integrationFindFirst.mockResolvedValueOnce({ id: "int1" });
-    mocks.getValidXeroToken.mockResolvedValueOnce("xero-token");
+    mocks.getValidXeroAccessToken.mockResolvedValueOnce({
+      ok: true,
+      data: "xero-token",
+    });
     globalThis.fetch = vi.fn(async () => ({
       ok: false,
       status: 401,

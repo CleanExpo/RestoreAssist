@@ -27,44 +27,9 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { Prisma } from "@prisma/client";
-import Anthropic from "@anthropic-ai/sdk";
+import { autoClassifyPhoto } from "@/lib/services/ai/auto-classify-photo";
 
 export const maxDuration = 60;
-
-let _anthropic: Anthropic | null = null;
-function getAnthropic(): Anthropic {
-  if (_anthropic) return _anthropic;
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) throw new Error("ANTHROPIC_API_KEY not set");
-  _anthropic = new Anthropic({ apiKey: key });
-  return _anthropic;
-}
-
-// Hard-coded per RA-1099 — vision work uses Sonnet; Opus is reserved
-// for planner/orchestrator roles only.
-const DEFAULT_MODEL = "claude-sonnet-4-5";
-
-const CLASSIFY_PROMPT = `You are inspecting a water damage photo for an Australian restoration report.
-Apply IICRC S500:2025 categorisation and return JSON ONLY.
-
-Fields to populate (null when the photo doesn't support a confident answer):
-- damageCategory: "CAT_1" | "CAT_2" | "CAT_3"
-- damageClass:    "CLASS_1" | "CLASS_2" | "CLASS_3" | "CLASS_4"
-- roomType:       "KITCHEN" | "BATHROOM" | "LAUNDRY" | "LOUNGE" | "BEDROOM" | "ENSUITE" | "HALLWAY" | "GARAGE" | "OTHER"
-- moistureSource: "FLEXI_HOSE" | "PIPE_BURST" | "ROOF_LEAK" | "APPLIANCE" | "FLOOD" | "SEWAGE" | "UNKNOWN"
-- affectedMaterial: array of any of "CARPET" | "UNDERLAY" | "PLASTER" | "GYPROCK" | "TIMBER_FLOOR" | "TILE" | "VINYL" | "CONCRETE" | "INSULATION" | "CABINETRY"
-- surfaceOrientation: "FLOOR" | "WALL_LOWER" | "WALL_UPPER" | "CEILING" | "DOOR" | "WINDOW"
-- damageExtentEstimate: "SPOT" | "PARTIAL" | "MAJORITY" | "FULL" | "UNCERTAIN"
-- equipmentVisible: true | false
-- secondaryDamageIndicators: array of "MOULD_VISIBLE" | "EFFLORESCENCE" | "STAINING" | "SWELLING" | "ASBESTOS_SUSPECT"
-- photoStage: "PRE_WORK" | "DURING_WORK" | "MONITORING" | "POST_WORK" | "REINSTATEMENT"
-- captureAngle: "STRAIGHT_ON" | "OBLIQUE" | "OVERHEAD" | "MACRO" | "WIDE"
-
-Use Australian English ("mould" not "mold", "lounge" not "living room", "laundry" not "utility").
-If ASBESTOS_SUSPECT, include it — the UI triggers a stop-work modal.
-
-Return ONLY the JSON object, no prose, no markdown fences.
-Also include at the end: "confidence": 0-1 float expressing overall certainty.`;
 
 interface ClassifyResponse {
   labels: Record<string, unknown>;
@@ -91,13 +56,16 @@ export async function POST(
   });
   if (rateLimited) return rateLimited;
 
-  if (!process.env.ANTHROPIC_API_KEY) {
+  const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
+  if (!apiKey) {
+    console.error("[AutoClassifyPhoto]", {
+      userId,
+      reason: "KEY_MISSING",
+      detail: "ANTHROPIC_API_KEY not configured",
+    });
     return NextResponse.json(
-      {
-        error:
-          "AI classification unavailable — ANTHROPIC_API_KEY not configured.",
-      },
-      { status: 503 },
+      { error: "KEY_MISSING", detail: "ANTHROPIC_API_KEY not configured" },
+      { status: 402 },
     );
   }
 
@@ -112,54 +80,40 @@ export async function POST(
     return NextResponse.json({ error: "Photo not found" }, { status: 404 });
   }
 
-  const model = DEFAULT_MODEL;
   try {
-    const msg = await getAnthropic().messages.create({
-      model,
-      max_tokens: 1024,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "image",
-              source: {
-                type: "url",
-                url: photo.url,
-              },
-            },
-            { type: "text", text: CLASSIFY_PROMPT },
-          ],
-        },
-      ],
+    const result = await autoClassifyPhoto({
+      apiKey,
+      imageUrl: photo.url,
     });
 
-    const textBlock = msg.content.find((b) => b.type === "text");
-    const raw = textBlock && "text" in textBlock ? textBlock.text : "";
-    const trimmed = raw.trim().replace(/^```json\s*|\s*```$/g, "");
-    let parsed: Record<string, unknown>;
-    try {
-      parsed = JSON.parse(trimmed);
-    } catch {
+    if (!result.ok) {
+      console.error("[AutoClassifyPhoto]", {
+        userId,
+        photoId: photo.id,
+        reason: result.reason,
+        detail: result.detail,
+      });
+      const status =
+        result.reason === "KEY_MISSING"
+          ? 402
+          : result.reason === "RATE_LIMITED"
+            ? 429
+            : result.reason === "MODEL_OVERLOADED"
+              ? 503
+              : result.reason === "PARSE_FAILED"
+                ? 502
+                : 500;
+      const headers: Record<string, string> =
+        result.retryAfterMs != null
+          ? { "Retry-After": String(Math.ceil(result.retryAfterMs / 1000)) }
+          : {};
       return NextResponse.json(
-        {
-          error: "Model returned non-JSON",
-          rawPreview: trimmed.slice(0, 200),
-        },
-        { status: 502 },
+        { error: result.reason, detail: result.detail },
+        { status, headers },
       );
     }
 
-    const confidenceRaw = parsed["confidence"];
-    const confidence =
-      typeof confidenceRaw === "number" &&
-      confidenceRaw >= 0 &&
-      confidenceRaw <= 1
-        ? confidenceRaw
-        : null;
-    // Strip confidence from the labels payload — it lives in its own column
-    const labels = { ...parsed };
-    delete (labels as { confidence?: unknown }).confidence;
+    const { labels, confidence, model } = result.data;
 
     const runAt = new Date();
     await prisma.inspectionPhoto.update({
