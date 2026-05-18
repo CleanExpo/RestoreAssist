@@ -20,8 +20,13 @@ export async function POST(request: NextRequest) {
     const csrfError = validateCsrf(request);
     if (csrfError) return csrfError;
 
+    // RA-4990 — was maxRequests: 5/minute, which rejected legitimate bursts
+    // (a small office onboarding 5+ employees within a minute; E2E smoke
+    // retrying after a transient transaction-timeout; etc.). 10/minute is
+    // still strongly abuse-protective (1 signup every 6 s) but tolerates the
+    // realistic burst patterns we've actually observed.
     const rateLimited = await applyRateLimit(request, {
-      maxRequests: 5,
+      maxRequests: 10,
       prefix: "register",
     });
     if (rateLimited) return rateLimited;
