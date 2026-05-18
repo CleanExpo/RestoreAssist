@@ -179,30 +179,42 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      const updatedUser = await prisma.$transaction(async (tx) => {
-        const user = await tx.user.create({
-          data: {
-            name,
-            email,
-            password: hashedPassword,
-            role: "ADMIN",
-            subscriptionStatus: "TRIAL",
-            creditsRemaining: 30,
-            totalCreditsUsed: 0,
-            trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-            quickFillCreditsRemaining: 30,
-            totalQuickFillUsed: 0,
-          },
-        });
-        const orgName = `${name}'s Organisation`;
-        const org = await tx.organization.create({
-          data: { name: orgName, ownerId: user.id },
-        });
-        return await tx.user.update({
-          where: { id: user.id },
-          data: { organizationId: org.id },
-        });
-      });
+      const updatedUser = await prisma.$transaction(
+        async (tx) => {
+          const user = await tx.user.create({
+            data: {
+              name,
+              email,
+              password: hashedPassword,
+              role: "ADMIN",
+              subscriptionStatus: "TRIAL",
+              creditsRemaining: 30,
+              totalCreditsUsed: 0,
+              trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+              quickFillCreditsRemaining: 30,
+              totalQuickFillUsed: 0,
+            },
+          });
+          const orgName = `${name}'s Organisation`;
+          const org = await tx.organization.create({
+            data: { name: orgName, ownerId: user.id },
+          });
+          return await tx.user.update({
+            where: { id: user.id },
+            data: { organizationId: org.id },
+          });
+        },
+        // RA-4989 — Prisma's default maxWait is 2s and default timeout is 5s.
+        // On slow connections (sandbox DB regularly returns 2-4s health-check
+        // latency; cold starts on the connection pool can push the first
+        // transaction-start past 2s), registration intermittently failed with
+        // "Transaction API error: Unable to start a transaction in the given
+        // time", leaving zero orphan user state (try/catch below converts to a
+        // structured 500 with no DB write). Widening to 10s/30s gives slow-DB
+        // sessions room without changing prod hot-path behaviour (steady-state
+        // sandbox + prod transactions complete in <100ms).
+        { maxWait: 10_000, timeout: 30_000 },
+      );
       // RA-1309 — await all post-transaction side effects via allSettled so
       // they run concurrently but we don't return the HTTP response until
       // they're done. Previous code fired them as unawaited fire-and-forgets
