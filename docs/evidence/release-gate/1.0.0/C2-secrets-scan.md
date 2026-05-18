@@ -32,15 +32,42 @@ The **6 HIGH-RISK findings alone** justify DEFERRED status independent of the LO
 
 ## Working-tree scan (separately verified, 2026-05-18)
 
-`gitleaks detect --no-banner --redact --no-git` returned **877 findings**, but `git check-ignore` confirms every high-volume hit is in a gitignored local-secret file:
+`gitleaks detect --no-banner --redact --no-git` returned **877 findings** on the working tree.
 
-| Source | Tracked in git? |
-|---|---|
-| `.env.local`, `.env.vercel-prod`, `.env.asc`, `.env.prod2`, `.env.production.local` | NO — matched by `.gitignore:21:.env*` and `.gitignore:95:.env*.local` |
-| `.claude/worktrees/agent-*/.env.local` | NO — agent scratch dirs are gitignored |
-| `.next/` build output | NO — gitignored build artifacts |
+Per-finding classification via `git check-ignore` against each path:
 
-Only `.env.example` and `.env.test.local.example` are tracked, and those are template files with placeholder values by design. So the high worktree count is expected/correct behaviour; the **127 history findings remain the only actual concern.**
+| Bucket | Findings | Notes |
+|---|---|---|
+| **In gitignored paths** | **871** | Local-only secret files (`.env.*`, `.claude/worktrees/agent-*/`, `.next/` build output) — these are correctly NOT in git |
+| **In tracked paths** | **6** | Itemized below |
+
+### Top gitignored sources (871 of 877)
+
+| Hits | Path | Gitignore rule |
+|---|---|---|
+| 13 | `.env.local` | `.gitignore:95: .env*.local` |
+| 13 | `.env.prod2` | `.gitignore:21: .env*` |
+| 13 | `.env.asc` | `.gitignore:21: .env*` |
+| 13 | `.env.vercel-prod` | `.gitignore:21: .env*` |
+| 13 | `.claude/worktrees/agent-a4c1a938ba6623287/.env.local` | agent scratch dir, gitignored |
+| 13 | `.claude/worktrees/agent-ac368a1194d212ccd/.env.local` | agent scratch dir, gitignored |
+| 13 | `.claude/worktrees/agent-afd9aab75854a3825/.env.local` | agent scratch dir, gitignored |
+| 11 | `.env.production.local` | `.gitignore:95: .env*.local` |
+| 5 | `.next/server/.../mermaid-parser_core_chunk-...mjs.map` | `.next/` build artifact, gitignored |
+
+These are NOT leaks — they are local secret files used in development and prod-debug, correctly excluded from version control. The high worktree count is expected behaviour.
+
+### Tracked findings (6 of 877) — actionable list
+
+| Hits | Path | Initial classification (requires RA-4985 confirmation) |
+|---|---|---|
+| 2 | `.github/workflows/ios-release.yml` | Apple cert workflow — likely the same false-positive pattern that appears in the history scan |
+| 1 | `e2e/stripe-payment-intent-webhook.spec.ts` | E2E test fixture — verify it's a synthetic Stripe key, not a real one |
+| 1 | `app/api/oauth/google-drive/callback/__tests__/route.test.ts` | Test fixture — verify synthetic |
+| 1 | `.env.example` | Placeholder by design — confirm not a leaked real value |
+| 1 | `.codex/config.toml` | **HIGH PRIORITY** — flagged in RA-4985; toolchain config that may have shipped a real key |
+
+Reconciliation: the 6 tracked-worktree findings are the same population that historical scanning would surface for the current HEAD; the remaining 121 historical findings (127 − 6) exist in older commits whose tracked content has since been modified or deleted. **The 127 history-scan number remains the upper bound on potentially-leaked secrets — git-rewriting historical commits to remove them is part of the RA-4985 scope.**
 
 ## Rule breakdown (history scan)
 
