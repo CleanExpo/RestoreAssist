@@ -22,9 +22,9 @@ export type SubmissionValidationReason =
 export interface SubmissionPayload {
   id: string;
   status: string;
-  affectedAreas: { id: string; roomName: string }[];
-  moistureReadings: { id: string; value: number }[];
-  photos: { id: string; url: string }[];
+  affectedAreas: { id: string }[];
+  moistureReadings: { id: string }[];
+  photos: { id: string }[];
 }
 
 export function validateSubmissionPayload(

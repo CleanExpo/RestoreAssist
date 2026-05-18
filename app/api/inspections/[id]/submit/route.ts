@@ -99,23 +99,18 @@ export async function POST(
 
       // ── Service-layer submission gate (Task 8 / Runtime Reconciliation) ───────
       // Pure, fast precondition check before the heavier tiered/compliance gates.
-      // Sub-field names are remapped to satisfy the typed contract — the validator
-      // only inspects `.length` and `.status`, never the sub-field values.
+      // The validator only inspects `.length` and `.status`; the interface
+      // declares only `{ id }` per item to make that read-surface explicit.
       const validation = validateSubmissionPayload({
         id: inspection.id,
         status: inspection.status,
         affectedAreas: (inspection.affectedAreas ?? []).map((a) => ({
           id: a.id,
-          roomName: a.roomZoneId,
         })),
         moistureReadings: (inspection.moistureReadings ?? []).map((m) => ({
           id: m.id,
-          value: m.moistureLevel,
         })),
-        photos: (inspection.photos ?? []).map((p) => ({
-          id: p.id,
-          url: "",
-        })),
+        photos: (inspection.photos ?? []).map((p) => ({ id: p.id })),
       });
       if (!validation.ok) {
         const status = validation.reason === "INVALID_STATUS" ? 409 : 422;

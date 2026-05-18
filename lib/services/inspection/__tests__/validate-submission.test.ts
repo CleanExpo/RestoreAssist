@@ -6,9 +6,9 @@ describe("validateSubmissionPayload", () => {
     const r = validateSubmissionPayload({
       id: "insp-1",
       status: "DRAFT",
-      affectedAreas: [{ id: "a", roomName: "Kitchen" }],
-      moistureReadings: [{ id: "m", value: 30 }],
-      photos: [{ id: "p", url: "https://..." }],
+      affectedAreas: [{ id: "a" }],
+      moistureReadings: [{ id: "m" }],
+      photos: [{ id: "p" }],
     });
     expect(r.ok).toBe(true);
   });
@@ -17,9 +17,9 @@ describe("validateSubmissionPayload", () => {
     const r = validateSubmissionPayload({
       id: "insp-1",
       status: "SUBMITTED",
-      affectedAreas: [{ id: "a", roomName: "K" }],
-      moistureReadings: [{ id: "m", value: 30 }],
-      photos: [{ id: "p", url: "x" }],
+      affectedAreas: [{ id: "a" }],
+      moistureReadings: [{ id: "m" }],
+      photos: [{ id: "p" }],
     });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.reason).toBe("INVALID_STATUS");
@@ -30,8 +30,8 @@ describe("validateSubmissionPayload", () => {
       id: "insp-1",
       status: "DRAFT",
       affectedAreas: [],
-      moistureReadings: [{ id: "m", value: 30 }],
-      photos: [{ id: "p", url: "x" }],
+      moistureReadings: [{ id: "m" }],
+      photos: [{ id: "p" }],
     });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.reason).toBe("MISSING_AFFECTED_AREAS");
@@ -41,9 +41,9 @@ describe("validateSubmissionPayload", () => {
     const r = validateSubmissionPayload({
       id: "insp-1",
       status: "DRAFT",
-      affectedAreas: [{ id: "a", roomName: "K" }],
+      affectedAreas: [{ id: "a" }],
       moistureReadings: [],
-      photos: [{ id: "p", url: "x" }],
+      photos: [{ id: "p" }],
     });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.reason).toBe("MISSING_MOISTURE_READINGS");
@@ -53,11 +53,23 @@ describe("validateSubmissionPayload", () => {
     const r = validateSubmissionPayload({
       id: "insp-1",
       status: "DRAFT",
-      affectedAreas: [{ id: "a", roomName: "K" }],
-      moistureReadings: [{ id: "m", value: 30 }],
+      affectedAreas: [{ id: "a" }],
+      moistureReadings: [{ id: "m" }],
       photos: [],
     });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.reason).toBe("MISSING_PHOTOS");
+  });
+
+  it("only needs id to count items — extra fields are not required", () => {
+    // Demonstrates the interface signal: validator reads .length only.
+    const r = validateSubmissionPayload({
+      id: "insp-1",
+      status: "DRAFT",
+      affectedAreas: [{ id: "a" }],
+      moistureReadings: [{ id: "m" }],
+      photos: [{ id: "p" }],
+    });
+    expect(r.ok).toBe(true);
   });
 });
