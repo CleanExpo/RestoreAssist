@@ -64,6 +64,7 @@ describe("extractStandardsSections", () => {
         content: [
           { type: "text", text: "Bare unstructured response without numbered list format." },
         ],
+        usage: { input_tokens: 100, output_tokens: 50 },
       } as never,
     });
 
@@ -110,6 +111,7 @@ describe("extractStandardsSections", () => {
       data: {
         id: "msg_3",
         content: [{ type: "text", text: "1. " + "x".repeat(200) }],
+        usage: { input_tokens: 100, output_tokens: 50 },
       } as never,
     });
 
