@@ -14,7 +14,7 @@
  * @see .claude/skills/service-layer-architecture/SKILL.md
  */
 
-import type Anthropic from "@anthropic-ai/sdk";
+import type { MessageStream } from "@anthropic-ai/sdk/lib/MessageStream";
 import { callAnthropicStream } from "./anthropic-gateway";
 import type { AnthropicReason } from "./anthropic-gateway";
 import type { ServiceResult } from "@/lib/services/_shared/result";
@@ -28,7 +28,7 @@ export type GenerateScopeStreamArgs = {
 
 export async function generateScopeStream(
   args: GenerateScopeStreamArgs,
-): Promise<ServiceResult<Anthropic.MessageStream, AnthropicReason>> {
+): Promise<ServiceResult<MessageStream, AnthropicReason>> {
   return callAnthropicStream({
     userId: args.userId,
     request: {

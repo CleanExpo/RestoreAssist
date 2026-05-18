@@ -25,7 +25,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import Anthropic from "@anthropic-ai/sdk";
 import {
   buildScopeUserMessage,
   type MoistureReadingInput,
@@ -38,10 +37,7 @@ import {
   getMultiClaimPrompt,
   type ClaimType,
 } from "@/lib/ai/claim-type-prompts";
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+import { generateScopeStream } from "@/lib/services/ai/generate-scope";
 
 export async function POST(
   request: NextRequest,
@@ -254,6 +250,43 @@ export async function POST(
       : getClaimTypePrompt(claimType as ClaimType, promptOptions);
 
     // ============================================================
+    // Pre-stream gateway call: resolve key + open upstream stream BEFORE
+    // we hand the client a ReadableStream. Lets us map KEY_MISSING /
+    // RATE_LIMITED / MODEL_OVERLOADED to proper HTTP status codes.
+    // ============================================================
+    const credResult = await generateScopeStream({
+      userId: session.user.id,
+      systemPrompt: effectiveSystemPrompt,
+      userMessage,
+      model,
+    });
+    if (!credResult.ok) {
+      console.error("[GenerateScope]", {
+        inspectionId,
+        userId: session.user.id,
+        reason: credResult.reason,
+        detail: credResult.detail,
+      });
+      const status =
+        credResult.reason === "KEY_MISSING"
+          ? 402
+          : credResult.reason === "RATE_LIMITED"
+            ? 429
+            : credResult.reason === "MODEL_OVERLOADED"
+              ? 503
+              : 500;
+      const headers: Record<string, string> =
+        credResult.retryAfterMs != null
+          ? { "Retry-After": String(Math.ceil(credResult.retryAfterMs / 1000)) }
+          : {};
+      return NextResponse.json(
+        { error: credResult.reason, detail: credResult.detail },
+        { status, headers },
+      );
+    }
+    const anthropicStream = credResult.data;
+
+    // ============================================================
     // Streaming response
     // ============================================================
     const encoder = new TextEncoder();
@@ -264,9 +297,7 @@ export async function POST(
     // flag so we can abort token generation when the client bails. Without
     // this, the server keeps consuming tokens from Anthropic (billed) with
     // no listener on the other end.
-    let anthropicStreamRef: Awaited<
-      ReturnType<typeof anthropic.messages.stream>
-    > | null = null;
+    let anthropicStreamRef: typeof anthropicStream | null = null;
     let clientDisconnected = false;
 
     const stream = new ReadableStream({
@@ -287,20 +318,7 @@ export async function POST(
       },
       async start(controller) {
         try {
-          anthropicStreamRef = await anthropic.messages.stream({
-            model,
-            max_tokens: 2000,
-            system: [
-              {
-                type: "text",
-                text: effectiveSystemPrompt,
-                // Enable prompt caching — system prompt rarely changes
-                cache_control: { type: "ephemeral" },
-              },
-            ],
-            messages: [{ role: "user", content: userMessage }],
-          });
-          const anthropicStream = anthropicStreamRef;
+          anthropicStreamRef = anthropicStream;
 
           for await (const event of anthropicStream) {
             // Bail early if the client disconnected — saves Anthropic tokens
