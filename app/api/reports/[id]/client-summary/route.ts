@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import Anthropic from "@anthropic-ai/sdk";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { getAnthropicApiKey } from "@/lib/ai-provider";
 import {
-  generateClientSummary,
+  generateClientSummaryService,
   type ClientSummaryInput,
-} from "@/lib/ai/client-summary";
+} from "@/lib/services/ai/generate-client-summary";
 
 /**
  * RA-1461: POST /api/reports/[id]/client-summary
@@ -149,8 +148,6 @@ export async function POST(
       );
     }
 
-    const anthropic = new Anthropic({ apiKey });
-
     const input: ClientSummaryInput = {
       reportId: report.id,
       propertyAddress: report.propertyAddress,
@@ -165,24 +162,49 @@ export async function POST(
       scopeOfWorks: report.scopeOfWorksDocument,
     };
 
-    const result = await generateClientSummary(anthropic, input);
+    const result = await generateClientSummaryService({ apiKey, input });
+
+    if (!result.ok) {
+      console.error("[reports/client-summary]", {
+        reportId: report.id,
+        userId,
+        reason: result.reason,
+        detail: result.detail,
+      });
+      const status =
+        result.reason === "RATE_LIMITED"
+          ? 429
+          : result.reason === "MODEL_OVERLOADED"
+            ? 503
+            : 500;
+      const headers: Record<string, string> =
+        result.retryAfterMs != null
+          ? { "Retry-After": String(Math.ceil(result.retryAfterMs / 1000)) }
+          : {};
+      return NextResponse.json(
+        { error: result.reason, detail: result.detail },
+        { status, headers },
+      );
+    }
+
+    const summary = result.data;
 
     const now = new Date();
     await prisma.report.update({
       where: { id: report.id },
       data: {
-        clientSummaryCache: result.summary,
+        clientSummaryCache: summary.summary,
         clientSummaryCachedAt: now,
       },
     });
 
     return NextResponse.json({
       data: {
-        summary: result.summary,
+        summary: summary.summary,
         cachedAt: now.toISOString(),
         cached: false,
-        fellBack: result.fellBack,
-        attempts: result.attempts,
+        fellBack: summary.fellBack,
+        attempts: summary.attempts,
       },
     });
   } catch (error) {
