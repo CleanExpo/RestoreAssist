@@ -2,7 +2,7 @@ import { describe, expect, it, beforeEach, afterAll } from "vitest";
 import { grandfatherExistingOrgs } from "../grandfather-existing-orgs";
 import { prisma } from "@/lib/prisma";
 
-describe("grandfatherExistingOrgs", () => {
+describe.skipIf(!process.env.DATABASE_URL)("grandfatherExistingOrgs", () => {
   beforeEach(async () => {
     await prisma.organization.deleteMany({});
     await prisma.user.deleteMany({});

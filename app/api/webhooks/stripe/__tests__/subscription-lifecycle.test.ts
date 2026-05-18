@@ -11,7 +11,7 @@ import { describe, it, expect } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { handleSubscriptionUpdated, handleSubscriptionDeleted } from "../route";
 
-describe("subscription.updated handler", () => {
+describe.skipIf(!process.env.DATABASE_URL)("subscription.updated handler", () => {
   it("flips to PAST_DUE on status=past_due", async () => {
     const user = await prisma.user.create({
       data: {
@@ -51,7 +51,7 @@ describe("subscription.updated handler", () => {
   });
 });
 
-describe("subscription.deleted handler", () => {
+describe.skipIf(!process.env.DATABASE_URL)("subscription.deleted handler", () => {
   it("flips to CANCELED + writes SubscriptionEvent", async () => {
     const user = await prisma.user.create({
       data: {

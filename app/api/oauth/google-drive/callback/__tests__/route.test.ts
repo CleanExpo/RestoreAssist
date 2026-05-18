@@ -52,7 +52,7 @@ function makeReq(qs: Record<string, string>) {
   return new Request(url.toString());
 }
 
-describe("GET /api/oauth/google-drive/callback", () => {
+describe.skipIf(!process.env.DATABASE_URL)("GET /api/oauth/google-drive/callback", () => {
   let testUserId = "";
   let testOrgId = "";
 

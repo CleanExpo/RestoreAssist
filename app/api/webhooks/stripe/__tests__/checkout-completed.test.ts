@@ -10,7 +10,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { handleCheckoutCompleted } from "../route";
 
-describe("checkout.session.completed handler", () => {
+describe.skipIf(!process.env.DATABASE_URL)("checkout.session.completed handler", () => {
   let userId: string;
   beforeEach(async () => {
     const u = await prisma.user.create({

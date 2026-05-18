@@ -7,7 +7,7 @@ vi.mock('next-auth', () => ({
 }));
 import { getServerSession } from 'next-auth';
 
-describe('GET /api/setup/hydrate/stream', () => {
+describe.skipIf(!process.env.DATABASE_URL)('GET /api/setup/hydrate/stream', () => {
   let testUserId = '';
   let testOrgId = '';
 

@@ -23,7 +23,7 @@ async function seedUser(daysFromNow: number, status: Status) {
   });
 }
 
-describe("getTrialStatus derived flags", () => {
+describe.skipIf(!process.env.DATABASE_URL)("getTrialStatus derived flags", () => {
   it("showCountdownBanner=true when daysRemaining = 3 (TRIAL)", async () => {
     const user = await seedUser(3, "TRIAL");
     const status = await getTrialStatus(user.id);

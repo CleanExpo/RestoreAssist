@@ -10,7 +10,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { recordSubscriptionEvent } from "../subscription-event";
 
-describe("recordSubscriptionEvent", () => {
+describe.skipIf(!process.env.DATABASE_URL)("recordSubscriptionEvent", () => {
   let userId: string;
 
   beforeEach(async () => {

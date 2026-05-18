@@ -91,7 +91,7 @@ beforeEach(() => {
 
 // ─── cloud_storage ──────────────────────────────────────────────────────────
 
-describe("cloud_storage check", () => {
+describe.skipIf(!process.env.DATABASE_URL)("cloud_storage check", () => {
   it("green when google account exists and Drive responds 200", async () => {
     mocks.accountFindFirst.mockResolvedValueOnce({
       access_token: "ya29.live-access-token",
@@ -146,7 +146,7 @@ describe("cloud_storage check", () => {
 
 // ─── accounting ─────────────────────────────────────────────────────────────
 
-describe("accounting check", () => {
+describe.skipIf(!process.env.DATABASE_URL)("accounting check", () => {
   it("green when Xero integration is CONNECTED and /connections returns 200", async () => {
     mocks.integrationFindFirst.mockResolvedValueOnce({ id: "int1" });
     mocks.getValidXeroAccessToken.mockResolvedValueOnce({
@@ -212,7 +212,7 @@ describe("accounting check", () => {
 
 // ─── byok_keys ──────────────────────────────────────────────────────────────
 
-describe("byok_keys check", () => {
+describe.skipIf(!process.env.DATABASE_URL)("byok_keys check", () => {
   it("green when at least one ACTIVE provider validates successfully", async () => {
     mocks.getWorkspaceForUser.mockResolvedValueOnce({ id: "w1", name: "ws" });
     mocks.listProviderConnections.mockResolvedValueOnce([

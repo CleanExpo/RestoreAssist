@@ -33,7 +33,12 @@ function makeGemmaResult(text: string) {
 }
 
 describe("routeBasic", () => {
-  beforeEach(() => vi.restoreAllMocks());
+  // vitest 4 — vi.restoreAllMocks() restores spy impls but doesn't drain
+  // module-level vi.fn() call history reliably. Reset each mock explicitly.
+  beforeEach(() => {
+    mockCallGemma.mockReset();
+    mockFindUnique.mockReset();
+  });
 
   it("returns text + confidence on a successful Gemma call", async () => {
     mockCallGemma.mockResolvedValueOnce(makeGemmaResult("Moisture detected at 35%."));

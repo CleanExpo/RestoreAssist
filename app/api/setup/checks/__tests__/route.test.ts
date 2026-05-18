@@ -12,7 +12,7 @@ vi.mock('@/lib/ai/model-router', () => ({
 }));
 import { routeBasic } from '@/lib/ai/model-router';
 
-describe('GET /api/setup/checks', () => {
+describe.skipIf(!process.env.DATABASE_URL)('GET /api/setup/checks', () => {
   let testUserId = '';
   let testOrgId = '';
 

@@ -46,7 +46,16 @@ describe("middleware hard-paywall (SP-3 T15)", () => {
     process.env.SETUP_WIZARD_ENABLED = "false";
   });
 
-  it("redirects expired TRIAL user to /billing/upgrade?reason=trial-expired", async () => {
+  // SP-3 T15 hotfix: hard-paywall enforcement disabled in middleware
+  // because edge runtime cannot run Prisma (Node engine binary not
+  // available on the edge). See middleware.ts lines marked
+  // "Hard-paywall — DISABLED in middleware (SP-3 T15 hotfix)".
+  // Trial-expired enforcement still runs in route handlers + server
+  // components per CLAUDE.md rule #8. This test asserts the pre-hotfix
+  // behaviour and will need to be re-enabled when (a) the middleware
+  // reads trial state from JWT claims stamped in jwt() instead of
+  // Prisma, OR (b) the hard wall is wired in a Node-runtime layer.
+  it.skip("redirects expired TRIAL user to /billing/upgrade?reason=trial-expired", async () => {
     (getToken as any).mockResolvedValue({
       sub: "u1",
       setupCompletedAt: "2026-01-01T00:00:00Z",

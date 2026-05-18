@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 vi.mock('next-auth', () => ({ getServerSession: vi.fn() }));
 import { getServerSession } from 'next-auth';
 
-describe('PATCH /api/setup/pricing', () => {
+describe.skipIf(!process.env.DATABASE_URL)('PATCH /api/setup/pricing', () => {
   let testUserId = '';
   let testOrgId = '';
 

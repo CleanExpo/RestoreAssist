@@ -109,12 +109,19 @@ describe("middleware setup gate", () => {
     expect((res as any).status).not.toBe(307);
   });
 
-  it("allows unauthenticated requests through (setup gate path)", async () => {
-    // Setup gate is irrelevant for unauthenticated users — the login redirect
-    // gate below handles them. This asserts the setup gate itself does not
-    // 307 redirect when there's no token.
+  // P1 #16 added an unauth → /login redirect that runs BEFORE the setup
+  // gate. For an unauthenticated request to /dashboard, middleware now
+  // (correctly) returns a 307 to /login — but that 307 is from the login
+  // redirect, not the setup gate. To assert the setup gate's own
+  // pass-through behaviour, the test now uses an AUTHENTICATED token with
+  // setup already complete + the flag disabled. That isolates the
+  // setup-gate codepath cleanly.
+  it("does not 307 when setup is complete (setup gate path)", async () => {
     process.env.SETUP_WIZARD_ENABLED = "false";
-    (getToken as any).mockResolvedValue(null);
+    (getToken as any).mockResolvedValue({
+      sub: "u1",
+      setupCompletedAt: "2026-01-01T00:00:00Z",
+    });
     const res = await middleware(mkReq("/dashboard"));
     expect((res as any).status).not.toBe(307);
   });
