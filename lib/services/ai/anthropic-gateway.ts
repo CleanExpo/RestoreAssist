@@ -29,6 +29,10 @@ export type AnthropicReason =
 
 export interface AnthropicGatewayRequest {
   userId: string;
+  /** Optional platform-key override. When provided, bypasses
+   *  getAnthropicApiKey(userId) — used by admin/cron flows that
+   *  billing-wise are platform-owned, not user-owned. */
+  apiKey?: string;
   request: MessageCreateParams;
 }
 
@@ -36,13 +40,17 @@ export async function callAnthropic(
   args: AnthropicGatewayRequest,
 ): Promise<ServiceResult<Anthropic.Message, AnthropicReason>> {
   let apiKey: string;
-  try {
-    apiKey = await getAnthropicApiKey(args.userId);
-  } catch (err) {
-    return fail("KEY_MISSING", {
-      detail: err instanceof Error ? err.message : String(err),
-      cause: err,
-    });
+  if (args.apiKey) {
+    apiKey = args.apiKey;
+  } else {
+    try {
+      apiKey = await getAnthropicApiKey(args.userId);
+    } catch (err) {
+      return fail("KEY_MISSING", {
+        detail: err instanceof Error ? err.message : String(err),
+        cause: err,
+      });
+    }
   }
 
   if (!apiKey) {
