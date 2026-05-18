@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import Anthropic from "@anthropic-ai/sdk";
 import { detectStateFromPostcode, getStateInfo } from "@/lib/state-detection";
-import { tryClaudeModels } from "@/lib/anthropic-models";
 import {
   getEquipmentGroupById,
   calculateTotalDailyCost,
@@ -164,9 +162,11 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const anthropic = new Anthropic({
-        apiKey: anthropicApiKey,
-      });
+      // (Anthropic client previously instantiated here was never invoked —
+      // this route does deterministic cost math. Dead import + instantiation
+      // removed 2026-05-18. The getAnthropicApiKey 400-affordance above stays
+      // until product decides whether AI narrative enhancement was intended.)
+      void anthropicApiKey;
 
       // Build cost estimation data structure
       const costData = buildCostEstimationData({

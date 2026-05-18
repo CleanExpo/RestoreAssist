@@ -2,13 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import Anthropic from "@anthropic-ai/sdk";
 import { detectStateFromPostcode, getStateInfo } from "@/lib/state-detection";
 import {
   getEquipmentGroupById,
   getEquipmentDailyRate,
 } from "@/lib/equipment-matrix";
-import { tryClaudeModels } from "@/lib/anthropic-models";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 
@@ -147,9 +145,12 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const anthropic = new Anthropic({
-        apiKey: anthropicApiKey,
-      });
+      // (Anthropic client previously instantiated here was never invoked —
+      // this route does deterministic scope construction. Dead import +
+      // instantiation removed 2026-05-18. The getAnthropicApiKey
+      // 400-affordance above stays until product decides whether AI
+      // narrative enhancement was intended.)
+      void anthropicApiKey;
 
       // Parse equipment selection data (from Equipment Tools Selection step)
       const equipmentSelection = report.equipmentSelection
