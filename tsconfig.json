@@ -36,6 +36,7 @@
     "mobile/**",
     "scripts/**",
     "pilot-tester/**",
+    ".next/dev/**",
     "**/__tests__/**",
     "**/*.test.ts",
     "**/*.test.tsx",
