@@ -93,8 +93,8 @@ importers:
         specifier: ^8.3.22
         version: 8.3.22(@capacitor/core@8.3.4)
       '@google/genai':
-        specifier: ^2.3.0
-        version: 2.3.0
+        specifier: ^2.4.0
+        version: 2.4.0
       '@google/generative-ai':
         specifier: ^0.24.1
         version: 0.24.1
@@ -1572,8 +1572,8 @@ packages:
     resolution: {integrity: sha512-n2FjE7NAOYyshogdc7KQOl/VZb4sneqPjWouSyia9CMDdMhRX5+RIbqalNmC7LOLzuLAN89VlF2HvG8na9G+zQ==}
     engines: {node: '>=14'}
 
-  '@google/genai@2.3.0':
-    resolution: {integrity: sha512-rXDhXUBj31gZafcwQFbXvt8jMrMxZoK7ECjQpk88UfA/OkZls3PtZDprT9lM3jjqRtwRjQoNLoPoNq6MlV8qLw==}
+  '@google/genai@2.4.0':
+    resolution: {integrity: sha512-q5q26X/yNKjbzrRdVVDIM9KEmN4dhezmhyliCDIn8mPGT0AlfzOqQfZ5iNCGRCEHSPd86oUdhpNpuzAkEZ5LQg==}
     engines: {node: '>=20.0.0'}
     peerDependencies:
       '@modelcontextprotocol/sdk': ^1.25.2
@@ -11253,7 +11253,7 @@ snapshots:
       - supports-color
     optional: true
 
-  '@google/genai@2.3.0':
+  '@google/genai@2.4.0':
     dependencies:
       google-auth-library: 10.6.2
       p-retry: 4.6.2
