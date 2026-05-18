@@ -1,9 +1,9 @@
 /**
  * AI-driven follow-up question suggester for guided inspection interviews.
  *
- * Wraps lib/anthropic-models.tryClaudeModels (multi-model fallback chain:
- * Haiku 4.5 then 3.5 fallback) with a structured ServiceResult envelope.
- * The route owns auth, rate-limit, subscription gate, and HTTP error mapping.
+ * Composes the multi-model-fallback gateway helper
+ * (lib/services/ai/anthropic-gateway.callAnthropicWithFallback). Uses the
+ * Haiku 4.5 → 3.5 fallback chain.
  *
  * Graceful-PARSE-fail semantic: when the model output isn't valid JSON the
  * service logs internally and returns ok({question: null, reason:
@@ -11,17 +11,14 @@
  * ServiceResult failure. API/gateway failures still surface as
  * {ok: false, reason: AnthropicReason}.
  *
- * Why this service bypasses lib/services/ai/anthropic-gateway: the route
- * uses tryClaudeModels (multi-model fallback), which the single-model
- * gateway can't compose.
- *
  * @see .claude/skills/service-layer-architecture/SKILL.md
  */
 
-import Anthropic from "@anthropic-ai/sdk";
-import { tryClaudeModels } from "@/lib/anthropic-models";
-import { ok, fail, type ServiceResult } from "@/lib/services/_shared/result";
-import type { AnthropicReason } from "./anthropic-gateway";
+import { ok, type ServiceResult } from "@/lib/services/_shared/result";
+import {
+  callAnthropicWithFallback,
+  type AnthropicReason,
+} from "./anthropic-gateway";
 
 const MAX_INPUT_ANSWERS = 40;
 const MAX_INPUT_REMAINING = 40;
@@ -85,8 +82,6 @@ export async function suggestNextInterviewQuestion(args: {
   answered: AnsweredQuestion[];
   remaining: RemainingQuestion[];
 }): Promise<ServiceResult<SuggestNextResult, SuggestNextReason>> {
-  const anthropic = new Anthropic({ apiKey: args.apiKey });
-
   const answeredCapped = args.answered.slice(-MAX_INPUT_ANSWERS);
   const remainingCapped = args.remaining.slice(0, MAX_INPUT_REMAINING);
 
@@ -112,70 +107,61 @@ ${remainingBlock}
 
 Propose ONE follow-up question, or null if all covered.`;
 
-  try {
-    const message = await tryClaudeModels(
-      anthropic,
-      {
-        system: SYSTEM_PROMPT,
-        max_tokens: 250,
-        temperature: 0.4,
-        messages: [{ role: "user", content: userPrompt }],
-      },
-      [
-        { name: "claude-haiku-4-5-20251001", maxTokens: 250 },
-        { name: "claude-3-5-haiku-20241022", maxTokens: 250 },
-      ],
-      { agentName: "InterviewSuggestNext" },
-    );
+  const gatewayResult = await callAnthropicWithFallback({
+    userId: "system",
+    apiKey: args.apiKey,
+    request: {
+      system: SYSTEM_PROMPT,
+      max_tokens: 250,
+      temperature: 0.4,
+      messages: [{ role: "user", content: userPrompt }],
+    },
+    models: [
+      { name: "claude-haiku-4-5-20251001", maxTokens: 250 },
+      { name: "claude-3-5-haiku-20241022", maxTokens: 250 },
+    ],
+    agentName: "InterviewSuggestNext",
+  });
 
-    const responseText =
-      message.content[0]?.type === "text" ? message.content[0].text.trim() : "";
-
-    // Extract JSON object defensively (model may wrap in text/backticks).
-    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-    const jsonStr = jsonMatch ? jsonMatch[0] : responseText;
-
-    let parsed: { question: string | null; reasoning?: string };
-    try {
-      parsed = JSON.parse(jsonStr);
-    } catch {
-      console.warn(
-        "[suggest-next] Failed to parse model output, returning null suggestion",
-      );
-      return ok({ question: null, reason: "all covered" });
-    }
-
-    if (!parsed || typeof parsed !== "object") {
-      return ok({ question: null, reason: "all covered" });
-    }
-
-    const question =
-      typeof parsed.question === "string" && parsed.question.trim().length > 0
-        ? parsed.question.trim()
-        : null;
-    const reasoning =
-      typeof parsed.reasoning === "string" ? parsed.reasoning.trim() : "";
-
-    if (question) {
-      return ok({
-        question,
-        reasoning: reasoning || "Follow-up based on prior answers",
-      });
-    }
-    return ok({ question: null, reason: reasoning || "all covered" });
-  } catch (err: unknown) {
-    const status =
-      err && typeof err === "object" && "status" in err && typeof err.status === "number"
-        ? err.status
-        : undefined;
-    const detail = err instanceof Error ? err.message : String(err);
-
-    if (status === 429) {
-      return fail("RATE_LIMITED", { detail, retryAfterMs: 30000, cause: err });
-    }
-    if (status === 529) {
-      return fail("MODEL_OVERLOADED", { detail, retryAfterMs: 10000, cause: err });
-    }
-    return fail("API_ERROR", { detail, cause: err });
+  if (!gatewayResult.ok) {
+    return gatewayResult;
   }
+
+  const message = gatewayResult.data;
+  const firstBlock = message.content[0];
+  const responseText =
+    firstBlock?.type === "text" ? firstBlock.text.trim() : "";
+
+  // Extract JSON object defensively (model may wrap in text/backticks).
+  const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+  const jsonStr = jsonMatch ? jsonMatch[0] : responseText;
+
+  let parsed: { question: string | null; reasoning?: string };
+  try {
+    parsed = JSON.parse(jsonStr);
+  } catch {
+    console.warn(
+      "[suggest-next] Failed to parse model output, returning null suggestion",
+    );
+    return ok({ question: null, reason: "all covered" });
+  }
+
+  if (!parsed || typeof parsed !== "object") {
+    return ok({ question: null, reason: "all covered" });
+  }
+
+  const question =
+    typeof parsed.question === "string" && parsed.question.trim().length > 0
+      ? parsed.question.trim()
+      : null;
+  const reasoning =
+    typeof parsed.reasoning === "string" ? parsed.reasoning.trim() : "";
+
+  if (question) {
+    return ok({
+      question,
+      reasoning: reasoning || "Follow-up based on prior answers",
+    });
+  }
+  return ok({ question: null, reason: reasoning || "all covered" });
 }
