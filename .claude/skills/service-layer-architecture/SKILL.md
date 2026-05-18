@@ -138,6 +138,31 @@ When converting a fat action into action + service:
 - **Naming a class.** Service modules are usually a set of exported functions, not a class. Use a class only when the runtime state genuinely belongs together (a long-lived connection pool, a worker queue, a circuit breaker).
 - **Synchronous vs async.** Both fine. Match the substrate's idiom.
 
+## Ondrej's own framing (verbatim — for context)
+
+In his "Decorate with Convex" walkthrough (May 2025), Ondrej explains why a Convex action is the orchestration seam:
+
+> "This is the generate decorated image function it's an internal action and on convex actions are effectual which means that they can run for I think 10 minutes but they can't directly access the database they have to go via mutations or queries to do that... I have to do this use nodes um directive on this convex action which means that this is all going to run within a node context as opposed to a um V8 isolate context"
+
+In Next.js 16 / RSC content he names the pattern directly:
+
+> "To avoid 'Dependency Hell,' Server Actions should stay minimal. Treat them like Controllers in a modular backend — keep the business logic in a dedicated Service Layer."
+
+In his Anthropic Agent SDK overview (Feb 2026) he ties the pattern to agent ergonomics:
+
+> "It was already there baked into the project because of the way convex is set up so claude code which is what I was using for the project really understood what was going on."
+
+The takeaway: action = side-effectful gateway with extended runtime; service-module = pure business logic the agent can iterate on safely. The lower-level vocabulary in this skill (`dispatcher runtime setup`, `readiness probes`, `teardown helpers`) is **not** verbatim Ondrej — it's the standard enterprise framing this skill folds in for parity with worker-pool / model-server / cron-driven systems.
+
+## Cross-service transactions and Saga compensation
+
+When one action calls two service modules in sequence and the second one fails, the action — not the service — owns the rollback. Two cases:
+
+1. **Single-DB transaction.** The action opens a Prisma `$transaction` and threads the transaction client to both service modules as a dependency. If module B returns `{ ok: false }`, the action throws (or returns its own structured failure) and the transaction rolls back automatically. Service modules stay transaction-agnostic — they accept whatever client the action gives them.
+2. **Cross-system / no shared transaction.** When the modules touch separate systems (Stripe + Supabase, Stripe + a worker queue), use the **Saga pattern**: each successful module exposes a `compensate()` or inverse helper. If a downstream step fails, the action calls compensators in reverse order to restore consistency (e.g. `BillingService.refund(chargeId)` after `ProvisioningService.spinUp(workerId)` failed).
+
+Both stay action-layer responsibilities; service modules expose the helpers but never decide when to invoke them.
+
 ## Cross-references
 
 - **`superpowers:subagent-driven-development`** — when implementing a multi-step refactor, dispatch a fresh subagent per service-module extraction so context stays focused.
@@ -145,8 +170,9 @@ When converting a fat action into action + service:
 - **Domain-Driven Design** — this maps to the **application-service vs domain-service** distinction. Search "Vaughn Vernon application service" for the deepest formal treatment.
 - **Hexagonal Architecture / Ports & Adapters** — actions are the inbound ports; services are the use cases; integrations are the outbound adapters. Same shape, different vocabulary.
 - **Clean Architecture (Uncle Bob)** — actions are the "interface adapters" layer; services are the "use case interactors". Same shape again.
+- **Convex runtime model** — Ondrej's framing leans on Convex's structural enforcement: queries/mutations run in a deterministic V8 isolate, actions run in Node with full side-effect capability. This is the same separation, enforced at runtime instead of by convention.
 
-David Ondrej's framing is a practitioner's distillation of these three traditions, with names tuned for the Convex / Next.js generation.
+David Ondrej's framing is a practitioner's distillation of these traditions, with names tuned for the Convex / Next.js generation. Sources: Margot deep-research synthesis 2026-05-18 (interaction `v1_ChdWMWtL…`), Ondrej YouTube transcripts (Decorate with Convex, Anthropic Agent SDK overview).
 
 ## Quick checklist (pin this above your refactor)
 
