@@ -28,6 +28,14 @@
 
 **Total: 5,154 LOC of route code. Initially surveyed as 8 batch + 3 streaming — Task 1 confirmed synopsis is batch (survey miscount), so the working set is 9 batch + 2 streaming. Each implementer must re-grep `messages\\.create` vs `messages\\.stream` on their target route before bucketing.**
 
+### Granularity (atomic per-route units, 2026-05-18 directive)
+
+**One route = one sub-PR**, not one batched dispatch. Each task lands its 3 commits, gets spec-compliance + code-quality review, merges to main on its own. This replaces the original "one massive wave-3 PR" framing.
+
+- Why: smaller diffs review faster, isolate any single-route regression, allow rollback of one route without reverting the others, and reduce the chance of an OOM-style CI failure flagging the whole wave instead of one route's PR.
+- How: branch from `main` per route (`feat/wave3-<route-name>`), open PR, merge when green, branch the next route off the freshly-merged `main`. The wave-3 plan tracks all 11; each PR closes one checkbox.
+- Trade-off: 11 PRs instead of 1 means 11 review windows. Acceptable — same total review time, just paid incrementally.
+
 **Verify per-route before service-name lock:** the surveyor grep may have under-counted `messages.stream` calls (some routes use `client.messages.stream` via a renamed binding). Implementer MUST `grep -n "messages\\." <route>` before bucketing the route as batch vs streaming.
 
 ---
@@ -75,9 +83,9 @@ Three commits per route: failing test → service → route migration.
 - [ ] **Task 10** — `reports/upload` (streaming, 950 LOC). 3 commits.
 - [ ] **Task 11** — `reports/generate-scope-of-works` (batch, 1,022 LOC). 3 commits.
 
-**Total: 33 commits, 11 service files + 11 test files added, 11 routes migrated.**
+**Total: 33 commits across 11 atomic PRs, 11 service files + 11 test files added, 11 routes migrated.**
 
-Each task uses the dispatch template at `.claude/plugins/cache/.../superpowers/.../subagent-driven-development/implementer-prompt.md`. Spec compliance + code quality reviewer per task (consolidated review acceptable for routes 2-11 since the pattern is mechanical after the first batch + first streaming task lock the recipe).
+Each task = one PR. Each PR uses the dispatch template at `.claude/plugins/cache/.../superpowers/.../subagent-driven-development/implementer-prompt.md`. Spec compliance + code quality reviewer per PR; merge to main before starting the next route to avoid stacked diffs.
 
 ---
 
