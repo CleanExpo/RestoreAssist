@@ -64,7 +64,7 @@ export async function getValidXeroToken(
 
   throw new XeroTokenError(
     integrationId,
-    result.detail ?? `Xero credentials unavailable (${result.reason})`,
+    result.cause ?? result.detail ?? `Xero credentials unavailable (${result.reason})`,
   );
 }
 

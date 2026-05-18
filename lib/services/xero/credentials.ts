@@ -80,6 +80,6 @@ export async function getValidXeroAccessToken(
     return ok(fresh.accessToken);
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
-    return fail("REFRESH_FAILED", { detail });
+    return fail("REFRESH_FAILED", { detail, cause: err });
   }
 }

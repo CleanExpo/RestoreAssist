@@ -109,4 +109,51 @@ describe("getValidXeroAccessToken", () => {
       expect(r.detail).toContain("invalid_grant");
     }
   });
+
+  it("returns REFRESH_FAILED when refresh resolves but getTokens still returns no accessToken", async () => {
+    vi.mocked(getTokens)
+      .mockResolvedValueOnce({
+        accessToken: "stale",
+        refreshToken: "r",
+        tokenExpiresAt: new Date(Date.now() - 1000),
+        isExpired: true,
+      } as never)
+      .mockResolvedValueOnce({
+        accessToken: null,
+        refreshToken: "r",
+        tokenExpiresAt: null,
+        isExpired: true,
+      } as never);
+
+    const r = await getValidXeroAccessToken("int-1");
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.reason).toBe("REFRESH_FAILED");
+      expect(r.detail).toContain("token still missing");
+    }
+  });
+
+  it("propagates the original Error via cause on REFRESH_FAILED", async () => {
+    vi.mocked(getTokens).mockResolvedValueOnce({
+      accessToken: "stale",
+      refreshToken: "r",
+      tokenExpiresAt: new Date(Date.now() - 1000),
+      isExpired: true,
+    } as never);
+
+    const original = new Error("network down");
+    const { XeroClient } = await import("@/lib/integrations/xero/client");
+    vi.mocked(XeroClient).mockImplementationOnce(
+      () =>
+        ({
+          refreshAccessToken: vi.fn().mockRejectedValueOnce(original),
+        }) as never,
+    );
+
+    const r = await getValidXeroAccessToken("int-1");
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.cause).toBe(original);
+    }
+  });
 });
