@@ -2,10 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import Anthropic from "@anthropic-ai/sdk";
 import { getAnthropicApiKey } from "@/lib/ai-provider";
 import { applyRateLimit } from "@/lib/rate-limiter";
-import { tryClaudeModels } from "@/lib/anthropic-models";
+import {
+  suggestNextInterviewQuestion,
+  type AnsweredQuestion,
+  type RemainingQuestion,
+} from "@/lib/services/ai/suggest-next-interview-question";
 
 /**
  * RA-1199 — POST /api/interviews/[id]/suggest-next
@@ -25,45 +28,10 @@ import { tryClaudeModels } from "@/lib/anthropic-models";
 
 const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
 const MIN_ANSWERS_REQUIRED = 3;
-const MAX_INPUT_ANSWERS = 40;
-const MAX_INPUT_REMAINING = 40;
-const MAX_FIELD_CHARS = 500;
-
-interface AnsweredQuestionInput {
-  questionText: string;
-  answer: unknown;
-}
-
-interface RemainingQuestionInput {
-  questionText: string;
-}
 
 interface SuggestRequestBody {
-  answeredQuestions?: AnsweredQuestionInput[];
-  remainingQuestions?: RemainingQuestionInput[];
-}
-
-type SuggestResponse =
-  | { question: string; reasoning: string }
-  | { question: null; reason: string };
-
-function truncate(input: string, max = MAX_FIELD_CHARS): string {
-  if (input.length <= max) return input;
-  return input.slice(0, max) + "…";
-}
-
-function formatAnswerForPrompt(answer: unknown): string {
-  if (answer == null) return "(no answer)";
-  if (typeof answer === "string") return truncate(answer);
-  if (Array.isArray(answer)) return truncate(answer.join(", "));
-  if (typeof answer === "object") {
-    try {
-      return truncate(JSON.stringify(answer));
-    } catch {
-      return "(unserialisable answer)";
-    }
-  }
-  return truncate(String(answer));
+  answeredQuestions?: AnsweredQuestion[];
+  remainingQuestions?: RemainingQuestion[];
 }
 
 export async function POST(
@@ -101,10 +69,10 @@ export async function POST(
     }
 
     const answered = Array.isArray(body.answeredQuestions)
-      ? body.answeredQuestions.slice(-MAX_INPUT_ANSWERS)
+      ? body.answeredQuestions
       : [];
     const remaining = Array.isArray(body.remainingQuestions)
-      ? body.remainingQuestions.slice(0, MAX_INPUT_REMAINING)
+      ? body.remainingQuestions
       : [];
 
     if (answered.length < MIN_ANSWERS_REQUIRED) {
@@ -155,106 +123,36 @@ export async function POST(
       );
     }
 
-    const answeredBlock = answered
-      .map(
-        (qa, i) =>
-          `${i + 1}. Q: ${truncate(qa.questionText ?? "")}\n   A: ${formatAnswerForPrompt(qa.answer)}`,
-      )
-      .join("\n");
+    const result = await suggestNextInterviewQuestion({
+      apiKey: anthropicApiKey,
+      answered,
+      remaining,
+    });
 
-    const remainingBlock =
-      remaining.length > 0
-        ? remaining
-            .map((q, i) => `${i + 1}. ${truncate(q.questionText ?? "")}`)
-            .join("\n")
-        : "(none)";
-
-    const systemPrompt = `You are assisting an Australian water-damage restoration technician during a guided inspection interview.
-
-Your single job: propose ONE targeted follow-up question based on the technician's prior answers that is NOT already covered by the remaining template questions.
-
-Strict rules:
-- Australian English (e.g. "mould", not "mold"; "colour", not "color").
-- Ask ONE concise question only, in plain conversational language the technician can answer verbally on site.
-- The question must be directly motivated by something in the prior answers (e.g. a mentioned hazard, material, or timing).
-- Do NOT invent IICRC, AS/NZS, WHS, or any other compliance references, section numbers, or standards.
-- Do NOT duplicate or paraphrase any question in the "Remaining template questions" list.
-- Do NOT ask for personal contact details (name, address, email, phone).
-- If the prior answers and remaining template already cover the likely follow-ups, return question = null.
-
-Respond with ONLY a JSON object, no prose, no markdown fences:
-{"question": "<the follow-up question, or null>", "reasoning": "<1 short sentence: why this follow-up is useful, referencing the prior answer that motivated it>"}
-
-If nothing useful remains, respond exactly:
-{"question": null, "reasoning": "all covered"}`;
-
-    const userPrompt = `Prior answered questions:
-${answeredBlock}
-
-Remaining template questions (do not duplicate):
-${remainingBlock}
-
-Propose ONE follow-up question, or null if all covered.`;
-
-    const anthropic = new Anthropic({ apiKey: anthropicApiKey });
-
-    // Haiku-first for low latency and cost on this lightweight suggestion.
-    const message = await tryClaudeModels(
-      anthropic,
-      {
-        system: systemPrompt,
-        max_tokens: 250,
-        temperature: 0.4,
-        messages: [{ role: "user", content: userPrompt }],
-      },
-      [
-        { name: "claude-haiku-4-5-20251001", maxTokens: 250 },
-        { name: "claude-3-5-haiku-20241022", maxTokens: 250 },
-      ],
-      { agentName: "InterviewSuggestNext" },
-    );
-
-    const responseText =
-      message.content[0]?.type === "text" ? message.content[0].text.trim() : "";
-
-    // Extract JSON object defensively (model may wrap in text/backticks).
-    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-    const jsonStr = jsonMatch ? jsonMatch[0] : responseText;
-
-    let parsed: { question: string | null; reasoning?: string };
-    try {
-      parsed = JSON.parse(jsonStr);
-    } catch {
-      console.warn(
-        "[suggest-next] Failed to parse model output, returning null suggestion",
+    if (!result.ok) {
+      console.error("[suggest-next]", {
+        interviewId: id,
+        userId,
+        reason: result.reason,
+        detail: result.detail,
+      });
+      const status =
+        result.reason === "RATE_LIMITED"
+          ? 429
+          : result.reason === "MODEL_OVERLOADED"
+            ? 503
+            : 500;
+      const headers: Record<string, string> =
+        result.retryAfterMs != null
+          ? { "Retry-After": String(Math.ceil(result.retryAfterMs / 1000)) }
+          : {};
+      return NextResponse.json(
+        { error: "Internal server error", detail: result.detail },
+        { status, headers },
       );
-      const fallback: SuggestResponse = {
-        question: null,
-        reason: "all covered",
-      };
-      return NextResponse.json(fallback);
     }
 
-    if (!parsed || typeof parsed !== "object") {
-      const fallback: SuggestResponse = {
-        question: null,
-        reason: "all covered",
-      };
-      return NextResponse.json(fallback);
-    }
-
-    const question =
-      typeof parsed.question === "string" && parsed.question.trim().length > 0
-        ? parsed.question.trim()
-        : null;
-    const reasoning =
-      typeof parsed.reasoning === "string" ? parsed.reasoning.trim() : "";
-
-    const payload: SuggestResponse = question
-      ? { question, reasoning: reasoning || "Follow-up based on prior answers" }
-      : { question: null, reason: reasoning || "all covered" };
-
-    return NextResponse.json(payload);
+    return NextResponse.json(result.data);
   } catch (error) {
     // RA-786: never leak error.message
     console.error("[suggest-next] Error:", error);
