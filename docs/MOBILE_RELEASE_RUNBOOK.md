@@ -99,6 +99,68 @@ com.googleusercontent.apps.292141944467-8hhd4eub33tplq6ep5lc9iltu8jcatvp
 Until the long-term fix lands, treat the GCP project as a shared
 production resource: **do not disable APIs on it, do not delete service
 accounts, do not rotate the project number**.
+## 1.6 TLS pin rotation (do every ≤12 months) — RA-3001
+
+The WebView traffic for `restoreassist.app` is pinned at the OS level on
+both platforms:
+
+- **iOS:** `ios/App/App/Info.plist` → `NSAppTransportSecurity.NSPinnedDomains`
+- **Android:** `android/app/src/main/res/xml/network_security_config.xml`
+
+Both files pin **four** SubjectPublicKeyInfo SHA-256 hashes:
+
+1. The current leaf cert for `restoreassist.app`
+2. The Let's Encrypt **R12** intermediate (issuing CA for our leaf)
+3. The Let's Encrypt **R10** intermediate (rotation backup)
+4. The Let's Encrypt **R11** intermediate (rotation backup)
+
+### When to rotate
+
+Let's Encrypt rotates intermediates every few years. The current pin set
+expires (Android `expiration="2027-05-12"`) one year from the PR landing
+date. **Rotate pins ≥30 days before the cert chain changes** or the app
+will brick on the next renewal.
+
+Signals to start a rotation:
+- LE announces a new intermediate rollout (subscribe to
+  [letsencrypt.org/upcoming-changes](https://letsencrypt.org/upcoming-changes/))
+- Sentry breadcrumbs show clusters of `SSLHandshakeException` /
+  `NSURLErrorServerCertificateUntrusted` from production builds
+- Android `pin-set expiration` is within 90 days
+
+### How to rotate
+
+```bash
+# 1. Compute the current leaf SPKI hash
+echo | openssl s_client -servername restoreassist.app -connect restoreassist.app:443 2>/dev/null \
+  | openssl x509 -pubkey -noout \
+  | openssl pkey -pubin -outform DER \
+  | openssl dgst -sha256 -binary | openssl enc -base64
+
+# 2. Compute backup intermediate SPKI hashes (R10/R11/R12 — or whichever
+#    LE is currently rotating between)
+for url in https://letsencrypt.org/certs/2024/r10.pem \
+          https://letsencrypt.org/certs/2024/r11.pem \
+          https://letsencrypt.org/certs/2024/r12.pem; do
+  curl -sf "$url" | openssl x509 -pubkey -noout \
+    | openssl pkey -pubin -outform DER \
+    | openssl dgst -sha256 -binary | openssl enc -base64
+done
+
+# 3. Update the 4 pins in BOTH files (iOS + Android)
+# 4. Bump pin-set expiration on Android by +12 months
+# 5. Bump app version, build, submit
+```
+
+### Verify pinning works (MITM test)
+
+Use `mitmproxy` with `--ssl-insecure` to present a different cert to the
+app. Both platforms must **fail** the connection. After confirming the
+fail path, restore the real cert and confirm normal traffic flows.
+
+> ⚠️ Pinning is fail-closed by design. If you ship wrong hashes the app
+> can't reach `restoreassist.app` at all — there is no fallback.
+> Verification by mitmproxy before submission is mandatory.
 
 ---
 

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    RA-3001 — Android TLS pinning for restoreassist.app.
+
+    Pin set mirrors `NSPinnedDomains` in ios/App/App/Info.plist:
+      1. CURRENT leaf cert SPKI SHA-256
+      2. Let's Encrypt R12 intermediate (issuing CA)
+      3. Let's Encrypt R10 intermediate (rotation backup)
+      4. Let's Encrypt R11 intermediate (rotation backup)
+
+    `expiration="2027-05-12"` ensures the OS falls back to default trust
+    if the operator forgets to rotate pins for a year — a closed-window
+    bricking is much worse than an open-window MITM exposure for that
+    edge case. Rotation runbook: docs/MOBILE_RELEASE_RUNBOOK.md §1.6.
+
+    Wire reference (AndroidManifest.xml <application> tag):
+      android:networkSecurityConfig="@xml/network_security_config"
+-->
+<network-security-config>
+    <domain-config>
+        <domain includeSubdomains="true">restoreassist.app</domain>
+        <pin-set expiration="2027-05-12">
+            <pin digest="SHA-256">jTYwth0aNThq1+ASNAaN/W2zHtZPaep+fm148EngBig=</pin>
+            <pin digest="SHA-256">kZwN96eHtZftBWrOZUsd6cA4es80n3NzSk/XtYz2EqQ=</pin>
+            <pin digest="SHA-256">K7rZOrXHknnsEhUH8nLL4MZkejquUuIvOIr6tCa0rbo=</pin>
+            <pin digest="SHA-256">bdrBhpj38ffhxpubzkINl0rG+UyossdhcBYj+Zx2fcc=</pin>
+        </pin-set>
+    </domain-config>
+</network-security-config>
