@@ -14,7 +14,7 @@
 
 | # | Route | LOC | AI shape | Service file |
 |---|---|---|---|---|
-| 1 | `app/api/reports/[id]/synopsis/route.ts` | 180 | streaming (`messages.stream`) | `lib/services/ai/report-synopsis.ts` |
+| 1 | `app/api/reports/[id]/synopsis/route.ts` | 180 | ~~streaming~~ **batch** (corrected 2026-05-18 — survey miscount; route uses `messages.create` at line 141) | `lib/services/ai/report-synopsis.ts` ✅ DONE `c051d727 / 214c310e / 2c3312b8` |
 | 2 | `app/api/reports/[id]/client-summary/route.ts` | 196 | batch | `lib/services/ai/report-client-summary.ts` |
 | 3 | `app/api/reports/generate-question/route.ts` | 219 | batch | `lib/services/ai/generate-interview-question.ts` |
 | 4 | `app/api/interviews/[id]/suggest-next/route.ts` | 266 | batch | `lib/services/ai/suggest-next-interview-question.ts` |
@@ -26,7 +26,7 @@
 | 10 | `app/api/reports/upload/route.ts` | 950 | streaming (`messages.stream`) | `lib/services/ai/extract-report-from-upload.ts` |
 | 11 | `app/api/reports/generate-scope-of-works/route.ts` | 1,022 | batch | `lib/services/ai/generate-scope-of-works.ts` |
 
-**Total: 5,154 LOC of route code; 8 batch + 3 streaming routes.**
+**Total: 5,154 LOC of route code. Initially surveyed as 8 batch + 3 streaming — Task 1 confirmed synopsis is batch (survey miscount), so the working set is 9 batch + 2 streaming. Each implementer must re-grep `messages\\.create` vs `messages\\.stream` on their target route before bucketing.**
 
 **Verify per-route before service-name lock:** the surveyor grep may have under-counted `messages.stream` calls (some routes use `client.messages.stream` via a renamed binding). Implementer MUST `grep -n "messages\\." <route>` before bucketing the route as batch vs streaming.
 
@@ -63,7 +63,7 @@ Three commits per route: failing test → service → route migration.
 
 ## Tasks (one per route, do in size order)
 
-- [ ] **Task 1** — `reports/[id]/synopsis` (streaming, 180 LOC). 3 commits per recipe.
+- [x] **Task 1** — `reports/[id]/synopsis` (batch, 180 LOC). DONE `c051d727 → 214c310e → 2c3312b8`. 4/4 service tests, 49/49 full AI suite green. Hybrid key flow (user-key → env fallback) preserved; 400 onboarding affordance preserved.
 - [ ] **Task 2** — `reports/[id]/client-summary` (batch, 196 LOC). 3 commits.
 - [ ] **Task 3** — `reports/generate-question` (batch, 219 LOC). 3 commits.
 - [ ] **Task 4** — `interviews/[id]/suggest-next` (batch, 266 LOC). 3 commits.
