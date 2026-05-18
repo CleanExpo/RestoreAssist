@@ -66,6 +66,15 @@ function requiresLogin(pathname: string): boolean {
 const SETUP_GATE_BYPASS = [
   "/setup",
   "/api/setup/",
+  // RA-4989 — the setup wizard's StorageCard polls /api/oauth/google-drive/status
+  // on mount (and may bounce through /api/oauth/google-drive/start during the
+  // Connect Google Drive flow). When the user hasn't completed setup yet, the
+  // setup gate intercepts these OAuth calls and 307-redirects them to /setup —
+  // but the card is literally part of /setup. The card's fetch follows the
+  // redirect, receives /setup's HTML, JSON-parse fails, and the card never
+  // exits its loading skeleton. Bypass the whole /api/oauth/ prefix so OAuth
+  // discovery calls work during setup.
+  "/api/oauth/",
   "/api/auth/",
   "/api/cron/",
   "/login",
