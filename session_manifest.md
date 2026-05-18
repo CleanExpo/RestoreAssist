@@ -71,7 +71,7 @@ Audit emoji legend: ✅ clean · 🟡 transitional shim · 🔴 violation.
 ### In Progress (none — clean handover)
 
 ### Pending / Backlog (next session pick-up)
-- **RA-4970 prep:** investigate 5 prod-only tables (BusinessProfile, EquipmentDeployment, MoistureMeter, Room, RoomAnnotation); audit `lib/supabase/server.ts` for service-role usage; write the RLS migration; sandbox → prod apply.
+- **RA-4970 in flight:** service-role audit GREEN (`4d9d9842`); 5 prod-only tables bucketed (`82325c67`); migration drafted (`82325c67`) + made env-tolerant (`24af1345`); **applied to `oxeiaavuspvpvanzcrjc` 2026-05-18 — 131 tables RLS-on, 12 anon-SELECT policies, advisor reports 0 critical findings.** Remaining: apply to prod `udooysjajglluvuxkijp` (Phill explicit authorisation required by classifier).
 - ~~**Delete the deprecation shim** at `lib/integrations/xero/token-manager.ts`~~ ✅ done in `e1924b13` (2026-05-18). `getXeroTenantId` relocated to `lib/services/xero/tenant.ts` as proper `ServiceResult<string, 'TENANT_MISSING'>`. Shim + 237-line test deleted. **Note:** that commit also swept in the pre-existing iOS `Package.resolved` drift via `git add -A` — scope-mixed but benign; not force-amending a release branch.
 - **Follow-up plans referenced in plan:**
   - `2026-05-DD-runtime-reconciliation-phase-2-inspection-mechanics.md` — extract classification dispatch, NIR generation, integration fan-out from the 566-line submit handler.
