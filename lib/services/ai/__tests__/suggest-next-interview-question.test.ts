@@ -1,9 +1,9 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-// Mock the substrate helper directly — this service composes tryClaudeModels
-// (multi-model fallback) rather than the single-model anthropic-gateway.
-vi.mock("@/lib/anthropic-models", () => ({
-  tryClaudeModels: vi.fn(),
+// Mock the gateway helper — this service now composes
+// callAnthropicWithFallback (which wraps tryClaudeModels under the hood).
+vi.mock("../anthropic-gateway", () => ({
+  callAnthropicWithFallback: vi.fn(),
 }));
 
 import {
@@ -11,9 +11,9 @@ import {
   type AnsweredQuestion,
   type RemainingQuestion,
 } from "../suggest-next-interview-question";
-import { tryClaudeModels } from "@/lib/anthropic-models";
+import { callAnthropicWithFallback } from "../anthropic-gateway";
 
-function mockTextResponse(text: string) {
+function mockTextMessage(text: string) {
   return {
     id: "msg_xxx",
     content: [{ type: "text", text }],
@@ -34,15 +34,16 @@ const REMAINING: RemainingQuestion[] = [
 describe("suggestNextInterviewQuestion", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(tryClaudeModels).mockReset();
+    vi.mocked(callAnthropicWithFallback).mockReset();
   });
 
   it("returns ok with parsed question + reasoning on valid JSON suggestion", async () => {
-    vi.mocked(tryClaudeModels).mockResolvedValueOnce(
-      mockTextResponse(
+    vi.mocked(callAnthropicWithFallback).mockResolvedValueOnce({
+      ok: true,
+      data: mockTextMessage(
         '{"question": "Did the water source involve sewage?", "reasoning": "Prior answer 2 mentions a toilet overflow."}',
-      ),
-    );
+      ) as any,
+    });
 
     const r = await suggestNextInterviewQuestion({
       apiKey: "sk-resolved",
@@ -57,13 +58,16 @@ describe("suggestNextInterviewQuestion", () => {
         reasoning: "Prior answer 2 mentions a toilet overflow.",
       });
     }
-    expect(tryClaudeModels).toHaveBeenCalledTimes(1);
+    expect(callAnthropicWithFallback).toHaveBeenCalledTimes(1);
   });
 
   it("returns ok with question=null + reason on explicit null question", async () => {
-    vi.mocked(tryClaudeModels).mockResolvedValueOnce(
-      mockTextResponse('{"question": null, "reasoning": "all covered"}'),
-    );
+    vi.mocked(callAnthropicWithFallback).mockResolvedValueOnce({
+      ok: true,
+      data: mockTextMessage(
+        '{"question": null, "reasoning": "all covered"}',
+      ) as any,
+    });
 
     const r = await suggestNextInterviewQuestion({
       apiKey: "sk-resolved",
@@ -78,9 +82,10 @@ describe("suggestNextInterviewQuestion", () => {
   });
 
   it("gracefully falls back to question=null when model output is not JSON", async () => {
-    vi.mocked(tryClaudeModels).mockResolvedValueOnce(
-      mockTextResponse("I cannot suggest a question"),
-    );
+    vi.mocked(callAnthropicWithFallback).mockResolvedValueOnce({
+      ok: true,
+      data: mockTextMessage("I cannot suggest a question") as any,
+    });
 
     const r = await suggestNextInterviewQuestion({
       apiKey: "sk-resolved",
@@ -94,10 +99,12 @@ describe("suggestNextInterviewQuestion", () => {
     }
   });
 
-  it("maps 429 from tryClaudeModels to RATE_LIMITED", async () => {
-    vi.mocked(tryClaudeModels).mockRejectedValueOnce({
-      status: 429,
-      message: "rate limit",
+  it("forwards RATE_LIMITED from the gateway", async () => {
+    vi.mocked(callAnthropicWithFallback).mockResolvedValueOnce({
+      ok: false,
+      reason: "RATE_LIMITED",
+      detail: "rate limit",
+      retryAfterMs: 30000,
     });
 
     const r = await suggestNextInterviewQuestion({
