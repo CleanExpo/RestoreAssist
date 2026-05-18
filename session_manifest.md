@@ -1,6 +1,6 @@
 # Session Manifest — RestoreAssist · 2026-05-18
 
-**Branch:** `release/sandbox-to-main-2026-05-16-final` @ `e1924b13`
+**Branch:** `release/sandbox-to-main-2026-05-16-final` @ `6b004603`
 **Remote:** in sync with `origin/release/sandbox-to-main-2026-05-16-final`
 **Working tree:** clean except pre-existing iOS `Package.resolved` drift
 **Origin distance from main:** 22 commits ahead at session start; release branch unchanged (this session's 17 commits live on the release branch, awaiting Phill's main-merge approval)
@@ -78,7 +78,7 @@ Audit emoji legend: ✅ clean · 🟡 transitional shim · 🔴 violation.
   - `2026-05-DD-deployment-lifecycle-cron-helpers.md` — worker-restart, token-cleanup, sync-queue-provisioning helpers.
   - `2026-05-DD-credential-services-multi-provider.md` — Ascora / MYOB / QuickBooks / SM8 / Stripe — same pattern as Xero.
 - **Wiki re-ingest:** Margot's 4,500-word report still lives only in the interaction record. Run `wiki-ingest` skill to persist into `~/2nd Brain/2nd Brain/Wiki/`.
-- **Phase 3 audit found 10 routes importing 3rd-party SDKs directly** (next refactor wave): `app/api/vision/extract-reading/route.ts`, `app/api/inspections/[id]/{classify,sketches/import-from-image,group-readings,generate-scope}/route.ts`, `app/api/ai/auto-classify-photo/[photoId]/route.ts`, `app/api/support/tickets/route.ts`, `app/api/support/tickets/[id]/draft/route.ts`, `app/api/webhooks/{github,stripe}/route.ts`. Webhooks are special (need SDK for signature verification); the rest are extraction candidates into `lib/services/ai/*`.
+- **AI Services Extraction Wave-1 started.** Plan at `docs/superpowers/plans/2026-05-18-ai-services-extraction-wave.md` (5 tasks, 3 of 8 routes). Task 1 done in `df6c5857 → 6b004603`: `lib/services/ai/anthropic-gateway.ts` is live with `ServiceResult<Anthropic.Message, "KEY_MISSING" | "RATE_LIMITED" | "MODEL_OVERLOADED" | "API_ERROR">`; 6/6 tests green; both reviewers APPROVED. **Next session pick up Tasks 2-4:** migrate `app/api/inspections/[id]/classify/route.ts`, `app/api/inspections/[id]/generate-scope/route.ts`, `app/api/support/tickets/[id]/draft/route.ts` to compose the new gateway. Tasks 5-9 (remaining 5 routes) wait for wave-2 plan once wave-1 ships.
 - **Stale aggregation snapshot:** `.claude/aggregation/sources/repo-state.md` still lists archived files at `.claude/` root. Regenerate next aggregation pull.
 - **Untracked decision:** `.agents/` + `.codex/` were committed in `d63d02a7` but appear to have been regenerated since by some hook. Decide gitignore-or-recommit.
 
