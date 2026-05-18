@@ -1,25 +1,19 @@
 /**
- * RA-868: Centralised Xero Token Manager
+ * RA-868 + RA-1308: Xero token-manager shim.
  *
- * Single source of truth for Xero access token lifecycle.
- * All Xero-touching modules must import getValidXeroToken from here —
- * no other token refresh logic should exist anywhere in the codebase.
+ * The throw-based legacy contract is preserved for callers that haven't
+ * migrated yet. The actual logic lives in lib/services/xero/credentials.ts.
  *
- * Responsibilities:
- *  1. Load tokens from DB via getTokens()
- *  2. Proactively refresh if token expires within 5 minutes
- *  3. Store refreshed tokens via storeTokens()
- *  4. On refresh failure: call markIntegrationError() + throw XeroTokenError
- *  5. Return a valid accessToken string
+ * RA-1308 terminal-auth behaviour is preserved at the shim boundary:
+ * REFRESH_FAILED is classified into terminal (→ disconnectIntegration) or
+ * transient (→ markIntegrationError) before re-throwing XeroTokenError.
  */
 
 import {
-  getTokens,
-  storeTokens,
   markIntegrationError,
   disconnectIntegration,
 } from "../oauth-handler";
-import { XeroClient } from "./client";
+import { getValidXeroAccessToken } from "@/lib/services/xero/credentials";
 import { prisma } from "@/lib/prisma";
 
 // ─── Error class ──────────────────────────────────────────────────────────────
@@ -32,7 +26,6 @@ export class XeroTokenError extends Error {
     super(`Xero token error for integration ${integrationId}: ${reason}`);
     this.name = "XeroTokenError";
     this.integrationId = integrationId;
-    // Preserve cause for Node 16.9+ environments
     if (cause instanceof Error) {
       this.cause = cause;
     }
@@ -42,85 +35,37 @@ export class XeroTokenError extends Error {
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 /**
- * Return a valid Xero access token for the given integration ID.
- *
- * - Fetches current tokens from DB
- * - Proactively refreshes if token expires within 5 minutes
- * - Throws XeroTokenError if the integration is disconnected or refresh fails
+ * @deprecated Use `getValidXeroAccessToken` from `@/lib/services/xero/credentials`
+ *   instead. It returns a ServiceResult<string, XeroCredentialsReason> rather
+ *   than throwing. This shim is preserved during migration only; do not add
+ *   new callers.
  */
 export async function getValidXeroToken(
   integrationId: string,
 ): Promise<string> {
-  const tokens = await getTokens(integrationId);
+  const result = await getValidXeroAccessToken(integrationId);
+  if (result.ok) return result.data;
 
-  if (!tokens.accessToken) {
-    throw new XeroTokenError(
-      integrationId,
-      "No access token — integration disconnected",
-    );
-  }
-
-  // Proactive refresh: if token expires in less than 5 minutes, refresh now
-  const FIVE_MINUTES_MS = 5 * 60 * 1000;
-  const needsRefresh =
-    tokens.isExpired ||
-    (tokens.tokenExpiresAt != null &&
-      tokens.tokenExpiresAt.getTime() - Date.now() < FIVE_MINUTES_MS);
-
-  if (needsRefresh) {
-    if (!tokens.refreshToken) {
+  // RA-1308 — preserve legacy side effects on the refresh-failed path.
+  // The service already called markIntegrationError for RECONNECT_REQUIRED,
+  // and DISCONNECTED is a no-op (no token to manage). Only REFRESH_FAILED
+  // needs the terminal-vs-transient classification here.
+  if (result.reason === "REFRESH_FAILED") {
+    const detail = result.detail ?? "";
+    if (isTerminalAuthFailure(detail)) {
+      await disconnectIntegration(integrationId);
+    } else {
       await markIntegrationError(
         integrationId,
-        "Xero token expired and no refresh token available — user must re-connect",
+        `Token refresh failed: ${detail}`,
       );
-      throw new XeroTokenError(
-        integrationId,
-        "Token expired — no refresh token. User must re-connect Xero.",
-      );
-    }
-
-    try {
-      // Fetch tenantId needed by XeroClient constructor
-      const integration = await prisma.integration.findUnique({
-        where: { id: integrationId },
-        select: { tenantId: true },
-      });
-
-      const client = new XeroClient(
-        integrationId,
-        integration?.tenantId ?? undefined,
-      );
-      await client.refreshAccessToken();
-
-      // Re-fetch the freshly stored token
-      const fresh = await getTokens(integrationId);
-      if (!fresh.accessToken) {
-        throw new Error(
-          "refreshAccessToken() completed but token still missing",
-        );
-      }
-
-      return fresh.accessToken;
-    } catch (err) {
-      // RA-1308 — distinguish terminal auth failures (user revoked app,
-      // refresh token expired) from transient errors (network, 5xx). On
-      // terminal failure move to DISCONNECTED so the dashboard can prompt
-      // reconnect; otherwise stay in ERROR so retry can recover.
-      const msg = err instanceof Error ? err.message : String(err);
-      const isTerminal = isTerminalAuthFailure(msg);
-      if (isTerminal) {
-        await disconnectIntegration(integrationId);
-      } else {
-        await markIntegrationError(
-          integrationId,
-          `Token refresh failed: ${msg}`,
-        );
-      }
-      throw new XeroTokenError(integrationId, err);
     }
   }
 
-  return tokens.accessToken;
+  throw new XeroTokenError(
+    integrationId,
+    result.detail ?? `Xero credentials unavailable (${result.reason})`,
+  );
 }
 
 // ─── Terminal-auth heuristic (RA-1308) ────────────────────────────────────────
