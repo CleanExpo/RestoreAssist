@@ -160,7 +160,55 @@ When extracting a new AI route, copy the recipe from any of those modules — do
 
 **Multi-model fallback routes** consume `tryClaudeModels` from `@/lib/anthropic-models` (substrate helper) inside the service module. The service constructs its own `new Anthropic({apiKey: args.apiKey})` and calls `tryClaudeModels(anthropic, params, modelChain, options)` directly — pragmatic deviation from the gateway pattern because `tryClaudeModels` IS a runtime mechanic the service owns. Map throw `status === 429 → RATE_LIMITED`, `status === 529 → MODEL_OVERLOADED`, else `API_ERROR`. Canonical: `lib/services/ai/generate-interview-question.ts` (wave-3 Task 3). Future Phase-4 work: `callAnthropicWithFallback` gateway extension would collapse these services to the gateway pattern.
 
-As of 2026-05-18 / PR #1117 the only remaining `@anthropic-ai/sdk` imports in `app/api/**` (excluding `__tests__`) are: `app/api/webhooks/github/route.ts` (legitimate signature verification) and two routes with **dead imports** (`reports/generate-cost-estimation/route.ts` + `reports/generate-scope-of-works/route.ts` — imports `Anthropic` + `tryClaudeModels` but never invokes them; comment hints AI integration was planned but never wired). Dead-imports cleanup deferred — would change the routes' 400 failure-mode behaviour and needs product input on whether AI was intended.
+As of 2026-05-18 / PR #1119 the only remaining `@anthropic-ai/sdk` import in `app/api/**` (excluding `__tests__`) is `app/api/webhooks/github/route.ts` (legitimate signature verification). All other AI routes go through the Service Layer.
+
+### Telemetry pattern
+
+AI usage logging (`UsageEvent` user-scoped or `AiUsageLog` workspace-scoped via `lib/usage/log-usage.ts`) was historically written inline from the SDK response. After Service Layer migration, the SDK call lives inside the service module — but the gateway already returns the full `Anthropic.Message` object, which carries `.usage.input_tokens` + `.usage.output_tokens`.
+
+**Recipe — service surfaces usage; route logs it:**
+
+```ts
+// In the service module:
+export interface FooResult {
+  // ... task-specific fields
+  usage?: { inputTokens: number; outputTokens: number };
+}
+
+export async function generateFoo(args): Promise<ServiceResult<FooResult, FooReason>> {
+  const gw = await callAnthropic({ ... });
+  if (!gw.ok) return gw;
+  return ok({
+    foo: parse(gw.data),
+    usage: {
+      inputTokens: gw.data.usage.input_tokens,
+      outputTokens: gw.data.usage.output_tokens,
+    },
+  });
+}
+```
+
+```ts
+// In the route:
+const result = await generateFoo({ apiKey, input });
+if (!result.ok) return mapReasonToHttp(result);
+
+if (result.data.usage) {
+  logAiUsage({
+    workspaceId,
+    provider: "ANTHROPIC",
+    model: "claude-haiku-4-5-20251001",
+    taskType: "foo",
+    inputTokens: result.data.usage.inputTokens,
+    outputTokens: result.data.usage.outputTokens,
+    estimatedCostUsd: computeCost(result.data.usage),
+    latencyMs: Date.now() - startedAt,
+    success: true,
+  }); // fire-and-forget; do not await
+}
+```
+
+The gateway never writes to telemetry tables — that decision (which model to log, whether to log at all, user-scope vs workspace-scope) belongs to the route. Canonical example: `lib/services/ai/import-sketch-from-image.ts` surfaces `usage`; its route logs via `logAiUsage`. Phase-4 follow-up: retrofit `usage` into wave-1/2/3 service result types where routes lost telemetry during migration.
 
 ## Patterns to Avoid
 
