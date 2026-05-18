@@ -152,9 +152,11 @@ Pattern boundaries:
 - **`lib/services/ai/<task>.ts`** owns prompt construction + response parsing + task-specific pre-flight validation.
 - **Routes** own auth, ownership, audit, persistence, HTTP error mapping.
 
-Canonical examples: `lib/services/ai/classify-inspection.ts`, `lib/services/ai/group-readings.ts`, `lib/services/ai/draft-support-ticket.ts`.
+Canonical examples: `lib/services/ai/classify-inspection.ts`, `lib/services/ai/group-readings.ts`, `lib/services/ai/draft-support-ticket.ts` (batch), `lib/services/ai/generate-scope.ts` (streaming).
 
-When extracting a new AI route, copy the recipe from any of those three modules — do not invent a new shape.
+When extracting a new AI route, copy the recipe from any of those modules — do not invent a new shape.
+
+**Streaming routes** consume `callAnthropicStream` from the same gateway. The service stays thin (wraps the request shape + cache-control system message); the route owns the SSE translation loop, client-disconnect `stream.abort()`, usage logging, and persistence. Pre-stream failures map to ServiceResult reasons BEFORE the `ReadableStream` opens; mid-stream errors are the route's concern via stream events.
 
 ## Patterns to Avoid
 
