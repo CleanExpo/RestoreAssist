@@ -1,0 +1,15 @@
+# Codex local config template — copy to `.codex/config.toml` on your machine.
+# The real `.codex/` directory is gitignored (see .gitignore) so personal
+# tokens never enter version control.
+#
+# To use:
+#   mkdir -p .codex
+#   cp .codex.example.toml .codex/config.toml
+#   # edit .codex/config.toml — fill in your Composio key
+
+[mcp_servers.composio]
+url = "https://connect.composio.dev/mcp"
+
+[mcp_servers.composio.http_headers]
+# Generate at https://app.composio.dev → Settings → API Keys
+x-consumer-api-key = "ck_REPLACE_WITH_YOUR_KEY"
