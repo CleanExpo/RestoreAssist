@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import Anthropic from "@anthropic-ai/sdk";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { getAnthropicApiKey } from "@/lib/ai-provider";
+import { generateReportSynopsis } from "@/lib/services/ai/report-synopsis";
 
 /**
  * RA-1192: POST /api/reports/[id]/synopsis
@@ -16,7 +16,6 @@ import { getAnthropicApiKey } from "@/lib/ai-provider";
 
 const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
 const CACHE_WINDOW_MS = 24 * 60 * 60 * 1000; // 24h
-const HAIKU_MODEL = "claude-haiku-4-5-20251001";
 
 export async function POST(
   request: NextRequest,
@@ -119,43 +118,44 @@ export async function POST(
 
     const totalCost =
       report.estimates?.[0]?.totalIncGST ?? report.totalCost ?? null;
-    const facts = [
-      report.waterCategory ? `Water ${report.waterCategory}` : null,
-      report.waterClass ? `Class ${report.waterClass}` : null,
-      report.hazardType ? `Hazard: ${report.hazardType}` : null,
-      report.affectedArea ? `Affected area: ${report.affectedArea} m²` : null,
-      report.estimatedDryingTime
-        ? `Drying: ${report.estimatedDryingTime} hours`
-        : null,
-      totalCost != null
-        ? `Total: AUD $${Number(totalCost).toLocaleString()}`
-        : null,
-      report.propertyAddress ? `Property: ${report.propertyAddress}` : null,
-    ]
-      .filter(Boolean)
-      .join("\n");
 
-    const prompt = `Summarise this water damage restoration report in ONE sentence (max 20 words). Include water category, affected area, drying duration, and total cost. Australian English. Plain text, no quotes.\n\n${facts}`;
-
-    const anthropic = new Anthropic({ apiKey });
-    const response = await anthropic.messages.create({
-      model: HAIKU_MODEL,
-      max_tokens: 60,
-      temperature: 0.3,
-      messages: [{ role: "user", content: prompt }],
+    const result = await generateReportSynopsis({
+      apiKey,
+      facts: {
+        waterCategory: report.waterCategory,
+        waterClass: report.waterClass,
+        hazardType: report.hazardType,
+        affectedArea: report.affectedArea,
+        estimatedDryingTime: report.estimatedDryingTime,
+        totalCost: totalCost != null ? Number(totalCost) : null,
+        propertyAddress: report.propertyAddress,
+      },
     });
 
-    const first = response.content[0];
-    if (!first || first.type !== "text") {
+    if (!result.ok) {
+      console.error("[reports/synopsis]", {
+        reportId: report.id,
+        userId,
+        reason: result.reason,
+        detail: result.detail,
+      });
+      const status =
+        result.reason === "RATE_LIMITED"
+          ? 429
+          : result.reason === "MODEL_OVERLOADED"
+            ? 503
+            : 500;
+      const headers: Record<string, string> =
+        result.retryAfterMs != null
+          ? { "Retry-After": String(Math.ceil(result.retryAfterMs / 1000)) }
+          : {};
       return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
+        { error: result.reason, detail: result.detail },
+        { status, headers },
       );
     }
-    const synopsis = first.text
-      .trim()
-      .replace(/^["']|["']$/g, "")
-      .slice(0, 280);
+
+    const synopsis = result.data;
 
     const now = new Date();
     await prisma.report.update({
