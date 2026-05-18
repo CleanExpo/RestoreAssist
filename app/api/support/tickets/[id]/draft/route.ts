@@ -3,26 +3,11 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
-import Anthropic from "@anthropic-ai/sdk";
 import { withIdempotency } from "@/lib/idempotency";
+import { draftSupportTicketReply } from "@/lib/services/ai/draft-support-ticket";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
-}
-
-// ---------------------------------------------------------------------------
-// Anthropic lazy singleton
-// ---------------------------------------------------------------------------
-
-let _anthropic: Anthropic | null = null;
-
-function getAnthropicClient(): Anthropic {
-  if (_anthropic) return _anthropic;
-  if (!process.env.ANTHROPIC_API_KEY) {
-    throw new Error("ANTHROPIC_API_KEY is not set");
-  }
-  _anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  return _anthropic;
 }
 
 // ---------------------------------------------------------------------------
@@ -59,37 +44,52 @@ export async function POST(request: NextRequest, context: RouteContext) {
         );
       }
 
-      const client = getAnthropicClient();
+      const apiKey = process.env.ANTHROPIC_API_KEY;
+      if (!apiKey) {
+        console.error("[SupportTicketDraft]", "ANTHROPIC_API_KEY not set");
+        return NextResponse.json(
+          { error: "AI service not configured" },
+          { status: 500 },
+        );
+      }
 
-      const systemPrompt = `You are a customer support specialist for RestoreAssist — Australian water damage restoration software.
-
-Generate a professional customer support response in Australian English (150-250 words).
-
-The response must:
-- Address the specific issue raised in the ticket
-- Reference IICRC S500:2025 if technically relevant
-- End with next-steps and a timeline (we respond within 24 hours)
-- Be warm but professional
-- Use Australian English spelling
-
-Respond with only the response text — no JSON, no preamble.`;
-
-      const response = await client.messages.create({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 1024,
-        system: systemPrompt,
-        messages: [
-          {
-            role: "user",
-            content: `Category: ${ticket.category}\nPriority: ${ticket.priority}\nSubject: ${ticket.subject}\n\n${ticket.body}`,
-          },
-        ],
+      const result = await draftSupportTicketReply({
+        apiKey,
+        ticket: {
+          category: ticket.category,
+          priority: ticket.priority,
+          subject: ticket.subject,
+          body: ticket.body,
+        },
       });
 
-      const responseDraft =
-        response.content[0].type === "text"
-          ? response.content[0].text.trim()
-          : "";
+      if (!result.ok) {
+        console.error("[SupportTicketDraft]", {
+          ticketId: id,
+          reason: result.reason,
+          detail: result.detail,
+        });
+        const status =
+          result.reason === "KEY_MISSING"
+            ? 500 // platform-key not configured — operator problem, not user
+            : result.reason === "RATE_LIMITED"
+              ? 429
+              : result.reason === "MODEL_OVERLOADED"
+                ? 503
+                : result.reason === "EMPTY_OUTPUT"
+                  ? 502
+                  : 500;
+        const headers: Record<string, string> =
+          result.retryAfterMs != null
+            ? { "Retry-After": String(Math.ceil(result.retryAfterMs / 1000)) }
+            : {};
+        return NextResponse.json(
+          { error: result.reason, detail: result.detail },
+          { status, headers },
+        );
+      }
+
+      const responseDraft = result.data;
 
       await prisma.supportTicket.update({
         where: { id },
