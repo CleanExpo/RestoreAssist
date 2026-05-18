@@ -55,6 +55,7 @@ describe("callAnthropicStream", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockMessagesStream.mockReset();
+    vi.mocked(getAnthropicApiKey).mockReset();
   });
 
   it("returns ok with the stream on success", async () => {
