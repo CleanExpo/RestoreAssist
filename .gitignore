@@ -84,8 +84,11 @@ proxy.ts
 # Local tooling
 .omx/
 .superpowers/
+.hermes/
 
+# Local secrets
 .env*.local
+secret.txt
 
 # Multi-PC swarm — local identity per machine (see work-together.md)
 .claude/swarm/identity.local.md
@@ -93,4 +96,3 @@ scripts/__pycache__/
 .DS_Store
 .claude/verifier-reports/
 .claude/PROGRESS.md
-.claude/verifier-reports/

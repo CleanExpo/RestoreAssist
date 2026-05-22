@@ -2120,17 +2120,12 @@ function buildScopeItems(
       ? `Remediation to ${scopeAreas.length} affected areas with comprehensive assessment and controlled removal protocols under containment.`
       : "Remediation to affected areas with comprehensive assessment and controlled removal protocols under containment.";
 
-  let remediationJustification = "";
-  if (waterCategory === "Category 3") {
-    remediationJustification =
-      "IICRC S500 requires removal of porous materials heavily contaminated with unsanitary water (Category 3); cleaning is not verifiable. Category 3 contamination poses significant health risks and requires complete removal of affected porous materials.";
-  } else if (waterCategory === "Category 2") {
-    remediationJustification =
-      "IICRC S500 requires assessment and appropriate remediation of materials contaminated with Category 2 water. Porous materials may require removal if contamination cannot be effectively cleaned and verified.";
-  } else {
-    remediationJustification =
-      "IICRC S500 requires appropriate remediation protocols for Category 1 water damage. Materials are assessed and treated according to contamination level and material porosity.";
-  }
+  const remediationJustification =
+    waterCategory === "Category 3"
+      ? "IICRC S500 requires removal of porous materials heavily contaminated with unsanitary water (Category 3); cleaning is not verifiable. Category 3 contamination poses significant health risks and requires complete removal of affected porous materials."
+      : waterCategory === "Category 2"
+        ? "IICRC S500 requires assessment and appropriate remediation of materials contaminated with Category 2 water. Porous materials may require removal if contamination cannot be effectively cleaned and verified."
+        : "IICRC S500 requires appropriate remediation protocols for Category 1 water damage. Materials are assessed and treated according to contamination level and material porosity.";
 
   items.push({
     item: "Remediation",
@@ -2145,17 +2140,12 @@ function buildScopeItems(
       ? `Structural drying maintenance necessary for ${scopeAreas.length} affected areas with comprehensive monitoring and verification protocols to achieve dry standard goals.`
       : "Structural drying maintenance necessary for affected areas with comprehensive monitoring and verification protocols to achieve dry standard goals.";
 
-  let dryingJustification = "";
-  if (waterClass === "Class 4") {
-    dryingJustification =
-      "IICRC S500 Class 4 drying requires specialized techniques due to deep saturation and low evaporation potential. Extended drying time and specialized equipment are necessary.";
-  } else if (waterClass === "Class 3") {
-    dryingJustification =
-      "IICRC S500 Class 3 drying requires comprehensive equipment deployment due to high evaporation load. Multiple air movers and dehumidification systems are required.";
-  } else {
-    dryingJustification =
-      "IICRC S500 requires structural drying to achieve dry standard goals. Monitoring and verification ensure complete moisture removal and prevent secondary damage.";
-  }
+  const dryingJustification =
+    waterClass === "Class 4"
+      ? "IICRC S500 Class 4 drying requires specialized techniques due to deep saturation and low evaporation potential. Extended drying time and specialized equipment are necessary."
+      : waterClass === "Class 3"
+        ? "IICRC S500 Class 3 drying requires comprehensive equipment deployment due to high evaporation load. Multiple air movers and dehumidification systems are required."
+        : "IICRC S500 requires structural drying to achieve dry standard goals. Monitoring and verification ensure complete moisture removal and prevent secondary damage.";
 
   items.push({
     item: "Structural Drying",
@@ -2175,14 +2165,12 @@ function buildScopeItems(
       const areaName = area.name || `Area ${index + 1}`;
       const moistureLevel = area.moisture || area.moistureReading || null;
 
-      let areaJustification = "";
-      if (waterCategory === "Category 3") {
-        areaJustification = `IICRC S500 requires removal of porous materials (${materials}) contaminated with Category 3 unsanitary water; cleaning is not verifiable. Category 3 contamination poses significant health risks.`;
-      } else if (moistureLevel && moistureLevel > 20) {
-        areaJustification = `IICRC S500 requires removal of saturated porous materials (${materials}) where moisture content exceeds dry standard goals. Moisture reading of ${moistureLevel}% indicates saturation requiring removal.`;
-      } else {
-        areaJustification = `IICRC S500 requires appropriate remediation of affected materials (${materials}) based on contamination level and material porosity. Controlled removal and disposal under containment protocols.`;
-      }
+      const areaJustification =
+        waterCategory === "Category 3"
+          ? `IICRC S500 requires removal of porous materials (${materials}) contaminated with Category 3 unsanitary water; cleaning is not verifiable. Category 3 contamination poses significant health risks.`
+          : moistureLevel && moistureLevel > 20
+            ? `IICRC S500 requires removal of saturated porous materials (${materials}) where moisture content exceeds dry standard goals. Moisture reading of ${moistureLevel}% indicates saturation requiring removal.`
+            : `IICRC S500 requires appropriate remediation of affected materials (${materials}) based on contamination level and material porosity. Controlled removal and disposal under containment protocols.`;
 
       items.push({
         item: areaName,
@@ -2958,7 +2946,7 @@ function sanitizeTextForPDF(text: string): string {
       .replace(/[®]/g, "(R)") // registered
       .replace(/[™]/g, "(TM)") // trademark
       // Remove any remaining non-ASCII characters
-      .replace(/[^\x00-\x7F]/g, "")
+      .replace(new RegExp(String.raw`[^\x00-\x7F]`, "g"), "")
   );
 }
 

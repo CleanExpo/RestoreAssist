@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
               },
             };
           } else {
-            throw new Error("Invalid price ID");
+            throw new Error("Invalid price ID", { cause: priceError });
           }
 
           const newPrice = await stripe.prices.create(priceData as any);

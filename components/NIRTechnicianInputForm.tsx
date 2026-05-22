@@ -397,7 +397,7 @@ export default function NIRTechnicianInputForm({
   ];
 
   const populateQuickFillData = (useCaseId: string) => {
-    let useCaseData: any = {};
+    let useCaseData: any;
 
     switch (useCaseId) {
       case "residential-burst-pipe":
@@ -822,6 +822,7 @@ export default function NIRTechnicianInputForm({
         }
       }
     } catch (error) {
+      console.warn("Failed to load inspection data", error);
     } finally {
       setLoading(false);
     }
