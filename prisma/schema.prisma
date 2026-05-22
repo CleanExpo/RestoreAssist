@@ -177,6 +177,7 @@ model User {
   emailAudits          EmailAudit[]
   formTemplates        FormTemplate[]
   formSubmissions      FormSubmission[]
+  xeroSyncStatuses     XeroSyncStatus[]
 
   // AI Assistant Tier (Phase 1 - Metering)
   monthlyUsageCap Float? // Optional: cap usage to prevent runaway costs
@@ -1141,6 +1142,30 @@ model XeroAccountCodeMapping {
   @@unique([integrationId, category])
   @@index([integrationId])
   @@index([integrationId, accountCode]) // RA-1233 reverse lookup: accountCode → category
+}
+
+// RA-1112: user-visible Xero outbound sync lifecycle.
+model XeroSyncStatus {
+  id String @id @default(cuid())
+
+  entityType   String
+  entityId     String
+  userId       String
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  state        String
+  attemptCount Int     @default(0)
+
+  lastAttemptAt DateTime?
+  lastError     String?   @db.Text
+  nextRetryAt   DateTime?
+  xeroEntityId  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([entityType, entityId])
+  @@index([userId])
+  @@index([state, nextRetryAt])
 }
 
 enum SubscriptionStatus {
