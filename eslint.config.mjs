@@ -23,6 +23,7 @@ import globals from "globals";
 import typescriptParser from "@typescript-eslint/parser";
 import typescriptPlugin from "@typescript-eslint/eslint-plugin";
 import reactHooksPlugin from "eslint-plugin-react-hooks";
+import nextPlugin from "@next/eslint-plugin-next";
 
 export default [
   {
@@ -37,6 +38,11 @@ export default [
       "**/*.min.js",
       "pnpm-lock.yaml",
       ".pi-ceo/**",
+      ".claude/**",
+      ".hermes/**",
+      ".superpowers/**",
+      "storybook-static/**",
+      "distribution/**",
       // Scripts folder has its own tsconfig and historically broke the old linter too
       "scripts/**",
     ],
@@ -62,6 +68,7 @@ export default [
     plugins: {
       "@typescript-eslint": typescriptPlugin,
       "react-hooks": reactHooksPlugin,
+      "@next/next": nextPlugin,
     },
     rules: {
       // TypeScript makes the base `no-unused-vars` noisy on interfaces and
