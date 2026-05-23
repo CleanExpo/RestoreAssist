@@ -48,9 +48,7 @@ export async function POST(request: NextRequest) {
         businessPhone: true,
         businessEmail: true,
         subscriptionStatus: true,
-        // pricingConfig isn't read downstream in this route; selecting id
-        // keeps the relation contract explicit (CLAUDE.md rule 4).
-        pricingConfig: { select: { id: true } },
+        pricingConfig: true,
       },
     });
 
@@ -205,9 +203,6 @@ export async function POST(request: NextRequest) {
 
       standardsContext = buildStandardsContextPrompt(retrievedStandards);
 
-      if (standardsContext.length > 0) {
-      } else {
-      }
     } catch (error: any) {
       // Continue without standards - report will use general knowledge
     }

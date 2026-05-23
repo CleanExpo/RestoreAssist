@@ -589,7 +589,7 @@ export function extractAndFormatCitations(text: string): FormattedCitation[] {
   // Pattern: known code + optional year + optional section marker + section number
   // e.g. "IICRC S500:2025 §7.1", "NCC 2025 s3.2.1", "AS/NZS 3000 cl 5"
   const pattern =
-    /\b((?:IICRC\s+)?[A-Z][A-Z0-9/\-]+(?:\s+\d{4})?(?::\d{4})?)\s*(?:§|s\.\s*|s\s+|cl\.?\s+)?([0-9][0-9A-Za-z.]*)?/g;
+    /\b((?:IICRC\s+)?[A-Z][A-Z0-9/-]+(?:\s+\d{4})?(?::\d{4})?)\s*(?:§|s\.\s*|s\s+|cl\.?\s+)?([0-9][0-9A-Za-z.]*)?/g;
 
   let match: RegExpExecArray | null;
   while ((match = pattern.exec(text)) !== null) {

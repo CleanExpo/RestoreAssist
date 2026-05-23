@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
   });
   if (rateLimited) return rateLimited;
 
-  let body: Record<string, unknown> = {};
+  let body: Record<string, unknown>;
   try {
     body = await request.json();
   } catch {

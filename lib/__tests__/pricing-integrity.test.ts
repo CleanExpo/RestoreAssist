@@ -12,6 +12,18 @@ import { describe, expect, it } from "vitest";
 import { PRICING_CONFIG } from "@/lib/pricing";
 
 describe("RA-1585 pricing-config integrity", () => {
+  it("free tier copy matches reportLimit (no 30 vs 3 drift)", () => {
+    const { free } = PRICING_CONFIG;
+    expect(free.reportLimit).toBe(3);
+    for (const bullet of free.features) {
+      expect(bullet).not.toMatch(/30\s+free/i);
+    }
+    const limitPhrase = `${free.reportLimit} inspection report`;
+    expect(
+      free.features.some((f) => f.toLowerCase().includes(limitPhrase)),
+    ).toBe(true);
+  });
+
   it("declares at least one paid tier", () => {
     expect(Object.keys(PRICING_CONFIG.pricing).length).toBeGreaterThan(0);
   });

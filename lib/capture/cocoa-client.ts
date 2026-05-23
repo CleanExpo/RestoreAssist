@@ -6,7 +6,11 @@
 
 export async function computeSha256(file: Blob): Promise<string> {
   const buffer = await file.arrayBuffer();
-  const digest = await crypto.subtle.digest("SHA-256", buffer);
+  // Vitest/jsdom can hand Node's WebCrypto an ArrayBuffer from a different
+  // realm. Normalising through Uint8Array keeps the browser path identical but
+  // makes the helper deterministic under the unit-test runtime too.
+  const bytes = new Uint8Array(buffer);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
   return Array.from(new Uint8Array(digest))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");

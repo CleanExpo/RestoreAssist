@@ -578,7 +578,7 @@ export default function RemediationProcedures({
           </div>
         );
 
-      case 4:
+      case 4: {
         const iepRequirements = getIEPRequirements();
         return (
           <div className="space-y-6">
@@ -674,6 +674,7 @@ export default function RemediationProcedures({
             </div>
           </div>
         );
+      }
 
       case 5:
         return (

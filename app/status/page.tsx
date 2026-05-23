@@ -13,6 +13,7 @@
  */
 
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 
 export const metadata: Metadata = {
   title: "System Status · RestoreAssist",
@@ -38,15 +39,31 @@ interface HealthResponse {
 }
 
 async function fetchHealth(): Promise<HealthResponse | null> {
+  // Prefer the incoming request host so SSR self-fetch works on Vercel
+  // (VERCEL_URL alone is host-only and breaks server-side health probes).
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host");
+  const proto = h.get("x-forwarded-proto") ?? "https";
+  const baseFromRequest =
+    host && !host.includes("localhost")
+      ? `${proto}://${host}`
+      : null;
   const base =
-    process.env.NEXT_PUBLIC_APP_URL ||
-    process.env.VERCEL_URL ||
-    "http://localhost:3000";
+    baseFromRequest ??
+    process.env.NEXT_PUBLIC_APP_URL ??
+    (process.env.VERCEL_URL
+      ? process.env.VERCEL_URL.startsWith("http")
+        ? process.env.VERCEL_URL
+        : `https://${process.env.VERCEL_URL}`
+      : "http://localhost:3000");
   const url = base.startsWith("http")
     ? `${base}/api/health`
     : `https://${base}/api/health`;
   try {
-    const res = await fetch(url, { cache: "no-store" });
+    const res = await fetch(url, {
+      cache: "no-store",
+      next: { revalidate: 0 },
+    });
     if (!res.ok) return null;
     return (await res.json()) as HealthResponse;
   } catch {

@@ -10,7 +10,7 @@ import { PRICING_CONFIG } from "@/lib/pricing";
 import BillingGate from "@/components/capacitor/BillingGate";
 
 function PricingPageContent() {
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -35,25 +35,17 @@ function PricingPageContent() {
     }
   }, []);
 
-  // Free Plan (always first)
+  const freeCfg = PRICING_CONFIG.free;
   const freePlan = {
-    name: "Free",
+    name: freeCfg.displayName,
     price: "$0",
     period: "",
-    description:
-      "Perfect for trying out Restore Assist. Start with 30 free reports and basic features.",
-    features: [
-      "30 free inspection reports",
-      "Basic report type only",
-      "1 Quick Fill credit (AI-powered form auto-fill)",
-      "IICRC S500 compliant reports",
-      "PDF & Excel export",
-      "Email support",
-    ],
+    description: freeCfg.description,
+    features: [...freeCfg.features],
     popular: false,
     badge: null,
     monthlyEquivalent: null,
-    reportLimit: 3,
+    reportLimit: freeCfg.reportLimit,
     signupBonus: null,
     isFree: true,
   };
@@ -269,7 +261,8 @@ function PricingPageContent() {
                 '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
             }}
           >
-            Start free with 30 reports and basic features. Upgrade to unlock
+            Start free with {freeCfg.reportLimit} one-time inspection reports and
+            basic features. Upgrade to unlock
             unlimited Quick Fill, enhanced reports, PDF uploads, and more. All
             paid plans include first month signup bonus of 10 additional
             reports.

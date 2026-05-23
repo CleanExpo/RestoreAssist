@@ -19,6 +19,7 @@
       "uuid": ">=11.1.1",
       "ip-address": ">=10.1.1",
       "brace-expansion": ">=2.0.3",
+      "minimatch@3.1.5>brace-expansion": "1.1.12",
       "minimatch": ">=9.0.5",
       "@tootallnate/once": ">=3.0.1",
       "fast-xml-builder": ">=1.1.7",
@@ -202,6 +203,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.5",
     "@eslint/js": "^10.0.1",
+    "@next/eslint-plugin-next": "16.2.4",
     "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "4.3.0",
     "@testing-library/jest-dom": "^6.9.1",

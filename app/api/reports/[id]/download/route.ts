@@ -111,17 +111,6 @@ export async function GET(
         include: {
           lineItems: {
             orderBy: { displayOrder: "asc" },
-            select: {
-              id: true,
-              code: true,
-              category: true,
-              description: true,
-              qty: true,
-              unit: true,
-              rate: true,
-              subtotal: true,
-              displayOrder: true,
-            },
           },
         },
       });
@@ -277,7 +266,9 @@ export async function GET(
         width: logoDims.width,
         height: logoDims.height,
       });
-    } catch {}
+    } catch {
+      // Optional brand logo is omitted when unavailable or unreadable.
+    }
 
     // Title
     page.drawText("RestoreAssist", {
@@ -393,7 +384,9 @@ Estimate: ${JSON.stringify(estimate)}`,
           if (text) executiveSummary = sanitizeText(text);
         }
       }
-    } catch {}
+    } catch {
+      // Optional AI executive summary is omitted when unavailable.
+    }
 
     page.drawText("Executive Summary", {
       x: 50,

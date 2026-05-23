@@ -353,15 +353,6 @@ export async function PUT(request: NextRequest) {
     } else {
       // Managers/Technicians cannot update business info
       // If they try, ignore those fields (they're read-only)
-      if (
-        businessName !== undefined ||
-        businessAddress !== undefined ||
-        businessLogo !== undefined ||
-        businessABN !== undefined ||
-        businessPhone !== undefined ||
-        businessEmail !== undefined
-      ) {
-      }
     }
 
     const updatedUser = await prisma.user.update({

@@ -292,7 +292,7 @@ async function renderInvoicePage(
 
   // Notes & Terms
   if (data.invoice.notes || data.invoice.terms) {
-    yPosition = await renderNotesAndTerms(page, {
+    await renderNotesAndTerms(page, {
       helvetica,
       helveticaBold,
       colors,
@@ -1321,5 +1321,5 @@ function sanitizeTextForPDF(text: string): string {
     .replace(/[\u2013\u2014]/g, "-") // En/Em dashes
     .replace(/[\u2026]/g, "...") // Ellipsis
     .replace(/[\u00A0]/g, " ") // Non-breaking space
-    .replace(/[^\x00-\x7F]/g, ""); // Remove non-ASCII
+    .replace(new RegExp(String.raw`[^\x00-\x7F]`, "g"), ""); // Remove non-ASCII
 }

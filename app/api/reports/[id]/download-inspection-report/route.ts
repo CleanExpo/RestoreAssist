@@ -138,7 +138,7 @@ async function addDocumentToPDF(
       .replace(/✔/g, "[X]")
       .replace(/✗/g, "[ ]")
       .replace(/✘/g, "[ ]")
-      .replace(/[^\x00-\x7F]/g, (char) => {
+      .replace(new RegExp(String.raw`[^\x00-\x7F]`, "g"), (char) => {
         const charCode = char.charCodeAt(0);
         if (charCode >= 0x80 && charCode <= 0xff) {
           return char;
