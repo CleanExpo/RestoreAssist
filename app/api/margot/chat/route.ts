@@ -34,6 +34,11 @@ import {
   linearListIssues,
 } from "@/lib/margot-linear";
 import { generateAndStoreImage } from "@/lib/margot-image-gen";
+import {
+  formatNexusContextForPrompt,
+  loadNexusContextBundle,
+  nexusContextEnabled,
+} from "@/lib/nexus-hub-context";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -345,11 +350,17 @@ export async function POST(request: NextRequest) {
 
     const useTools = toolsEnabled();
 
+    let system = useTools
+      ? MARGOT_SYSTEM_PROMPT_WITH_TOOLS
+      : MARGOT_SYSTEM_PROMPT_BASE;
+    if (nexusContextEnabled()) {
+      const bundle = await loadNexusContextBundle();
+      system = `${system}\n\n${formatNexusContextForPrompt(bundle)}`;
+    }
+
     const result = streamText({
       model: anthropic("claude-sonnet-4-5"),
-      system: useTools
-        ? MARGOT_SYSTEM_PROMPT_WITH_TOOLS
-        : MARGOT_SYSTEM_PROMPT_BASE,
+      system,
       messages: await convertToModelMessages(messages),
       ...(useTools
         ? {
