@@ -69,9 +69,10 @@ export async function POST(request: NextRequest) {
 
     // If zip is requested, create a zip file
     if (zip) {
-      return new Promise<NextResponse>(async (resolve, reject) => {
-        try {
-          const archive = archiver("zip", { zlib: { level: 9 } });
+      return new Promise<NextResponse>((resolve, reject) => {
+        void (async () => {
+          try {
+            const archive = archiver("zip", { zlib: { level: 9 } });
           const buffers: Buffer[] = [];
 
           archive.on("data", (chunk: Buffer) => {
@@ -144,9 +145,10 @@ export async function POST(request: NextRequest) {
           }
 
           await archive.finalize();
-        } catch (error) {
-          reject(error);
-        }
+          } catch (error) {
+            reject(error);
+          }
+        })();
       });
     }
 
