@@ -1,4 +1,23 @@
 export const PRICING_CONFIG = {
+  /** Public marketing free tier — keep copy aligned with `reportLimit` (RA overnight audit). */
+  free: {
+    name: "Free",
+    displayName: "Free",
+    amount: 0,
+    currency: "AUD",
+    reportLimit: 3,
+    description:
+      "Perfect for trying out Restore Assist — 3 one-time inspection reports with basic features.",
+    features: [
+      "3 inspection reports (one-time)",
+      "Basic report type only",
+      "1 Quick Fill credit (AI-powered form auto-fill)",
+      "IICRC S500 compliant reports",
+      "PDF & Excel export",
+      "Email support",
+    ],
+  },
+
   // Stripe Price IDs - Use environment variables or fallback to dynamic creation
   prices: {
     monthly: process.env.STRIPE_PRICE_MONTHLY || "MONTHLY_PLAN",
