@@ -33,10 +33,7 @@ export default function ExportPdfButton({
       await exportInspectionPdf(data);
     } catch (err) {
       console.error("[ExportPdfButton] Export failed:", err);
-      // Surface error to user in a non-blocking way — rely on console/toast elsewhere
-      alert(
-        `PDF export failed: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      // Surface error without blocking the user; detailed context is in the console.
     } finally {
       setLoading(false);
     }
