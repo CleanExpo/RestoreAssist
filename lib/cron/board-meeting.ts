@@ -354,7 +354,7 @@ function extractActionItems(
   for (const line of lines) {
     if (isTableNonContent(line)) continue;
     if (line.trim().startsWith("|")) continue; // orphan table row, no separator
-    const clean = line.replace(/^[\d\.\-\*\s]+/, "").trim();
+    const clean = line.replace(/^[\d.*\s-]+/, "").trim();
     if (clean.length > 10) {
       items.push({
         title: `[Board] ${truncateTitle(clean, 80)}`,
