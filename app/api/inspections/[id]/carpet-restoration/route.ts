@@ -85,14 +85,12 @@ export async function GET(
     });
   }
 
-  const inspection = await (prisma as any).inspection.findUnique({
+  const inspection = await prisma.inspection.findUnique({
     where: { id },
     select: { carpetRestorationAssessment: true },
   });
 
-  return NextResponse.json(
-    (inspection as any)?.carpetRestorationAssessment ?? null,
-  );
+  return NextResponse.json(inspection?.carpetRestorationAssessment ?? null);
 }
 
 // ─── POST ─────────────────────────────────────────────────────────────────────
@@ -133,7 +131,7 @@ export async function POST(
 
   const data = parsed.data;
 
-  const record = await (prisma as any).carpetRestorationAssessment.upsert({
+  const record = await prisma.carpetRestorationAssessment.upsert({
     where: { inspectionId: id },
     create: {
       inspectionId: id,
@@ -192,7 +190,7 @@ export async function POST(
 
   await prisma.inspection.update({
     where: { id },
-    data: { claimType: "CARPET" } as any,
+    data: { claimType: "CARPET" },
   });
 
   return NextResponse.json(record);
@@ -227,7 +225,7 @@ export async function DELETE(
 
   await softDelete(
     () =>
-      (prisma as any).carpetRestorationAssessment.delete({
+      prisma.carpetRestorationAssessment.delete({
         where: { inspectionId: id },
       }),
     {
@@ -239,7 +237,7 @@ export async function DELETE(
 
   await prisma.inspection.update({
     where: { id },
-    data: { claimType: null } as any,
+    data: { claimType: null },
   });
 
   return NextResponse.json({ deleted: true });

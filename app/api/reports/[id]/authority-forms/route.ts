@@ -60,6 +60,24 @@ export async function GET(
         },
         signatures: {
           orderBy: { createdAt: "asc" },
+          select: {
+            id: true,
+            instanceId: true,
+            signatoryName: true,
+            signatoryRole: true,
+            signatoryEmail: true,
+            signatoryPhone: true,
+            signatureData: true,
+            signatureUrl: true,
+            signatureRequestSent: true,
+            signatureRequestSentAt: true,
+            signatureRequestToken: true,
+            ipAddress: true,
+            userAgent: true,
+            signedAt: true,
+            createdAt: true,
+            updatedAt: true,
+          },
         },
       },
       orderBy: { createdAt: "desc" },
@@ -213,7 +231,9 @@ export async function POST(
           status: "DRAFT",
         },
         include: {
-          template: true,
+          // Only `formInstance.id` is read downstream; the form is re-fetched
+          // below with full template+signatures for the response payload.
+          template: { select: { id: true } },
         },
       });
 
@@ -227,7 +247,7 @@ export async function POST(
             signatoryEmail:
               role === "CLIENT"
                 ? report.clientContactDetails?.match(
-                    /[\w.-]+@[\w.-]+\.\w+/,
+                    /[\w\.-]+@[\w\.-]+\.\w+/,
                   )?.[0] || null
                 : null,
           }),
@@ -245,7 +265,7 @@ export async function POST(
             signatoryRole: "CLIENT",
             signatoryEmail:
               report.clientContactDetails?.match(
-                /[\w.-]+@[\w.-]+\.\w+/,
+                /[\w\.-]+@[\w\.-]+\.\w+/,
               )?.[0] || null,
           },
         });
@@ -255,8 +275,38 @@ export async function POST(
       const completeForm = await prisma.authorityFormInstance.findUnique({
         where: { id: formInstance.id },
         include: {
-          template: true,
-          signatures: true,
+          template: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+              description: true,
+              formContent: true,
+              isActive: true,
+              createdAt: true,
+              updatedAt: true,
+            },
+          },
+          signatures: {
+            select: {
+              id: true,
+              instanceId: true,
+              signatoryName: true,
+              signatoryRole: true,
+              signatoryEmail: true,
+              signatoryPhone: true,
+              signatureData: true,
+              signatureUrl: true,
+              signatureRequestSent: true,
+              signatureRequestSentAt: true,
+              signatureRequestToken: true,
+              ipAddress: true,
+              userAgent: true,
+              signedAt: true,
+              createdAt: true,
+              updatedAt: true,
+            },
+          },
         },
       });
 

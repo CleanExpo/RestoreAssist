@@ -21,6 +21,11 @@ case "$VERCEL_ENV" in
       echo "[build] DATABASE_URL unset — skipping prisma migrate deploy (probably a local 'next build' without env)"
     else
       npx prisma migrate deploy
+      # Schema drift smoke test — guards against the failure mode where
+      # `prisma migrate deploy` reports success but the DDL silently no-ops.
+      # We hit this on 2026-05-12 with 24 columns missing across 7 tables.
+      # Drift check is fail-fast: it aborts the build before next build runs.
+      node scripts/check-schema-drift.mjs
     fi
     ;;
 esac

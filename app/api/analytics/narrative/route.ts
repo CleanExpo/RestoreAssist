@@ -14,11 +14,11 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import Anthropic from "@anthropic-ai/sdk";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getAnthropicApiKey } from "@/lib/ai-provider";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { generateAnalyticsNarrative } from "@/lib/services/ai/analytics-narrative";
 
 const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"] as const;
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
@@ -278,42 +278,60 @@ export async function GET(request: NextRequest) {
       ),
     };
 
-    const systemPrompt = [
-      "You are analysing a water-damage restoration business in Australia.",
-      "Write 2-3 sentences in plain Australian English explaining what changed this period.",
-      "Focus on the 2-3 largest drivers (job types, suburbs, insurers, clients).",
-      "No speculation — only state what the numbers show.",
-      "Currency is AUD. Use $ and round to nearest $100 or 'K' (e.g. '$12.4K').",
-      "Do not use bullet points. Write as flowing prose.",
-    ].join(" ");
-
-    const anthropic = new Anthropic({ apiKey: anthropicApiKey });
-    const response = await anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 300,
-      system: systemPrompt,
-      messages: [
-        {
-          role: "user",
-          content: `Period-over-period deltas (current vs previous ${periodParam}):\n\n${JSON.stringify(deltas, null, 2)}`,
-        },
-      ],
+    const result = await generateAnalyticsNarrative({
+      apiKey: anthropicApiKey,
+      input: { period: periodParam, deltas },
     });
 
-    const narrative =
-      response.content[0]?.type === "text"
-        ? response.content[0].text.trim()
-        : "Unable to generate narrative.";
+    if (!result.ok) {
+      console.error("[analytics/narrative]", {
+        userId,
+        reason: result.reason,
+        detail: result.detail,
+      });
+      if (result.reason === "RATE_LIMITED") {
+        return NextResponse.json(
+          { error: "Rate limited by AI provider" },
+          {
+            status: 429,
+            headers: {
+              "Retry-After": Math.ceil((result.retryAfterMs ?? 30000) / 1000).toString(),
+            },
+          },
+        );
+      }
+      if (result.reason === "MODEL_OVERLOADED") {
+        return NextResponse.json(
+          { error: "AI provider overloaded" },
+          {
+            status: 503,
+            headers: {
+              "Retry-After": Math.ceil((result.retryAfterMs ?? 10000) / 1000).toString(),
+            },
+          },
+        );
+      }
+      if (result.reason === "PARSE_FAILED") {
+        return NextResponse.json(
+          { error: "Unable to parse AI response" },
+          { status: 502 },
+        );
+      }
+      return NextResponse.json(
+        { error: "Internal server error" },
+        { status: 500 },
+      );
+    }
 
     const generatedAt = new Date().toISOString();
     narrativeCache.set(cacheKey, {
-      narrative,
+      narrative: result.data.narrative,
       generatedAt,
       expiresAt: Date.now() + CACHE_TTL_MS,
     });
 
     return NextResponse.json({
-      narrative,
+      narrative: result.data.narrative,
       generatedAt,
       cacheHit: false,
     });

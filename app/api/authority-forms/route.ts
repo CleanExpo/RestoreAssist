@@ -31,6 +31,7 @@ export async function GET(request: NextRequest) {
       whereClause.status = status;
     }
 
+    // RA-1376: bounded list query (CLAUDE.md rule 4).
     const forms = await prisma.authorityFormInstance.findMany({
       where: whereClause,
       include: {
@@ -62,6 +63,7 @@ export async function GET(request: NextRequest) {
         },
       },
       orderBy: { createdAt: "desc" },
+      take: 50,
     });
 
     return NextResponse.json({ forms });

@@ -28,6 +28,7 @@ import {
   parseDomainComAuSearchResults,
   type ScrapedPropertyData,
 } from "@/lib/property-data-parser";
+import { fetchHtmlViaWorkspaceProvider } from "@/lib/scraping/dispatch";
 
 const OTH_BASE = "https://www.onthehouse.com.au";
 const DOMAIN_BASE = "https://www.domain.com.au";
@@ -276,7 +277,7 @@ export async function POST(req: NextRequest) {
       const searchQuery = [address, postcode].filter(Boolean).join(" ");
       const searchUrl = `${OTH_BASE}/search?q=${encodeURIComponent(searchQuery)}`;
       const { html: searchHtml, status: searchStatus } =
-        await fetchHtml(searchUrl);
+        await fetchHtmlViaWorkspaceProvider(searchUrl, userId, fetchHtml);
 
       // Parse OTH results only when the search page returned successfully
       const othUrls =
@@ -316,7 +317,11 @@ export async function POST(req: NextRequest) {
         // Try domain.com.au when: OTH returned non-200 (broken search) OR no results
         const domainSearchUrl = `${DOMAIN_BASE}/sale/?q=${encodeURIComponent(searchQuery)}`;
         const { html: domainHtml, status: domainStatus } =
-          await fetchHtml(domainSearchUrl);
+          await fetchHtmlViaWorkspaceProvider(
+            domainSearchUrl,
+            userId,
+            fetchHtml,
+          );
 
         if (domainStatus !== 200 || !domainHtml) {
           return NextResponse.json(
@@ -351,7 +356,7 @@ export async function POST(req: NextRequest) {
 
     // ── Fetch and parse property page ───────────────────────
     const { html: propertyHtml, status: propertyStatus } =
-      await fetchHtml(propertyUrl);
+      await fetchHtmlViaWorkspaceProvider(propertyUrl, userId, fetchHtml);
 
     if (propertyStatus === 0) {
       return apiError(req, {

@@ -45,8 +45,11 @@ export async function POST(
           userId,
         },
         include: {
+          // lineItems aren't read below — the email template uses parent
+          // scalars only — selecting id keeps the relation contract explicit.
           lineItems: {
             orderBy: { sortOrder: "asc" },
+            select: { id: true },
           },
           user: {
             select: {

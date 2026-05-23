@@ -1,0 +1,75 @@
+---
+title: "Share a report with your client via the portal"
+slug: "share-via-portal"
+category: "clients-and-portal"
+order: 1
+audience: ["admin", "tradie"]
+readTimeMin: 5
+updatedAt: "2026-05-15"
+status: "published"
+heroImage: "ra-help/clients-and-portal/share-via-portal-hero"
+relatedSlugs: ["first-ai-report"]
+aiSummary: "Explains how to provision a ClientPortalAccount, generate a revocable share token, send the portal link to the client, and rotate or revoke access later. Client sees the signed-off report and any attached invoices."
+userIntents:
+  - "how do I share a report with the client"
+  - "client portal"
+  - "send report to homeowner"
+  - "portal link"
+  - "rotate client access"
+successCriteria:
+  - "ClientPortalAccount created for the client"
+  - "Portal link delivered to client"
+  - "Client can open /portal/[token] and view the report"
+---
+
+The client portal gives your homeowner a read-only view of the signed-off report and any invoices you've attached. Tokens are revocable and rotatable from the admin side — the client never logs in.
+
+<VideoExplainer slug="help-clients-and-portal" />
+
+## When to use the portal
+
+Use the portal once an inspection is `COMPLETED` and the report is signed off. Before sign-off the document is still a draft; don't share drafts via the portal.
+
+## Provision the client portal account
+
+From the inspection detail page, click **Share with client** in the action bar. If the homeowner doesn't already have a `ClientPortalAccount`, RestoreAssist creates one tied to the inspection.
+
+<Screenshot
+  src="ra-help/clients-and-portal/share-with-client-button"
+  alt="Share with client button on inspection detail"
+  caption="Share with client provisions a portal account if one doesn't exist."
+/>
+
+## Send the link
+
+The portal link looks like `https://restoreassist.app/portal/[token]`. You can:
+
+- Copy and paste it into your own email or SMS
+- Click **Send via email** to use RestoreAssist's templated email
+- Generate a QR code to hand the client at handover
+
+The token is opaque and unguessable. There is no public listing of portal accounts.
+
+## What the client sees
+
+When the client opens the link, they see:
+
+- The signed-off report (read-only PDF + inline web view)
+- Any attached invoices and their payment status
+- Photos with captions (chain-of-custody hashes are hidden from the client UI)
+- A contact button that emails you back
+
+<Screenshot
+  src="ra-help/clients-and-portal/client-portal-view"
+  alt="The client portal view as the homeowner sees it"
+  caption="No login required — the link itself is the credential, so guard it as you would a password."
+/>
+
+## Rotate or revoke access
+
+From **Settings → Client portal accounts** an admin can:
+
+- **Rotate token** — invalidates the old link and issues a fresh one
+- **Revoke** — disables the account; the link returns a 410 Gone
+
+Rotate after any incident (forwarded email, lost phone, ownership change). Rotation does not change the report itself, only the URL.

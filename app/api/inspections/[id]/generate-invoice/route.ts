@@ -41,7 +41,26 @@ export async function GET(
         notes: { contains: inspection.inspectionNumber },
       },
       include: {
-        lineItems: { orderBy: { sortOrder: "asc" } },
+        lineItems: {
+          orderBy: { sortOrder: "asc" },
+          select: {
+            id: true,
+            description: true,
+            category: true,
+            quantity: true,
+            unitPrice: true,
+            xeroAccountCode: true,
+            subtotal: true,
+            gstRate: true,
+            gstAmount: true,
+            total: true,
+            discountAmount: true,
+            sortOrder: true,
+            invoiceId: true,
+            estimateLineItemId: true,
+            createdAt: true,
+          },
+        },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -83,6 +102,11 @@ export async function POST(
           scopeItems: {
             where: { isSelected: true },
             orderBy: { createdAt: "asc" },
+            select: {
+              quantity: true,
+              description: true,
+              itemType: true,
+            },
           },
         },
       });
@@ -190,7 +214,9 @@ export async function POST(
               },
             },
             include: {
-              lineItems: { orderBy: { sortOrder: "asc" } },
+              // Only `lineItems.length` is read in the response (line below);
+              // selecting `id` keeps the relation contract explicit.
+              lineItems: { orderBy: { sortOrder: "asc" }, select: { id: true } },
             },
           });
 

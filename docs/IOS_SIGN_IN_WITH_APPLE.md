@@ -95,13 +95,64 @@ In the iOS Simulator (after a TestFlight build with the entitlement + Universal 
 
 ## JWT rotation
 
-`APPLE_CLIENT_SECRET` is a 180-day JWT. Rotate before expiry:
+`APPLE_CLIENT_SECRET` is a 180-day JWT. **Current secret expires 2026-10-31T04:22:04Z** — see [RA-1954](https://linear.app/unite-group/issue/RA-1954). Rotate at least 14 days before expiry.
 
-- Re-run the `jsonwebtoken` script with the **same Services ID + Key ID + .p8** but a fresh `expiresIn`
-- Update `APPLE_CLIENT_SECRET` in Vercel
-- Redeploy
+### Inputs (captured 2026-05-04, do not change between rotations)
 
-A reminder cron in [Pi-CEO meta-curator](https://linear.app/unite-group/issue/RA-1839) will be added to surface this 14 days before expiry.
+| Field | Value | Where used |
+|---|---|---|
+| Apple Team ID (`iss`) | `L3TJL6HUJ7` | JWT issuer |
+| Services ID (`sub`) | `com.restoreassist.signin` | JWT subject + `APPLE_CLIENT_ID` Vercel env |
+| Key ID (`kid`) | `D4S6J2FUXL` | JWT header |
+| `.p8` private key | `~/Downloads/AuthKey_D4S6J2FUXL.p8` | one-time download — if lost, must revoke + recreate the key |
+
+### Step-by-step recipe
+
+1. **Generate the new JWT** (any directory with `jsonwebtoken` installed):
+
+   ```bash
+   node -e '
+   const jwt = require("jsonwebtoken");
+   const fs = require("fs");
+   const key = fs.readFileSync("/Users/phill-mac/Downloads/AuthKey_D4S6J2FUXL.p8");
+   const token = jwt.sign({}, key, {
+     algorithm: "ES256",
+     expiresIn: "180d",
+     audience: "https://appleid.apple.com",
+     issuer: "L3TJL6HUJ7",
+     subject: "com.restoreassist.signin",
+     keyid: "D4S6J2FUXL",
+   });
+   console.log(token);
+   '
+   ```
+
+   Output: a long JWT starting with `eyJ...`. Copy it.
+
+2. **Push to Vercel production** (from any `vercel`-linked directory):
+
+   ```bash
+   echo "<NEW_JWT>" | vercel env add APPLE_CLIENT_SECRET production --sensitive --scope unite-group --force
+   vercel redeploy https://restoreassist.app --target=production --scope unite-group
+   ```
+
+3. **Verify** the deploy picked up the new secret:
+
+   ```bash
+   curl -s https://restoreassist.app/api/auth/providers | jq .apple
+   # Should still show { id: "apple", ... } — not absent
+   ```
+
+4. **Smoke test** Sign in with Apple end-to-end on the iOS app or via the web login flow. A working sign-in confirms Apple's token endpoint accepts the new JWT.
+
+5. **Update RA-1954** (or open a fresh rotation ticket) with the new expiry date so the next rotation is tracked.
+
+### Common rotation gotchas
+
+- `aud` MUST be exactly `https://appleid.apple.com` — no trailing slash, no `/auth/token`. NextAuth docs were wrong about this in older versions.
+- `iss` is the **Team ID** (`L3TJL6HUJ7`), NOT the bundle ID. Easy to mix up.
+- Re-use the **same** Services ID + Key ID + `.p8`. Only `expiresIn` changes per rotation.
+- If you lose the `.p8`, you must revoke the key in Apple Developer → Keys, register a new key, and update both `kid` in the JWT script and the `.p8` filename. The Services ID stays the same.
 
 ## Common gotchas
 

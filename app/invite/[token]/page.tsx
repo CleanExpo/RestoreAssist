@@ -1,26 +1,39 @@
 "use client";
 
 /**
- * RA-1249 — Dedicated invite acceptance page.
+ * RA-1249 / RA-2998 — Dedicated invite acceptance page.
  *
  * /invite/[token]
  *   - Fetches invite preview via GET /api/invites/[token]
- *   - Shows org name + role + invitee email
- *   - User chooses name + password, accepts terms
- *   - POST /api/invites/[token] creates the account and marks the invite used
- *   - Redirects to /login with a success toast
+ *   - Step 1 (identity): credentials path collects name/password/phone/headshot,
+ *     or Google path sets an invite_token cookie and dispatches signIn("google").
+ *   - Step 2 (terms): user accepts ToS + chain-of-custody, POSTs to
+ *     /api/invites/[token]. On success, credentials path signs the user in via
+ *     NextAuth and lands on /dashboard?firstRun=tech.
  */
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { signIn } from "next-auth/react";
 import Link from "next/link";
-import { AlertCircle, Loader2, CheckCircle2 } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
+import {
+  InviteIdentityStep,
+  type IdentityValues,
+} from "@/components/invite/InviteIdentityStep";
+import { InviteTermsStep } from "@/components/invite/InviteTermsStep";
+import {
+  isValidAuMobile,
+  normaliseAuMobile,
+} from "@/components/invite/phone-validator";
+import {
+  validateHeadshotFile,
+  squareCropToDataUrl,
+} from "@/components/invite/headshot-utils";
 
 interface InvitePreview {
   email: string;
@@ -33,6 +46,7 @@ interface InvitePreview {
 
 export default function InviteAcceptPage() {
   const params = useParams<{ token: string }>();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const token = params?.token as string | undefined;
 
@@ -40,11 +54,38 @@ export default function InviteAcceptPage() {
   const [loadingPreview, setLoadingPreview] = useState(true);
   const [previewError, setPreviewError] = useState<string | null>(null);
 
-  const [name, setName] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const initialStep = searchParams?.get("step") === "2" ? "terms" : "identity";
+  const [step, setStep] = useState<"identity" | "terms">(initialStep);
+  const [identity, setIdentity] = useState<IdentityValues | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Google-OAuth path: when the user lands on Step 2 directly (no identity
+  // collected on Step 1) they still need to supply phone + headshot before
+  // the POST will validate. See F3 of PR #989.
+  const [googlePhone, setGooglePhone] = useState("");
+  const [googleHeadshotDataUrl, setGoogleHeadshotDataUrl] = useState("");
+  const [googleExtrasError, setGoogleExtrasError] = useState<string | null>(
+    null,
+  );
+
+  async function handleGoogleHeadshot(
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const result = validateHeadshotFile(file);
+    if (!result.ok) {
+      setGoogleExtrasError(result.error);
+      return;
+    }
+    const dataUrl = await squareCropToDataUrl(file);
+    setGoogleHeadshotDataUrl(dataUrl);
+    setGoogleExtrasError(null);
+  }
+
+  const isGooglePath = step === "terms" && !identity;
+  const googleExtrasValid =
+    isValidAuMobile(googlePhone) && Boolean(googleHeadshotDataUrl);
 
   useEffect(() => {
     if (!token) return;
@@ -72,49 +113,6 @@ export default function InviteAcceptPage() {
     };
   }, [token]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (password !== confirmPassword) {
-      toast.error("Passwords don't match");
-      return;
-    }
-
-    if (password.length < 12) {
-      toast.error("Password must be at least 12 characters");
-      return;
-    }
-
-    if (!acceptedTerms) {
-      toast.error(
-        "You must accept the Terms of Service and Privacy Policy to continue",
-      );
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const res = await fetch(`/api/invites/${encodeURIComponent(token!)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, password, acceptedTerms: true }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        toast.error(data.error ?? "Failed to accept invite");
-        return;
-      }
-      toast.success("Account created — signing you in…");
-      router.push(
-        `/login?email=${encodeURIComponent(data.email ?? preview?.email ?? "")}`,
-      );
-    } catch {
-      toast.error("Network error. Please try again.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   if (loadingPreview) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4">
@@ -126,7 +124,7 @@ export default function InviteAcceptPage() {
     );
   }
 
-  if (previewError || !preview) {
+  if (previewError || !preview || !token) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4">
         <div className="w-full max-w-md space-y-4">
@@ -139,7 +137,7 @@ export default function InviteAcceptPage() {
           <div className="text-center text-sm text-slate-400">
             Already have an account?{" "}
             <Link href="/login" className="text-cyan-400 hover:underline">
-              Sign in
+              Login
             </Link>
           </div>
         </div>
@@ -147,126 +145,159 @@ export default function InviteAcceptPage() {
     );
   }
 
+  function handleIdentityContinue(values: IdentityValues) {
+    setIdentity(values);
+    setStep("terms");
+  }
+
+  async function handleSubmit(values: {
+    acceptedTerms: boolean;
+    acceptedChainOfCustody: boolean;
+  }) {
+    if (!preview || !token) return;
+
+    // Google path must supply phone + headshot before we POST, otherwise the
+    // server returns 400 on the empty fields.
+    if (!identity) {
+      if (!isValidAuMobile(googlePhone)) {
+        setGoogleExtrasError("Enter a 10-digit Australian mobile (04…)");
+        return;
+      }
+      if (!googleHeadshotDataUrl) {
+        setGoogleExtrasError("Please add a headshot");
+        return;
+      }
+    }
+
+    setSubmitting(true);
+    try {
+      const body = identity
+        ? {
+            name: identity.name,
+            password: identity.password,
+            phone: identity.phone,
+            headshotDataUrl: identity.headshotDataUrl,
+            acceptedTerms: values.acceptedTerms,
+            acceptedChainOfCustody: values.acceptedChainOfCustody,
+          }
+        : {
+            provider: "google" as const,
+            name: preview.email.split("@")[0],
+            phone: normaliseAuMobile(googlePhone),
+            headshotDataUrl: googleHeadshotDataUrl,
+            acceptedTerms: values.acceptedTerms,
+            acceptedChainOfCustody: values.acceptedChainOfCustody,
+          };
+
+      const res = await fetch(`/api/invites/${encodeURIComponent(token)}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error ?? "Failed to accept invite");
+        return;
+      }
+
+      if (identity) {
+        const signInResult = await signIn("credentials", {
+          email: preview.email,
+          password: identity.password,
+          redirect: false,
+        });
+        if (signInResult?.error) {
+          toast.error("Account created — sign-in failed. Please sign in.");
+          router.push("/login");
+          return;
+        }
+      }
+      router.push("/dashboard?firstRun=tech");
+    } catch {
+      toast.error("Network error. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4">
       <div className="w-full max-w-md">
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-8 shadow-xl space-y-6">
-          <div className="space-y-2 text-center">
-            <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-cyan-600 text-white mx-auto">
-              <CheckCircle2 className="h-6 w-6" aria-hidden />
-            </div>
-            <h1 className="text-2xl font-semibold text-white">
-              You're invited
-            </h1>
-            <p className="text-sm text-slate-400">
-              <strong className="text-slate-200">{preview.inviterName}</strong>{" "}
-              has invited you to join{" "}
-              <strong className="text-slate-200">
-                {preview.organizationName}
-              </strong>{" "}
-              as a{" "}
-              <strong className="text-cyan-400">{preview.roleLabel}</strong>.
-            </p>
-          </div>
-
-          <div className="rounded-lg bg-slate-800/50 p-3 text-center">
-            <div className="text-xs uppercase tracking-wider text-slate-500">
-              Invitee email
-            </div>
-            <div className="text-sm font-medium text-slate-100">
-              {preview.email}
-            </div>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Your name</Label>
-              <Input
-                id="name"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Sarah Thompson"
-                required
-                autoFocus
-                maxLength={200}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="At least 12 characters"
-                required
-                minLength={12}
-                autoComplete="new-password"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm password</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                minLength={12}
-                autoComplete="new-password"
-              />
-            </div>
-
-            <label className="flex items-start gap-2 text-sm text-slate-300 cursor-pointer">
-              <Checkbox
-                checked={acceptedTerms}
-                onCheckedChange={(checked) =>
-                  setAcceptedTerms(checked === true)
-                }
-                className="mt-0.5"
-                aria-label="Accept terms and privacy"
-              />
-              <span>
-                I agree to the{" "}
-                <Link
-                  href="/legal/terms"
-                  target="_blank"
-                  className="text-cyan-400 hover:underline"
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 sm:p-8 shadow-xl">
+          {step === "identity" ? (
+            <InviteIdentityStep
+              token={token}
+              inviteeEmail={preview.email}
+              organizationName={preview.organizationName}
+              onContinue={handleIdentityContinue}
+            />
+          ) : (
+            <>
+              {isGooglePath && (
+                <div
+                  className="space-y-4 pb-4 mb-4 border-b border-slate-800"
+                  data-testid="google-extras"
                 >
-                  Terms of Service
-                </Link>{" "}
-                and{" "}
-                <Link
-                  href="/legal/privacy"
-                  target="_blank"
-                  className="text-cyan-400 hover:underline"
-                >
-                  Privacy Policy
-                </Link>
-                .
-              </span>
-            </label>
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      A couple more details before you finish joining:
+                    </p>
+                  </div>
 
-            <Button
-              type="submit"
-              disabled={submitting || !acceptedTerms}
-              className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white hover:from-blue-700 hover:to-cyan-700"
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Creating account…
-                </>
-              ) : (
-                "Accept invite & create account"
+                  <div className="space-y-2">
+                    <Label htmlFor="google-phone">
+                      Mobile (used for SMS reminders)
+                    </Label>
+                    <Input
+                      id="google-phone"
+                      type="tel"
+                      inputMode="numeric"
+                      autoComplete="tel"
+                      value={googlePhone}
+                      onChange={(e) => setGooglePhone(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="google-headshot">
+                      Headshot · used on your evidence photos
+                    </Label>
+                    <Input
+                      id="google-headshot"
+                      type="file"
+                      accept="image/jpeg,image/png"
+                      capture="user"
+                      onChange={handleGoogleHeadshot}
+                    />
+                    {googleHeadshotDataUrl && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={googleHeadshotDataUrl}
+                        alt="Headshot preview"
+                        className="h-20 w-20 rounded-full object-cover"
+                      />
+                    )}
+                  </div>
+
+                  {googleExtrasError && (
+                    <p className="text-sm text-destructive">
+                      {googleExtrasError}
+                    </p>
+                  )}
+                </div>
               )}
-            </Button>
-          </form>
+              <InviteTermsStep
+                organizationName={preview.organizationName}
+                inviterName={preview.inviterName}
+                roleLabel={preview.roleLabel}
+                submitting={submitting}
+                disabled={isGooglePath && !googleExtrasValid}
+                onSubmit={handleSubmit}
+              />
+            </>
+          )}
 
-          <div className="text-center text-xs text-slate-500">
+          <div className="mt-6 text-center text-xs text-slate-500">
             Already have an account?{" "}
             <Link href="/login" className="text-cyan-400 hover:underline">
               Sign in

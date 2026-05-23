@@ -4,40 +4,10 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
 import { z } from "zod";
-
-// ---------------------------------------------------------------------------
-// Anthropic lazy singleton (same pattern as lib/stripe.ts)
-// ---------------------------------------------------------------------------
-import Anthropic from "@anthropic-ai/sdk";
-
-let _anthropic: Anthropic | null = null;
-
-function getAnthropicClient(): Anthropic {
-  if (_anthropic) return _anthropic;
-  if (!process.env.ANTHROPIC_API_KEY) {
-    throw new Error("ANTHROPIC_API_KEY is not set");
-  }
-  _anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  return _anthropic;
-}
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-type SupportCategory =
-  | "general"
-  | "billing"
-  | "technical"
-  | "feature_request"
-  | "bug";
-type SupportPriority = "low" | "normal" | "high" | "urgent";
-
-interface ClaudeTicketAnalysis {
-  category: SupportCategory;
-  priority: SupportPriority;
-  responseDraft: string;
-}
+import {
+  analyseSupportTicket,
+  type SupportTicketAnalysis,
+} from "@/lib/services/ai/analyse-support-ticket";
 
 // ---------------------------------------------------------------------------
 // Validation schema for POST
@@ -57,99 +27,40 @@ const createTicketSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
-// Claude analysis helper
+// Claude analysis helper — graceful degradation
+//
+// Public ticket submission must never fail because AI is down. This helper
+// wraps the service-layer call and returns null on any failure (gateway,
+// parse, or missing key) so the POST handler falls back to user-provided
+// category + priority "normal".
 // ---------------------------------------------------------------------------
 
 async function analyseTicketWithClaude(
   subject: string,
   body: string,
-): Promise<ClaudeTicketAnalysis | null> {
-  try {
-    const client = getAnthropicClient();
-
-    const systemPrompt = `You are a customer support specialist for RestoreAssist — Australian water damage restoration software.
-
-Given a support ticket, respond with JSON only (no markdown, no explanation):
-{
-  "category": "general|billing|technical|feature_request|bug",
-  "priority": "low|normal|high|urgent",
-  "responseDraft": "Professional response in Australian English, 150-250 words..."
-}
-
-Category rules:
-- billing: mentions payment, invoice, subscription, price, refund, charge
-- technical: software errors, crashes, API issues, integration problems
-- feature_request: requests for new features or improvements
-- bug: reports of incorrect behaviour
-- general: everything else
-
-Priority rules:
-- urgent: production outage, data loss, cannot access account
-- high: major feature broken, billing error
-- normal: general questions, feature requests
-- low: cosmetic issues, minor suggestions
-
-Response draft must:
-- Address the specific issue raised
-- Reference IICRC S500:2025 if technically relevant
-- End with next-steps and timeline (we respond within 24 hours)
-- Be warm but professional
-- Use Australian English spelling`;
-
-    const response = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 1024,
-      system: systemPrompt,
-      messages: [
-        {
-          role: "user",
-          content: `Subject: ${subject}\n\n${body}`,
-        },
-      ],
+): Promise<SupportTicketAnalysis | null> {
+  const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
+  if (!apiKey) {
+    console.error("[SupportTicketsAnalyse]", {
+      reason: "KEY_MISSING",
+      detail: "ANTHROPIC_API_KEY not configured (non-fatal — degrading)",
     });
-
-    const text =
-      response.content[0].type === "text" ? response.content[0].text : "";
-
-    // Strip any accidental markdown code fences
-    const cleaned = text
-      .replace(/^```(?:json)?\n?/i, "")
-      .replace(/\n?```$/i, "")
-      .trim();
-    const parsed = JSON.parse(cleaned) as ClaudeTicketAnalysis;
-
-    // Validate the fields Claude returned
-    const validCategories: SupportCategory[] = [
-      "general",
-      "billing",
-      "technical",
-      "feature_request",
-      "bug",
-    ];
-    const validPriorities: SupportPriority[] = [
-      "low",
-      "normal",
-      "high",
-      "urgent",
-    ];
-
-    return {
-      category: validCategories.includes(parsed.category)
-        ? parsed.category
-        : "general",
-      priority: validPriorities.includes(parsed.priority)
-        ? parsed.priority
-        : "normal",
-      responseDraft:
-        typeof parsed.responseDraft === "string" &&
-        parsed.responseDraft.length > 0
-          ? parsed.responseDraft
-          : "",
-    };
-  } catch (err) {
-    console.error("[support/tickets] Claude analysis failed (non-fatal):", err);
     return null;
   }
+
+  const result = await analyseSupportTicket({
+    apiKey,
+    ticket: { subject, body },
+  });
+
+  if (!result.ok) {
+    console.error("[SupportTicketsAnalyse]", {
+      reason: result.reason,
+      detail: result.detail,
+    });
+    return null;
+  }
+  return result.data;
 }
 
 // ---------------------------------------------------------------------------

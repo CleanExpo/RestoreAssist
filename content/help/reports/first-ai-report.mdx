@@ -1,0 +1,79 @@
+---
+title: "Generate your first AI-drafted S500 report"
+slug: "first-ai-report"
+category: "reports"
+order: 1
+audience: ["tradie", "admin"]
+readTimeMin: 6
+updatedAt: "2026-05-15"
+status: "published"
+heroImage: "ra-help/reports/first-ai-report-hero"
+relatedSlugs: ["photo-cocoa", "first-inspection"]
+aiSummary: "Walks a user through generating an AI-drafted IICRC S500:2025 water-damage report — what inputs are required (photos + readings + scope), how the model-router picks the model, expected turnaround, and how to review and edit before sign-off."
+userIntents:
+  - "how do I generate an AI report"
+  - "first AI report"
+  - "ai-drafted report"
+  - "how does the AI report work"
+  - "S500 report"
+successCriteria:
+  - "AI draft generated for an inspection"
+  - "Draft reviewed and at least one section edited"
+  - "Report saved and ready for sign-off"
+---
+
+RestoreAssist drafts compliant S500 / S520 / S540 / S700 reports from the data you've captured on the inspection. The model writes; you review and sign off.
+
+<VideoExplainer slug="help-reports" />
+
+## Before you start
+
+You need:
+
+- An inspection in `IN_PROGRESS` status
+- At least 4 photos with chain-of-custody hashes attached
+- Moisture readings or affected-area measurements logged
+- Scope line items added
+
+Without these inputs the **Generate report** button is disabled — the model needs evidence to cite.
+
+## Generate the draft
+
+Open the inspection's detail page and click **Generate report** in the top-right action bar.
+
+<Screenshot
+  src="ra-help/reports/generate-report-button"
+  alt="The Generate report button on an inspection detail page"
+  caption="Generate report appears once minimum evidence is attached."
+/>
+
+A premium task router (`lib/ai/model-router.ts`) picks the model based on claim complexity. Average turnaround is 10–30 seconds. Bring-your-own-key (BYOK) reduces token cost by 60–80% — set your key in **Settings → AI keys** if you want to use your own.
+
+## What the draft contains
+
+The generated report follows the IICRC structure for your claim type. For water it includes:
+
+1. **Property & loss overview** — address, date of loss, cause
+2. **Category & class determination** — per `S500:2025 §10` and `§11`
+3. **Affected materials inventory** — with photo references
+4. **Moisture mapping** — readings table + interpretation
+5. **Scope of work** — line items mapped to drying / extraction / antimicrobial steps
+6. **Standards cited** — `S500:2025` sections referenced inline
+
+## Review and edit
+
+The draft is a starting point, not a finished document. Read every section. Common edits:
+
+- Tighten loss-cause wording to match what the homeowner told you
+- Re-classify category if the model under- or over-called it
+- Add narrative on access constraints or hidden moisture
+
+<Screenshot
+  src="ra-help/reports/draft-editor"
+  alt="The draft editor showing AI-generated report sections"
+  caption="Each section is editable inline; the standards citations stay locked unless you remove them deliberately."
+/>
+
+## Save and sign off
+
+Click **Save draft** to keep iterating, or **Submit for sign-off** when the report is ready. Once signed off, the report is immutable and the inspection moves to `COMPLETED`.

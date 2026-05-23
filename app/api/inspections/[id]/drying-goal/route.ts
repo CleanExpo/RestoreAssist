@@ -258,7 +258,18 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     // Verify ownership
     const inspection = await prisma.inspection.findFirst({
       where: { id: inspectionId, userId: session.user.id },
-      include: { moistureReadings: true },
+      include: {
+        moistureReadings: {
+          select: {
+            id: true,
+            location: true,
+            surfaceType: true,
+            moistureLevel: true,
+            recordedAt: true,
+            createdAt: true,
+          },
+        },
+      },
     });
     if (!inspection) {
       return NextResponse.json(

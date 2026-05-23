@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { applyRateLimit, getClientIp } from "@/lib/rate-limiter";
+import { applyRateLimit } from "@/lib/rate-limiter";
 import { sanitizeString } from "@/lib/sanitize";
 import { validateCsrf } from "@/lib/csrf";
 import { sendWelcomeEmail } from "@/lib/email";
 import { sendWithRetry } from "@/lib/email-retry";
 import { notifyWelcome } from "@/lib/notifications";
-import { seedDemoDataForNewUser } from "@/lib/demo-data";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
 import { rejectIfBreached } from "@/lib/auth/password-breach";
-import { verifyTurnstile } from "@/lib/turnstile";
+import { verifyBotId } from "@/lib/auth/botid";
 import { track } from "@/lib/analytics/track";
 import { apiError } from "@/lib/api-errors";
 
@@ -21,8 +20,13 @@ export async function POST(request: NextRequest) {
     const csrfError = validateCsrf(request);
     if (csrfError) return csrfError;
 
+    // RA-4990 — was maxRequests: 5/minute, which rejected legitimate bursts
+    // (a small office onboarding 5+ employees within a minute; E2E smoke
+    // retrying after a transient transaction-timeout; etc.). 10/minute is
+    // still strongly abuse-protective (1 signup every 6 s) but tolerates the
+    // realistic burst patterns we've actually observed.
     const rateLimited = await applyRateLimit(request, {
-      maxRequests: 5,
+      maxRequests: 10,
       prefix: "register",
     });
     if (rateLimited) return rateLimited;
@@ -39,7 +43,7 @@ export async function POST(request: NextRequest) {
     }
     const name = sanitizeString(body.name, 200);
     const email = sanitizeString(body.email, 320);
-    const { password, acceptedTerms, turnstileToken } = body;
+    const { password, acceptedTerms } = body;
 
     if (!name || !email || !password) {
       return apiError(request, {
@@ -49,16 +53,13 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // RA-1286: CAPTCHA gate on the public signup endpoint. Soft-allows
-    // when TURNSTILE_SECRET_KEY is unset (dev / staging).
-    const captcha = await verifyTurnstile(
-      typeof turnstileToken === "string" ? turnstileToken : null,
-      getClientIp(request),
-    );
-    if (!captcha.ok) {
+    // RA-1286: bot-detection gate on the public signup endpoint. Vercel BotID
+    // auto-bypasses in dev/preview (NODE_ENV !== "production").
+    const botCheck = await verifyBotId();
+    if (!botCheck.ok) {
       return apiError(request, {
         code: "VALIDATION",
-        message: captcha.reason,
+        message: botCheck.reason,
         status: 400,
       });
     }
@@ -155,10 +156,9 @@ export async function POST(request: NextRequest) {
       notifyWelcome(user.id).catch((err) =>
         console.error("[Register] notifyWelcome failed:", err),
       );
-      // RA-1239: seed demo data so trial users don't land on an empty dashboard
-      seedDemoDataForNewUser(user.id).catch((err) =>
-        console.error("[Register] seedDemoDataForNewUser failed:", err),
-      );
+      // Sample data is now seeded by /api/setup/activate (Phase 5+),
+      // branded with the user's hydrated business profile instead of
+      // generic placeholders. See docs/superpowers/specs/2026-05-12-onboarding-redesign-design.md.
       const reqCtx = extractRequestContext(request);
       logSecurityEvent({
         eventType: "ACCOUNT_REGISTERED",
@@ -184,30 +184,42 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      const updatedUser = await prisma.$transaction(async (tx) => {
-        const user = await tx.user.create({
-          data: {
-            name,
-            email,
-            password: hashedPassword,
-            role: "ADMIN",
-            subscriptionStatus: "TRIAL",
-            creditsRemaining: 30,
-            totalCreditsUsed: 0,
-            trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-            quickFillCreditsRemaining: 30,
-            totalQuickFillUsed: 0,
-          },
-        });
-        const orgName = `${name}'s Organisation`;
-        const org = await tx.organization.create({
-          data: { name: orgName, ownerId: user.id },
-        });
-        return await tx.user.update({
-          where: { id: user.id },
-          data: { organizationId: org.id },
-        });
-      });
+      const updatedUser = await prisma.$transaction(
+        async (tx) => {
+          const user = await tx.user.create({
+            data: {
+              name,
+              email,
+              password: hashedPassword,
+              role: "ADMIN",
+              subscriptionStatus: "TRIAL",
+              creditsRemaining: 30,
+              totalCreditsUsed: 0,
+              trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+              quickFillCreditsRemaining: 30,
+              totalQuickFillUsed: 0,
+            },
+          });
+          const orgName = `${name}'s Organisation`;
+          const org = await tx.organization.create({
+            data: { name: orgName, ownerId: user.id },
+          });
+          return await tx.user.update({
+            where: { id: user.id },
+            data: { organizationId: org.id },
+          });
+        },
+        // RA-4989 — Prisma's default maxWait is 2s and default timeout is 5s.
+        // On slow connections (sandbox DB regularly returns 2-4s health-check
+        // latency; cold starts on the connection pool can push the first
+        // transaction-start past 2s), registration intermittently failed with
+        // "Transaction API error: Unable to start a transaction in the given
+        // time", leaving zero orphan user state (try/catch below converts to a
+        // structured 500 with no DB write). Widening to 10s/30s gives slow-DB
+        // sessions room without changing prod hot-path behaviour (steady-state
+        // sandbox + prod transactions complete in <100ms).
+        { maxWait: 10_000, timeout: 30_000 },
+      );
       // RA-1309 — await all post-transaction side effects via allSettled so
       // they run concurrently but we don't return the HTTP response until
       // they're done. Previous code fired them as unawaited fire-and-forgets
@@ -233,10 +245,9 @@ export async function POST(request: NextRequest) {
         notifyWelcome(updatedUser.id).catch((err) =>
           console.error("[Register] notifyWelcome failed:", err),
         ),
-        // RA-1239: seed demo data so trial users don't land on an empty dashboard
-        seedDemoDataForNewUser(updatedUser.id).catch((err) =>
-          console.error("[Register] seedDemoDataForNewUser failed:", err),
-        ),
+        // Sample data is now seeded by /api/setup/activate (Phase 5+),
+        // branded with the user's hydrated business profile instead of
+        // generic placeholders. See docs/superpowers/specs/2026-05-12-onboarding-redesign-design.md.
         logSecurityEvent({
           eventType: "ACCOUNT_REGISTERED",
           userId: updatedUser.id,
@@ -258,8 +269,9 @@ export async function POST(request: NextRequest) {
       // RA-1800 — P2002 from the user.create inside the transaction means a
       // duplicate email slipped past the findUnique check (race condition).
       // Return 400 CONFLICT, not 500, so the client can surface a useful message.
-      const eCode = (e as { code?: string; cause?: { code?: string } })?.code
-        ?? (e as { cause?: { code?: string } })?.cause?.code;
+      const eCode =
+        (e as { code?: string; cause?: { code?: string } })?.code ??
+        (e as { cause?: { code?: string } })?.cause?.code;
       if (eCode === "P2002") {
         return apiError(request, {
           code: "CONFLICT",
@@ -299,7 +311,8 @@ export async function POST(request: NextRequest) {
     // RA-1800 — check both error.code and error.cause.code; Prisma wraps
     // transaction P2002s differently depending on context.
     const prismaError = error as { code?: string; cause?: { code?: string } };
-    const p2002 = prismaError?.code === "P2002" || prismaError?.cause?.code === "P2002";
+    const p2002 =
+      prismaError?.code === "P2002" || prismaError?.cause?.code === "P2002";
     if (p2002) {
       return apiError(request, {
         code: "CONFLICT",

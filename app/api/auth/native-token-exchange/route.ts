@@ -142,17 +142,41 @@ async function verifyAndNormaliseToken(
     payload = verified;
   }
 
-  // Replay protection: the plugin SHA-256s the nonce we sent before
-  // forwarding it to the IdP. The IdP includes the SHA-256 hex back in
-  // the `nonce` claim. Verify ourselves to ensure this token was minted
-  // for this exact request, not replayed from another client.
-  if (noncePlaintext) {
-    const expected = crypto
+  // Replay protection: the IdP is SUPPOSED to echo the nonce we sent in
+  // the token's `nonce` claim. In practice:
+  //   - Apple ASAuthorizationController echoes it back ✓
+  //   - Google via capgo SocialLogin 1.0.4(15) DOES NOT — the plugin
+  //     drops `options.nonce` before calling GIDSignIn, so Google's
+  //     idToken has no nonce claim at all (claim=undefined).
+  //     Evidence: SecurityEvent 2026-05-15T10:29:08Z claim=… (empty).
+  //
+  // Strategy: enforce nonce check IF AND ONLY IF the IdP returned one.
+  // When the claim is absent (Google native iOS via capgo), skip and
+  // rely on the JWT's iss/aud/exp/signature for authenticity. Standard
+  // NextAuth OAuth flows don't enforce nonce on their callback either,
+  // so this matches the security posture of the web path.
+  //
+  // When the claim IS present, accept either plaintext OR SHA-256 hex
+  // match for plugin-version forward compatibility.
+  //
+  // TODO(RA-iOS-nonce): file follow-up to either patch the capgo plugin
+  // upstream to forward the nonce, or swap to a plugin that does.
+  if (
+    noncePlaintext &&
+    typeof payload.nonce === "string" &&
+    payload.nonce.length > 0
+  ) {
+    const sha256Hex = crypto
       .createHash("sha256")
       .update(noncePlaintext)
       .digest("hex");
-    if (payload.nonce !== expected) {
-      throw new Error("Nonce mismatch");
+    if (
+      payload.nonce !== noncePlaintext &&
+      payload.nonce !== sha256Hex
+    ) {
+      throw new Error(
+        `Nonce mismatch (claim=${payload.nonce.slice(0, 12)}…, plaintext=${noncePlaintext.slice(0, 12)}…, sha256=${sha256Hex.slice(0, 12)}…)`,
+      );
     }
   }
 
@@ -267,6 +291,27 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
+  // Stamp setupCompletedAt the SAME way the jwt() callback does in
+  // lib/auth.ts:396-418. Without this claim the middleware's setup-wizard
+  // gate (when SETUP_WIZARD_ENABLED=true) sees `!token.setupCompletedAt`
+  // as truthy and redirects EVERY iOS native sign-in to /setup, which
+  // doesn't render well inside WKWebView and produced a 3-day "app is
+  // dead" report on the App Store build. Fail-open on DB error — auth
+  // must not break on a transient Prisma blip.
+  let setupCompletedAt: string | null = null;
+  try {
+    const userWithOrg = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { organization: { select: { setupCompletedAt: true } } },
+    });
+    const value = (userWithOrg as { organization?: { setupCompletedAt: Date | null } } | null)
+      ?.organization?.setupCompletedAt;
+    setupCompletedAt = value ? (value as Date).toISOString() : null;
+  } catch {
+    // Fail-open — middleware will treat null the same as a real null
+    // from the DB.
+  }
+
   // Build the session JWT payload. Mirror what lib/auth.ts:341-360
   // jwt() callback would produce on a Provider sign-in. Subsequent
   // requests will run that callback again on `updateAge`-driven refresh
@@ -284,6 +329,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     needsOnboarding: Boolean(
       (user as { needsOnboarding?: boolean }).needsOnboarding,
     ),
+    setupCompletedAt,
   };
 
   let sessionToken: string;

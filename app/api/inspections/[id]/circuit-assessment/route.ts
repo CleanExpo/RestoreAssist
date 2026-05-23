@@ -118,13 +118,13 @@ export async function GET(
     );
   }
 
-  const circuits = await (prisma as any).circuitAssessment.findMany({
+  const circuits = await prisma.circuitAssessment.findMany({
     where: { inspectionId: id },
     orderBy: { createdAt: "asc" },
   });
 
-  const allSafe = circuits.every((c: any) => c.circuitLoadSafe !== false);
-  const hasUnsafe = circuits.some((c: any) => c.circuitLoadSafe === false);
+  const allSafe = circuits.every((c) => c.circuitLoadSafe !== false);
+  const hasUnsafe = circuits.some((c) => c.circuitLoadSafe === false);
 
   return NextResponse.json({
     circuits,
@@ -181,7 +181,7 @@ export async function POST(
       data.circuitBreakerRating,
     );
 
-    const record = await (prisma as any).circuitAssessment.create({
+    const record = await prisma.circuitAssessment.create({
       data: {
         inspectionId: id,
         circuitId: data.circuitId,

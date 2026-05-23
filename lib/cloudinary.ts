@@ -6,6 +6,19 @@ let isConfigured = false;
 function ensureCloudinaryConfigured() {
   if (isConfigured) return;
 
+  // Preferred form (matches docs/PROD_ENV_VARS.md + lib/env-check.ts):
+  // a single CLOUDINARY_URL of the form
+  // cloudinary://<api_key>:<api_secret>@<cloud_name>. The SDK parses
+  // this automatically on a no-arg cloudinary.config() call.
+  const url = process.env.CLOUDINARY_URL;
+  if (url) {
+    cloudinary.config(true); // re-parse env including CLOUDINARY_URL
+    isConfigured = true;
+    return;
+  }
+
+  // Legacy form: three discrete vars. Kept for local dev / .env.example
+  // backwards-compat.
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
   const apiKey = process.env.CLOUDINARY_API_KEY;
   const apiSecret = process.env.CLOUDINARY_API_SECRET;
@@ -14,11 +27,12 @@ function ensureCloudinaryConfigured() {
     console.error(
       "[Cloudinary] Missing Cloudinary credentials in environment variables:",
     );
+    console.error("  - CLOUDINARY_URL:", url ? "Set" : "Missing");
     console.error("  - CLOUDINARY_CLOUD_NAME:", cloudName ? "Set" : "Missing");
     console.error("  - CLOUDINARY_API_KEY:", apiKey ? "Set" : "Missing");
     console.error("  - CLOUDINARY_API_SECRET:", apiSecret ? "Set" : "Missing");
     throw new Error(
-      "Cloudinary credentials are not configured. Please set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET environment variables.",
+      "Cloudinary credentials are not configured. Set CLOUDINARY_URL (preferred) or CLOUDINARY_CLOUD_NAME + CLOUDINARY_API_KEY + CLOUDINARY_API_SECRET.",
     );
   }
 
@@ -32,6 +46,25 @@ function ensureCloudinaryConfigured() {
 }
 
 export { cloudinary, ensureCloudinaryConfigured };
+
+/**
+ * Upload a data: URL (e.g. "data:image/jpeg;base64,...") to Cloudinary
+ * and return the resulting secure URL. Used by the invited-technician
+ * onboarding flow to persist headshot captures.
+ */
+export async function uploadDataUrl(
+  dataUrl: string,
+  opts: { folder: string; tags?: string[] },
+): Promise<string> {
+  ensureCloudinaryConfigured();
+  const result = await cloudinary.uploader.upload(dataUrl, {
+    folder: opts.folder,
+    resource_type: "image",
+    overwrite: false,
+    ...(opts.tags && opts.tags.length > 0 ? { tags: opts.tags } : {}),
+  });
+  return result.secure_url;
+}
 
 export interface UploadResult {
   secure_url: string;

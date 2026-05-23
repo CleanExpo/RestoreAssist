@@ -133,7 +133,31 @@ export async function POST(
 
       return await tx.inspectionWorkflow.findUnique({
         where: { id: wf.id },
-        include: { steps: { orderBy: { stepOrder: "asc" } } },
+        include: {
+        steps: {
+          orderBy: { stepOrder: "asc" },
+          select: {
+            id: true,
+            workflowId: true,
+            stepOrder: true,
+            stepKey: true,
+            stepTitle: true,
+            stepDescription: true,
+            stepDescriptionShort: true,
+            requiredEvidenceClasses: true,
+            optionalEvidenceClasses: true,
+            minimumEvidenceCount: true,
+            isMandatory: true,
+            riskTier: true,
+            escalationNote: true,
+            status: true,
+            startedAt: true,
+            completedAt: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+      },
       });
     });
 
@@ -179,7 +203,31 @@ export async function PATCH(
 
     const workflow = await prisma.inspectionWorkflow.findUnique({
       where: { inspectionId },
-      include: { steps: { orderBy: { stepOrder: "asc" } } },
+      include: {
+        steps: {
+          orderBy: { stepOrder: "asc" },
+          select: {
+            id: true,
+            workflowId: true,
+            stepOrder: true,
+            stepKey: true,
+            stepTitle: true,
+            stepDescription: true,
+            stepDescriptionShort: true,
+            requiredEvidenceClasses: true,
+            optionalEvidenceClasses: true,
+            minimumEvidenceCount: true,
+            isMandatory: true,
+            riskTier: true,
+            escalationNote: true,
+            status: true,
+            startedAt: true,
+            completedAt: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+      },
     });
     if (!workflow) {
       return NextResponse.json(
@@ -236,7 +284,31 @@ export async function PATCH(
     // Reload full workflow
     const updated = await prisma.inspectionWorkflow.findUnique({
       where: { id: workflow.id },
-      include: { steps: { orderBy: { stepOrder: "asc" } } },
+      include: {
+        steps: {
+          orderBy: { stepOrder: "asc" },
+          select: {
+            id: true,
+            workflowId: true,
+            stepOrder: true,
+            stepKey: true,
+            stepTitle: true,
+            stepDescription: true,
+            stepDescriptionShort: true,
+            requiredEvidenceClasses: true,
+            optionalEvidenceClasses: true,
+            minimumEvidenceCount: true,
+            isMandatory: true,
+            riskTier: true,
+            escalationNote: true,
+            status: true,
+            startedAt: true,
+            completedAt: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+      },
     });
 
     return NextResponse.json({ workflow: updated });

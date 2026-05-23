@@ -20,6 +20,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
 import { withIdempotency } from "@/lib/idempotency";
+import { onNextAction } from "@/lib/lifecycle/subscribers/next-action";
+import { InspectionStatus } from "@prisma/client";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -84,6 +86,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           } as any),
         },
       });
+
+      if (result.count > 0) {
+        // P1 #11.1 — fire-and-forget next-action nudge (CLAUDE.md rule #13).
+        // Idempotent on (inspectionId, status) so duplicate dispatches across
+        // submit/sign converge to a single notification.
+        void onNextAction(inspectionId, InspectionStatus.SUBMITTED).catch(
+          (err) => console.error("[next-action] SUBMITTED nudge failed:", err),
+        );
+      }
 
       if (result.count === 0) {
         // Distinguish "not found" from "already signed" for correct HTTP status

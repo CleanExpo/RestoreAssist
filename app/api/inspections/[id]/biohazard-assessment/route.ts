@@ -80,12 +80,12 @@ export async function GET(
     });
   }
 
-  const inspection = await (prisma as any).inspection.findUnique({
+  const inspection = await prisma.inspection.findUnique({
     where: { id },
     select: { biohazardAssessment: true },
   });
 
-  return NextResponse.json((inspection as any)?.biohazardAssessment ?? null);
+  return NextResponse.json(inspection?.biohazardAssessment ?? null);
 }
 
 // ─── POST ─────────────────────────────────────────────────────────────────────
@@ -125,7 +125,7 @@ export async function POST(
 
   const data = parsed.data;
 
-  const record = await (prisma as any).biohazardAssessment.upsert({
+  const record = await prisma.biohazardAssessment.upsert({
     where: { inspectionId: id },
     create: {
       inspectionId: id,
@@ -170,7 +170,7 @@ export async function POST(
 
   await prisma.inspection.update({
     where: { id },
-    data: { claimType: "BIOHAZARD" } as any,
+    data: { claimType: "BIOHAZARD" },
   });
 
   return NextResponse.json(record);
@@ -204,7 +204,7 @@ export async function DELETE(
 
   await softDelete(
     () =>
-      (prisma as any).biohazardAssessment.delete({
+      prisma.biohazardAssessment.delete({
         where: { inspectionId: id },
       }),
     {
@@ -216,7 +216,7 @@ export async function DELETE(
 
   await prisma.inspection.update({
     where: { id },
-    data: { claimType: null } as any,
+    data: { claimType: null },
   });
 
   return NextResponse.json({ deleted: true });

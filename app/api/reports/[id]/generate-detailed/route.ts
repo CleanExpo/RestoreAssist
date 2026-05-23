@@ -101,6 +101,16 @@ export async function POST(
           include: {
             lineItems: {
               orderBy: { displayOrder: "asc" },
+              select: {
+                id: true,
+                code: true,
+                description: true,
+                qty: true,
+                unit: true,
+                rate: true,
+                subtotal: true,
+                displayOrder: true,
+              },
             },
           },
         });

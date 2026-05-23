@@ -10,9 +10,11 @@ vi.mock("@/lib/ai-provider", () => ({
 
 const messagesCreate = vi.fn();
 vi.mock("@anthropic-ai/sdk", () => ({
-  default: vi.fn().mockImplementation(() => ({
+  default: vi.fn().mockImplementation(function () {
+    return ({
     messages: { create: messagesCreate },
-  })),
+  });
+  }),
 }));
 
 import { checkWorkspaceBudget } from "@/lib/ai/budget-guard";

@@ -86,6 +86,12 @@ Return the summary as plain text only. No preamble, no markdown fences, no meta-
 /**
  * Generate a client-facing plain-English summary.
  *
+ * @deprecated Use `generateClientSummaryService` from
+ *   `@/lib/services/ai/generate-client-summary` instead. That service composes
+ *   the structured-result anthropic-gateway so route handlers can map reasons
+ *   (RATE_LIMITED, MODEL_OVERLOADED, etc.) to HTTP status codes. This function
+ *   is kept until the route smoke tests confirm parity, then will be retired.
+ *
  * @param client      Initialised Anthropic SDK client (caller supplies API key).
  * @param input       Report facts to summarise.
  * @returns           The summary text plus diagnostic metadata.

@@ -1,0 +1,65 @@
+---
+title: "Upgrade from trial to a paid plan"
+slug: "upgrade-from-trial"
+category: "billing"
+order: 1
+audience: ["admin"]
+readTimeMin: 4
+updatedAt: "2026-05-15"
+status: "published"
+heroImage: "ra-help/billing/upgrade-from-trial-hero"
+relatedSlugs: []
+aiSummary: "Explains the 15-day trial, the three paid tiers (STANDARD $99, PREMIUM $199, ENTERPRISE Contact us), how to reach /billing/upgrade, what each tier unlocks, and what happens to your data when the trial ends without upgrading."
+userIntents:
+  - "how do I upgrade"
+  - "upgrade from trial"
+  - "paid plan"
+  - "what does each tier include"
+  - "trial expired"
+successCriteria:
+  - "User has opened /billing/upgrade"
+  - "Subscription status transitions from TRIAL to ACTIVE"
+  - "Payment method on file"
+---
+
+Every new RestoreAssist account starts on a 15-day trial. To keep using inspections, AI reports, and integrations after that, pick a paid plan.
+
+<VideoExplainer slug="help-billing" />
+
+## When does the trial end
+
+The trial runs for 15 days from signup. Three days before expiry you'll see a banner at the top of the dashboard. After day 15, your subscription status flips to `CANCELED` and AI-backed actions return HTTP 402 until you upgrade. Inspections you've already created stay readable.
+
+## Open the upgrade page
+
+Click the **Upgrade** button in the dashboard top bar, or go directly to `/billing/upgrade`.
+
+<Screenshot
+  src="ra-help/billing/upgrade-page"
+  alt="The /billing/upgrade page showing three tier cards"
+  caption="STANDARD, PREMIUM, and ENTERPRISE cards side by side."
+/>
+
+## Pick a tier
+
+| Tier           | Price        | Best for                                                                                        |
+| -------------- | ------------ | ----------------------------------------------------------------------------------------------- |
+| **STANDARD**   | $99 / month  | Solo tradie · 1 user · unlimited inspections · standard AI reports                              |
+| **PREMIUM**    | $199 / month | Small crew · up to 5 users · premium AI model routing · Xero + MYOB integrations · BYOK support |
+| **ENTERPRISE** | Contact us   | Multi-site or franchise · SSO · custom integrations · dedicated support                         |
+
+All prices are AUD and include 10% GST per Australian Tax Office rules. Invoices are issued monthly to the ABN on file.
+
+## Checkout
+
+Click **Upgrade to STANDARD** (or PREMIUM). RestoreAssist sends you to Stripe Checkout. After payment your subscription status flips to `ACTIVE` immediately — no waiting on webhooks for the UI to unlock.
+
+## What happens to my data if the trial expires
+
+- Inspections and reports already created remain in your account and stay readable
+- New AI generations are blocked (HTTP 402) until you upgrade
+- After 90 days of `CANCELED` status, RestoreAssist sends a deletion notice; data is purged 30 days later unless you reactivate
+
+## Cancel or downgrade
+
+From **Settings → Billing → Manage subscription** you can cancel or switch tiers. Cancellation takes effect at the end of the current billing period. Downgrades from PREMIUM to STANDARD pro-rate the difference as account credit.

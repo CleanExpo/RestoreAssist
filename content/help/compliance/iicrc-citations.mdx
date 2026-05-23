@@ -1,0 +1,74 @@
+---
+title: "How RestoreAssist cites IICRC standards"
+slug: "iicrc-citations"
+category: "compliance"
+order: 1
+audience: ["admin", "tradie"]
+readTimeMin: 4
+updatedAt: "2026-05-15"
+status: "published"
+heroImage: "ra-help/compliance/iicrc-citations-hero"
+relatedSlugs: []
+aiSummary: "Documents the four IICRC standards RestoreAssist cites by claim type (S500:2025 water, S520:2024 mould, S540:2023 trauma, S700:2025 fire), the citation format used in reports (edition + section), and how to override or remove a citation when the model gets it wrong."
+userIntents:
+  - "how do you cite IICRC"
+  - "what IICRC editions are used"
+  - "S500 citation format"
+  - "remove a citation"
+  - "wrong standard cited"
+successCriteria:
+  - "User understands which standard maps to which claim type"
+  - "Citation format edition + section is recognised"
+  - "User knows how to override a generated citation"
+---
+
+Every report RestoreAssist generates cites IICRC standards by **edition and section** — never an unversioned name like "S500". This matters: insurers, tribunals, and your professional indemnity all depend on being able to point at the exact rule.
+
+<VideoExplainer slug="help-compliance" />
+
+## Which standard maps to which claim type
+
+| Claim type             | Standard                                        | Edition     |
+| ---------------------- | ----------------------------------------------- | ----------- |
+| **Water damage**       | IICRC S500 — Water Damage Restoration           | `S500:2025` |
+| **Mould remediation**  | IICRC S520 — Mold Remediation                   | `S520:2024` |
+| **Trauma / biohazard** | IICRC S540 — Trauma and Crime Scene             | `S540:2023` |
+| **Fire / smoke**       | IICRC S700 — Professional Fire and Smoke Damage | `S700:2025` |
+
+When you pick the claim type on a new inspection, RestoreAssist locks the relevant standard. The AI report draft cites that standard and no other unless you explicitly add one (e.g. citing S500 inside a fire job because of subsequent water suppression damage).
+
+## Citation format
+
+The locked format is `<standard>:<year> §<section>`. Examples:
+
+- `S500:2025 §10.5.2` — Category 2 water-damage definition
+- `S520:2024 §12.2.1` — Condition 1 mould remediation goal
+- `S540:2023 §6.3` — PPE requirements for trauma scenes
+
+<Screenshot
+  src="ra-help/compliance/citation-in-report"
+  alt="Inline IICRC citation in an AI-drafted report"
+  caption="Citations are rendered as monospaced inline references and link to the standard summary."
+/>
+
+## Why edition matters
+
+IICRC re-issues these standards every 3–5 years. A `S500:2015` citation in 2026 is a red flag — a tribunal will ask why you didn't apply the 2025 revision. RestoreAssist refuses to abbreviate (per `CLAUDE.md` rule 14) and refuses to cite an edition older than the locked one for that claim type.
+
+## Override or remove a citation
+
+In the report editor, click any inline citation to open the citation panel. From there you can:
+
+- **Change section** — pick a different section within the same standard
+- **Add a second standard** — useful for combined claims (water + mould)
+- **Remove** — strips the citation; your judgement, your risk
+
+<Screenshot
+  src="ra-help/compliance/citation-panel"
+  alt="The citation panel showing edit, add, and remove actions"
+  caption="Removing a citation leaves a hole in the report's compliance trail — document why in the report narrative."
+/>
+
+## Keeping standards up to date
+
+When IICRC publishes a new edition, RestoreAssist updates the locked edition in a release note and rolls it out to all new inspections. Reports already signed off keep the edition they were generated against — past reports are immutable per the append-only audit rule.

@@ -13,10 +13,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import Anthropic from "@anthropic-ai/sdk";
 import { checkWorkspaceBudget } from "@/lib/ai/budget-guard";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import { logAiUsage, estimateCostUsd } from "@/lib/usage/log-usage";
+import { importSketchFromImage } from "@/lib/services/ai/import-sketch-from-image";
 
 // RA-1707 / P0-2 — Vision call costs roughly $0.005-0.012 per image at
 // claude-sonnet-4-x pricing (depends on image dimensions). We assume the
@@ -42,32 +42,6 @@ function checkRateLimit(userId: string): boolean {
   _rateLimitMap.set(userId, calls);
   return true;
 }
-
-const VISION_PROMPT = `You are analyzing a hand-drawn floor-plan sketch photo.
-
-Extract each distinct room or zone from the sketch and return their approximate outlines as polygon vertices.
-
-Rules:
-- Return ONLY valid JSON — no prose, no markdown fences, no explanation.
-- Vertices must be in NORMALIZED coordinates: x and y each in [0.0, 1.0] relative to the image width and height.
-- Include at least 3 vertices per room (rectangles need 4).
-- If the sketch is unclear, return your best estimate — do not refuse.
-- Label each room with the text written inside it, or a generic label like "Room 1" if unlabelled.
-
-Output schema (JSON only):
-{
-  "rooms": [
-    {
-      "label": "Living Room",
-      "vertices": [
-        { "x": 0.05, "y": 0.05 },
-        { "x": 0.45, "y": 0.05 },
-        { "x": 0.45, "y": 0.50 },
-        { "x": 0.05, "y": 0.50 }
-      ]
-    }
-  ]
-}`;
 
 interface Room {
   label: string;
@@ -161,9 +135,15 @@ export async function POST(
 
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
   if (!apiKey) {
+    console.error("[InspectionsSketchImport]", {
+      userId,
+      inspectionId,
+      reason: "KEY_MISSING",
+      detail: "ANTHROPIC_API_KEY not configured",
+    });
     return NextResponse.json(
-      { error: "Vision not configured — ANTHROPIC_API_KEY missing" },
-      { status: 503 },
+      { error: "KEY_MISSING", detail: "ANTHROPIC_API_KEY not configured" },
+      { status: 402 },
     );
   }
 
@@ -172,58 +152,23 @@ export async function POST(
   const base64 = Buffer.from(arrayBuffer).toString("base64");
   const mediaType = file.type as "image/jpeg" | "image/png";
 
-  const client = new Anthropic({ apiKey });
-
-  let raw: string;
   const callStart = Date.now();
   const visionModel = "claude-sonnet-4-6";
-  try {
-    const message = await client.messages.create({
-      model: visionModel,
-      max_tokens: 2048,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "image",
-              source: { type: "base64", media_type: mediaType, data: base64 },
-            },
-            { type: "text", text: VISION_PROMPT },
-          ],
-        },
-      ],
-    });
-    raw = message.content
-      .filter((b) => b.type === "text")
-      .map((b) => (b as { type: "text"; text: string }).text)
-      .join("");
 
-    // RA-1707 / P0-2 — log post-call cost so the workspace daily budget
-    // accumulates. Fire-and-forget; never blocks the response.
-    if (workspace) {
-      const inputTokens = message.usage?.input_tokens ?? 0;
-      const outputTokens = message.usage?.output_tokens ?? 0;
-      logAiUsage({
-        workspaceId: workspace.id,
-        provider: "ANTHROPIC",
-        model: visionModel,
-        taskType: "vision_sketch_import",
-        inputTokens,
-        outputTokens,
-        estimatedCostUsd: estimateCostUsd(
-          "ANTHROPIC",
-          visionModel,
-          inputTokens,
-          outputTokens,
-        ),
-        latencyMs: Date.now() - callStart,
-        success: true,
-        metadata: { inspectionId, mediaType },
-      });
-    }
-  } catch (err) {
-    console.error("Claude Vision API error:", err);
+  const result = await importSketchFromImage({
+    apiKey,
+    base64Image: base64,
+    mediaType,
+  });
+
+  if (!result.ok) {
+    console.error("[InspectionsSketchImport]", {
+      userId,
+      inspectionId,
+      reason: result.reason,
+      detail: result.detail,
+    });
+    // RA-1707 / P0-2 — log failure for workspace daily budget visibility.
     if (workspace) {
       logAiUsage({
         workspaceId: workspace.id,
@@ -235,33 +180,54 @@ export async function POST(
         estimatedCostUsd: 0,
         latencyMs: Date.now() - callStart,
         success: false,
-        errorType: err instanceof Error ? err.name : "unknown",
+        errorType: result.reason,
         metadata: { inspectionId },
       });
     }
+    const status =
+      result.reason === "KEY_MISSING"
+        ? 402
+        : result.reason === "RATE_LIMITED"
+          ? 429
+          : result.reason === "MODEL_OVERLOADED"
+            ? 503
+            : result.reason === "PARSE_FAILED"
+              ? 502
+              : 500;
+    const headers: Record<string, string> =
+      result.retryAfterMs != null
+        ? { "Retry-After": String(Math.ceil(result.retryAfterMs / 1000)) }
+        : {};
     return NextResponse.json(
-      { error: "Vision API call failed" },
-      { status: 502 },
+      { error: result.reason, detail: result.detail },
+      { status, headers },
     );
   }
 
-  // Parse JSON response — strip any accidental markdown fences
-  const jsonStr = raw
-    .replace(/^```[a-z]*\n?/m, "")
-    .replace(/\n?```$/m, "")
-    .trim();
-  let parsed: { rooms: Room[] };
-  try {
-    parsed = JSON.parse(jsonStr);
-  } catch {
-    console.error("Claude Vision returned non-JSON:", raw.slice(0, 200));
-    return NextResponse.json(
-      { error: "Vision model returned unstructured output — try again" },
-      { status: 502 },
-    );
+  // RA-1707 / P0-2 — log post-call cost so the workspace daily budget
+  // accumulates. Fire-and-forget; never blocks the response.
+  if (workspace) {
+    const { inputTokens, outputTokens } = result.data.usage;
+    logAiUsage({
+      workspaceId: workspace.id,
+      provider: "ANTHROPIC",
+      model: visionModel,
+      taskType: "vision_sketch_import",
+      inputTokens,
+      outputTokens,
+      estimatedCostUsd: estimateCostUsd(
+        "ANTHROPIC",
+        visionModel,
+        inputTokens,
+        outputTokens,
+      ),
+      latencyMs: Date.now() - callStart,
+      success: true,
+      metadata: { inspectionId, mediaType },
+    });
   }
 
-  const rooms = (parsed.rooms ?? []).filter(
+  const rooms = result.data.rooms.filter(
     (r): r is Room =>
       typeof r.label === "string" &&
       Array.isArray(r.vertices) &&

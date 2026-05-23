@@ -19,6 +19,9 @@ import { detectMoistureTrendAnomalies } from "@/lib/compliance/moisture-trend-an
 import { detectDuplicateJob } from "@/lib/compliance/duplicate-detector";
 import { withIdempotency } from "@/lib/idempotency";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import { onNextAction } from "@/lib/lifecycle/subscribers/next-action";
+import { validateSubmissionPayload } from "@/lib/services/inspection/validate-submission";
+import { InspectionStatus } from "@prisma/client";
 
 // POST - Submit inspection for processing
 export async function POST(
@@ -51,11 +54,39 @@ export async function POST(
       const inspection = await prisma.inspection.findUnique({
         where: { id },
         include: {
-          environmentalData: true,
-          moistureReadings: true,
-          affectedAreas: true,
-          scopeItems: true,
-          photos: true,
+          environmentalData: {
+            select: {
+              id: true,
+              ambientTemperature: true,
+              humidityLevel: true,
+              dewPoint: true,
+              airCirculation: true,
+            },
+          },
+          moistureReadings: {
+            select: {
+              id: true,
+              location: true,
+              surfaceType: true,
+              moistureLevel: true,
+              depth: true,
+            },
+          },
+          affectedAreas: {
+            select: {
+              id: true,
+              roomZoneId: true,
+              affectedSquareFootage: true,
+              waterSource: true,
+              timeSinceLoss: true,
+              category: true,
+              class: true,
+            },
+          },
+          // Only `.length` is read by validateTieredCompletion.
+          scopeItems: { select: { id: true } },
+          // Only `.length` is read by validateTieredCompletion.
+          photos: { select: { id: true } },
         },
       });
 
@@ -63,6 +94,29 @@ export async function POST(
         return NextResponse.json(
           { error: "Inspection not found" },
           { status: 404 },
+        );
+      }
+
+      // ── Service-layer submission gate (Task 8 / Runtime Reconciliation) ───────
+      // Pure, fast precondition check before the heavier tiered/compliance gates.
+      // The validator only inspects `.length` and `.status`; the interface
+      // declares only `{ id }` per item to make that read-surface explicit.
+      const validation = validateSubmissionPayload({
+        id: inspection.id,
+        status: inspection.status,
+        affectedAreas: (inspection.affectedAreas ?? []).map((a) => ({
+          id: a.id,
+        })),
+        moistureReadings: (inspection.moistureReadings ?? []).map((m) => ({
+          id: m.id,
+        })),
+        photos: (inspection.photos ?? []).map((p) => ({ id: p.id })),
+      });
+      if (!validation.ok) {
+        const status = validation.reason === "INVALID_STATUS" ? 409 : 422;
+        return NextResponse.json(
+          { error: validation.reason, detail: validation.detail },
+          { status },
         );
       }
 
@@ -202,6 +256,12 @@ export async function POST(
         where: { id, status: "DRAFT" },
         data: { status: "SUBMITTED", submittedAt: new Date() },
       });
+      // P1 #11.1 — fire-and-forget next-action nudge (CLAUDE.md rule #13).
+      if (submitGuard.count > 0) {
+        void onNextAction(id, InspectionStatus.SUBMITTED).catch((err) =>
+          console.error("[next-action] SUBMITTED nudge failed:", err),
+        );
+      }
       if (submitGuard.count === 0) {
         return NextResponse.json(
           {
@@ -400,6 +460,10 @@ async function processInspectionComplete(
     where: { id: inspectionId },
     data: { status: "CLASSIFIED" },
   });
+  // P1 #11.1 — fire-and-forget next-action nudge.
+  void onNextAction(inspectionId, InspectionStatus.CLASSIFIED).catch((err) =>
+    console.error("[next-action] CLASSIFIED nudge failed:", err),
+  );
 
   // Step 3: Check building code triggers
   const maxMoisture = Math.max(
@@ -467,6 +531,10 @@ async function processInspectionComplete(
     where: { id: inspectionId },
     data: { status: "SCOPED" },
   });
+  // P1 #11.1 — fire-and-forget next-action nudge.
+  void onNextAction(inspectionId, InspectionStatus.SCOPED).catch((err) =>
+    console.error("[next-action] SCOPED nudge failed:", err),
+  );
 
   // Step 5: Estimate costs — pass userId so the engine loads the company's
   // NRPG-validated pricing config. Falls back to NRPG midpoints if none saved.
@@ -498,17 +566,21 @@ async function processInspectionComplete(
     });
   }
 
-  // Update status to ESTIMATED
+  // Update status to ESTIMATED — terminal state of the AI submit
+  // pipeline. Promotion to the COMPLETED terminal state is owned by
+  // the explicit user CloseJobPrompt flow (SP-A close gate, S500:2025
+  // §5.3 Editability invariant); auto-promoting here races the user's
+  // close action and strips editability before they confirm. Do NOT
+  // re-introduce a terminal-state write in this route — guarded by
+  // app/api/inspections/[id]/submit/__tests__/no-auto-complete.test.ts.
   await prisma.inspection.update({
     where: { id: inspectionId },
     data: { status: "ESTIMATED" },
   });
-
-  // Step 6: Mark as COMPLETED
-  await prisma.inspection.update({
-    where: { id: inspectionId },
-    data: { status: "COMPLETED" },
-  });
+  // P1 #11.1 — fire-and-forget next-action nudge.
+  void onNextAction(inspectionId, InspectionStatus.ESTIMATED).catch((err) =>
+    console.error("[next-action] ESTIMATED nudge failed:", err),
+  );
 
   return {
     classification: classifications[0],

@@ -402,6 +402,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get all estimates for user
+    // RA-1376: bounded list query (CLAUDE.md rule 4).
     const estimates = await prisma.estimate.findMany({
       where: { userId: session.user.id },
       include: {
@@ -418,6 +419,7 @@ export async function GET(request: NextRequest) {
         },
       },
       orderBy: { createdAt: "desc" },
+      take: 50,
     });
 
     return NextResponse.json(

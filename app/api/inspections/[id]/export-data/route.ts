@@ -22,18 +22,43 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const inspection = await prisma.inspection.findFirst({
       where: { id, userId: session.user.id },
       include: {
-        affectedAreas: { orderBy: { createdAt: "asc" } },
+        affectedAreas: {
+          orderBy: { createdAt: "asc" },
+          select: {
+            roomZoneId: true,
+            waterSource: true,
+            category: true,
+            affectedSquareFootage: true,
+          },
+        },
         moistureReadings: {
           orderBy: { createdAt: "desc" },
           take: 30,
+          select: {
+            recordedAt: true,
+            location: true,
+            surfaceType: true,
+            moistureLevel: true,
+          },
         },
         scopeItems: {
           where: { isSelected: true },
           orderBy: { createdAt: "asc" },
+          select: {
+            description: true,
+            quantity: true,
+            unit: true,
+            justification: true,
+            itemType: true,
+          },
         },
         classifications: {
           orderBy: { createdAt: "desc" },
           take: 1,
+          select: {
+            category: true,
+            class: true,
+          },
         },
         user: {
           select: {

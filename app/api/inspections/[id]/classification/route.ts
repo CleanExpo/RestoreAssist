@@ -26,11 +26,25 @@ export async function GET(
       include: {
         classifications: {
           orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            inspectionId: true,
+            category: true,
+            class: true,
+            justification: true,
+            standardReference: true,
+            confidence: true,
+            inputData: true,
+            isFinal: true,
+            reviewedBy: true,
+            createdAt: true,
+            updatedAt: true,
+          },
         },
         affectedAreas: {
-          include: {
-            // Link classifications to areas if needed
-          },
+          // Only the existence/array is referenced indirectly; project `id`
+          // to keep the include block's prior behaviour while bounding payload.
+          select: { id: true },
         },
       },
     });

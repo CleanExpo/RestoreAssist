@@ -29,15 +29,23 @@ export async function POST(request: NextRequest) {
     const report = await prisma.report.findFirst({
       where: { id: reportId, userId: session.user.id },
       include: {
-        client: true,
+        client: {
+          select: {
+            name: true,
+            email: true,
+            phone: true,
+          },
+        },
         inspection: {
           include: {
-            moistureReadings: true,
-            affectedAreas: true,
-            classifications: true,
-            scopeItems: true,
-            costEstimates: true,
-            photos: true,
+            // Only `.length` is read for each list relation below; selecting
+            // just `id` keeps payload minimal while preserving array length.
+            moistureReadings: { select: { id: true } },
+            affectedAreas: { select: { id: true } },
+            classifications: { select: { id: true } },
+            scopeItems: { select: { id: true } },
+            costEstimates: { select: { id: true } },
+            photos: { select: { id: true } },
           },
         },
       },

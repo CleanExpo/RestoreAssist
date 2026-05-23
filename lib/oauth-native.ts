@@ -1,4 +1,4 @@
-// lib/oauth-native.ts — iOS auth dispatcher
+// lib/oauth-native.ts — native auth dispatcher (iOS + Android)
 //
 // History:
 //   - 1.0(3) Apple rejected on guideline 4 (OAuth opening Safari).
@@ -35,7 +35,7 @@
 "use client";
 
 import { signIn, type SignInOptions } from "next-auth/react";
-import { isCapacitorIOS } from "@/lib/capacitor";
+import { isCapacitorAndroid, isCapacitorIOS } from "@/lib/capacitor";
 
 export type OAuthProvider = "google" | "apple";
 
@@ -52,6 +52,17 @@ const GOOGLE_IOS_CLIENT_ID =
   process.env.NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID ??
   "292141944467-8hhd4eub33tplq6ep5lc9iltu8jcatvp.apps.googleusercontent.com";
 
+// Google Web-type OAuth client (project=restoreassist). On Android the
+// capgo plugin requires the Web client ID — Google Sign-In on Android
+// uses it to mint the ID token that our backend verifies via NextAuth.
+// The separate Android-type OAuth client in GCP (package name +
+// SHA-1 fingerprint) is what authenticates the *caller*; the Web
+// client ID is what authenticates the *token audience*.
+// See docs/google-cloud-console-android-oauth.md.
+const GOOGLE_ANDROID_WEB_CLIENT_ID =
+  process.env.NEXT_PUBLIC_GOOGLE_ANDROID_WEB_CLIENT_ID ??
+  "TODO-from-google-cloud-console-web-client-id";
+
 // SocialLogin.initialize() is idempotent according to the plugin docs,
 // but we still guard with a module-level flag so that repeated sign-in
 // attempts within the same JS context don't re-walk the native init path.
@@ -59,12 +70,37 @@ let socialLoginInitialised = false;
 
 async function ensureSocialLoginInitialised() {
   if (socialLoginInitialised) return;
-  const { SocialLogin } = await import("@capgo/capacitor-social-login");
-  await SocialLogin.initialize({
-    apple: { clientId: APPLE_BUNDLE_ID },
-    google: { iOSClientId: GOOGLE_IOS_CLIENT_ID },
-  });
-  socialLoginInitialised = true;
+  try {
+    const { SocialLogin } = await import("@capgo/capacitor-social-login");
+    console.log("[oauth-native] SocialLogin.initialize starting", {
+      hasApple: Boolean(APPLE_BUNDLE_ID),
+      hasGoogleIos: Boolean(GOOGLE_IOS_CLIENT_ID),
+      platform: isCapacitorIOS() ? "ios" : "android",
+    });
+    await SocialLogin.initialize({
+      apple: { clientId: APPLE_BUNDLE_ID },
+      google: isCapacitorIOS()
+        ? { iOSClientId: GOOGLE_IOS_CLIENT_ID }
+        : {
+            // Android — capgo wants the Web-type OAuth client ID here.
+            // On Android, `webClientId` plays the same role as the
+            // server-client-id elsewhere: it's the `aud` claim our
+            // NextAuth backend verifies on the resulting Google ID token.
+            // (The plugin's TypeScript surface does not expose a separate
+            // `serverClientId` for Android — `webClientId` covers it.)
+            webClientId: GOOGLE_ANDROID_WEB_CLIENT_ID,
+          },
+    });
+    socialLoginInitialised = true;
+    console.log("[oauth-native] SocialLogin.initialize OK");
+  } catch (err) {
+    const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+    console.error("[oauth-native] SocialLogin.initialize FAILED", msg);
+    if (typeof window !== "undefined") {
+      window.alert(`Sign-in plugin failed to initialise:\n${msg}`);
+    }
+    throw err;
+  }
 }
 
 /**
@@ -75,18 +111,23 @@ async function ensureSocialLoginInitialised() {
  * iOS Capacitor:
  *   - Apple → native ASAuthorizationController via capgo plugin + token exchange.
  *   - Google → native Google sign-in sheet via capgo plugin + token exchange.
+ *
+ * Android Capacitor:
+ *   - Google → native Google Sign-In sheet via capgo plugin + token exchange.
+ *   - Apple → capgo's web fallback (Sign in with Apple JS); Play reviewers
+ *     accept this pattern, since Apple-as-IdP on Android is not required.
  */
 export async function signInWithOAuth(
   provider: OAuthProvider,
   options?: SignInOptions,
 ): Promise<void> {
-  if (!isCapacitorIOS()) {
+  if (!isCapacitorIOS() && !isCapacitorAndroid()) {
     // Web — delegate to next-auth's normal redirect-based signin.
     await signIn(provider, options);
     return;
   }
 
-  // iOS branch — both providers share the same architecture
+  // Native branch — capgo SocialLogin handles per-platform internals.
   await ensureSocialLoginInitialised();
   const { SocialLogin } = await import("@capgo/capacitor-social-login");
 
@@ -127,8 +168,19 @@ export async function signInWithOAuth(
       idToken = r?.idToken ?? r?.authentication?.idToken ?? undefined;
     }
   } catch (err: unknown) {
-    const msg =
-      err instanceof Error ? err.message : `${provider} sign-in was cancelled.`;
+    const errName = err instanceof Error ? err.name : "Unknown";
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error(`[oauth-native] ${provider} SocialLogin.login FAILED`, {
+      name: errName,
+      message: errMsg,
+    });
+    // Surface to a visible alert for native debugging (toast may be clipped
+    // off-screen by iOS safe-area). Cancellation messages are passed through
+    // as-is — the user-visible alert helps when the failure is genuine.
+    if (typeof window !== "undefined" && !/cancel/i.test(errMsg)) {
+      window.alert(`${provider} sign-in failed:\n${errName}: ${errMsg}`);
+    }
+    const msg = err instanceof Error ? err.message : `${provider} sign-in was cancelled.`;
     throw new Error(msg);
   }
 

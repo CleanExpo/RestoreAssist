@@ -85,15 +85,6 @@
         ]
       }
     ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "printf '\\n## %s — Session End\\n' \"$(date '+%Y-%m-%d %H:%M')\" >> \"$CLAUDE_PROJECT_DIR\"/.claude/PROGRESS.md 2>/dev/null || true"
-          }
-        ]
-      }
-    ]
+    "Stop": []
   }
 }

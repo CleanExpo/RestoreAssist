@@ -1,0 +1,92 @@
+name: Release Gate (RA-4956)
+
+# Fail-closed 100/100 production go-live scorer. Runs on every release tag
+# and on-demand via workflow_dispatch. Does NOT replace pr-checks.yml — this
+# is the cutover gate, not the PR gate.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      strict:
+        description: "Fail the job if score < 100"
+        required: false
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+
+concurrency:
+  group: release-gate-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  score:
+    name: Release Gate Score
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node (pinned via .nvmrc)
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          # Skip Prisma generate-on-install since we run it explicitly below
+          PRISMA_SKIP_POSTINSTALL_GENERATE: "1"
+
+      - name: Generate Prisma client
+        run: pnpm prisma:generate
+
+      - name: Run release gate scorer
+        id: gate
+        # strict mode is the default for tag pushes; workflow_dispatch
+        # honours the input. The scorer writes release-gate-report.json
+        # in --json mode regardless of strict mode.
+        run: |
+          STRICT_FLAG=""
+          if [ "${{ github.event.inputs.strict || 'true' }}" = "true" ]; then
+            STRICT_FLAG="--strict"
+          fi
+          pnpm tsx scripts/release-gate-score.ts --json $STRICT_FLAG
+
+      - name: Upload release gate report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-gate-report-${{ github.sha }}
+          path: release-gate-report.json
+          retention-days: 90
+
+      - name: Summarise in job summary
+        if: always()
+        run: |
+          if [ -f release-gate-report.json ]; then
+            SCORE=$(node -p "require('./release-gate-report.json').total_score")
+            MAX=$(node -p "require('./release-gate-report.json').max_score")
+            VERSION=$(node -p "require('./release-gate-report.json').gate_version")
+            PASSED=$(node -p "require('./release-gate-report.json').passed")
+            {
+              echo "# Release Gate $VERSION"
+              echo ""
+              echo "**Score: $SCORE / $MAX** — passed: $PASSED"
+              echo ""
+              echo "See artifact \`release-gate-report-${{ github.sha }}\` for full per-criterion breakdown."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi

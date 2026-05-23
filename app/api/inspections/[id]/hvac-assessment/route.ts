@@ -66,12 +66,12 @@ export async function GET(
     );
   }
 
-  const inspection = await (prisma as any).inspection.findUnique({
+  const inspection = await prisma.inspection.findUnique({
     where: { id },
     select: { hvacAssessment: true },
   });
 
-  return NextResponse.json((inspection as any).hvacAssessment ?? null);
+  return NextResponse.json(inspection?.hvacAssessment ?? null);
 }
 
 // ─── POST ─────────────────────────────────────────────────────────────────────
@@ -110,7 +110,7 @@ export async function POST(
 
   const data = parsed.data;
 
-  const record = await (prisma as any).hVACAssessment.upsert({
+  const record = await prisma.hVACAssessment.upsert({
     where: { inspectionId: id },
     create: {
       inspectionId: id,
@@ -158,7 +158,7 @@ export async function POST(
 
   await prisma.inspection.update({
     where: { id },
-    data: { claimType: "HVAC" } as any,
+    data: { claimType: "HVAC" },
   });
 
   return NextResponse.json(record);
@@ -190,8 +190,7 @@ export async function DELETE(
   }
 
   await softDelete(
-    () =>
-      (prisma as any).hVACAssessment.delete({ where: { inspectionId: id } }),
+    () => prisma.hVACAssessment.delete({ where: { inspectionId: id } }),
     {
       route: "/api/inspections/[id]/hvac-assessment",
       stage: "delete",
@@ -201,7 +200,7 @@ export async function DELETE(
 
   await prisma.inspection.update({
     where: { id },
-    data: { claimType: null } as any,
+    data: { claimType: null },
   });
 
   return NextResponse.json({ deleted: true });

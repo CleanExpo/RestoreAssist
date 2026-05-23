@@ -32,8 +32,10 @@ vi.mock("@/lib/integrations/sync-queue", () => ({
   queueInvoiceSync: vi.fn(),
 }));
 
-vi.mock("../token-manager", () => ({
-  getValidXeroToken: vi.fn().mockResolvedValue("test-token"),
+vi.mock("@/lib/services/xero/credentials", () => ({
+  getValidXeroAccessToken: vi
+    .fn()
+    .mockResolvedValue({ ok: true, data: "test-token" }),
 }));
 
 import { prisma } from "@/lib/prisma";

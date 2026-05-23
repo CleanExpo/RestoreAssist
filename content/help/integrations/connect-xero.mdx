@@ -1,0 +1,70 @@
+---
+title: "Connect Xero to push invoices automatically"
+slug: "connect-xero"
+category: "integrations"
+order: 1
+audience: ["admin"]
+readTimeMin: 4
+updatedAt: "2026-05-15"
+status: "published"
+heroImage: "ra-help/integrations/connect-xero-hero"
+relatedSlugs: []
+aiSummary: "Walks an admin through OAuth-connecting their Xero organisation from /dashboard/integrations, picking the default sales account and tax rate, and what happens when an inspection is closed (invoice auto-syncs to Xero as a Draft)."
+userIntents:
+  - "how do I connect Xero"
+  - "Xero integration setup"
+  - "auto-sync invoices"
+  - "push invoices to accounting"
+  - "Xero OAuth"
+successCriteria:
+  - "Xero organisation connected and visible under /dashboard/integrations"
+  - "Default sales account + GST tax rate selected"
+  - "Test invoice appears in Xero as Draft after closing an inspection"
+---
+
+The Xero integration pushes invoices from RestoreAssist into your Xero organisation as Drafts the moment you close an inspection. The sync is fire-and-forget — Xero outages never block you from closing a job.
+
+## Before you start
+
+You need:
+
+- A Xero organisation you're an admin of
+- An active RestoreAssist subscription on PREMIUM tier or above
+- The ABN on your RestoreAssist account matching the ABN on your Xero org
+
+## Open the integrations page
+
+Go to `/dashboard/integrations`. Click **Connect** on the Xero card.
+
+<Screenshot src="ra-help/integrations/integrations-page" alt="The /dashboard/integrations page showing the Xero connect card" caption="Xero appears alongside MYOB, Stripe, and other accounting integrations." />
+
+## OAuth into Xero
+
+RestoreAssist redirects you to Xero's OAuth consent screen. Xero asks you to pick which organisation to connect (if you have more than one) and confirm the scopes:
+
+- `accounting.transactions` — create draft invoices
+- `accounting.contacts` — match customers
+- `accounting.settings.read` — read tax rates and accounts
+
+Approve the consent and Xero bounces you back to `/dashboard/integrations` with a green **Connected** badge on the Xero card.
+
+## Configure defaults
+
+After connecting, RestoreAssist asks you to pick:
+
+- **Default sales account** — usually `200 Sales`
+- **GST tax rate** — `GST on Income` (10%), matching Australian Tax Office rules
+- **Default contact group** — optional, helps with reporting
+
+<Screenshot src="ra-help/integrations/xero-defaults" alt="The Xero defaults form showing sales account and tax rate pickers" caption="These defaults apply to every auto-synced invoice; you can override per-invoice." />
+
+## Test the sync
+
+Close one of your inspections. Within 30 seconds, an invoice appears in Xero under **Business → Invoices → Draft**. Customer name, line items, GST, and total amount come from the RestoreAssist invoice.
+
+## Troubleshooting
+
+- **Sync paused banner** — Xero rate-limited us; the dead-letter queue retries automatically with backoff
+- **Invoice missing in Xero** — check `/dashboard/integrations/sync-errors` for the specific failure
+- **Wrong tax rate applied** — re-check your default GST rate; existing drafts won't update retroactively
+- **Disconnect** — click **Disconnect** on the Xero card. Past synced invoices stay in Xero; new closes stop syncing until you reconnect.

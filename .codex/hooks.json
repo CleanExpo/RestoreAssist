@@ -1,0 +1,64 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'/Users/phill-mac/RestoreAssist/.codex/hooks/stop-verifier.sh'"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf '\\n## %s — Session End\\n' \"$(date '+%Y-%m-%d %H:%M')\" >> \"$CLAUDE_PROJECT_DIR\"/.claude/PROGRESS.md 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"$CLAUDE_TOOL_INPUT\" | grep -qiE '(rm -rf|--force|--no-verify|DROP TABLE|TRUNCATE|reset --hard)' && echo 'BLOCKED: destructive command detected' && exit 1 || exit 0"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"$CLAUDE_FILE_PATH\" | grep -qiE '(\\.env|\\.secret|\\.key|\\.pem|credentials)' && echo 'BLOCKED: editing sensitive file' && exit 1 || exit 0"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx prettier --write \"$CLAUDE_FILE_PATH\" 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"== Post-Compaction Context ==\" && echo \"Branch: $(git branch --show-current 2>/dev/null)\" && echo \"Recent commits:\" && git log --oneline -5 2>/dev/null && echo \"Modified files:\" && git diff --name-only HEAD~3 2>/dev/null | head -20 && echo \"== End Context ==\""
+          }
+        ]
+      }
+    ]
+  }
+}

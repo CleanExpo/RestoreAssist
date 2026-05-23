@@ -22,6 +22,31 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # RA-3010 — pre-flight: assert Info.plist reversed-client-ID matches the
+      # GitHub repo variable GOOGLE_IOS_REVERSED_CLIENT_ID. Catches plist
+      # drift between staging/prod before notarisation. Skips gracefully if
+      # the variable isn't configured yet so existing releases aren't blocked.
+      - name: Verify Info.plist reversed-client-ID matches GOOGLE_IOS_REVERSED_CLIENT_ID
+        env:
+          EXPECTED_REVERSED_CLIENT_ID: ${{ vars.GOOGLE_IOS_REVERSED_CLIENT_ID }}
+        run: |
+          if [ -z "$EXPECTED_REVERSED_CLIENT_ID" ]; then
+            echo "::warning::GOOGLE_IOS_REVERSED_CLIENT_ID not configured — skipping plist drift check (RA-3010)"
+            exit 0
+          fi
+          PLIST_VALUE=$(grep -oE 'com\.googleusercontent\.apps\.[0-9]+-[a-z0-9]+' ios/App/App/Info.plist | head -1 || true)
+          if [ -z "$PLIST_VALUE" ]; then
+            echo "::error::Info.plist contains no reversed-client-ID — Google Sign-In will fail at runtime (RA-3010)"
+            exit 1
+          fi
+          if [ "$PLIST_VALUE" != "$EXPECTED_REVERSED_CLIENT_ID" ]; then
+            echo "::error::Info.plist reversed-client-ID drift (RA-3010)"
+            echo "  expected: $EXPECTED_REVERSED_CLIENT_ID"
+            echo "  in plist: $PLIST_VALUE"
+            exit 1
+          fi
+          echo "Info.plist reversed-client-ID matches GOOGLE_IOS_REVERSED_CLIENT_ID ✓"
+
       - name: Install pnpm
         uses: pnpm/action-setup@v6
         with:
@@ -244,20 +269,35 @@ jobs:
         # own tool, signs the JWT itself with the correct curve, and
         # has no dependency on the brewed openssl that broke runs #6
         # and #7. Validate first, then upload.
+        #
+        # altool exits 0 even when the upload is rejected by ASC
+        # (e.g. ENTITY_ERROR.ATTRIBUTE.INVALID.DUPLICATE when the build
+        # number was not bumped — observed across runs 25656902174 and
+        # 25661807333 today, where five tag releases reported green
+        # but nothing reached TestFlight). We grep altool's output
+        # for the known failure markers and force exit 1 ourselves.
         run: |
           xcrun altool --validate-app \
             --type ios \
             --file ./build/RestoreAssist.ipa \
             --apiKey "$ASC_API_KEY_ID" \
             --apiIssuer "$ASC_ISSUER_ID" \
-            --output-format normal
+            --output-format normal 2>&1 | tee /tmp/altool-validate.log
+          if grep -Eq 'ERROR ITMS|Failed to validate|iris-code|ENTITY_ERROR' /tmp/altool-validate.log; then
+            echo "::error ::altool validation reported an error — failing the workflow"
+            exit 1
+          fi
 
           xcrun altool --upload-app \
             --type ios \
             --file ./build/RestoreAssist.ipa \
             --apiKey "$ASC_API_KEY_ID" \
             --apiIssuer "$ASC_ISSUER_ID" \
-            --output-format normal
+            --output-format normal 2>&1 | tee /tmp/altool-upload.log
+          if grep -Eq 'ERROR ITMS|Failed to upload|iris-code|ENTITY_ERROR' /tmp/altool-upload.log; then
+            echo "::error ::altool upload reported an error — failing the workflow"
+            exit 1
+          fi
 
       - name: Cleanup secrets
         if: always()

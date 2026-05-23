@@ -61,14 +61,16 @@ export async function GET(
     // Get suggestions
     const suggestions = suggestAuthorityForms(analysis);
 
-    // Check which forms already exist for this report
+    // Check which forms already exist for this report.
+    // Only the template.code is read downstream, so select minimally.
     const existingForms = await prisma.authorityFormInstance.findMany({
       where: { reportId },
-      include: {
+      select: {
         template: {
           select: { code: true },
         },
       },
+      take: 100,
     });
 
     const existingCodes = new Set(existingForms.map((f) => f.template.code));

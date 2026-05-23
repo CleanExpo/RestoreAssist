@@ -2,11 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import Anthropic from "@anthropic-ai/sdk";
 import { getAnthropicApiKey } from "@/lib/ai-provider";
 import { applyRateLimit } from "@/lib/rate-limiter";
-import { createCachedSystemPrompt } from "@/lib/anthropic/features/prompt-cache";
 import { withIdempotency } from "@/lib/idempotency";
+import { generateInterviewQuestion } from "@/lib/services/ai/generate-interview-question";
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -83,132 +82,49 @@ export async function POST(request: NextRequest) {
       }
 
       const conversationHistory = conversation.map((msg: any) => ({
-        role: msg.role === "user" ? "user" : "assistant",
+        role: msg.role === "user" ? ("user" as const) : ("assistant" as const),
         content: msg.content,
       }));
 
-      const lastUserMessage =
-        conversation[conversation.length - 1]?.content || "";
-      const conversationLength = conversation.length;
+      const result = await generateInterviewQuestion({
+        apiKey: anthropicApiKey,
+        conversation: conversationHistory,
+      });
 
-      let question = "";
-      let isComplete = false;
-
-      const systemPrompt = `You are a professional water damage restoration assistant helping to gather information from a client about a water damage incident. 
-
-Your role is to ask natural, conversational follow-up questions to gather all necessary information about:
-- The extent of the damage (which rooms/areas are affected)
-- The source of the water (where did it come from)
-- When the incident occurred (timeline)
-- Any visible damage or concerns
-- Safety concerns
-
-Ask ONE clear, specific question at a time. Be conversational and empathetic, like a real person would ask. Don't be robotic.
-
-IMPORTANT: After gathering sufficient information about the incident (typically 4-6 exchanges), you MUST ask for (in this order):
-1. Client's full name
-2. Property address (where the incident occurred)
-3. Client's email address
-4. Client's phone number
-
-Only mark as complete (isComplete: true) AFTER you have collected all four pieces of information: name, address, email, and phone number.
-
-Format your response as a JSON object with:
-- "question": the follow-up question to ask (or a conclusion message if enough info gathered)
-- "isComplete": true if enough information has been gathered AND you have collected client name, address, email, and phone number, false otherwise
-
-Example responses:
-- Early in conversation: "The entire house?"
-- Mid conversation: "Where did the water come from?"
-- Mid conversation: "When did this happen?"
-- After incident details: "Thank you for that information. May I please have your full name?"
-- After name: "Thank you. And what is the property address where this incident occurred?"
-- After address: "Thank you. What is your email address?"
-- After email: "Thank you. And finally, what is your phone number?"
-- When complete: "Thank you for providing all the information. A technician will review your case and contact you soon."`;
-
-      try {
-        const anthropic = new Anthropic({
-          apiKey: anthropicApiKey,
+      if (!result.ok) {
+        console.error("[generate-question]", {
+          userId,
+          reason: result.reason,
+          detail: result.detail,
         });
-
-        // Format conversation history for Anthropic
-        const formattedMessages = conversationHistory.map((msg: any) => ({
-          role: msg.role,
-          content: msg.content,
-        }));
-
-        const { tryClaudeModels } = await import("@/lib/anthropic-models");
-
-        // Use prompt caching for cost optimization (90% savings on cache hits)
-        const message = await tryClaudeModels(
-          anthropic,
-          {
-            system: [createCachedSystemPrompt(systemPrompt)],
-            max_tokens: 500,
-            messages: [
-              ...formattedMessages,
-              {
-                role: "user",
-                content:
-                  "Generate the next question or conclusion as a JSON object with 'question' and 'isComplete' fields. If enough information has been gathered, set isComplete to true and provide a conclusion message.",
-              },
-            ],
-          },
-          undefined, // use default models
-          {
-            agentName: "QuestionGenerator",
-            enableCacheMetrics: true,
-          },
-        );
-
-        const responseText =
-          message.content[0].type === "text"
-            ? message.content[0].text
-            : JSON.stringify(message.content[0]);
-
-        try {
-          const parsed = JSON.parse(responseText);
-          question = parsed.question || responseText;
-          isComplete = parsed.isComplete || false;
-        } catch {
-          question = responseText;
-          isComplete = conversationLength >= 6; // Auto-complete after 6 exchanges
-        }
-
-        if (!isComplete && conversationLength >= 8) {
-          isComplete = true;
-          question =
-            question ||
-            "Thank you for providing all the information. A technician will review your case and contact you soon.";
-        }
-
-        return NextResponse.json({
-          question,
-          isComplete,
-          integrationUsed: "Anthropic API",
-        });
-      } catch (apiError: any) {
-        // RA-786: do not leak apiError.message to clients
-        console.error("Generate-question API error:", apiError);
-        if (apiError.status === 404) {
-          return NextResponse.json(
-            {
-              error:
-                "Failed to connect to Anthropic API. Please check your API key and try again.",
-            },
-            { status: 500 },
-          );
-        }
-
+        const status =
+          result.reason === "RATE_LIMITED"
+            ? 429
+            : result.reason === "MODEL_OVERLOADED"
+              ? 503
+              : 500;
+        const headers: Record<string, string> =
+          result.retryAfterMs != null
+            ? { "Retry-After": String(Math.ceil(result.retryAfterMs / 1000)) }
+            : {};
         return NextResponse.json(
           {
             error:
-              "Failed to generate question. Please check your API key and try again.",
+              result.reason === "RATE_LIMITED" ||
+              result.reason === "MODEL_OVERLOADED"
+                ? "AI service is temporarily unavailable. Please try again."
+                : "Failed to generate question. Please check your API key and try again.",
+            detail: result.detail,
           },
-          { status: 500 },
+          { status, headers },
         );
       }
+
+      return NextResponse.json({
+        question: result.data.question,
+        isComplete: result.data.isComplete,
+        integrationUsed: "Anthropic API",
+      });
     } catch (error: any) {
       return NextResponse.json(
         { error: "Failed to generate question" },

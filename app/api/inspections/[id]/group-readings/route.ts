@@ -24,120 +24,24 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
-import { getAnthropicApiKey } from "@/lib/ai-provider";
-import Anthropic from "@anthropic-ai/sdk";
+import { groupReadings } from "@/lib/services/ai/group-readings";
 
 const ALLOWED_SUBSCRIPTION_STATUSES = ["TRIAL", "ACTIVE", "LIFETIME"];
-const MODEL = "claude-haiku-4-5";
-
-type ReadingInput = {
-  id: string;
-  location: string;
-  surfaceType: string;
-  moistureLevel: number;
-  depth: string;
-};
-
-type GroupOutput = {
-  name: string;
-  locations: string[];
-  readingIds: string[];
-  averageMoisture: number;
-  elevatedCount: number;
-};
 
 type GroupResponse = {
-  groups: GroupOutput[];
+  groups: Array<{
+    name: string;
+    locations: string[];
+    readingIds: string[];
+    averageMoisture: number;
+    elevatedCount: number;
+  }>;
   unsortedReadingIds: string[];
 };
-
-const SYSTEM_PROMPT = `You are a structural drying expert clustering moisture readings into affected areas (drying chambers) per IICRC S500:2025 §6.
-
-Your job: given a list of moisture readings taken at various sub-locations, group them by the underlying room / zone / drying chamber they belong to.
-
-Fuzzy-match rules:
-- "Master Bed wall" and "Master Bedroom floor" -> same group "Master Bedroom"
-- "Kitchen" and "kitchen cabinets" -> same group "Kitchen"
-- "LR" and "Living Room" -> same group "Living Room"
-- Different floors / wings stay separate ("Upstairs Bath" vs "Downstairs Bath")
-- Hallways, entries, landings stay separate from adjoining rooms
-- When ambiguous, prefer fewer, larger groups that would constitute one drying chamber under S500:2025 §6
-
-Output STRICT JSON only — no prose, no code fences:
-{
-  "groups": [
-    {
-      "name": "Canonical Room Name",
-      "readingIds": ["cuid-1","cuid-2"]
-    }
-  ],
-  "unsortedReadingIds": ["cuid-3"]
-}
-
-Every readingId from the input MUST appear exactly once across all "readingIds" arrays plus "unsortedReadingIds". Do NOT invent IDs.`;
-
-// Haiku 4.5 pricing (Anthropic listed rates)
-const INPUT_UNIT_COST = 0.00000025; // $0.25 / M input tokens
-const OUTPUT_UNIT_COST = 0.00000125; // $1.25 / M output tokens
 
 // Moisture %MC threshold above which a reading is "elevated" for summary badge.
 // 16%MC aligns with IICRC S500:2025 drying-goal guidance for gypsum/timber.
 const ELEVATED_THRESHOLD = 16;
-
-function parseGroups(raw: string, readings: ReadingInput[]): GroupResponse {
-  const cleaned = raw
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```\s*$/i, "")
-    .trim();
-  const firstBrace = cleaned.indexOf("{");
-  const lastBrace = cleaned.lastIndexOf("}");
-  if (firstBrace < 0 || lastBrace < 0) {
-    throw new Error("AI did not return JSON");
-  }
-  const json = JSON.parse(cleaned.slice(firstBrace, lastBrace + 1));
-
-  const validIds = new Set(readings.map((r) => r.id));
-  const byId = new Map(readings.map((r) => [r.id, r]));
-  const seen = new Set<string>();
-
-  const rawGroups = Array.isArray(json.groups) ? json.groups : [];
-  const groups: GroupOutput[] = [];
-
-  for (const g of rawGroups) {
-    if (!g || typeof g.name !== "string") continue;
-    const ids: string[] = Array.isArray(g.readingIds)
-      ? g.readingIds.filter(
-          (id: unknown): id is string =>
-            typeof id === "string" && validIds.has(id) && !seen.has(id),
-        )
-      : [];
-    if (ids.length === 0) continue;
-    ids.forEach((id) => seen.add(id));
-
-    const groupReadings = ids
-      .map((id) => byId.get(id))
-      .filter((r): r is ReadingInput => !!r);
-    const locations = Array.from(new Set(groupReadings.map((r) => r.location)));
-    const avg =
-      groupReadings.reduce((s, r) => s + r.moistureLevel, 0) /
-      groupReadings.length;
-    const elevated = groupReadings.filter(
-      (r) => r.moistureLevel >= ELEVATED_THRESHOLD,
-    ).length;
-
-    groups.push({
-      name: g.name.slice(0, 200),
-      locations,
-      readingIds: ids,
-      averageMoisture: parseFloat(avg.toFixed(2)),
-      elevatedCount: elevated,
-    });
-  }
-
-  const unsorted = readings.map((r) => r.id).filter((id) => !seen.has(id));
-
-  return { groups, unsortedReadingIds: unsorted };
-}
 
 export async function POST(
   request: NextRequest,
@@ -222,84 +126,39 @@ export async function POST(
       } satisfies GroupResponse);
     }
 
-    let apiKey: string;
-    try {
-      apiKey = await getAnthropicApiKey(userId);
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Missing Anthropic API key";
-      return NextResponse.json({ error: message }, { status: 400 });
-    }
-
-    const anthropic = new Anthropic({ apiKey });
-
-    const userMessage = `Inspection readings (${readings.length}):
-
-${readings
-  .map(
-    (r) =>
-      `- id=${r.id}  location="${r.location}"  surface=${r.surfaceType}  level=${r.moistureLevel}%  depth=${r.depth}`,
-  )
-  .join("\n")}
-
-Group these into affected areas per IICRC S500:2025 §6. Respond with the strict JSON schema only.`;
-
-    const response = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: 2000,
-      system: [
-        {
-          type: "text",
-          text: SYSTEM_PROMPT,
-          cache_control: { type: "ephemeral" },
-        },
-      ],
-      messages: [{ role: "user", content: userMessage }],
+    const result = await groupReadings({
+      userId,
+      payload: { readings },
     });
 
-    const textBlock = response.content.find((b) => b.type === "text");
-    const rawText =
-      textBlock && textBlock.type === "text" ? textBlock.text : "";
-
-    let parsed: GroupResponse;
-    try {
-      parsed = parseGroups(rawText, readings);
-    } catch (parseErr) {
-      console.error("[group-readings] parse failed:", parseErr, rawText);
+    if (!result.ok) {
+      console.error("[InspectionsGroupReadings]", {
+        inspectionId,
+        userId,
+        reason: result.reason,
+        detail: result.detail,
+      });
+      const status =
+        result.reason === "KEY_MISSING"
+          ? 402
+          : result.reason === "RATE_LIMITED"
+            ? 429
+            : result.reason === "MODEL_OVERLOADED"
+              ? 503
+              : result.reason === "PARSE_FAILED"
+                ? 502
+                : 500;
+      const headers: Record<string, string> =
+        result.retryAfterMs != null
+          ? { "Retry-After": String(Math.ceil(result.retryAfterMs / 1000)) }
+          : {};
       return NextResponse.json(
-        { error: "AI response was not valid JSON" },
-        { status: 502 },
+        { error: result.reason, detail: result.detail },
+        { status, headers },
       );
     }
 
-    // Fire-and-forget usage logging (do not block the response)
-    const inputTokens = response.usage?.input_tokens ?? 0;
-    const outputTokens = response.usage?.output_tokens ?? 0;
-    const totalCost =
-      inputTokens * INPUT_UNIT_COST + outputTokens * OUTPUT_UNIT_COST;
-    prisma.usageEvent
-      .create({
-        data: {
-          userId,
-          inspectionId,
-          eventType: "AI_ASSISTANT_QUERY",
-          eventData: JSON.stringify({
-            feature: "group_moisture_readings",
-            model: MODEL,
-            inputTokens,
-            outputTokens,
-            readingCount: readings.length,
-            groupCount: parsed.groups.length,
-          }),
-          unitCost: OUTPUT_UNIT_COST,
-          units: outputTokens,
-          totalCost,
-          currency: "USD",
-        },
-      })
-      .catch((e) => console.warn("[group-readings] usage log failed:", e));
-
-    return NextResponse.json(parsed);
+    return NextResponse.json(result.data satisfies GroupResponse);
   } catch (error) {
     console.error("[group-readings POST]", error);
     return NextResponse.json(

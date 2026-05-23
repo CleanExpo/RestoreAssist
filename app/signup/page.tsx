@@ -6,6 +6,7 @@ import { signInWithOAuth } from "@/lib/oauth-native";
 import { isCapacitorIOS } from "@/lib/capacitor";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { BotIdClient } from "botid/client";
 import {
   Eye,
   EyeOff,
@@ -19,6 +20,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 export default function SignupPage() {
   const [name, setName] = useState("");
@@ -138,7 +140,7 @@ export default function SignupPage() {
           }, 1000);
         }
       } else {
-        setError(data.error || "Registration failed");
+        setError(apiErrorMessage(data) ?? "Registration failed");
       }
     } catch (error) {
       setError("An error occurred. Please try again.");
@@ -176,6 +178,10 @@ export default function SignupPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center px-4">
+      {/* Vercel BotID — invisible bot signal for /api/auth/register. RA-1286. */}
+      <BotIdClient
+        protect={[{ path: "/api/auth/register", method: "POST" }]}
+      />
       <motion.div
         initial={{ opacity: 1, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -403,7 +409,7 @@ export default function SignupPage() {
                   type="button"
                   aria-label={showPassword ? "Hide password" : "Show password"}
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 p-3 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-white transition-colors"
                 >
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
@@ -442,7 +448,7 @@ export default function SignupPage() {
                       : "Show confirm password"
                   }
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 p-3 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-white transition-colors"
                 >
                   {showConfirmPassword ? (
                     <EyeOff size={20} />

@@ -82,5 +82,56 @@
 			</array>
 		</dict>
 	</array>
+	<!--
+		RA-3001 — App Transport Security pinning for restoreassist.app.
+
+		Pins WebView traffic to SubjectPublicKeyInfo SHA-256 of:
+		  1. The CURRENT leaf cert (Let's Encrypt R12, valid through 2026-06-23)
+		  2. The Let's Encrypt R12 INTERMEDIATE (issuing CA for our leaf)
+		  3. The Let's Encrypt R10 INTERMEDIATE (rotation backup)
+		  4. The Let's Encrypt R11 INTERMEDIATE (rotation backup)
+
+		Pinning ONLY the leaf would brick the app at every 90-day LE
+		renewal. Pinning the issuing intermediates gives automatic
+		resilience to leaf rotation. When LE rotates R10/R11/R12 (every
+		few years), update this list >=30 days before the cert renews
+		into a new chain — see docs/MOBILE_RELEASE_RUNBOOK.md §1.6.
+
+		Compute pin SHA-256 yourself:
+		  echo | openssl s_client -servername restoreassist.app -connect restoreassist.app:443 \
+		    | openssl x509 -pubkey -noout \
+		    | openssl pkey -pubin -outform DER \
+		    | openssl dgst -sha256 -binary | openssl enc -base64
+	-->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSPinnedDomains</key>
+		<dict>
+			<key>restoreassist.app</key>
+			<dict>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+				<key>NSPinnedCAIdentities</key>
+				<array>
+					<dict>
+						<key>SPKI-SHA256-BASE64</key>
+						<string>jTYwth0aNThq1+ASNAaN/W2zHtZPaep+fm148EngBig=</string>
+					</dict>
+					<dict>
+						<key>SPKI-SHA256-BASE64</key>
+						<string>kZwN96eHtZftBWrOZUsd6cA4es80n3NzSk/XtYz2EqQ=</string>
+					</dict>
+					<dict>
+						<key>SPKI-SHA256-BASE64</key>
+						<string>K7rZOrXHknnsEhUH8nLL4MZkejquUuIvOIr6tCa0rbo=</string>
+					</dict>
+					<dict>
+						<key>SPKI-SHA256-BASE64</key>
+						<string>bdrBhpj38ffhxpubzkINl0rG+UyossdhcBYj+Zx2fcc=</string>
+					</dict>
+				</array>
+			</dict>
+		</dict>
+	</dict>
 </dict>
 </plist>

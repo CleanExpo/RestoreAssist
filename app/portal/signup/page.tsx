@@ -7,6 +7,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 function SignupForm() {
   const router = useRouter();
@@ -57,7 +58,7 @@ function SignupForm() {
           }));
         }
       } else {
-        setError(data.error || "Invalid invitation");
+        setError(apiErrorMessage(data) ?? "Invalid invitation");
       }
     } catch (err) {
       setError("Failed to verify invitation");

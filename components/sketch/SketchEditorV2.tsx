@@ -101,6 +101,12 @@ export interface SketchEditorV2Props {
   className?: string;
   width?: number;
   height?: number;
+  /**
+   * RA-2967 — When true and a propertyAddress is present, the floor plan
+   * underlay panel attempts to fetch on mount. Driven by the workspace
+   * setting `autoFetchFloorPlanOnInspection`.
+   */
+  autoFetchFloorPlan?: boolean;
 }
 
 // ─── Helpers ───────────────────────────────────────────────
@@ -117,6 +123,7 @@ export function SketchEditorV2({
   className,
   width = 1200,
   height = 800,
+  autoFetchFloorPlan = false,
 }: SketchEditorV2Props) {
   const uid = useId();
 
@@ -1030,6 +1037,7 @@ export function SketchEditorV2({
             onApply={handleApplyBackground}
             onClear={handleClearBackground}
             hasBackground={!!activeFloor?.backgroundUrl}
+            autoFetch={autoFetchFloorPlan && !!propertyAddress}
             className="border-white/10"
           />
         </div>

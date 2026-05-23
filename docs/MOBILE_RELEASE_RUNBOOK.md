@@ -50,6 +50,120 @@
 
 ---
 
+## 1.5 GCP project coupling (rotation hazard) — RA-3010
+
+> 🚨 **One Google Cloud project (`292141944467`, label `restoreassist`)
+> currently anchors three independent release surfaces.** Disabling any
+> API on it — or rotating the project — breaks all three simultaneously.
+
+### Consumers of GCP project `292141944467`
+
+| Surface                                  | Where it reads                                                                         | Failure mode if project is touched                                          |
+| ---------------------------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| iOS native Google Sign-In (capgo plugin) | `ios/App/App/Info.plist` line 81 (`com.googleusercontent.apps.292141944467-…`)         | Sign-In returns immediately to the app with no token (silent failure)       |
+| iOS WebView OAuth fallback (NextAuth)    | `NEXTAUTH_GOOGLE_CLIENT_ID` env (web-client ID, same project)                          | Login screen returns `redirect_uri_mismatch` (visible error)                |
+| Android Play Console upload              | `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` secret (service account provisioned in the project) | `r0adkll/upload-google-play` job fails with `Developer API … is disabled`   |
+
+### Historical incidents tied to the coupling
+
+| Date       | What broke                                                                | Linear                                   |
+| ---------- | ------------------------------------------------------------------------- | ---------------------------------------- |
+| 2026-05-08 | Android pipeline outage — Play Developer API disabled on the GCP project  | run 25665767520; ticket: see RA-2997     |
+| 2026-05-04 | iOS Google Sign-In silent failure post-restore                            | RA-2119 ⇄ RA-2073 (re-enabled 3 times)   |
+
+### Long-term fix (operator action — not autonomous)
+
+1. Provision a **dedicated** `restoreassist-oauth-prod` GCP project for the
+   iOS + web OAuth clients. **Move the existing iOS client into it; rotate
+   the reversed-client-ID in the plist.**
+2. Provision a separate `restoreassist-play-publishing` project for the
+   Google Play upload service account.
+3. Each project gets one purpose. Disabling an API in one no longer takes
+   down the other two.
+
+### Short-term safeguard (already in place)
+
+The `ios-release.yml` workflow now runs a pre-flight check that asserts
+the reversed-client-ID in `Info.plist` matches the
+`GOOGLE_IOS_REVERSED_CLIENT_ID` GitHub Actions environment variable. If
+drift is detected — e.g., someone edits the plist by hand or copies a
+staging value into prod — the build fails fast before notarisation.
+
+To enable the safeguard, add a repo variable (NOT secret) named
+`GOOGLE_IOS_REVERSED_CLIENT_ID` set to the current production value:
+
+```
+com.googleusercontent.apps.292141944467-8hhd4eub33tplq6ep5lc9iltu8jcatvp
+```
+
+Until the long-term fix lands, treat the GCP project as a shared
+production resource: **do not disable APIs on it, do not delete service
+accounts, do not rotate the project number**.
+## 1.6 TLS pin rotation (do every ≤12 months) — RA-3001
+
+The WebView traffic for `restoreassist.app` is pinned at the OS level on
+both platforms:
+
+- **iOS:** `ios/App/App/Info.plist` → `NSAppTransportSecurity.NSPinnedDomains`
+- **Android:** `android/app/src/main/res/xml/network_security_config.xml`
+
+Both files pin **four** SubjectPublicKeyInfo SHA-256 hashes:
+
+1. The current leaf cert for `restoreassist.app`
+2. The Let's Encrypt **R12** intermediate (issuing CA for our leaf)
+3. The Let's Encrypt **R10** intermediate (rotation backup)
+4. The Let's Encrypt **R11** intermediate (rotation backup)
+
+### When to rotate
+
+Let's Encrypt rotates intermediates every few years. The current pin set
+expires (Android `expiration="2027-05-12"`) one year from the PR landing
+date. **Rotate pins ≥30 days before the cert chain changes** or the app
+will brick on the next renewal.
+
+Signals to start a rotation:
+- LE announces a new intermediate rollout (subscribe to
+  [letsencrypt.org/upcoming-changes](https://letsencrypt.org/upcoming-changes/))
+- Sentry breadcrumbs show clusters of `SSLHandshakeException` /
+  `NSURLErrorServerCertificateUntrusted` from production builds
+- Android `pin-set expiration` is within 90 days
+
+### How to rotate
+
+```bash
+# 1. Compute the current leaf SPKI hash
+echo | openssl s_client -servername restoreassist.app -connect restoreassist.app:443 2>/dev/null \
+  | openssl x509 -pubkey -noout \
+  | openssl pkey -pubin -outform DER \
+  | openssl dgst -sha256 -binary | openssl enc -base64
+
+# 2. Compute backup intermediate SPKI hashes (R10/R11/R12 — or whichever
+#    LE is currently rotating between)
+for url in https://letsencrypt.org/certs/2024/r10.pem \
+          https://letsencrypt.org/certs/2024/r11.pem \
+          https://letsencrypt.org/certs/2024/r12.pem; do
+  curl -sf "$url" | openssl x509 -pubkey -noout \
+    | openssl pkey -pubin -outform DER \
+    | openssl dgst -sha256 -binary | openssl enc -base64
+done
+
+# 3. Update the 4 pins in BOTH files (iOS + Android)
+# 4. Bump pin-set expiration on Android by +12 months
+# 5. Bump app version, build, submit
+```
+
+### Verify pinning works (MITM test)
+
+Use `mitmproxy` with `--ssl-insecure` to present a different cert to the
+app. Both platforms must **fail** the connection. After confirming the
+fail path, restore the real cert and confirm normal traffic flows.
+
+> ⚠️ Pinning is fail-closed by design. If you ship wrong hashes the app
+> can't reach `restoreassist.app` at all — there is no fallback.
+> Verification by mitmproxy before submission is mandatory.
+
+---
+
 ## 2. App Store Connect — create the app entry
 
 App Store Connect → My Apps → ＋ → New App.

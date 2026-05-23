@@ -57,7 +57,7 @@ export default function Home() {
 
           {/* Hamburger Menu - Right Side, Bigger Size, Always Visible */}
           <button
-            className="text-white hover:text-gray-300 transition-colors"
+            className="text-white hover:text-gray-300 transition-colors p-2 -mr-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             aria-label="Toggle menu"
           >
@@ -95,7 +95,7 @@ export default function Home() {
           </h2>
           <button
             onClick={() => setMobileMenuOpen(false)}
-            className="text-white hover:text-gray-300 transition-colors p-2 -mr-2 rounded-lg hover:bg-white/10"
+            className="text-white hover:text-gray-300 transition-colors p-2.5 -mr-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg hover:bg-white/10"
             aria-label="Close menu"
           >
             <X size={24} />
@@ -140,14 +140,14 @@ export default function Home() {
             <div className="pt-6 mt-6 border-t border-white/10 space-y-3">
               <Link
                 href="/signup"
-                className="block w-full px-6 py-3 bg-[#8A6B4E] text-white rounded-lg text-center font-medium hover:bg-[#7A5B3E] transition-all duration-200 shadow-lg"
+                className="block w-full px-6 py-3 bg-[#765C43] text-white rounded-lg text-center font-medium hover:bg-[#634A2F] transition-all duration-200 shadow-lg"
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Get Started
               </Link>
               <Link
                 href="/login"
-                className="block w-full px-6 py-3 bg-[#5A6A7B] text-white rounded-lg text-center font-medium hover:bg-[#5A6A7B]/80 transition-all duration-200 shadow-lg"
+                className="block w-full px-6 py-3 bg-[#546272] text-white rounded-lg text-center font-medium hover:bg-[#445163] transition-all duration-200 shadow-lg"
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Log In
@@ -266,7 +266,7 @@ export default function Home() {
           <div className="hero-fade-up hero-fade-up-4 flex flex-col sm:flex-row gap-4 mt-8">
             <Link
               href={BRAND.cta.primary.href}
-              className="px-8 py-3 bg-[#8A6B4E] text-white font-medium rounded-lg shadow-lg hover:bg-[#7A5B3E] transition-all duration-300 text-center"
+              className="px-8 py-3 bg-[#765C43] text-white font-medium rounded-lg shadow-lg hover:bg-[#634A2F] transition-all duration-300 text-center"
               style={{
                 fontFamily:
                   'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -513,7 +513,7 @@ export default function Home() {
                   <li>
                     <Link
                       href="/features"
-                      className={`transition-colors hover:text-white`}
+                      className={`inline-block py-2.5 min-h-[44px] transition-colors hover:text-white`}
                     >
                       Features
                     </Link>
@@ -521,7 +521,7 @@ export default function Home() {
                   <li>
                     <Link
                       href="/pricing"
-                      className={`transition-colors hover:text-white`}
+                      className={`inline-block py-2.5 min-h-[44px] transition-colors hover:text-white`}
                     >
                       Pricing
                     </Link>
@@ -529,7 +529,7 @@ export default function Home() {
                   <li>
                     <Link
                       href="/dashboard/analytics"
-                      className={`transition-colors hover:text-white`}
+                      className={`inline-block py-2.5 min-h-[44px] transition-colors hover:text-white`}
                     >
                       Analytics
                     </Link>
@@ -558,7 +558,7 @@ export default function Home() {
                   <li>
                     <Link
                       href="/help"
-                      className={`transition-colors hover:text-white`}
+                      className={`inline-block py-2.5 min-h-[44px] transition-colors hover:text-white`}
                     >
                       Help Centre
                     </Link>
@@ -566,7 +566,7 @@ export default function Home() {
                   <li>
                     <Link
                       href="/compliance-library"
-                      className={`transition-colors hover:text-white`}
+                      className={`inline-block py-2.5 min-h-[44px] transition-colors hover:text-white`}
                     >
                       Compliance Library
                     </Link>
@@ -574,7 +574,7 @@ export default function Home() {
                   <li>
                     <Link
                       href="/blog"
-                      className={`transition-colors hover:text-white`}
+                      className={`inline-block py-2.5 min-h-[44px] transition-colors hover:text-white`}
                     >
                       Blog
                     </Link>
@@ -603,7 +603,7 @@ export default function Home() {
                   <li>
                     <Link
                       href="/about"
-                      className={`transition-colors hover:text-white`}
+                      className={`inline-block py-2.5 min-h-[44px] transition-colors hover:text-white`}
                     >
                       About
                     </Link>
@@ -611,7 +611,7 @@ export default function Home() {
                   <li>
                     <Link
                       href="/how-it-works"
-                      className={`transition-colors hover:text-white`}
+                      className={`inline-block py-2.5 min-h-[44px] transition-colors hover:text-white`}
                     >
                       How it Works
                     </Link>
@@ -619,7 +619,7 @@ export default function Home() {
                   <li>
                     <Link
                       href="/compliance"
-                      className={`transition-colors hover:text-white`}
+                      className={`inline-block py-2.5 min-h-[44px] transition-colors hover:text-white`}
                     >
                       Compliance
                     </Link>
@@ -627,7 +627,7 @@ export default function Home() {
                   <li>
                     <Link
                       href="/contact"
-                      className={`transition-colors hover:text-white`}
+                      className={`inline-block py-2.5 min-h-[44px] transition-colors hover:text-white`}
                     >
                       Contact
                     </Link>
@@ -635,7 +635,7 @@ export default function Home() {
                   <li>
                     <Link
                       href="/faq"
-                      className={`transition-colors hover:text-white`}
+                      className={`inline-block py-2.5 min-h-[44px] transition-colors hover:text-white`}
                     >
                       FAQ
                     </Link>
@@ -647,7 +647,7 @@ export default function Home() {
                   <li>
                     <Link
                       href="/privacy"
-                      className={`transition-colors hover:text-white`}
+                      className={`inline-block py-2.5 min-h-[44px] transition-colors hover:text-white`}
                     >
                       Privacy Policy
                     </Link>
@@ -655,7 +655,7 @@ export default function Home() {
                   <li>
                     <Link
                       href="/terms"
-                      className={`transition-colors hover:text-white`}
+                      className={`inline-block py-2.5 min-h-[44px] transition-colors hover:text-white`}
                     >
                       Terms of Service
                     </Link>

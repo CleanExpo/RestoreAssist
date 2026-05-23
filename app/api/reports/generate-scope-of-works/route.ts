@@ -2,13 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import Anthropic from "@anthropic-ai/sdk";
 import { detectStateFromPostcode, getStateInfo } from "@/lib/state-detection";
 import {
   getEquipmentGroupById,
   getEquipmentDailyRate,
 } from "@/lib/equipment-matrix";
-import { tryClaudeModels } from "@/lib/anthropic-models";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 
@@ -32,7 +30,30 @@ export async function POST(request: NextRequest) {
     try {
       const user = await prisma.user.findUnique({
         where: { id: userId },
-        include: { pricingConfig: true },
+        include: {
+          pricingConfig: {
+            // Fields accessed directly + fields used by getEquipmentDailyRate
+            // (lib/equipment-matrix.ts) which does dynamic key lookup.
+            select: {
+              id: true,
+              administrationFee: true,
+              afdUnitLargeDailyRate: true,
+              airMoverAxialDailyRate: true,
+              antimicrobialTreatmentRate: true,
+              biohazardTreatmentRate: true,
+              callOutFee: true,
+              dehumidifierLGRDailyRate: true,
+              dehumidifierDesiccantDailyRate: true,
+              extractionTruckMountedHourlyRate: true,
+              injectionDryingSystemDailyRate: true,
+              labourerNormalHours: true,
+              masterQualifiedNormalHours: true,
+              mouldRemediationTreatmentRate: true,
+              qualifiedTechnicianNormalHours: true,
+              thermalCameraUseCostPerAssessment: true,
+            },
+          },
+        },
       });
 
       if (!user) {
@@ -124,9 +145,12 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const anthropic = new Anthropic({
-        apiKey: anthropicApiKey,
-      });
+      // (Anthropic client previously instantiated here was never invoked —
+      // this route does deterministic scope construction. Dead import +
+      // instantiation removed 2026-05-18. The getAnthropicApiKey
+      // 400-affordance above stays until product decides whether AI
+      // narrative enhancement was intended.)
+      void anthropicApiKey;
 
       // Parse equipment selection data (from Equipment Tools Selection step)
       const equipmentSelection = report.equipmentSelection

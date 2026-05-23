@@ -30,6 +30,7 @@ export async function GET(request: NextRequest) {
     if (reportId) where.reportId = reportId;
     if (documentType) where.documentType = documentType;
 
+    // RA-1376: bounded list query (CLAUDE.md rule 4).
     const docs = await prisma.restorationDocument.findMany({
       where,
       orderBy: { createdAt: "desc" },
@@ -42,6 +43,7 @@ export async function GET(request: NextRequest) {
         createdAt: true,
         updatedAt: true,
       },
+      take: 50,
     });
 
     return NextResponse.json({ documents: docs });
