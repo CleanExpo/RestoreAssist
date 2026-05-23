@@ -192,6 +192,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.5",
     "@eslint/js": "^10.0.1",
+    "@next/eslint-plugin-next": "16.2.4",
     "@playwright/test": "^1.59.1",
     "@tailwindcss/postcss": "4.2.4",
     "@types/archiver": "^6.0.4",
