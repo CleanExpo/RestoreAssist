@@ -203,9 +203,6 @@ export async function POST(request: NextRequest) {
 
       standardsContext = buildStandardsContextPrompt(retrievedStandards);
 
-      if (standardsContext.length > 0) {
-      } else {
-      }
     } catch (error: any) {
       // Continue without standards - report will use general knowledge
     }
