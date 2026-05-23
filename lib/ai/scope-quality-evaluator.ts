@@ -118,7 +118,7 @@ function detectSections(scope: string): { found: number[]; missing: number[] } {
   const found = new Set<number>();
 
   // Pass 1: explicit numbered headings (## 1. ... or # 1) ... or **1.** etc.)
-  const numberedHeadingPattern = /(?:^|\n)\s*(?:#{1,3}\s*)?(\d+)[\.\)]\s+/gm;
+  const numberedHeadingPattern = /(?:^|\n)\s*(?:#{1,3}\s*)?(\d+)[.)]\s+/gm;
   let match: RegExpExecArray | null;
   while ((match = numberedHeadingPattern.exec(scope)) !== null) {
     const num = parseInt(match[1], 10);
