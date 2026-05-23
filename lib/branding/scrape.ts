@@ -24,6 +24,33 @@ export interface ScrapeResult {
 export async function scrapeWebsite(url: string): Promise<
   { ok: true; data: ScrapeResult } | { ok: false; reason: string }
 > {
+  const scrapeViaFetch = async (): Promise<
+    { ok: true; data: ScrapeResult } | { ok: false; reason: string }
+  > => {
+    const response = await fetch(url, {
+      headers: { "user-agent": "RestoreAssistSetupBot/1.0" },
+    });
+    if (!response.ok) return { ok: false, reason: "FETCH_FAILED" };
+    const html = await response.text();
+    const metaOgImage = html.match(
+      /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i,
+    )?.[1];
+    const iconHref = html.match(
+      /<link[^>]+rel=["'](?:apple-touch-icon|icon)["'][^>]+href=["']([^"']+)["']/i,
+    )?.[1];
+    const h1 = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)?.[1];
+    const body = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i)?.[1] ?? html;
+    const hero = (h1 ?? body)
+      .replace(/<script[\s\S]*?<\/script>/gi, "")
+      .replace(/<style[\s\S]*?<\/style>/gi, "")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 1500);
+    const logoUrl = metaOgImage || (iconHref ? new URL(iconHref, url).toString() : null);
+    return { ok: true, data: { logoUrl, hero } };
+  };
+
   // Dynamic import — see header comment for the bundling rationale.
   let chromium: typeof import("@playwright/test")["chromium"];
   try {
@@ -32,7 +59,7 @@ export async function scrapeWebsite(url: string): Promise<
     // Playwright not available at runtime (e.g. serverless function bundle).
     // Soft-fail so the website-scrape step degrades cleanly without crashing
     // the rest of the setup-wizard hydrate flow.
-    return { ok: false, reason: "SCRAPE_UNAVAILABLE" };
+    return scrapeViaFetch().catch(() => ({ ok: false, reason: "SCRAPE_UNAVAILABLE" }));
   }
 
   let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
@@ -62,7 +89,7 @@ export async function scrapeWebsite(url: string): Promise<
     return { ok: true, data: { logoUrl, hero: data.hero } };
   } catch {
     // intentional: no err.message leaks via SSE (CLAUDE.md rule #7)
-    return { ok: false, reason: 'FETCH_FAILED' };
+    return scrapeViaFetch().catch(() => ({ ok: false, reason: 'FETCH_FAILED' }));
   } finally {
     await browser?.close();
   }
