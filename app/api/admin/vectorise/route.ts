@@ -10,6 +10,7 @@
  *   batchSize?: number                      (default 50, max 200)
  */
 
+import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -40,7 +41,7 @@ export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   const auth = await verifyAdminFromDb(session);
   if (auth.response) return auth.response;
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+
   const user = auth.user!;
   const userId = user.id;
 
@@ -69,25 +70,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch all jobs for this tenant, unembedded first
-    const allJobs = await prisma.$queryRawUnsafe<HistoricalJobRow[]>(
-      `
-    SELECT id, "tenantId", "claimType", "waterCategory", "waterClass",
-           suburb, state, description, "jobName", "customerName",
-           "totalExTax", "itemCount", "equipmentCount", "customFields",
-           "embeddedAt"
-    FROM "HistoricalJob"
-    WHERE "tenantId" = $1
-    ORDER BY "createdAt" ASC
-    `,
-      tenantId,
-    );
+    const [{ count: totalCount }] = await prisma.$queryRaw<
+      [{ count: bigint }]
+    >(Prisma.sql`
+      SELECT COUNT(*) AS count
+      FROM "HistoricalJob"
+      WHERE "tenantId" = ${tenantId}
+    `);
+    const total = Number(totalCount);
 
-    const total = allJobs.length;
-    const toEmbed = allJobs
-      .filter((j) => j.embeddedAt === null)
-      .slice(0, batchSize);
-    const skipped = total - toEmbed.length;
+    const toEmbed = await prisma.$queryRaw<HistoricalJobRow[]>(Prisma.sql`
+      SELECT id, "tenantId", "claimType", "waterCategory", "waterClass",
+             suburb, state, description, "jobName", "customerName",
+             "totalExTax", "itemCount", "equipmentCount", "customFields",
+             "embeddedAt"
+      FROM "HistoricalJob"
+      WHERE "tenantId" = ${tenantId}
+        AND "embeddedAt" IS NULL
+      ORDER BY "createdAt" ASC
+      LIMIT ${batchSize}
+    `);
+    const skipped = Math.max(total - toEmbed.length, 0);
 
     if (toEmbed.length === 0) {
       return NextResponse.json({
@@ -128,13 +131,11 @@ export async function POST(request: NextRequest) {
         const vector = await embedText(text, provider, apiKey);
         const vectorLiteral = `[${vector.join(",")}]`;
 
-        await prisma.$executeRawUnsafe(
-          `UPDATE "HistoricalJob"
-         SET embedding = $1::vector, "embeddedAt" = NOW()
-         WHERE id = $2`,
-          vectorLiteral,
-          job.id,
-        );
+        await prisma.$executeRaw(Prisma.sql`
+          UPDATE "HistoricalJob"
+          SET embedding = ${vectorLiteral}::vector, "embeddedAt" = NOW()
+          WHERE id = ${job.id}
+        `);
         embeddedCount++;
       } catch (err) {
         errors.push(
