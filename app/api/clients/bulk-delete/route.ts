@@ -34,11 +34,20 @@ export async function DELETE(request: NextRequest) {
       });
     }
 
+    if (ids.length > 100) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Bulk delete is limited to 100 clients per request",
+        status: 400,
+      });
+    }
+
     const clients = await prisma.client.findMany({
       where: {
         id: { in: ids },
         userId: session.user.id,
       },
+      take: ids.length,
     });
 
     if (clients.length !== ids.length) {

@@ -67,7 +67,7 @@ export async function GET(
     // Get synced clients
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "50");
+    const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 100);
     const search = searchParams.get("search") || "";
 
     const where = {
@@ -165,12 +165,20 @@ export async function POST(
       );
     }
 
+    if (clientIds.length > 100) {
+      return NextResponse.json(
+        { error: "clientIds is limited to 100 entries per request" },
+        { status: 400 },
+      );
+    }
+
     // Get external clients
     const externalClients = await prisma.externalClient.findMany({
       where: {
         integrationId: integration.id,
         externalId: { in: clientIds },
       },
+      take: clientIds.length,
     });
 
     // Import to contacts

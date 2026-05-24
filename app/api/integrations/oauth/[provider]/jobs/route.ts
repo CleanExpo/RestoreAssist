@@ -67,7 +67,7 @@ export async function GET(
     // Get synced jobs
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "50");
+    const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 100);
     const search = searchParams.get("search") || "";
     const status = searchParams.get("status") || "";
 
@@ -170,12 +170,20 @@ export async function POST(
       );
     }
 
+    if (jobIds.length > 100) {
+      return NextResponse.json(
+        { error: "jobIds is limited to 100 entries per request" },
+        { status: 400 },
+      );
+    }
+
     // Get external jobs
     const externalJobs = await prisma.externalJob.findMany({
       where: {
         integrationId: integration.id,
         externalId: { in: jobIds },
       },
+      take: jobIds.length,
     });
 
     // Import to reports/claims
