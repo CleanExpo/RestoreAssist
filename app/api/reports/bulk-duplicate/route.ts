@@ -331,10 +331,7 @@ export async function POST(request: NextRequest) {
           duplicated: 0,
           failed: ids.length,
           error: "Bulk duplication failed",
-          message:
-            transactionError instanceof Error
-              ? transactionError.message
-              : "Unknown error",
+          message: "Unable to duplicate reports",
           details:
             "An error occurred while duplicating reports. No reports were created. Please try again.",
         },
