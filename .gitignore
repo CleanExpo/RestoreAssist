@@ -113,3 +113,8 @@ public/help-index.json
 
 # Ad-hoc Linear API cache from autonomous runs
 .ra5035.json
+
+# Stray secret tokens (PowerShell redirect artefacts, dev scratch — must never be committed)
+secret*.txt
+secret*.json
+**/secret*.txt
