@@ -1,11 +1,3 @@
-# Default — all PRs require owner review
+# CODEOWNERS — sole owner is the CleanExpo account (solo founder workflow)
+# Self-review is acceptable for this single-owner setup.
 * @CleanExpo
-
-# Critical paths — require explicit approval
-prisma/schema.prisma @CleanExpo
-prisma/migrations/ @CleanExpo
-lib/auth.ts @CleanExpo
-lib/stripe.ts @CleanExpo
-app/api/webhooks/ @CleanExpo
-.github/workflows/ @CleanExpo
-.env* @CleanExpo
