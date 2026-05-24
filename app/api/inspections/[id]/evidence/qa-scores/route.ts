@@ -58,6 +58,7 @@ export async function GET(
         },
       },
       orderBy: { capturedAt: "desc" },
+      take: 500,
     });
 
     // Map to QA scorer input shape

@@ -74,6 +74,7 @@ export async function GET(
   const readings = await prisma.psychrometricReading.findMany({
     where: { inspectionId: id },
     orderBy: { visitNumber: "asc" },
+    take: 365,
   });
 
   // Compute drying trend summary

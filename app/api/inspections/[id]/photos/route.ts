@@ -57,6 +57,7 @@ export async function GET(
         fileSize: true,
         mimeType: true,
       },
+      take: 500,
     });
 
     return NextResponse.json({ photos });

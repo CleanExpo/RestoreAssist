@@ -63,6 +63,7 @@ export async function POST(
       const existing = await prisma.scopeItem.findMany({
         where: { inspectionId: id },
         select: { itemType: true },
+        take: 500,
       });
       const existingTypes = new Set(existing.map((e) => e.itemType));
 
@@ -93,6 +94,7 @@ export async function POST(
             itemType: { in: newItems.map((i) => i.itemType) },
           },
           select: { id: true, itemType: true, description: true },
+          take: newItems.length,
         });
       }
 

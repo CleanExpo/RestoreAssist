@@ -42,6 +42,7 @@ export async function GET(
         },
       },
       orderBy: [{ floorNumber: "asc" }, { createdAt: "asc" }],
+      take: 50,
     });
 
     return NextResponse.json({ sketches });

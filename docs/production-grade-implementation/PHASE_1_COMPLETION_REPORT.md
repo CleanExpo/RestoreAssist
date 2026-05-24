@@ -30,6 +30,7 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - API audit warning-reduction slice completed: warnings reduced from 76 to 61 by fixing false positives in the audit scanner and bounding high-confidence authenticated list reads.
 - API audit bounded bulk/import slice completed: warnings reduced from 61 to 57 by adding request-size limits and explicit Prisma caps for selected bulk/import/list routes.
 - API audit bounded detail/helper slice completed: warnings reduced from 57 to 52 by bounding selected detail/helper reads and replacing one full question-table lookup with `findFirst`.
+- API audit inspection list slice completed: warnings reduced from 52 to 44 by adding conservative caps to selected inspection-scoped list reads.
 
 ## Validation Evidence
 
@@ -50,13 +51,14 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - API audit warning-reduction slice: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 61 warnings / 0 errors before final validation.
 - API audit bounded bulk/import slice: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 57 warnings / 0 errors before final validation.
 - API audit bounded detail/helper slice: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 52 warnings / 0 errors before final validation.
+- API audit inspection list slice: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 44 warnings / 0 errors before final validation.
 
 ## Phase 1 Acceptance Criteria Still Open
 
 - Production forbidden-env audit is not yet green: Vercel Production lists `NODE_TLS_REJECT_UNAUTHORIZED`.
 - Live Supabase RLS revalidation still needs an authenticated check against project `udooysjajglluvuxkijp`, but the RA-4970 migration and production apply evidence are present in this branch.
 - Admin route DB-role revalidation sweep is not complete.
-- P0 query/raw SQL/error leakage routes are not fully patched; API audit currently reports 0 errors and 52 warnings.
+- P0 query/raw SQL/error leakage routes are not fully patched; API audit currently reports 0 errors and 44 warnings.
 - Shared media validator has not been migrated across canonical upload and sketch import.
 - Sketch import still needs non-process-local rate limiting and magic-byte validation verification.
 - Offline mutation idempotency foundation is client-tested and mobile package type-check is now repeatable, but server replay is not yet backed by durable database idempotency.
@@ -86,7 +88,7 @@ Next action: run `vercel env rm NODE_TLS_REJECT_UNAUTHORIZED production --scope 
 
 ### API route hardening debt
 
-Error: advisory API route scan reports 0 error-severity findings and 52 warnings.
+Error: advisory API route scan reports 0 error-severity findings and 44 warnings.
 
 Cause: inherited warning-severity debt remains across public exception reviews and heavier Prisma reads that need route-specific product/security decisions before applying caps or pagination.
 
@@ -100,4 +102,4 @@ RestoreAssist is not ship-ready.
 
 ## Next Safe Action
 
-Continue Priority 4 with route-specific review of the remaining 52 API audit warnings. Continue only from `/private/tmp/RestoreAssist-phase1-main` and do not stage `.github/PULL_REQUEST_TEMPLATE.md`.
+Continue Priority 4 with route-specific review of the remaining 44 API audit warnings. Continue only from `/private/tmp/RestoreAssist-phase1-main` and do not stage `.github/PULL_REQUEST_TEMPLATE.md`.
