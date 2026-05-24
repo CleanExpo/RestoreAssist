@@ -186,6 +186,7 @@ Follow-up hardening pass:
 - `app/api/reports/bulk-export-excel-list/route.ts`
 - `app/api/reports/bulk-export-excel/route.ts`
 - `app/api/reports/bulk-export-zip/route.ts`
+- `app/api/setup/hydrate/stream/route.ts`
 
 ## Validation Run
 
@@ -205,6 +206,7 @@ Follow-up hardening pass:
 - API audit inspection workflow/support-read slice: capped sketch estimate floor reads, workflow evidence/exception/step reads, and client-scoped report ID lookup feeding the paginated inspection list. Final validation: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 41 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 840 warnings, `git diff --check` PASS.
 - API audit bounded authority/bulk support slice: replaced token-signing completion scan with an unsigned-signature count, capped report authority-form listing, bounded bulk-status notification report lookup, and added a 100-report bulk-delete request cap with a matching Prisma `take`. Final validation: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 37 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 840 warnings, `git diff --check` PASS.
 - API audit bounded report bulk/export slice: added explicit Prisma `take` caps for bulk duplicate, Excel export, Excel URL-list export, and ZIP export reads, plus a 100-report request cap for the Excel URL-list route. Final validation: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 33 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 840 warnings, `git diff --check` PASS.
+- API audit hydration stream slice: added deterministic ordering and an explicit 3-job cap to setup hydration SSE polling. Final validation: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 32 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 840 warnings, `git diff --check` PASS.
 
 ## Failing Or Blocked Checks
 
@@ -230,7 +232,7 @@ Next action: run `vercel env rm NODE_TLS_REJECT_UNAUTHORIZED production --scope 
 
 ### API route audit inherited findings
 
-Error: advisory API route scan reports 0 error-severity findings and 33 warning-severity findings.
+Error: advisory API route scan reports 0 error-severity findings and 32 warning-severity findings.
 
 Cause: error-severity auth/raw-SQL/500-leak findings have been remediated or classified as documented public exception candidates. Recent slices removed false positives and high-confidence unbounded list/import/detail/workflow/bulk support/export reads, but warning-severity inherited debt remains across public exception reviews and heavier Prisma `findMany` candidates that need route-specific product/security decisions.
 
@@ -244,7 +246,7 @@ Next action: review the remaining warning-severity public exceptions and heavier
 - `ClientMutation` and `FieldCaptureEvent` Prisma models are still absent.
 - Process-local idempotency in `lib/idempotency.ts` is not sufficient for multi-instance/serverless offline replay guarantees.
 - Mobile validation is now repeatable as a standalone Expo package path, but mobile is intentionally not part of root workspace validation yet.
-- API route audit is advisory only. It has identified inherited route-hardening debt and these slices reduced warnings from 76 to 33, but remaining public/token and heavier query warnings still need review.
+- API route audit is advisory only. It has identified inherited route-hardening debt and these slices reduced warnings from 76 to 32, but remaining public/token and heavier query warnings still need review.
 - Protected `.github/PULL_REQUEST_TEMPLATE.md` case-collision dirtiness remains visible and must not be staged with Phase 1 work.
 
 ## Rollback Notes
@@ -254,4 +256,4 @@ Next action: review the remaining warning-severity public exceptions and heavier
 
 ## Next Safe Action
 
-Continue Priority 4 with route-specific review of the remaining 33 API audit warnings, starting with bounded `findMany` candidates that can be capped without changing aggregate semantics. Keep using `/private/tmp/RestoreAssist-phase1-main` only, and do not stage `.github/PULL_REQUEST_TEMPLATE.md`.
+Continue Priority 4 with route-specific review of the remaining 32 API audit warnings. Remaining Prisma warnings are mostly aggregate, sync, invoice-sequence recovery, webhook signature resolution, or pilot-readiness summaries that require route-specific product/security decisions before applying caps. Keep using `/private/tmp/RestoreAssist-phase1-main` only, and do not stage `.github/PULL_REQUEST_TEMPLATE.md`.

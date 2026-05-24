@@ -34,6 +34,7 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - API audit inspection workflow/support-read slice completed: warnings reduced from 44 to 41 by bounding sketch estimate, workflow evidence/exception/step, and client-scoped report ID reads.
 - API audit bounded authority/bulk support slice completed: warnings reduced from 41 to 37 by replacing token-signature completion scan with a count and bounding selected authority-form/bulk report reads.
 - API audit bounded report bulk/export slice completed: warnings reduced from 37 to 33 by adding explicit caps to selected bulk duplicate/export report reads.
+- API audit hydration stream slice completed: warnings reduced from 33 to 32 by bounding setup hydration SSE polling to the three expected organization setup jobs.
 
 ## Validation Evidence
 
@@ -58,13 +59,14 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - API audit inspection workflow/support-read slice: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 41 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 840 warnings, `git diff --check` PASS.
 - API audit bounded authority/bulk support slice: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 37 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 840 warnings, `git diff --check` PASS.
 - API audit bounded report bulk/export slice: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 33 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 840 warnings, `git diff --check` PASS.
+- API audit hydration stream slice: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 32 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 840 warnings, `git diff --check` PASS.
 
 ## Phase 1 Acceptance Criteria Still Open
 
 - Production forbidden-env audit is not yet green: Vercel Production lists `NODE_TLS_REJECT_UNAUTHORIZED`.
 - Live Supabase RLS revalidation still needs an authenticated check against project `udooysjajglluvuxkijp`, but the RA-4970 migration and production apply evidence are present in this branch.
 - Admin route DB-role revalidation sweep is not complete.
-- P0 query/raw SQL/error leakage routes are not fully patched; API audit currently reports 0 errors and 33 warnings.
+- P0 query/raw SQL/error leakage routes are not fully patched; API audit currently reports 0 errors and 32 warnings.
 - Shared media validator has not been migrated across canonical upload and sketch import.
 - Sketch import still needs non-process-local rate limiting and magic-byte validation verification.
 - Offline mutation idempotency foundation is client-tested and mobile package type-check is now repeatable, but server replay is not yet backed by durable database idempotency.
@@ -94,7 +96,7 @@ Next action: run `vercel env rm NODE_TLS_REJECT_UNAUTHORIZED production --scope 
 
 ### API route hardening debt
 
-Error: advisory API route scan reports 0 error-severity findings and 33 warnings.
+Error: advisory API route scan reports 0 error-severity findings and 32 warnings.
 
 Cause: inherited warning-severity debt remains across public exception reviews and heavier Prisma reads that need route-specific product/security decisions before applying caps or pagination.
 
@@ -108,4 +110,4 @@ RestoreAssist is not ship-ready.
 
 ## Next Safe Action
 
-Continue Priority 4 with route-specific review of the remaining 33 API audit warnings. Continue only from `/private/tmp/RestoreAssist-phase1-main` and do not stage `.github/PULL_REQUEST_TEMPLATE.md`.
+Continue Priority 4 with route-specific review of the remaining 32 API audit warnings. Remaining Prisma warnings are mostly aggregate, sync, invoice-sequence recovery, webhook signature resolution, or pilot-readiness summaries that require route-specific product/security decisions before applying caps. Continue only from `/private/tmp/RestoreAssist-phase1-main` and do not stage `.github/PULL_REQUEST_TEMPLATE.md`.
