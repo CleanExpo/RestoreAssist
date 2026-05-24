@@ -84,12 +84,29 @@ function hasAuth(content: string): boolean {
 }
 
 function findManyWithoutTake(content: string): boolean {
-  const lines = content.split("\n");
-  for (let index = 0; index < lines.length; index++) {
-    if (!lines[index].includes(".findMany(")) continue;
-    const window = lines.slice(index, index + 25).join("\n");
-    if (!/\btake\s*:/.test(window)) return true;
+  const marker = ".findMany(";
+  let start = content.indexOf(marker);
+
+  while (start !== -1) {
+    const openParen = content.indexOf("(", start);
+    let depth = 0;
+    let end = openParen;
+
+    for (let index = openParen; index < content.length; index++) {
+      const char = content[index];
+      if (char === "(") depth++;
+      if (char === ")") depth--;
+      if (depth === 0) {
+        end = index + 1;
+        break;
+      }
+    }
+
+    const call = content.slice(start, end);
+    if (!/\btake\s*:/.test(call)) return true;
+    start = content.indexOf(marker, end);
   }
+
   return false;
 }
 

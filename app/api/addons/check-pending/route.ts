@@ -37,6 +37,8 @@ export async function POST(request: NextRequest) {
       const existingPurchases = await prisma.addonPurchase.findMany({
         where: { userId: session.user.id },
         select: { stripeSessionId: true },
+        orderBy: { purchasedAt: "desc" },
+        take: 100,
       });
       processedSessionIds = existingPurchases
         .map((p) => p.stripeSessionId)

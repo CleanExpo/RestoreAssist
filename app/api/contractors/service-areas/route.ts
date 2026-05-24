@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
     const serviceAreas = await prisma.contractorServiceArea.findMany({
       where: { profileId: profile.id },
       orderBy: [{ priority: "desc" }, { postcode: "asc" }],
+      take: 100,
     });
 
     return NextResponse.json({ serviceAreas });

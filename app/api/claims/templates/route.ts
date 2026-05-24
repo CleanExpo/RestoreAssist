@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
     const templates = await prisma.standardTemplate.findMany({
       where,
       orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
+      take: 200,
     });
 
     return NextResponse.json({ templates });

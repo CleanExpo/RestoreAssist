@@ -19,6 +19,51 @@ RestoreAssist is not ship-ready. This log records production-readiness work comp
 
 ## Completed Tasks
 
+### SEC-001: Supabase RLS P0 Local Validation
+
+Validated the safe-branch RA-4970 artifacts for the production RLS P0:
+
+- `supabase/migrations/20260518_enable_rls_phase_1_close_anon_exposure.sql` exists and enables RLS on the 119 named public tables through an existence-checked helper.
+- `.claude/aggregation/supabase/ra-4970-apply-log.md` records three successful production apply/confirmation passes against `udooysjajglluvuxkijp`.
+- recorded production post-state is `rls_off=0`, `rls_on=197`, `anon_select_policies=12`, with `0` ERROR-level Supabase security advisor findings after apply.
+- `.claude/aggregation/supabase/service-role-audit-2026-05-18.md` documents that browser Supabase usage is storage-only and table access uses Prisma or `SUPABASE_SERVICE_ROLE_KEY`.
+
+Created `docs/production-grade-implementation/RA-4970_RLS_VALIDATION_REPORT.md` to separate the completed local/code validation from the remaining live Supabase revalidation step.
+
+### INF-005: Vercel TLS Env Verification
+
+Verified Vercel TLS bypass risk from the safe worktree without modifying production env values.
+
+Repo inspection found no executable assignment of `NODE_TLS_REJECT_UNAUTHORIZED`, and no setting in `vercel.json`, `.env.example`, `scripts/build.sh`, or GitHub workflows. Two Ascora route comments still document the workaround as a dev/prod option.
+
+Live Vercel env names/scopes were inspected read-only from a temporary directory outside the repo (`/private/tmp/ra-vercel-env-check`) linked to `unite-group/restoreassist`. Result:
+
+- Production: `NODE_TLS_REJECT_UNAUTHORIZED` is present as an encrypted env var, created 56d ago.
+- Preview: not present.
+- Development: not present.
+
+Created `docs/production-grade-implementation/VERCEL_TLS_ENV_VERIFICATION_REPORT.md`. Priority 2 is now documented as a live production env blocker: remove the production variable or provide audited proof its value is not `0` and harmless. No secrets were pulled or printed into repo docs.
+
+### MOB-002: Mobile Validation Path
+
+Defined and validated the repeatable mobile install/type-check path as a separate package rather than adding `mobile/` to the root pnpm workspace.
+
+Decision: keep mobile outside the root workspace for now because the web app uses React 19 / Next 16 / TypeScript 6-era tooling while mobile uses Expo 52 / React 18 / React Native 0.76 / TypeScript 5.3.
+
+Implemented:
+
+- added `mobile/pnpm-lock.yaml` through `pnpm --dir mobile install --ignore-workspace`
+- changed `mobile/tsconfig.json` `ignoreDeprecations` to `5.0` for the mobile package's TypeScript 5.3 compiler
+- excluded mobile tests/test mocks/Vitest config from production mobile type-check
+- removed a root server type-only import from `mobile/lib/api/byok-vision-client.ts` by defining the mobile response contract locally
+- created `docs/production-grade-implementation/MOBILE_VALIDATION_PATH_REPORT.md`
+
+Repeatable commands:
+
+- `pnpm --dir mobile install --ignore-workspace`
+- `pnpm --dir mobile --ignore-workspace type-check`
+- `cd mobile && pnpm exec vitest run --config vitest.config.ts`
+
 ### MOB-001: Offline Mutation Queue Test Coverage
 
 The existing mobile offline queue core now has focused unit coverage for the first production-safety invariants:
@@ -93,6 +138,26 @@ Follow-up hardening pass:
 - `app/api/inspections/[id]/vectorise-jobs/route.ts`
 - `app/api/admin/migrate-v2/route.ts`
 - `app/api/ascora/sync/route.ts`
+- `docs/production-grade-implementation/CHECKOUT_STATE_REPORT.md`
+- `docs/production-grade-implementation/RA-4970_RLS_VALIDATION_REPORT.md`
+- `docs/production-grade-implementation/VERCEL_TLS_ENV_VERIFICATION_REPORT.md`
+- `docs/production-grade-implementation/MOBILE_VALIDATION_PATH_REPORT.md`
+- `docs/production-grade-implementation/PHASE_1_PROGRESS_LOG.md`
+- `docs/production-grade-implementation/PHASE_1_COMPLETION_REPORT.md`
+- `mobile/lib/api/byok-vision-client.ts`
+- `mobile/tsconfig.json`
+- `mobile/pnpm-lock.yaml`
+- `app/api/addons/check-pending/route.ts`
+- `app/api/addons/purchases/route.ts`
+- `app/api/authority-forms/templates/route.ts`
+- `app/api/claims/templates/route.ts`
+- `app/api/contractors/certifications/route.ts`
+- `app/api/contractors/service-areas/route.ts`
+- `app/api/form-templates/route.ts`
+- `app/api/insurer-profiles/route.ts`
+- `app/api/pricing-config/route.ts`
+- `app/api/scope-templates/route.ts`
+- `app/api/team/assignees/route.ts`
 
 ## Validation Run
 
@@ -102,43 +167,57 @@ Follow-up hardening pass:
 - `pnpm type-check`: PASS
 - `pnpm lint`: PASS with 0 errors and 840 warnings
 - `git diff --check`: PASS
+- RLS validation slice rerun after `RA-4970_RLS_VALIDATION_REPORT.md`: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 76 findings / 0 errors / 76 warnings, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 840 warnings, `git diff --check` PASS.
+- Vercel TLS env verification slice: `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 840 warnings, `git diff --check` PASS.
+- Mobile validation path slice: `pnpm --dir mobile install --ignore-workspace` PASS after network access, `pnpm --dir mobile --ignore-workspace type-check` PASS, `cd mobile && pnpm exec vitest run --config vitest.config.ts` PASS with 1 file / 3 tests.
+- API audit warning-reduction slice: starting audit 442 routes / 76 warnings / 0 errors. Warning categories were `prisma-findmany-take` and `public-token-route-review`. The scanner now checks the full `findMany(...)` call instead of a 25-line window, with regression coverage for large include/select blocks. Added explicit caps to high-confidence authenticated list routes and replaced one existence-only integration lookup with `findFirst`. Ending audit: 442 routes / 61 warnings / 0 errors.
 
 ## Failing Or Blocked Checks
 
-### Mobile full type-check
+### Live Supabase RLS revalidation
 
-Error: `pnpm exec tsc --noEmit -p mobile/tsconfig.json` fails.
+Error: live Supabase revalidation was not run in this turn.
 
-Cause: mobile package dependencies are not installed in this worktree because `mobile/` is not part of `pnpm-workspace.yaml`; TypeScript cannot resolve `expo-router`, `react-native`, Expo modules, or `expo-sqlite` type declarations.
+Cause: no Supabase MCP/project credential tool is available in the current toolset.
 
-Fix: add a dedicated, lockfile-backed mobile install/workspace strategy or run mobile type-check in the Expo/mobile package environment where those dependencies are installed.
+Fix: re-run the smoke queries in `.claude/aggregation/supabase/ra-4970-apply-log.md` against project `udooysjajglluvuxkijp`.
 
-Next action: keep Phase 1 web validation authoritative for this branch and use the mobile-specific Vitest config for queue logic until mobile dependency ownership is resolved.
+Next action: confirm `rls_off=0`, `rls_on=197`, `anon_select_policies=12`, and `0` ERROR-level security advisor findings with live Supabase access.
+
+### Vercel production TLS bypass
+
+Error: `NODE_TLS_REJECT_UNAUTHORIZED` exists in the Vercel Production environment.
+
+Cause: historical Ascora self-signed/non-standard certificate workaround was documented as a production env option and appears to have been applied.
+
+Fix: remove `NODE_TLS_REJECT_UNAUTHORIZED` from Vercel Production unless an owner provides audited proof that the encrypted value is not `0` and harmless. Prefer a scoped Ascora TLS trust strategy over process-wide certificate verification bypass.
+
+Next action: run `vercel env rm NODE_TLS_REJECT_UNAUTHORIZED production --scope unite-group` from the linked temp directory or Vercel dashboard, then confirm `vercel env ls production --scope unite-group` no longer lists it.
 
 ### API route audit inherited findings
 
-Error: advisory API route scan reports 0 error-severity findings and 76 warning-severity findings.
+Error: advisory API route scan reports 0 error-severity findings and 61 warning-severity findings.
 
-Cause: error-severity auth/raw-SQL/500-leak findings have been remediated or classified as documented public exception candidates. Warning-severity inherited debt remains across public exception reviews and unbounded/shape-incomplete Prisma `findMany` candidates.
+Cause: error-severity auth/raw-SQL/500-leak findings have been remediated or classified as documented public exception candidates. This slice removed false positives and high-confidence unbounded list reads, but warning-severity inherited debt remains across public exception reviews and heavier Prisma `findMany` candidates that need route-specific product/security decisions.
 
-Fix: remediate warning groups in narrow commits, then run the scanner without `--strict` to verify count reduction. `--strict` can now be considered for error-severity findings only, but warnings still need manual review before ship.
+Fix: continue remediating warning groups in narrow commits, then run the scanner without `--strict` to verify count reduction. `--strict` can now be considered for error-severity findings only, but warnings still need manual review before ship.
 
-Next action: review the remaining warning-severity public exceptions and `findMany` candidates, then decide which warnings become strict ship gates.
+Next action: review the remaining warning-severity public exceptions and heavier `findMany` candidates, then decide which warnings become strict ship gates.
 
 ## Unresolved Risks
 
 - MOB-001 is only partially covered. The client queue exists and now has tests, but server replay is not yet backed by durable database idempotency.
 - `ClientMutation` and `FieldCaptureEvent` Prisma models are still absent.
 - Process-local idempotency in `lib/idempotency.ts` is not sufficient for multi-instance/serverless offline replay guarantees.
-- Full mobile type-check is blocked by dependency/workspace ownership.
-- API route audit is advisory only. It has identified inherited route-hardening debt but has not remediated those routes yet.
+- Mobile validation is now repeatable as a standalone Expo package path, but mobile is intentionally not part of root workspace validation yet.
+- API route audit is advisory only. It has identified inherited route-hardening debt and this slice reduced warnings from 76 to 61, but remaining public/token and heavier query warnings still need review.
 - Protected `.github/PULL_REQUEST_TEMPLATE.md` case-collision dirtiness remains visible and must not be staged with Phase 1 work.
 
 ## Rollback Notes
 
-- The new mobile Vitest config and tests are additive and can be reverted without changing runtime behavior.
-- `mobile/tsconfig.json` now extends a local `mobile/tsconfig.base.json` so tests can transform TypeScript without relying on an uninstalled `expo/tsconfig.base` package in this worktree.
+- `mobile/pnpm-lock.yaml` can be reverted to return mobile dependency ownership to the previous undocumented state.
+- Reverting the `mobile/tsconfig.json` and `mobile/lib/api/byok-vision-client.ts` changes reintroduces the TypeScript 5.3 config error and root-server type dependency that blocked standalone mobile type-check.
 
 ## Next Safe Action
 
-Continue Phase 1 by remediating the advisory API audit error findings in narrow route groups, or return to MOB-001 durable idempotency once a safe database migration path is available.
+Continue Priority 4 with route-specific review of the remaining 61 API audit warnings, starting with bounded `findMany` candidates that can be capped without changing aggregate semantics. Keep using `/private/tmp/RestoreAssist-phase1-main` only, and do not stage `.github/PULL_REQUEST_TEMPLATE.md`.

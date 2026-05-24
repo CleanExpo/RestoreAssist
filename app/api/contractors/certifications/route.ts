@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
     const certifications = await prisma.contractorCertification.findMany({
       where: { profileId: profile.id },
       orderBy: { createdAt: "desc" },
+      take: 100,
     });
 
     return NextResponse.json({ certifications });

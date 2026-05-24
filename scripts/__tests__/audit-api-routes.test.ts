@@ -51,6 +51,52 @@ describe("auditApiRoute", () => {
     expect(findings).toHaveLength(0);
   });
 
+  it("accepts bounded findMany calls with large select/include blocks", () => {
+    const findings = auditApiRoute(
+      "app/api/contractors/route.ts",
+      `
+        const session = await getServerSession(authOptions);
+        await prisma.contractorProfile.findMany({
+          where: { isPubliclyVisible: true },
+          include: {
+            user: {
+              select: {
+                businessName: true,
+                businessLogo: true,
+                businessAddress: true,
+              },
+            },
+            certifications: {
+              where: { verificationStatus: "VERIFIED" },
+              select: {
+                certificationType: true,
+                certificationName: true,
+              },
+            },
+            serviceAreas: {
+              where: { isActive: true },
+              select: {
+                postcode: true,
+                suburb: true,
+                state: true,
+              },
+              take: 5,
+            },
+          },
+          orderBy: [
+            { isVerified: "desc" },
+            { averageRating: "desc" },
+            { totalReviews: "desc" },
+          ],
+          skip: 0,
+          take: 20,
+        });
+      `,
+    );
+
+    expect(findings).toHaveLength(0);
+  });
+
   it("flags error.message JSON responses", () => {
     const findings = auditApiRoute(
       "app/api/clients/route.ts",
