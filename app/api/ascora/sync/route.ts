@@ -22,6 +22,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ruleBasedClassify } from "@/lib/ai/auto-classify";
@@ -336,27 +337,20 @@ export async function POST(request: NextRequest) {
       if (cronErr) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
-      // Cron auth passed — auto-create V2 tables if missing (managed Postgres)
-      const tableCheck = (await prisma.$queryRaw`
+      // Cron auth passed — verify the migration-created Ascora tables exist.
+      const tableCheck = (await prisma.$queryRaw(
+        Prisma.sql`
         SELECT tablename FROM pg_tables
-        WHERE schemaname = 'public' AND tablename = 'AscoraIntegration'`) as any[];
+        WHERE schemaname = 'public' AND tablename = 'AscoraIntegration'`,
+      )) as any[];
       if (!tableCheck || tableCheck.length === 0) {
-        const ddl = [
-          `CREATE TABLE IF NOT EXISTS "AscoraIntegration" ("id" TEXT NOT NULL PRIMARY KEY DEFAULT gen_random_uuid()::text, "userId" TEXT NOT NULL UNIQUE, "apiKey" TEXT NOT NULL, "baseUrl" TEXT NOT NULL DEFAULT 'https://api.ascora.com.au', "isActive" BOOLEAN NOT NULL DEFAULT true, "lastSyncAt" TIMESTAMP(3), "totalJobsImported" INTEGER NOT NULL DEFAULT 0, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "AscoraIntegration_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE)`,
-          `CREATE TABLE IF NOT EXISTS "AscoraJob" ("id" TEXT NOT NULL PRIMARY KEY DEFAULT gen_random_uuid()::text, "integrationId" TEXT NOT NULL, "ascoraJobId" TEXT NOT NULL UNIQUE, "ascoraJobNumber" TEXT, "jobType" TEXT, "claimType" TEXT, "suburb" TEXT, "state" TEXT, "postcode" TEXT, "completedAt" TIMESTAMP(3), "sentToMyob" BOOLEAN NOT NULL DEFAULT false, "totalExTax" DOUBLE PRECISION, "importedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "AscoraJob_integrationId_fkey" FOREIGN KEY ("integrationId") REFERENCES "AscoraIntegration"("id") ON DELETE CASCADE ON UPDATE CASCADE)`,
-          `CREATE INDEX IF NOT EXISTS "AscoraJob_integrationId_idx" ON "AscoraJob"("integrationId")`,
-          `CREATE INDEX IF NOT EXISTS "AscoraJob_claimType_idx" ON "AscoraJob"("claimType")`,
-          `CREATE INDEX IF NOT EXISTS "AscoraJob_completedAt_idx" ON "AscoraJob"("completedAt")`,
-          `CREATE TABLE IF NOT EXISTS "AscoraLineItem" ("id" TEXT NOT NULL PRIMARY KEY DEFAULT gen_random_uuid()::text, "ascoraJobId" TEXT NOT NULL, "partNumber" TEXT NOT NULL, "description" TEXT NOT NULL, "quantity" DOUBLE PRECISION NOT NULL, "unitPriceExTax" DOUBLE PRECISION NOT NULL, "amountExTax" DOUBLE PRECISION NOT NULL, "invoiceDate" TIMESTAMP(3), "importedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "AscoraLineItem_ascoraJobId_fkey" FOREIGN KEY ("ascoraJobId") REFERENCES "AscoraJob"("id") ON DELETE CASCADE ON UPDATE CASCADE)`,
-          `CREATE INDEX IF NOT EXISTS "AscoraLineItem_ascoraJobId_idx" ON "AscoraLineItem"("ascoraJobId")`,
-          `CREATE TABLE IF NOT EXISTS "AscoraNote" ("id" TEXT NOT NULL PRIMARY KEY DEFAULT gen_random_uuid()::text, "ascoraJobId" TEXT NOT NULL, "noteText" TEXT NOT NULL, "importedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "AscoraNote_ascoraJobId_fkey" FOREIGN KEY ("ascoraJobId") REFERENCES "AscoraJob"("id") ON DELETE CASCADE ON UPDATE CASCADE)`,
-          `CREATE TABLE IF NOT EXISTS "ScopePricingDatabase" ("id" TEXT NOT NULL PRIMARY KEY DEFAULT gen_random_uuid()::text, "partNumber" TEXT NOT NULL UNIQUE, "description" TEXT NOT NULL, "claimTypes" TEXT[] NOT NULL DEFAULT '{}', "usageCount" INTEGER NOT NULL DEFAULT 0, "averageUnitPriceAU" DOUBLE PRECISION NOT NULL, "medianUnitPriceAU" DOUBLE PRECISION, "minPriceAU" DOUBLE PRECISION, "maxPriceAU" DOUBLE PRECISION, "averageQuantity" DOUBLE PRECISION, "acceptanceRate" DOUBLE PRECISION, "acceptedCount" INTEGER NOT NULL DEFAULT 0, "rejectedCount" INTEGER NOT NULL DEFAULT 0, "priceHistory" JSONB, "source" TEXT NOT NULL DEFAULT 'ascora', "isActive" BOOLEAN NOT NULL DEFAULT true, "lastUpdated" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
-          `CREATE TABLE IF NOT EXISTS "HistoricalJob" ("id" TEXT NOT NULL PRIMARY KEY DEFAULT gen_random_uuid()::text, "tenantId" TEXT NOT NULL, "source" TEXT NOT NULL, "externalId" TEXT NOT NULL, "jobNumber" TEXT NOT NULL, "jobName" TEXT NOT NULL, "description" TEXT NOT NULL, "claimType" TEXT NOT NULL, "waterCategory" TEXT, "waterClass" TEXT, "address" TEXT, "suburb" TEXT NOT NULL, "state" TEXT NOT NULL, "postcode" TEXT NOT NULL, "customerName" TEXT, "totalExTax" DOUBLE PRECISION NOT NULL DEFAULT 0, "totalIncTax" DOUBLE PRECISION NOT NULL DEFAULT 0, "completedDate" TIMESTAMP(3), "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "HistoricalJob_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE)`,
-          `CREATE UNIQUE INDEX IF NOT EXISTS "HistoricalJob_source_externalId_key" ON "HistoricalJob"("source", "externalId")`,
-        ];
-        for (const stmt of ddl) {
-          await prisma.$executeRawUnsafe(stmt);
-        }
+        return NextResponse.json(
+          {
+            error:
+              "Ascora schema is not provisioned. Run Prisma migrations before syncing.",
+          },
+          { status: 503 },
+        );
       }
       const firstIntegration = await (
         prisma as any

@@ -63,7 +63,8 @@ Follow-up hardening pass:
 - converted health raw SQL checks to `Prisma.sql`, removed migration exception detail leakage, and classified documented public health monitor endpoints as exception candidates
 - classified documented public directory/checklist/OAuth/observability/setup endpoints as exception candidates and protected the mobile beta signup count endpoint with DB-verified admin auth
 - converted admin stats and vectorise-jobs raw SQL to `Prisma.sql`/parameterized Prisma raw APIs, and removed vectorise-jobs fallback 500 message leakage
-- current scan result: 442 routes, 78 findings, 2 errors, 76 warnings
+- retired the gated admin runtime-DDL endpoint with a migrations-only `410` response and removed Ascora sync's auto-DDL bootstrap in favor of migration verification
+- current scan result: 442 routes, 76 findings, 0 errors, 76 warnings
 
 ## Files Changed
 
@@ -90,12 +91,14 @@ Follow-up hardening pass:
 - `app/api/mobile/beta-signup/route.ts`
 - `app/api/admin/stats/route.ts`
 - `app/api/inspections/[id]/vectorise-jobs/route.ts`
+- `app/api/admin/migrate-v2/route.ts`
+- `app/api/ascora/sync/route.ts`
 
 ## Validation Run
 
 - `pnpm exec vitest run --config vitest.config.ts` from `mobile/`: PASS, 1 file / 3 tests
 - `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts`: PASS, 1 file / 6 tests
-- `pnpm exec tsx scripts/audit-api-routes.ts --json`: PASS, scanned 442 routes with 78 advisory findings after raw SQL conversion for admin stats and vectorise-jobs
+- `pnpm exec tsx scripts/audit-api-routes.ts --json`: PASS, scanned 442 routes with 76 advisory findings and 0 error findings after retiring runtime DDL paths
 - `pnpm type-check`: PASS
 - `pnpm lint`: PASS with 0 errors and 840 warnings
 - `git diff --check`: PASS
@@ -114,13 +117,13 @@ Next action: keep Phase 1 web validation authoritative for this branch and use t
 
 ### API route audit inherited findings
 
-Error: advisory API route scan reports 2 error-severity findings and 76 warning-severity findings.
+Error: advisory API route scan reports 0 error-severity findings and 76 warning-severity findings.
 
-Cause: the current codebase still contains inherited API production risks across unauthenticated route candidates, admin routes without DB-role revalidation, unsafe/raw SQL patterns, unbounded `findMany` candidates, and remaining direct 500 response message leaks.
+Cause: error-severity auth/raw-SQL/500-leak findings have been remediated or classified as documented public exception candidates. Warning-severity inherited debt remains across public exception reviews and unbounded/shape-incomplete Prisma `findMany` candidates.
 
-Fix: remediate route groups in narrow commits, then run the scanner without `--strict` to verify count reduction; only enable `--strict` once the inherited error count is zero.
+Fix: remediate warning groups in narrow commits, then run the scanner without `--strict` to verify count reduction. `--strict` can now be considered for error-severity findings only, but warnings still need manual review before ship.
 
-Next action: continue with the remaining error-severity API findings that map directly to Phase 1 critical gaps: admin DB-role revalidation, public health/OAuth/mobile route auth decisions, unsafe raw SQL, and remaining 500 response leakage.
+Next action: review the remaining warning-severity public exceptions and `findMany` candidates, then decide which warnings become strict ship gates.
 
 ## Unresolved Risks
 

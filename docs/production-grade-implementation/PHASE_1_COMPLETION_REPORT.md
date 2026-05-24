@@ -21,6 +21,7 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - Health routes now use `Prisma.sql` for raw probes, no longer expose migration exception details, and are documented as public monitoring exception candidates in the advisory audit.
 - Public directory/checklist/OAuth/observability/setup endpoints are now explicit advisory exception candidates, and mobile beta signup counts require DB-verified admin auth.
 - Admin stats and vectorise-jobs raw SQL now use `Prisma.sql`/parameterized Prisma raw APIs; vectorise-jobs fallback 500 response no longer exposes exception messages.
+- Runtime DDL paths were removed from admin migrate-v2 and Ascora sync; both now require Prisma migrations to own schema setup.
 - Codex Stop hook repaired and trusted with `bash .codex/hooks/stop-verifier.sh`.
 
 ## Validation Evidence
@@ -34,7 +35,7 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - `pnpm audit --audit-level=high --prod`: PASS for high-severity gate during branch recovery; 3 moderate vulnerabilities reported
 - `pnpm exec vitest run --config vitest.config.ts` from `mobile/`: PASS, 1 file / 3 tests
 - `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts`: PASS, 1 file / 6 tests
-- `pnpm exec tsx scripts/audit-api-routes.ts --json`: PASS, scanned 442 routes with 2 error-severity and 76 warning-severity advisory findings after raw SQL conversion for admin stats and vectorise-jobs
+- `pnpm exec tsx scripts/audit-api-routes.ts --json`: PASS, scanned 442 routes with 0 error-severity and 76 warning-severity advisory findings after retiring runtime DDL paths
 - `git diff --check`: PASS
 
 ## Phase 1 Acceptance Criteria Still Open
@@ -62,13 +63,13 @@ Next action: keep mobile queue logic covered by `mobile/vitest.config.ts` while 
 
 ### API route hardening debt
 
-Error: advisory API route scan reports 2 error-severity findings and 76 warnings.
+Error: advisory API route scan reports 0 error-severity findings and 76 warnings.
 
-Cause: inherited route-hardening debt remains across auth decisions, admin DB-role checks, raw SQL patterns, bounded Prisma reads, and 500 response bodies.
+Cause: inherited warning-severity debt remains across public exception reviews and unbounded/shape-incomplete Prisma reads.
 
-Fix: remediate route groups in small commits and run `pnpm exec tsx scripts/audit-api-routes.ts --json` after each group; enable `--strict` only after the inherited error count reaches zero.
+Fix: remediate warning groups in small commits and run `pnpm exec tsx scripts/audit-api-routes.ts --json` after each group. Treat public exception warnings as a manual security review checklist before ship.
 
-Next action: continue with remaining admin DB-role revalidation, raw SQL, unauthenticated route decisions, and direct 500 response leakage findings.
+Next action: continue with warning-severity `findMany` bounds/selects and public exception reviews.
 
 ## Ship Readiness
 
