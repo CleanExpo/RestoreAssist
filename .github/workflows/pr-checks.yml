@@ -53,8 +53,14 @@ jobs:
         with:
           node-version: 20
 
+      # RA-5193: --frozen-lockfile (not --no-frozen-lockfile) so CI uses the
+      # exact lockfile contents rather than re-resolving. The re-resolve was
+      # picking minimatch@3.1.5 for ESLint's @eslint/config-array, which is
+      # missing the brace-expansion `expand` function the newer config-array
+      # requires — producing `TypeError: expand is not a function` on every
+      # PR. --frozen-lockfile aligns CI with local pnpm install behaviour.
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
 
@@ -121,9 +127,14 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=8192
 
+      # Lint flipped to enforcing 2026-05-25 (RA-5193) — paired with the
+      # `--frozen-lockfile` install above. Baseline cleared by PRs #1172,
+      # #1178, #1179, #1180, #1181, #1183 (982 → 0 problems). Both
+      # @typescript-eslint/no-unused-vars and react-hooks/exhaustive-deps
+      # are now `error` severity in `eslint.config.mjs`. Per-site disable
+      # comments carry rationale.
       - name: Lint
         run: pnpm lint
-        continue-on-error: true
 
       # Build flipped to enforcing 2026-05-06 (Wave 1 PR-B production-readiness push).
       # Vercel previews already pass `pnpm build` against both `restoreassist` and
