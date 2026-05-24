@@ -177,8 +177,12 @@ export async function POST(request: NextRequest) {
               pdfType,
             };
           } catch (error) {
+            console.error(
+              `Error processing report ${report.reportNumber}:`,
+              error,
+            );
             errors.push(
-              `Error processing report ${report.reportNumber}: ${error instanceof Error ? error.message : "Unknown error"}`,
+              `Error processing report ${report.reportNumber}`,
             );
             return null;
           }
@@ -198,7 +202,7 @@ export async function POST(request: NextRequest) {
         {
           error: "PDF generation failed",
           message: "Unable to generate PDFs for any reports",
-          details: errors,
+          failedReports: errors,
         },
         { status: 500 },
       );

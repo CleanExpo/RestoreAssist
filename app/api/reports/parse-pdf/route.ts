@@ -129,8 +129,12 @@ export async function POST(request: NextRequest) {
           { status: 500 },
         );
       }
+      console.error("[parse-pdf] PDF text extraction failed:", error);
       return NextResponse.json(
-        { error: `Failed to parse PDF: ${msg ?? "Unknown error"}` },
+        {
+          error:
+            "PDF parsing failed. Please try a text-based PDF or contact support.",
+        },
         { status: 500 },
       );
     }
