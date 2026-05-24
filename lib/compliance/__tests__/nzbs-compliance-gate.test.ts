@@ -30,9 +30,10 @@ describe("checkNzbsGate", () => {
     expect(result.requiredClauses).toHaveLength(0);
   });
 
-  it("returns canSubmit: true (no-op) when propertyCountry defaults to AU", async () => {
-    // TODO RA-1120: propertyCountry not yet on schema — gate is a no-op for all AU inspections
+  it("returns canSubmit: true (no-op) for AU-jurisdiction inspections", async () => {
+    // RA-1120: propertyCountry now on schema; default "AU" short-circuits the gate.
     mockFindUnique.mockResolvedValueOnce({
+      propertyCountry: "AU",
       propertyYearBuilt: 1985,
       inspectionDate: new Date("2025-01-15"),
       affectedAreas: [
@@ -43,7 +44,7 @@ describe("checkNzbsGate", () => {
 
     const result = await checkNzbsGate("insp-au-001");
 
-    // AU inspections always pass (no-op until RA-1120 adds propertyCountry)
+    // AU inspections never trigger NZBS clauses
     expect(result.canSubmit).toBe(true);
     expect(result.blockers).toHaveLength(0);
   });

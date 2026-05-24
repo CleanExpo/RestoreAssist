@@ -20,7 +20,8 @@
 
 import { prisma } from "@/lib/prisma";
 
-// TODO RA-1120: add propertyCountry to Inspection model. Until then, default AU.
+// RA-1120: jurisdiction is derived from `Inspection.propertyCountry`.
+// AU inspections further drill into state via postcode; NZ skips state.
 type Jurisdiction =
   | "NSW"
   | "VIC"
@@ -91,7 +92,7 @@ export async function checkSafeworkGate(
       inspectionDate: true,
       propertyPostcode: true,
       propertyYearBuilt: true,
-      // TODO RA-1120: select propertyCountry once added to schema
+      propertyCountry: true,
       affectedAreas: {
         select: { category: true, affectedSquareFootage: true },
         take: 200,
@@ -110,9 +111,11 @@ export async function checkSafeworkGate(
   const notifications: SafeWorkNotification[] = [];
   const warnings: string[] = [];
 
-  // TODO RA-1120: derive jurisdiction from propertyCountry when available.
-  // For now, treat all inspections as AU and detect state from postcode.
-  const jurisdiction = detectJurisdiction(inspection.propertyPostcode);
+  // NZ short-circuits to its single regulator; AU drills to state via postcode.
+  const jurisdiction: Jurisdiction =
+    inspection.propertyCountry === "NZ"
+      ? "NZ"
+      : detectJurisdiction(inspection.propertyPostcode);
   const regulator = REGULATOR_MAP[jurisdiction];
   // Deadline: inspectionDate + 24 hours per WHS Act
   const deadline = new Date(

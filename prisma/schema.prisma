@@ -1828,6 +1828,11 @@ model Inspection {
   inspectionNumber String   @unique // NIR-YYYY-MM-XXXX format
   propertyAddress  String
   propertyPostcode String // Required for state detection
+  // RA-1120: AU vs NZ jurisdiction selector. Used by
+  // lib/compliance/{nzbs,safework}-* gates. Default "AU" matches the
+  // prior TODO placeholders so behaviour is unchanged for existing rows.
+  // AU/NZ market only — see feedback_au_nz_market_only memory.
+  propertyCountry  String   @default("AU")
   inspectionDate   DateTime @default(now())
   technicianName   String?
   technicianId     String? // Link to technician user if available
