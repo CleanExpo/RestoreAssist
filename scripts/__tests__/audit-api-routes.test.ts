@@ -72,6 +72,22 @@ describe("auditApiRoute", () => {
     );
   });
 
+  it("accepts generic 500 fallback with non-500 service messages", () => {
+    const findings = auditApiRoute(
+      "app/api/progress/[reportId]/route.ts",
+      `
+        const session = await getServerSession(authOptions);
+        const status = result.code === "NOT_FOUND" ? 404 : 500;
+        return NextResponse.json(
+          { error: status === 500 ? "Internal server error" : result.message },
+          { status },
+        );
+      `,
+    );
+
+    expect(findings).toHaveLength(0);
+  });
+
   it("marks public token routes as exception candidates", () => {
     const findings = auditApiRoute(
       "app/api/portal/[token]/route.ts",

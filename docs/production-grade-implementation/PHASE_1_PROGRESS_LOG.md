@@ -54,6 +54,12 @@ Initial scan result from `pnpm exec tsx scripts/audit-api-routes.ts --json`:
 - Errors: 31
 - Warnings: 68
 
+Follow-up hardening pass:
+
+- tightened the scanner to avoid counting safe generic-500 ternaries as leaks
+- replaced direct 500 body exception/service messages in the first route group with generic client responses
+- current scan result: 442 routes, 87 findings, 19 errors, 68 warnings
+
 ## Files Changed
 
 - `mobile/lib/sync/__tests__/engine.test.ts`
@@ -63,12 +69,18 @@ Initial scan result from `pnpm exec tsx scripts/audit-api-routes.ts --json`:
 - `mobile/tsconfig.json`
 - `scripts/audit-api-routes.ts`
 - `scripts/__tests__/audit-api-routes.test.ts`
+- `app/api/progress/[reportId]/init/route.ts`
+- `app/api/progress/[reportId]/route.ts`
+- `app/api/progress/[reportId]/transition/route.ts`
+- `app/api/inspections/[id]/assessments/[type]/generate/route.ts`
+- `app/api/reports/bulk-status/route.ts`
+- `app/api/scopes/route.ts`
 
 ## Validation Run
 
 - `pnpm exec vitest run --config vitest.config.ts` from `mobile/`: PASS, 1 file / 3 tests
-- `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts`: PASS, 1 file / 5 tests
-- `pnpm exec tsx scripts/audit-api-routes.ts --json`: PASS, scanned 442 routes with 99 advisory findings
+- `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts`: PASS, 1 file / 6 tests
+- `pnpm exec tsx scripts/audit-api-routes.ts --json`: PASS, scanned 442 routes with 87 advisory findings after the first hardening pass
 - `pnpm type-check`: PASS
 - `pnpm lint`: PASS with 0 errors and 840 warnings
 - `git diff --check`: PASS
@@ -87,13 +99,13 @@ Next action: keep Phase 1 web validation authoritative for this branch and use t
 
 ### API route audit inherited findings
 
-Error: advisory API route scan reports 31 error-severity findings and 68 warning-severity findings.
+Error: advisory API route scan reports 19 error-severity findings and 68 warning-severity findings.
 
-Cause: the current codebase still contains inherited API production risks across unauthenticated route candidates, admin routes without DB-role revalidation, unsafe/raw SQL patterns, unbounded `findMany` candidates, and `error.message` JSON responses.
+Cause: the current codebase still contains inherited API production risks across unauthenticated route candidates, admin routes without DB-role revalidation, unsafe/raw SQL patterns, unbounded `findMany` candidates, and remaining direct 500 response message leaks.
 
 Fix: remediate route groups in narrow commits, then run the scanner without `--strict` to verify count reduction; only enable `--strict` once the inherited error count is zero.
 
-Next action: start with the error-severity API findings that map directly to Phase 1 critical gaps: admin DB-role revalidation, public health/OAuth/mobile route auth decisions, unsafe raw SQL, and 500 response leakage.
+Next action: continue with the remaining error-severity API findings that map directly to Phase 1 critical gaps: admin DB-role revalidation, public health/OAuth/mobile route auth decisions, unsafe raw SQL, and remaining 500 response leakage.
 
 ## Unresolved Risks
 

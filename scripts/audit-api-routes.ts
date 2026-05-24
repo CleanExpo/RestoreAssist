@@ -103,6 +103,52 @@ function hasRawSqlWithoutTaggedTemplate(content: string): boolean {
   );
 }
 
+function extractNextResponseJsonCalls(content: string): string[] {
+  const calls: string[] = [];
+  const marker = "NextResponse.json(";
+  let start = content.indexOf(marker);
+
+  while (start !== -1) {
+    let depth = 0;
+    let end = start;
+
+    for (let index = start + marker.length - 1; index < content.length; index++) {
+      const char = content[index];
+      if (char === "(") depth++;
+      if (char === ")") depth--;
+      if (depth === 0) {
+        end = index + 1;
+        break;
+      }
+    }
+
+    calls.push(content.slice(start, end));
+    start = content.indexOf(marker, end);
+  }
+
+  return calls;
+}
+
+function hasGeneric500BodyLeak(content: string): boolean {
+  return extractNextResponseJsonCalls(content).some((call) => {
+    if (!/\bstatus\s*:\s*500\b/.test(call) && !/\bstatus\s*:\s*result\.status\b/.test(call)) {
+      return false;
+    }
+
+    const leaksMessage =
+      /\b(error|message|details)\s*:\s*[\w$?.]+\.message\b/s.test(call) ||
+      /\b(error|message|details)\s*:\s*[\w$?.]+ instanceof Error\s*\?[\s\S]*?\.message/s.test(
+        call,
+      );
+
+    if (!leaksMessage) return false;
+
+    return !/(?:status|result\.status)\s*(?:===|>=)\s*500\s*\?\s*"Internal server error"\s*:\s*[\w$?.]+\.message/s.test(
+      call,
+    );
+  });
+}
+
 export function auditApiRoute(file: string, content: string): ApiRouteFinding[] {
   const normalized = normalisePath(file);
   const findings: ApiRouteFinding[] = [];
@@ -162,7 +208,7 @@ export function auditApiRoute(file: string, content: string): ApiRouteFinding[] 
     );
   }
 
-  if (/NextResponse\.json\(\s*\{[^}]*error\s*:\s*[^}]*\.message/s.test(content)) {
+  if (hasGeneric500BodyLeak(content)) {
     addFinding(
       findings,
       normalized,

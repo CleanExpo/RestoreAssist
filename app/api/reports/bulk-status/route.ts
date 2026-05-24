@@ -181,10 +181,7 @@ export async function PATCH(request: NextRequest) {
           updated: 0,
           failed: ids.length,
           error: "Status update failed",
-          message:
-            updateError instanceof Error
-              ? updateError.message
-              : "Unknown error",
+          message: "Unable to update report statuses",
           details:
             "An error occurred while updating report statuses. Please try again.",
         },
