@@ -16,6 +16,7 @@ Subjective release calls have caused premature "ready" claims in the past. This 
 ## How to run it
 
 ```bash
+scripts/bootstrap-restoreassist-env.sh             # local env bootstrap and baseline checks
 pnpm tsx scripts/release-gate-score.ts            # local dry-run
 pnpm tsx scripts/release-gate-score.ts --json     # CI artifact mode (writes release-gate-report.json)
 pnpm tsx scripts/release-gate-score.ts --strict   # exit 1 if score < 100 OR any required item red
@@ -39,7 +40,7 @@ CI runs `--json --strict` against the release candidate. Output artifact: `relea
 |---|---|---|
 | 5 | `pnpm lint` passes | Exit 0, ignoring known continue-on-error baseline ([[lint-debt-followup]]) |
 | 5 | `pnpm type-check` passes | Exit 0, 0 errors |
-| 5 | `pnpm test` passes with 0 failures | `npx vitest run` — failing count == 0 |
+| 5 | Unit tests pass with 0 failures | `pnpm exec vitest run` — failing count == 0 |
 | 5 | `pnpm test:smoke:sandbox` passes with 0 failures | Playwright smoke against sandbox URL |
 
 ### C) Security & Compliance — 15 pts
@@ -54,7 +55,7 @@ CI runs `--json --strict` against the release candidate. Output artifact: `relea
 | Pts | Criterion | Verification |
 |---|---|---|
 | 5 | Stripe/Apple IAP sandbox purchase, renewal, cancellation verified | Owner: Phill — evidence file `docs/evidence/billing-flows-YYYY-MM-DD.md` |
-| 5 | Paywall gating correctly enforces access by entitlement state | `npx vitest run lib/billing/__tests__/` + `app/api/webhooks/stripe/__tests__/` 0 failures |
+| 5 | Paywall gating correctly enforces access by entitlement state | `pnpm exec vitest run lib/billing/__tests__/ app/api/webhooks/stripe/__tests__/` 0 failures |
 | 5 | Revenue events tracked + reconciled (purchase, renewal, churn) | Owner evidence: Stripe events dashboard count == DB `subscription_events` count for last 7 days |
 
 ### E) App Store Launch Operations — 15 pts

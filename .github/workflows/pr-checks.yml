@@ -13,7 +13,7 @@ jobs:
   quality:
     name: Quality Checks
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
 
     # RA-1546 companion — ephemeral Postgres for the migration-drift
     # check below. Without a real DB the check can't run, and the
@@ -50,15 +50,16 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version-file: ".nvmrc"
 
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+          PRISMA_SKIP_POSTINSTALL_GENERATE: "1"
 
       - name: Generate Prisma client
-        run: npx prisma generate
+        run: pnpm prisma:generate
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
 
@@ -67,8 +68,8 @@ jobs:
       # isn't preview/development). On vanilla postgres:16-alpine the
       # 20260403010000_add_evidence_schema migration fails with
       # `schema "auth" does not exist`, which writes a failed row into
-      # `_prisma_migrations`. Even though Build has continue-on-error,
-      # the failed migration row poisons the database for the later
+      # `_prisma_migrations`. Build is enforcing, and a failed migration row
+      # also poisons the database for the later
       # `Prisma migration drift check` step (P3009). Stubbing the auth
       # schema HERE — before any step touches Postgres — keeps the DB
       # clean. Production unaffected: Supabase ships `auth.uid()` and
@@ -100,9 +101,9 @@ jobs:
       # below.
       - name: Pre-resolve CONCURRENTLY migrations (Supabase-only syntax)
         run: |
-          npx prisma migrate resolve --applied 20260407_n1_performance_indexes
-          npx prisma migrate resolve --applied 20260407_perf_composite_indexes
-          npx prisma migrate resolve --applied 20260516010000_inspection_close_terminal_index
+          pnpm exec prisma migrate resolve --applied 20260407_n1_performance_indexes
+          pnpm exec prisma migrate resolve --applied 20260407_perf_composite_indexes
+          pnpm exec prisma migrate resolve --applied 20260516010000_inspection_close_terminal_index
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
           DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
@@ -116,21 +117,21 @@ jobs:
       # refactor where the next PR clears the rest), explicitly add a baseline
       # ratchet rather than re-enabling continue-on-error globally.
       - name: TypeScript Check
-        run: npx tsc --noEmit
-        env:
-          NODE_OPTIONS: --max-old-space-size=8192
+        run: pnpm type-check
 
       - name: Lint
         run: pnpm lint
-        continue-on-error: true
+
+      - name: Unit tests
+        run: pnpm exec vitest run
 
       # Build flipped to enforcing 2026-05-06 (Wave 1 PR-B production-readiness push).
       # Vercel previews already pass `pnpm build` against both `restoreassist` and
       # `restoreassist-sandbox` projects on every PR, so flipping this from
       # `continue-on-error: true` to enforcing closes the gap where a CI build
       # break could merge silently while Vercel happened to succeed for an
-      # unrelated reason. tsc and lint stay non-blocking until the type-check
-      # baseline ratchet (Wave 3 PR-E) lands.
+      # unrelated reason. Phase 0 now also enforces type-check, lint, and unit
+      # tests before this build step.
       - name: Build
         run: pnpm build
         env:
@@ -167,8 +168,8 @@ jobs:
       # main is clean, this gate now blocks merges.
       - name: Prisma migration drift check
         run: |
-          npx prisma migrate deploy
-          npx prisma migrate status
+          pnpm exec prisma migrate deploy
+          pnpm exec prisma migrate status
         env:
           # Schema declares both DATABASE_URL (pooled) and DIRECT_URL
           # (direct) per Supabase's standard pattern. CI's ephemeral
