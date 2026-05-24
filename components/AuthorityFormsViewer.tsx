@@ -65,6 +65,7 @@ export default function AuthorityFormsViewer({
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only / stable callback ref
   }, [reportId]);
 
   const fetchData = async () => {

@@ -57,6 +57,7 @@ export default function ContractorReviewsPage() {
     } else if (status === "authenticated") {
       fetchReviews();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only / stable callback ref
   }, [status]);
 
   const fetchReviews = async () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useMemo } from "react";
 import { Search, X } from "lucide-react";
 import { debounce } from "@/lib/search-utils";
 
@@ -24,15 +24,20 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   const [query, setQuery] = useState("");
   const [isFocused, setIsFocused] = useState(false);
 
-  // Debounce the search function
-  const debouncedSearch = useCallback(
-    debounce((searchQuery: string) => {
-      if (searchQuery.length >= minChars) {
-        onSearch(searchQuery);
-      } else if (searchQuery.length === 0) {
-        onClear?.();
-      }
-    }, 300),
+  // Debounce the search function. useMemo (not useCallback) because the
+  // outer function returned by debounce() is opaque to the hook deps
+  // analyser — useCallback can't see inside it. useMemo defers
+  // construction of the debouncer to render-time and is correctness-safe
+  // here because the deps array captures every closure-referenced value.
+  const debouncedSearch = useMemo(
+    () =>
+      debounce((searchQuery: string) => {
+        if (searchQuery.length >= minChars) {
+          onSearch(searchQuery);
+        } else if (searchQuery.length === 0) {
+          onClear?.();
+        }
+      }, 300),
     [onSearch, onClear, minChars],
   );
 

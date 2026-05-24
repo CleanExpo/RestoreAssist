@@ -310,6 +310,7 @@ export default function EquipmentSizingGuidelines({
 
     setSizingData(newSizing);
     onSizingUpdate(newSizing);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- calculateAirmoverRequirements change must NOT re-trigger this effect
   }, [waterClass, affectedArea, waterCategory]);
 
   const handleInputChange = (section: string, field: string, value: any) => {

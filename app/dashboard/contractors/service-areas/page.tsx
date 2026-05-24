@@ -70,6 +70,7 @@ export default function ServiceAreasPage() {
     } else if (status === "authenticated") {
       loadServiceAreas();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only / stable callback ref
   }, [status]);
 
   function loadServiceAreas() {

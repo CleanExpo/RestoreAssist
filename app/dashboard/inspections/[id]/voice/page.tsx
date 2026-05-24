@@ -135,6 +135,7 @@ export default function VoiceSessionPage({ params }: PageProps) {
 
     recognitionRef.current = recognition;
     recognition.start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only / stable callback ref
   }, [session]);
 
   const stopListening = useCallback(() => {

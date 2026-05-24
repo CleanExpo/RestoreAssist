@@ -98,7 +98,12 @@ export default function InspectionsPage() {
     error: fetchError,
     refetch: refetchInspections,
   } = useFetch<{ inspections: Inspection[] }>("/api/inspections");
-  const inspections = inspectionsData?.inspections ?? [];
+  // Wrap in useMemo so consumers (filtered, statusCounts) don't see a new
+  // array identity every render when `inspectionsData` is unchanged.
+  const inspections = useMemo(
+    () => inspectionsData?.inspections ?? [],
+    [inspectionsData],
+  );
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");

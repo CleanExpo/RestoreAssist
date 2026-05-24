@@ -197,6 +197,7 @@ export default function EstimationEngine({
         toast.error("Failed to load existing estimate data");
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only / stable callback ref
   }, [initialEstimateData]);
 
   // Auto-generate line items from scope if available (only once, and only if no initial data)
@@ -456,6 +457,7 @@ export default function EstimationEngine({
         totalIncGST,
       };
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- estimateData change must NOT re-trigger; intentional stringified-deps comparison
   }, [
     estimateData.lineItems,
     estimateData.commercialParams,

@@ -83,7 +83,9 @@ export default function InterviewsPage() {
     loading,
     refetch: refetchSessions,
   } = useFetch<{ sessions: InterviewSession[] }>("/api/interviews");
-  const sessions = sessionsData?.sessions ?? [];
+  // Wrap in useMemo so downstream useMemo Hooks don't see a fresh array
+  // identity every render when `sessionsData` is unchanged.
+  const sessions = useMemo(() => sessionsData?.sessions ?? [], [sessionsData]);
 
   const {
     data: stats,

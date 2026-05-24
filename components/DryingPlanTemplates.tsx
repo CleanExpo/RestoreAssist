@@ -326,6 +326,7 @@ export default function DryingPlanTemplates({
 
     setDryingPlan(newPlan);
     onPlanUpdate(newPlan);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- calculateDryingTime change must NOT re-trigger this effect
   }, [waterClass, affectedArea, selectedTemplate]);
 
   const handleInputChange = (field: string, value: any) => {

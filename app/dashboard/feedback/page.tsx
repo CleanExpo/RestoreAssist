@@ -64,6 +64,7 @@ export default function FeedbackPage() {
 
   useEffect(() => {
     if (canViewInbox) loadInbox(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only / stable callback ref
   }, [canViewInbox]);
 
   const handleSubmit = async (e: React.FormEvent) => {

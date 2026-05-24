@@ -229,6 +229,7 @@ export default function RestorationInvoiceForm({
       ...prev,
       cert: { ...prev.cert, standardApplied: typeConfig.standardApplied },
     }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only / stable callback ref
   }, [data.invoiceTypeId]);
 
   const update = useCallback((updates: Partial<RestorationInvoiceFormData>) => {

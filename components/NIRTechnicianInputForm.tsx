@@ -728,6 +728,7 @@ export default function NIRTechnicianInputForm({
     if (reportId && !inspectionId) {
       initializeInspection();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initializeInspection is a stable component-local fetch — fire-on-mount only
   }, [reportId]);
 
   // Fetch Quick Fill credits on mount
@@ -1270,6 +1271,7 @@ export default function NIRTechnicianInputForm({
 
       return () => clearTimeout(timer);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only / stable callback ref
   }, [claimType, propertyAddress, propertyPostcode, inspectionId, loading]);
 
   const handleSubmit = async () => {

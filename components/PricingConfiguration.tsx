@@ -99,6 +99,7 @@ export default function PricingConfiguration({
   useEffect(() => {
     fetchPricingConfig();
     fetchSubscriptionStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only / stable callback ref
   }, []);
 
   const fetchSubscriptionStatus = async () => {

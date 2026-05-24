@@ -40,6 +40,7 @@ export default function InspectionReportViewer({
 
   useEffect(() => {
     fetchReport();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only / stable callback ref
   }, [reportId]);
 
   // Auto-generate Basic Report if it doesn't exist (only once)
@@ -77,6 +78,7 @@ export default function InspectionReportViewer({
     if (report && !loading && !hasAttemptedAutoGenerate) {
       autoGenerateBasicReport();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleGenerateReport is a stable component-local callback; intentional omission
   }, [
     report,
     reportContent,

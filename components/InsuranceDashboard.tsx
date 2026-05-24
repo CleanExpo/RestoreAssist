@@ -32,6 +32,7 @@ export default function InsuranceDashboard({
 
   useEffect(() => {
     calculateInsuranceStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only / stable callback ref
   }, [reports, selectedPeriod]);
 
   const calculateInsuranceStats = () => {

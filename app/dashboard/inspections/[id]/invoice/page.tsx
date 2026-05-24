@@ -82,6 +82,7 @@ export default function InspectionInvoicePage({
 
   useEffect(() => {
     fetchInvoice();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only / stable callback ref
   }, [id]);
 
   const fetchInvoice = async () => {

@@ -104,6 +104,7 @@ export default function ContractorProfilePage() {
 
   useEffect(() => {
     fetchProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only / stable callback ref
   }, [params.slug, session]);
 
   const fetchProfile = async () => {

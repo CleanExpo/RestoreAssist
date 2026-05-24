@@ -198,6 +198,7 @@ export default function EquipmentPage() {
     } else if (status === "authenticated") {
       fetchEquipment();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only / stable callback ref
   }, [status]);
 
   const fetchEquipment = async () => {

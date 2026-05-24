@@ -56,6 +56,7 @@ export default function ClientQnA({
         },
       ]);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only / stable callback ref
   }, []);
 
   const handleSend = async () => {

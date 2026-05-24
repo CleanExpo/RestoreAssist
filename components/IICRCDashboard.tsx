@@ -21,6 +21,7 @@ export default function IICRCDashboard({ reports }: IICRCDashboardProps) {
 
   useEffect(() => {
     calculateComplianceStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only / stable callback ref
   }, [reports, selectedPeriod]);
 
   const calculateComplianceStats = () => {

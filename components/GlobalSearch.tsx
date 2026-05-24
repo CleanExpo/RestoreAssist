@@ -69,6 +69,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
 
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only / stable callback ref
   }, [isOpen]);
 
   const handleClose = () => {

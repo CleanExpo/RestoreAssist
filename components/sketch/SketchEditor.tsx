@@ -255,6 +255,10 @@ export function SketchEditor({
     const canvas = getFabric();
     if (!canvas) return;
 
+    // Snapshot the ref target so cleanup uses the map instance that was
+    // live when the effect ran (not whatever ref.current points at later).
+    const roomDrawMap = roomDrawRef.current;
+
     // Update drawing mode
     canvas.isDrawingMode = toolMode === "freehand";
     canvas.selection = toolMode === "select" && !readonly;
@@ -459,7 +463,7 @@ export function SketchEditor({
       canvas.off("mouse:down", handleClick);
       // Reset room drawing buffer only when changing away from room tool
       if (toolMode !== "room") {
-        const state = roomDrawRef.current.get(floorId);
+        const state = roomDrawMap.get(floorId);
         if (state) {
           // Remove orphaned temp objects
           const objs = canvas.getObjects();
