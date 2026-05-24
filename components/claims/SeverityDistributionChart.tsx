@@ -109,7 +109,7 @@ export function SeverityDistributionChart({
       percentage: percentages.low,
       color: "#3b82f6",
       icon: CheckCircle2,
-      offset: (currentOffset -= (percentages.medium / 100) * circumference),
+      offset: currentOffset - (percentages.medium / 100) * circumference,
     },
   ];
 

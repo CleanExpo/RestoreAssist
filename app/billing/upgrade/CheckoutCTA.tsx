@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 
-export default function CheckoutCTA({ tier }: { tier: "STANDARD" | "PREMIUM" | "ENTERPRISE" }) {
+export default function CheckoutCTA({
+  tier,
+}: {
+  tier: "STANDARD" | "PREMIUM" | "ENTERPRISE";
+}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -16,7 +20,8 @@ export default function CheckoutCTA({ tier }: { tier: "STANDARD" | "PREMIUM" | "
         body: JSON.stringify({ tier }),
       });
       const body = await res.json();
-      if (!res.ok || !body.data?.url) throw new Error(body.error?.message ?? "Checkout failed");
+      if (!res.ok || !body.data?.url)
+        throw new Error(body.error?.message ?? "Checkout failed");
       window.location.href = body.data.url;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Checkout failed");

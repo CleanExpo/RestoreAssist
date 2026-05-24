@@ -1,7 +1,11 @@
 import fs from "fs/promises";
 import path from "path";
 import matter from "gray-matter";
-import { HELP_CATEGORIES, type HelpFrontmatter, type HelpCategory } from "./types";
+import {
+  HELP_CATEGORIES,
+  type HelpFrontmatter,
+  type HelpCategory,
+} from "./types";
 import { parseHelpFrontmatter } from "./frontmatter-schema";
 
 const CONTENT_ROOT = path.join(process.cwd(), "content", "help");
@@ -19,12 +23,18 @@ async function readMdx(filePath: string): Promise<LoadedArticle | null> {
     // Allow `_fixtures` category in test mode (bypasses zod category enum)
     const inFixture = parsed.data.category === "_fixtures";
     if (inFixture && process.env.NODE_ENV === "test") {
-      return { frontmatter: parsed.data as HelpFrontmatter, body: parsed.content };
+      return {
+        frontmatter: parsed.data as HelpFrontmatter,
+        body: parsed.content,
+      };
     }
 
     const result = parseHelpFrontmatter(parsed.data);
     if (!result.success) {
-      console.error(`[help] frontmatter invalid for ${filePath}:`, result.error.format());
+      console.error(
+        `[help] frontmatter invalid for ${filePath}:`,
+        result.error.format(),
+      );
       return null;
     }
     return { frontmatter: result.data, body: parsed.content };
@@ -59,7 +69,10 @@ export async function loadCategoryIndex(
       .map((f) => readMdx(path.join(dir, f))),
   );
   return articles
-    .filter((a): a is LoadedArticle => a !== null && a.frontmatter.status === "published")
+    .filter(
+      (a): a is LoadedArticle =>
+        a !== null && a.frontmatter.status === "published",
+    )
     .sort((a, b) => a.frontmatter.order - b.frontmatter.order);
 }
 

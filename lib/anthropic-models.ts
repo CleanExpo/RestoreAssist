@@ -156,6 +156,7 @@ export async function tryClaudeModels(
       ) {
         throw new Error(
           `API Usage Limit Reached: ${errorMessage}. Please check your Anthropic API account limits or try again later.`,
+          { cause: error },
         );
       }
 
@@ -168,6 +169,7 @@ export async function tryClaudeModels(
       ) {
         throw new Error(
           `Insufficient API Credits: ${errorMessage}. Please go to Plans & Billing in your Anthropic account to upgrade or purchase credits.`,
+          { cause: error },
         );
       }
 
@@ -175,6 +177,7 @@ export async function tryClaudeModels(
       if (error.status === 429 || errorType === "rate_limit_error") {
         throw new Error(
           `Rate limit exceeded. Please wait a moment and try again.`,
+          { cause: error },
         );
       }
 

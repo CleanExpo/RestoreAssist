@@ -85,8 +85,8 @@ export default function DryingPlanTemplates({
       return { airmovers: 0, dehumidification: 0 };
 
     const area = parseFloat(affectedArea.toString());
-    let airmovers = 0;
-    let dehumidification = 0;
+    let airmovers;
+    let dehumidification;
 
     // IICRC S500 Equipment Sizing Guidelines
     switch (waterClass) {

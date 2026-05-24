@@ -44,12 +44,10 @@ interface PdfColors {
 }
 
 interface MoistureDataResult {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   readings: any[];
 }
 
 interface PsychrometricDataResult {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   readings: any[];
 }
 
@@ -82,23 +80,22 @@ interface TimelineDataResult {
 }
 
 interface ReportData {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   report: any; // Prisma Report with 110+ fields + parsed JSON blobs — fully typed in a future refactor
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   analysis: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   tier1: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   tier2: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   tier3: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   stateInfo: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   psychrometricAssessment?: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   scopeAreas?: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   equipmentSelection?: any[];
   standardsContext?: string;
   businessInfo?: BusinessInfo;
@@ -387,9 +384,9 @@ async function renderPage1(
     methTestCount: number | null;
     bioMouldDetected: boolean;
     bioMouldCategory: string | null;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     report: any;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     analysis: any;
     standardsContext?: string;
     timelineData?: TimelineDataResult;
@@ -703,7 +700,7 @@ async function renderPage2(
     colors: PdfColors;
     jobRef: string;
     scopeItems: ScopeItem[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     report: any;
     equipmentSelection?: JsonRecord[];
     pricingConfig?: JsonRecord;
@@ -988,9 +985,9 @@ async function renderPage3(
     timelineData: TimelineDataResult;
     moistureData: MoistureDataResult;
     psychrometricData: PsychrometricDataResult;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     report: any;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     scopeAreas?: any[];
   },
 ) {
@@ -1100,7 +1097,7 @@ async function renderPage3(
     // Moisture Rows
     moistureData.readings
       .slice(0, 5)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       .forEach((reading: any, index: number) => {
         if (yPosition < 500) return;
 
@@ -1259,7 +1256,7 @@ async function renderPage3(
     // Psychrometric Rows
     psychrometricData.readings
       .slice(0, 3)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       .forEach((reading: any, index: number) => {
         if (yPosition < 400) return;
 
@@ -2120,7 +2117,7 @@ function buildScopeItems(
       ? `Remediation to ${scopeAreas.length} affected areas with comprehensive assessment and controlled removal protocols under containment.`
       : "Remediation to affected areas with comprehensive assessment and controlled removal protocols under containment.";
 
-  let remediationJustification = "";
+  let remediationJustification;
   if (waterCategory === "Category 3") {
     remediationJustification =
       "IICRC S500 requires removal of porous materials heavily contaminated with unsanitary water (Category 3); cleaning is not verifiable. Category 3 contamination poses significant health risks and requires complete removal of affected porous materials.";
@@ -2145,7 +2142,7 @@ function buildScopeItems(
       ? `Structural drying maintenance necessary for ${scopeAreas.length} affected areas with comprehensive monitoring and verification protocols to achieve dry standard goals.`
       : "Structural drying maintenance necessary for affected areas with comprehensive monitoring and verification protocols to achieve dry standard goals.";
 
-  let dryingJustification = "";
+  let dryingJustification;
   if (waterClass === "Class 4") {
     dryingJustification =
       "IICRC S500 Class 4 drying requires specialized techniques due to deep saturation and low evaporation potential. Extended drying time and specialized equipment are necessary.";
@@ -2166,7 +2163,6 @@ function buildScopeItems(
 
   // Add scope area specific items with dynamic justification
   if (scopeAreas && scopeAreas.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     scopeAreas.forEach((area: any, index: number) => {
       const materials = Array.isArray(area.materials)
         ? area.materials.join(", ")
@@ -2175,7 +2171,7 @@ function buildScopeItems(
       const areaName = area.name || `Area ${index + 1}`;
       const moistureLevel = area.moisture || area.moistureReading || null;
 
-      let areaJustification = "";
+      let areaJustification;
       if (waterCategory === "Category 3") {
         areaJustification = `IICRC S500 requires removal of porous materials (${materials}) contaminated with Category 3 unsanitary water; cleaning is not verifiable. Category 3 contamination poses significant health risks.`;
       } else if (moistureLevel && moistureLevel > 20) {
@@ -2236,7 +2232,6 @@ function buildScopeItems(
 function buildMoistureData(data: ReportData): MoistureDataResult {
   const { report, tier2, scopeAreas } = data;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let moistureReadings: any[] = [];
 
   // Parse moisture readings from report
@@ -2260,7 +2255,6 @@ function buildMoistureData(data: ReportData): MoistureDataResult {
     Array.isArray(tier2.T2_Q1_moistureReadings)
   ) {
     moistureReadings = (tier2.T2_Q1_moistureReadings as JsonRecord[]).map(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (reading: any) => ({
         location: reading.location || reading.room || "Location",
         material: reading.material || "Various",
@@ -2280,7 +2274,6 @@ function buildMoistureData(data: ReportData): MoistureDataResult {
 
   // Extract from scopeAreas if available
   if (scopeAreas && scopeAreas.length > 0 && moistureReadings.length === 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     scopeAreas.forEach((area: any) => {
       if (area.moisture || area.moistureReading) {
         moistureReadings.push({
@@ -2319,7 +2312,6 @@ function buildMoistureData(data: ReportData): MoistureDataResult {
 function buildPsychrometricData(data: ReportData): PsychrometricDataResult {
   const { report, psychrometricAssessment, tier2 } = data;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let psychrometricReadings: any[] = [];
 
   // Parse psychrometric readings from report
@@ -2455,9 +2447,8 @@ function buildTimelineData(
 
       if (scopeAreas.length > 0) {
         // Calculate from scope areas volume
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         const totalVolume = (scopeAreas as any[]).reduce(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (sum: number, area: any) => {
             return sum + (area.volume || 0);
           },
@@ -2579,9 +2570,8 @@ function buildTimelineData(
  * Build expertise points from standards and report data
  */
 function buildExpertisePoints(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   report: any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   analysis: any,
   standardsContext: string,
 ): string[] {
@@ -2626,7 +2616,6 @@ function buildExpertisePoints(
  * Build risk points from report data
  */
 function buildRiskPoints(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   report: any,
   waterCategory: string,
   hasMould: boolean,
@@ -2677,7 +2666,6 @@ function buildRiskPoints(
  * Build rip & repair approach drawbacks
  */
 function buildRipRepairPoints(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   report: any,
   timelineData: TimelineDataResult | undefined,
 ): string[] {
@@ -2718,7 +2706,6 @@ function buildRipRepairPoints(
  * Build mitigation approach benefits
  */
 function buildMitigationPoints(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   report: any,
   timelineData: TimelineDataResult | undefined,
 ): string[] {
@@ -2752,9 +2739,8 @@ function buildMitigationPoints(
  * Build communication plan from report data
  */
 function buildCommunicationPlan(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   report: any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   scopeAreas: any[],
   timelineData: TimelineDataResult,
 ): Array<{
@@ -2848,9 +2834,8 @@ function buildCommunicationPlan(
  * Build forensic summary text
  */
 function buildForensicSummary(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   report: any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   analysis: any,
   waterCategory: string,
   waterClass: string,
@@ -2958,6 +2943,7 @@ function sanitizeTextForPDF(text: string): string {
       .replace(/[®]/g, "(R)") // registered
       .replace(/[™]/g, "(TM)") // trademark
       // Remove any remaining non-ASCII characters
+      // eslint-disable-next-line no-control-regex -- deliberate control-char range filter
       .replace(/[^\x00-\x7F]/g, "")
   );
 }

@@ -43,7 +43,7 @@ describe("squareCropToDataUrl fallback path", () => {
       onerror: (() => void) | null = null;
       width = 100;
       height = 80;
-      // eslint-disable-next-line accessor-pairs
+
       set src(_value: string) {
         queueMicrotask(() => this.onload?.());
       }
@@ -57,19 +57,17 @@ describe("squareCropToDataUrl fallback path", () => {
     const toDataURL = vi.fn(() => "data:image/jpeg;base64,FAKEBASE64");
     const getContext = vi.fn(() => ({ drawImage }));
     const realCreateElement = document.createElement.bind(document);
-    vi.spyOn(document, "createElement").mockImplementation(
-      ((tag: string) => {
-        if (tag === "canvas") {
-          return {
-            width: 0,
-            height: 0,
-            getContext,
-            toDataURL,
-          } as unknown as HTMLCanvasElement;
-        }
-        return realCreateElement(tag);
-      }) as typeof document.createElement,
-    );
+    vi.spyOn(document, "createElement").mockImplementation(((tag: string) => {
+      if (tag === "canvas") {
+        return {
+          width: 0,
+          height: 0,
+          getContext,
+          toDataURL,
+        } as unknown as HTMLCanvasElement;
+      }
+      return realCreateElement(tag);
+    }) as typeof document.createElement);
 
     const dataUrl = await squareCropToDataUrl(tinyJpegFile(), 256);
 
@@ -89,7 +87,7 @@ describe("squareCropToDataUrl fallback path", () => {
     class StubImage {
       onload: (() => void) | null = null;
       onerror: (() => void) | null = null;
-      // eslint-disable-next-line accessor-pairs
+
       set src(_value: string) {
         queueMicrotask(() => this.onerror?.());
       }

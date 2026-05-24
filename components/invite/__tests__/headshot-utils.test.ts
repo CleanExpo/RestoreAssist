@@ -18,7 +18,11 @@ describe("validateHeadshotFile", () => {
   });
 
   it("rejects a HEIC file", () => {
-    const f = mockFile({ name: "me.heic", type: "image/heic", size: 1_000_000 });
+    const f = mockFile({
+      name: "me.heic",
+      type: "image/heic",
+      size: 1_000_000,
+    });
     const result = validateHeadshotFile(f);
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -27,13 +31,21 @@ describe("validateHeadshotFile", () => {
   });
 
   it("rejects a non-image", () => {
-    const f = mockFile({ name: "doc.pdf", type: "application/pdf", size: 1_000_000 });
+    const f = mockFile({
+      name: "doc.pdf",
+      type: "application/pdf",
+      size: 1_000_000,
+    });
     const result = validateHeadshotFile(f);
     expect(result.ok).toBe(false);
   });
 
   it("rejects a file over 5MB", () => {
-    const f = mockFile({ name: "big.jpg", type: "image/jpeg", size: 6_000_000 });
+    const f = mockFile({
+      name: "big.jpg",
+      type: "image/jpeg",
+      size: 6_000_000,
+    });
     const result = validateHeadshotFile(f);
     expect(result.ok).toBe(false);
     if (!result.ok) {

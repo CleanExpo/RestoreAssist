@@ -51,10 +51,9 @@ describe("POST /api/admin/clients/[clientId]/portal-account", () => {
   it("returns 401 when there is no session", async () => {
     getServerSession.mockResolvedValueOnce(null);
     const res = await createRoute(
-      new NextRequest(
-        "http://localhost/api/admin/clients/c_1/portal-account",
-        { method: "POST" },
-      ),
+      new NextRequest("http://localhost/api/admin/clients/c_1/portal-account", {
+        method: "POST",
+      }),
       { params: Promise.resolve({ clientId: "c_1" }) },
     );
     expect(res.status).toBe(401);
@@ -63,10 +62,9 @@ describe("POST /api/admin/clients/[clientId]/portal-account", () => {
   it("returns 403 when the caller is not ADMIN", async () => {
     getServerSession.mockResolvedValueOnce(USER_SESSION);
     const res = await createRoute(
-      new NextRequest(
-        "http://localhost/api/admin/clients/c_1/portal-account",
-        { method: "POST" },
-      ),
+      new NextRequest("http://localhost/api/admin/clients/c_1/portal-account", {
+        method: "POST",
+      }),
       { params: Promise.resolve({ clientId: "c_1" }) },
     );
     expect(res.status).toBe(403);
@@ -96,10 +94,9 @@ describe("POST /api/admin/clients/[clientId]/portal-account", () => {
     }));
 
     const res = await createRoute(
-      new NextRequest(
-        "http://localhost/api/admin/clients/c_1/portal-account",
-        { method: "POST" },
-      ),
+      new NextRequest("http://localhost/api/admin/clients/c_1/portal-account", {
+        method: "POST",
+      }),
       { params: Promise.resolve({ clientId: "c_1" }) },
     );
     expect(res.status).toBe(201);

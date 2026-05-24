@@ -28,9 +28,7 @@ const TEMPERATURE_CHAR = "00002a6e-0000-1000-8000-00805f9b34fb";
  * @returns deviceId string used by all subsequent calls
  */
 export async function scanAndConnect(deviceNames: string[]): Promise<string> {
-  const { BleClient } = await import(
-    "@capacitor-community/bluetooth-le"
-  );
+  const { BleClient } = await import("@capacitor-community/bluetooth-le");
 
   await BleClient.initialize();
 
@@ -52,9 +50,7 @@ export async function scanAndConnect(deviceNames: string[]): Promise<string> {
  * @returns Relative humidity as a percentage (0–100)
  */
 export async function readHumidity(deviceId: string): Promise<number> {
-  const { BleClient } = await import(
-    "@capacitor-community/bluetooth-le"
-  );
+  const { BleClient } = await import("@capacitor-community/bluetooth-le");
 
   const dataView = await BleClient.read(deviceId, ESS_SERVICE, HUMIDITY_CHAR);
   // ESS spec: uint16 little-endian, unit 0.01 %
@@ -68,9 +64,7 @@ export async function readHumidity(deviceId: string): Promise<number> {
  * @returns Temperature in degrees Celsius
  */
 export async function readTemperature(deviceId: string): Promise<number> {
-  const { BleClient } = await import(
-    "@capacitor-community/bluetooth-le"
-  );
+  const { BleClient } = await import("@capacitor-community/bluetooth-le");
 
   const dataView = await BleClient.read(
     deviceId,
@@ -85,9 +79,7 @@ export async function readTemperature(deviceId: string): Promise<number> {
  * Disconnect from a connected BLE device.
  */
 export async function disconnect(deviceId: string): Promise<void> {
-  const { BleClient } = await import(
-    "@capacitor-community/bluetooth-le"
-  );
+  const { BleClient } = await import("@capacitor-community/bluetooth-le");
 
   await BleClient.disconnect(deviceId);
 }

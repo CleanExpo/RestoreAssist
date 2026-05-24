@@ -73,7 +73,7 @@ describe("writeLifecycleTransition — DB interaction", () => {
       actorName: "Alice Tradie",
       guardSnapshot: { softGaps: [], auditGaps: [] },
       auditAction: "JOB_CLOSED",
-      prismaTx: txMock as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+      prismaTx: txMock as any,
     });
 
     expect(out.id).toMatch(/^trans_/);
@@ -106,7 +106,7 @@ describe("writeLifecycleTransition — DB interaction", () => {
       actorName: "Alice Tradie",
       guardSnapshot: {},
       auditAction: "JOB_CLOSED",
-      prismaTx: txMock as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+      prismaTx: txMock as any,
     });
     expect(out.id).toBeNull();
     expect(txMock.progressTransition.create).not.toHaveBeenCalled();
@@ -123,9 +123,7 @@ function makeTxMock(opts: TxMockOptions) {
   return {
     claimProgress: {
       findUnique: vi.fn(async () =>
-        opts.claimProgressFound
-          ? { id: "cp_existing", reportId: "r_1" }
-          : null,
+        opts.claimProgressFound ? { id: "cp_existing", reportId: "r_1" } : null,
       ),
       create: vi.fn(async () => ({ id: "cp_new", reportId: "r_new" })),
     },

@@ -105,7 +105,9 @@ async function main(): Promise<void> {
     process.exit(2);
   }
 
-  console.log(`Setting password for: ${existing.email} (role=${existing.role})`);
+  console.log(
+    `Setting password for: ${existing.email} (role=${existing.role})`,
+  );
   if (existing.password) {
     console.log(
       `⚠️  This account already has a password on file. Continuing will ` +
@@ -172,4 +174,3 @@ main()
     }
     await prisma.$disconnect();
   });
-

@@ -625,7 +625,8 @@ export const S540_FIELD_MAP = {
       p2: {
         label: "P2 Half-Face APR",
         rating: "Particulate filter, low bioaerosol load only",
-        notFor: "Not for trauma response — insufficient for OPIM aerosolisation",
+        notFor:
+          "Not for trauma response — insufficient for OPIM aerosolisation",
       },
       p3FullFace: {
         label: "P3 Full-Face APR",
@@ -641,7 +642,8 @@ export const S540_FIELD_MAP = {
       sar: {
         label: "Supplied-Air Respirator (SAR) / SCBA",
         rating: "Highest assigned protection factor; mandatory for Level A",
-        suitableFor: "Confined space, unknown atmospheric hazard, Level A entry",
+        suitableFor:
+          "Confined space, unknown atmospheric hazard, Level A entry",
       },
     },
     engineLogic:

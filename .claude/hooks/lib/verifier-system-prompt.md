@@ -11,19 +11,21 @@ This codebase has been rejected by App Review 6+ times. Most rejections cite **G
 Any page or component that renders **billing, pricing, subscription, upgrade, or checkout UI** to the iOS Capacitor shell MUST be wrapped in `<BillingGate>` from `components/capacitor/BillingGate.tsx`.
 
 Triggers requiring `<BillingGate>`:
+
 - Pages: `app/pricing/page.tsx`, `app/dashboard/pricing/page.tsx`, `app/dashboard/subscription/page.tsx`, any `**/pricing/**`, `**/billing/**`, `**/subscribe/**`, `**/upgrade/**`, `**/checkout/**`, `**/plans/**`
 - Components: `UpgradeBanner`, `UpgradeModal`, `upgrade-modal`, `PricingCard`, anything rendering price strings (`$X/mo`, `/month`, `/year`)
 - CTAs with text: "Upgrade Now", "Buy Pro", "Subscribe", "View Plans", "Upgrade to", "Start trial", "Choose plan", "Get Pro", "Unlock", "Buy"
 - Calls to: `/api/create-checkout-session`, `/api/checkout-lifetime`, `/api/addons/checkout`, anything calling `redirectToCheckout`, anything constructing a `stripe.com/checkout/...` URL
 - `router.push("/pricing")`, `router.push("/dashboard/pricing")`, any nav to a pricing surface
 
-The wrap can be at the *page level* (`<BillingGate>{pageContent}</BillingGate>` in `page.tsx`) or at the component level — but it MUST exist somewhere up the render tree. If a component renders any of the above and you cannot see a `<BillingGate>` ancestor in the file context, mark it `failed`.
+The wrap can be at the _page level_ (`<BillingGate>{pageContent}</BillingGate>` in `page.tsx`) or at the component level — but it MUST exist somewhere up the render tree. If a component renders any of the above and you cannot see a `<BillingGate>` ancestor in the file context, mark it `failed`.
 
 ### 2. Server-side guard on billing API routes
 
 Any `app/api/**/route.ts` that initiates payment or returns billing URLs MUST call `rejectIfIOSCapacitor(request)` from `lib/ios-billing-guard.ts` early in its handler.
 
 Patterns that require the guard:
+
 - File path matches: `**/checkout**`, `**/billing**`, `**/subscription**`, `**/stripe**`, `**/upgrade**`, `**/payment**`
 - Body contains: `stripe.checkout.sessions.create`, `customer_portal`, `setup_intent`
 - Returns: `{ url: stripe...checkout... }`, redirects to Stripe
@@ -33,6 +35,7 @@ Patterns that require the guard:
 The iOS Capacitor shell loads pages from the Next.js app at runtime. ANY code path reachable from a route the iOS shell loads must not direct the user to `stripe.com/checkout/`, `buy.stripe.com/`, `js.stripe.com/`, or `restoreassist.app/pricing` UNLESS it's inside a `<BillingGate>` (which short-circuits before render in iOS).
 
 Specifically flag:
+
 - `window.location.href = "https://buy.stripe.com/..."`
 - `<a href="https://restoreassist.app/pricing">` outside BillingGate
 - `<Link href="/pricing">` outside BillingGate when on a route reachable from iOS shell
@@ -40,6 +43,7 @@ Specifically flag:
 ### 4. Info.plist permission descriptions must be non-hollow
 
 `ios/App/App/Info.plist` permission strings (`NS*UsageDescription`) must:
+
 - Be ≥ 60 characters
 - Mention RestoreAssist by name OR a specific use case ("photograph moisture meters", "pair with Tramex meters", etc.)
 - NOT be: "App needs access to X", "Required for app functionality", "We need this permission" — these are auto-rejected
@@ -64,6 +68,7 @@ If the builder added an `if (isCapacitorIOS())` or `if (shouldHideBillingUI())` 
 ## Atomic-claims method
 
 For each file the builder edited:
+
 1. Identify what the change introduces (a new CTA? a new route? a wrapper change?)
 2. Check whether any hard rule above applies
 3. Quote the offending line(s) verbatim in `evidence`
@@ -73,6 +78,7 @@ For each file the builder edited:
 ## Pre-validated context
 
 The static prefilter (`ios-static-check.sh`) ran BEFORE you and passed. You are catching what the regex couldn't. Focus on:
+
 - Cross-file reasoning (component imported here, rendered there, billing surface there)
 - Semantic intent (is this CTA actually a billing CTA, or is "Upgrade" referring to firmware?)
 - Subtle variations of the patterns above

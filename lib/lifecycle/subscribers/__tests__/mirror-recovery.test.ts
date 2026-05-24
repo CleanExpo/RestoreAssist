@@ -42,9 +42,10 @@ beforeEach(() => {
   // Default: notification.createMany echoes back the number of rows it was
   // asked to insert. Individual tests override when they care about counts.
   mockNotificationCreateMany.mockImplementation(
-    async (args: unknown) => ({
-      count: ((args as { data?: unknown[] }).data ?? []).length,
-    }) as never,
+    async (args: unknown) =>
+      ({
+        count: ((args as { data?: unknown[] }).data ?? []).length,
+      }) as never,
   );
 });
 
@@ -80,7 +81,9 @@ describe("sweepDeadLetters", () => {
     const notifArg = mockNotificationCreateMany.mock.calls[0]![0];
     // One notification per admin (owner + ADMIN member), de-duped by userId.
     expect(notifArg.data).toHaveLength(2);
-    const userIds = (notifArg.data as Array<{ userId: string }>).map((d) => d.userId).sort();
+    const userIds = (notifArg.data as Array<{ userId: string }>)
+      .map((d) => d.userId)
+      .sort();
     expect(userIds).toEqual(["user-admin", "user-owner"]);
     expect((notifArg.data as Array<{ type: string }>)[0]!.type).toBe("ERROR");
   });
@@ -142,7 +145,9 @@ describe("sweepDeadLetters", () => {
     expect(mockNotificationCreateMany).toHaveBeenCalledTimes(1);
     const notifArg = mockNotificationCreateMany.mock.calls[0]![0];
     expect(notifArg.data).toHaveLength(3);
-    const userIds = (notifArg.data as Array<{ userId: string }>).map((d) => d.userId).sort();
+    const userIds = (notifArg.data as Array<{ userId: string }>)
+      .map((d) => d.userId)
+      .sort();
     expect(userIds).toEqual(["u-admin-1", "u-admin-2", "u-owner"]);
   });
 

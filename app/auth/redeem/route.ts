@@ -102,11 +102,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   // Best-effort cleanup. If this fails it's not fatal — expiresAt
   // ensures stale rows are excluded from future redeems anyway.
-  prisma.oAuthHandoffToken
-    .delete({ where: { tokenHash } })
-    .catch(() => {
-      /* swallowed — expiresAt prevents reuse */
-    });
+  prisma.oAuthHandoffToken.delete({ where: { tokenHash } }).catch(() => {
+    /* swallowed — expiresAt prevents reuse */
+  });
 
   // Return 302 with the session cookie attached. WKWebView stores the
   // cookie in its own jar (this is the whole point of the handoff)

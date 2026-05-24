@@ -33,27 +33,27 @@ not by being loud.
 
 ### Colour
 
-| Token | Hex | Use |
-|---|---|---|
-| `--ra-primary` | `#E55A2B` | Brand primary — candy orange dark |
-| `--ra-secondary` | `#2A3D45` | Slate — body chrome |
-| `--ra-accent` | `#C5E063` | Lime — NIR highlight / action confirm |
-| `--neutral-50` | `#F5F7F8` | Canvas |
-| `--neutral-100` | `#E4E9EC` | Surface |
-| `--neutral-500` | `#6F7B82` | Muted text |
-| `--neutral-900` | `#0E1518` | Body text |
-| `--success` | `#3FA34D` | Pass / completed |
-| `--warning` | `#E0A800` | Attention required |
-| `--danger` | `#C0392B` | Reserved for danger only — never as brand primary |
+| Token            | Hex       | Use                                               |
+| ---------------- | --------- | ------------------------------------------------- |
+| `--ra-primary`   | `#E55A2B` | Brand primary — candy orange dark                 |
+| `--ra-secondary` | `#2A3D45` | Slate — body chrome                               |
+| `--ra-accent`    | `#C5E063` | Lime — NIR highlight / action confirm             |
+| `--neutral-50`   | `#F5F7F8` | Canvas                                            |
+| `--neutral-100`  | `#E4E9EC` | Surface                                           |
+| `--neutral-500`  | `#6F7B82` | Muted text                                        |
+| `--neutral-900`  | `#0E1518` | Body text                                         |
+| `--success`      | `#3FA34D` | Pass / completed                                  |
+| `--warning`      | `#E0A800` | Attention required                                |
+| `--danger`       | `#C0392B` | Reserved for danger only — never as brand primary |
 
 ### CEO-Surface Overlay Tokens (Phill Rule 6)
 
-| Token | Hex | Use |
-|---|---|---|
-| `--canvas` | `#0e1014` | Gun Metal base — all CEO views |
-| `--red-500` | `#b30000` | Candy Red primary — CEO actions |
-| `--orange-400` | `#e07020` | CEO secondary |
-| `--green-500` | `#00a854` | CEO success |
+| Token          | Hex       | Use                             |
+| -------------- | --------- | ------------------------------- |
+| `--canvas`     | `#0e1014` | Gun Metal base — all CEO views  |
+| `--red-500`    | `#b30000` | Candy Red primary — CEO actions |
+| `--orange-400` | `#e07020` | CEO secondary                   |
+| `--green-500`  | `#00a854` | CEO success                     |
 
 ### Typography
 
@@ -80,6 +80,7 @@ not by being loud.
 These are **auto-fail** in CI lint and code review.
 
 ### Icons
+
 - **NO Lucide, HeroIcons, FontAwesome, or any other icon library in app code.**
   Phill Rule 1. Generic icons make every app look the same.
 - Shadcn UI library internals may keep their own icons — app-level code only
@@ -137,6 +138,7 @@ All visual indicators, navigation symbols, and status marks must be
 purpose-designed SVGs, unique to Unite Group / RestoreAssist.
 
 Design grammar:
+
 - 24×24 viewBox
 - 1.5px stroke, `strokeLinecap="square"`, `strokeLinejoin="miter"`
 - Sharp corners only — no rounded ends

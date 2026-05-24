@@ -9,20 +9,20 @@
 
 ## 1. Context
 
-The user's framing: *"We need a full dropdown for all 'How To' built and filled with everything. This also needs Images to make it easy along with the ability for AI (Like Claude Chrome Desktop) to setup for the clients."* Decomposed during brainstorm into Feature A (this spec — Help Library) and Feature B (SP-G AI Setup Agent — separate spec, follow-up).
+The user's framing: _"We need a full dropdown for all 'How To' built and filled with everything. This also needs Images to make it easy along with the ability for AI (Like Claude Chrome Desktop) to setup for the clients."_ Decomposed during brainstorm into Feature A (this spec — Help Library) and Feature B (SP-G AI Setup Agent — separate spec, follow-up).
 
 Existing in-repo help surfaces today are fragmented:
 
-| Path | Today |
-|---|---|
-| `app/dashboard/help/page.tsx` | 15kB · hardcoded FAQ array · ~10 entries · ReactMarkdown · accordion |
-| `app/help/page.tsx` | Marketing-style public FAQ (framer-motion, dark-mode toggle) |
-| `app/faq/page.tsx` | Yet another public FAQ |
-| `app/dashboard/support/`, `app/support/` | Support contact forms (out of scope) |
-| `app/api/support/route.ts` | Backing API for contact form |
-| `components/help/HelpButton.tsx`, `HelpTooltip.tsx` | Inline help UI primitives |
-| `components/IICRCComplianceHelper.tsx` | IICRC-specific helper |
-| `components/onboarding/ProductTour.tsx` + `/api/user/product-tour/route.ts` | Guided tour, already mounted |
+| Path                                                                        | Today                                                                |
+| --------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `app/dashboard/help/page.tsx`                                               | 15kB · hardcoded FAQ array · ~10 entries · ReactMarkdown · accordion |
+| `app/help/page.tsx`                                                         | Marketing-style public FAQ (framer-motion, dark-mode toggle)         |
+| `app/faq/page.tsx`                                                          | Yet another public FAQ                                               |
+| `app/dashboard/support/`, `app/support/`                                    | Support contact forms (out of scope)                                 |
+| `app/api/support/route.ts`                                                  | Backing API for contact form                                         |
+| `components/help/HelpButton.tsx`, `HelpTooltip.tsx`                         | Inline help UI primitives                                            |
+| `components/IICRCComplianceHelper.tsx`                                      | IICRC-specific helper                                                |
+| `components/onboarding/ProductTour.tsx` + `/api/user/product-tour/route.ts` | Guided tour, already mounted                                         |
 
 Three competing FAQ surfaces, ~10% feature coverage, no images, no AI-readable structure. SP-8 consolidates these into a single MDX-driven library reachable from a top-bar **How To** dropdown (using the `@componentry/magnetic-dock` pattern, restrained), with `showcase-card` article tiles, client-side fuzzy search, and frontmatter that SP-G can read directly.
 
@@ -62,7 +62,7 @@ Three competing FAQ surfaces, ~10% feature coverage, no images, no AI-readable s
 
 A single **top-bar dropdown** drives navigation to a unified Help Library at `/dashboard/help`. Articles are MDX files in the repo, loaded at build time, image-rich via Cloudinary, frontmatter-tagged for AI consumption. Public mirror at `/help` redirects `/faq` and the old marketing `/help` for clean SEO + bookmarks.
 
-The Componentry palette is curated by a senior product designer agent. Of the 9 installed components, **2 KEEPS** (magnetic-dock, showcase-card), **4 DEFERS** (letter-cascade, auth-modal, testimonial-marquee, scroll-split-card), **3 REJECTS** (circuit-board, webgl-liquid, scrub-input). The design language: *considered minimalism with zero animation* — Linear / Stripe-docs restraint, not marketing-page flourish.
+The Componentry palette is curated by a senior product designer agent. Of the 9 installed components, **2 KEEPS** (magnetic-dock, showcase-card), **4 DEFERS** (letter-cascade, auth-modal, testimonial-marquee, scroll-split-card), **3 REJECTS** (circuit-board, webgl-liquid, scrub-input). The design language: _considered minimalism with zero animation_ — Linear / Stripe-docs restraint, not marketing-page flourish.
 
 ---
 
@@ -104,6 +104,7 @@ Wired in `app/dashboard/layout.tsx`. New component `components/help/HowToDropdow
 ### 4.4 Article detail page
 
 Typography-led, no motion. Layout:
+
 - Breadcrumb: `Help / Getting started / Your first inspection`
 - 34px display headline
 - Byline strip: read-time + last-updated + category chip
@@ -129,20 +130,20 @@ Typography-led, no motion. Layout:
 
 ### 5.3 DEFER (not in SP-8, banked for future)
 
-| Component | Banked for |
-|---|---|
-| `letter-cascade` | Marketing-site hero rewrite |
-| `auth-modal` | Future auth UX pass |
-| `testimonial-marquee` | Marketing-site social-proof band |
-| `scroll-split-card` | Possibly a "feature highlight" on the marketing site |
+| Component             | Banked for                                           |
+| --------------------- | ---------------------------------------------------- |
+| `letter-cascade`      | Marketing-site hero rewrite                          |
+| `auth-modal`          | Future auth UX pass                                  |
+| `testimonial-marquee` | Marketing-site social-proof band                     |
+| `scroll-split-card`   | Possibly a "feature highlight" on the marketing site |
 
 ### 5.4 REJECT (not in any near-term SP-8/marketing surface)
 
-| Component | Rationale |
-|---|---|
-| `circuit-board` | System-architecture diagram — wrong for help-library |
-| `webgl-liquid` | iPad mid-inspection battery/thermal — explicit overboard |
-| `scrub-input` | Drag-to-scrub numeric input — no SP-8 JTBD |
+| Component       | Rationale                                                |
+| --------------- | -------------------------------------------------------- |
+| `circuit-board` | System-architecture diagram — wrong for help-library     |
+| `webgl-liquid`  | iPad mid-inspection battery/thermal — explicit overboard |
+| `scrub-input`   | Drag-to-scrub numeric input — no SP-8 JTBD               |
 
 ---
 
@@ -156,30 +157,29 @@ title: "Your first inspection in 8 minutes"
 slug: "first-inspection"
 category: "getting-started"
 order: 1
-audience: ["tradie", "admin"]                     # role-filtering
+audience: ["tradie", "admin"] # role-filtering
 readTimeMin: 5
 updatedAt: "2026-05-15"
-status: "published"                               # draft | published | archived
-heroImage: "ra-help/getting-started/first-inspection-hero"  # Cloudinary public ID
+status: "published" # draft | published | archived
+heroImage: "ra-help/getting-started/first-inspection-hero" # Cloudinary public ID
 relatedSlugs: ["claim-types", "evidence-capture"]
 
 # AI fields (consumed by SP-G)
-aiSummary: |                                      # [AI] 1-paragraph exec summary the agent reads first
+aiSummary: | # [AI] 1-paragraph exec summary the agent reads first
   Walks a tradie from "+ New inspection" through claim-type pick, photo capture
   with chain-of-custody, scope items, AI draft, sign-off, and close. Average
   8 minutes for a standard water-damage Cat-1 inspection.
-userIntents:                                      # [AI] phrasing variants — agent matches against
+userIntents: # [AI] phrasing variants — agent matches against
   - "how do I create an inspection"
   - "first inspection walkthrough"
   - "what's the new inspection flow"
   - "how to start a job"
-successCriteria:                                  # [AI] what "done" looks like
+successCriteria: # [AI] what "done" looks like
   - "Inspection in COMPLETED or CLOSED status"
   - "All required photos uploaded with chain-of-custody hashes"
   - "Scope items added"
   - "AI draft generated and reviewed"
 ---
-
 # Article body (MDX from here)
 ...
 ```
@@ -194,9 +194,9 @@ export type HelpFrontmatter = {
   order: number;
   audience: ("tradie" | "admin" | "client")[];
   readTimeMin: number;
-  updatedAt: string;          // ISO date
+  updatedAt: string; // ISO date
   status: "draft" | "published" | "archived";
-  heroImage?: string;         // Cloudinary public ID
+  heroImage?: string; // Cloudinary public ID
   relatedSlugs: string[];
   aiSummary: string;
   userIntents: string[];
@@ -249,15 +249,15 @@ Locked via senior designer agent + user approval on `curation-v1.html` mockup:
 
 ## 9. Existing-page consolidation
 
-| Path today | Action | Rationale |
-|---|---|---|
-| `app/dashboard/help/page.tsx` (15kB FAQ) | **Replace** with MDX-driven index | Hardcoded FAQ array migrates to MDX articles (8 seed articles cover the most-asked Qs) |
-| `app/help/page.tsx` (public marketing FAQ) | **Replace** with public Help Library index | Same MDX content as authed; gated articles 404 to unauthed users |
-| `app/faq/page.tsx` | **308 redirect to `/help`** | One canonical public help surface |
-| `app/dashboard/support/`, `app/support/` | **Unchanged** | Contact forms — different feature |
-| `components/help/HelpButton.tsx`, `HelpTooltip.tsx` | **Unchanged** | Inline help primitives — orthogonal to library |
-| `components/IICRCComplianceHelper.tsx` | **Unchanged** | IICRC-specific helper — orthogonal |
-| `components/onboarding/ProductTour.tsx` | **Unchanged** | Complementary surface, not consolidated |
+| Path today                                          | Action                                     | Rationale                                                                              |
+| --------------------------------------------------- | ------------------------------------------ | -------------------------------------------------------------------------------------- |
+| `app/dashboard/help/page.tsx` (15kB FAQ)            | **Replace** with MDX-driven index          | Hardcoded FAQ array migrates to MDX articles (8 seed articles cover the most-asked Qs) |
+| `app/help/page.tsx` (public marketing FAQ)          | **Replace** with public Help Library index | Same MDX content as authed; gated articles 404 to unauthed users                       |
+| `app/faq/page.tsx`                                  | **308 redirect to `/help`**                | One canonical public help surface                                                      |
+| `app/dashboard/support/`, `app/support/`            | **Unchanged**                              | Contact forms — different feature                                                      |
+| `components/help/HelpButton.tsx`, `HelpTooltip.tsx` | **Unchanged**                              | Inline help primitives — orthogonal to library                                         |
+| `components/IICRCComplianceHelper.tsx`              | **Unchanged**                              | IICRC-specific helper — orthogonal                                                     |
+| `components/onboarding/ProductTour.tsx`             | **Unchanged**                              | Complementary surface, not consolidated                                                |
 
 Redirect added to `next.config.mjs`:
 
@@ -274,16 +274,16 @@ redirects: async () => [
 
 One hero article per category, authored during implementation:
 
-| Category | Seed article | Read time |
-|---|---|---|
-| Getting started | "Your first inspection in 8 minutes" | 5 min |
-| Inspections | "Capture photos with chain-of-custody" | 4 min |
-| Reports | "Generate your first AI-drafted S500 report" | 5 min |
-| Clients & Portal | "Share a report with your client via the portal" | 3 min |
-| Billing | "Upgrade from trial to paid plan" | 3 min |
-| Team | "Invite a technician + verify their licence" | 4 min |
-| Integrations | "Connect Xero to push invoices automatically" | 4 min |
-| Compliance | "How RestoreAssist cites IICRC standards" | 5 min |
+| Category         | Seed article                                     | Read time |
+| ---------------- | ------------------------------------------------ | --------- |
+| Getting started  | "Your first inspection in 8 minutes"             | 5 min     |
+| Inspections      | "Capture photos with chain-of-custody"           | 4 min     |
+| Reports          | "Generate your first AI-drafted S500 report"     | 5 min     |
+| Clients & Portal | "Share a report with your client via the portal" | 3 min     |
+| Billing          | "Upgrade from trial to paid plan"                | 3 min     |
+| Team             | "Invite a technician + verify their licence"     | 4 min     |
+| Integrations     | "Connect Xero to push invoices automatically"    | 4 min     |
+| Compliance       | "How RestoreAssist cites IICRC standards"        | 5 min     |
 
 Categories without a seed article on day-1 show an empty state ("More articles landing soon").
 
@@ -305,37 +305,38 @@ SP-G's brainstorm + plan happens after SP-8 ships. SP-8 does NOT build the AI ag
 
 ### 12.1 Unit (Vitest)
 
-| Target | Cases |
-|---|---|
-| `lib/help/load-article.ts` (MDX loader) | Parses frontmatter · resolves Cloudinary URL · validates required fields |
+| Target                                          | Cases                                                                           |
+| ----------------------------------------------- | ------------------------------------------------------------------------------- |
+| `lib/help/load-article.ts` (MDX loader)         | Parses frontmatter · resolves Cloudinary URL · validates required fields        |
 | `lib/help/validate-frontmatter.ts` (zod schema) | 8 cases — required fields present · status enum · category enum · audience enum |
-| `lib/help/search-index-builder.ts` | Generates expected JSON shape from MDX fixtures |
-| `<HelpSearchModal>` | Opens on ⌘K · returns 5-7 results · arrow keys navigate · Esc closes |
-| `<HowToDropdown>` | Renders 8 categories · "Browse all" link · keyboard focus correct |
+| `lib/help/search-index-builder.ts`              | Generates expected JSON shape from MDX fixtures                                 |
+| `<HelpSearchModal>`                             | Opens on ⌘K · returns 5-7 results · arrow keys navigate · Esc closes            |
+| `<HowToDropdown>`                               | Renders 8 categories · "Browse all" link · keyboard focus correct               |
 
 ### 12.2 Integration
 
-| Target | Cases |
-|---|---|
-| `/dashboard/help` page | Renders 8 seed articles · empty categories show empty state · search index served as JSON |
+| Target                                             | Cases                                                                                              |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `/dashboard/help` page                             | Renders 8 seed articles · empty categories show empty state · search index served as JSON          |
 | `/dashboard/help/getting-started/first-inspection` | Renders MDX body · breadcrumb correct · IICRC citations stay inline-code · related articles render |
-| `/help` public mirror | Renders without auth · gated articles 404 |
-| `/faq` redirect | Returns 308 to `/help` |
-| Build-time index generation | `scripts/build-help-index.ts` produces valid JSON ≤ 200KB at 50-article scale |
+| `/help` public mirror                              | Renders without auth · gated articles 404                                                          |
+| `/faq` redirect                                    | Returns 308 to `/help`                                                                             |
+| Build-time index generation                        | `scripts/build-help-index.ts` produces valid JSON ≤ 200KB at 50-article scale                      |
 
 ### 12.3 E2E (Playwright)
 
-| Spec | Scenario |
-|---|---|
-| `e2e/help/dropdown-open.spec.ts` | Click "How To" → dropdown panel renders 8 categories → click category → land on filtered index |
-| `e2e/help/search-cmd-k.spec.ts` | Press ⌘K → search modal opens → type "photo" → results include the photo-capture article |
-| `e2e/help/article-detail.spec.ts` | Open seed article → headline + hero + body render → related-articles section populated |
-| `e2e/help/public-mirror.spec.ts` | Visit `/help/getting-started/first-inspection` without auth → article renders (it's an unauthed seed) |
-| `e2e/help/redirects.spec.ts` | `curl -I /faq` returns 308 location `/help` |
+| Spec                              | Scenario                                                                                              |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `e2e/help/dropdown-open.spec.ts`  | Click "How To" → dropdown panel renders 8 categories → click category → land on filtered index        |
+| `e2e/help/search-cmd-k.spec.ts`   | Press ⌘K → search modal opens → type "photo" → results include the photo-capture article              |
+| `e2e/help/article-detail.spec.ts` | Open seed article → headline + hero + body render → related-articles section populated                |
+| `e2e/help/public-mirror.spec.ts`  | Visit `/help/getting-started/first-inspection` without auth → article renders (it's an unauthed seed) |
+| `e2e/help/redirects.spec.ts`      | `curl -I /faq` returns 308 location `/help`                                                           |
 
 ### 12.4 Verification gate (per `.claude/rules/verification-gate.md`)
 
 PR description must include a manual checklist:
+
 - **Where:** Vercel preview URL
 - **How to walk it:** open `/dashboard/help` → confirm 8 categories visible in top-bar dropdown · click each category → confirm seed article visible OR empty-state · press ⌘K → search "photo" → confirm article found · open article → confirm Cloudinary hero loads · navigate to `/help/getting-started/first-inspection` unauthed → confirm renders · `curl -I https://<preview>/faq` → confirm 308
 - **What NOT to see:** 3D tilt on cards · WebGL/marquee anywhere · low-contrast text · authed-only article rendering on public mirror

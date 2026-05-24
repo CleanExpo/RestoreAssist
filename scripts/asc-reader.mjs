@@ -27,7 +27,9 @@ await page.screenshot({ path: `${OUT}/01-apps-list.png` });
 console.log("[asc] URL:", page.url());
 
 // Save full text to understand what's on screen
-const text1 = await page.evaluate(() => document.body.innerText).catch(() => "");
+const text1 = await page
+  .evaluate(() => document.body.innerText)
+  .catch(() => "");
 fs.writeFileSync(`${OUT}/01-text.txt`, text1.slice(0, 5000));
 
 // Try clicking RestoreAssist
@@ -37,12 +39,21 @@ if (await appLink.isVisible({ timeout: 5000 }).catch(() => false)) {
   await appLink.click();
   await page.waitForTimeout(4000);
   await page.screenshot({ path: `${OUT}/02-app-page.png` });
-  const text2 = await page.evaluate(() => document.body.innerText).catch(() => "");
+  const text2 = await page
+    .evaluate(() => document.body.innerText)
+    .catch(() => "");
   fs.writeFileSync(`${OUT}/02-text.txt`, text2.slice(0, 5000));
   console.log("[asc] app page URL:", page.url());
 
   // Look for the version / app review / resolution center
-  for (const label of ["Resolution Center", "App Review", "View Details", "1.0", "Rejected", "Review"]) {
+  for (const label of [
+    "Resolution Center",
+    "App Review",
+    "View Details",
+    "1.0",
+    "Rejected",
+    "Review",
+  ]) {
     const el = page.locator(`text=${label}`).first();
     if (await el.isVisible({ timeout: 1500 }).catch(() => false)) {
       console.log(`[asc] visible: "${label}"`);
@@ -50,7 +61,9 @@ if (await appLink.isVisible({ timeout: 5000 }).catch(() => false)) {
   }
 } else {
   console.log("[asc] RestoreAssist link not visible — may need to sign in");
-  const text2 = await page.evaluate(() => document.body.innerText).catch(() => "");
+  const text2 = await page
+    .evaluate(() => document.body.innerText)
+    .catch(() => "");
   fs.writeFileSync(`${OUT}/01-text.txt`, text2.slice(0, 3000));
 }
 

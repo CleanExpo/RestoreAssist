@@ -127,7 +127,7 @@ export async function retrieveSimilarJobs(options: {
   // buildQueryText is used for future pgvector embedding path
   void buildQueryText(options);
 
-  let similar: SimilarJob[] = [];
+  let similar: SimilarJob[];
 
   // Try pgvector similarity search if vectors exist
   try {

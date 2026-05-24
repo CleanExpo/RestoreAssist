@@ -292,7 +292,7 @@ async function renderInvoicePage(
 
   // Notes & Terms
   if (data.invoice.notes || data.invoice.terms) {
-    yPosition = await renderNotesAndTerms(page, {
+    await renderNotesAndTerms(page, {
       helvetica,
       helveticaBold,
       colors,
@@ -1315,11 +1315,14 @@ function wrapText(
  */
 function sanitizeTextForPDF(text: string): string {
   // Replace smart quotes and other problematic characters
-  return text
-    .replace(/[\u2018\u2019]/g, "'") // Smart single quotes
-    .replace(/[\u201C\u201D]/g, '"') // Smart double quotes
-    .replace(/[\u2013\u2014]/g, "-") // En/Em dashes
-    .replace(/[\u2026]/g, "...") // Ellipsis
-    .replace(/[\u00A0]/g, " ") // Non-breaking space
-    .replace(/[^\x00-\x7F]/g, ""); // Remove non-ASCII
+  return (
+    text
+      .replace(/[\u2018\u2019]/g, "'") // Smart single quotes
+      .replace(/[\u201C\u201D]/g, '"') // Smart double quotes
+      .replace(/[\u2013\u2014]/g, "-") // En/Em dashes
+      .replace(/[\u2026]/g, "...") // Ellipsis
+      .replace(/[\u00A0]/g, " ") // Non-breaking space
+      // eslint-disable-next-line no-control-regex -- deliberate control-char filter
+      .replace(/[^\x00-\x7F]/g, "")
+  ); // Remove non-ASCII
 }

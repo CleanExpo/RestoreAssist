@@ -60,7 +60,7 @@ export async function checkWorkspaceBudget(
   ) {
     budgetUsd = args.budgetOverrideUsd;
   } else {
-    let workspaceBudget: number | null = null;
+    let workspaceBudget: number | null;
     try {
       const ws = await prisma.workspace.findUnique({
         where: { id: args.workspaceId },
@@ -84,7 +84,7 @@ export async function checkWorkspaceBudget(
 
   // Sum today's logged costs scoped to this workspace.
   const startOfDay = startOfTodayUTC();
-  let spentTodayUsd = 0;
+  let spentTodayUsd;
   try {
     const aggregate = await prisma.aiUsageLog.aggregate({
       _sum: { estimatedCostUsd: true },

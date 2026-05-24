@@ -15,7 +15,10 @@ All four must be created under `app/api/test/` and guarded by `process.env.NODE_
 
 ```ts
 if (process.env.NODE_ENV === "production") {
-  return NextResponse.json({ error: "Not available in production" }, { status: 404 });
+  return NextResponse.json(
+    { error: "Not available in production" },
+    { status: 404 },
+  );
 }
 ```
 

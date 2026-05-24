@@ -16,45 +16,45 @@
 
 ### New files (28)
 
-| Path | Responsibility |
-|---|---|
-| `lib/help/types.ts` | `HelpFrontmatter` type · `HELP_CATEGORIES` const · `HelpCategory` union |
-| `lib/help/frontmatter-schema.ts` | zod schema mirroring `HelpFrontmatter` · `parseHelpFrontmatter()` |
-| `lib/help/load-article.ts` | `loadArticle(category, slug)` · `loadAllArticles()` · `loadCategoryIndex(category)` |
-| `lib/help/cloudinary.ts` | `cloudinaryUrl(publicId, opts)` helper |
-| `lib/help/__tests__/frontmatter-schema.test.ts` | zod validator tests |
-| `lib/help/__tests__/load-article.test.ts` | loader tests against fixtures |
-| `scripts/build-help-index.ts` | Walks `/content/help/**/*.mdx` → writes `public/help-index.json` |
-| `components/help/HowToDropdown.tsx` | Top-bar dropdown · uses `magnetic-dock` (`maxScale={1}`, `showLabels`) |
-| `components/help/HelpArticleCard.tsx` | Article card · uses `showcase-card` with tilt/parallax disabled |
-| `components/help/HelpSearchModal.tsx` | ⌘K modal · loads `/help-index.json` · `fuse.js` fuzzy search |
-| `components/help/Screenshot.tsx` | MDX `<Screenshot src="cld-id" alt="..." caption="..."/>` |
-| `components/help/Callout.tsx` | MDX `<Callout type="tip\|warning\|iicrc">` |
-| `components/help/__tests__/HowToDropdown.test.tsx` | Renders 8 categories · keyboard nav |
-| `components/help/__tests__/HelpSearchModal.test.tsx` | ⌘K opens · fuzzy match returns 5-7 |
-| `app/dashboard/help/page.tsx` | **REWRITE** existing — now an MDX index page |
-| `app/dashboard/help/[category]/page.tsx` | Category-filtered index |
-| `app/dashboard/help/[category]/[slug]/page.tsx` | Article detail |
-| `app/help/page.tsx` | **REWRITE** existing — public mirror of `/dashboard/help` |
-| `app/help/[category]/[slug]/page.tsx` | Public article detail (gated articles 404) |
-| `content/help/getting-started/first-inspection.mdx` | Seed article |
-| `content/help/inspections/photo-cocoa.mdx` | Seed article |
-| `content/help/reports/first-ai-report.mdx` | Seed article |
-| `content/help/clients-and-portal/share-via-portal.mdx` | Seed article |
-| `content/help/billing/upgrade-from-trial.mdx` | Seed article |
-| `content/help/team/invite-technician.mdx` | Seed article |
-| `content/help/integrations/connect-xero.mdx` | Seed article |
-| `content/help/compliance/iicrc-citations.mdx` | Seed article |
-| `e2e/help/*.spec.ts` × 5 | dropdown-open · search-cmd-k · article-detail · public-mirror · redirects |
+| Path                                                   | Responsibility                                                                      |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| `lib/help/types.ts`                                    | `HelpFrontmatter` type · `HELP_CATEGORIES` const · `HelpCategory` union             |
+| `lib/help/frontmatter-schema.ts`                       | zod schema mirroring `HelpFrontmatter` · `parseHelpFrontmatter()`                   |
+| `lib/help/load-article.ts`                             | `loadArticle(category, slug)` · `loadAllArticles()` · `loadCategoryIndex(category)` |
+| `lib/help/cloudinary.ts`                               | `cloudinaryUrl(publicId, opts)` helper                                              |
+| `lib/help/__tests__/frontmatter-schema.test.ts`        | zod validator tests                                                                 |
+| `lib/help/__tests__/load-article.test.ts`              | loader tests against fixtures                                                       |
+| `scripts/build-help-index.ts`                          | Walks `/content/help/**/*.mdx` → writes `public/help-index.json`                    |
+| `components/help/HowToDropdown.tsx`                    | Top-bar dropdown · uses `magnetic-dock` (`maxScale={1}`, `showLabels`)              |
+| `components/help/HelpArticleCard.tsx`                  | Article card · uses `showcase-card` with tilt/parallax disabled                     |
+| `components/help/HelpSearchModal.tsx`                  | ⌘K modal · loads `/help-index.json` · `fuse.js` fuzzy search                        |
+| `components/help/Screenshot.tsx`                       | MDX `<Screenshot src="cld-id" alt="..." caption="..."/>`                            |
+| `components/help/Callout.tsx`                          | MDX `<Callout type="tip\|warning\|iicrc">`                                          |
+| `components/help/__tests__/HowToDropdown.test.tsx`     | Renders 8 categories · keyboard nav                                                 |
+| `components/help/__tests__/HelpSearchModal.test.tsx`   | ⌘K opens · fuzzy match returns 5-7                                                  |
+| `app/dashboard/help/page.tsx`                          | **REWRITE** existing — now an MDX index page                                        |
+| `app/dashboard/help/[category]/page.tsx`               | Category-filtered index                                                             |
+| `app/dashboard/help/[category]/[slug]/page.tsx`        | Article detail                                                                      |
+| `app/help/page.tsx`                                    | **REWRITE** existing — public mirror of `/dashboard/help`                           |
+| `app/help/[category]/[slug]/page.tsx`                  | Public article detail (gated articles 404)                                          |
+| `content/help/getting-started/first-inspection.mdx`    | Seed article                                                                        |
+| `content/help/inspections/photo-cocoa.mdx`             | Seed article                                                                        |
+| `content/help/reports/first-ai-report.mdx`             | Seed article                                                                        |
+| `content/help/clients-and-portal/share-via-portal.mdx` | Seed article                                                                        |
+| `content/help/billing/upgrade-from-trial.mdx`          | Seed article                                                                        |
+| `content/help/team/invite-technician.mdx`              | Seed article                                                                        |
+| `content/help/integrations/connect-xero.mdx`           | Seed article                                                                        |
+| `content/help/compliance/iicrc-citations.mdx`          | Seed article                                                                        |
+| `e2e/help/*.spec.ts` × 5                               | dropdown-open · search-cmd-k · article-detail · public-mirror · redirects           |
 
 ### Modified files (4)
 
-| Path | Change |
-|---|---|
-| `app/dashboard/layout.tsx` | Mount `<HowToDropdown>` in top bar + `<HelpSearchModal>` global |
-| `next.config.mjs` | Add `/faq` → `/help` 308 redirect |
-| `package.json` + `pnpm-lock.yaml` | Add `next-mdx-remote`, `gray-matter`, `fuse.js` |
-| `app/faq/page.tsx` | **DELETE** (replaced by redirect) |
+| Path                              | Change                                                          |
+| --------------------------------- | --------------------------------------------------------------- |
+| `app/dashboard/layout.tsx`        | Mount `<HowToDropdown>` in top bar + `<HelpSearchModal>` global |
+| `next.config.mjs`                 | Add `/faq` → `/help` 308 redirect                               |
+| `package.json` + `pnpm-lock.yaml` | Add `next-mdx-remote`, `gray-matter`, `fuse.js`                 |
+| `app/faq/page.tsx`                | **DELETE** (replaced by redirect)                               |
 
 ### Already-installed Componentry components (used as-is)
 
@@ -66,6 +66,7 @@
 ## Task 1: Foundation — types, categories, zod schema
 
 **Files:**
+
 - Create: `lib/help/types.ts`
 - Create: `lib/help/frontmatter-schema.ts`
 - Test: `lib/help/__tests__/frontmatter-schema.test.ts`
@@ -113,7 +114,10 @@ describe("parseHelpFrontmatter", () => {
   });
 
   it("rejects unknown category", () => {
-    const result = parseHelpFrontmatter({ ...valid, category: "not-a-real-category" });
+    const result = parseHelpFrontmatter({
+      ...valid,
+      category: "not-a-real-category",
+    });
     expect(result.success).toBe(false);
   });
 
@@ -201,7 +205,10 @@ import { HELP_CATEGORIES, type HelpFrontmatter } from "./types";
 
 const Schema = z.object({
   title: z.string().min(1),
-  slug: z.string().min(1).regex(/^[a-z0-9-]+$/, "slug must be kebab-case"),
+  slug: z
+    .string()
+    .min(1)
+    .regex(/^[a-z0-9-]+$/, "slug must be kebab-case"),
   category: z.enum(HELP_CATEGORIES),
   order: z.number().int().nonnegative(),
   audience: z.array(z.enum(["tradie", "admin", "client"])).min(1),
@@ -215,11 +222,14 @@ const Schema = z.object({
   successCriteria: z.array(z.string()).min(1),
 });
 
-export function parseHelpFrontmatter(input: unknown):
+export function parseHelpFrontmatter(
+  input: unknown,
+):
   | { success: true; data: HelpFrontmatter }
   | { success: false; error: z.ZodError } {
   const result = Schema.safeParse(input);
-  if (result.success) return { success: true, data: result.data as HelpFrontmatter };
+  if (result.success)
+    return { success: true, data: result.data as HelpFrontmatter };
   return { success: false, error: result.error };
 }
 ```
@@ -244,6 +254,7 @@ git commit -m "feat(help): foundation — types + frontmatter schema + Component
 ## Task 2: MDX loader util
 
 **Files:**
+
 - Create: `lib/help/load-article.ts`
 - Create: `lib/help/__tests__/load-article.test.ts`
 - Create: `content/help/_fixtures/test-article.mdx` (test fixture)
@@ -253,7 +264,11 @@ git commit -m "feat(help): foundation — types + frontmatter schema + Component
 ```ts
 // lib/help/__tests__/load-article.test.ts
 import { describe, it, expect } from "vitest";
-import { loadArticle, loadAllArticles, loadCategoryIndex } from "../load-article";
+import {
+  loadArticle,
+  loadAllArticles,
+  loadCategoryIndex,
+} from "../load-article";
 
 describe("loadArticle", () => {
   it("loads and parses a valid fixture", async () => {
@@ -296,20 +311,21 @@ describe("loadAllArticles", () => {
 - [ ] **Step 2: Create the test fixture**
 
 ```mdx
-<!-- content/help/_fixtures/test-article.mdx -->
----
+## <!-- content/help/_fixtures/test-article.mdx -->
+
 title: "Test fixture article"
 slug: "test-article"
-category: "_fixtures"
+category: "\_fixtures"
 order: 1
 audience: ["tradie"]
 readTimeMin: 1
 updatedAt: "2026-05-15"
 status: "published"
 relatedSlugs: []
-aiSummary: "Test fixture used by lib/help/__tests__/load-article.test.ts to verify MDX loading."
+aiSummary: "Test fixture used by lib/help/**tests**/load-article.test.ts to verify MDX loading."
 userIntents: ["test loader"]
 successCriteria: ["loader returns the fixture"]
+
 ---
 
 This is the body of the test fixture article.
@@ -332,7 +348,11 @@ Expected: FAIL — module not found.
 import fs from "fs/promises";
 import path from "path";
 import matter from "gray-matter";
-import { HELP_CATEGORIES, type HelpFrontmatter, type HelpCategory } from "./types";
+import {
+  HELP_CATEGORIES,
+  type HelpFrontmatter,
+  type HelpCategory,
+} from "./types";
 import { parseHelpFrontmatter } from "./frontmatter-schema";
 
 const CONTENT_ROOT = path.join(process.cwd(), "content", "help");
@@ -350,12 +370,18 @@ async function readMdx(filePath: string): Promise<LoadedArticle | null> {
     // Allow `_fixtures` category in test mode (bypasses zod category enum)
     const inFixture = parsed.data.category === "_fixtures";
     if (inFixture && process.env.NODE_ENV === "test") {
-      return { frontmatter: parsed.data as HelpFrontmatter, body: parsed.content };
+      return {
+        frontmatter: parsed.data as HelpFrontmatter,
+        body: parsed.content,
+      };
     }
 
     const result = parseHelpFrontmatter(parsed.data);
     if (!result.success) {
-      console.error(`[help] frontmatter invalid for ${filePath}:`, result.error.format());
+      console.error(
+        `[help] frontmatter invalid for ${filePath}:`,
+        result.error.format(),
+      );
       return null;
     }
     return { frontmatter: result.data, body: parsed.content };
@@ -390,7 +416,10 @@ export async function loadCategoryIndex(
       .map((f) => readMdx(path.join(dir, f))),
   );
   return articles
-    .filter((a): a is LoadedArticle => a !== null && a.frontmatter.status === "published")
+    .filter(
+      (a): a is LoadedArticle =>
+        a !== null && a.frontmatter.status === "published",
+    )
     .sort((a, b) => a.frontmatter.order - b.frontmatter.order);
 }
 
@@ -421,6 +450,7 @@ git commit -m "feat(help): MDX loader util — loadArticle + loadCategoryIndex +
 ## Task 3: Cloudinary helper + `<Screenshot>` MDX component
 
 **Files:**
+
 - Create: `lib/help/cloudinary.ts`
 - Create: `components/help/Screenshot.tsx`
 - Test: `lib/help/__tests__/cloudinary.test.ts`
@@ -437,12 +467,16 @@ describe("cloudinaryUrl", () => {
     const url = cloudinaryUrl("ra-help/getting-started/hero", {
       cloudName: "test-cloud",
     });
-    expect(url).toBe("https://res.cloudinary.com/test-cloud/image/upload/ra-help/getting-started/hero");
+    expect(url).toBe(
+      "https://res.cloudinary.com/test-cloud/image/upload/ra-help/getting-started/hero",
+    );
   });
 
   it("applies width transform", () => {
     const url = cloudinaryUrl("ra-help/hero", { cloudName: "c", width: 1200 });
-    expect(url).toBe("https://res.cloudinary.com/c/image/upload/w_1200/ra-help/hero");
+    expect(url).toBe(
+      "https://res.cloudinary.com/c/image/upload/w_1200/ra-help/hero",
+    );
   });
 
   it("applies multiple transforms", () => {
@@ -452,7 +486,9 @@ describe("cloudinaryUrl", () => {
       quality: "auto",
       format: "auto",
     });
-    expect(url).toBe("https://res.cloudinary.com/c/image/upload/w_1200,q_auto,f_auto/ra-help/hero");
+    expect(url).toBe(
+      "https://res.cloudinary.com/c/image/upload/w_1200,q_auto,f_auto/ra-help/hero",
+    );
   });
 });
 ```
@@ -479,12 +515,20 @@ export type CloudinaryUrlOpts = {
 
 function resolveCloudName(opts: CloudinaryUrlOpts): string {
   if (opts.cloudName) return opts.cloudName;
-  const fromUrl = process.env.CLOUDINARY_URL?.match(/cloudinary:\/\/[^@]+@(.+)$/)?.[1];
-  if (!fromUrl) throw new Error("Cloudinary cloud name missing — set CLOUDINARY_URL or pass cloudName");
+  const fromUrl = process.env.CLOUDINARY_URL?.match(
+    /cloudinary:\/\/[^@]+@(.+)$/,
+  )?.[1];
+  if (!fromUrl)
+    throw new Error(
+      "Cloudinary cloud name missing — set CLOUDINARY_URL or pass cloudName",
+    );
   return fromUrl;
 }
 
-export function cloudinaryUrl(publicId: string, opts: CloudinaryUrlOpts = {}): string {
+export function cloudinaryUrl(
+  publicId: string,
+  opts: CloudinaryUrlOpts = {},
+): string {
   const cloud = resolveCloudName(opts);
   const transforms: string[] = [];
   if (opts.width) transforms.push(`w_${opts.width}`);
@@ -504,13 +548,18 @@ import Image from "next/image";
 import { cloudinaryUrl } from "@/lib/help/cloudinary";
 
 export type ScreenshotProps = {
-  src: string;            // Cloudinary public ID, e.g. "ra-help/getting-started/hero"
-  alt: string;            // Required for a11y
+  src: string; // Cloudinary public ID, e.g. "ra-help/getting-started/hero"
+  alt: string; // Required for a11y
   caption?: string;
-  width?: number;         // Default 1200
+  width?: number; // Default 1200
 };
 
-export default function Screenshot({ src, alt, caption, width = 1200 }: ScreenshotProps) {
+export default function Screenshot({
+  src,
+  alt,
+  caption,
+  width = 1200,
+}: ScreenshotProps) {
   const url = cloudinaryUrl(src, { width, quality: "auto", format: "auto" });
   return (
     <figure className="my-8 overflow-hidden rounded-lg border border-white/10 bg-[#0E1320]">
@@ -552,6 +601,7 @@ git commit -m "feat(help): cloudinaryUrl helper + Screenshot MDX component (SP-8
 ## Task 4: Build-time search index script
 
 **Files:**
+
 - Create: `scripts/build-help-index.ts`
 - Modify: `package.json` (add `prebuild` script or run as Next.js plugin)
 
@@ -656,6 +706,7 @@ git commit -m "feat(help): build-time search index script + prebuild wiring (SP-
 ## Task 5: `<HowToDropdown>` component
 
 **Files:**
+
 - Create: `components/help/HowToDropdown.tsx`
 - Test: `components/help/__tests__/HowToDropdown.test.tsx`
 
@@ -711,8 +762,22 @@ Expected: FAIL.
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { ChevronDown, BookOpen, Camera, FileText, Users, CreditCard, UserPlus, Plug, ShieldCheck } from "lucide-react";
-import { HELP_CATEGORIES, HELP_CATEGORY_LABELS, type HelpCategory } from "@/lib/help/types";
+import {
+  ChevronDown,
+  BookOpen,
+  Camera,
+  FileText,
+  Users,
+  CreditCard,
+  UserPlus,
+  Plug,
+  ShieldCheck,
+} from "lucide-react";
+import {
+  HELP_CATEGORIES,
+  HELP_CATEGORY_LABELS,
+  type HelpCategory,
+} from "@/lib/help/types";
 
 const CATEGORY_ICONS: Record<HelpCategory, React.ReactNode> = {
   "getting-started": <BookOpen className="h-5 w-5" />,
@@ -742,7 +807,8 @@ export default function HowToDropdown() {
 
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node))
+        setOpen(false);
     }
     if (open) {
       document.addEventListener("mousedown", onClickOutside);
@@ -760,7 +826,9 @@ export default function HowToDropdown() {
         aria-haspopup="menu"
       >
         How To
-        <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
+        <ChevronDown
+          className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`}
+        />
       </button>
 
       {open && (
@@ -778,8 +846,12 @@ export default function HowToDropdown() {
               >
                 <div className="text-white/70">{CATEGORY_ICONS[cat]}</div>
                 <div>
-                  <div className="text-sm font-medium text-white">{HELP_CATEGORY_LABELS[cat]}</div>
-                  <div className="text-xs text-white/60">{CATEGORY_DESCRIPTIONS[cat]}</div>
+                  <div className="text-sm font-medium text-white">
+                    {HELP_CATEGORY_LABELS[cat]}
+                  </div>
+                  <div className="text-xs text-white/60">
+                    {CATEGORY_DESCRIPTIONS[cat]}
+                  </div>
                 </div>
               </Link>
             ))}
@@ -800,7 +872,7 @@ export default function HowToDropdown() {
 }
 ```
 
-**Note on `magnetic-dock`**: spec called for using `@componentry/magnetic-dock` with `maxScale={1}`. After reading the component, its dock-bar shape (bottom/top/left/right horizontal/vertical strip) is wrong for a top-bar trigger + 8-item dropdown panel. **Cleaner: build a purpose-built dropdown** using the `magnetic-dock` *layout discipline* (icon + label, hairline dividers, restrained hover) but not the component itself. The `magnetic-dock.tsx` file stays installed for future use; we just don't import it here. Flag this in the PR body as a deliberate adaptation.
+**Note on `magnetic-dock`**: spec called for using `@componentry/magnetic-dock` with `maxScale={1}`. After reading the component, its dock-bar shape (bottom/top/left/right horizontal/vertical strip) is wrong for a top-bar trigger + 8-item dropdown panel. **Cleaner: build a purpose-built dropdown** using the `magnetic-dock` _layout discipline_ (icon + label, hairline dividers, restrained hover) but not the component itself. The `magnetic-dock.tsx` file stays installed for future use; we just don't import it here. Flag this in the PR body as a deliberate adaptation.
 
 - [ ] **Step 4: Run to verify pass**
 
@@ -823,6 +895,7 @@ git commit -m "feat(help): HowToDropdown component — top-bar trigger + 8-categ
 ## Task 6: `<HelpArticleCard>` component
 
 **Files:**
+
 - Create: `components/help/HelpArticleCard.tsx`
 - Test: `components/help/__tests__/HelpArticleCard.test.tsx`
 
@@ -863,7 +936,10 @@ describe("HelpArticleCard", () => {
       />,
     );
     const link = screen.getByRole("link");
-    expect(link).toHaveAttribute("href", "/dashboard/help/inspections/photo-cocoa");
+    expect(link).toHaveAttribute(
+      "href",
+      "/dashboard/help/inspections/photo-cocoa",
+    );
   });
 });
 ```
@@ -878,7 +954,7 @@ Expected: FAIL.
 
 - [ ] **Step 3: Implement**
 
-Similar adaptation note to T5: `showcase-card` from Componentry expects a marketing-card schema (tagline + heading + tag-chip with 3D tilt). The article card needs the same visual structure but with the flourish props disabled. Cleaner: hand-build the card using the *style* of `showcase-card` (dark-glass elevation, considered hover, hairline border) but not the component itself.
+Similar adaptation note to T5: `showcase-card` from Componentry expects a marketing-card schema (tagline + heading + tag-chip with 3D tilt). The article card needs the same visual structure but with the flourish props disabled. Cleaner: hand-build the card using the _style_ of `showcase-card` (dark-glass elevation, considered hover, hairline border) but not the component itself.
 
 ```tsx
 // components/help/HelpArticleCard.tsx
@@ -908,11 +984,15 @@ export default function HelpArticleCard({
       className="group block rounded-lg border border-white/10 bg-[#0E1320] p-6 transition hover:-translate-y-0.5 hover:border-white/20 hover:bg-[#11172A]"
     >
       <div className="flex items-center gap-2 text-xs text-white/60">
-        <span className="rounded bg-white/5 px-2 py-0.5">{HELP_CATEGORY_LABELS[category]}</span>
+        <span className="rounded bg-white/5 px-2 py-0.5">
+          {HELP_CATEGORY_LABELS[category]}
+        </span>
         <span>·</span>
         <span>{readTimeMin} min read</span>
       </div>
-      <h3 className="mt-3 text-lg font-semibold text-white group-hover:text-[#D4A574]">{title}</h3>
+      <h3 className="mt-3 text-lg font-semibold text-white group-hover:text-[#D4A574]">
+        {title}
+      </h3>
       <p className="mt-2 text-sm text-white/70 line-clamp-2">{aiSummary}</p>
       <div className="mt-4 text-xs text-white/40">Updated {updatedAt}</div>
     </Link>
@@ -941,6 +1021,7 @@ git commit -m "feat(help): HelpArticleCard component (SP-8 T6)"
 ## Task 7: `<HelpSearchModal>` with ⌘K + fuse.js
 
 **Files:**
+
 - Create: `components/help/HelpSearchModal.tsx`
 - Test: `components/help/__tests__/HelpSearchModal.test.tsx`
 
@@ -948,7 +1029,13 @@ git commit -m "feat(help): HelpArticleCard component (SP-8 T6)"
 
 ```tsx
 // components/help/__tests__/HelpSearchModal.test.tsx
-import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  act,
+  waitFor,
+} from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import HelpSearchModal from "../HelpSearchModal";
 
@@ -1077,7 +1164,10 @@ export default function HelpSearchModal() {
 
   const results = useMemo(() => {
     if (!query.trim()) return index.slice(0, 7);
-    return fuse.search(query).slice(0, 7).map((r) => r.item);
+    return fuse
+      .search(query)
+      .slice(0, 7)
+      .map((r) => r.item);
   }, [query, index, fuse]);
 
   if (!open) return null;
@@ -1113,9 +1203,15 @@ export default function HelpSearchModal() {
                 onClick={() => setOpen(false)}
                 className="block border-b border-white/5 px-6 py-4 hover:bg-white/5"
               >
-                <div className="text-xs text-white/50">{HELP_CATEGORY_LABELS[r.category]}</div>
-                <div className="mt-1 text-sm font-medium text-white">{r.title}</div>
-                <div className="mt-1 text-xs text-white/60 line-clamp-1">{r.aiSummary}</div>
+                <div className="text-xs text-white/50">
+                  {HELP_CATEGORY_LABELS[r.category]}
+                </div>
+                <div className="mt-1 text-sm font-medium text-white">
+                  {r.title}
+                </div>
+                <div className="mt-1 text-xs text-white/60 line-clamp-1">
+                  {r.aiSummary}
+                </div>
               </Link>
             </li>
           ))}
@@ -1147,6 +1243,7 @@ git commit -m "feat(help): HelpSearchModal — Cmd-K opens fuzzy search over /he
 ## Task 8: Article index page `/dashboard/help`
 
 **Files:**
+
 - Modify: `app/dashboard/help/page.tsx` (full rewrite — was the hardcoded FAQ)
 
 - [ ] **Step 1: Backup the existing file (for reference; will be deleted after)**
@@ -1163,7 +1260,11 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { loadAllArticles } from "@/lib/help/load-article";
-import { HELP_CATEGORIES, HELP_CATEGORY_LABELS, type HelpCategory } from "@/lib/help/types";
+import {
+  HELP_CATEGORIES,
+  HELP_CATEGORY_LABELS,
+  type HelpCategory,
+} from "@/lib/help/types";
 import HelpArticleCard from "@/components/help/HelpArticleCard";
 
 export const dynamic = "force-dynamic";
@@ -1178,16 +1279,26 @@ export default async function HelpIndexPage() {
     <main className="container mx-auto max-w-5xl p-6">
       <header className="mb-8">
         <h1 className="text-3xl font-semibold text-white">Help Library</h1>
-        <p className="mt-2 text-white/60">Browse by category, or press <kbd className="rounded border border-white/20 px-1.5 py-0.5 text-xs">⌘K</kbd> to search.</p>
+        <p className="mt-2 text-white/60">
+          Browse by category, or press{" "}
+          <kbd className="rounded border border-white/20 px-1.5 py-0.5 text-xs">
+            ⌘K
+          </kbd>{" "}
+          to search.
+        </p>
       </header>
 
       {HELP_CATEGORIES.map((cat) => {
         const inCat = articles.filter((a) => a.frontmatter.category === cat);
         return (
           <section key={cat} className="mb-12">
-            <h2 className="mb-4 text-lg font-medium text-white/80">{HELP_CATEGORY_LABELS[cat as HelpCategory]}</h2>
+            <h2 className="mb-4 text-lg font-medium text-white/80">
+              {HELP_CATEGORY_LABELS[cat as HelpCategory]}
+            </h2>
             {inCat.length === 0 ? (
-              <p className="text-sm text-white/40">More articles landing soon.</p>
+              <p className="text-sm text-white/40">
+                More articles landing soon.
+              </p>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {inCat.map((a) => (
@@ -1237,6 +1348,7 @@ git commit -m "feat(help): rewrite /dashboard/help as MDX-driven article index (
 ## Task 9: Category-filtered index page
 
 **Files:**
+
 - Create: `app/dashboard/help/[category]/page.tsx`
 
 - [ ] **Step 1: Implement**
@@ -1268,7 +1380,8 @@ export default async function HelpCategoryPage({
 }) {
   const session = await getServerSession(authOptions);
   const { category } = await params;
-  if (!session?.user?.id) redirect(`/login?callbackUrl=/dashboard/help/${category}`);
+  if (!session?.user?.id)
+    redirect(`/login?callbackUrl=/dashboard/help/${category}`);
   if (!isCategory(category)) notFound();
 
   const articles = await loadCategoryIndex(category);
@@ -1276,13 +1389,19 @@ export default async function HelpCategoryPage({
   return (
     <main className="container mx-auto max-w-5xl p-6">
       <nav className="mb-4 text-sm text-white/50">
-        <Link href="/dashboard/help" className="hover:text-white">Help</Link>
+        <Link href="/dashboard/help" className="hover:text-white">
+          Help
+        </Link>
         <span className="mx-2">/</span>
         <span className="text-white">{HELP_CATEGORY_LABELS[category]}</span>
       </nav>
-      <h1 className="text-3xl font-semibold text-white">{HELP_CATEGORY_LABELS[category]}</h1>
+      <h1 className="text-3xl font-semibold text-white">
+        {HELP_CATEGORY_LABELS[category]}
+      </h1>
       {articles.length === 0 ? (
-        <p className="mt-8 text-sm text-white/50">More articles landing soon.</p>
+        <p className="mt-8 text-sm text-white/50">
+          More articles landing soon.
+        </p>
       ) : (
         <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {articles.map((a) => (
@@ -1323,6 +1442,7 @@ git commit -m "feat(help): category-filtered index at /dashboard/help/[category]
 ## Task 10: Article detail page
 
 **Files:**
+
 - Create: `app/dashboard/help/[category]/[slug]/page.tsx`
 
 - [ ] **Step 1: Implement**
@@ -1333,7 +1453,11 @@ import { redirect, notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { loadArticle } from "@/lib/help/load-article";
-import { HELP_CATEGORIES, HELP_CATEGORY_LABELS, type HelpCategory } from "@/lib/help/types";
+import {
+  HELP_CATEGORIES,
+  HELP_CATEGORY_LABELS,
+  type HelpCategory,
+} from "@/lib/help/types";
 import Screenshot from "@/components/help/Screenshot";
 import Link from "next/link";
 import { MDXRemote } from "next-mdx-remote/rsc";
@@ -1356,7 +1480,8 @@ export default async function HelpArticlePage({
 }) {
   const session = await getServerSession(authOptions);
   const { category, slug } = await params;
-  if (!session?.user?.id) redirect(`/login?callbackUrl=/dashboard/help/${category}/${slug}`);
+  if (!session?.user?.id)
+    redirect(`/login?callbackUrl=/dashboard/help/${category}/${slug}`);
   if (!isCategory(category)) notFound();
 
   const article = await loadArticle(category, slug);
@@ -1367,14 +1492,18 @@ export default async function HelpArticlePage({
   return (
     <main className="container mx-auto max-w-3xl p-6">
       <nav className="mb-4 text-sm text-white/50">
-        <Link href="/dashboard/help" className="hover:text-white">Help</Link>
+        <Link href="/dashboard/help" className="hover:text-white">
+          Help
+        </Link>
         <span className="mx-2">/</span>
         <Link href={`/dashboard/help/${category}`} className="hover:text-white">
           {HELP_CATEGORY_LABELS[category]}
         </Link>
       </nav>
 
-      <h1 className="text-3xl md:text-4xl font-semibold text-white leading-tight">{frontmatter.title}</h1>
+      <h1 className="text-3xl md:text-4xl font-semibold text-white leading-tight">
+        {frontmatter.title}
+      </h1>
 
       <div className="mt-4 flex items-center gap-3 text-sm text-white/60">
         <span>{frontmatter.readTimeMin} min read</span>
@@ -1395,7 +1524,9 @@ export default async function HelpArticlePage({
 
       {frontmatter.relatedSlugs.length > 0 && (
         <section className="mt-12 border-t border-white/10 pt-8">
-          <h2 className="text-lg font-medium text-white/80">Related articles</h2>
+          <h2 className="text-lg font-medium text-white/80">
+            Related articles
+          </h2>
           <ul className="mt-3 space-y-2">
             {frontmatter.relatedSlugs.map((s) => (
               <li key={s}>
@@ -1445,6 +1576,7 @@ git commit -m "feat(help): article detail page at /dashboard/help/[category]/[sl
 ## Task 11: Public mirror + redirects + delete /faq
 
 **Files:**
+
 - Modify: `app/help/page.tsx` (rewrite)
 - Create: `app/help/[category]/[slug]/page.tsx`
 - Delete: `app/faq/page.tsx`
@@ -1455,7 +1587,11 @@ git commit -m "feat(help): article detail page at /dashboard/help/[category]/[sl
 ```tsx
 // app/help/page.tsx
 import { loadAllArticles } from "@/lib/help/load-article";
-import { HELP_CATEGORIES, HELP_CATEGORY_LABELS, type HelpCategory } from "@/lib/help/types";
+import {
+  HELP_CATEGORIES,
+  HELP_CATEGORY_LABELS,
+  type HelpCategory,
+} from "@/lib/help/types";
 import Link from "next/link";
 
 export const dynamic = "force-static";
@@ -1467,17 +1603,25 @@ export default async function PublicHelpIndex() {
   return (
     <main className="container mx-auto max-w-5xl p-6">
       <header className="mb-8">
-        <h1 className="text-3xl font-semibold text-white">RestoreAssist Help</h1>
-        <p className="mt-2 text-white/60">Public knowledge base. Browse by category.</p>
+        <h1 className="text-3xl font-semibold text-white">
+          RestoreAssist Help
+        </h1>
+        <p className="mt-2 text-white/60">
+          Public knowledge base. Browse by category.
+        </p>
       </header>
 
       {HELP_CATEGORIES.map((cat) => {
         const inCat = articles.filter((a) => a.frontmatter.category === cat);
         return (
           <section key={cat} className="mb-12">
-            <h2 className="mb-4 text-lg font-medium text-white/80">{HELP_CATEGORY_LABELS[cat as HelpCategory]}</h2>
+            <h2 className="mb-4 text-lg font-medium text-white/80">
+              {HELP_CATEGORY_LABELS[cat as HelpCategory]}
+            </h2>
             {inCat.length === 0 ? (
-              <p className="text-sm text-white/40">More articles landing soon.</p>
+              <p className="text-sm text-white/40">
+                More articles landing soon.
+              </p>
             ) : (
               <ul className="space-y-2">
                 {inCat.map((a) => (
@@ -1488,7 +1632,9 @@ export default async function PublicHelpIndex() {
                     >
                       {a.frontmatter.title}
                     </Link>
-                    <span className="ml-2 text-xs text-white/40">· {a.frontmatter.readTimeMin} min</span>
+                    <span className="ml-2 text-xs text-white/40">
+                      · {a.frontmatter.readTimeMin} min
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -1507,7 +1653,11 @@ export default async function PublicHelpIndex() {
 // app/help/[category]/[slug]/page.tsx
 import { notFound } from "next/navigation";
 import { loadArticle } from "@/lib/help/load-article";
-import { HELP_CATEGORIES, HELP_CATEGORY_LABELS, type HelpCategory } from "@/lib/help/types";
+import {
+  HELP_CATEGORIES,
+  HELP_CATEGORY_LABELS,
+  type HelpCategory,
+} from "@/lib/help/types";
 import Screenshot from "@/components/help/Screenshot";
 import Link from "next/link";
 import { MDXRemote } from "next-mdx-remote/rsc";
@@ -1533,19 +1683,26 @@ export default async function PublicArticlePage({
   const { frontmatter, body } = article;
 
   // Articles with audience excluding "client" + "tradie"/"admin" only show on authed surface — 404 here
-  if (!frontmatter.audience.includes("client") && frontmatter.audience.every((a) => a !== "tradie" && a !== "admin")) {
+  if (
+    !frontmatter.audience.includes("client") &&
+    frontmatter.audience.every((a) => a !== "tradie" && a !== "admin")
+  ) {
     notFound();
   }
 
   return (
     <main className="container mx-auto max-w-3xl p-6">
       <nav className="mb-4 text-sm text-white/50">
-        <Link href="/help" className="hover:text-white">Help</Link>
+        <Link href="/help" className="hover:text-white">
+          Help
+        </Link>
         <span className="mx-2">/</span>
         <span className="text-white">{HELP_CATEGORY_LABELS[category]}</span>
       </nav>
 
-      <h1 className="text-3xl md:text-4xl font-semibold text-white leading-tight">{frontmatter.title}</h1>
+      <h1 className="text-3xl md:text-4xl font-semibold text-white leading-tight">
+        {frontmatter.title}
+      </h1>
 
       <div className="mt-4 flex items-center gap-3 text-sm text-white/60">
         <span>{frontmatter.readTimeMin} min read</span>
@@ -1603,6 +1760,7 @@ git commit -m "feat(help): public mirror at /help + /faq 308 redirect (SP-8 T11)
 ## Task 12: Mount dropdown + search modal in dashboard layout
 
 **Files:**
+
 - Modify: `app/dashboard/layout.tsx`
 
 - [ ] **Step 1: Add imports at the top of `app/dashboard/layout.tsx`**
@@ -1650,6 +1808,7 @@ git commit -m "feat(dashboard): mount HowToDropdown + HelpSearchModal (SP-8 T12)
 ## Task 13: 8 seed articles
 
 **Files:**
+
 - Create: 8 `.mdx` files under `content/help/<category>/<slug>.mdx`
 
 This is a content-writing task. Each article ~300-600 words with at least one `<Screenshot>` embed.
@@ -1687,7 +1846,11 @@ Your first inspection should take about 8 minutes from "+ New inspection" to a s
 
 From `/dashboard/inspections`, click **+ New inspection**.
 
-<Screenshot src="ra-help/getting-started/new-inspection-button" alt="The New inspection button on the inspections list page" caption="Click + New inspection from /dashboard/inspections." />
+<Screenshot
+  src="ra-help/getting-started/new-inspection-button"
+  alt="The New inspection button on the inspections list page"
+  caption="Click + New inspection from /dashboard/inspections."
+/>
 
 ## 2. Pick the claim type
 
@@ -1754,9 +1917,14 @@ Every photo you take through RestoreAssist carries a cryptographic chain-of-cust
 
 On the inspection-detail page, tap the camera floating-action button.
 
-<Screenshot src="ra-help/inspections/camera-fab" alt="Floating camera button on inspection page" caption="The camera button is bottom-right; available whenever you're inside an inspection." />
+<Screenshot
+  src="ra-help/inspections/camera-fab"
+  alt="Floating camera button on inspection page"
+  caption="The camera button is bottom-right; available whenever you're inside an inspection."
+/>
 
 Permission prompts on first use:
+
 - **Camera** — required
 - **Location** — required for GPS in cocoa record
 - **Photo library** — optional, only if you want to pick existing photos
@@ -1811,6 +1979,7 @@ git commit -m "feat(help): 8 seed articles, one per category (SP-8 T13)"
 ## Task 14: 5 E2E specs
 
 **Files:**
+
 - Create: `e2e/help/dropdown-open.spec.ts`
 - Create: `e2e/help/search-cmd-k.spec.ts`
 - Create: `e2e/help/article-detail.spec.ts`
@@ -1822,9 +1991,14 @@ git commit -m "feat(help): 8 seed articles, one per category (SP-8 T13)"
 ```ts
 import { test, expect } from "@playwright/test";
 
-test("Help dropdown opens and lists 8 categories", async ({ page, request }) => {
+test("Help dropdown opens and lists 8 categories", async ({
+  page,
+  request,
+}) => {
   // Seed any active user (the dropdown is universal)
-  const seed = await request.post("/api/test/seed-trial-user", { data: { daysUntilExpiry: 10 } });
+  const seed = await request.post("/api/test/seed-trial-user", {
+    data: { daysUntilExpiry: 10 },
+  });
   const { data } = await seed.json();
   await request.post("/api/test/sign-in-as", { data: { email: data.email } });
 
@@ -1847,8 +2021,13 @@ test("Help dropdown opens and lists 8 categories", async ({ page, request }) => 
 ```ts
 import { test, expect } from "@playwright/test";
 
-test("Cmd-K opens search modal and finds a seed article", async ({ page, request }) => {
-  const seed = await request.post("/api/test/seed-trial-user", { data: { daysUntilExpiry: 10 } });
+test("Cmd-K opens search modal and finds a seed article", async ({
+  page,
+  request,
+}) => {
+  const seed = await request.post("/api/test/seed-trial-user", {
+    data: { daysUntilExpiry: 10 },
+  });
   const { data } = await seed.json();
   await request.post("/api/test/sign-in-as", { data: { email: data.email } });
 
@@ -1859,7 +2038,9 @@ test("Cmd-K opens search modal and finds a seed article", async ({ page, request
   await expect(input).toBeVisible();
   await input.fill("photo");
 
-  await expect(page.getByText(/photo chain-of-custody/i)).toBeVisible({ timeout: 5_000 });
+  await expect(page.getByText(/photo chain-of-custody/i)).toBeVisible({
+    timeout: 5_000,
+  });
 });
 ```
 
@@ -1868,14 +2049,21 @@ test("Cmd-K opens search modal and finds a seed article", async ({ page, request
 ```ts
 import { test, expect } from "@playwright/test";
 
-test("Article detail page renders frontmatter + body + related", async ({ page, request }) => {
-  const seed = await request.post("/api/test/seed-trial-user", { data: { daysUntilExpiry: 10 } });
+test("Article detail page renders frontmatter + body + related", async ({
+  page,
+  request,
+}) => {
+  const seed = await request.post("/api/test/seed-trial-user", {
+    data: { daysUntilExpiry: 10 },
+  });
   const { data } = await seed.json();
   await request.post("/api/test/sign-in-as", { data: { email: data.email } });
 
   await page.goto("/dashboard/help/getting-started/first-inspection");
 
-  await expect(page.getByRole("heading", { level: 1, name: /your first inspection/i })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 1, name: /your first inspection/i }),
+  ).toBeVisible();
   await expect(page.getByText(/8 min read/i)).toBeVisible();
   await expect(page.getByText(/Related articles/i)).toBeVisible();
 });
@@ -1888,10 +2076,14 @@ import { test, expect } from "@playwright/test";
 
 test("Public /help renders without auth", async ({ page }) => {
   await page.goto("/help");
-  await expect(page.getByRole("heading", { level: 1, name: /RestoreAssist Help/i })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 1, name: /RestoreAssist Help/i }),
+  ).toBeVisible();
 });
 
-test("Public article renders without auth (audience: tradie)", async ({ page }) => {
+test("Public article renders without auth (audience: tradie)", async ({
+  page,
+}) => {
   await page.goto("/help/getting-started/first-inspection");
   // tradie audience — should render
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
@@ -1968,6 +2160,7 @@ gh pr create --base sandbox --head <branch> --title "feat(help): SP-8 Help Libra
 ```
 
 PR body should reference:
+
 - Spec: `docs/superpowers/specs/2026-05-15-sp8-help-library-design.md`
 - This plan: `docs/superpowers/plans/2026-05-15-sp8-help-library.md`
 - Verification checklist per `.claude/rules/verification-gate.md`:
@@ -1983,29 +2176,31 @@ PR body should reference:
 
 **Spec coverage** — every section of the spec maps to ≥1 task:
 
-| Spec section | Task(s) |
-|---|---|
-| §3 Approach (top-bar + magnetic-dock adapt) | T5 |
-| §4.1 Routing topology | T8 (index) · T9 (category) · T10 (article) · T11 (public + redirects) |
-| §4.2 Top-bar dropdown | T5 + T12 |
-| §4.3 MDX pipeline | T2 (loader) · T4 (search index) · T10 (`MDXRemote`) |
-| §4.4 Article detail | T10 |
-| §5 Components (palette) | T5 (HowToDropdown) · T6 (HelpArticleCard) — both hand-built to spec rather than wrapping the raw Componentry imports |
-| §6 Data shape (frontmatter) | T1 (types + zod) |
-| §7 Visual design language | T5-T11 inherit; explicit colour tokens in component styles |
-| §8 Search | T7 + T4 |
-| §9 Consolidation + redirects | T11 |
-| §10 Content v1 (8 seed articles) | T13 |
-| §11 AI-readiness for SP-G | T1 (schema enforces `aiSummary`, `userIntents`, `successCriteria`) |
-| §12 Testing | unit/integration inline per task; T14 = E2E |
+| Spec section                                | Task(s)                                                                                                              |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| §3 Approach (top-bar + magnetic-dock adapt) | T5                                                                                                                   |
+| §4.1 Routing topology                       | T8 (index) · T9 (category) · T10 (article) · T11 (public + redirects)                                                |
+| §4.2 Top-bar dropdown                       | T5 + T12                                                                                                             |
+| §4.3 MDX pipeline                           | T2 (loader) · T4 (search index) · T10 (`MDXRemote`)                                                                  |
+| §4.4 Article detail                         | T10                                                                                                                  |
+| §5 Components (palette)                     | T5 (HowToDropdown) · T6 (HelpArticleCard) — both hand-built to spec rather than wrapping the raw Componentry imports |
+| §6 Data shape (frontmatter)                 | T1 (types + zod)                                                                                                     |
+| §7 Visual design language                   | T5-T11 inherit; explicit colour tokens in component styles                                                           |
+| §8 Search                                   | T7 + T4                                                                                                              |
+| §9 Consolidation + redirects                | T11                                                                                                                  |
+| §10 Content v1 (8 seed articles)            | T13                                                                                                                  |
+| §11 AI-readiness for SP-G                   | T1 (schema enforces `aiSummary`, `userIntents`, `successCriteria`)                                                   |
+| §12 Testing                                 | unit/integration inline per task; T14 = E2E                                                                          |
 
 **Placeholder scan** ✓ — no TBD/TODO/FIXME tokens. Two intentional "placeholder" deliberations flagged:
+
 - T5 + T6 adapt the Componentry styles rather than importing the raw components directly (the magnetic-dock dock-bar shape and showcase-card 3D-tilt schema don't map cleanly to SP-8 surfaces). The components stay installed in `components/ui/` and can be reused or wrapped later.
 - Step 3-9 of T13 names 6 article slugs but doesn't pre-write their bodies — content authoring is part of T13's deliverable. Each must conform to the same frontmatter shape as T13 steps 1 & 2.
 
 **Type consistency** ✓ — `HelpCategory`, `HelpFrontmatter`, `HelpAudience` defined in T1 and reused across T2/T5/T6/T7/T8/T9/T10/T11. `IndexEntry` shape in T4 + T7 matches.
 
 **Known follow-ups (out of scope, flagged in PR body):**
+
 - Cloudinary screenshots need to be UPLOADED — frontmatter placeholders are public IDs that must exist in Cloudinary before deploy. Operator task.
 - `pnpm prebuild` wiring may collide with an existing prebuild script — check during T4 implementation.
 - T5/T6 "adapted-not-wrapped" Componentry decision — the 8 installed Componentry components stay in `components/ui/` as a future palette; if marketing-site or admin-UI work wants them, they're ready.

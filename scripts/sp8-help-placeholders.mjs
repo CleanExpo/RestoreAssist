@@ -76,7 +76,7 @@ function svg({ title, subtitle, category, accent, isHero }) {
   }
   if (cur.trim()) lines.push(cur.trim());
   const lineHeight = titleSize * 1.1;
-  const startY = H / 2 - (lines.length - 1) * lineHeight / 2 - (s ? 30 : 0);
+  const startY = H / 2 - ((lines.length - 1) * lineHeight) / 2 - (s ? 30 : 0);
   const titleSvg = lines
     .map(
       (l, i) =>
@@ -110,28 +110,133 @@ function svg({ title, subtitle, category, accent, isHero }) {
 // 21 placeholders
 const PLACEHOLDERS = [
   // 8 heros
-  { id: "ra-help/getting-started/first-inspection-hero", title: "Your first inspection in 8 minutes", category: "getting-started", isHero: true },
-  { id: "ra-help/inspections/cocoa-hero", title: "Capture photos with chain-of-custody", category: "inspections", isHero: true },
-  { id: "ra-help/reports/first-ai-report-hero", title: "Generate your first AI-drafted S500 report", category: "reports", isHero: true },
-  { id: "ra-help/clients-and-portal/share-via-portal-hero", title: "Share a report with your client", category: "clients-and-portal", isHero: true },
-  { id: "ra-help/billing/upgrade-from-trial-hero", title: "Upgrade from trial to a paid plan", category: "billing", isHero: true },
-  { id: "ra-help/team/invite-technician-hero", title: "Invite a technician + verify their licence", category: "team", isHero: true },
-  { id: "ra-help/integrations/connect-xero-hero", title: "Connect Xero to push invoices", category: "integrations", isHero: true },
-  { id: "ra-help/compliance/iicrc-citations-hero", title: "How RestoreAssist cites IICRC standards", category: "compliance", isHero: true },
+  {
+    id: "ra-help/getting-started/first-inspection-hero",
+    title: "Your first inspection in 8 minutes",
+    category: "getting-started",
+    isHero: true,
+  },
+  {
+    id: "ra-help/inspections/cocoa-hero",
+    title: "Capture photos with chain-of-custody",
+    category: "inspections",
+    isHero: true,
+  },
+  {
+    id: "ra-help/reports/first-ai-report-hero",
+    title: "Generate your first AI-drafted S500 report",
+    category: "reports",
+    isHero: true,
+  },
+  {
+    id: "ra-help/clients-and-portal/share-via-portal-hero",
+    title: "Share a report with your client",
+    category: "clients-and-portal",
+    isHero: true,
+  },
+  {
+    id: "ra-help/billing/upgrade-from-trial-hero",
+    title: "Upgrade from trial to a paid plan",
+    category: "billing",
+    isHero: true,
+  },
+  {
+    id: "ra-help/team/invite-technician-hero",
+    title: "Invite a technician + verify their licence",
+    category: "team",
+    isHero: true,
+  },
+  {
+    id: "ra-help/integrations/connect-xero-hero",
+    title: "Connect Xero to push invoices",
+    category: "integrations",
+    isHero: true,
+  },
+  {
+    id: "ra-help/compliance/iicrc-citations-hero",
+    title: "How RestoreAssist cites IICRC standards",
+    category: "compliance",
+    isHero: true,
+  },
   // 13 inline screenshots
-  { id: "ra-help/compliance/citation-in-report", title: "Inline citation in an AI-drafted report", subtitle: "Monospaced inline reference linked to standard summary", category: "compliance" },
-  { id: "ra-help/compliance/citation-panel", title: "The citation panel", subtitle: "Edit · add · remove actions", category: "compliance" },
-  { id: "ra-help/inspections/camera-fab", title: "Capture-photo floating button", subtitle: "Bottom-right on every inspection page", category: "inspections" },
-  { id: "ra-help/integrations/integrations-page", title: "Integrations page", subtitle: "Xero · MYOB · QuickBooks · ServiceM8 · Ascora", category: "integrations" },
-  { id: "ra-help/integrations/xero-defaults", title: "Xero defaults", subtitle: "Sales account + tax rate pickers", category: "integrations" },
-  { id: "ra-help/getting-started/new-inspection-button", title: "New inspection", subtitle: "From the inspections list page", category: "getting-started" },
-  { id: "ra-help/team/invite-modal", title: "Invite technician", subtitle: "Email + role + IICRC tier", category: "team" },
-  { id: "ra-help/team/engagement-licence-modal", title: "Engagement licence modal", subtitle: "IICRC + WHS + state licence fields", category: "team" },
-  { id: "ra-help/clients-and-portal/share-with-client-button", title: "Share with client", subtitle: "Provisions a portal account if needed", category: "clients-and-portal" },
-  { id: "ra-help/clients-and-portal/client-portal-view", title: "Client portal view", subtitle: "No login required — token-protected link", category: "clients-and-portal" },
-  { id: "ra-help/billing/upgrade-page", title: "Upgrade page", subtitle: "STANDARD · PREMIUM · ENTERPRISE", category: "billing" },
-  { id: "ra-help/reports/generate-report-button", title: "Generate report", subtitle: "Appears once minimum evidence is attached", category: "reports" },
-  { id: "ra-help/reports/draft-editor", title: "Draft editor", subtitle: "AI-generated sections — editable inline", category: "reports" },
+  {
+    id: "ra-help/compliance/citation-in-report",
+    title: "Inline citation in an AI-drafted report",
+    subtitle: "Monospaced inline reference linked to standard summary",
+    category: "compliance",
+  },
+  {
+    id: "ra-help/compliance/citation-panel",
+    title: "The citation panel",
+    subtitle: "Edit · add · remove actions",
+    category: "compliance",
+  },
+  {
+    id: "ra-help/inspections/camera-fab",
+    title: "Capture-photo floating button",
+    subtitle: "Bottom-right on every inspection page",
+    category: "inspections",
+  },
+  {
+    id: "ra-help/integrations/integrations-page",
+    title: "Integrations page",
+    subtitle: "Xero · MYOB · QuickBooks · ServiceM8 · Ascora",
+    category: "integrations",
+  },
+  {
+    id: "ra-help/integrations/xero-defaults",
+    title: "Xero defaults",
+    subtitle: "Sales account + tax rate pickers",
+    category: "integrations",
+  },
+  {
+    id: "ra-help/getting-started/new-inspection-button",
+    title: "New inspection",
+    subtitle: "From the inspections list page",
+    category: "getting-started",
+  },
+  {
+    id: "ra-help/team/invite-modal",
+    title: "Invite technician",
+    subtitle: "Email + role + IICRC tier",
+    category: "team",
+  },
+  {
+    id: "ra-help/team/engagement-licence-modal",
+    title: "Engagement licence modal",
+    subtitle: "IICRC + WHS + state licence fields",
+    category: "team",
+  },
+  {
+    id: "ra-help/clients-and-portal/share-with-client-button",
+    title: "Share with client",
+    subtitle: "Provisions a portal account if needed",
+    category: "clients-and-portal",
+  },
+  {
+    id: "ra-help/clients-and-portal/client-portal-view",
+    title: "Client portal view",
+    subtitle: "No login required — token-protected link",
+    category: "clients-and-portal",
+  },
+  {
+    id: "ra-help/billing/upgrade-page",
+    title: "Upgrade page",
+    subtitle: "STANDARD · PREMIUM · ENTERPRISE",
+    category: "billing",
+  },
+  {
+    id: "ra-help/reports/generate-report-button",
+    title: "Generate report",
+    subtitle: "Appears once minimum evidence is attached",
+    category: "reports",
+  },
+  {
+    id: "ra-help/reports/draft-editor",
+    title: "Draft editor",
+    subtitle: "AI-generated sections — editable inline",
+    category: "reports",
+  },
 ];
 
 async function uploadOne(p) {
@@ -144,7 +249,9 @@ async function uploadOne(p) {
     accent,
     isHero: Boolean(p.isHero),
   });
-  const png = await sharp(Buffer.from(svgStr)).png({ compressionLevel: 9 }).toBuffer();
+  const png = await sharp(Buffer.from(svgStr))
+    .png({ compressionLevel: 9 })
+    .toBuffer();
   return new Promise((resolve, reject) => {
     const upload = cloudinary.uploader.upload_stream(
       {
@@ -156,7 +263,12 @@ async function uploadOne(p) {
       },
       (err, result) => {
         if (err) reject(err);
-        else resolve({ id: p.id, secure_url: result.secure_url, bytes: result.bytes });
+        else
+          resolve({
+            id: p.id,
+            secure_url: result.secure_url,
+            bytes: result.bytes,
+          });
       },
     );
     upload.end(png);

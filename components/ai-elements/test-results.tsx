@@ -17,9 +17,9 @@ import {
 import type { ComponentProps, HTMLAttributes } from "react";
 import { createContext, useContext, useMemo } from "react";
 
-type TestStatus = "passed" | "failed" | "skipped" | "running";
+type TestStatusValue = "passed" | "failed" | "skipped" | "running";
 
-interface TestResultsSummary {
+interface TestResultsSummaryData {
   passed: number;
   failed: number;
   skipped: number;
@@ -28,7 +28,7 @@ interface TestResultsSummary {
 }
 
 interface TestResultsContextType {
-  summary?: TestResultsSummary;
+  summary?: TestResultsSummaryData;
 }
 
 const TestResultsContext = createContext<TestResultsContextType>({});
@@ -127,7 +127,7 @@ export const TestResultsSummary = ({
 };
 
 export type TestResultsProps = HTMLAttributes<HTMLDivElement> & {
-  summary?: TestResultsSummary;
+  summary?: TestResultsSummaryData;
 };
 
 export const TestResults = ({
@@ -212,7 +212,7 @@ export const TestResultsContent = ({
 
 interface TestSuiteContextType {
   name: string;
-  status: TestStatus;
+  status: TestStatusValue;
 }
 
 const TestSuiteContext = createContext<TestSuiteContextType>({
@@ -220,21 +220,21 @@ const TestSuiteContext = createContext<TestSuiteContextType>({
   status: "passed",
 });
 
-const statusStyles: Record<TestStatus, string> = {
+const statusStyles: Record<TestStatusValue, string> = {
   failed: "text-red-600 dark:text-red-400",
   passed: "text-green-600 dark:text-green-400",
   running: "text-blue-600 dark:text-blue-400",
   skipped: "text-yellow-600 dark:text-yellow-400",
 };
 
-const statusIcons: Record<TestStatus, React.ReactNode> = {
+const statusIcons: Record<TestStatusValue, React.ReactNode> = {
   failed: <XCircleIcon className="size-4" />,
   passed: <CheckCircle2Icon className="size-4" />,
   running: <CircleDotIcon className="size-4 animate-pulse" />,
   skipped: <CircleIcon className="size-4" />,
 };
 
-const TestStatusIcon = ({ status }: { status: TestStatus }) => (
+const TestStatusIcon = ({ status }: { status: TestStatusValue }) => (
   <span className={cn("shrink-0", statusStyles[status])}>
     {statusIcons[status]}
   </span>
@@ -242,7 +242,7 @@ const TestStatusIcon = ({ status }: { status: TestStatus }) => (
 
 export type TestSuiteProps = ComponentProps<typeof Collapsible> & {
   name: string;
-  status: TestStatus;
+  status: TestStatusValue;
 };
 
 export const TestSuite = ({
@@ -341,7 +341,7 @@ export const TestSuiteContent = ({
 
 interface TestContextType {
   name: string;
-  status: TestStatus;
+  status: TestStatusValue;
   duration?: number;
 }
 
@@ -406,7 +406,7 @@ export const TestStatus = ({
 
 export type TestProps = HTMLAttributes<HTMLDivElement> & {
   name: string;
-  status: TestStatus;
+  status: TestStatusValue;
   duration?: number;
 };
 

@@ -68,9 +68,7 @@ export default function InviteAcceptPage() {
     null,
   );
 
-  async function handleGoogleHeadshot(
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) {
+  async function handleGoogleHeadshot(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     const result = validateHeadshotFile(file);

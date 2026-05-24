@@ -247,7 +247,7 @@ export async function POST(
             signatoryEmail:
               role === "CLIENT"
                 ? report.clientContactDetails?.match(
-                    /[\w\.-]+@[\w\.-]+\.\w+/,
+                    /[\w.-]+@[\w.-]+\.\w+/,
                   )?.[0] || null
                 : null,
           }),
@@ -264,9 +264,8 @@ export async function POST(
             signatoryName: report.clientName,
             signatoryRole: "CLIENT",
             signatoryEmail:
-              report.clientContactDetails?.match(
-                /[\w\.-]+@[\w\.-]+\.\w+/,
-              )?.[0] || null,
+              report.clientContactDetails?.match(/[\w.-]+@[\w.-]+\.\w+/)?.[0] ||
+              null,
           },
         });
       }

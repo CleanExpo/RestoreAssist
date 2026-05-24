@@ -1,5 +1,5 @@
-import sharp from 'sharp';
-import { kmeans } from 'ml-kmeans';
+import sharp from "sharp";
+import { kmeans } from "ml-kmeans";
 
 export interface ColorExtractResult {
   primary: string;
@@ -9,14 +9,14 @@ export interface ColorExtractResult {
 
 function toHex(r: number, g: number, b: number): string {
   return (
-    '#' +
+    "#" +
     [r, g, b]
       .map((c) =>
         Math.max(0, Math.min(255, Math.round(c)))
           .toString(16)
-          .padStart(2, '0'),
+          .padStart(2, "0"),
       )
-      .join('')
+      .join("")
   );
 }
 
@@ -39,7 +39,12 @@ function contrastRatio(
 }
 
 // Lighten a colour by mixing with white, used to synthesise a fallback accent
-function lighten(r: number, g: number, b: number, amount: number): [number, number, number] {
+function lighten(
+  r: number,
+  g: number,
+  b: number,
+  amount: number,
+): [number, number, number] {
   return [
     Math.round(r + (255 - r) * amount),
     Math.round(g + (255 - g) * amount),
@@ -50,7 +55,7 @@ function lighten(r: number, g: number, b: number, amount: number): [number, numb
 export async function extractColors(buf: Buffer): Promise<ColorExtractResult> {
   // Downsample to 64×64 RGBA
   const { data } = await sharp(buf)
-    .resize(64, 64, { fit: 'inside' })
+    .resize(64, 64, { fit: "inside" })
     .raw()
     .ensureAlpha()
     .toBuffer({ resolveWithObject: true });
@@ -60,13 +65,15 @@ export async function extractColors(buf: Buffer): Promise<ColorExtractResult> {
   for (let i = 0; i < data.length; i += 4) {
     const a = data[i + 3];
     if (a < 200) continue;
-    const r = data[i], g = data[i + 1], b = data[i + 2];
+    const r = data[i],
+      g = data[i + 1],
+      b = data[i + 2];
     if (r > 240 && g > 240 && b > 240) continue; // skip near-white
     pixels.push([r, g, b]);
   }
 
   if (pixels.length === 0) {
-    return { primary: '#1C2E47', accent: '#8A6B4E', contrastWarning: false };
+    return { primary: "#1C2E47", accent: "#8A6B4E", contrastWarning: false };
   }
 
   // k-means with k=2; seed=42 for reproducibility

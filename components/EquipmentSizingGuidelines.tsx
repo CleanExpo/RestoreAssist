@@ -112,8 +112,8 @@ export default function EquipmentSizingGuidelines({
     if (!affectedArea || !waterClass) return { count: 0, totalCFM: 0 };
 
     const area = parseFloat(affectedArea.toString());
-    let count = 0;
-    let totalCFM = 0;
+    let count;
+    let totalCFM;
 
     // IICRC S500 Airmover Sizing Guidelines
     switch (waterClass) {
@@ -145,8 +145,8 @@ export default function EquipmentSizingGuidelines({
     if (!affectedArea || !waterClass) return { capacity: 0, count: 0 };
 
     const area = parseFloat(affectedArea.toString());
-    let capacity = 0;
-    let count = 0;
+    let capacity;
+    let count;
 
     // IICRC S500 Dehumidification Sizing Guidelines
     switch (waterClass) {

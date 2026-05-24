@@ -410,7 +410,6 @@ export default function PricingConfiguration({
         )}
       </BillingGate>
 
-
       <div className="flex items-center justify-between">
         <div></div>
         <div className="flex gap-2">

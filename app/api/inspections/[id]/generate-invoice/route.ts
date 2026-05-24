@@ -216,7 +216,10 @@ export async function POST(
             include: {
               // Only `lineItems.length` is read in the response (line below);
               // selecting `id` keeps the relation contract explicit.
-              lineItems: { orderBy: { sortOrder: "asc" }, select: { id: true } },
+              lineItems: {
+                orderBy: { sortOrder: "asc" },
+                select: { id: true },
+              },
             },
           });
 

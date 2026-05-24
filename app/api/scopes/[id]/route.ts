@@ -51,7 +51,6 @@ export async function GET(
     }
 
     return NextResponse.json({ scope: result.scope });
-    void result;
   } catch (error) {
     console.error("[scopes/[id] GET]", error);
     return NextResponse.json(

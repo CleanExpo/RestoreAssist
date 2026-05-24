@@ -16,7 +16,6 @@ import {
   Plus,
   Search,
   Trash2,
-
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
@@ -341,7 +340,9 @@ export default function InvoicesPage() {
       {/* Fetch error */}
       {fetchError && !loading && (
         <div className="flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-300 mb-4">
-          <span className="text-sm">Failed to load invoices — {fetchError}</span>
+          <span className="text-sm">
+            Failed to load invoices — {fetchError}
+          </span>
           <button
             type="button"
             onClick={refetchInvoices}
@@ -390,7 +391,11 @@ export default function InvoicesPage() {
                     <span className="text-sm font-medium text-slate-900 dark:text-white truncate">
                       {invoice.invoiceNumber}
                     </span>
-                    {getStatusBadge({ status: invoice.status, dueDate: invoice.dueDate, amountDue: invoice.amountDue })}
+                    {getStatusBadge({
+                      status: invoice.status,
+                      dueDate: invoice.dueDate,
+                      amountDue: invoice.amountDue,
+                    })}
                   </div>
                   <div className="text-sm text-slate-600 dark:text-slate-300 mt-0.5 truncate">
                     {invoice.customerName}

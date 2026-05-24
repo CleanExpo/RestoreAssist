@@ -603,7 +603,9 @@ Analyze this document thoroughly and extract every piece of available informatio
             try {
               parsedData = JSON.parse(fixedJson);
             } catch (retryError) {
-              throw new Error(`Failed to parse JSON: ${parseError.message}`);
+              throw new Error(`Failed to parse JSON: ${parseError.message}`, {
+                cause: retryError,
+              });
             }
           }
         } else {

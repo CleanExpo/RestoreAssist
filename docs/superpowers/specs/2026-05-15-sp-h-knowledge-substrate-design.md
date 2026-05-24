@@ -15,19 +15,19 @@ SP-H bridges the existing Obsidian wiki (145 .md files + growing restoration-dom
 
 ## 1. Existing-code audit
 
-| Component | Status | Notes |
-|---|---|---|
-| **Obsidian wiki source** | ✅ 145 .md files | `~/2nd Brain/2nd Brain/Wiki/` — frontmatter shape: `type: wiki`, `updated: YYYY-MM-DD` + content vars |
-| **Wiki sync script** | ✅ `sync_wiki_to_supabase.py` | Existing production script; reads local vault, pushes to Supabase. Per log.md 2026-05-15: 143/145 pages synced |
-| **Supabase `wiki_pages` table** | ✅ Exists | Schema: id, slug, title, content, frontmatter (JSON), tenantId, createdAt, updatedAt, contentHash |
-| **`lib/ai/embeddings.ts`** | ✅ Complete | `buildJobEmbeddingText()`, `embedText()` (OpenAI text-embedding-3-small), `hashEmbedText()` (deterministic fallback), `findSimilarJobs()` (pgvector cosine) — ALL reusable for wiki chunks |
-| **`lib/ai/rag-context.ts`** | ✅ Partial | `retrieveSimilarJobs()` for HistoricalJob; vector fallback pattern established; can refactor to generic `retrieve()` |
-| **Prisma pgvector extension** | ✅ Enabled | Line 18 of schema.prisma: `extensions = [pgvector(map: "vector")]` |
-| **HistoricalJob embedding schema** | ✅ Example | `embeddingVector vector(1536)`, `embeddedAt DateTime?` — model to copy for wiki chunks |
-| **MISSING: `wiki_chunks` table** | ❌ Needed | Will store per-heading chunks + embeddings from wiki_pages |
-| **MISSING: retrieval API** | ❌ Needed | `lib/knowledge/retrieve.ts` exporting `retrieve(query, filters?, topK?)` |
-| **MISSING: ingester extension** | ❌ Needed | `sync_wiki_to_supabase.py` extended to chunk + embed |
-| **MISSING: embedding-on-edit hook** | ❌ Needed | Detect changed chunks via SHA-256; re-embed only changed ones |
+| Component                           | Status                        | Notes                                                                                                                                                                                      |
+| ----------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Obsidian wiki source**            | ✅ 145 .md files              | `~/2nd Brain/2nd Brain/Wiki/` — frontmatter shape: `type: wiki`, `updated: YYYY-MM-DD` + content vars                                                                                      |
+| **Wiki sync script**                | ✅ `sync_wiki_to_supabase.py` | Existing production script; reads local vault, pushes to Supabase. Per log.md 2026-05-15: 143/145 pages synced                                                                             |
+| **Supabase `wiki_pages` table**     | ✅ Exists                     | Schema: id, slug, title, content, frontmatter (JSON), tenantId, createdAt, updatedAt, contentHash                                                                                          |
+| **`lib/ai/embeddings.ts`**          | ✅ Complete                   | `buildJobEmbeddingText()`, `embedText()` (OpenAI text-embedding-3-small), `hashEmbedText()` (deterministic fallback), `findSimilarJobs()` (pgvector cosine) — ALL reusable for wiki chunks |
+| **`lib/ai/rag-context.ts`**         | ✅ Partial                    | `retrieveSimilarJobs()` for HistoricalJob; vector fallback pattern established; can refactor to generic `retrieve()`                                                                       |
+| **Prisma pgvector extension**       | ✅ Enabled                    | Line 18 of schema.prisma: `extensions = [pgvector(map: "vector")]`                                                                                                                         |
+| **HistoricalJob embedding schema**  | ✅ Example                    | `embeddingVector vector(1536)`, `embeddedAt DateTime?` — model to copy for wiki chunks                                                                                                     |
+| **MISSING: `wiki_chunks` table**    | ❌ Needed                     | Will store per-heading chunks + embeddings from wiki_pages                                                                                                                                 |
+| **MISSING: retrieval API**          | ❌ Needed                     | `lib/knowledge/retrieve.ts` exporting `retrieve(query, filters?, topK?)`                                                                                                                   |
+| **MISSING: ingester extension**     | ❌ Needed                     | `sync_wiki_to_supabase.py` extended to chunk + embed                                                                                                                                       |
+| **MISSING: embedding-on-edit hook** | ❌ Needed                     | Detect changed chunks via SHA-256; re-embed only changed ones                                                                                                                              |
 
 ---
 
@@ -54,11 +54,13 @@ SP-H bridges the existing Obsidian wiki (145 .md files + growing restoration-dom
 ### 4.1 Ingester: extends `sync_wiki_to_supabase.py`
 
 **Current flow:**
+
 ```
 Local Obsidian vault → scan mtime → read .md files → validate frontmatter → upsert wiki_pages table → end
 ```
 
 **SP-H extended flow:**
+
 ```
 Local Obsidian vault → scan mtime → read .md files → validate frontmatter → upsert wiki_pages table
                                                                                ↓
@@ -74,12 +76,13 @@ Local Obsidian vault → scan mtime → read .md files → validate frontmatter 
 ```
 
 **Chunking logic (Python):**
+
 ```python
 def chunk_wiki_page(content: str, frontmatter: dict) -> list[dict]:
     """Split markdown by H2 (##), preserve frontmatter context."""
     chunks = []
     current_chunk = None
-    
+
     for line in content.split('\n'):
         if line.startswith('## '):  # H2 heading
             if current_chunk:
@@ -91,14 +94,15 @@ def chunk_wiki_page(content: str, frontmatter: dict) -> list[dict]:
             }
         elif current_chunk:
             current_chunk['content'] += line + '\n'
-    
+
     if current_chunk:
         chunks.append(current_chunk)
-    
+
     return chunks
 ```
 
 **Upsert strategy:**
+
 - Compute SHA-256 of page content.
 - Query wiki_pages: get `contentHash` + `lastEmbeddedAt`.
 - If hash unchanged, skip embedding re-run.
@@ -110,34 +114,35 @@ def chunk_wiki_page(content: str, frontmatter: dict) -> list[dict]:
 **Rationale:** wiki_pages (full document) vs wiki_chunks (queryable units). Allows per-chunk TTL, superseding, and independent retrieval without modifying the canonical wiki_pages table.
 
 **Schema (Prisma):**
+
 ```prisma
 model WikiChunk {
   id String @id @default(cuid())
-  
+
   // Foreign key
   wikiPageId String
   wikiPage   WikiPage @relation(fields: [wikiPageId], references: [id], onDelete: Cascade)
-  
+
   // Chunk identity
   chunkIndex Int        // 0, 1, 2, … for ordering within page
   heading    String     // extracted H2 heading or "[intro]"
   content    String @db.Text
-  
+
   // Embedding
   embeddingVector       vector(1536)
   embeddedAt            DateTime
   embeddingModel        String @default("text-embedding-3-small")
-  
+
   // Chain-of-custody
   contentHash           String  // SHA-256 of content at embed time
   supersededAt          DateTime? // if chunk was re-embedded, mark old version
-  
+
   // Metadata for filtering
   tags                  String[] // e.g. ["iicrc", "s500", "cat-3", "hardwood"]
-  
+
   // Audit
   createdAt             DateTime @default(now())
-  
+
   @@index([wikiPageId])
   @@index([embeddedAt])
   @@index([supersededAt])
@@ -147,29 +152,31 @@ model WikiChunk {
 ### 4.3 Retrieval API: `lib/knowledge/retrieve.ts`
 
 **Signature:**
+
 ```typescript
 export async function retrieve(options: {
   query: string;
-  topK?: number;         // default 5
-  threshold?: number;    // default 0.7 (cosine)
+  topK?: number; // default 5
+  threshold?: number; // default 0.7 (cosine)
   filters?: {
-    tag?: string;        // "iicrc", "restoration-method", etc.
-    pageSlug?: string;   // filter to specific wiki page
+    tag?: string; // "iicrc", "restoration-method", etc.
+    pageSlug?: string; // filter to specific wiki page
   };
-}): Promise<RetrievalResult[]>
+}): Promise<RetrievalResult[]>;
 
 export interface RetrievalResult {
   chunkId: string;
   heading: string;
   content: string;
   wikiPageSlug: string;
-  distance: number;      // cosine distance (0–1, lower = better)
+  distance: number; // cosine distance (0–1, lower = better)
   source: "wiki_chunk";
   tags: string[];
 }
 ```
 
 **Implementation:**
+
 1. Embed query via OpenAI text-embedding-3-small.
 2. Query Supabase: pgvector cosine distance on wiki_chunks.embeddingVector, filtered by tag/page if provided.
 3. Filter: `distance <= (1 - threshold)` (cosine distance inverse of similarity).
@@ -188,6 +195,7 @@ export interface RetrievalResult {
 ### 4.5 Re-embed-on-edit detection
 
 **Mechanism:**
+
 - Ingester script writes chunk contentHash at embed time.
 - On next sync, compare wiki_pages.contentHash with the hash computed from current .md file.
 - If different: re-chunk entire page (don't try to delta; too complex).
@@ -202,11 +210,11 @@ export interface RetrievalResult {
 
 SP-G's Section 5 (Help Library integration) and Section 6 (Three new tools) define the contract SP-H must fulfill:
 
-| SP-G tool | SP-H method | Input | Output |
-|---|---|---|---|
-| **`lookup-iicrc`** | `retrieve(query, filters={tag:"iicrc"})` | `query: "cat-3 wood"` | `[RetrievalResult { heading: "IICRC Cat 3", content: "...", distance: 0.85 }]` |
-| **`method-recommendation`** | `retrieve(query, filters={tag:"method"})` | `query: "hardwood floor restoration cat-3"` | `[RetrievalResult { heading: "Hardwood Drying Method", steps: [...] }]` |
-| **`analyse-photo`** (v2) | `retrieve(query, filters={tag:"photo-analysis"})` | `query: "plasterboard mould water stain"` | Similar chunks for fallback reasoning |
+| SP-G tool                   | SP-H method                                       | Input                                       | Output                                                                         |
+| --------------------------- | ------------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------ |
+| **`lookup-iicrc`**          | `retrieve(query, filters={tag:"iicrc"})`          | `query: "cat-3 wood"`                       | `[RetrievalResult { heading: "IICRC Cat 3", content: "...", distance: 0.85 }]` |
+| **`method-recommendation`** | `retrieve(query, filters={tag:"method"})`         | `query: "hardwood floor restoration cat-3"` | `[RetrievalResult { heading: "Hardwood Drying Method", steps: [...] }]`        |
+| **`analyse-photo`** (v2)    | `retrieve(query, filters={tag:"photo-analysis"})` | `query: "plasterboard mould water stain"`   | Similar chunks for fallback reasoning                                          |
 
 SP-G's tool definitions (already drafted in PR #1086) call `lookupIircHandler()` etc., which invoke `retrieve()`. No schema changes needed in SP-G once SP-H ships.
 
@@ -223,40 +231,40 @@ model WikiPage {
   title String
   content String @db.Text
   frontmatter Json? // stored as-is from .md frontmatter
-  
+
   contentHash String // SHA-256 of content at last sync
   lastSyncedAt DateTime?
   lastEmbeddedAt DateTime? // tracks embedding cycle
-  
+
   chunks WikiChunk[] // relation to chunks
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   @@index([lastSyncedAt])
   @@index([lastEmbeddedAt])
 }
 
 model WikiChunk {
   id String @id @default(cuid())
-  
+
   wikiPageId String
   wikiPage WikiPage @relation(fields: [wikiPageId], references: [id], onDelete: Cascade)
-  
+
   chunkIndex Int
   heading String
   content String @db.Text
-  
+
   embeddingVector vector(1536)
   embeddedAt DateTime
   embeddingModel String @default("text-embedding-3-small")
-  
+
   contentHash String
   supersededAt DateTime?
   tags String[]
-  
+
   createdAt DateTime @default(now())
-  
+
   @@index([wikiPageId])
   @@index([embeddedAt])
   @@index([supersededAt])
@@ -264,6 +272,7 @@ model WikiChunk {
 ```
 
 **Why separate table (not embedded in wiki_pages)?**
+
 - Queries need to filter/rank individual chunks, not whole pages.
 - Superseding old chunks (audit trail) requires per-chunk rows.
 - Simpler cascade deletion + independent upsert logic.
@@ -285,17 +294,20 @@ model WikiChunk {
 ## 8. Cost ceiling
 
 **Per-embedding costs:**
+
 - 145 pages × 10 chunks (avg) = 1,450 chunks
 - ~50 tokens per chunk (heading + content sample)
 - OpenAI text-embedding-3-small: $0.02 / 1M tokens
 - **Per full sync: 1,450 × 50 ÷ 1M × $0.02 = $0.00145 ≈ $0.002**
 
 **Per-query costs (retrieval only):**
+
 - Each SP-G `lookup-iicrc` tool call: 1 query embedding = ~30 tokens
 - $0.02 ÷ 1M × 30 = $0.0000006 per query
 - 100 queries/day = $0.00006/day = **~$2/month**
 
 **Platform ceiling (all tenants, v1):**
+
 - 1 ingestion per day: $0.002
 - 100 queries per day × avg users: $2–10/month
 - **Total v1: <$50/month for platform**
@@ -307,11 +319,13 @@ model WikiChunk {
 ## 9. Where ingester runs: Hermes cron (recommendation)
 
 **Options:**
+
 1. **Vercel cron** — `/api/cron/ingest-wiki` endpoint. Simple, serverless. Cold start ~5s, then 3 min execution. ✅ Viable.
 2. **Self-hosted on Mac mini** — `~/restore-assist/scripts/cron-ingest.sh` runs daily via launchd. ✅ Proven reliable per [[hermes-agent]].
 3. **Hermes cron** — existing agent framework at `/Pi-CEO` — already runs daily wiki scan per [[wiki-ingest]] skill. Extends to embed.
 
 **Recommendation:** **Hermes cron**. Justification:
+
 - Existing daily wiki scan is already orchestrated via [[wiki-ingest]] skill.
 - Hermes Agent has persistent state, better logging, easier retry.
 - Vercel cron is simpler but less observable; self-hosted adds local dependency.
@@ -345,19 +359,23 @@ model WikiChunk {
 ## 12. Testing strategy
 
 **Unit (Vitest):**
+
 - Chunking logic: split markdown by H2, preserve frontmatter, handle edge cases (no headings, unclosed blocks).
 - Embedding fallback: when OpenAI API fails, hash-fallback returns 1536-dim vector (existing logic from embeddings.ts).
 - Query parsing: extract tag filters from user query string (optional Wave 2).
 
 **Integration (Vitest + Supabase):**
+
 - Ingest cycle: read 5 test .md files → chunk → embed (hash fallback) → upsert wiki_chunks → assert 50 rows created.
 - Retrieval: insert 10 wiki_chunks with known vectors → search for query "cat-3" → assert results sorted by distance, threshold respected.
 - Superseding: update page content → re-ingest → assert old chunks marked `supersededAt`, new chunks created, old ones still queryable for audit.
 
 **E2E (Playwright):**
+
 - Sidekick turn: user asks "What's IICRC cat-3 on plasterboard?" → `lookup-iicrc` tool calls `retrieve()` → returns chunk about cat-3 → Claude formats as response → user sees IICRC §X.Y citation.
 
 **Regression:**
+
 - 5 known test queries (e.g., "S500 7.1", "hardwood drying", "cat-3 water damage") → run against staging wiki_chunks → assert all return expected pages (fuzzy match, not exact).
 - OpenAI API key missing → fallback to hash-embedding → retrieval still works (no null-pointer errors).
 
@@ -366,6 +384,7 @@ model WikiChunk {
 ## 13. Critical files (read-only reference) + new files to create
 
 **Read-only (existing code, SP-H depends on):**
+
 - `/Users/phill-mac/RestoreAssist/lib/ai/embeddings.ts` — embedding providers + pgvector interface
 - `/Users/phill-mac/RestoreAssist/lib/ai/rag-context.ts` — retrieval patterns
 - `/Users/phill-mac/RestoreAssist/prisma/schema.prisma` — pgvector extension, HistoricalJob model as pattern
@@ -374,6 +393,7 @@ model WikiChunk {
 - `~/Pi-CEO/Pi-Dev-Ops/scripts/sync_wiki_to_supabase.py` — existing sync script (exact path TBD)
 
 **New files to create (SP-H v1):**
+
 - `docs/superpowers/specs/2026-05-15-sp-h-knowledge-substrate-design.md` — this spec
 - `lib/knowledge/retrieve.ts` — retrieval API (signature + implementation)
 - `lib/knowledge/__tests__/retrieve.test.ts` — retrieval unit tests
@@ -401,13 +421,15 @@ After SP-H v1 ships:
 
 **Did:** Audited existing RAG plumbing (embeddings.ts, rag-context.ts, pgvector schema); read SP-5 audit Section 7 + SP-G Sections 5–6 to derive retrieval API contract; inventoried 145 wiki pages + sync script + Supabase table; modeled per-heading chunking strategy + pgvector storage + retrieval API signature; estimated costs + ingestion cycle.
 
-**Verified with:** 
+**Verified with:**
+
 - `/Users/phill-mac/RestoreAssist/lib/ai/embeddings.ts` (line 92–123: OpenAI text-embedding-3-small integration exists, reusable)
 - `/Users/phill-mac/RestoreAssist/prisma/schema.prisma` (line 18: pgvector extension enabled; HistoricalJob model: lines ~6150, embeddingVector column pattern)
 - `~/2nd Brain/2nd Brain/Wiki/` (145 .md files confirmed; log.md confirms 143/145 synced as of 2026-05-15)
 - SP-5 audit Section 7 & SP-G spec Sections 5–6 (retrieval API contract: lookup-iicrc, method-recommendation tools defined)
 
 **Would change my mind if:**
+
 - Chunking boundary choice (H2 vs semantic) — brainstorm may prefer semantic (justifiable if embedding-in-preprocessing cost < 1% of total, which it is). Recommend staying with H2 v1, revisit in Wave 3.
 - Embedding model choice — if Cohere becomes available in RestoreAssist's default OpenAI contract, consider switching for cost. OpenAI text-embedding-3-small is safe default.
 - Ingester host — if Hermes agent is deprecated, Vercel cron becomes the canonical choice (simpler, less overhead).

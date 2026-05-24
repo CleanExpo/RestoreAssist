@@ -268,7 +268,10 @@ export function WebGLLiquid({
       const uTime = gl.getUniformLocation(program, "u_time");
       const uColorDeep = gl.getUniformLocation(program, "u_colorDeep");
       const uColorMid = gl.getUniformLocation(program, "u_colorMid");
-      const uColorHighlight = gl.getUniformLocation(program, "u_colorHighlight");
+      const uColorHighlight = gl.getUniformLocation(
+        program,
+        "u_colorHighlight",
+      );
       const uSpeed = gl.getUniformLocation(program, "u_speed");
       const uFlowStrength = gl.getUniformLocation(program, "u_flowStrength");
       const uGrain = gl.getUniformLocation(program, "u_grain");

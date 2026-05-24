@@ -16,47 +16,48 @@
 
 ### New files (18)
 
-| Path | Purpose |
-|---|---|
-| `lib/billing/constants.ts` | `TRIAL_DAYS = 15`, `T_MINUS_BANNER_DAYS = 3` |
-| `lib/billing/use-trial-status.ts` | Client SWR hook |
-| `lib/billing/subscription-event.ts` | Server util — idempotent `recordSubscriptionEvent(...)` |
-| `components/billing/TrialCountdownBanner.tsx` | Top-of-dashboard countdown |
-| `components/billing/CreditExhaustModal.tsx` | Listens for `credit-exhausted` event |
-| `components/billing/FeatureGateModal.tsx` | Generic gate modal |
-| `components/billing/FeatureGate.tsx` | Wrapper component |
-| `app/billing/upgrade/page.tsx` | Server Component |
-| `app/billing/upgrade/UpgradeHeader.tsx` | `?reason=`-aware copy |
-| `app/billing/upgrade/TierGrid.tsx` | Renders PRICING_CONFIG tiers |
-| `app/billing/upgrade/CheckoutCTA.tsx` | POSTs to `/api/billing/checkout` |
-| `app/billing/success/page.tsx` | Defensive Stripe-direct retrieve + poll |
-| `app/api/billing/checkout/route.ts` | Stripe Checkout session creator |
-| `app/api/billing/trial-status/route.ts` | Thin wrapper for client hook |
-| `app/api/test/seed-trial-user/route.ts` | Test helper for E2E |
-| `prisma/migrations/20260520000000_subscription_event_table/migration.sql` | New model migration |
-| `e2e/billing/*.spec.ts` × 8 | E2E specs (one per scenario) |
-| `lib/billing/__tests__/*.test.ts` × N | Unit tests |
+| Path                                                                      | Purpose                                                 |
+| ------------------------------------------------------------------------- | ------------------------------------------------------- |
+| `lib/billing/constants.ts`                                                | `TRIAL_DAYS = 15`, `T_MINUS_BANNER_DAYS = 3`            |
+| `lib/billing/use-trial-status.ts`                                         | Client SWR hook                                         |
+| `lib/billing/subscription-event.ts`                                       | Server util — idempotent `recordSubscriptionEvent(...)` |
+| `components/billing/TrialCountdownBanner.tsx`                             | Top-of-dashboard countdown                              |
+| `components/billing/CreditExhaustModal.tsx`                               | Listens for `credit-exhausted` event                    |
+| `components/billing/FeatureGateModal.tsx`                                 | Generic gate modal                                      |
+| `components/billing/FeatureGate.tsx`                                      | Wrapper component                                       |
+| `app/billing/upgrade/page.tsx`                                            | Server Component                                        |
+| `app/billing/upgrade/UpgradeHeader.tsx`                                   | `?reason=`-aware copy                                   |
+| `app/billing/upgrade/TierGrid.tsx`                                        | Renders PRICING_CONFIG tiers                            |
+| `app/billing/upgrade/CheckoutCTA.tsx`                                     | POSTs to `/api/billing/checkout`                        |
+| `app/billing/success/page.tsx`                                            | Defensive Stripe-direct retrieve + poll                 |
+| `app/api/billing/checkout/route.ts`                                       | Stripe Checkout session creator                         |
+| `app/api/billing/trial-status/route.ts`                                   | Thin wrapper for client hook                            |
+| `app/api/test/seed-trial-user/route.ts`                                   | Test helper for E2E                                     |
+| `prisma/migrations/20260520000000_subscription_event_table/migration.sql` | New model migration                                     |
+| `e2e/billing/*.spec.ts` × 8                                               | E2E specs (one per scenario)                            |
+| `lib/billing/__tests__/*.test.ts` × N                                     | Unit tests                                              |
 
 ### Modified files (10)
 
-| Path | Change |
-|---|---|
-| `lib/auth.ts:327` | Use `TRIAL_DAYS` constant instead of hardcoded `30` |
-| `lib/trial-handling.ts:47` | Use `TRIAL_DAYS`; add `showCountdownBanner` + `showHardWall` derived flags |
-| `lib/email.ts:847, 884, 925` | Use `TRIAL_DAYS` constant in welcome email copy |
-| `app/api/setup/activate/route.ts:139` | Fix drift `trialDays: 14` → `trialDays: TRIAL_DAYS` |
-| `lib/youtube/metadata.ts:90` | "30 free reports" → "15 free reports" |
-| `app/api/reports/generate-enhanced/route.ts:144` | Update comment to reflect 15 days |
-| `app/api/webhooks/stripe/route.ts` | Add 3 event handlers + SubscriptionEvent dedupe |
-| `prisma/schema.prisma` | Add `SubscriptionEvent` model + back-relation on User |
-| `middleware.ts` | Hard-paywall redirect block |
-| `app/dashboard/layout.tsx` | Mount `<TrialCountdownBanner>` at top |
+| Path                                             | Change                                                                     |
+| ------------------------------------------------ | -------------------------------------------------------------------------- |
+| `lib/auth.ts:327`                                | Use `TRIAL_DAYS` constant instead of hardcoded `30`                        |
+| `lib/trial-handling.ts:47`                       | Use `TRIAL_DAYS`; add `showCountdownBanner` + `showHardWall` derived flags |
+| `lib/email.ts:847, 884, 925`                     | Use `TRIAL_DAYS` constant in welcome email copy                            |
+| `app/api/setup/activate/route.ts:139`            | Fix drift `trialDays: 14` → `trialDays: TRIAL_DAYS`                        |
+| `lib/youtube/metadata.ts:90`                     | "30 free reports" → "15 free reports"                                      |
+| `app/api/reports/generate-enhanced/route.ts:144` | Update comment to reflect 15 days                                          |
+| `app/api/webhooks/stripe/route.ts`               | Add 3 event handlers + SubscriptionEvent dedupe                            |
+| `prisma/schema.prisma`                           | Add `SubscriptionEvent` model + back-relation on User                      |
+| `middleware.ts`                                  | Hard-paywall redirect block                                                |
+| `app/dashboard/layout.tsx`                       | Mount `<TrialCountdownBanner>` at top                                      |
 
 ---
 
 ## Task 1: Billing constants module
 
 **Files:**
+
 - Create: `lib/billing/constants.ts`
 - Test: `lib/billing/__tests__/constants.test.ts`
 
@@ -124,6 +125,7 @@ git commit -m "feat(billing): add TRIAL_DAYS + T_MINUS_BANNER_DAYS constants (SP
 ## Task 2: SubscriptionEvent Prisma model + migration
 
 **Files:**
+
 - Modify: `prisma/schema.prisma`
 - Create: `prisma/migrations/20260520000000_subscription_event_table/migration.sql`
 - Test: `lib/billing/__tests__/subscription-event.test.ts`
@@ -192,16 +194,30 @@ describe("recordSubscriptionEvent", () => {
       payload: { tier: "STANDARD" },
     });
     expect(result.kind).toBe("recorded");
-    const row = await prisma.subscriptionEvent.findFirstOrThrow({ where: { userId } });
+    const row = await prisma.subscriptionEvent.findFirstOrThrow({
+      where: { userId },
+    });
     expect(row.eventType).toBe("SUBSCRIPTION_ACTIVATED");
   });
 
   it("dedupes by stripeEventId on second call", async () => {
     const stripeEventId = `evt_dupe_${Date.now()}`;
-    await recordSubscriptionEvent({ userId, eventType: "SUBSCRIPTION_ACTIVATED", stripeEventId, payload: null });
-    const second = await recordSubscriptionEvent({ userId, eventType: "SUBSCRIPTION_ACTIVATED", stripeEventId, payload: null });
+    await recordSubscriptionEvent({
+      userId,
+      eventType: "SUBSCRIPTION_ACTIVATED",
+      stripeEventId,
+      payload: null,
+    });
+    const second = await recordSubscriptionEvent({
+      userId,
+      eventType: "SUBSCRIPTION_ACTIVATED",
+      stripeEventId,
+      payload: null,
+    });
     expect(second.kind).toBe("deduped");
-    const count = await prisma.subscriptionEvent.count({ where: { stripeEventId } });
+    const count = await prisma.subscriptionEvent.count({
+      where: { stripeEventId },
+    });
     expect(count).toBe(1);
   });
 
@@ -298,6 +314,7 @@ git commit -m "feat(billing): SubscriptionEvent model + recordSubscriptionEvent 
 ## Task 3: Centralise TRIAL_DAYS across existing callsites
 
 **Files:**
+
 - Modify: `lib/auth.ts:327`
 - Modify: `lib/trial-handling.ts:47`
 - Modify: `lib/email.ts:884, 925`
@@ -468,6 +485,7 @@ git commit -m "fix(trial): centralise TRIAL_DAYS to 15; fix welcome-email drift 
 ## Task 4: Extend getTrialStatus with derived flags
 
 **Files:**
+
 - Modify: `lib/trial-handling.ts`
 - Test: `lib/__tests__/trial-handling-derived-flags.test.ts`
 
@@ -480,7 +498,10 @@ import { prisma } from "@/lib/prisma";
 import { getTrialStatus } from "@/lib/trial-handling";
 import { TRIAL_DAYS, T_MINUS_BANNER_DAYS } from "@/lib/billing/constants";
 
-async function seedUser(daysFromNow: number, status: "TRIAL" | "ACTIVE" | "CANCELED" | "PAST_DUE" | null) {
+async function seedUser(
+  daysFromNow: number,
+  status: "TRIAL" | "ACTIVE" | "CANCELED" | "PAST_DUE" | null,
+) {
   const trialEndsAt = new Date(Date.now() + daysFromNow * 24 * 60 * 60 * 1000);
   return prisma.user.create({
     data: {
@@ -571,7 +592,10 @@ In the `getTrialStatus` function, compute the derived flags before returning. Fi
 ```ts
 const isTrial = (user.subscriptionStatus ?? "TRIAL") === "TRIAL";
 const showCountdownBanner =
-  isTrial && daysRemaining > 0 && daysRemaining <= T_MINUS_BANNER_DAYS && !hasTrialExpired;
+  isTrial &&
+  daysRemaining > 0 &&
+  daysRemaining <= T_MINUS_BANNER_DAYS &&
+  !hasTrialExpired;
 const showHardWall =
   hasTrialExpired &&
   user.subscriptionStatus !== "ACTIVE" &&
@@ -618,6 +642,7 @@ git commit -m "feat(trial): add showCountdownBanner + showHardWall derived flags
 ## Task 5: `/api/billing/trial-status` GET route
 
 **Files:**
+
 - Create: `app/api/billing/trial-status/route.ts`
 - Test: `app/api/billing/trial-status/__tests__/route.test.ts`
 
@@ -649,7 +674,9 @@ describe("GET /api/billing/trial-status", () => {
   });
 
   it("returns 200 with TrialStatus shape", async () => {
-    vi.mocked(getServerSession).mockResolvedValue({ user: { id: "u1" } } as any);
+    vi.mocked(getServerSession).mockResolvedValue({
+      user: { id: "u1" },
+    } as any);
     vi.mocked(getTrialStatus).mockResolvedValue({
       isTrialActive: true,
       hasTrialExpired: false,
@@ -695,7 +722,11 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
     const status = await getTrialStatus(session.user.id);
     return NextResponse.json({ data: status });
@@ -725,6 +756,7 @@ git commit -m "feat(billing): GET /api/billing/trial-status route (SP-3 T5)"
 ## Task 6: `useTrialStatus` client SWR hook
 
 **Files:**
+
 - Create: `lib/billing/use-trial-status.ts`
 - Test: `lib/billing/__tests__/use-trial-status.test.ts`
 
@@ -763,7 +795,13 @@ describe("useTrialStatus", () => {
   it("returns TrialStatus on success", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ data: { daysRemaining: 5, showCountdownBanner: false, showHardWall: false } }),
+      json: async () => ({
+        data: {
+          daysRemaining: 5,
+          showCountdownBanner: false,
+          showHardWall: false,
+        },
+      }),
     });
     const { result } = renderHook(() => useTrialStatus());
     await waitFor(() => expect(result.current.data?.daysRemaining).toBe(5));
@@ -829,6 +867,7 @@ git commit -m "feat(billing): useTrialStatus client SWR hook (SP-3 T6)"
 ## Task 7: Stripe webhook — `checkout.session.completed` handler
 
 **Files:**
+
 - Modify: `app/api/webhooks/stripe/route.ts`
 - Test: `app/api/webhooks/stripe/__tests__/checkout-completed.test.ts`
 
@@ -853,7 +892,11 @@ describe("checkout.session.completed handler", () => {
   let userId: string;
   beforeEach(async () => {
     const u = await prisma.user.create({
-      data: { email: `webhook-${Date.now()}@example.com`, password: "hash", subscriptionStatus: "TRIAL" },
+      data: {
+        email: `webhook-${Date.now()}@example.com`,
+        password: "hash",
+        subscriptionStatus: "TRIAL",
+      },
     });
     userId = u.id;
   });
@@ -877,7 +920,9 @@ describe("checkout.session.completed handler", () => {
     expect(u.subscriptionStatus).toBe("ACTIVE");
     expect(u.subscriptionId).toBe("sub_test_123");
     expect(u.stripeCustomerId).toBe("cus_test_123");
-    const ev = await prisma.subscriptionEvent.findFirstOrThrow({ where: { userId } });
+    const ev = await prisma.subscriptionEvent.findFirstOrThrow({
+      where: { userId },
+    });
     expect(ev.eventType).toBe("SUBSCRIPTION_ACTIVATED");
   });
 
@@ -898,7 +943,9 @@ describe("checkout.session.completed handler", () => {
     };
     await handleCheckoutCompleted(stripeEvent as any);
     await handleCheckoutCompleted(stripeEvent as any);
-    const count = await prisma.subscriptionEvent.count({ where: { stripeEventId } });
+    const count = await prisma.subscriptionEvent.count({
+      where: { stripeEventId },
+    });
     expect(count).toBe(1);
   });
 });
@@ -928,7 +975,10 @@ export async function handleCheckoutCompleted(event: Stripe.Event) {
   const userId = session.metadata?.userId;
   const tier = session.metadata?.tier;
   if (!userId) {
-    console.error("[stripe-webhook] checkout.session.completed missing metadata.userId", event.id);
+    console.error(
+      "[stripe-webhook] checkout.session.completed missing metadata.userId",
+      event.id,
+    );
     return;
   }
 
@@ -938,7 +988,8 @@ export async function handleCheckoutCompleted(event: Stripe.Event) {
     select: { subscriptionStatus: true },
   });
   const eventType =
-    existing?.subscriptionStatus === "CANCELED" || existing?.subscriptionStatus === "EXPIRED"
+    existing?.subscriptionStatus === "CANCELED" ||
+    existing?.subscriptionStatus === "EXPIRED"
       ? "SUBSCRIPTION_REACTIVATED"
       : "SUBSCRIPTION_ACTIVATED";
 
@@ -947,7 +998,11 @@ export async function handleCheckoutCompleted(event: Stripe.Event) {
     userId,
     eventType,
     stripeEventId: event.id,
-    payload: { tier, sessionId: session.id, subscriptionId: session.subscription },
+    payload: {
+      tier,
+      sessionId: session.id,
+      subscriptionId: session.subscription,
+    },
   });
   if (recorded.kind === "deduped") return; // already processed
 
@@ -955,8 +1010,10 @@ export async function handleCheckoutCompleted(event: Stripe.Event) {
     where: { id: userId },
     data: {
       subscriptionStatus: "ACTIVE",
-      subscriptionId: typeof session.subscription === "string" ? session.subscription : null,
-      stripeCustomerId: typeof session.customer === "string" ? session.customer : null,
+      subscriptionId:
+        typeof session.subscription === "string" ? session.subscription : null,
+      stripeCustomerId:
+        typeof session.customer === "string" ? session.customer : null,
       subscriptionPlan: tier ?? null,
       lastBillingDate: new Date(),
     },
@@ -995,6 +1052,7 @@ git commit -m "feat(stripe): handle checkout.session.completed with dedupe + Sub
 ## Task 8: Stripe webhook — subscription.updated + subscription.deleted
 
 **Files:**
+
 - Modify: `app/api/webhooks/stripe/route.ts`
 - Test: `app/api/webhooks/stripe/__tests__/subscription-lifecycle.test.ts`
 
@@ -1135,7 +1193,9 @@ export async function handleSubscriptionDeleted(event: Stripe.Event) {
   });
 }
 
-function stripeStatusToOurs(s: Stripe.Subscription.Status): "ACTIVE" | "PAST_DUE" | "CANCELED" | "EXPIRED" | null {
+function stripeStatusToOurs(
+  s: Stripe.Subscription.Status,
+): "ACTIVE" | "PAST_DUE" | "CANCELED" | "EXPIRED" | null {
   switch (s) {
     case "active":
     case "trialing":
@@ -1186,6 +1246,7 @@ git commit -m "feat(stripe): handle subscription.updated + deleted with dedupe (
 ## Task 9: `/api/billing/checkout` POST route
 
 **Files:**
+
 - Create: `app/api/billing/checkout/route.ts`
 - Test: `app/api/billing/checkout/__tests__/route.test.ts`
 
@@ -1201,7 +1262,10 @@ vi.mock("stripe", () => {
   const ctor = vi.fn().mockImplementation(() => ({
     checkout: {
       sessions: {
-        create: vi.fn().mockResolvedValue({ id: "cs_test_123", url: "https://stripe.test/cs_123" }),
+        create: vi.fn().mockResolvedValue({
+          id: "cs_test_123",
+          url: "https://stripe.test/cs_123",
+        }),
       },
     },
     customers: {
@@ -1210,7 +1274,9 @@ vi.mock("stripe", () => {
   }));
   return { default: ctor };
 });
-vi.mock("@/lib/prisma", () => ({ prisma: { user: { findUnique: vi.fn(), update: vi.fn() } } }));
+vi.mock("@/lib/prisma", () => ({
+  prisma: { user: { findUnique: vi.fn(), update: vi.fn() } },
+}));
 
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
@@ -1229,8 +1295,13 @@ describe("POST /api/billing/checkout", () => {
   });
 
   it("returns 400 with invalid tier", async () => {
-    vi.mocked(getServerSession).mockResolvedValue({ user: { id: "u1" } } as any);
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "u1", stripeCustomerId: "cus_existing" } as any);
+    vi.mocked(getServerSession).mockResolvedValue({
+      user: { id: "u1" },
+    } as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      id: "u1",
+      stripeCustomerId: "cus_existing",
+    } as any);
     const req = new Request("http://localhost/api/billing/checkout", {
       method: "POST",
       body: JSON.stringify({ tier: "NOT_A_TIER" }),
@@ -1240,8 +1311,14 @@ describe("POST /api/billing/checkout", () => {
   });
 
   it("returns 200 with Stripe URL on happy path", async () => {
-    vi.mocked(getServerSession).mockResolvedValue({ user: { id: "u1", email: "test@x.com" } } as any);
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "u1", email: "test@x.com", stripeCustomerId: "cus_existing" } as any);
+    vi.mocked(getServerSession).mockResolvedValue({
+      user: { id: "u1", email: "test@x.com" },
+    } as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      id: "u1",
+      email: "test@x.com",
+      stripeCustomerId: "cus_existing",
+    } as any);
     const req = new Request("http://localhost/api/billing/checkout", {
       method: "POST",
       body: JSON.stringify({ tier: "STANDARD" }),
@@ -1295,13 +1372,21 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const json = await request.json();
     const parsed = Body.safeParse(json);
     if (!parsed.success) {
-      return apiError(request, { code: "VALIDATION", message: "Invalid tier", status: 400 });
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Invalid tier",
+        status: 400,
+      });
     }
     const { tier } = parsed.data;
 
@@ -1310,10 +1395,16 @@ export async function POST(request: NextRequest) {
       select: { id: true, email: true, stripeCustomerId: true },
     });
     if (!user || !user.email) {
-      return apiError(request, { code: "NOT_FOUND", message: "User not found", status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "User not found",
+        status: 404,
+      });
     }
 
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2024-12-18.acacia" });
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+      apiVersion: "2024-12-18.acacia",
+    });
 
     // Get-or-create Stripe Customer (idempotent on userId via stripeCustomerId field)
     let customerId = user.stripeCustomerId;
@@ -1367,6 +1458,7 @@ git commit -m "feat(billing): POST /api/billing/checkout creates Stripe Checkout
 ## Task 10: `/billing/success/page.tsx` with defensive poll
 
 **Files:**
+
 - Create: `app/billing/success/page.tsx`
 
 - [ ] **Step 1: Implement the page**
@@ -1406,7 +1498,9 @@ export default async function BillingSuccessPage({
   // Defensive: verify with Stripe directly
   if (!sessionId) redirect("/billing/upgrade");
 
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2024-12-18.acacia" });
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+    apiVersion: "2024-12-18.acacia",
+  });
   const checkoutSession = await stripe.checkout.sessions.retrieve(sessionId);
 
   if (checkoutSession.payment_status === "paid") {
@@ -1419,9 +1513,14 @@ export default async function BillingSuccessPage({
 function Confirmation({ tier }: { tier: string | null }) {
   return (
     <main className="container mx-auto max-w-2xl p-8 text-center">
-      <h1 className="text-2xl font-semibold">Welcome to {tier ?? "RestoreAssist"}</h1>
+      <h1 className="text-2xl font-semibold">
+        Welcome to {tier ?? "RestoreAssist"}
+      </h1>
       <p className="mt-4 text-muted-foreground">Your subscription is active.</p>
-      <Link href="/dashboard" className="mt-8 inline-block rounded bg-[#1C2E47] px-6 py-3 text-white">
+      <Link
+        href="/dashboard"
+        className="mt-8 inline-block rounded bg-[#1C2E47] px-6 py-3 text-white"
+      >
         Continue to dashboard
       </Link>
     </main>
@@ -1433,7 +1532,9 @@ function PendingActivation({ sessionId }: { sessionId: string }) {
   return (
     <main className="container mx-auto max-w-2xl p-8 text-center">
       <h1 className="text-2xl font-semibold">Activating your subscription…</h1>
-      <p className="mt-4 text-muted-foreground">This usually takes a few seconds.</p>
+      <p className="mt-4 text-muted-foreground">
+        This usually takes a few seconds.
+      </p>
       <PollScript sessionId={sessionId} />
       <p className="mt-8 text-sm text-muted-foreground">
         Stuck? Contact support with this reference: <code>{sessionId}</code>
@@ -1493,6 +1594,7 @@ git commit -m "feat(billing): /billing/success page with defensive Stripe retrie
 ## Task 11: `/billing/upgrade/page.tsx` + sub-components
 
 **Files:**
+
 - Create: `app/billing/upgrade/page.tsx`
 - Create: `app/billing/upgrade/UpgradeHeader.tsx`
 - Create: `app/billing/upgrade/TierGrid.tsx`
@@ -1541,7 +1643,13 @@ Expected: FAIL.
 // app/billing/upgrade/UpgradeHeader.tsx
 type Reason = "trial-expired" | "credits" | "feature" | "voluntary" | null;
 
-export default function UpgradeHeader({ reason, feature }: { reason: Reason; feature?: string }) {
+export default function UpgradeHeader({
+  reason,
+  feature,
+}: {
+  reason: Reason;
+  feature?: string;
+}) {
   if (reason === "trial-expired") {
     return (
       <header className="mb-8 rounded border border-amber-300 bg-amber-50 p-6">
@@ -1565,9 +1673,12 @@ export default function UpgradeHeader({ reason, feature }: { reason: Reason; fea
   if (reason === "feature") {
     return (
       <header className="mb-8 rounded border border-purple-300 bg-purple-50 p-6">
-        <h1 className="text-2xl font-semibold">Unlock {feature ?? "this feature"}</h1>
+        <h1 className="text-2xl font-semibold">
+          Unlock {feature ?? "this feature"}
+        </h1>
         <p className="mt-2 text-muted-foreground">
-          {feature ?? "This feature"} is included in the PREMIUM and ENTERPRISE plans.
+          {feature ?? "This feature"} is included in the PREMIUM and ENTERPRISE
+          plans.
         </p>
       </header>
     );
@@ -1575,7 +1686,9 @@ export default function UpgradeHeader({ reason, feature }: { reason: Reason; fea
   return (
     <header className="mb-8">
       <h1 className="text-2xl font-semibold">Choose a plan</h1>
-      <p className="mt-2 text-muted-foreground">All plans include the IICRC-compliant report generator.</p>
+      <p className="mt-2 text-muted-foreground">
+        All plans include the IICRC-compliant report generator.
+      </p>
     </header>
   );
 }
@@ -1611,20 +1724,32 @@ const DEFAULT_TIERS: Tier[] = [
     name: "STANDARD",
     displayName: "Standard",
     price: "$99",
-    features: ["Up to 20 reports/month", "Platform-managed AI", "Email support"],
+    features: [
+      "Up to 20 reports/month",
+      "Platform-managed AI",
+      "Email support",
+    ],
   },
   {
     name: "PREMIUM",
     displayName: "Premium",
     price: "$199",
     popular: true,
-    features: ["Up to 100 reports/month", "Advanced damage analysis", "Priority support"],
+    features: [
+      "Up to 100 reports/month",
+      "Advanced damage analysis",
+      "Priority support",
+    ],
   },
   {
     name: "ENTERPRISE",
     displayName: "Enterprise",
     price: "Contact us",
-    features: ["Unlimited reports", "All standards coverage", "Dedicated success manager"],
+    features: [
+      "Unlimited reports",
+      "All standards coverage",
+      "Dedicated success manager",
+    ],
   },
 ];
 
@@ -1635,7 +1760,9 @@ export default function TierGrid({
   initialTier?: Tier["name"];
   currentTier?: Tier["name"] | null;
 }) {
-  const [selected, setSelected] = useState<Tier["name"]>(initialTier ?? "PREMIUM");
+  const [selected, setSelected] = useState<Tier["name"]>(
+    initialTier ?? "PREMIUM",
+  );
 
   return (
     <div className="grid gap-6 md:grid-cols-3">
@@ -1645,7 +1772,9 @@ export default function TierGrid({
           type="button"
           onClick={() => setSelected(t.name)}
           className={`relative rounded-lg border p-6 text-left transition ${
-            selected === t.name ? "border-[#1C2E47] ring-2 ring-[#1C2E47]" : "border-gray-200"
+            selected === t.name
+              ? "border-[#1C2E47] ring-2 ring-[#1C2E47]"
+              : "border-gray-200"
           }`}
         >
           {t.popular && (
@@ -1659,7 +1788,12 @@ export default function TierGrid({
             </span>
           )}
           <h2 className="text-xl font-semibold">{t.displayName}</h2>
-          <p className="mt-2 text-2xl font-bold">{t.price}<span className="text-sm font-normal text-muted-foreground">/mo</span></p>
+          <p className="mt-2 text-2xl font-bold">
+            {t.price}
+            <span className="text-sm font-normal text-muted-foreground">
+              /mo
+            </span>
+          </p>
           <ul className="mt-4 space-y-2 text-sm">
             {t.features.map((f) => (
               <li key={f}>• {f}</li>
@@ -1683,7 +1817,11 @@ export default function TierGrid({
 
 import { useState } from "react";
 
-export default function CheckoutCTA({ tier }: { tier: "STANDARD" | "PREMIUM" | "ENTERPRISE" }) {
+export default function CheckoutCTA({
+  tier,
+}: {
+  tier: "STANDARD" | "PREMIUM" | "ENTERPRISE";
+}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -1697,7 +1835,8 @@ export default function CheckoutCTA({ tier }: { tier: "STANDARD" | "PREMIUM" | "
         body: JSON.stringify({ tier }),
       });
       const body = await res.json();
-      if (!res.ok || !body.data?.url) throw new Error(body.error?.message ?? "Checkout failed");
+      if (!res.ok || !body.data?.url)
+        throw new Error(body.error?.message ?? "Checkout failed");
       window.location.href = body.data.url;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Checkout failed");
@@ -1737,14 +1876,24 @@ export const dynamic = "force-dynamic";
 type ReasonParam = "trial-expired" | "credits" | "feature" | "voluntary" | null;
 
 function parseReason(input: string | undefined): ReasonParam {
-  if (input === "trial-expired" || input === "credits" || input === "feature" || input === "voluntary") return input;
+  if (
+    input === "trial-expired" ||
+    input === "credits" ||
+    input === "feature" ||
+    input === "voluntary"
+  )
+    return input;
   return null;
 }
 
 export default async function UpgradePage({
   searchParams,
 }: {
-  searchParams: Promise<{ reason?: string; feature?: string; cancelled?: string }>;
+  searchParams: Promise<{
+    reason?: string;
+    feature?: string;
+    cancelled?: string;
+  }>;
 }) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login?callbackUrl=/billing/upgrade");
@@ -1800,6 +1949,7 @@ git commit -m "feat(billing): /billing/upgrade page + UpgradeHeader + TierGrid +
 ## Task 12: `<TrialCountdownBanner>` component
 
 **Files:**
+
 - Create: `components/billing/TrialCountdownBanner.tsx`
 - Test: `components/billing/__tests__/TrialCountdownBanner.test.tsx`
 
@@ -1836,7 +1986,10 @@ describe("TrialCountdownBanner", () => {
   });
 
   it("renders nothing while loading", () => {
-    vi.mocked(useTrialStatus).mockReturnValue({ data: undefined, isLoading: true } as any);
+    vi.mocked(useTrialStatus).mockReturnValue({
+      data: undefined,
+      isLoading: true,
+    } as any);
     const { container } = render(<TrialCountdownBanner />);
     expect(container.firstChild).toBeNull();
   });
@@ -1878,7 +2031,11 @@ export default function TrialCountdownBanner() {
     <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm">
       <div className="container mx-auto flex items-center justify-between">
         <span>
-          Your trial ends in <strong>{days} {days === 1 ? "day" : "days"} left</strong>.{" "}
+          Your trial ends in{" "}
+          <strong>
+            {days} {days === 1 ? "day" : "days"} left
+          </strong>
+          .{" "}
           <Link href="/billing/upgrade?reason=voluntary" className="underline">
             Upgrade now
           </Link>{" "}
@@ -1921,6 +2078,7 @@ git commit -m "feat(billing): TrialCountdownBanner component (SP-3 T12)"
 ## Task 13: `<CreditExhaustModal>` component
 
 **Files:**
+
 - Create: `components/billing/CreditExhaustModal.tsx`
 - Test: `components/billing/__tests__/CreditExhaustModal.test.tsx`
 
@@ -1952,7 +2110,10 @@ describe("CreditExhaustModal", () => {
       window.dispatchEvent(new CustomEvent("credit-exhausted"));
     });
     const upgradeLink = screen.getByRole("link", { name: /upgrade plan/i });
-    expect(upgradeLink).toHaveAttribute("href", "/billing/upgrade?reason=credits");
+    expect(upgradeLink).toHaveAttribute(
+      "href",
+      "/billing/upgrade?reason=credits",
+    );
   });
 });
 ```
@@ -1986,11 +2147,16 @@ export default function CreditExhaustModal() {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      role="dialog"
+      aria-modal="true"
+    >
       <div className="w-full max-w-md rounded-lg bg-white p-6">
         <h2 className="text-xl font-semibold">You're out of credits</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Your monthly credits are used up. Upgrade your plan for higher monthly credits, or buy a one-time top-up.
+          Your monthly credits are used up. Upgrade your plan for higher monthly
+          credits, or buy a one-time top-up.
         </p>
         <div className="mt-6 flex gap-3">
           <Link
@@ -2034,6 +2200,7 @@ git commit -m "feat(billing): CreditExhaustModal listens for credit-exhausted ev
 ## Task 14: `<FeatureGate>` + `<FeatureGateModal>`
 
 **Files:**
+
 - Create: `components/billing/FeatureGate.tsx`
 - Create: `components/billing/FeatureGateModal.tsx`
 - Test: `components/billing/__tests__/FeatureGate.test.tsx`
@@ -2050,8 +2217,18 @@ describe("FeatureGate", () => {
   it("passes click through when userTier includes feature", () => {
     let clicked = false;
     render(
-      <FeatureGate feature="advanced-damage" userTier="PREMIUM" featureMap={{ "advanced-damage": ["PREMIUM", "ENTERPRISE"] }}>
-        <button onClick={() => { clicked = true; }}>Run analysis</button>
+      <FeatureGate
+        feature="advanced-damage"
+        userTier="PREMIUM"
+        featureMap={{ "advanced-damage": ["PREMIUM", "ENTERPRISE"] }}
+      >
+        <button
+          onClick={() => {
+            clicked = true;
+          }}
+        >
+          Run analysis
+        </button>
       </FeatureGate>,
     );
     fireEvent.click(screen.getByText("Run analysis"));
@@ -2061,8 +2238,18 @@ describe("FeatureGate", () => {
   it("blocks click and opens modal when userTier missing feature", () => {
     let clicked = false;
     render(
-      <FeatureGate feature="advanced-damage" userTier="STANDARD" featureMap={{ "advanced-damage": ["PREMIUM", "ENTERPRISE"] }}>
-        <button onClick={() => { clicked = true; }}>Run analysis</button>
+      <FeatureGate
+        feature="advanced-damage"
+        userTier="STANDARD"
+        featureMap={{ "advanced-damage": ["PREMIUM", "ENTERPRISE"] }}
+      >
+        <button
+          onClick={() => {
+            clicked = true;
+          }}
+        >
+          Run analysis
+        </button>
       </FeatureGate>,
     );
     fireEvent.click(screen.getByText("Run analysis"));
@@ -2096,7 +2283,11 @@ export default function FeatureGateModal({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      role="dialog"
+      aria-modal="true"
+    >
       <div className="w-full max-w-md rounded-lg bg-white p-6">
         <h2 className="text-xl font-semibold">Unlock {feature}</h2>
         <p className="mt-2 text-sm text-muted-foreground">
@@ -2130,7 +2321,13 @@ export default function FeatureGateModal({
 // components/billing/FeatureGate.tsx
 "use client";
 
-import { Children, cloneElement, isValidElement, useState, MouseEvent } from "react";
+import {
+  Children,
+  cloneElement,
+  isValidElement,
+  useState,
+  MouseEvent,
+} from "react";
 import FeatureGateModal from "./FeatureGateModal";
 
 type Tier = "STANDARD" | "PREMIUM" | "ENTERPRISE" | null;
@@ -2163,7 +2360,8 @@ export default function FeatureGate({
   return (
     <>
       {Children.map(children, (child) => {
-        if (!isValidElement<{ onClick?: (e: MouseEvent) => void }>(child)) return child;
+        if (!isValidElement<{ onClick?: (e: MouseEvent) => void }>(child))
+          return child;
         return cloneElement(child, {
           onClick: (e: MouseEvent) => {
             e.preventDefault();
@@ -2172,7 +2370,12 @@ export default function FeatureGate({
           },
         });
       })}
-      {modalOpen && <FeatureGateModal feature={feature} onClose={() => setModalOpen(false)} />}
+      {modalOpen && (
+        <FeatureGateModal
+          feature={feature}
+          onClose={() => setModalOpen(false)}
+        />
+      )}
     </>
   );
 }
@@ -2198,6 +2401,7 @@ git commit -m "feat(billing): FeatureGate wrapper + FeatureGateModal (SP-3 T14)"
 ## Task 15: Middleware hard-paywall redirect
 
 **Files:**
+
 - Modify: `middleware.ts`
 - Test: `lib/__tests__/middleware-hard-paywall.test.ts`
 
@@ -2230,7 +2434,9 @@ describe("middleware hard-paywall", () => {
     } as any);
     const res = await middleware(makeReq("/dashboard"));
     expect(res?.status).toBe(307);
-    expect(res?.headers.get("location")).toContain("/billing/upgrade?reason=trial-expired");
+    expect(res?.headers.get("location")).toContain(
+      "/billing/upgrade?reason=trial-expired",
+    );
   });
 
   it("does NOT redirect ACTIVE user even with expired trialEndsAt", async () => {
@@ -2314,6 +2520,7 @@ git commit -m "feat(middleware): hard-paywall redirect for expired trials (SP-3 
 ## Task 16: Mount `<TrialCountdownBanner>` in dashboard layout
 
 **Files:**
+
 - Modify: `app/dashboard/layout.tsx`
 
 - [ ] **Step 1: Read current layout structure**
@@ -2367,6 +2574,7 @@ git commit -m "feat(dashboard): mount TrialCountdownBanner + CreditExhaustModal 
 ## Task 17: `/api/test/seed-trial-user` helper
 
 **Files:**
+
 - Create: `app/api/test/seed-trial-user/route.ts`
 - Test: `app/api/test/seed-trial-user/__tests__/route.test.ts`
 
@@ -2422,30 +2630,53 @@ import { apiError } from "@/lib/api-errors";
 
 const Body = z.object({
   daysUntilExpiry: z.number().int(),
-  subscriptionStatus: z.enum(["TRIAL", "ACTIVE", "CANCELED", "EXPIRED", "PAST_DUE"]).default("TRIAL"),
+  subscriptionStatus: z
+    .enum(["TRIAL", "ACTIVE", "CANCELED", "EXPIRED", "PAST_DUE"])
+    .default("TRIAL"),
 });
 
 export async function POST(request: NextRequest) {
   if (process.env.ALLOW_TEST_HELPERS !== "true") {
-    return apiError(request, { code: "FORBIDDEN", message: "Test helpers disabled", status: 403 });
+    return apiError(request, {
+      code: "FORBIDDEN",
+      message: "Test helpers disabled",
+      status: 403,
+    });
   }
 
   const json = await request.json();
   const parsed = Body.safeParse(json);
   if (!parsed.success) {
-    return apiError(request, { code: "VALIDATION", message: "Invalid body", status: 400 });
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "Invalid body",
+      status: 400,
+    });
   }
   const { daysUntilExpiry, subscriptionStatus } = parsed.data;
 
-  const trialEndsAt = new Date(Date.now() + daysUntilExpiry * 24 * 60 * 60 * 1000);
+  const trialEndsAt = new Date(
+    Date.now() + daysUntilExpiry * 24 * 60 * 60 * 1000,
+  );
   const email = `trial-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
 
   const user = await prisma.user.create({
-    data: { email, password: "hash", subscriptionStatus, trialEndsAt, creditsRemaining: 100 },
+    data: {
+      email,
+      password: "hash",
+      subscriptionStatus,
+      trialEndsAt,
+      creditsRemaining: 100,
+    },
   });
 
   return NextResponse.json({
-    data: { id: user.id, email: user.email, daysRemaining: daysUntilExpiry, subscriptionStatus },
+    data: {
+      id: user.id,
+      email: user.email,
+      daysRemaining: daysUntilExpiry,
+      subscriptionStatus,
+    },
   });
 }
 ```
@@ -2470,6 +2701,7 @@ git commit -m "feat(test): seed-trial-user helper for E2E (SP-3 T17)"
 ## Task 18: 8 E2E specs
 
 **Files:**
+
 - Create: `e2e/billing/voluntary-upgrade.spec.ts`
 - Create: `e2e/billing/hard-paywall.spec.ts`
 - Create: `e2e/billing/credit-exhaust.spec.ts`
@@ -2487,7 +2719,9 @@ import { test, expect } from "@playwright/test";
 
 test("TRIAL user converts via voluntary upgrade", async ({ page, request }) => {
   // Seed a TRIAL user with 2 days remaining (triggers banner)
-  const seed = await request.post("/api/test/seed-trial-user", { data: { daysUntilExpiry: 2 } });
+  const seed = await request.post("/api/test/seed-trial-user", {
+    data: { daysUntilExpiry: 2 },
+  });
   const { data } = await seed.json();
 
   // Sign in as that user (uses sign-in-as test helper from invited-tech work)
@@ -2511,8 +2745,13 @@ test("TRIAL user converts via voluntary upgrade", async ({ page, request }) => {
 // e2e/billing/hard-paywall.spec.ts
 import { test, expect } from "@playwright/test";
 
-test("expired trial user redirected to /billing/upgrade on /dashboard", async ({ page, request }) => {
-  const seed = await request.post("/api/test/seed-trial-user", { data: { daysUntilExpiry: -1 } });
+test("expired trial user redirected to /billing/upgrade on /dashboard", async ({
+  page,
+  request,
+}) => {
+  const seed = await request.post("/api/test/seed-trial-user", {
+    data: { daysUntilExpiry: -1 },
+  });
   const { data } = await seed.json();
   await request.post("/api/test/sign-in-as", { data: { email: data.email } });
 
@@ -2528,18 +2767,28 @@ test("expired trial user redirected to /billing/upgrade on /dashboard", async ({
 // e2e/billing/credit-exhaust.spec.ts
 import { test, expect } from "@playwright/test";
 
-test("credit-exhaust modal opens on global event", async ({ page, request }) => {
-  const seed = await request.post("/api/test/seed-trial-user", { data: { daysUntilExpiry: 10 } });
+test("credit-exhaust modal opens on global event", async ({
+  page,
+  request,
+}) => {
+  const seed = await request.post("/api/test/seed-trial-user", {
+    data: { daysUntilExpiry: 10 },
+  });
   const { data } = await seed.json();
   await request.post("/api/test/sign-in-as", { data: { email: data.email } });
 
   await page.goto("/dashboard");
   // Dispatch the event manually (simulates an AI route 402 response)
-  await page.evaluate(() => window.dispatchEvent(new CustomEvent("credit-exhausted")));
+  await page.evaluate(() =>
+    window.dispatchEvent(new CustomEvent("credit-exhausted")),
+  );
 
   await expect(page.getByText(/out of credits/i)).toBeVisible();
   const upgradeLink = page.getByRole("link", { name: /upgrade plan/i });
-  await expect(upgradeLink).toHaveAttribute("href", "/billing/upgrade?reason=credits");
+  await expect(upgradeLink).toHaveAttribute(
+    "href",
+    "/billing/upgrade?reason=credits",
+  );
 });
 ```
 
@@ -2549,7 +2798,10 @@ test("credit-exhaust modal opens on global event", async ({ page, request }) => 
 // e2e/billing/feature-gate.spec.ts
 import { test, expect } from "@playwright/test";
 
-test("feature gate intercepts click and surfaces modal", async ({ page, request }) => {
+test("feature gate intercepts click and surfaces modal", async ({
+  page,
+  request,
+}) => {
   // STANDARD user clicks a PREMIUM-only feature
   const seed = await request.post("/api/test/seed-trial-user", {
     data: { daysUntilExpiry: 10, subscriptionStatus: "ACTIVE" },
@@ -2563,7 +2815,9 @@ test("feature gate intercepts click and surfaces modal", async ({ page, request 
   // Dispatch the click on a known feature-gated control (placeholder selector — update once mounted)
   // Test only validates the modal path
   await page.evaluate(() => {
-    const ev = new CustomEvent("feature-gate-test", { detail: { feature: "advanced-damage" } });
+    const ev = new CustomEvent("feature-gate-test", {
+      detail: { feature: "advanced-damage" },
+    });
     window.dispatchEvent(ev);
   });
 
@@ -2578,8 +2832,13 @@ test("feature gate intercepts click and surfaces modal", async ({ page, request 
 // e2e/billing/cancel-flow.spec.ts
 import { test, expect } from "@playwright/test";
 
-test("cancel from Stripe returns to /billing/upgrade with subdued copy", async ({ page, request }) => {
-  const seed = await request.post("/api/test/seed-trial-user", { data: { daysUntilExpiry: 5 } });
+test("cancel from Stripe returns to /billing/upgrade with subdued copy", async ({
+  page,
+  request,
+}) => {
+  const seed = await request.post("/api/test/seed-trial-user", {
+    data: { daysUntilExpiry: 5 },
+  });
   const { data } = await seed.json();
   await request.post("/api/test/sign-in-as", { data: { email: data.email } });
 
@@ -2595,8 +2854,13 @@ test("cancel from Stripe returns to /billing/upgrade with subdued copy", async (
 // e2e/billing/webhook-race.spec.ts
 import { test, expect } from "@playwright/test";
 
-test("success page polls and unblocks once webhook flips status", async ({ page, request }) => {
-  const seed = await request.post("/api/test/seed-trial-user", { data: { daysUntilExpiry: 5 } });
+test("success page polls and unblocks once webhook flips status", async ({
+  page,
+  request,
+}) => {
+  const seed = await request.post("/api/test/seed-trial-user", {
+    data: { daysUntilExpiry: 5 },
+  });
   const { data } = await seed.json();
   await request.post("/api/test/sign-in-as", { data: { email: data.email } });
 
@@ -2615,17 +2879,26 @@ test("success page polls and unblocks once webhook flips status", async ({ page,
 // e2e/billing/multi-tab.spec.ts
 import { test, expect } from "@playwright/test";
 
-test("tab B revalidates after conversion in tab A", async ({ browser, request }) => {
-  const seed = await request.post("/api/test/seed-trial-user", { data: { daysUntilExpiry: 5 } });
+test("tab B revalidates after conversion in tab A", async ({
+  browser,
+  request,
+}) => {
+  const seed = await request.post("/api/test/seed-trial-user", {
+    data: { daysUntilExpiry: 5 },
+  });
   const { data } = await seed.json();
 
   const contextA = await browser.newContext();
-  await contextA.request.post("/api/test/sign-in-as", { data: { email: data.email } });
+  await contextA.request.post("/api/test/sign-in-as", {
+    data: { email: data.email },
+  });
   const pageA = await contextA.newPage();
   await pageA.goto("/dashboard");
 
   const contextB = await browser.newContext();
-  await contextB.request.post("/api/test/sign-in-as", { data: { email: data.email } });
+  await contextB.request.post("/api/test/sign-in-as", {
+    data: { email: data.email },
+  });
   const pageB = await contextB.newPage();
   await pageB.goto("/dashboard");
 
@@ -2642,9 +2915,13 @@ test("tab B revalidates after conversion in tab A", async ({ browser, request })
 // e2e/billing/grandfather.spec.ts
 import { test, expect } from "@playwright/test";
 
-test("existing TRIAL user with 27 days remaining is unchanged", async ({ request }) => {
+test("existing TRIAL user with 27 days remaining is unchanged", async ({
+  request,
+}) => {
   // Seed an "existing" TRIAL user with 27 days left (more than the new 15-day default)
-  const seed = await request.post("/api/test/seed-trial-user", { data: { daysUntilExpiry: 27 } });
+  const seed = await request.post("/api/test/seed-trial-user", {
+    data: { daysUntilExpiry: 27 },
+  });
   const { data } = await seed.json();
   expect(data.daysRemaining).toBe(27);
 
@@ -2714,6 +2991,7 @@ gh pr create --base sandbox --head <branch> --title "feat(billing): SP-3 Trial �
 ```
 
 PR body should reference:
+
 - Spec: `docs/superpowers/specs/2026-05-15-sp3-byok-upgrades-design.md`
 - This plan: `docs/superpowers/plans/2026-05-15-sp3-trial-paid-upgrades.md`
 - Verification checklist per `.claude/rules/verification-gate.md`:
@@ -2729,25 +3007,26 @@ PR body should reference:
 
 **Spec coverage** ✓ — every section of the spec maps to at least one task:
 
-| Spec section | Tasks |
-|---|---|
-| §4.1 Routing topology | T9 (checkout) · T10 (success) · T11 (upgrade page) · T15 (middleware) |
-| §4.2 Middleware enforcement | T15 |
-| §4.3 Page composition | T11 |
-| §4.4 State hook | T6 |
-| §5.1 New files | T1, T6, T9, T10, T11, T12, T13, T14, T17 |
-| §5.2 Extended files | T3 (constants centralisation), T4 (trial-handling extension), T7+T8 (webhook), T15 (middleware), T16 (layout) |
-| §6 Data flow (6 sub-paths) | covered across T7, T8, T9, T10, T11, T12, T13, T14 |
-| §7 Trial duration reduction | T1 + T3 |
-| §8 Schema deltas | T2 |
-| §9 Error handling & edge cases | covered in component tests (T12-T14) + integration tests (T7-T8) |
-| §10 Testing strategy | every task includes unit/integration tests inline; T18 ships 8 E2E specs |
+| Spec section                   | Tasks                                                                                                         |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| §4.1 Routing topology          | T9 (checkout) · T10 (success) · T11 (upgrade page) · T15 (middleware)                                         |
+| §4.2 Middleware enforcement    | T15                                                                                                           |
+| §4.3 Page composition          | T11                                                                                                           |
+| §4.4 State hook                | T6                                                                                                            |
+| §5.1 New files                 | T1, T6, T9, T10, T11, T12, T13, T14, T17                                                                      |
+| §5.2 Extended files            | T3 (constants centralisation), T4 (trial-handling extension), T7+T8 (webhook), T15 (middleware), T16 (layout) |
+| §6 Data flow (6 sub-paths)     | covered across T7, T8, T9, T10, T11, T12, T13, T14                                                            |
+| §7 Trial duration reduction    | T1 + T3                                                                                                       |
+| §8 Schema deltas               | T2                                                                                                            |
+| §9 Error handling & edge cases | covered in component tests (T12-T14) + integration tests (T7-T8)                                              |
+| §10 Testing strategy           | every task includes unit/integration tests inline; T18 ships 8 E2E specs                                      |
 
 **Placeholder scan** ✓ — no TBD/TODO/FIXME tokens in plan steps. The placeholder in T11's pricing data (`DEFAULT_TIERS` hardcoded) is a known acceptable shortcut — production should read `PRICING_CONFIG` from the existing pricing module; flagged in the PR body. Adjust during implementation if needed.
 
 **Type consistency** ✓ — `TrialStatus` shape defined in T4, reused in T5, T6, T12. `recordSubscriptionEvent` signature defined in T2, called in T7, T8. `Tier` type (`STANDARD | PREMIUM | ENTERPRISE`) used consistently across T9, T11, T14.
 
 **Known follow-ups (out of scope for this plan, flagged in PR):**
+
 - `DEFAULT_TIERS` in `TierGrid` should read from existing `PRICING_CONFIG` source — refactor during implementation
 - `<FeatureGate>` mount sites — concrete dashboard surfaces TBD with product owner; T14 ships the wrapper, mount in real surfaces is a follow-up PR
 - Stripe price IDs (`STRIPE_PRICE_STANDARD/PREMIUM/ENTERPRISE`) need Vercel env vars before E2E will work end-to-end against real Stripe — flag for operator setup

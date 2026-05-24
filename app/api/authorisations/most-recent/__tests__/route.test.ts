@@ -5,10 +5,13 @@ import { GET } from "../route";
 const getServerSession = vi.fn();
 const mostRecentAuthorisationForUser = vi.fn();
 
-vi.mock("next-auth", () => ({ getServerSession: (...a: unknown[]) => getServerSession(...a) }));
+vi.mock("next-auth", () => ({
+  getServerSession: (...a: unknown[]) => getServerSession(...a),
+}));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/authorisations/most-recent", () => ({
-  mostRecentAuthorisationForUser: (...a: unknown[]) => mostRecentAuthorisationForUser(...a),
+  mostRecentAuthorisationForUser: (...a: unknown[]) =>
+    mostRecentAuthorisationForUser(...a),
 }));
 
 beforeEach(() => {
@@ -19,14 +22,18 @@ beforeEach(() => {
 describe("GET /api/authorisations/most-recent", () => {
   it("returns 401 when unauthenticated", async () => {
     getServerSession.mockResolvedValueOnce(null);
-    const res = await GET(new NextRequest("http://localhost/api/authorisations/most-recent"));
+    const res = await GET(
+      new NextRequest("http://localhost/api/authorisations/most-recent"),
+    );
     expect(res.status).toBe(401);
   });
 
   it("returns { row: null } when no prior Authorisation exists", async () => {
     getServerSession.mockResolvedValueOnce({ user: { id: "user_1" } });
     mostRecentAuthorisationForUser.mockResolvedValueOnce(null);
-    const res = await GET(new NextRequest("http://localhost/api/authorisations/most-recent"));
+    const res = await GET(
+      new NextRequest("http://localhost/api/authorisations/most-recent"),
+    );
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ row: null });
   });
@@ -44,7 +51,9 @@ describe("GET /api/authorisations/most-recent", () => {
       publicLiabilityCoverAmount: null,
       verifiedAt,
     });
-    const res = await GET(new NextRequest("http://localhost/api/authorisations/most-recent"));
+    const res = await GET(
+      new NextRequest("http://localhost/api/authorisations/most-recent"),
+    );
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.row.subjectLicenceNumber).toBe("IICRC-1");
@@ -54,7 +63,9 @@ describe("GET /api/authorisations/most-recent", () => {
   it("scopes the query strictly to session.user.id", async () => {
     getServerSession.mockResolvedValueOnce({ user: { id: "user_99" } });
     mostRecentAuthorisationForUser.mockResolvedValueOnce(null);
-    await GET(new NextRequest("http://localhost/api/authorisations/most-recent"));
+    await GET(
+      new NextRequest("http://localhost/api/authorisations/most-recent"),
+    );
     expect(mostRecentAuthorisationForUser).toHaveBeenCalledWith("user_99");
   });
 });

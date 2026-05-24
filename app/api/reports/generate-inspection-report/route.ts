@@ -206,7 +206,9 @@ export async function POST(request: NextRequest) {
       standardsContext = buildStandardsContextPrompt(retrievedStandards);
 
       if (standardsContext.length > 0) {
+        /* intentional no-op */
       } else {
+        /* intentional no-op */
       }
     } catch (error: any) {
       // Continue without standards - report will use general knowledge

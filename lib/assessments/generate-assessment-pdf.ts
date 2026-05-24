@@ -45,15 +45,18 @@ const ROW_BG = rgb(0.96, 0.96, 0.96);
 // ── ASCII sanitiser (WinAnsi-safe) ───────────────────────────────────────────
 
 function ascii(input: string): string {
-  return input
-    .replace(/[—–]/g, "-") // em/en dash
-    .replace(/•/g, "*") // bullet
-    .replace(/→/g, "->") // right arrow
-    .replace(/[‘’]/g, "'") // curly singles
-    .replace(/[“”]/g, '"') // curly doubles
-    .replace(/ /g, " ") // nbsp
-    .replace(/·/g, "*") // middle dot
-    .replace(/[^\x00-\xFF]/g, "?"); // any other non-WinAnsi
+  return (
+    input
+      .replace(/[—–]/g, "-") // em/en dash
+      .replace(/•/g, "*") // bullet
+      .replace(/→/g, "->") // right arrow
+      .replace(/[‘’]/g, "'") // curly singles
+      .replace(/[“”]/g, '"') // curly doubles
+      .replace(/\u00a0/g, " ") // nbsp
+      .replace(/·/g, "*") // middle dot
+      // eslint-disable-next-line no-control-regex -- deliberate control-char filter
+      .replace(/[^\x00-\xFF]/g, "?")
+  ); // any other non-WinAnsi
 }
 
 // ── Drawing primitives ───────────────────────────────────────────────────────

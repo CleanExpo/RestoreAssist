@@ -1,7 +1,12 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { motion, useScroll, useTransform, useMotionTemplate } from "framer-motion";
+import {
+  motion,
+  useScroll,
+  useTransform,
+  useMotionTemplate,
+} from "framer-motion";
 import { useRef, useState, useEffect } from "react";
 
 interface ScrollSplitCardItem {
@@ -26,7 +31,9 @@ export function ScrollSplitCard({
   containerRef: externalContainerRef,
 }: ScrollSplitCardProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [scrollContainer, setScrollContainer] = useState<React.RefObject<HTMLElement | null> | undefined>();
+  const [scrollContainer, setScrollContainer] = useState<
+    React.RefObject<HTMLElement | null> | undefined
+  >();
 
   useEffect(() => {
     if (externalContainerRef?.current) {
@@ -52,9 +59,21 @@ export function ScrollSplitCard({
   const rotateZRight = useTransform(scrollYProgress, [0.4, 0.8], [0, -6]);
 
   // Dynamic borders/radii so it looks like ONE flat image initially
-  const borderRadiusLeft = useTransform(scrollYProgress, [0, 0.2], ["16px 0px 0px 16px", "16px 16px 16px 16px"]);
-  const borderRadiusMiddle = useTransform(scrollYProgress, [0, 0.2], ["0px 0px 0px 0px", "16px 16px 16px 16px"]);
-  const borderRadiusRight = useTransform(scrollYProgress, [0, 0.2], ["0px 16px 16px 0px", "16px 16px 16px 16px"]);
+  const borderRadiusLeft = useTransform(
+    scrollYProgress,
+    [0, 0.2],
+    ["16px 0px 0px 16px", "16px 16px 16px 16px"],
+  );
+  const borderRadiusMiddle = useTransform(
+    scrollYProgress,
+    [0, 0.2],
+    ["0px 0px 0px 0px", "16px 16px 16px 16px"],
+  );
+  const borderRadiusRight = useTransform(
+    scrollYProgress,
+    [0, 0.2],
+    ["0px 16px 16px 0px", "16px 16px 16px 16px"],
+  );
   const borderOpacity = useTransform(scrollYProgress, [0, 0.2], [0, 0.2]);
   const shadowOpacity = useTransform(scrollYProgress, [0, 0.2], [0, 0.4]);
   const boxShadow = useMotionTemplate`inset 0 1px 1px rgba(255, 255, 255, ${borderOpacity}), inset 0 -24px 48px rgba(0, 0, 0, ${shadowOpacity}), 0 25px 50px -12px rgba(0, 0, 0, ${shadowOpacity})`;
@@ -110,7 +129,12 @@ export function ScrollSplitCard({
                 className="absolute inset-0 overflow-hidden [backface-visibility:hidden]"
                 style={{
                   zIndex: 2, // Ensure front stays above initially
-                  borderRadius: i === 0 ? borderRadiusLeft : i === 2 ? borderRadiusRight : borderRadiusMiddle,
+                  borderRadius:
+                    i === 0
+                      ? borderRadiusLeft
+                      : i === 2
+                        ? borderRadiusRight
+                        : borderRadiusMiddle,
                   boxShadow,
                 }}
               >
@@ -130,14 +154,19 @@ export function ScrollSplitCard({
                 className={cn(
                   "absolute inset-0 overflow-hidden flex flex-col justify-end p-8 [backface-visibility:hidden] will-change-transform",
                   "border border-white/5 bg-gradient-to-br from-white/10 to-transparent",
-                  "shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),inset_0_-24px_48px_rgba(0,0,0,0.2)]"
+                  "shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),inset_0_-24px_48px_rgba(0,0,0,0.2)]",
                 )}
                 style={{
                   backgroundColor: card.bgColor,
                   color: card.textColor,
                   transform: "rotateY(180deg)",
                   zIndex: 1, // Ensure back is behind before flip
-                  borderRadius: i === 0 ? borderRadiusLeft : i === 2 ? borderRadiusRight : borderRadiusMiddle,
+                  borderRadius:
+                    i === 0
+                      ? borderRadiusLeft
+                      : i === 2
+                        ? borderRadiusRight
+                        : borderRadiusMiddle,
                   boxShadow,
                 }}
               >
@@ -154,7 +183,9 @@ export function ScrollSplitCard({
                 <h3 className="relative z-10 mb-4 text-2xl font-medium leading-tight">
                   {card.title}
                 </h3>
-                <p className="relative z-10 text-sm opacity-80">{card.description}</p>
+                <p className="relative z-10 text-sm opacity-80">
+                  {card.description}
+                </p>
               </motion.div>
             </motion.div>
           ))}

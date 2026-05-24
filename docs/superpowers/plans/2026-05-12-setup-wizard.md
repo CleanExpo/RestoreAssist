@@ -69,10 +69,12 @@ git commit -m "chore(deps): add zustand, k-means, sharp for setup wizard"
 ### Task 1: ABN checksum validator
 
 **Files:**
+
 - Create: `lib/abn/checksum.ts`
 - Test: `lib/abn/__tests__/checksum.test.ts`
 
 ABN validation algorithm (per https://abr.business.gov.au/Help/AbnFormat):
+
 1. Subtract 1 from the first (leftmost) digit
 2. Multiply each digit by its weighting factor: `[10,1,3,5,7,9,11,13,15,17,19]`
 3. Sum the products
@@ -82,34 +84,34 @@ ABN validation algorithm (per https://abr.business.gov.au/Help/AbnFormat):
 
 ```typescript
 // lib/abn/__tests__/checksum.test.ts
-import { describe, expect, it } from 'vitest';
-import { isValidAbn, normaliseAbn } from '../checksum';
+import { describe, expect, it } from "vitest";
+import { isValidAbn, normaliseAbn } from "../checksum";
 
-describe('isValidAbn', () => {
-  it('accepts a known-valid ABN (ATO example: 53 004 085 616)', () => {
-    expect(isValidAbn('53004085616')).toBe(true);
-    expect(isValidAbn('53 004 085 616')).toBe(true);
+describe("isValidAbn", () => {
+  it("accepts a known-valid ABN (ATO example: 53 004 085 616)", () => {
+    expect(isValidAbn("53004085616")).toBe(true);
+    expect(isValidAbn("53 004 085 616")).toBe(true);
   });
 
-  it('rejects a checksum failure', () => {
-    expect(isValidAbn('53004085617')).toBe(false);
+  it("rejects a checksum failure", () => {
+    expect(isValidAbn("53004085617")).toBe(false);
   });
 
-  it('rejects strings that are not 11 digits', () => {
-    expect(isValidAbn('1234567890')).toBe(false);   // 10 digits
-    expect(isValidAbn('123456789012')).toBe(false); // 12 digits
-    expect(isValidAbn('5300408561A')).toBe(false);  // non-digit
-    expect(isValidAbn('')).toBe(false);
+  it("rejects strings that are not 11 digits", () => {
+    expect(isValidAbn("1234567890")).toBe(false); // 10 digits
+    expect(isValidAbn("123456789012")).toBe(false); // 12 digits
+    expect(isValidAbn("5300408561A")).toBe(false); // non-digit
+    expect(isValidAbn("")).toBe(false);
     expect(isValidAbn(null as unknown as string)).toBe(false);
   });
 });
 
-describe('normaliseAbn', () => {
-  it('strips whitespace and returns 11 digits', () => {
-    expect(normaliseAbn('  53 004 085 616 ')).toBe('53004085616');
+describe("normaliseAbn", () => {
+  it("strips whitespace and returns 11 digits", () => {
+    expect(normaliseAbn("  53 004 085 616 ")).toBe("53004085616");
   });
-  it('returns null when input cannot be normalised', () => {
-    expect(normaliseAbn('not an abn')).toBeNull();
+  it("returns null when input cannot be normalised", () => {
+    expect(normaliseAbn("not an abn")).toBeNull();
   });
 });
 ```
@@ -129,8 +131,8 @@ Expected: FAIL with "Cannot find module '../checksum'".
 const WEIGHTS = [10, 1, 3, 5, 7, 9, 11, 13, 15, 17, 19];
 
 export function normaliseAbn(input: string | null | undefined): string | null {
-  if (!input || typeof input !== 'string') return null;
-  const digits = input.replace(/\s+/g, '');
+  if (!input || typeof input !== "string") return null;
+  const digits = input.replace(/\s+/g, "");
   if (!/^\d{11}$/.test(digits)) return null;
   return digits;
 }
@@ -139,7 +141,10 @@ export function isValidAbn(input: string | null | undefined): boolean {
   const abn = normaliseAbn(input);
   if (!abn) return false;
   const first = parseInt(abn[0], 10) - 1;
-  const rest = abn.slice(1).split('').map((d) => parseInt(d, 10));
+  const rest = abn
+    .slice(1)
+    .split("")
+    .map((d) => parseInt(d, 10));
   const digits = [first, ...rest];
   const sum = digits.reduce((acc, d, i) => acc + d * WEIGHTS[i], 0);
   return sum % 89 === 0;
@@ -166,6 +171,7 @@ git commit -m "feat(setup): ABN checksum validator + tests"
 ### Task 2: ABR response parser
 
 **Files:**
+
 - Create: `lib/integrations/abr/parse.ts`
 - Create: `lib/integrations/abr/__fixtures__/{sole-trader,company,trust,partnership,no-record,malformed}.json`
 - Test: `lib/integrations/abr/__tests__/parse.test.ts`
@@ -201,45 +207,45 @@ Repeat for `sole-trader.json` (EntityTypeCode `IND`), `trust.json` (`OIE`/`DTT`)
 
 ```typescript
 // lib/integrations/abr/__tests__/parse.test.ts
-import { describe, expect, it } from 'vitest';
-import { parseAbrResponse } from '../parse';
-import company from '../__fixtures__/company.json';
-import soleTrader from '../__fixtures__/sole-trader.json';
-import noRecord from '../__fixtures__/no-record.json';
-import malformed from '../__fixtures__/malformed.json';
+import { describe, expect, it } from "vitest";
+import { parseAbrResponse } from "../parse";
+import company from "../__fixtures__/company.json";
+import soleTrader from "../__fixtures__/sole-trader.json";
+import noRecord from "../__fixtures__/no-record.json";
+import malformed from "../__fixtures__/malformed.json";
 
-describe('parseAbrResponse', () => {
-  it('parses a company response into a normalised shape', () => {
+describe("parseAbrResponse", () => {
+  it("parses a company response into a normalised shape", () => {
     const result = parseAbrResponse(company);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.data.legalName).toBe('BHP GROUP LIMITED');
-    expect(result.data.acn).toBe('004085616');
-    expect(result.data.entityType).toBe('COMPANY');
+    expect(result.data.legalName).toBe("BHP GROUP LIMITED");
+    expect(result.data.acn).toBe("004085616");
+    expect(result.data.entityType).toBe("COMPANY");
     expect(result.data.gstRegistered).toBe(true);
-    expect(result.data.state).toBe('VIC');
+    expect(result.data.state).toBe("VIC");
   });
 
-  it('parses a sole trader and exposes no ACN', () => {
+  it("parses a sole trader and exposes no ACN", () => {
     const result = parseAbrResponse(soleTrader);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.data.entityType).toBe('SOLE_TRADER');
+    expect(result.data.entityType).toBe("SOLE_TRADER");
     expect(result.data.acn).toBeNull();
   });
 
-  it('returns no-record on ABR Message text', () => {
+  it("returns no-record on ABR Message text", () => {
     const result = parseAbrResponse(noRecord);
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.reason).toBe('NO_RECORD');
+    expect(result.reason).toBe("NO_RECORD");
   });
 
-  it('returns malformed on missing required keys', () => {
+  it("returns malformed on missing required keys", () => {
     const result = parseAbrResponse(malformed);
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.reason).toBe('MALFORMED');
+    expect(result.reason).toBe("MALFORMED");
   });
 });
 ```
@@ -256,11 +262,16 @@ Expected: FAIL with "Cannot find module '../parse'".
 
 ```typescript
 // lib/integrations/abr/parse.ts
-export type AbrEntityType = 'SOLE_TRADER' | 'COMPANY' | 'PARTNERSHIP' | 'TRUST' | 'OTHER';
+export type AbrEntityType =
+  | "SOLE_TRADER"
+  | "COMPANY"
+  | "PARTNERSHIP"
+  | "TRUST"
+  | "OTHER";
 
 export interface AbrLookupResult {
   abn: string;
-  status: 'ACTIVE' | 'CANCELLED';
+  status: "ACTIVE" | "CANCELLED";
   legalName: string;
   tradingNames: string[];
   acn: string | null;
@@ -274,46 +285,58 @@ export interface AbrLookupResult {
 
 export type ParseResult =
   | { ok: true; data: AbrLookupResult }
-  | { ok: false; reason: 'NO_RECORD' | 'MALFORMED' };
+  | { ok: false; reason: "NO_RECORD" | "MALFORMED" };
 
 const ENTITY_TYPE_MAP: Record<string, AbrEntityType> = {
-  IND: 'SOLE_TRADER',
-  PUB: 'COMPANY',
-  PRV: 'COMPANY',
-  PTR: 'PARTNERSHIP',
-  DTT: 'TRUST',
-  OIE: 'TRUST',
+  IND: "SOLE_TRADER",
+  PUB: "COMPANY",
+  PRV: "COMPANY",
+  PTR: "PARTNERSHIP",
+  DTT: "TRUST",
+  OIE: "TRUST",
 };
 
 export function parseAbrResponse(raw: unknown): ParseResult {
-  if (!raw || typeof raw !== 'object') return { ok: false, reason: 'MALFORMED' };
+  if (!raw || typeof raw !== "object")
+    return { ok: false, reason: "MALFORMED" };
   const r = raw as Record<string, unknown>;
-  if (typeof r.Message === 'string' && r.Message.toLowerCase().includes('does not exist')) {
-    return { ok: false, reason: 'NO_RECORD' };
+  if (
+    typeof r.Message === "string" &&
+    r.Message.toLowerCase().includes("does not exist")
+  ) {
+    return { ok: false, reason: "NO_RECORD" };
   }
-  const abn = typeof r.Abn === 'string' ? r.Abn : null;
-  const legalName = typeof r.EntityName === 'string' ? r.EntityName : null;
-  const entityCode = typeof r.EntityTypeCode === 'string' ? r.EntityTypeCode : null;
-  if (!abn || !legalName || !entityCode) return { ok: false, reason: 'MALFORMED' };
+  const abn = typeof r.Abn === "string" ? r.Abn : null;
+  const legalName = typeof r.EntityName === "string" ? r.EntityName : null;
+  const entityCode =
+    typeof r.EntityTypeCode === "string" ? r.EntityTypeCode : null;
+  if (!abn || !legalName || !entityCode)
+    return { ok: false, reason: "MALFORMED" };
 
   const tradingNames = Array.isArray(r.BusinessName)
-    ? (r.BusinessName as unknown[]).filter((n): n is string => typeof n === 'string')
+    ? (r.BusinessName as unknown[]).filter(
+        (n): n is string => typeof n === "string",
+      )
     : [];
 
   return {
     ok: true,
     data: {
       abn,
-      status: r.AbnStatus === 'Active' ? 'ACTIVE' : 'CANCELLED',
+      status: r.AbnStatus === "Active" ? "ACTIVE" : "CANCELLED",
       legalName,
       tradingNames,
-      acn: typeof r.Acn === 'string' && r.Acn.length > 0 ? r.Acn : null,
-      entityType: ENTITY_TYPE_MAP[entityCode] ?? 'OTHER',
-      gstRegistered: typeof r.Gst === 'string' && r.Gst.length > 0,
-      gstEffectiveFrom: typeof r.Gst === 'string' ? r.Gst : null,
-      state: typeof r.AddressState === 'string' ? r.AddressState : null,
-      postcode: typeof r.AddressPostcode === 'string' ? r.AddressPostcode : null,
-      asAt: typeof r.AddressDate === 'string' ? r.AddressDate : new Date().toISOString(),
+      acn: typeof r.Acn === "string" && r.Acn.length > 0 ? r.Acn : null,
+      entityType: ENTITY_TYPE_MAP[entityCode] ?? "OTHER",
+      gstRegistered: typeof r.Gst === "string" && r.Gst.length > 0,
+      gstEffectiveFrom: typeof r.Gst === "string" ? r.Gst : null,
+      state: typeof r.AddressState === "string" ? r.AddressState : null,
+      postcode:
+        typeof r.AddressPostcode === "string" ? r.AddressPostcode : null,
+      asAt:
+        typeof r.AddressDate === "string"
+          ? r.AddressDate
+          : new Date().toISOString(),
     },
   };
 }
@@ -339,6 +362,7 @@ git commit -m "feat(setup): ABR response parser + fixtures + tests"
 ### Task 3: ABR HTTP client + mock
 
 **Files:**
+
 - Create: `lib/integrations/abr/client.ts`
 - Create: `lib/integrations/abr/mock.ts`
 - Test: `lib/integrations/abr/__tests__/client.test.ts`
@@ -349,39 +373,41 @@ The client wraps `fetch` against the ABR JSON endpoint. We expose a `lookupAbn(a
 
 ```typescript
 // lib/integrations/abr/__tests__/client.test.ts
-import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { lookupAbn } from '../client';
-import company from '../__fixtures__/company.json';
+import { describe, expect, it, vi, beforeEach } from "vitest";
+import { lookupAbn } from "../client";
+import company from "../__fixtures__/company.json";
 
-describe('lookupAbn', () => {
+describe("lookupAbn", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    process.env.ABR_API_GUID = 'test-guid';
-    process.env.ABR_BASE_URL = 'https://abr.business.gov.au/json/';
+    process.env.ABR_API_GUID = "test-guid";
+    process.env.ABR_BASE_URL = "https://abr.business.gov.au/json/";
   });
 
-  it('returns parsed data when ABR responds 200', async () => {
+  it("returns parsed data when ABR responds 200", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => company,
     } as Response);
 
-    const result = await lookupAbn('53004085616');
+    const result = await lookupAbn("53004085616");
     expect(result.ok).toBe(true);
   });
 
-  it('returns MALFORMED on non-200 from ABR', async () => {
-    global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 } as Response);
-    const result = await lookupAbn('53004085616');
+  it("returns MALFORMED on non-200 from ABR", async () => {
+    global.fetch = vi
+      .fn()
+      .mockResolvedValue({ ok: false, status: 500 } as Response);
+    const result = await lookupAbn("53004085616");
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.reason).toBe('MALFORMED');
+    expect(result.reason).toBe("MALFORMED");
   });
 
-  it('rejects an invalid ABN before hitting the network', async () => {
+  it("rejects an invalid ABN before hitting the network", async () => {
     const spy = vi.fn();
     global.fetch = spy;
-    await expect(lookupAbn('invalid')).resolves.toMatchObject({ ok: false });
+    await expect(lookupAbn("invalid")).resolves.toMatchObject({ ok: false });
     expect(spy).not.toHaveBeenCalled();
   });
 });
@@ -399,29 +425,29 @@ Expected: FAIL.
 
 ```typescript
 // lib/integrations/abr/client.ts
-import { isValidAbn, normaliseAbn } from '@/lib/abn/checksum';
-import { parseAbrResponse, type ParseResult } from './parse';
+import { isValidAbn, normaliseAbn } from "@/lib/abn/checksum";
+import { parseAbrResponse, type ParseResult } from "./parse";
 
 export async function lookupAbn(input: string): Promise<ParseResult> {
   const abn = normaliseAbn(input);
-  if (!abn || !isValidAbn(abn)) return { ok: false, reason: 'MALFORMED' };
+  if (!abn || !isValidAbn(abn)) return { ok: false, reason: "MALFORMED" };
 
   const guid = process.env.ABR_API_GUID;
-  const base = process.env.ABR_BASE_URL || 'https://abr.business.gov.au/json/';
-  if (!guid) return { ok: false, reason: 'MALFORMED' };
+  const base = process.env.ABR_BASE_URL || "https://abr.business.gov.au/json/";
+  if (!guid) return { ok: false, reason: "MALFORMED" };
 
   const url = `${base}AbnDetails.aspx?abn=${abn}&guid=${guid}`;
 
   try {
     const res = await fetch(url, {
-      headers: { Accept: 'application/json' },
+      headers: { Accept: "application/json" },
       signal: AbortSignal.timeout(5000),
     });
-    if (!res.ok) return { ok: false, reason: 'MALFORMED' };
+    if (!res.ok) return { ok: false, reason: "MALFORMED" };
     const json = await res.json();
     return parseAbrResponse(json);
   } catch {
-    return { ok: false, reason: 'MALFORMED' };
+    return { ok: false, reason: "MALFORMED" };
   }
 }
 ```
@@ -430,20 +456,20 @@ export async function lookupAbn(input: string): Promise<ParseResult> {
 
 ```typescript
 // lib/integrations/abr/mock.ts
-import { parseAbrResponse, type ParseResult } from './parse';
-import company from './__fixtures__/company.json';
-import soleTrader from './__fixtures__/sole-trader.json';
-import noRecord from './__fixtures__/no-record.json';
+import { parseAbrResponse, type ParseResult } from "./parse";
+import company from "./__fixtures__/company.json";
+import soleTrader from "./__fixtures__/sole-trader.json";
+import noRecord from "./__fixtures__/no-record.json";
 
 const REGISTRY: Record<string, unknown> = {
-  '53004085616': company,
-  '11111111111': soleTrader,
-  '00000000000': noRecord,
+  "53004085616": company,
+  "11111111111": soleTrader,
+  "00000000000": noRecord,
 };
 
 export function mockLookupAbn(abn: string): ParseResult {
   const raw = REGISTRY[abn];
-  if (!raw) return { ok: false, reason: 'NO_RECORD' };
+  if (!raw) return { ok: false, reason: "NO_RECORD" };
   return parseAbrResponse(raw);
 }
 ```
@@ -468,6 +494,7 @@ git commit -m "feat(setup): ABR HTTP client with 5s timeout + test mock"
 ### Task 4: Pricing defaults dataset
 
 **Files:**
+
 - Create: `lib/pricing/defaults-au.ts`
 - Test: `lib/pricing/__tests__/defaults-au.test.ts`
 
@@ -477,27 +504,32 @@ A static lookup keyed by `(state, entityType)`. Returns a partial `OrganizationP
 
 ```typescript
 // lib/pricing/__tests__/defaults-au.test.ts
-import { describe, expect, it } from 'vitest';
-import { getDefaultPricing, AU_STATES } from '../defaults-au';
+import { describe, expect, it } from "vitest";
+import { getDefaultPricing, AU_STATES } from "../defaults-au";
 
-describe('getDefaultPricing', () => {
-  it('returns defaults for every AU state with a SOLE_TRADER entity type', () => {
+describe("getDefaultPricing", () => {
+  it("returns defaults for every AU state with a SOLE_TRADER entity type", () => {
     for (const state of AU_STATES) {
-      const defaults = getDefaultPricing({ state, entityType: 'SOLE_TRADER' });
+      const defaults = getDefaultPricing({ state, entityType: "SOLE_TRADER" });
       expect(defaults).toBeDefined();
       expect(defaults.masterQualifiedNormalHours).toBeGreaterThan(0);
       expect(defaults.administrationFee).toBeGreaterThan(0);
     }
   });
 
-  it('returns a higher labour rate for COMPANY than SOLE_TRADER (mid-size assumption)', () => {
-    const sole = getDefaultPricing({ state: 'NSW', entityType: 'SOLE_TRADER' });
-    const co = getDefaultPricing({ state: 'NSW', entityType: 'COMPANY' });
-    expect(co.masterQualifiedNormalHours).toBeGreaterThanOrEqual(sole.masterQualifiedNormalHours);
+  it("returns a higher labour rate for COMPANY than SOLE_TRADER (mid-size assumption)", () => {
+    const sole = getDefaultPricing({ state: "NSW", entityType: "SOLE_TRADER" });
+    const co = getDefaultPricing({ state: "NSW", entityType: "COMPANY" });
+    expect(co.masterQualifiedNormalHours).toBeGreaterThanOrEqual(
+      sole.masterQualifiedNormalHours,
+    );
   });
 
-  it('falls back to national median when state is unknown', () => {
-    const defaults = getDefaultPricing({ state: 'XX' as any, entityType: 'COMPANY' });
+  it("falls back to national median when state is unknown", () => {
+    const defaults = getDefaultPricing({
+      state: "XX" as any,
+      entityType: "COMPANY",
+    });
     expect(defaults.masterQualifiedNormalHours).toBeGreaterThan(0);
   });
 });
@@ -515,10 +547,19 @@ Expected: FAIL.
 
 ```typescript
 // lib/pricing/defaults-au.ts
-import type { AbrEntityType } from '@/lib/integrations/abr/parse';
+import type { AbrEntityType } from "@/lib/integrations/abr/parse";
 
-export const AU_STATES = ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'ACT', 'NT'] as const;
-export type AuState = typeof AU_STATES[number];
+export const AU_STATES = [
+  "NSW",
+  "VIC",
+  "QLD",
+  "WA",
+  "SA",
+  "TAS",
+  "ACT",
+  "NT",
+] as const;
+export type AuState = (typeof AU_STATES)[number];
 
 export interface PricingDefaults {
   // Labour (per hour, AUD)
@@ -578,7 +619,7 @@ const STATE_ADJUSTMENT: Record<AuState, number> = {
   NSW: 1.08,
   VIC: 1.05,
   QLD: 1.02,
-  WA: 1.10,
+  WA: 1.1,
   SA: 0.95,
   TAS: 0.92,
   ACT: 1.06,
@@ -590,8 +631,8 @@ const ENTITY_TYPE_ADJUSTMENT: Record<AbrEntityType, number> = {
   SOLE_TRADER: 0.95,
   PARTNERSHIP: 0.98,
   COMPANY: 1.05,
-  TRUST: 1.00,
-  OTHER: 1.00,
+  TRUST: 1.0,
+  OTHER: 1.0,
 };
 
 export function getDefaultPricing(input: {
@@ -604,14 +645,16 @@ export function getDefaultPricing(input: {
 
   // Only multiply rates, not multipliers (which are dimensionless)
   const PASSTHROUGH = new Set([
-    'saturdayMultiplier',
-    'sundayMultiplier',
-    'afterHoursMultiplier',
-    'publicHolidayMultiplier',
-    'projectManagementPercent',
+    "saturdayMultiplier",
+    "sundayMultiplier",
+    "afterHoursMultiplier",
+    "publicHolidayMultiplier",
+    "projectManagementPercent",
   ]);
   const result = { ...NATIONAL_MEDIAN };
-  for (const k of Object.keys(NATIONAL_MEDIAN) as Array<keyof PricingDefaults>) {
+  for (const k of Object.keys(NATIONAL_MEDIAN) as Array<
+    keyof PricingDefaults
+  >) {
     if (PASSTHROUGH.has(k)) continue;
     result[k] = Math.round((NATIONAL_MEDIAN[k] as number) * mul);
   }
@@ -639,6 +682,7 @@ git commit -m "feat(setup): AU pricing defaults dataset with state + entity adju
 ### Task 5: Logo colour extractor
 
 **Files:**
+
 - Create: `lib/branding/extract-colors.ts`
 - Create: `lib/branding/__fixtures__/{red-logo.png,blue-logo.png,monochrome.png,transparent.png,low-contrast.png}`
 - Test: `lib/branding/__tests__/extract-colors.test.ts`
@@ -666,26 +710,27 @@ convert -size 100x100 gradient:'#888888'-'#999999' lib/branding/__fixtures__/low
 
 ```typescript
 // lib/branding/__tests__/extract-colors.test.ts
-import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { extractColors } from '../extract-colors';
+import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { extractColors } from "../extract-colors";
 
-const fix = (name: string) => readFileSync(join(__dirname, '../__fixtures__', name));
+const fix = (name: string) =>
+  readFileSync(join(__dirname, "../__fixtures__", name));
 
-describe('extractColors', () => {
-  it('extracts a red primary from a red logo', async () => {
-    const { primary } = await extractColors(fix('red-logo.png'));
+describe("extractColors", () => {
+  it("extracts a red primary from a red logo", async () => {
+    const { primary } = await extractColors(fix("red-logo.png"));
     expect(primary.toLowerCase()).toMatch(/^#[c-f][0-9a-f]{5}/i); // some red-ish hex
   });
 
-  it('returns a usable pair from a transparent logo (alpha respected)', async () => {
-    const result = await extractColors(fix('transparent.png'));
+  it("returns a usable pair from a transparent logo (alpha respected)", async () => {
+    const result = await extractColors(fix("transparent.png"));
     expect(result.primary).not.toEqual(result.accent);
   });
 
-  it('flags low contrast when WCAG AA fails', async () => {
-    const result = await extractColors(fix('low-contrast.png'));
+  it("flags low contrast when WCAG AA fails", async () => {
+    const result = await extractColors(fix("low-contrast.png"));
     expect(result.contrastWarning).toBe(true);
   });
 });
@@ -703,8 +748,8 @@ Expected: FAIL.
 
 ```typescript
 // lib/branding/extract-colors.ts
-import sharp from 'sharp';
-import { kmeans } from 'ml-kmeans';
+import sharp from "sharp";
+import { kmeans } from "ml-kmeans";
 
 export interface ColorExtractResult {
   primary: string;
@@ -713,7 +758,16 @@ export interface ColorExtractResult {
 }
 
 function toHex(r: number, g: number, b: number): string {
-  return '#' + [r, g, b].map((c) => Math.max(0, Math.min(255, Math.round(c))).toString(16).padStart(2, '0')).join('');
+  return (
+    "#" +
+    [r, g, b]
+      .map((c) =>
+        Math.max(0, Math.min(255, Math.round(c)))
+          .toString(16)
+          .padStart(2, "0"),
+      )
+      .join("")
+  );
 }
 
 function relativeLuminance(r: number, g: number, b: number): number {
@@ -724,7 +778,10 @@ function relativeLuminance(r: number, g: number, b: number): number {
   return 0.2126 * R + 0.7152 * G + 0.0722 * B;
 }
 
-function contrastRatio(rgb1: [number, number, number], rgb2: [number, number, number]): number {
+function contrastRatio(
+  rgb1: [number, number, number],
+  rgb2: [number, number, number],
+): number {
   const L1 = relativeLuminance(...rgb1);
   const L2 = relativeLuminance(...rgb2);
   const [hi, lo] = L1 > L2 ? [L1, L2] : [L2, L1];
@@ -734,7 +791,7 @@ function contrastRatio(rgb1: [number, number, number], rgb2: [number, number, nu
 export async function extractColors(buf: Buffer): Promise<ColorExtractResult> {
   // Downsample to 64x64 RGBA
   const { data } = await sharp(buf)
-    .resize(64, 64, { fit: 'inside' })
+    .resize(64, 64, { fit: "inside" })
     .raw()
     .ensureAlpha()
     .toBuffer({ resolveWithObject: true });
@@ -744,19 +801,23 @@ export async function extractColors(buf: Buffer): Promise<ColorExtractResult> {
   for (let i = 0; i < data.length; i += 4) {
     const a = data[i + 3];
     if (a < 200) continue;
-    const r = data[i], g = data[i + 1], b = data[i + 2];
+    const r = data[i],
+      g = data[i + 1],
+      b = data[i + 2];
     if (r > 240 && g > 240 && b > 240) continue; // skip near-white
     pixels.push([r, g, b]);
   }
   if (pixels.length === 0) {
-    return { primary: '#1C2E47', accent: '#8A6B4E', contrastWarning: false };
+    return { primary: "#1C2E47", accent: "#8A6B4E", contrastWarning: false };
   }
 
   // k-means with k=2
   const result = kmeans(pixels, 2, { maxIterations: 25 });
   const sorted = result.centroids.slice().sort((a, b) => {
     // primary = darker / more saturated; accent = lighter
-    return relativeLuminance(a[0], a[1], a[2]) - relativeLuminance(b[0], b[1], b[2]);
+    return (
+      relativeLuminance(a[0], a[1], a[2]) - relativeLuminance(b[0], b[1], b[2])
+    );
   });
 
   const primaryRgb = sorted[0] as [number, number, number];
@@ -791,6 +852,7 @@ git commit -m "feat(setup): logo k-means colour extraction + WCAG contrast check
 ### Task 6: Website scraper
 
 **Files:**
+
 - Create: `lib/branding/scrape.ts`
 - Test: `lib/branding/__tests__/scrape.test.ts`
 
@@ -800,17 +862,17 @@ Uses Playwright (already a dev dep) to fetch a URL, extract `<link rel="icon">`,
 
 ```typescript
 // lib/branding/__tests__/scrape.test.ts
-import { describe, expect, it, beforeAll, afterAll } from 'vitest';
-import { createServer, type Server } from 'node:http';
-import { scrapeWebsite } from '../scrape';
+import { describe, expect, it, beforeAll, afterAll } from "vitest";
+import { createServer, type Server } from "node:http";
+import { scrapeWebsite } from "../scrape";
 
 let server: Server;
 let port = 0;
 
 beforeAll(async () => {
   server = createServer((req, res) => {
-    if (req.url === '/') {
-      res.writeHead(200, { 'Content-Type': 'text/html' });
+    if (req.url === "/") {
+      res.writeHead(200, { "Content-Type": "text/html" });
       res.end(`
         <html><head>
           <link rel="icon" href="/favicon.png">
@@ -820,10 +882,13 @@ beforeAll(async () => {
           <p>We restore water-damaged buildings across NSW.</p>
         </body></html>
       `);
-    } else if (req.url === '/favicon.png') {
+    } else if (req.url === "/favicon.png") {
       // Send a 1x1 PNG (transparent)
-      const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
-      res.writeHead(200, { 'Content-Type': 'image/png' });
+      const png = Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+        "base64",
+      );
+      res.writeHead(200, { "Content-Type": "image/png" });
       res.end(png);
     } else {
       res.writeHead(404).end();
@@ -835,16 +900,16 @@ beforeAll(async () => {
 
 afterAll(() => new Promise<void>((resolve) => server.close(() => resolve())));
 
-describe('scrapeWebsite', () => {
-  it('extracts logo + hero text', async () => {
+describe("scrapeWebsite", () => {
+  it("extracts logo + hero text", async () => {
     const result = await scrapeWebsite(`http://localhost:${port}`);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.data.logoUrl).toBe('https://cdn.example.com/logo.png');
-    expect(result.data.hero).toContain('ACME Restoration');
+    expect(result.data.logoUrl).toBe("https://cdn.example.com/logo.png");
+    expect(result.data.hero).toContain("ACME Restoration");
   });
 
-  it('returns ok:false on a 404', async () => {
+  it("returns ok:false on a 404", async () => {
     const result = await scrapeWebsite(`http://localhost:${port}/missing`);
     expect(result.ok).toBe(false);
   });
@@ -863,41 +928,58 @@ Expected: FAIL.
 
 ```typescript
 // lib/branding/scrape.ts
-import { chromium } from 'playwright';
+import { chromium } from "playwright";
 
 export interface ScrapeResult {
   logoUrl: string | null;
   hero: string;
 }
 
-export async function scrapeWebsite(url: string): Promise<
-  { ok: true; data: ScrapeResult } | { ok: false; reason: string }
-> {
+export async function scrapeWebsite(
+  url: string,
+): Promise<{ ok: true; data: ScrapeResult } | { ok: false; reason: string }> {
   let browser;
   try {
     browser = await chromium.launch();
-    const ctx = await browser.newContext({ userAgent: 'RestoreAssistSetupBot/1.0' });
+    const ctx = await browser.newContext({
+      userAgent: "RestoreAssistSetupBot/1.0",
+    });
     const page = await ctx.newPage();
-    const response = await page.goto(url, { timeout: 5000, waitUntil: 'domcontentloaded' });
-    if (!response || !response.ok()) return { ok: false, reason: `HTTP ${response?.status() ?? 'NONE'}` };
+    const response = await page.goto(url, {
+      timeout: 5000,
+      waitUntil: "domcontentloaded",
+    });
+    if (!response || !response.ok())
+      return { ok: false, reason: `HTTP ${response?.status() ?? "NONE"}` };
 
     const data = await page.evaluate(() => {
-      const ogImage = document.querySelector('meta[property="og:image"]')?.getAttribute('content');
+      const ogImage = document
+        .querySelector('meta[property="og:image"]')
+        ?.getAttribute("content");
       const iconHref =
-        document.querySelector('link[rel="apple-touch-icon"]')?.getAttribute('href') ||
-        document.querySelector('link[rel="icon"]')?.getAttribute('href');
+        document
+          .querySelector('link[rel="apple-touch-icon"]')
+          ?.getAttribute("href") ||
+        document.querySelector('link[rel="icon"]')?.getAttribute("href");
       const heroEl = document.querySelector('h1, .hero, [class*="hero"]');
       return {
         ogImage: ogImage || null,
         iconHref: iconHref || null,
-        hero: (heroEl?.textContent ?? document.body.innerText ?? '').slice(0, 1500).trim(),
+        hero: (heroEl?.textContent ?? document.body.innerText ?? "")
+          .slice(0, 1500)
+          .trim(),
       };
     });
 
-    const logoUrl = data.ogImage || (data.iconHref ? new URL(data.iconHref, url).toString() : null);
+    const logoUrl =
+      data.ogImage ||
+      (data.iconHref ? new URL(data.iconHref, url).toString() : null);
     return { ok: true, data: { logoUrl, hero: data.hero } };
   } catch (err) {
-    return { ok: false, reason: err instanceof Error ? err.message : 'unknown' };
+    return {
+      ok: false,
+      reason: err instanceof Error ? err.message : "unknown",
+    };
   } finally {
     await browser?.close();
   }
@@ -924,6 +1006,7 @@ git commit -m "feat(setup): Playwright website scrape with 5s timeout"
 ### Task 7: About-copy extractor (Gemma summariser)
 
 **Files:**
+
 - Create: `lib/branding/extract-about.ts`
 - Test: `lib/branding/__tests__/extract-about.test.ts`
 
@@ -933,33 +1016,35 @@ Takes the `hero` text from Task 6 and asks Gemma (via `lib/ai/model-router.ts`) 
 
 ```typescript
 // lib/branding/__tests__/extract-about.test.ts
-import { describe, expect, it, vi } from 'vitest';
-import { extractAboutCopy } from '../extract-about';
+import { describe, expect, it, vi } from "vitest";
+import { extractAboutCopy } from "../extract-about";
 
-vi.mock('@/lib/ai/model-router', () => ({
+vi.mock("@/lib/ai/model-router", () => ({
   routeBasic: vi.fn(),
 }));
 
-import { routeBasic } from '@/lib/ai/model-router';
+import { routeBasic } from "@/lib/ai/model-router";
 
-describe('extractAboutCopy', () => {
-  it('returns null for clearly empty hero text', async () => {
-    const result = await extractAboutCopy('');
+describe("extractAboutCopy", () => {
+  it("returns null for clearly empty hero text", async () => {
+    const result = await extractAboutCopy("");
     expect(result).toBeNull();
   });
 
-  it('returns the Gemma paragraph when confidence is high', async () => {
+  it("returns the Gemma paragraph when confidence is high", async () => {
     (routeBasic as any).mockResolvedValueOnce({
-      text: 'ACME Restoration is a Sydney-based water damage specialist serving NSW.',
+      text: "ACME Restoration is a Sydney-based water damage specialist serving NSW.",
       confidence: 0.92,
     });
-    const result = await extractAboutCopy('ACME Restoration\nWe restore water-damaged buildings across NSW.');
-    expect(result?.paragraph).toContain('ACME');
+    const result = await extractAboutCopy(
+      "ACME Restoration\nWe restore water-damaged buildings across NSW.",
+    );
+    expect(result?.paragraph).toContain("ACME");
   });
 
-  it('returns null when Gemma confidence falls below threshold', async () => {
-    (routeBasic as any).mockResolvedValueOnce({ text: '...', confidence: 0.3 });
-    const result = await extractAboutCopy('garbage 404 page text');
+  it("returns null when Gemma confidence falls below threshold", async () => {
+    (routeBasic as any).mockResolvedValueOnce({ text: "...", confidence: 0.3 });
+    const result = await extractAboutCopy("garbage 404 page text");
     expect(result).toBeNull();
   });
 });
@@ -977,7 +1062,7 @@ Expected: FAIL.
 
 ```typescript
 // lib/branding/extract-about.ts
-import { routeBasic } from '@/lib/ai/model-router';
+import { routeBasic } from "@/lib/ai/model-router";
 
 const PROMPT = `You are summarising an Australian water-damage-restoration company's homepage for their CRM profile.
 Write ONE professional paragraph (40-80 words) describing what they do, who they serve, and where.
@@ -987,12 +1072,19 @@ Hero text:
 {HERO}
 ---`;
 
-export async function extractAboutCopy(hero: string): Promise<{ paragraph: string; confidence: number } | null> {
+export async function extractAboutCopy(
+  hero: string,
+): Promise<{ paragraph: string; confidence: number } | null> {
   if (!hero || hero.trim().length < 20) return null;
-  const filled = PROMPT.replace('{HERO}', hero.slice(0, 1200));
+  const filled = PROMPT.replace("{HERO}", hero.slice(0, 1200));
   try {
-    const result = await routeBasic(filled, { responseFormat: 'json' });
-    if (!result || typeof result.text !== 'string' || typeof result.confidence !== 'number') return null;
+    const result = await routeBasic(filled, { responseFormat: "json" });
+    if (
+      !result ||
+      typeof result.text !== "string" ||
+      typeof result.confidence !== "number"
+    )
+      return null;
     if (result.confidence < 0.5) return null;
     return { paragraph: result.text.trim(), confidence: result.confidence };
   } catch {
@@ -1021,6 +1113,7 @@ git commit -m "feat(setup): Gemma about-copy summariser with confidence threshol
 ### Task 8: Hydration state machine
 
 **Files:**
+
 - Create: `lib/setup/hydration-state-machine.ts`
 - Test: `lib/setup/__tests__/hydration-state-machine.test.ts`
 
@@ -1030,21 +1123,21 @@ Pure function that validates `HydrationJob` state transitions. Used server-side 
 
 ```typescript
 // lib/setup/__tests__/hydration-state-machine.test.ts
-import { describe, expect, it } from 'vitest';
-import { canTransition, type HydrationState } from '../hydration-state-machine';
+import { describe, expect, it } from "vitest";
+import { canTransition, type HydrationState } from "../hydration-state-machine";
 
-describe('canTransition', () => {
+describe("canTransition", () => {
   it.each<[HydrationState, HydrationState, boolean]>([
-    ['pending', 'running', true],
-    ['running', 'ready', true],
-    ['running', 'error', true],
-    ['running', 'manual', true],
-    ['ready', 'running', true],  // user changed ABN -> re-run
-    ['error', 'running', true],
-    ['manual', 'ready', true],   // hydration succeeded after manual fill
-    ['ready', 'pending', false], // never go backward
-    ['error', 'pending', false],
-  ])('%s -> %s is %s', (from, to, allowed) => {
+    ["pending", "running", true],
+    ["running", "ready", true],
+    ["running", "error", true],
+    ["running", "manual", true],
+    ["ready", "running", true], // user changed ABN -> re-run
+    ["error", "running", true],
+    ["manual", "ready", true], // hydration succeeded after manual fill
+    ["ready", "pending", false], // never go backward
+    ["error", "pending", false],
+  ])("%s -> %s is %s", (from, to, allowed) => {
     expect(canTransition(from, to)).toBe(allowed);
   });
 });
@@ -1062,17 +1155,25 @@ Expected: FAIL.
 
 ```typescript
 // lib/setup/hydration-state-machine.ts
-export type HydrationState = 'pending' | 'running' | 'ready' | 'error' | 'manual';
+export type HydrationState =
+  | "pending"
+  | "running"
+  | "ready"
+  | "error"
+  | "manual";
 
 const ALLOWED: Record<HydrationState, HydrationState[]> = {
-  pending: ['running', 'manual'],
-  running: ['ready', 'error', 'manual'],
-  ready:   ['running'],
-  error:   ['running', 'manual'],
-  manual:  ['ready', 'running'],
+  pending: ["running", "manual"],
+  running: ["ready", "error", "manual"],
+  ready: ["running"],
+  error: ["running", "manual"],
+  manual: ["ready", "running"],
 };
 
-export function canTransition(from: HydrationState, to: HydrationState): boolean {
+export function canTransition(
+  from: HydrationState,
+  to: HydrationState,
+): boolean {
   return ALLOWED[from]?.includes(to) ?? false;
 }
 ```
@@ -1099,6 +1200,7 @@ git commit -m "feat(setup): hydration job state machine"
 ### Task 9: Prisma schema additions (Migration A)
 
 **Files:**
+
 - Modify: `prisma/schema.prisma`
 - Create: `prisma/migrations/<timestamp>_setup_wizard_phase_a/migration.sql` (generated)
 
@@ -1229,6 +1331,7 @@ git commit -m "feat(setup): Prisma additions — Organization fields, HydrationJ
 ### Task 10: Backfill script (User → Organization business profile + pricing)
 
 **Files:**
+
 - Create: `scripts/backfill-setup-wizard.ts`
 - Test: `scripts/__tests__/backfill-setup-wizard.test.ts`
 
@@ -1238,11 +1341,11 @@ Idempotent. Reads each `User`, finds owning `Organization`, copies `User.busines
 
 ```typescript
 // scripts/__tests__/backfill-setup-wizard.test.ts
-import { describe, expect, it, beforeEach } from 'vitest';
-import { backfill } from '../backfill-setup-wizard';
-import { prisma } from '@/lib/prisma';
+import { describe, expect, it, beforeEach } from "vitest";
+import { backfill } from "../backfill-setup-wizard";
+import { prisma } from "@/lib/prisma";
 
-describe('backfill', () => {
+describe("backfill", () => {
   beforeEach(async () => {
     await prisma.organizationPricingConfig.deleteMany({});
     await prisma.companyPricingConfig.deleteMany({});
@@ -1250,38 +1353,52 @@ describe('backfill', () => {
     await prisma.user.deleteMany({});
   });
 
-  it('copies User business fields onto owning Organization', async () => {
+  it("copies User business fields onto owning Organization", async () => {
     const user = await prisma.user.create({
       data: {
-        email: 'a@a.com',
-        businessName: 'Acme Pty Ltd',
-        businessABN: '53004085616',
-        businessState: 'NSW',
+        email: "a@a.com",
+        businessName: "Acme Pty Ltd",
+        businessABN: "53004085616",
+        businessState: "NSW",
       },
     });
-    const org = await prisma.organization.create({ data: { name: 'Acme Pty Ltd', ownerId: user.id } });
-    await prisma.user.update({ where: { id: user.id }, data: { organizationId: org.id } });
+    const org = await prisma.organization.create({
+      data: { name: "Acme Pty Ltd", ownerId: user.id },
+    });
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { organizationId: org.id },
+    });
 
     await backfill();
 
-    const after = await prisma.organization.findUniqueOrThrow({ where: { id: org.id } });
-    expect(after.abn).toBe('53004085616');
-    expect(after.state).toBe('NSW');
-    expect(after.legalName).toBe('Acme Pty Ltd');
+    const after = await prisma.organization.findUniqueOrThrow({
+      where: { id: org.id },
+    });
+    expect(after.abn).toBe("53004085616");
+    expect(after.state).toBe("NSW");
+    expect(after.legalName).toBe("Acme Pty Ltd");
   });
 
-  it('is idempotent — re-running is a no-op', async () => {
+  it("is idempotent — re-running is a no-op", async () => {
     const user = await prisma.user.create({
-      data: { email: 'b@b.com', businessName: 'X', businessABN: '53004085616' },
+      data: { email: "b@b.com", businessName: "X", businessABN: "53004085616" },
     });
-    const org = await prisma.organization.create({ data: { name: 'X', ownerId: user.id } });
-    await prisma.user.update({ where: { id: user.id }, data: { organizationId: org.id } });
+    const org = await prisma.organization.create({
+      data: { name: "X", ownerId: user.id },
+    });
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { organizationId: org.id },
+    });
 
     await backfill();
     await backfill();
 
-    const after = await prisma.organization.findUniqueOrThrow({ where: { id: org.id } });
-    expect(after.abn).toBe('53004085616');
+    const after = await prisma.organization.findUniqueOrThrow({
+      where: { id: org.id },
+    });
+    expect(after.abn).toBe("53004085616");
   });
 });
 ```
@@ -1298,7 +1415,7 @@ Expected: FAIL.
 
 ```typescript
 // scripts/backfill-setup-wizard.ts
-import { prisma } from '@/lib/prisma';
+import { prisma } from "@/lib/prisma";
 
 export async function backfill() {
   const users = await prisma.user.findMany({
@@ -1319,37 +1436,51 @@ export async function backfill() {
 
   for (const u of users) {
     if (!u.organizationId) continue;
-    const org = await prisma.organization.findUnique({ where: { id: u.organizationId }, select: { id: true, legalName: true, abn: true, state: true } });
+    const org = await prisma.organization.findUnique({
+      where: { id: u.organizationId },
+      select: { id: true, legalName: true, abn: true, state: true },
+    });
     if (!org) continue;
 
     await prisma.organization.update({
       where: { id: org.id },
       data: {
         legalName: org.legalName ?? u.businessName ?? undefined,
-        abn:        org.abn       ?? u.businessABN ?? undefined,
-        acn:                         u.businessACN ?? undefined,
-        state:      org.state     ?? u.businessState ?? undefined,
-        address:                     u.businessAddress ?? undefined,
-        phone:                       u.businessPhone ?? undefined,
-        email:                       u.businessEmail ?? undefined,
-        logoUrl:                     u.businessLogo ?? undefined,
+        abn: org.abn ?? u.businessABN ?? undefined,
+        acn: u.businessACN ?? undefined,
+        state: org.state ?? u.businessState ?? undefined,
+        address: u.businessAddress ?? undefined,
+        phone: u.businessPhone ?? undefined,
+        email: u.businessEmail ?? undefined,
+        logoUrl: u.businessLogo ?? undefined,
       },
     });
 
     // Move CompanyPricingConfig → OrganizationPricingConfig
-    const cpc = await prisma.companyPricingConfig.findFirst({ where: { userId: u.id } });
+    const cpc = await prisma.companyPricingConfig.findFirst({
+      where: { userId: u.id },
+    });
     if (cpc) {
-      const existing = await prisma.organizationPricingConfig.findUnique({ where: { organizationId: org.id } });
+      const existing = await prisma.organizationPricingConfig.findUnique({
+        where: { organizationId: org.id },
+      });
       if (!existing) {
         const { id, userId, ...rest } = cpc as any;
-        await prisma.organizationPricingConfig.create({ data: { ...rest, organizationId: org.id } });
+        await prisma.organizationPricingConfig.create({
+          data: { ...rest, organizationId: org.id },
+        });
       }
     }
   }
 }
 
 if (require.main === module) {
-  backfill().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
+  backfill()
+    .then(() => process.exit(0))
+    .catch((e) => {
+      console.error(e);
+      process.exit(1);
+    });
 }
 ```
 
@@ -1375,6 +1506,7 @@ git commit -m "feat(setup): idempotent backfill User business profile + pricing 
 ### Task 11: BYPASS_CREDIT_GATE flag in model-router
 
 **Files:**
+
 - Modify: `lib/ai/model-router.ts`
 - Test: `lib/ai/__tests__/model-router.test.ts`
 
@@ -1392,19 +1524,24 @@ Identify the credit-check function. It almost certainly looks like a `requireCre
 
 ```typescript
 // lib/ai/__tests__/model-router.test.ts (add to existing file or create)
-import { describe, expect, it } from 'vitest';
-import { routeBasic } from '../model-router';
+import { describe, expect, it } from "vitest";
+import { routeBasic } from "../model-router";
 
-describe('routeBasic with bypassCreditGate', () => {
-  it('runs Gemma even when creditsRemaining is 0 if bypassCreditGate is set', async () => {
+describe("routeBasic with bypassCreditGate", () => {
+  it("runs Gemma even when creditsRemaining is 0 if bypassCreditGate is set", async () => {
     // Setup a user with 0 credits
     // ... fixture setup omitted; use existing test helpers ...
-    const result = await routeBasic('hello', { userId: 'zero-credit-user', bypassCreditGate: true });
+    const result = await routeBasic("hello", {
+      userId: "zero-credit-user",
+      bypassCreditGate: true,
+    });
     expect(result).toBeDefined();
   });
 
-  it('rejects when creditsRemaining is 0 and bypassCreditGate is not set', async () => {
-    await expect(routeBasic('hello', { userId: 'zero-credit-user' })).rejects.toThrow(/credits/i);
+  it("rejects when creditsRemaining is 0 and bypassCreditGate is not set", async () => {
+    await expect(
+      routeBasic("hello", { userId: "zero-credit-user" }),
+    ).rejects.toThrow(/credits/i);
   });
 });
 ```
@@ -1423,7 +1560,7 @@ Expected: FAIL.
 // lib/ai/model-router.ts (modify the existing routeBasic signature)
 export interface RouteOptions {
   userId?: string;
-  responseFormat?: 'text' | 'json';
+  responseFormat?: "text" | "json";
   bypassCreditGate?: boolean;
 }
 
@@ -1457,6 +1594,7 @@ git commit -m "feat(setup): BYPASS_CREDIT_GATE for Gemma-tier setup hydration"
 ### Task 12: lib/setup/checks.ts (capability registry)
 
 **Files:**
+
 - Create: `lib/setup/checks.ts`
 - Test: `lib/setup/__tests__/checks.test.ts`
 
@@ -1466,24 +1604,24 @@ Registry of capability checks. Each check is `(orgId) => Promise<CheckResult>`. 
 
 ```typescript
 // lib/setup/__tests__/checks.test.ts
-import { describe, expect, it } from 'vitest';
-import { runAllChecks, CHECKS } from '../checks';
+import { describe, expect, it } from "vitest";
+import { runAllChecks, CHECKS } from "../checks";
 
-describe('runAllChecks', () => {
-  it('returns one result per registered check', async () => {
-    const results = await runAllChecks('test-org-id');
+describe("runAllChecks", () => {
+  it("returns one result per registered check", async () => {
+    const results = await runAllChecks("test-org-id");
     expect(results).toHaveLength(CHECKS.length);
     for (const r of results) {
-      expect(['green', 'yellow', 'red']).toContain(r.status);
-      expect(typeof r.capability).toBe('string');
+      expect(["green", "yellow", "red"]).toContain(r.status);
+      expect(typeof r.capability).toBe("string");
     }
   });
 
-  it('returns red for business profile when required fields missing', async () => {
+  it("returns red for business profile when required fields missing", async () => {
     // ... seed an org with no legalName / abn ...
-    const results = await runAllChecks('empty-org-id');
-    const bp = results.find((r) => r.capability === 'business_profile');
-    expect(bp?.status).toBe('red');
+    const results = await runAllChecks("empty-org-id");
+    const bp = results.find((r) => r.capability === "business_profile");
+    expect(bp?.status).toBe("red");
   });
 });
 ```
@@ -1500,10 +1638,10 @@ Expected: FAIL.
 
 ```typescript
 // lib/setup/checks.ts
-import { prisma } from '@/lib/prisma';
-import { routeBasic } from '@/lib/ai/model-router';
+import { prisma } from "@/lib/prisma";
+import { routeBasic } from "@/lib/ai/model-router";
 
-export type CheckStatus = 'green' | 'yellow' | 'red';
+export type CheckStatus = "green" | "yellow" | "red";
 
 export interface CheckResult {
   capability: string;
@@ -1519,12 +1657,17 @@ const businessProfileCheck: Check = async (orgId) => {
     where: { id: orgId },
     select: { legalName: true, abn: true, state: true, tradingStatus: true },
   });
-  const missing = !org?.legalName || !org?.state || (!org?.abn && org?.tradingStatus !== 'PRE_TRADING');
+  const missing =
+    !org?.legalName ||
+    !org?.state ||
+    (!org?.abn && org?.tradingStatus !== "PRE_TRADING");
   return {
-    capability: 'business_profile',
-    label: 'Business profile complete',
-    status: missing ? 'red' : 'green',
-    note: missing ? 'Add legal name, state, and ABN (or mark pre-trading)' : undefined,
+    capability: "business_profile",
+    label: "Business profile complete",
+    status: missing ? "red" : "green",
+    note: missing
+      ? "Add legal name, state, and ABN (or mark pre-trading)"
+      : undefined,
   };
 };
 
@@ -1533,9 +1676,16 @@ const brandingCheck: Check = async (orgId) => {
     where: { id: orgId },
     select: { logoUrl: true, primaryColor: true },
   });
-  if (!org?.logoUrl && !org?.primaryColor) return { capability: 'branding', label: 'Branding set', status: 'red' };
-  if (!org?.logoUrl || !org?.primaryColor) return { capability: 'branding', label: 'Branding set', status: 'yellow', note: 'Logo or primary colour missing' };
-  return { capability: 'branding', label: 'Branding set', status: 'green' };
+  if (!org?.logoUrl && !org?.primaryColor)
+    return { capability: "branding", label: "Branding set", status: "red" };
+  if (!org?.logoUrl || !org?.primaryColor)
+    return {
+      capability: "branding",
+      label: "Branding set",
+      status: "yellow",
+      note: "Logo or primary colour missing",
+    };
+  return { capability: "branding", label: "Branding set", status: "green" };
 };
 
 const pricingCheck: Check = async (orgId) => {
@@ -1544,15 +1694,29 @@ const pricingCheck: Check = async (orgId) => {
     select: { masterQualifiedNormalHours: true, administrationFee: true },
   });
   const ready = !!p?.masterQualifiedNormalHours && !!p?.administrationFee;
-  return { capability: 'pricing', label: 'Pricing config', status: ready ? 'green' : 'red' };
+  return {
+    capability: "pricing",
+    label: "Pricing config",
+    status: ready ? "green" : "red",
+  };
 };
 
 const aiGenerationCheck: Check = async () => {
   try {
-    const result = await routeBasic('Reply with the word "ok".', { bypassCreditGate: true });
-    return { capability: 'ai_generation', label: 'AI generation (Gemma)', status: result ? 'green' : 'red' };
+    const result = await routeBasic('Reply with the word "ok".', {
+      bypassCreditGate: true,
+    });
+    return {
+      capability: "ai_generation",
+      label: "AI generation (Gemma)",
+      status: result ? "green" : "red",
+    };
   } catch {
-    return { capability: 'ai_generation', label: 'AI generation (Gemma)', status: 'red' };
+    return {
+      capability: "ai_generation",
+      label: "AI generation (Gemma)",
+      status: "red",
+    };
   }
 };
 
@@ -1593,6 +1757,7 @@ git commit -m "feat(setup): capability check registry (business / branding / pri
 ### Task 13: POST /api/setup/hydrate (kick off jobs)
 
 **Files:**
+
 - Create: `app/api/setup/hydrate/route.ts`
 - Test: `app/api/setup/hydrate/__tests__/route.test.ts`
 
@@ -1602,20 +1767,31 @@ Auth-gated route. Takes `{ abn, website? }`. Creates/updates 3 `HydrationJob` ro
 
 ```typescript
 // app/api/setup/hydrate/__tests__/route.test.ts
-import { describe, expect, it, vi } from 'vitest';
-import { POST } from '../route';
+import { describe, expect, it, vi } from "vitest";
+import { POST } from "../route";
 
-vi.mock('next-auth', () => ({ getServerSession: () => ({ user: { id: 'user-1' } }) }));
+vi.mock("next-auth", () => ({
+  getServerSession: () => ({ user: { id: "user-1" } }),
+}));
 
-describe('POST /api/setup/hydrate', () => {
-  it('400s on invalid ABN', async () => {
-    const req = new Request('http://test/api/setup/hydrate', { method: 'POST', body: JSON.stringify({ abn: '123' }) });
+describe("POST /api/setup/hydrate", () => {
+  it("400s on invalid ABN", async () => {
+    const req = new Request("http://test/api/setup/hydrate", {
+      method: "POST",
+      body: JSON.stringify({ abn: "123" }),
+    });
     const res = await POST(req as any);
     expect(res.status).toBe(400);
   });
 
-  it('creates 3 HydrationJob rows for a valid ABN', async () => {
-    const req = new Request('http://test/api/setup/hydrate', { method: 'POST', body: JSON.stringify({ abn: '53004085616', website: 'https://example.com' }) });
+  it("creates 3 HydrationJob rows for a valid ABN", async () => {
+    const req = new Request("http://test/api/setup/hydrate", {
+      method: "POST",
+      body: JSON.stringify({
+        abn: "53004085616",
+        website: "https://example.com",
+      }),
+    });
     const res = await POST(req as any);
     expect(res.status).toBe(202);
     // ... assert HydrationJob.findMany for the user's org returns 3 rows ...
@@ -1635,31 +1811,46 @@ Expected: FAIL.
 
 ```typescript
 // app/api/setup/hydrate/route.ts
-import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { prisma } from '@/lib/prisma';
-import { isValidAbn, normaliseAbn } from '@/lib/abn/checksum';
-import { runAbrJob, runWebsiteJob, runPricingJob } from '@/lib/setup/jobs';
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { prisma } from "@/lib/prisma";
+import { isValidAbn, normaliseAbn } from "@/lib/abn/checksum";
+import { runAbrJob, runWebsiteJob, runPricingJob } from "@/lib/setup/jobs";
 
 export async function POST(req: Request) {
   const session = await getServerSession();
-  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!session?.user?.id)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   let body: { abn?: string; website?: string };
-  try { body = await req.json(); } catch { return NextResponse.json({ error: 'Bad JSON' }, { status: 400 }); }
-  const abn = normaliseAbn(body.abn ?? '');
-  if (!abn || !isValidAbn(abn)) return NextResponse.json({ error: 'Invalid ABN' }, { status: 400 });
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Bad JSON" }, { status: 400 });
+  }
+  const abn = normaliseAbn(body.abn ?? "");
+  if (!abn || !isValidAbn(abn))
+    return NextResponse.json({ error: "Invalid ABN" }, { status: 400 });
 
-  const org = await prisma.organization.findFirst({ where: { ownerId: session.user.id }, select: { id: true } });
-  if (!org) return NextResponse.json({ error: 'No organization' }, { status: 404 });
+  const org = await prisma.organization.findFirst({
+    where: { ownerId: session.user.id },
+    select: { id: true },
+  });
+  if (!org)
+    return NextResponse.json({ error: "No organization" }, { status: 404 });
 
   // Upsert 3 jobs in RUNNING (ON CONFLICT coalescing)
-  const kinds = ['ABR', 'WEBSITE', 'PRICING'] as const;
+  const kinds = ["ABR", "WEBSITE", "PRICING"] as const;
   for (const kind of kinds) {
     await prisma.hydrationJob.upsert({
       where: { organizationId_kind: { organizationId: org.id, kind } },
-      create: { organizationId: org.id, kind, status: 'RUNNING' },
-      update: { status: 'RUNNING', errorMessage: null, startedAt: new Date(), completedAt: null },
+      create: { organizationId: org.id, kind, status: "RUNNING" },
+      update: {
+        status: "RUNNING",
+        errorMessage: null,
+        startedAt: new Date(),
+        completedAt: null,
+      },
     });
   }
 
@@ -1682,32 +1873,41 @@ export async function POST(req: Request) {
 
 ```typescript
 // lib/setup/jobs.ts
-import { prisma } from '@/lib/prisma';
-import { lookupAbn } from '@/lib/integrations/abr/client';
-import { scrapeWebsite } from '@/lib/branding/scrape';
-import { extractColors } from '@/lib/branding/extract-colors';
-import { extractAboutCopy } from '@/lib/branding/extract-about';
-import { getDefaultPricing } from '@/lib/pricing/defaults-au';
+import { prisma } from "@/lib/prisma";
+import { lookupAbn } from "@/lib/integrations/abr/client";
+import { scrapeWebsite } from "@/lib/branding/scrape";
+import { extractColors } from "@/lib/branding/extract-colors";
+import { extractAboutCopy } from "@/lib/branding/extract-about";
+import { getDefaultPricing } from "@/lib/pricing/defaults-au";
 
 export async function runAbrJob(orgId: string, abn: string) {
   // Cache hit?
   const cached = await prisma.abnLookupCache.findUnique({ where: { abn } });
   const fresh = cached && cached.expiresAt > new Date();
-  const result = fresh ? cached!.payload as any : await lookupAbn(abn);
+  const result = fresh ? (cached!.payload as any) : await lookupAbn(abn);
 
   if (!fresh && (result as any).ok) {
-    const expires = new Date(); expires.setDate(expires.getDate() + 30);
+    const expires = new Date();
+    expires.setDate(expires.getDate() + 30);
     await prisma.abnLookupCache.upsert({
       where: { abn },
       create: { abn, payload: result as any, expiresAt: expires },
-      update: { payload: result as any, fetchedAt: new Date(), expiresAt: expires },
+      update: {
+        payload: result as any,
+        fetchedAt: new Date(),
+        expiresAt: expires,
+      },
     });
   }
 
   if (!(result as any).ok) {
     await prisma.hydrationJob.update({
-      where: { organizationId_kind: { organizationId: orgId, kind: 'ABR' } },
-      data: { status: 'ERROR', errorMessage: (result as any).reason, completedAt: new Date() },
+      where: { organizationId_kind: { organizationId: orgId, kind: "ABR" } },
+      data: {
+        status: "ERROR",
+        errorMessage: (result as any).reason,
+        completedAt: new Date(),
+      },
     });
     return;
   }
@@ -1722,8 +1922,8 @@ export async function runAbrJob(orgId: string, abn: string) {
     },
   });
   await prisma.hydrationJob.update({
-    where: { organizationId_kind: { organizationId: orgId, kind: 'ABR' } },
-    data: { status: 'READY', payload: data, completedAt: new Date() },
+    where: { organizationId_kind: { organizationId: orgId, kind: "ABR" } },
+    data: { status: "READY", payload: data, completedAt: new Date() },
   });
 }
 
@@ -1731,12 +1931,19 @@ export async function runWebsiteJob(orgId: string, url: string) {
   const scrape = await scrapeWebsite(url);
   if (!scrape.ok) {
     await prisma.hydrationJob.update({
-      where: { organizationId_kind: { organizationId: orgId, kind: 'WEBSITE' } },
-      data: { status: 'MANUAL', errorMessage: scrape.reason, completedAt: new Date() },
+      where: {
+        organizationId_kind: { organizationId: orgId, kind: "WEBSITE" },
+      },
+      data: {
+        status: "MANUAL",
+        errorMessage: scrape.reason,
+        completedAt: new Date(),
+      },
     });
     return;
   }
-  let primaryColor: string | null = null, accentColor: string | null = null;
+  let primaryColor: string | null = null,
+    accentColor: string | null = null;
   if (scrape.data.logoUrl) {
     try {
       const res = await fetch(scrape.data.logoUrl);
@@ -1746,7 +1953,9 @@ export async function runWebsiteJob(orgId: string, url: string) {
         primaryColor = colors.primary;
         accentColor = colors.accent;
       }
-    } catch { /* swallow; UI will allow manual upload */ }
+    } catch {
+      /* swallow; UI will allow manual upload */
+    }
   }
   const about = await extractAboutCopy(scrape.data.hero);
 
@@ -1760,8 +1969,17 @@ export async function runWebsiteJob(orgId: string, url: string) {
     },
   });
   await prisma.hydrationJob.update({
-    where: { organizationId_kind: { organizationId: orgId, kind: 'WEBSITE' } },
-    data: { status: 'READY', payload: { logoUrl: scrape.data.logoUrl, primaryColor, accentColor, aboutCopy: about?.paragraph }, completedAt: new Date() },
+    where: { organizationId_kind: { organizationId: orgId, kind: "WEBSITE" } },
+    data: {
+      status: "READY",
+      payload: {
+        logoUrl: scrape.data.logoUrl,
+        primaryColor,
+        accentColor,
+        aboutCopy: about?.paragraph,
+      },
+      completedAt: new Date(),
+    },
   });
 }
 
@@ -1771,13 +1989,16 @@ export async function runPricingJob(orgId: string) {
   let abrPayload: any = null;
   for (let i = 0; i < 10; i++) {
     const j = await prisma.hydrationJob.findUnique({
-      where: { organizationId_kind: { organizationId: orgId, kind: 'ABR' } },
+      where: { organizationId_kind: { organizationId: orgId, kind: "ABR" } },
     });
-    if (j?.status === 'READY' || j?.status === 'ERROR') { abrPayload = j.payload; break; }
+    if (j?.status === "READY" || j?.status === "ERROR") {
+      abrPayload = j.payload;
+      break;
+    }
     await new Promise((r) => setTimeout(r, 500));
   }
-  const state = abrPayload?.state ?? 'NSW';
-  const entityType = abrPayload?.entityType ?? 'OTHER';
+  const state = abrPayload?.state ?? "NSW";
+  const entityType = abrPayload?.entityType ?? "OTHER";
   const defaults = getDefaultPricing({ state, entityType });
 
   await prisma.organizationPricingConfig.upsert({
@@ -1786,8 +2007,12 @@ export async function runPricingJob(orgId: string) {
     update: defaults,
   });
   await prisma.hydrationJob.update({
-    where: { organizationId_kind: { organizationId: orgId, kind: 'PRICING' } },
-    data: { status: 'READY', payload: defaults as any, completedAt: new Date() },
+    where: { organizationId_kind: { organizationId: orgId, kind: "PRICING" } },
+    data: {
+      status: "READY",
+      payload: defaults as any,
+      completedAt: new Date(),
+    },
   });
 }
 ```
@@ -1812,6 +2037,7 @@ git commit -m "feat(setup): POST /api/setup/hydrate + 3 background jobs (ABR/web
 ### Task 14: GET /api/setup/hydrate/stream (SSE)
 
 **Files:**
+
 - Create: `app/api/setup/hydrate/stream/route.ts`
 - Test: `app/api/setup/hydrate/stream/__tests__/route.test.ts`
 
@@ -1821,16 +2047,18 @@ SSE endpoint polling `HydrationJob` every 1s and emitting changes. Closes when a
 
 ```typescript
 // app/api/setup/hydrate/stream/__tests__/route.test.ts
-import { describe, expect, it, vi } from 'vitest';
-import { GET } from '../route';
+import { describe, expect, it, vi } from "vitest";
+import { GET } from "../route";
 
-vi.mock('next-auth', () => ({ getServerSession: () => ({ user: { id: 'user-1' } }) }));
+vi.mock("next-auth", () => ({
+  getServerSession: () => ({ user: { id: "user-1" } }),
+}));
 
-describe('GET /api/setup/hydrate/stream', () => {
-  it('returns Content-Type text/event-stream', async () => {
-    const req = new Request('http://test/api/setup/hydrate/stream');
+describe("GET /api/setup/hydrate/stream", () => {
+  it("returns Content-Type text/event-stream", async () => {
+    const req = new Request("http://test/api/setup/hydrate/stream");
     const res = await GET(req as any);
-    expect(res.headers.get('Content-Type')).toBe('text/event-stream');
+    expect(res.headers.get("Content-Type")).toBe("text/event-stream");
   });
 });
 ```
@@ -1847,36 +2075,53 @@ Expected: FAIL.
 
 ```typescript
 // app/api/setup/hydrate/stream/route.ts
-import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { prisma } from '@/lib/prisma';
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { prisma } from "@/lib/prisma";
 
-export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 export async function GET() {
   const session = await getServerSession();
-  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!session?.user?.id)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const org = await prisma.organization.findFirst({ where: { ownerId: session.user.id }, select: { id: true } });
-  if (!org) return NextResponse.json({ error: 'No organization' }, { status: 404 });
+  const org = await prisma.organization.findFirst({
+    where: { ownerId: session.user.id },
+    select: { id: true },
+  });
+  if (!org)
+    return NextResponse.json({ error: "No organization" }, { status: 404 });
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
-      let lastState = '';
+      let lastState = "";
       const maxIterations = 120; // 2 minutes
       for (let i = 0; i < maxIterations; i++) {
         const jobs = await prisma.hydrationJob.findMany({
           where: { organizationId: org.id },
-          select: { kind: true, status: true, payload: true, errorMessage: true },
+          select: {
+            kind: true,
+            status: true,
+            payload: true,
+            errorMessage: true,
+          },
         });
         const snapshot = JSON.stringify(jobs);
         if (snapshot !== lastState) {
           controller.enqueue(encoder.encode(`data: ${snapshot}\n\n`));
           lastState = snapshot;
         }
-        const allTerminal = jobs.length === 3 && jobs.every((j) => j.status === 'READY' || j.status === 'ERROR' || j.status === 'MANUAL');
+        const allTerminal =
+          jobs.length === 3 &&
+          jobs.every(
+            (j) =>
+              j.status === "READY" ||
+              j.status === "ERROR" ||
+              j.status === "MANUAL",
+          );
         if (allTerminal) break;
         await new Promise((r) => setTimeout(r, 1000));
       }
@@ -1886,9 +2131,9 @@ export async function GET() {
 
   return new Response(stream, {
     headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache, no-transform',
-      'Connection': 'keep-alive',
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
     },
   });
 }
@@ -1914,6 +2159,7 @@ git commit -m "feat(setup): SSE /api/setup/hydrate/stream"
 ### Task 15: GET /api/setup/state
 
 **Files:**
+
 - Create: `app/api/setup/state/route.ts`
 - Test: `app/api/setup/state/__tests__/route.test.ts`
 
@@ -1923,19 +2169,21 @@ Returns the full setup snapshot: Organization fields + per-section status + hydr
 
 ```typescript
 // app/api/setup/state/__tests__/route.test.ts
-import { describe, expect, it, vi } from 'vitest';
-import { GET } from '../route';
+import { describe, expect, it, vi } from "vitest";
+import { GET } from "../route";
 
-vi.mock('next-auth', () => ({ getServerSession: () => ({ user: { id: 'user-1' } }) }));
+vi.mock("next-auth", () => ({
+  getServerSession: () => ({ user: { id: "user-1" } }),
+}));
 
-describe('GET /api/setup/state', () => {
-  it('returns the setup snapshot', async () => {
-    const req = new Request('http://test/api/setup/state');
+describe("GET /api/setup/state", () => {
+  it("returns the setup snapshot", async () => {
+    const req = new Request("http://test/api/setup/state");
     const res = await GET(req as any);
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json.data).toHaveProperty('organization');
-    expect(json.data).toHaveProperty('sections');
+    expect(json.data).toHaveProperty("organization");
+    expect(json.data).toHaveProperty("sections");
   });
 });
 ```
@@ -1952,33 +2200,62 @@ Expected: FAIL.
 
 ```typescript
 // app/api/setup/state/route.ts
-import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { prisma } from '@/lib/prisma';
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   const session = await getServerSession();
-  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!session?.user?.id)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const org = await prisma.organization.findFirst({
     where: { ownerId: session.user.id },
     select: {
-      id: true, legalName: true, tradingName: true, abn: true, acn: true, state: true, address: true,
-      phone: true, email: true, website: true, logoUrl: true, primaryColor: true, accentColor: true,
-      aboutCopy: true, tradingStatus: true, setupStartedAt: true, setupCompletedAt: true, setupMode: true,
+      id: true,
+      legalName: true,
+      tradingName: true,
+      abn: true,
+      acn: true,
+      state: true,
+      address: true,
+      phone: true,
+      email: true,
+      website: true,
+      logoUrl: true,
+      primaryColor: true,
+      accentColor: true,
+      aboutCopy: true,
+      tradingStatus: true,
+      setupStartedAt: true,
+      setupCompletedAt: true,
+      setupMode: true,
       pricingConfig: true,
-      hydrationJobs: { select: { kind: true, status: true, errorMessage: true, completedAt: true } },
+      hydrationJobs: {
+        select: {
+          kind: true,
+          status: true,
+          errorMessage: true,
+          completedAt: true,
+        },
+      },
     },
   });
-  if (!org) return NextResponse.json({ error: 'No organization' }, { status: 404 });
+  if (!org)
+    return NextResponse.json({ error: "No organization" }, { status: 404 });
 
   return NextResponse.json({
     data: {
       organization: org,
       sections: {
-        businessDetails: org.hydrationJobs.find((j) => j.kind === 'ABR')?.status ?? 'PENDING',
-        branding:        org.hydrationJobs.find((j) => j.kind === 'WEBSITE')?.status ?? 'PENDING',
-        pricing:         org.hydrationJobs.find((j) => j.kind === 'PRICING')?.status ?? 'PENDING',
+        businessDetails:
+          org.hydrationJobs.find((j) => j.kind === "ABR")?.status ?? "PENDING",
+        branding:
+          org.hydrationJobs.find((j) => j.kind === "WEBSITE")?.status ??
+          "PENDING",
+        pricing:
+          org.hydrationJobs.find((j) => j.kind === "PRICING")?.status ??
+          "PENDING",
       },
     },
   });
@@ -2005,6 +2282,7 @@ git commit -m "feat(setup): GET /api/setup/state — snapshot for page load + re
 ### Task 16: GET /api/setup/checks
 
 **Files:**
+
 - Create: `app/api/setup/checks/route.ts`
 - Test: `app/api/setup/checks/__tests__/route.test.ts`
 
@@ -2014,13 +2292,15 @@ Runs the capability registry and returns the row array.
 
 ```typescript
 // app/api/setup/checks/__tests__/route.test.ts
-import { describe, expect, it, vi } from 'vitest';
-import { GET } from '../route';
+import { describe, expect, it, vi } from "vitest";
+import { GET } from "../route";
 
-vi.mock('next-auth', () => ({ getServerSession: () => ({ user: { id: 'user-1' } }) }));
+vi.mock("next-auth", () => ({
+  getServerSession: () => ({ user: { id: "user-1" } }),
+}));
 
-describe('GET /api/setup/checks', () => {
-  it('returns capability rows', async () => {
+describe("GET /api/setup/checks", () => {
+  it("returns capability rows", async () => {
     const res = await GET();
     expect(res.status).toBe(200);
     const json = await res.json();
@@ -2041,16 +2321,21 @@ Expected: FAIL.
 
 ```typescript
 // app/api/setup/checks/route.ts
-import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { prisma } from '@/lib/prisma';
-import { runAllChecks } from '@/lib/setup/checks';
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { prisma } from "@/lib/prisma";
+import { runAllChecks } from "@/lib/setup/checks";
 
 export async function GET() {
   const session = await getServerSession();
-  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const org = await prisma.organization.findFirst({ where: { ownerId: session.user.id }, select: { id: true } });
-  if (!org) return NextResponse.json({ error: 'No organization' }, { status: 404 });
+  if (!session?.user?.id)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const org = await prisma.organization.findFirst({
+    where: { ownerId: session.user.id },
+    select: { id: true },
+  });
+  if (!org)
+    return NextResponse.json({ error: "No organization" }, { status: 404 });
 
   const checks = await runAllChecks(org.id);
   return NextResponse.json({ data: { checks } });
@@ -2077,6 +2362,7 @@ git commit -m "feat(setup): GET /api/setup/checks (capability health)"
 ### Task 17: POST /api/setup/activate (transactional)
 
 **Files:**
+
 - Create: `app/api/setup/activate/route.ts`
 - Test: `app/api/setup/activate/__tests__/route.test.ts`
 
@@ -2086,20 +2372,26 @@ Re-runs pre-flight, then a single transaction: propagate branding → InvoiceTem
 
 ```typescript
 // app/api/setup/activate/__tests__/route.test.ts
-import { describe, expect, it, vi } from 'vitest';
-import { POST } from '../route';
+import { describe, expect, it, vi } from "vitest";
+import { POST } from "../route";
 
-vi.mock('next-auth', () => ({ getServerSession: () => ({ user: { id: 'user-1' } }) }));
+vi.mock("next-auth", () => ({
+  getServerSession: () => ({ user: { id: "user-1" } }),
+}));
 
-describe('POST /api/setup/activate', () => {
-  it('400s when any red check fails', async () => {
-    const res = await POST(new Request('http://test/api/setup/activate', { method: 'POST' }) as any);
+describe("POST /api/setup/activate", () => {
+  it("400s when any red check fails", async () => {
+    const res = await POST(
+      new Request("http://test/api/setup/activate", { method: "POST" }) as any,
+    );
     expect(res.status).toBe(400);
   });
 
-  it('returns 200 and sets setupCompletedAt when all green', async () => {
+  it("returns 200 and sets setupCompletedAt when all green", async () => {
     // ... seed fully-hydrated org ...
-    const res = await POST(new Request('http://test/api/setup/activate', { method: 'POST' }) as any);
+    const res = await POST(
+      new Request("http://test/api/setup/activate", { method: "POST" }) as any,
+    );
     expect(res.status).toBe(200);
   });
 });
@@ -2117,27 +2409,42 @@ Expected: FAIL.
 
 ```typescript
 // app/api/setup/activate/route.ts
-import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { prisma } from '@/lib/prisma';
-import { runAllChecks } from '@/lib/setup/checks';
-import { sendWelcomeEmail } from '@/lib/email/welcome';
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { prisma } from "@/lib/prisma";
+import { runAllChecks } from "@/lib/setup/checks";
+import { sendWelcomeEmail } from "@/lib/email/welcome";
 
 export async function POST() {
   const session = await getServerSession();
-  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!session?.user?.id)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const org = await prisma.organization.findFirst({
     where: { ownerId: session.user.id },
-    select: { id: true, legalName: true, abn: true, logoUrl: true, primaryColor: true, accentColor: true },
+    select: {
+      id: true,
+      legalName: true,
+      abn: true,
+      logoUrl: true,
+      primaryColor: true,
+      accentColor: true,
+    },
   });
-  if (!org) return NextResponse.json({ error: 'No organization' }, { status: 404 });
+  if (!org)
+    return NextResponse.json({ error: "No organization" }, { status: 404 });
 
   // 1. Re-run pre-flight (defence-in-depth)
   const checks = await runAllChecks(org.id);
-  const reds = checks.filter((c) => c.status === 'red');
+  const reds = checks.filter((c) => c.status === "red");
   if (reds.length > 0) {
-    return NextResponse.json({ error: 'Pre-flight failed', failedChecks: reds.map((c) => c.capability) }, { status: 400 });
+    return NextResponse.json(
+      {
+        error: "Pre-flight failed",
+        failedChecks: reds.map((c) => c.capability),
+      },
+      { status: 400 },
+    );
   }
 
   // 2-6 transactional
@@ -2154,15 +2461,19 @@ export async function POST() {
 
     // Seed sample client + report
     const sampleClient = await tx.client.create({
-      data: { organizationId: org.id, name: 'Sample Inspection Site', isSample: true },
+      data: {
+        organizationId: org.id,
+        name: "Sample Inspection Site",
+        isSample: true,
+      },
     });
     await tx.report.create({
       data: {
         organizationId: org.id,
         clientId: sampleClient.id,
-        status: 'DRAFT',
+        status: "DRAFT",
         isSample: true,
-        title: 'Sample S500 Report',
+        title: "Sample S500 Report",
       },
     });
 
@@ -2204,6 +2515,7 @@ git commit -m "feat(setup): POST /api/setup/activate — transactional finalisat
 ### Task 18: Middleware gate
 
 **Files:**
+
 - Modify: `middleware.ts`
 
 - [ ] **Step 1: Read existing middleware to preserve patterns**
@@ -2218,10 +2530,10 @@ Add to the existing matcher logic (do NOT remove the `needsOnboarding` check —
 
 ```typescript
 // middleware.ts (additions)
-import { NextResponse, type NextRequest } from 'next/server';
-import { getToken } from 'next-auth/jwt';
+import { NextResponse, type NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
 
-const SETUP_WHITELIST = ['/setup', '/api/setup/', '/api/auth/', '/api/cron/'];
+const SETUP_WHITELIST = ["/setup", "/api/setup/", "/api/auth/", "/api/cron/"];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -2236,14 +2548,14 @@ export async function middleware(req: NextRequest) {
   if (!token?.sub) return NextResponse.next();
 
   // Owner/admin gate
-  if (token.role === 'OWNER' || token.role === 'ADMIN') {
+  if (token.role === "OWNER" || token.role === "ADMIN") {
     if (!token.setupCompletedAt) {
-      return NextResponse.redirect(new URL('/setup', req.url));
+      return NextResponse.redirect(new URL("/setup", req.url));
     }
   }
   // Technician gate (sub-project #2 — placeholder)
-  if (token.role === 'TECHNICIAN' && !token.techOnboardedAt) {
-    return NextResponse.redirect(new URL('/onboarding/technician', req.url));
+  if (token.role === "TECHNICIAN" && !token.techOnboardedAt) {
+    return NextResponse.redirect(new URL("/onboarding/technician", req.url));
   }
 
   return NextResponse.next();
@@ -2290,6 +2602,7 @@ git commit -m "feat(setup): middleware gate redirects owner/admin to /setup unti
 ### Task 19: Stop auto-seeding sample data in /api/auth/register
 
 **Files:**
+
 - Modify: `app/api/auth/register/route.ts`
 
 - [ ] **Step 1: Read the register route**
@@ -2326,6 +2639,7 @@ git commit -m "refactor(setup): defer sample data seeding from register → acti
 ### Task 20: Zustand store for setup page
 
 **Files:**
+
 - Create: `components/setup/store.ts`
 - Test: `components/setup/__tests__/store.test.ts`
 
@@ -2335,18 +2649,18 @@ A typed store: section states + Organization snapshot + SSE message handler.
 
 ```typescript
 // components/setup/__tests__/store.test.ts
-import { describe, expect, it } from 'vitest';
-import { useSetupStore } from '../store';
+import { describe, expect, it } from "vitest";
+import { useSetupStore } from "../store";
 
-describe('useSetupStore', () => {
-  it('starts with all sections pending', () => {
+describe("useSetupStore", () => {
+  it("starts with all sections pending", () => {
     const { sections } = useSetupStore.getState();
-    expect(sections.businessDetails).toBe('pending');
+    expect(sections.businessDetails).toBe("pending");
   });
 
-  it('updates a section status', () => {
-    useSetupStore.getState().setSectionStatus('businessDetails', 'running');
-    expect(useSetupStore.getState().sections.businessDetails).toBe('running');
+  it("updates a section status", () => {
+    useSetupStore.getState().setSectionStatus("businessDetails", "running");
+    expect(useSetupStore.getState().sections.businessDetails).toBe("running");
   });
 });
 ```
@@ -2363,10 +2677,15 @@ Expected: FAIL.
 
 ```typescript
 // components/setup/store.ts
-import { create } from 'zustand';
-import type { HydrationState } from '@/lib/setup/hydration-state-machine';
+import { create } from "zustand";
+import type { HydrationState } from "@/lib/setup/hydration-state-machine";
 
-type SectionKey = 'businessDetails' | 'branding' | 'pricing' | 'storage' | 'integrations';
+type SectionKey =
+  | "businessDetails"
+  | "branding"
+  | "pricing"
+  | "storage"
+  | "integrations";
 
 interface Organization {
   id: string;
@@ -2380,7 +2699,7 @@ interface Organization {
   primaryColor: string | null;
   accentColor: string | null;
   aboutCopy: string | null;
-  tradingStatus: 'ACTIVE' | 'PRE_TRADING';
+  tradingStatus: "ACTIVE" | "PRE_TRADING";
 }
 
 interface SetupState {
@@ -2388,21 +2707,26 @@ interface SetupState {
   sections: Record<SectionKey, HydrationState>;
   setOrg: (org: Organization) => void;
   setSectionStatus: (key: SectionKey, status: HydrationState) => void;
-  updateOrgField: <K extends keyof Organization>(key: K, value: Organization[K]) => void;
+  updateOrgField: <K extends keyof Organization>(
+    key: K,
+    value: Organization[K],
+  ) => void;
 }
 
 export const useSetupStore = create<SetupState>((set) => ({
   org: null,
   sections: {
-    businessDetails: 'pending',
-    branding: 'pending',
-    pricing: 'pending',
-    storage: 'pending',
-    integrations: 'pending',
+    businessDetails: "pending",
+    branding: "pending",
+    pricing: "pending",
+    storage: "pending",
+    integrations: "pending",
   },
   setOrg: (org) => set({ org }),
-  setSectionStatus: (key, status) => set((s) => ({ sections: { ...s.sections, [key]: status } })),
-  updateOrgField: (key, value) => set((s) => (s.org ? { org: { ...s.org, [key]: value } } : s)),
+  setSectionStatus: (key, status) =>
+    set((s) => ({ sections: { ...s.sections, [key]: status } })),
+  updateOrgField: (key, value) =>
+    set((s) => (s.org ? { org: { ...s.org, [key]: value } } : s)),
 }));
 ```
 
@@ -2426,6 +2750,7 @@ git commit -m "feat(setup): Zustand store for /setup page"
 ### Task 21: SetupShell (server component + SSE bridge)
 
 **Files:**
+
 - Create: `components/setup/SetupShell.tsx`
 - Create: `components/setup/SetupHydrator.tsx` (client component for SSE)
 - Create: `app/setup/page.tsx`
@@ -2468,15 +2793,15 @@ export default function Loading() {
 
 ```tsx
 // components/setup/SetupShell.tsx
-'use client';
-import { useEffect } from 'react';
-import { useSetupStore } from './store';
-import { BusinessDetailsCard } from './BusinessDetailsCard';
-import { BrandCard } from './BrandCard';
-import { PricingCard } from './PricingCard';
-import { StorageCard } from './StorageCard';
-import { IntegrationsCard } from './IntegrationsCard';
-import { FeatureHealthCard } from './FeatureHealthCard';
+"use client";
+import { useEffect } from "react";
+import { useSetupStore } from "./store";
+import { BusinessDetailsCard } from "./BusinessDetailsCard";
+import { BrandCard } from "./BrandCard";
+import { PricingCard } from "./PricingCard";
+import { StorageCard } from "./StorageCard";
+import { IntegrationsCard } from "./IntegrationsCard";
+import { FeatureHealthCard } from "./FeatureHealthCard";
 
 export function SetupShell({ initial }: { initial: any }) {
   const setOrg = useSetupStore((s) => s.setOrg);
@@ -2485,19 +2810,32 @@ export function SetupShell({ initial }: { initial: any }) {
   useEffect(() => {
     setOrg(initial);
     for (const job of initial.hydrationJobs ?? []) {
-      const key = job.kind === 'ABR' ? 'businessDetails' : job.kind === 'WEBSITE' ? 'branding' : 'pricing';
+      const key =
+        job.kind === "ABR"
+          ? "businessDetails"
+          : job.kind === "WEBSITE"
+            ? "branding"
+            : "pricing";
       setSectionStatus(key, job.status.toLowerCase() as any);
     }
 
-    const es = new EventSource('/api/setup/hydrate/stream');
+    const es = new EventSource("/api/setup/hydrate/stream");
     es.onmessage = (e) => {
-      const jobs: Array<{ kind: string; status: string; payload?: any }> = JSON.parse(e.data);
+      const jobs: Array<{ kind: string; status: string; payload?: any }> =
+        JSON.parse(e.data);
       for (const job of jobs) {
-        const key = job.kind === 'ABR' ? 'businessDetails' : job.kind === 'WEBSITE' ? 'branding' : 'pricing';
+        const key =
+          job.kind === "ABR"
+            ? "businessDetails"
+            : job.kind === "WEBSITE"
+              ? "branding"
+              : "pricing";
         setSectionStatus(key, job.status.toLowerCase() as any);
-        if (job.status === 'READY' && job.payload) {
+        if (job.status === "READY" && job.payload) {
           // Re-fetch state for canonical snapshot
-          fetch('/api/setup/state').then((r) => r.json()).then((data) => setOrg(data.data.organization));
+          fetch("/api/setup/state")
+            .then((r) => r.json())
+            .then((data) => setOrg(data.data.organization));
         }
       }
     };
@@ -2507,7 +2845,9 @@ export function SetupShell({ initial }: { initial: any }) {
   return (
     <main className="max-w-2xl mx-auto py-10 px-4 space-y-6">
       <h1 className="text-3xl font-semibold">Let's get you set up</h1>
-      <p className="text-muted-foreground">Enter your ABN below — we'll do the rest.</p>
+      <p className="text-muted-foreground">
+        Enter your ABN below — we'll do the rest.
+      </p>
       <BusinessDetailsCard />
       <BrandCard />
       <PricingCard />
@@ -2515,7 +2855,12 @@ export function SetupShell({ initial }: { initial: any }) {
       <IntegrationsCard />
       <FeatureHealthCard />
       <div className="text-center text-xs text-muted-foreground pt-8">
-        <button className="underline opacity-60 hover:opacity-100" onClick={() => { /* show manual confirm modal */ }}>
+        <button
+          className="underline opacity-60 hover:opacity-100"
+          onClick={() => {
+            /* show manual confirm modal */
+          }}
+        >
           Skip to manual setup
         </button>
       </div>
@@ -2536,6 +2881,7 @@ git commit -m "feat(setup): page shell + SSE-driven Zustand bridge"
 ### Task 22: BusinessDetailsCard component
 
 **Files:**
+
 - Create: `components/setup/BusinessDetailsCard.tsx`
 - Test: `components/setup/__tests__/BusinessDetailsCard.test.tsx`
 
@@ -2543,20 +2889,22 @@ git commit -m "feat(setup): page shell + SSE-driven Zustand bridge"
 
 ```tsx
 // components/setup/__tests__/BusinessDetailsCard.test.tsx
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
-import { BusinessDetailsCard } from '../BusinessDetailsCard';
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+import { BusinessDetailsCard } from "../BusinessDetailsCard";
 
-describe('BusinessDetailsCard', () => {
-  it('shows the ABN input when pending', () => {
+describe("BusinessDetailsCard", () => {
+  it("shows the ABN input when pending", () => {
     render(<BusinessDetailsCard />);
     expect(screen.getByPlaceholderText(/abn/i)).toBeInTheDocument();
   });
 
-  it('disables the submit on invalid ABN', () => {
+  it("disables the submit on invalid ABN", () => {
     render(<BusinessDetailsCard />);
-    fireEvent.change(screen.getByPlaceholderText(/abn/i), { target: { value: '123' } });
-    expect(screen.getByRole('button', { name: /start/i })).toBeDisabled();
+    fireEvent.change(screen.getByPlaceholderText(/abn/i), {
+      target: { value: "123" },
+    });
+    expect(screen.getByRole("button", { name: /start/i })).toBeDisabled();
   });
 });
 ```
@@ -2573,28 +2921,28 @@ Expected: FAIL.
 
 ```tsx
 // components/setup/BusinessDetailsCard.tsx
-'use client';
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { useSetupStore } from './store';
-import { isValidAbn, normaliseAbn } from '@/lib/abn/checksum';
+"use client";
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useSetupStore } from "./store";
+import { isValidAbn, normaliseAbn } from "@/lib/abn/checksum";
 
 export function BusinessDetailsCard() {
   const status = useSetupStore((s) => s.sections.businessDetails);
   const org = useSetupStore((s) => s.org);
   const setSectionStatus = useSetupStore((s) => s.setSectionStatus);
-  const [abn, setAbn] = useState(org?.abn ?? '');
-  const [website, setWebsite] = useState('');
+  const [abn, setAbn] = useState(org?.abn ?? "");
+  const [website, setWebsite] = useState("");
 
   const submit = async () => {
-    setSectionStatus('businessDetails', 'running');
-    setSectionStatus('branding', website ? 'running' : 'manual');
-    setSectionStatus('pricing', 'running');
-    await fetch('/api/setup/hydrate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    setSectionStatus("businessDetails", "running");
+    setSectionStatus("branding", website ? "running" : "manual");
+    setSectionStatus("pricing", "running");
+    await fetch("/api/setup/hydrate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ abn, website: website || undefined }),
     });
   };
@@ -2605,26 +2953,48 @@ export function BusinessDetailsCard() {
         <CardTitle>Business details</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {status === 'pending' && (
+        {status === "pending" && (
           <>
-            <Input placeholder="ABN (11 digits)" value={abn} onChange={(e) => setAbn(e.target.value)} />
-            <Input placeholder="Website URL (optional)" value={website} onChange={(e) => setWebsite(e.target.value)} />
-            <Button onClick={submit} disabled={!isValidAbn(abn)} aria-label="Start setup">Start setup</Button>
+            <Input
+              placeholder="ABN (11 digits)"
+              value={abn}
+              onChange={(e) => setAbn(e.target.value)}
+            />
+            <Input
+              placeholder="Website URL (optional)"
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)}
+            />
+            <Button
+              onClick={submit}
+              disabled={!isValidAbn(abn)}
+              aria-label="Start setup"
+            >
+              Start setup
+            </Button>
           </>
         )}
-        {status === 'running' && <div className="animate-pulse">Looking up your business…</div>}
-        {status === 'ready' && org && (
+        {status === "running" && (
+          <div className="animate-pulse">Looking up your business…</div>
+        )}
+        {status === "ready" && org && (
           <dl className="grid grid-cols-2 gap-y-2 text-sm">
-            <dt className="text-muted-foreground">Legal name</dt><dd>{org.legalName}</dd>
-            <dt className="text-muted-foreground">Trading name</dt><dd>{org.tradingName || '—'}</dd>
-            <dt className="text-muted-foreground">ABN</dt><dd>{org.abn}</dd>
-            <dt className="text-muted-foreground">ACN</dt><dd>{org.acn || '—'}</dd>
-            <dt className="text-muted-foreground">State</dt><dd>{org.state}</dd>
+            <dt className="text-muted-foreground">Legal name</dt>
+            <dd>{org.legalName}</dd>
+            <dt className="text-muted-foreground">Trading name</dt>
+            <dd>{org.tradingName || "—"}</dd>
+            <dt className="text-muted-foreground">ABN</dt>
+            <dd>{org.abn}</dd>
+            <dt className="text-muted-foreground">ACN</dt>
+            <dd>{org.acn || "—"}</dd>
+            <dt className="text-muted-foreground">State</dt>
+            <dd>{org.state}</dd>
           </dl>
         )}
-        {status === 'error' && (
+        {status === "error" && (
           <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
-            We couldn't reach the Business Register. Fill in your details and we'll re-try in the background.
+            We couldn't reach the Business Register. Fill in your details and
+            we'll re-try in the background.
             {/* manual form fields here, same fields as 'ready' state, all editable */}
           </div>
         )}
@@ -2654,6 +3024,7 @@ git commit -m "feat(setup): BusinessDetailsCard with ABN entry + hydration trigg
 ### Task 23: BrandCard component
 
 **Files:**
+
 - Create: `components/setup/BrandCard.tsx`
 - Test: `components/setup/__tests__/BrandCard.test.tsx`
 
@@ -2665,12 +3036,30 @@ Shows logo preview + colour swatches + about textarea. Edits write back to `Orga
 // app/api/setup/state/route.ts (add to existing file)
 export async function PATCH(req: Request) {
   const session = await getServerSession();
-  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!session?.user?.id)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await req.json();
-  const org = await prisma.organization.findFirst({ where: { ownerId: session.user.id }, select: { id: true } });
-  if (!org) return NextResponse.json({ error: 'No organization' }, { status: 404 });
+  const org = await prisma.organization.findFirst({
+    where: { ownerId: session.user.id },
+    select: { id: true },
+  });
+  if (!org)
+    return NextResponse.json({ error: "No organization" }, { status: 404 });
 
-  const allowed = ['legalName','tradingName','acn','state','address','phone','email','website','logoUrl','primaryColor','accentColor','aboutCopy'] as const;
+  const allowed = [
+    "legalName",
+    "tradingName",
+    "acn",
+    "state",
+    "address",
+    "phone",
+    "email",
+    "website",
+    "logoUrl",
+    "primaryColor",
+    "accentColor",
+    "aboutCopy",
+  ] as const;
   const data: Record<string, unknown> = {};
   for (const k of allowed) if (k in body) data[k] = body[k];
   await prisma.organization.update({ where: { id: org.id }, data });
@@ -2682,12 +3071,12 @@ export async function PATCH(req: Request) {
 
 ```tsx
 // components/setup/__tests__/BrandCard.test.tsx
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
-import { BrandCard } from '../BrandCard';
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+import { BrandCard } from "../BrandCard";
 
-describe('BrandCard', () => {
-  it('renders manual upload UI when status is manual', () => {
+describe("BrandCard", () => {
+  it("renders manual upload UI when status is manual", () => {
     // ... seed store with manual state ...
     render(<BrandCard />);
     expect(screen.getByText(/upload/i)).toBeInTheDocument();
@@ -2699,9 +3088,9 @@ describe('BrandCard', () => {
 
 ```tsx
 // components/setup/BrandCard.tsx
-'use client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useSetupStore } from './store';
+"use client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useSetupStore } from "./store";
 
 export function BrandCard() {
   const status = useSetupStore((s) => s.sections.branding);
@@ -2709,29 +3098,66 @@ export function BrandCard() {
   const update = useSetupStore((s) => s.updateOrgField);
 
   const save = async (field: string, value: any) => {
-    await fetch('/api/setup/state', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ [field]: value }) });
+    await fetch("/api/setup/state", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [field]: value }),
+    });
   };
 
   return (
     <Card>
-      <CardHeader><CardTitle>Your brand</CardTitle></CardHeader>
+      <CardHeader>
+        <CardTitle>Your brand</CardTitle>
+      </CardHeader>
       <CardContent className="space-y-4">
-        {status === 'pending' && <div className="text-muted-foreground">Waiting for your ABN…</div>}
-        {status === 'running' && <div className="animate-pulse">Pulling logo and colours from your website…</div>}
-        {(status === 'ready' || status === 'manual') && (
+        {status === "pending" && (
+          <div className="text-muted-foreground">Waiting for your ABN…</div>
+        )}
+        {status === "running" && (
+          <div className="animate-pulse">
+            Pulling logo and colours from your website…
+          </div>
+        )}
+        {(status === "ready" || status === "manual") && (
           <div className="flex gap-4 items-start">
             <div className="w-24 h-24 rounded-md bg-muted flex items-center justify-center overflow-hidden">
-              {org?.logoUrl ? <img src={org.logoUrl} alt="Logo" className="w-full h-full object-contain" /> : <span className="text-xs text-muted-foreground">No logo</span>}
+              {org?.logoUrl ? (
+                <img
+                  src={org.logoUrl}
+                  alt="Logo"
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <span className="text-xs text-muted-foreground">No logo</span>
+              )}
             </div>
             <div className="flex-1 space-y-2">
               <div className="flex gap-2">
-                <ColorSwatch hex={org?.primaryColor} label="Primary" onChange={(v) => { update('primaryColor', v); save('primaryColor', v); }} />
-                <ColorSwatch hex={org?.accentColor} label="Accent"   onChange={(v) => { update('accentColor', v);   save('accentColor', v); }} />
+                <ColorSwatch
+                  hex={org?.primaryColor}
+                  label="Primary"
+                  onChange={(v) => {
+                    update("primaryColor", v);
+                    save("primaryColor", v);
+                  }}
+                />
+                <ColorSwatch
+                  hex={org?.accentColor}
+                  label="Accent"
+                  onChange={(v) => {
+                    update("accentColor", v);
+                    save("accentColor", v);
+                  }}
+                />
               </div>
               <textarea
                 className="w-full rounded-md border px-3 py-2 text-sm"
-                value={org?.aboutCopy ?? ''}
-                onChange={(e) => { update('aboutCopy', e.target.value); save('aboutCopy', e.target.value); }}
+                value={org?.aboutCopy ?? ""}
+                onChange={(e) => {
+                  update("aboutCopy", e.target.value);
+                  save("aboutCopy", e.target.value);
+                }}
                 placeholder="A paragraph about your business…"
               />
             </div>
@@ -2742,10 +3168,23 @@ export function BrandCard() {
   );
 }
 
-function ColorSwatch({ hex, label, onChange }: { hex?: string | null; label: string; onChange: (v: string) => void }) {
+function ColorSwatch({
+  hex,
+  label,
+  onChange,
+}: {
+  hex?: string | null;
+  label: string;
+  onChange: (v: string) => void;
+}) {
   return (
     <label className="flex flex-col items-center gap-1 text-xs">
-      <input type="color" value={hex ?? '#1C2E47'} onChange={(e) => onChange(e.target.value)} className="h-10 w-10 rounded" />
+      <input
+        type="color"
+        value={hex ?? "#1C2E47"}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-10 w-10 rounded"
+      />
       <span>{label}</span>
     </label>
   );
@@ -2772,6 +3211,7 @@ git commit -m "feat(setup): BrandCard + PATCH /api/setup/state for live edits"
 ### Task 24: PricingCard component
 
 **Files:**
+
 - Create: `components/setup/PricingCard.tsx`
 - Create: `app/api/setup/pricing/route.ts` (PATCH for pricing fields)
 - Test: `components/setup/__tests__/PricingCard.test.tsx`
@@ -2780,16 +3220,21 @@ git commit -m "feat(setup): BrandCard + PATCH /api/setup/state for live edits"
 
 ```typescript
 // app/api/setup/pricing/route.ts
-import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { prisma } from '@/lib/prisma';
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { prisma } from "@/lib/prisma";
 
 export async function PATCH(req: Request) {
   const session = await getServerSession();
-  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!session?.user?.id)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await req.json();
-  const org = await prisma.organization.findFirst({ where: { ownerId: session.user.id }, select: { id: true } });
-  if (!org) return NextResponse.json({ error: 'No organization' }, { status: 404 });
+  const org = await prisma.organization.findFirst({
+    where: { ownerId: session.user.id },
+    select: { id: true },
+  });
+  if (!org)
+    return NextResponse.json({ error: "No organization" }, { status: 404 });
 
   await prisma.organizationPricingConfig.upsert({
     where: { organizationId: org.id },
@@ -2804,21 +3249,21 @@ export async function PATCH(req: Request) {
 
 ```tsx
 // components/setup/PricingCard.tsx
-'use client';
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { useSetupStore } from './store';
+"use client";
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { useSetupStore } from "./store";
 
 const COMPACT_ROWS = [
-  { key: 'masterQualifiedNormalHours',     label: 'Master Tech / hour' },
-  { key: 'qualifiedTechnicianNormalHours', label: 'Qualified Tech / hour' },
-  { key: 'labourerNormalHours',            label: 'Labourer / hour' },
-  { key: 'airMoverAxialPerDay',            label: 'Air mover (axial) / day' },
-  { key: 'dehumidifierLgrPerDay',          label: 'Dehumidifier (LGR) / day' },
-  { key: 'administrationFee',              label: 'Admin fee' },
-  { key: 'callOutFee',                     label: 'Call-out fee' },
-  { key: 'afterHoursMultiplier',           label: 'After-hours multiplier' },
+  { key: "masterQualifiedNormalHours", label: "Master Tech / hour" },
+  { key: "qualifiedTechnicianNormalHours", label: "Qualified Tech / hour" },
+  { key: "labourerNormalHours", label: "Labourer / hour" },
+  { key: "airMoverAxialPerDay", label: "Air mover (axial) / day" },
+  { key: "dehumidifierLgrPerDay", label: "Dehumidifier (LGR) / day" },
+  { key: "administrationFee", label: "Admin fee" },
+  { key: "callOutFee", label: "Call-out fee" },
+  { key: "afterHoursMultiplier", label: "After-hours multiplier" },
 ] as const;
 
 export function PricingCard() {
@@ -2826,17 +3271,28 @@ export function PricingCard() {
   const [expanded, setExpanded] = useState(false);
 
   const save = (key: string, value: number) =>
-    fetch('/api/setup/pricing', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ [key]: value }) });
+    fetch("/api/setup/pricing", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [key]: value }),
+    });
 
   return (
     <Card>
-      <CardHeader><CardTitle>Your pricing structure</CardTitle></CardHeader>
+      <CardHeader>
+        <CardTitle>Your pricing structure</CardTitle>
+      </CardHeader>
       <CardContent>
-        {status !== 'ready' && status !== 'manual' && <div className="animate-pulse">Calculating defaults for your state…</div>}
-        {(status === 'ready' || status === 'manual') && (
+        {status !== "ready" && status !== "manual" && (
+          <div className="animate-pulse">
+            Calculating defaults for your state…
+          </div>
+        )}
+        {(status === "ready" || status === "manual") && (
           <>
             <p className="text-sm text-muted-foreground mb-4">
-              We've prefilled industry defaults based on your state and business size. Adjust as needed.
+              We've prefilled industry defaults based on your state and business
+              size. Adjust as needed.
             </p>
             <table className="w-full text-sm">
               <tbody>
@@ -2847,7 +3303,9 @@ export function PricingCard() {
                       <input
                         type="number"
                         defaultValue={0}
-                        onBlur={(e) => save(row.key, parseFloat(e.target.value))}
+                        onBlur={(e) =>
+                          save(row.key, parseFloat(e.target.value))
+                        }
                         className="w-24 rounded-md border px-2 py-1 text-right"
                       />
                     </td>
@@ -2855,10 +3313,20 @@ export function PricingCard() {
                 ))}
               </tbody>
             </table>
-            <Button variant="ghost" size="sm" className="mt-4" onClick={() => setExpanded((v) => !v)}>
-              {expanded ? 'Hide all rates' : 'Show all rates'}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mt-4"
+              onClick={() => setExpanded((v) => !v)}
+            >
+              {expanded ? "Hide all rates" : "Show all rates"}
             </Button>
-            {expanded && <div className="mt-4 text-sm text-muted-foreground">(Full ~30-field config — engineer to add all rows from `lib/pricing/defaults-au.ts`)</div>}
+            {expanded && (
+              <div className="mt-4 text-sm text-muted-foreground">
+                (Full ~30-field config — engineer to add all rows from
+                `lib/pricing/defaults-au.ts`)
+              </div>
+            )}
           </>
         )}
       </CardContent>
@@ -2883,6 +3351,7 @@ git commit -m "feat(setup): PricingCard with compact rate table + expander"
 ### Task 25: StorageCard component
 
 **Files:**
+
 - Create: `components/setup/StorageCard.tsx`
 
 Three buttons: Google Drive, OneDrive (disabled), Keep it local. Drive button kicks off existing OAuth flow.
@@ -2891,28 +3360,61 @@ Three buttons: Google Drive, OneDrive (disabled), Keep it local. Drive button ki
 
 ```tsx
 // components/setup/StorageCard.tsx
-'use client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { useSetupStore } from './store';
+"use client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { useSetupStore } from "./store";
 
 export function StorageCard() {
   const choice = useSetupStore((s) => (s.org as any)?.cloudStorage ?? null);
   return (
     <Card>
-      <CardHeader><CardTitle>Cloud storage</CardTitle></CardHeader>
+      <CardHeader>
+        <CardTitle>Cloud storage</CardTitle>
+      </CardHeader>
       <CardContent className="grid grid-cols-3 gap-3">
-        <StorageButton label="Google Drive" onClick={() => window.location.href = '/api/oauth/google-drive/start'} active={choice === 'drive'} />
+        <StorageButton
+          label="Google Drive"
+          onClick={() =>
+            (window.location.href = "/api/oauth/google-drive/start")
+          }
+          active={choice === "drive"}
+        />
         <StorageButton label="OneDrive (soon)" disabled />
-        <StorageButton label="Keep it local" onClick={() => fetch('/api/setup/state', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cloudStorage: 'local' }) })} active={choice === 'local'} />
+        <StorageButton
+          label="Keep it local"
+          onClick={() =>
+            fetch("/api/setup/state", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ cloudStorage: "local" }),
+            })
+          }
+          active={choice === "local"}
+        />
       </CardContent>
     </Card>
   );
 }
 
-function StorageButton({ label, onClick, disabled, active }: { label: string; onClick?: () => void; disabled?: boolean; active?: boolean }) {
+function StorageButton({
+  label,
+  onClick,
+  disabled,
+  active,
+}: {
+  label: string;
+  onClick?: () => void;
+  disabled?: boolean;
+  active?: boolean;
+}) {
   return (
-    <Button variant={active ? 'default' : 'outline'} disabled={disabled} onClick={onClick} className="h-20 whitespace-normal text-sm">
+    <Button
+      variant={active ? "default" : "outline"}
+      disabled={disabled}
+      onClick={onClick}
+      className="h-20 whitespace-normal text-sm"
+    >
       {label}
     </Button>
   );
@@ -2931,6 +3433,7 @@ git commit -m "feat(setup): StorageCard (Drive / OneDrive-soon / Local)"
 ### Task 26: IntegrationsCard component
 
 **Files:**
+
 - Create: `components/setup/IntegrationsCard.tsx`
 
 Reuses cards from existing `/app/dashboard/integrations/page.tsx`. Collapsible "BYOK AI keys (optional)" at bottom.
@@ -2939,17 +3442,29 @@ Reuses cards from existing `/app/dashboard/integrations/page.tsx`. Collapsible "
 
 ```tsx
 // components/setup/IntegrationsCard.tsx
-'use client';
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+"use client";
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 const PROVIDERS = [
-  { key: 'xero',        name: 'Xero',         startUrl: '/api/oauth/xero/start?onboarding=1' },
-  { key: 'myob',        name: 'MYOB',         startUrl: '/api/oauth/myob/start?onboarding=1' },
-  { key: 'quickbooks',  name: 'QuickBooks',   startUrl: '/api/oauth/quickbooks/start?onboarding=1' },
-  { key: 'servicem8',   name: 'ServiceM8',    startUrl: '/api/oauth/servicem8/start?onboarding=1' },
-  { key: 'ascora',      name: 'Ascora',       startUrl: '/dashboard/integrations?provider=ascora' },
+  { key: "xero", name: "Xero", startUrl: "/api/oauth/xero/start?onboarding=1" },
+  { key: "myob", name: "MYOB", startUrl: "/api/oauth/myob/start?onboarding=1" },
+  {
+    key: "quickbooks",
+    name: "QuickBooks",
+    startUrl: "/api/oauth/quickbooks/start?onboarding=1",
+  },
+  {
+    key: "servicem8",
+    name: "ServiceM8",
+    startUrl: "/api/oauth/servicem8/start?onboarding=1",
+  },
+  {
+    key: "ascora",
+    name: "Ascora",
+    startUrl: "/dashboard/integrations?provider=ascora",
+  },
 ];
 
 export function IntegrationsCard() {
@@ -2958,21 +3473,42 @@ export function IntegrationsCard() {
     <Card>
       <CardHeader>
         <CardTitle>Connect your existing tools</CardTitle>
-        <p className="text-sm text-muted-foreground">All optional. You can do this later from Settings.</p>
+        <p className="text-sm text-muted-foreground">
+          All optional. You can do this later from Settings.
+        </p>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {PROVIDERS.map((p) => (
-            <Button key={p.key} variant="outline" onClick={() => window.location.href = p.startUrl} className="h-16">{p.name}</Button>
+            <Button
+              key={p.key}
+              variant="outline"
+              onClick={() => (window.location.href = p.startUrl)}
+              className="h-16"
+            >
+              {p.name}
+            </Button>
           ))}
         </div>
-        <Button variant="ghost" size="sm" onClick={() => setByokOpen((v) => !v)}>
-          {byokOpen ? 'Hide' : 'BYOK AI keys (optional)'}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setByokOpen((v) => !v)}
+        >
+          {byokOpen ? "Hide" : "BYOK AI keys (optional)"}
         </Button>
         {byokOpen && (
           <div className="text-sm">
             Want better AI than our default? Add a key.
-            <Button variant="link" onClick={() => window.location.href = '/dashboard/settings/ai-providers?onboarding=1'}>Manage keys →</Button>
+            <Button
+              variant="link"
+              onClick={() =>
+                (window.location.href =
+                  "/dashboard/settings/ai-providers?onboarding=1")
+              }
+            >
+              Manage keys →
+            </Button>
           </div>
         )}
       </CardContent>
@@ -2993,6 +3529,7 @@ git commit -m "feat(setup): IntegrationsCard reusing existing OAuth flows + BYOK
 ### Task 27: FeatureHealthCard component
 
 **Files:**
+
 - Create: `components/setup/FeatureHealthCard.tsx`
 
 Polls `/api/setup/checks` every 5s while visible. Shows row list + Activate button.
@@ -3001,11 +3538,11 @@ Polls `/api/setup/checks` every 5s while visible. Shows row list + Activate butt
 
 ```tsx
 // components/setup/FeatureHealthCard.tsx
-'use client';
-import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import type { CheckResult } from '@/lib/setup/checks';
+"use client";
+import { useEffect, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import type { CheckResult } from "@/lib/setup/checks";
 
 export function FeatureHealthCard() {
   const [checks, setChecks] = useState<CheckResult[]>([]);
@@ -3014,22 +3551,25 @@ export function FeatureHealthCard() {
   useEffect(() => {
     let cancelled = false;
     const tick = async () => {
-      const r = await fetch('/api/setup/checks');
+      const r = await fetch("/api/setup/checks");
       const j = await r.json();
       if (!cancelled) setChecks(j.data.checks);
     };
     tick();
     const id = setInterval(tick, 5000);
-    return () => { cancelled = true; clearInterval(id); };
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
   }, []);
 
-  const reds = checks.filter((c) => c.status === 'red');
-  const yellows = checks.filter((c) => c.status === 'yellow');
+  const reds = checks.filter((c) => c.status === "red");
+  const yellows = checks.filter((c) => c.status === "yellow");
 
   const activate = async () => {
     setActivating(true);
-    const r = await fetch('/api/setup/activate', { method: 'POST' });
-    if (r.ok) window.location.href = '/dashboard?firstRun=1';
+    const r = await fetch("/api/setup/activate", { method: "POST" });
+    if (r.ok) window.location.href = "/dashboard?firstRun=1";
     else setActivating(false);
   };
 
@@ -3038,32 +3578,54 @@ export function FeatureHealthCard() {
       <CardHeader>
         <CardTitle>Workspace health</CardTitle>
         <p className="text-sm text-muted-foreground">
-          {checks.length > 0 && `${checks.filter((c) => c.status === 'green').length} of ${checks.length} capabilities verified · ${yellows.length} optional skipped · ${reds.length} need attention`}
+          {checks.length > 0 &&
+            `${checks.filter((c) => c.status === "green").length} of ${checks.length} capabilities verified · ${yellows.length} optional skipped · ${reds.length} need attention`}
         </p>
       </CardHeader>
       <CardContent className="space-y-3">
         {checks.map((c) => (
-          <div key={c.capability} className="flex items-center justify-between text-sm">
+          <div
+            key={c.capability}
+            className="flex items-center justify-between text-sm"
+          >
             <span className="flex items-center gap-2">
               <StatusPill status={c.status} /> {c.label}
             </span>
-            {c.note && <span className="text-muted-foreground text-xs">{c.note}</span>}
+            {c.note && (
+              <span className="text-muted-foreground text-xs">{c.note}</span>
+            )}
           </div>
         ))}
-        <Button size="lg" className="w-full" disabled={reds.length > 0 || activating} onClick={activate}>
-          {activating ? 'Activating…' : 'Activate my workspace'}
+        <Button
+          size="lg"
+          className="w-full"
+          disabled={reds.length > 0 || activating}
+          onClick={activate}
+        >
+          {activating ? "Activating…" : "Activate my workspace"}
         </Button>
         {yellows.length > 0 && reds.length === 0 && (
-          <p className="text-xs text-muted-foreground">You can activate now and connect {yellows.map((y) => y.label).join(', ')} later from Settings.</p>
+          <p className="text-xs text-muted-foreground">
+            You can activate now and connect{" "}
+            {yellows.map((y) => y.label).join(", ")} later from Settings.
+          </p>
         )}
       </CardContent>
     </Card>
   );
 }
 
-function StatusPill({ status }: { status: 'green' | 'yellow' | 'red' }) {
-  const colors = { green: 'bg-green-500', yellow: 'bg-yellow-500', red: 'bg-red-500' };
-  return <span className={`inline-block w-2.5 h-2.5 rounded-full ${colors[status]}`} />;
+function StatusPill({ status }: { status: "green" | "yellow" | "red" }) {
+  const colors = {
+    green: "bg-green-500",
+    yellow: "bg-yellow-500",
+    red: "bg-red-500",
+  };
+  return (
+    <span
+      className={`inline-block w-2.5 h-2.5 rounded-full ${colors[status]}`}
+    />
+  );
 }
 ```
 
@@ -3079,6 +3641,7 @@ git commit -m "feat(setup): FeatureHealthCard with live polling + Activate butto
 ### Task 28: Workspace Health widget at /dashboard/settings/health
 
 **Files:**
+
 - Create: `app/dashboard/settings/health/page.tsx`
 
 Re-uses the FeatureHealthCard component but without the Activate button (already activated). Shows the persistent capability list.
@@ -3130,6 +3693,7 @@ git commit -m "feat(setup): persistent Workspace Health page reusing FeatureHeal
 ### Task 29: Delete legacy onboarding routes
 
 **Files:**
+
 - Delete: `app/dashboard/onboarding/`
 - Delete: `app/api/onboarding/first-run/`
 - Delete: `app/api/onboarding/status/` (state moved to /api/setup/state in Task 15)
@@ -3175,37 +3739,42 @@ git commit -m "chore(setup): remove legacy onboarding routes (now /setup + /api/
 ### Task 30: E2E happy path
 
 **Files:**
+
 - Create: `e2e/setup-happy-path.spec.ts`
 
 - [ ] **Step 1: Write the spec**
 
 ```typescript
 // e2e/setup-happy-path.spec.ts
-import { test, expect } from '@playwright/test';
+import { test, expect } from "@playwright/test";
 
-test('happy path: sign up → enter ABN → all sections green → activate', async ({ page }) => {
+test("happy path: sign up → enter ABN → all sections green → activate", async ({
+  page,
+}) => {
   // 1. Sign up
-  await page.goto('/signup');
+  await page.goto("/signup");
   await page.getByLabel(/email/i).fill(`test-${Date.now()}@e2e.com`);
-  await page.getByLabel(/password/i).fill('password123!');
-  await page.getByRole('button', { name: /sign up/i }).click();
+  await page.getByLabel(/password/i).fill("password123!");
+  await page.getByRole("button", { name: /sign up/i }).click();
 
   // 2. Middleware redirects to /setup
   await expect(page).toHaveURL(/\/setup/);
 
   // 3. Enter test ABN (known to ABR sandbox)
-  await page.getByPlaceholder(/abn/i).fill('53004085616');
-  await page.getByPlaceholder(/website/i).fill('https://example.com');
-  await page.getByRole('button', { name: /start setup/i }).click();
+  await page.getByPlaceholder(/abn/i).fill("53004085616");
+  await page.getByPlaceholder(/website/i).fill("https://example.com");
+  await page.getByRole("button", { name: /start setup/i }).click();
 
   // 4. Wait for business details to hit "ready" (legal name visible)
-  await expect(page.getByText(/BHP GROUP LIMITED/)).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(/BHP GROUP LIMITED/)).toBeVisible({
+    timeout: 15_000,
+  });
 
   // 5. Pricing card visible
   await expect(page.getByText(/master tech \/ hour/i)).toBeVisible();
 
   // 6. Activate
-  await page.getByRole('button', { name: /activate my workspace/i }).click();
+  await page.getByRole("button", { name: /activate my workspace/i }).click();
 
   // 7. Lands on dashboard with firstRun banner
   await expect(page).toHaveURL(/\/dashboard\?firstRun=1/);
@@ -3233,29 +3802,32 @@ git commit -m "test(setup): E2E happy path"
 ### Task 31: E2E ABR-unreachable
 
 **Files:**
+
 - Create: `e2e/setup-abr-unreachable.spec.ts`
 
 - [ ] **Step 1: Write the spec**
 
 ```typescript
 // e2e/setup-abr-unreachable.spec.ts
-import { test, expect } from '@playwright/test';
+import { test, expect } from "@playwright/test";
 
-test('ABR unreachable → manual fallback', async ({ page, context }) => {
+test("ABR unreachable → manual fallback", async ({ page, context }) => {
   // Block ABR network requests
-  await context.route('**/abr.business.gov.au/**', (route) => route.abort());
+  await context.route("**/abr.business.gov.au/**", (route) => route.abort());
 
-  await page.goto('/signup');
+  await page.goto("/signup");
   await page.getByLabel(/email/i).fill(`test-${Date.now()}@e2e.com`);
-  await page.getByLabel(/password/i).fill('password123!');
-  await page.getByRole('button', { name: /sign up/i }).click();
+  await page.getByLabel(/password/i).fill("password123!");
+  await page.getByRole("button", { name: /sign up/i }).click();
   await expect(page).toHaveURL(/\/setup/);
 
-  await page.getByPlaceholder(/abn/i).fill('53004085616');
-  await page.getByRole('button', { name: /start setup/i }).click();
+  await page.getByPlaceholder(/abn/i).fill("53004085616");
+  await page.getByRole("button", { name: /start setup/i }).click();
 
   // Section flips to manual fallback
-  await expect(page.getByText(/couldn't reach the business register/i)).toBeVisible({ timeout: 10_000 });
+  await expect(
+    page.getByText(/couldn't reach the business register/i),
+  ).toBeVisible({ timeout: 10_000 });
 });
 ```
 
@@ -3272,23 +3844,24 @@ git commit -m "test(setup): E2E ABR-unreachable fallback"
 ### Task 32: E2E no-ABN / pre-trading
 
 **Files:**
+
 - Create: `e2e/setup-no-abn.spec.ts`
 
 - [ ] **Step 1: Write the spec**
 
 ```typescript
 // e2e/setup-no-abn.spec.ts
-import { test, expect } from '@playwright/test';
+import { test, expect } from "@playwright/test";
 
-test('no ABN → pre-trading mode', async ({ page }) => {
-  await page.goto('/signup');
+test("no ABN → pre-trading mode", async ({ page }) => {
+  await page.goto("/signup");
   await page.getByLabel(/email/i).fill(`test-${Date.now()}@e2e.com`);
-  await page.getByLabel(/password/i).fill('password123!');
-  await page.getByRole('button', { name: /sign up/i }).click();
+  await page.getByLabel(/password/i).fill("password123!");
+  await page.getByRole("button", { name: /sign up/i }).click();
   await expect(page).toHaveURL(/\/setup/);
 
   await page.getByText(/i don't have an abn/i).click();
-  await page.getByRole('button', { name: /continue without abn/i }).click();
+  await page.getByRole("button", { name: /continue without abn/i }).click();
 
   // Pre-trading flag set; manual fields visible
   await expect(page.getByText(/pre-trading mode/i)).toBeVisible();
@@ -3309,19 +3882,24 @@ git commit -m "test(setup): E2E no-ABN pre-trading flow"
 ### Task 33: E2E website-failure
 
 **Files:**
+
 - Create: `e2e/setup-website-failure.spec.ts`
 
 ```typescript
-import { test, expect } from '@playwright/test';
+import { test, expect } from "@playwright/test";
 
-test('website unreachable → manual upload flow', async ({ page }) => {
-  await page.goto('/signup');
+test("website unreachable → manual upload flow", async ({ page }) => {
+  await page.goto("/signup");
   // ... sign up ...
-  await page.getByPlaceholder(/abn/i).fill('53004085616');
-  await page.getByPlaceholder(/website/i).fill('https://this-domain-cannot-resolve-12345.com');
-  await page.getByRole('button', { name: /start setup/i }).click();
+  await page.getByPlaceholder(/abn/i).fill("53004085616");
+  await page
+    .getByPlaceholder(/website/i)
+    .fill("https://this-domain-cannot-resolve-12345.com");
+  await page.getByRole("button", { name: /start setup/i }).click();
 
-  await expect(page.getByText(/couldn't reach .* falling back to manual/i)).toBeVisible({ timeout: 15_000 });
+  await expect(
+    page.getByText(/couldn't reach .* falling back to manual/i),
+  ).toBeVisible({ timeout: 15_000 });
   // Upload logo manually
   // ... assert manual upload UI present ...
 });
@@ -3334,22 +3912,27 @@ Commit pattern same as Task 31.
 ### Task 34: E2E resume after tab close
 
 **Files:**
+
 - Create: `e2e/setup-resume.spec.ts`
 
 ```typescript
-import { test, expect } from '@playwright/test';
+import { test, expect } from "@playwright/test";
 
-test('close tab mid-hydration → return → state restored', async ({ browser }) => {
+test("close tab mid-hydration → return → state restored", async ({
+  browser,
+}) => {
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
-  await page.goto('/signup');
+  await page.goto("/signup");
   // ... sign up + enter ABN ...
   await page.close();
 
   const page2 = await ctx.newPage();
-  await page2.goto('/setup');
+  await page2.goto("/setup");
   // Business details still visible from prior hydration
-  await expect(page2.getByText(/BHP GROUP LIMITED/)).toBeVisible({ timeout: 5_000 });
+  await expect(page2.getByText(/BHP GROUP LIMITED/)).toBeVisible({
+    timeout: 5_000,
+  });
 });
 ```
 
@@ -3360,16 +3943,17 @@ Commit pattern same as Task 31.
 ### Task 35: E2E skip-to-manual escape hatch
 
 **Files:**
+
 - Create: `e2e/setup-skip-manual.spec.ts`
 
 ```typescript
-import { test, expect } from '@playwright/test';
+import { test, expect } from "@playwright/test";
 
-test('skip to manual → all sections flip to manual', async ({ page }) => {
-  await page.goto('/signup');
+test("skip to manual → all sections flip to manual", async ({ page }) => {
+  await page.goto("/signup");
   // ... sign up ...
   await page.getByText(/skip to manual setup/i).click();
-  await page.getByRole('button', { name: /yes, skip/i }).click();
+  await page.getByRole("button", { name: /yes, skip/i }).click();
   await expect(page.getByText(/upload your logo/i)).toBeVisible();
 });
 ```
@@ -3381,12 +3965,15 @@ Commit pattern same as Task 31.
 ### Task 36: E2E invited-technician gate
 
 **Files:**
+
 - Create: `e2e/setup-technician-gate.spec.ts`
 
 ```typescript
-import { test, expect } from '@playwright/test';
+import { test, expect } from "@playwright/test";
 
-test('technician invite lands on /onboarding/technician not /setup', async ({ page }) => {
+test("technician invite lands on /onboarding/technician not /setup", async ({
+  page,
+}) => {
   // ... seed an org + invite a technician role user ...
   // ... sign in as that user ...
   await expect(page).toHaveURL(/\/onboarding\/technician/);
@@ -3400,14 +3987,21 @@ Commit pattern same as Task 31.
 ### Task 37: Visual regression baselines
 
 **Files:**
+
 - Create: `e2e/setup-visual.spec.ts`
 
 ```typescript
-import { test, expect } from '@playwright/test';
+import { test, expect } from "@playwright/test";
 
-test.describe('Visual regression — section states', () => {
-  for (const section of ['business-details', 'brand', 'pricing', 'storage', 'integrations']) {
-    for (const state of ['pending', 'running', 'ready', 'error', 'manual']) {
+test.describe("Visual regression — section states", () => {
+  for (const section of [
+    "business-details",
+    "brand",
+    "pricing",
+    "storage",
+    "integrations",
+  ]) {
+    for (const state of ["pending", "running", "ready", "error", "manual"]) {
       test(`${section} :: ${state}`, async ({ page }) => {
         await page.goto(`/setup?_visual=${section}&_state=${state}`); // engineer to wire up a visual-test param that seeds local store
         await expect(page).toHaveScreenshot(`${section}-${state}.png`);
@@ -3465,6 +4059,7 @@ Expected: all green.
 - [ ] **Step 4: Manual visual smoke**
 
 In a fresh browser profile:
+
 1. Sign up at staging
 2. Confirm redirect to `/setup`
 3. Enter test ABN — confirm all three sections hit ready automatically

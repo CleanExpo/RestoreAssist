@@ -251,7 +251,10 @@ function truncateTitle(text: string, maxLen: number): string {
 function isTableNonContent(line: string): boolean {
   const trimmed = line.trim();
   if (!trimmed.startsWith("|") || !trimmed.endsWith("|")) return false;
-  const cells = trimmed.slice(1, -1).split("|").map((c) => c.trim());
+  const cells = trimmed
+    .slice(1, -1)
+    .split("|")
+    .map((c) => c.trim());
   // Separator row: every cell is purely dashes, colons, or whitespace
   if (cells.every((c) => /^[\s\-:=]+$/.test(c))) return true;
   // Header row: every cell is a short label (≤20 chars, no sentence punctuation)
@@ -268,10 +271,13 @@ function isTableNonContent(line: string): boolean {
  * "Action" column from each data row. Returns null when no table is detected.
  */
 function parseActionTable(actionsText: string): string[] | null {
-  const lines = actionsText.split("\n").map((l) => l.trim()).filter(Boolean);
+  const lines = actionsText
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
   // A table is present iff at least one line is a separator row
-  const sepIdx = lines.findIndex((l) =>
-    /^\|[\s\-:=|]+\|$/.test(l) && l.includes("-"),
+  const sepIdx = lines.findIndex(
+    (l) => /^\|[\s\-:=|]+\|$/.test(l) && l.includes("-"),
   );
   if (sepIdx === -1) return null;
 
@@ -292,7 +298,8 @@ function parseActionTable(actionsText: string): string[] | null {
   if (actionCol === -1) {
     // Pick the column whose header isn't a known short-label column
     actionCol = headers.findIndex(
-      (h) => !/^(#|owner|deadline|priority|due|notes?)$/.test(h) && h.length > 0,
+      (h) =>
+        !/^(#|owner|deadline|priority|due|notes?)$/.test(h) && h.length > 0,
     );
   }
   if (actionCol === -1) return null;
@@ -354,7 +361,7 @@ function extractActionItems(
   for (const line of lines) {
     if (isTableNonContent(line)) continue;
     if (line.trim().startsWith("|")) continue; // orphan table row, no separator
-    const clean = line.replace(/^[\d\.\-\*\s]+/, "").trim();
+    const clean = line.replace(/^[\d.\-*\s]+/, "").trim();
     if (clean.length > 10) {
       items.push({
         title: `[Board] ${truncateTitle(clean, 80)}`,

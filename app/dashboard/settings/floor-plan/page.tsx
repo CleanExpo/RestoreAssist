@@ -64,9 +64,7 @@ export default function FloorPlanSettingsPage() {
         throw new Error(msg || `HTTP ${res.status}`);
       }
       toast.success(
-        next
-          ? "Auto-fetch enabled for new inspections"
-          : "Auto-fetch disabled",
+        next ? "Auto-fetch enabled for new inspections" : "Auto-fetch disabled",
       );
     } catch (err) {
       setAutoFetch(previous);
@@ -97,9 +95,9 @@ export default function FloorPlanSettingsPage() {
             </h2>
             <p className="text-sm text-muted-foreground">
               When enabled, the floor plan underlay attempts to load
-              automatically the first time a technician opens an inspection
-              with a property address. When disabled, technicians fetch or
-              upload the plan manually.
+              automatically the first time a technician opens an inspection with
+              a property address. When disabled, technicians fetch or upload the
+              plan manually.
             </p>
             <p className="text-xs text-muted-foreground">
               Defaults to off. Existing inspections are unaffected; this only

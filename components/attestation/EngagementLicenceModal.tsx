@@ -112,7 +112,9 @@ export function EngagementLicenceModal({
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
-            {row && !editing ? "Still using these credentials?" : "Add your credentials"}
+            {row && !editing
+              ? "Still using these credentials?"
+              : "Add your credentials"}
           </DialogTitle>
           <DialogDescription>
             {row && !editing
@@ -126,29 +128,41 @@ export function EngagementLicenceModal({
         ) : row && !editing ? (
           <div className="space-y-1 text-sm">
             <p>
-              <span className="text-muted-foreground">IICRC:</span> {row.subjectLicenceNumber}
+              <span className="text-muted-foreground">IICRC:</span>{" "}
+              {row.subjectLicenceNumber}
             </p>
             <p>
-              <span className="text-muted-foreground">WHS:</span> {row.whsCardNumber}
+              <span className="text-muted-foreground">WHS:</span>{" "}
+              {row.whsCardNumber}
             </p>
             <p>
               <span className="text-muted-foreground">State:</span>{" "}
-              {row.subjectLicenceState ?? "—"} · {row.subjectLicenceClass ?? "—"}
+              {row.subjectLicenceState ?? "—"} ·{" "}
+              {row.subjectLicenceClass ?? "—"}
             </p>
             <p>
               <span className="text-muted-foreground">PL Insurer:</span>{" "}
-              {row.publicLiabilityInsurer ?? "—"} · {row.publicLiabilityPolicyNumber ?? "—"}
+              {row.publicLiabilityInsurer ?? "—"} ·{" "}
+              {row.publicLiabilityPolicyNumber ?? "—"}
             </p>
           </div>
         ) : (
           <div className="space-y-3">
             <div className="space-y-1">
               <Label htmlFor="iicrc">IICRC certificate number</Label>
-              <Input id="iicrc" value={iicrc} onChange={(e) => setIicrc(e.target.value)} />
+              <Input
+                id="iicrc"
+                value={iicrc}
+                onChange={(e) => setIicrc(e.target.value)}
+              />
             </div>
             <div className="space-y-1">
               <Label htmlFor="whs">WHS card / White Card number</Label>
-              <Input id="whs" value={whs} onChange={(e) => setWhs(e.target.value)} />
+              <Input
+                id="whs"
+                value={whs}
+                onChange={(e) => setWhs(e.target.value)}
+              />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
@@ -170,9 +184,19 @@ export function EngagementLicenceModal({
               </div>
             </div>
             <div className="space-y-1">
-              <Label htmlFor="insurer">Public liability insurer + policy #</Label>
-              <Input id="insurer" value={insurer} onChange={(e) => setInsurer(e.target.value)} />
-              <Input id="policy" value={policy} onChange={(e) => setPolicy(e.target.value)} />
+              <Label htmlFor="insurer">
+                Public liability insurer + policy #
+              </Label>
+              <Input
+                id="insurer"
+                value={insurer}
+                onChange={(e) => setInsurer(e.target.value)}
+              />
+              <Input
+                id="policy"
+                value={policy}
+                onChange={(e) => setPolicy(e.target.value)}
+              />
             </div>
           </div>
         )}
@@ -180,7 +204,11 @@ export function EngagementLicenceModal({
         <DialogFooter className="flex-col gap-2 sm:flex-col">
           {row && !editing ? (
             <>
-              <Button onClick={handleSubmit} disabled={submitting} className="w-full">
+              <Button
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="w-full"
+              >
                 {submitting ? "Confirming…" : "Yes — confirm and continue →"}
               </Button>
               <Button
@@ -192,7 +220,11 @@ export function EngagementLicenceModal({
               </Button>
             </>
           ) : (
-            <Button onClick={handleSubmit} disabled={submitting} className="w-full">
+            <Button
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="w-full"
+            >
               {submitting ? "Saving…" : "Verify and continue →"}
             </Button>
           )}

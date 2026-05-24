@@ -87,7 +87,11 @@ console.log("[asc] launching Chrome with persistent ASC profile…");
 const browser = await chromium.launchPersistentContext(PROFILE, {
   channel: "chrome",
   headless: false,
-  args: ["--no-sandbox", "--disable-dev-shm-usage", "--profile-directory=Default"],
+  args: [
+    "--no-sandbox",
+    "--disable-dev-shm-usage",
+    "--profile-directory=Default",
+  ],
   viewport: { width: 1440, height: 900 },
 });
 
@@ -153,14 +157,13 @@ async function tryAttachBuild() {
   // Try the "+" / "Add Build" button — different ASC layouts use different
   // labels. Look for any button mentioning Add Build OR a "+" near the Build
   // section.
-  const addBtn =
-    (await page
-      .getByRole("button", { name: /Add Build|Select.*Build/i })
-      .first()
-      .isVisible({ timeout: 2000 })
-      .catch(() => false))
-      ? page.getByRole("button", { name: /Add Build|Select.*Build/i }).first()
-      : null;
+  const addBtn = (await page
+    .getByRole("button", { name: /Add Build|Select.*Build/i })
+    .first()
+    .isVisible({ timeout: 2000 })
+    .catch(() => false))
+    ? page.getByRole("button", { name: /Add Build|Select.*Build/i }).first()
+    : null;
 
   if (!addBtn) {
     // Fallback: scan all buttons for a + icon near "Build"
@@ -183,7 +186,9 @@ async function tryAttachBuild() {
 
 const opened = await tryAttachBuild();
 if (!opened) {
-  console.log("[asc] Add Build button not found — dumping interactive elements");
+  console.log(
+    "[asc] Add Build button not found — dumping interactive elements",
+  );
   const allBtns = await page.locator("button").all();
   for (const b of allBtns.slice(0, 40)) {
     const t = (await b.textContent().catch(() => "")).trim();
@@ -205,7 +210,10 @@ if (!opened) {
       found = true;
       break;
     }
-    if (picker.includes("Processing") && picker.includes(TARGET_BUILD_VERSION)) {
+    if (
+      picker.includes("Processing") &&
+      picker.includes(TARGET_BUILD_VERSION)
+    ) {
       console.log(
         `[asc] ${TARGET_BUILD_VERSION} (${TARGET_BUILD_NUMBER}) still Processing — waiting 30s (attempt ${attempt + 1}/16)`,
       );

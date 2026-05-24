@@ -431,8 +431,7 @@ export async function handleCheckoutCompleted(event: Stripe.Event) {
   let subscriptionPlan: string | null = null;
   if (subscriptionId) {
     try {
-      const subscription =
-        await stripe.subscriptions.retrieve(subscriptionId);
+      const subscription = await stripe.subscriptions.retrieve(subscriptionId);
       subscriptionEndsAt = new Date(
         (subscription.items.data[0]?.current_period_end ?? 0) * 1000,
       );
@@ -472,8 +471,7 @@ export async function handleCheckoutCompleted(event: Stripe.Event) {
     });
     if (user?.email) {
       const amountTotal = session.amount_total ?? 0;
-      const baseUrl =
-        process.env.NEXTAUTH_URL ?? "https://restoreassist.app";
+      const baseUrl = process.env.NEXTAUTH_URL ?? "https://restoreassist.app";
       void sendSubscriptionActivatedEmail({
         recipientEmail: user.email,
         recipientName: user.name ?? "there",

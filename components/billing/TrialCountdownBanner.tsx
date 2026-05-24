@@ -21,7 +21,11 @@ export default function TrialCountdownBanner() {
     <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm">
       <div className="container mx-auto flex items-center justify-between">
         <span>
-          Your trial ends in <strong>{days} {days === 1 ? "day" : "days"} left</strong>.{" "}
+          Your trial ends in{" "}
+          <strong>
+            {days} {days === 1 ? "day" : "days"} left
+          </strong>
+          .{" "}
           <Link href="/billing/upgrade?reason=voluntary" className="underline">
             Upgrade now
           </Link>{" "}

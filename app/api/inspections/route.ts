@@ -328,7 +328,9 @@ export async function POST(request: NextRequest) {
       if (body.claimType !== undefined && body.claimType !== null) {
         if (
           typeof body.claimType !== "string" ||
-          !ALLOWED_PICKER_CLAIM_TYPES.includes(body.claimType as PickerClaimType)
+          !ALLOWED_PICKER_CLAIM_TYPES.includes(
+            body.claimType as PickerClaimType,
+          )
         ) {
           return apiError(request, {
             code: "VALIDATION",

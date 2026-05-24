@@ -82,7 +82,7 @@ function decryptCredentials(encrypted: string): CredentialPayload {
 }
 
 /** Map a Prisma ProviderConnection row to the safe summary shape. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 function toSummary(row: any): ProviderConnectionSummary {
   let maskedKey = "•••••••••••••••••••";
   try {

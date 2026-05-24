@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { useEffect, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
-type CheckStatus = 'green' | 'yellow' | 'red';
+type CheckStatus = "green" | "yellow" | "red";
 
 interface CheckResult {
   capability: string;
@@ -13,7 +13,9 @@ interface CheckResult {
   note?: string;
 }
 
-export function FeatureHealthCard({ postActivation = false }: { postActivation?: boolean } = {}) {
+export function FeatureHealthCard({
+  postActivation = false,
+}: { postActivation?: boolean } = {}) {
   const [checks, setChecks] = useState<CheckResult[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [activating, setActivating] = useState(false);
@@ -24,41 +26,44 @@ export function FeatureHealthCard({ postActivation = false }: { postActivation?:
 
     const fetchChecks = async () => {
       try {
-        const r = await fetch('/api/setup/checks');
+        const r = await fetch("/api/setup/checks");
         if (!r.ok) return;
         const j = await r.json();
         if (cancelled) return;
         setChecks(Array.isArray(j?.data?.checks) ? j.data.checks : []);
         setLoaded(true);
       } catch (err) {
-        console.error('[setup] checks fetch failed:', err);
+        console.error("[setup] checks fetch failed:", err);
       }
     };
 
     void fetchChecks();
     const id = window.setInterval(() => void fetchChecks(), 5000);
-    return () => { cancelled = true; window.clearInterval(id); };
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
   }, []);
 
-  const reds = checks.filter((c) => c.status === 'red');
-  const yellows = checks.filter((c) => c.status === 'yellow');
-  const greens = checks.filter((c) => c.status === 'green');
+  const reds = checks.filter((c) => c.status === "red");
+  const yellows = checks.filter((c) => c.status === "yellow");
+  const greens = checks.filter((c) => c.status === "green");
 
   const activate = async () => {
     setActivating(true);
     setActivateError(null);
     try {
-      const r = await fetch('/api/setup/activate', { method: 'POST' });
+      const r = await fetch("/api/setup/activate", { method: "POST" });
       if (r.ok) {
         const j = await r.json();
-        window.location.href = j?.data?.redirectTo ?? '/dashboard?firstRun=1';
+        window.location.href = j?.data?.redirectTo ?? "/dashboard?firstRun=1";
       } else {
         const j = await r.json().catch(() => ({}));
         setActivateError(j?.error ?? `Activation failed (${r.status})`);
         setActivating(false);
       }
     } catch (err) {
-      setActivateError('Network error during activation');
+      setActivateError("Network error during activation");
       setActivating(false);
     }
   };
@@ -66,7 +71,9 @@ export function FeatureHealthCard({ postActivation = false }: { postActivation?:
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{postActivation ? 'Workspace health' : 'Ready to activate'}</CardTitle>
+        <CardTitle>
+          {postActivation ? "Workspace health" : "Ready to activate"}
+        </CardTitle>
         {loaded && (
           <p className="text-sm text-muted-foreground">
             {greens.length} of {checks.length} verified
@@ -88,19 +95,26 @@ export function FeatureHealthCard({ postActivation = false }: { postActivation?:
         )}
 
         {loaded && checks.length === 0 && (
-          <p className="text-sm text-muted-foreground">No capabilities reported yet.</p>
+          <p className="text-sm text-muted-foreground">
+            No capabilities reported yet.
+          </p>
         )}
 
         {loaded && checks.length > 0 && (
           <ul className="space-y-2">
             {checks.map((c) => (
-              <li key={c.capability} className="flex items-start justify-between gap-3 text-sm">
+              <li
+                key={c.capability}
+                className="flex items-start justify-between gap-3 text-sm"
+              >
                 <span className="flex items-center gap-2">
                   <StatusPill status={c.status} />
                   <span>{c.label}</span>
                 </span>
                 {c.note && (
-                  <span className="text-xs text-muted-foreground text-right max-w-[60%]">{c.note}</span>
+                  <span className="text-xs text-muted-foreground text-right max-w-[60%]">
+                    {c.note}
+                  </span>
                 )}
               </li>
             ))}
@@ -116,15 +130,19 @@ export function FeatureHealthCard({ postActivation = false }: { postActivation?:
               onClick={activate}
               aria-label="Activate my workspace"
             >
-              {activating ? 'Activating…' : 'Activate my workspace'}
+              {activating ? "Activating…" : "Activate my workspace"}
             </Button>
             {yellows.length > 0 && reds.length === 0 && (
               <p className="text-xs text-muted-foreground text-center">
-                You can activate now and connect {yellows.map((y) => y.label).join(', ')} later from Settings.
+                You can activate now and connect{" "}
+                {yellows.map((y) => y.label).join(", ")} later from Settings.
               </p>
             )}
             {activateError && (
-              <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm">
+              <div
+                role="alert"
+                className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm"
+              >
                 {activateError}
               </div>
             )}
@@ -137,10 +155,12 @@ export function FeatureHealthCard({ postActivation = false }: { postActivation?:
 
 function StatusPill({ status }: { status: CheckStatus }) {
   const cls =
-    status === 'green' ? 'bg-emerald-500'
-    : status === 'yellow' ? 'bg-amber-500'
-    : 'bg-rose-500';
-  const labels = { green: 'OK', yellow: 'Optional', red: 'Needs attention' };
+    status === "green"
+      ? "bg-emerald-500"
+      : status === "yellow"
+        ? "bg-amber-500"
+        : "bg-rose-500";
+  const labels = { green: "OK", yellow: "Optional", red: "Needs attention" };
   return (
     <span
       className={`inline-block w-2.5 h-2.5 rounded-full shrink-0 ${cls}`}

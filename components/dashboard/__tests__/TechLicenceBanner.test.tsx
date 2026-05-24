@@ -40,15 +40,35 @@ describe("TechLicenceBanner", () => {
         completedCount: 0,
         totalCount: 3,
         steps: [
-          { id: "tech_iicrc", title: "Add your IICRC certificate", description: "...", href: "/dashboard/settings/credentials?focus=iicrc", completed: false },
-          { id: "tech_whs", title: "Add your WHS card", description: "...", href: "/dashboard/settings/credentials?focus=whs", completed: false },
-          { id: "tech_state", title: "Add your state licence (if applicable)", description: "...", href: "/dashboard/settings/credentials?focus=state", completed: false },
+          {
+            id: "tech_iicrc",
+            title: "Add your IICRC certificate",
+            description: "...",
+            href: "/dashboard/settings/credentials?focus=iicrc",
+            completed: false,
+          },
+          {
+            id: "tech_whs",
+            title: "Add your WHS card",
+            description: "...",
+            href: "/dashboard/settings/credentials?focus=whs",
+            completed: false,
+          },
+          {
+            id: "tech_state",
+            title: "Add your state licence (if applicable)",
+            description: "...",
+            href: "/dashboard/settings/credentials?focus=state",
+            completed: false,
+          },
         ],
       }),
     });
     render(<TechLicenceBanner />);
     await waitFor(() =>
-      expect(screen.getByText(/Add your credentials to unlock attestations/)).toBeInTheDocument(),
+      expect(
+        screen.getByText(/Add your credentials to unlock attestations/),
+      ).toBeInTheDocument(),
     );
   });
 
@@ -60,7 +80,13 @@ describe("TechLicenceBanner", () => {
         completedCount: 0,
         totalCount: 4,
         steps: [
-          { id: "first_inspection", title: "Create your first inspection", description: "...", href: "/dashboard/inspections/new", completed: false },
+          {
+            id: "first_inspection",
+            title: "Create your first inspection",
+            description: "...",
+            href: "/dashboard/inspections/new",
+            completed: false,
+          },
         ],
       }),
     });

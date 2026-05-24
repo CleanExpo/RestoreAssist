@@ -280,7 +280,7 @@ export default function EstimationEngine({
             equipmentKey as keyof typeof estimateData.rateTables.equipment
           ] || estimateData.rateTables.equipment.airMover;
 
-        let cost = 0;
+        let cost;
         if (eq.duration <= 7) {
           cost = rates.day * eq.quantity * eq.duration;
         } else if (eq.duration <= 30) {

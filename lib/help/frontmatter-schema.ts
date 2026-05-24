@@ -3,7 +3,10 @@ import { HELP_CATEGORIES, type HelpFrontmatter } from "./types";
 
 const Schema = z.object({
   title: z.string().min(1),
-  slug: z.string().min(1).regex(/^[a-z0-9-]+$/, "slug must be kebab-case"),
+  slug: z
+    .string()
+    .min(1)
+    .regex(/^[a-z0-9-]+$/, "slug must be kebab-case"),
   category: z.enum(HELP_CATEGORIES),
   order: z.number().int().nonnegative(),
   audience: z.array(z.enum(["tradie", "admin", "client"])).min(1),
@@ -17,10 +20,13 @@ const Schema = z.object({
   successCriteria: z.array(z.string()).min(1),
 });
 
-export function parseHelpFrontmatter(input: unknown):
+export function parseHelpFrontmatter(
+  input: unknown,
+):
   | { success: true; data: HelpFrontmatter }
   | { success: false; error: z.ZodError } {
   const result = Schema.safeParse(input);
-  if (result.success) return { success: true, data: result.data as HelpFrontmatter };
+  if (result.success)
+    return { success: true, data: result.data as HelpFrontmatter };
   return { success: false, error: result.error };
 }

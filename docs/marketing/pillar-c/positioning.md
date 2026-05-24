@@ -46,7 +46,7 @@ A restoration owner-operator hires RestoreAssist to:
 
 **AI-driven restoration CRM, configured by your ABN.**
 
-We sit in the same shelf as ServiceM8 and Ascora, but we earn that position by being the only one that proves the AI works *before* the customer pays for it.
+We sit in the same shelf as ServiceM8 and Ascora, but we earn that position by being the only one that proves the AI works _before_ the customer pays for it.
 
 ## Voice anchors (from BrandConfig)
 

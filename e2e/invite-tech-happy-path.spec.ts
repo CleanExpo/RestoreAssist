@@ -3,7 +3,10 @@ import { TEST_HEADSHOT_JPEG } from "./fixtures/headshot-jpeg";
 
 test.use({ viewport: { width: 393, height: 852 } }); // iPhone 14 Pro
 
-test("invited technician — email/password happy path", async ({ page, request }) => {
+test("invited technician — email/password happy path", async ({
+  page,
+  request,
+}) => {
   // Requires: POST /api/test/seed-org-with-manager (seed-helper route)
   const seed = await request.post("/api/test/seed-org-with-manager", {
     data: { managerEmail: `mgr-${Date.now()}@test.com` },
@@ -18,13 +21,11 @@ test("invited technician — email/password happy path", async ({ page, request 
   await page
     .getByLabel("Set a password (min 12 chars)")
     .fill("verysecurepassword12");
-  await page
-    .locator('input[type="file"]')
-    .setInputFiles({
-      name: "headshot.jpg",
-      mimeType: "image/jpeg",
-      buffer: TEST_HEADSHOT_JPEG,
-    });
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "headshot.jpg",
+    mimeType: "image/jpeg",
+    buffer: TEST_HEADSHOT_JPEG,
+  });
 
   // CRITICAL: wait for the headshot preview to appear before clicking Continue.
   // squareCropToDataUrl is async; setInputFiles fires onChange, the handler

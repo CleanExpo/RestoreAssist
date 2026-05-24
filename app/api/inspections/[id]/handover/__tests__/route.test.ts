@@ -30,8 +30,7 @@ vi.mock("@/lib/queue/exportHandoverPackageToBYOKStorage", () => ({
     exportHandoverPackageToBYOKStorage(...a),
 }));
 vi.mock("@/lib/audit/lifecycle-event", () => ({
-  writeLifecycleTransition: (...a: unknown[]) =>
-    writeLifecycleTransition(...a),
+  writeLifecycleTransition: (...a: unknown[]) => writeLifecycleTransition(...a),
 }));
 vi.mock("@/lib/idempotency", () => ({
   withIdempotency: async (
@@ -180,9 +179,7 @@ describe("POST /api/inspections/[id]/handover — happy path", () => {
     expect(body.data.storageKey).toBe(
       "handovers/org_1/ins_1/handover-package.zip",
     );
-    expect(body.data.packageUrl).toBe(
-      "https://signed.example/handover.zip",
-    );
+    expect(body.data.packageUrl).toBe("https://signed.example/handover.zip");
 
     // CAS guard — only stamps the timestamp + key when the row is still
     // CLOSED + handover not already recorded. A duplicate POST that races

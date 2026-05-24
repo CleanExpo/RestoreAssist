@@ -1,5 +1,8 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
-import { needsModal, AUTHORISATION_MAX_AGE_DAYS } from "../require-engagement-authorisation";
+import {
+  needsModal,
+  AUTHORISATION_MAX_AGE_DAYS,
+} from "../require-engagement-authorisation";
 
 describe("needsModal", () => {
   beforeEach(() => {

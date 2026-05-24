@@ -10,7 +10,7 @@
 
 The remaining phases touch production code, migrate live data, and ship a user-facing feature. The cost of getting it wrong is asymmetric: a rushed UI ships and gets rebuilt, a bad migration corrupts production, a missing feature flag exposes half-built work to real users.
 
-This document is the meta-plan. The implementation plan tells you *what* to build; this tells you *how* to build it without breaking things and without generating future cleanup work.
+This document is the meta-plan. The implementation plan tells you _what_ to build; this tells you _how_ to build it without breaking things and without generating future cleanup work.
 
 The reader is the controller executing the implementation plan (me, or a future engineer). The reader checks this document **before each phase** and again **after each phase** to confirm the safety hooks ran.
 
@@ -35,14 +35,17 @@ These are non-negotiable. Phase 4 does not start until all four are green.
 ### Gate 1 — Migration A applied to a local dev Postgres
 
 The schema migration in commit `91bf5516` was generated but never applied. Until it runs against a real DB:
+
 - Every API test that touches new models (HydrationJob, AbnLookupCache, OrganizationPricingConfig) will fail
 - Backfill behaviour is unverified
 
 **Action:** Apply Migration A to **either** a local Postgres OR an ephemeral test DB (see Test Infrastructure below). Verification command:
+
 ```bash
 cd /Users/phill-mac/RestoreAssist-setup-wizard
 DATABASE_URL=postgres://localhost:5432/restoreassist_dev npx prisma migrate dev
 ```
+
 Expect: `Following migration have been applied: 20260512000000_setup_wizard_phase_a`.
 
 ### Gate 2 — Feature flag wired BEFORE any user-visible code ships
@@ -55,7 +58,7 @@ This is a **new sub-task** to add to Task 18 (middleware). Track explicitly:
 
 ```typescript
 // middleware.ts — first check before any setup gating
-const SETUP_ENABLED = process.env.SETUP_WIZARD_ENABLED === 'true';
+const SETUP_ENABLED = process.env.SETUP_WIZARD_ENABLED === "true";
 if (!SETUP_ENABLED) return NextResponse.next();
 // ... rest of setup gate ...
 ```
@@ -129,21 +132,21 @@ Whichever option lands, document it in the worktree as `.env.test.local.example`
 
 The sequence below assumes Phase 4 starts today and the user has registered for ABR (waiting on GUID).
 
-| When | What | Where | Why |
-|---|---|---|---|
-| Phase 4 start | Apply Migration A | Local test DB | Phase 5 tests need it |
-| Phase 5 done | Push `feat/setup-wizard` to GitHub | origin/feat-setup-wizard | Trigger Vercel Preview deploy |
-| Phase 5 done | Set `SETUP_WIZARD_ENABLED=true` on Preview env | Vercel project settings | Preview can exercise the gate |
-| Phase 5 done | Apply Migration A to Preview's Postgres | Vercel/Supabase Preview branch DB | API routes need the new schema |
-| Phase 7 done | Manual UI walkthrough via Chrome MCP | Preview URL | Ship-gate before merge |
-| Phase 9 done | All 7 E2E pass against Preview | CI | Last regression check |
-| Phase 10 | Merge to `main` | origin/main | Auto-deploys to staging |
-| Phase 10 +24h | Apply Migration A to STAGING Postgres | Staging DB | Confirm migration in real env |
-| Phase 10 +24h | Set `SETUP_WIZARD_ENABLED=true` on staging | Vercel staging env | Internal test cohort |
-| Phase 10 +48h | Apply Migration A to PROD Postgres | Production DB | After staging burn-in |
-| Phase 10 +48h | New Task 18.5 (grandfather backfill) on PROD | Production DB | Existing users keep dashboard access |
-| Phase 10 +72h | Flip `SETUP_WIZARD_ENABLED=true` on PROD | Vercel prod env | Live to all new signups |
-| Months later | Migration B (drop deprecated User.business* + CompanyPricingConfig) | All DBs | After confirming new code paths exclusive |
+| When          | What                                                                 | Where                             | Why                                       |
+| ------------- | -------------------------------------------------------------------- | --------------------------------- | ----------------------------------------- |
+| Phase 4 start | Apply Migration A                                                    | Local test DB                     | Phase 5 tests need it                     |
+| Phase 5 done  | Push `feat/setup-wizard` to GitHub                                   | origin/feat-setup-wizard          | Trigger Vercel Preview deploy             |
+| Phase 5 done  | Set `SETUP_WIZARD_ENABLED=true` on Preview env                       | Vercel project settings           | Preview can exercise the gate             |
+| Phase 5 done  | Apply Migration A to Preview's Postgres                              | Vercel/Supabase Preview branch DB | API routes need the new schema            |
+| Phase 7 done  | Manual UI walkthrough via Chrome MCP                                 | Preview URL                       | Ship-gate before merge                    |
+| Phase 9 done  | All 7 E2E pass against Preview                                       | CI                                | Last regression check                     |
+| Phase 10      | Merge to `main`                                                      | origin/main                       | Auto-deploys to staging                   |
+| Phase 10 +24h | Apply Migration A to STAGING Postgres                                | Staging DB                        | Confirm migration in real env             |
+| Phase 10 +24h | Set `SETUP_WIZARD_ENABLED=true` on staging                           | Vercel staging env                | Internal test cohort                      |
+| Phase 10 +48h | Apply Migration A to PROD Postgres                                   | Production DB                     | After staging burn-in                     |
+| Phase 10 +48h | New Task 18.5 (grandfather backfill) on PROD                         | Production DB                     | Existing users keep dashboard access      |
+| Phase 10 +72h | Flip `SETUP_WIZARD_ENABLED=true` on PROD                             | Vercel prod env                   | Live to all new signups                   |
+| Months later  | Migration B (drop deprecated User.business\* + CompanyPricingConfig) | All DBs                           | After confirming new code paths exclusive |
 
 Each transition between rows is a **discrete decision point**. Do not auto-progress. The user signs off at each.
 
@@ -160,6 +163,7 @@ These are the **only** things that change between phases. Everything in the impl
 **During:** Capability checks make real calls (Gemma, Prisma, Cloudinary). Each check must catch all errors and never throw — a broken capability check should return `{ status: 'red' }`, never crash the route.
 
 **Post-phase:**
+
 - [ ] `pnpm type-check` clean
 - [ ] `npx vitest run lib/setup/__tests__/checks.test.ts` — all pass
 - [ ] No new lint warnings
@@ -169,24 +173,26 @@ These are the **only** things that change between phases. Everything in the impl
 ### Phase 5 — API routes (5 tasks, MEDIUM risk)
 
 **Pre-phase:**
+
 - [ ] Test DB chosen and `prisma migrate deploy` runs cleanly against it
 - [ ] Decision: are we using SSE or polling for `/api/setup/hydrate/stream`? (Plan says SSE; verify Vercel Fluid Compute supports it for the route's duration)
 
 **During:** **Every** API route must satisfy CLAUDE.md rules verbatim — I list the checklist here verbatim, not summarised:
 
-| Rule | Check on every route |
-|---|---|
-| #1 | `await getServerSession(authOptions)` — no exceptions for /api/setup/* (except `hydrate/stream` if SSE auth pattern differs) |
-| #2 | `session.user.id` for identity, NOT `session.user.email` |
-| #4 | `select`/`include` explicit; `take` set on all `findMany` |
-| #6 | `Prisma.sql` for any raw query (none expected here) |
-| #7 | 500s return `{ error: 'Internal server error' }`; log internally with `console.error` |
-| #8 | Subscription gate: setup routes use `routeBasic({ bypassCreditGate: true })` — verified by Task 11 (already done) |
-| #9 | Atomic credit deduction (N/A — wizard doesn't charge credits) |
-| #10 | Rate limit using `session.user.id` (not IP). Decision: add a per-route limit (e.g., 60 req/min for `state` and `checks`, 6 req/min for `hydrate`, 2 req/min for `activate`) |
-| #18 | Response shape `{ data }` or `{ error }` |
+| Rule | Check on every route                                                                                                                                                        |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| #1   | `await getServerSession(authOptions)` — no exceptions for /api/setup/\* (except `hydrate/stream` if SSE auth pattern differs)                                               |
+| #2   | `session.user.id` for identity, NOT `session.user.email`                                                                                                                    |
+| #4   | `select`/`include` explicit; `take` set on all `findMany`                                                                                                                   |
+| #6   | `Prisma.sql` for any raw query (none expected here)                                                                                                                         |
+| #7   | 500s return `{ error: 'Internal server error' }`; log internally with `console.error`                                                                                       |
+| #8   | Subscription gate: setup routes use `routeBasic({ bypassCreditGate: true })` — verified by Task 11 (already done)                                                           |
+| #9   | Atomic credit deduction (N/A — wizard doesn't charge credits)                                                                                                               |
+| #10  | Rate limit using `session.user.id` (not IP). Decision: add a per-route limit (e.g., 60 req/min for `state` and `checks`, 6 req/min for `hydrate`, 2 req/min for `activate`) |
+| #18  | Response shape `{ data }` or `{ error }`                                                                                                                                    |
 
 **Post-phase:**
+
 - [ ] All 5 routes have unit/integration tests
 - [ ] Push to `origin/feat-setup-wizard` and wait for Vercel Preview deploy green
 - [ ] `curl` smoke against Preview: `/api/setup/state` returns 401 unauthenticated, 200 with cookies
@@ -201,10 +207,12 @@ These are the **only** things that change between phases. Everything in the impl
 > **Next.js 16 update (discovered 2026-05-12 during Phase 5 smoke test):** Next.js 16.2.4 emits a deprecation warning that `middleware.ts` is being replaced by a `proxy.ts` convention. Phase 6 must implement the gate as `proxy.ts` (or whatever the current canonical name is when you start the task), NOT `middleware.ts`. See https://nextjs.org/docs/messages/middleware-to-proxy. The existing `middleware.ts` file in this repo still works in 16.x but will break in 17. Decision: ship the setup gate in the new convention to avoid double rework. The implementation plan's Task 18 file path needs adjusting at execution time.
 
 **Pre-phase:**
+
 - [ ] `SETUP_WIZARD_ENABLED=false` confirmed on Production env
 - [ ] Task 18.5 (grandfather backfill) added to the implementation plan and scheduled for the same commit as the middleware
 
 **During:**
+
 - Middleware change is **two parts in ONE commit**:
   - The new setup gate code
   - The `SETUP_WIZARD_ENABLED` flag check **before** the new gate
@@ -216,6 +224,7 @@ These are the **only** things that change between phases. Everything in the impl
   Any test that asserts `isSample === true` after register must be updated to assert it after `/api/setup/activate` instead.
 
 **Post-phase:**
+
 - [ ] Flag toggle works locally in both directions
 - [ ] Existing E2E tests for signup/login/dashboard still pass (`npx playwright test e2e/auth.spec.ts` if it exists)
 - [ ] Push to Preview; verify with flag ON and OFF
@@ -226,10 +235,12 @@ These are the **only** things that change between phases. Everything in the impl
 ### Phase 7 — UI components (~8 tasks, MEDIUM risk)
 
 **Pre-phase:**
+
 - [ ] Phase 5 API routes deployed to Preview and working
 - [ ] Chrome MCP available for verification
 
 **During:**
+
 - **Brand compliance every component (CLAUDE.md rule #17):**
   - Navy `#1C2E47`, warm `#8A6B4E`, light `#D4A574`, dark bg `#050505`
   - Use `bg-[#1C2E47]` or Tailwind aliases if defined; never hardcoded non-brand colours
@@ -238,6 +249,7 @@ These are the **only** things that change between phases. Everything in the impl
 - **No global state pollution:** Zustand store lives in `components/setup/store.ts` and is NOT imported from outside `components/setup/`. Don't leak setup state into the rest of the app.
 
 **Post-phase:**
+
 - [ ] Each card renders cleanly in all 5 states (pending/running/ready/error/manual) — verified via Chrome MCP screenshot
 - [ ] Full /setup page walkthrough on Preview with a test ABN (sandbox-known) — captured as screen recording or screenshots
 - [ ] Mobile/tablet/desktop viewport tested (`mcp__chrome-devtools__resize_page`)
@@ -248,6 +260,7 @@ These are the **only** things that change between phases. Everything in the impl
 ### Phase 8 — Delete legacy onboarding routes (1 task, LOW risk if Phase 6 was right)
 
 **Pre-phase:**
+
 - [ ] Phase 6 confirmed working in production with flag OFF (delete shouldn't touch users currently)
 - [ ] grep confirms zero external references:
   ```bash
@@ -258,6 +271,7 @@ These are the **only** things that change between phases. Everything in the impl
 **During:** Delete in a single commit. Also delete any tests in `e2e/` or `__tests__/` that referenced these routes.
 
 **Post-phase:**
+
 - [ ] `pnpm type-check` clean (no orphaned imports)
 - [ ] `pnpm build` succeeds (Next.js catches missing routes)
 
@@ -266,12 +280,14 @@ These are the **only** things that change between phases. Everything in the impl
 ### Phase 9 — E2E + visual regression (8 tasks, MEDIUM risk)
 
 **Pre-phase:**
+
 - [ ] ABR GUID received and added to Vercel envs (Preview + Staging)
 - [ ] `ABR_BASE_URL` env switch tested manually with `curl`
 
 **During:** Run each E2E scenario locally against Preview before adding to CI. Flaky tests are worse than no tests.
 
 **Post-phase:**
+
 - [ ] All 7 E2E scenarios green 3x in a row (no flakes)
 - [ ] Visual regression baselines committed; diff = 0 on re-run
 - [ ] CI workflow includes the new specs
@@ -381,10 +397,12 @@ Gemma down → Section ① flips to manual; user fills in by hand. Wizard still 
 ### If everything breaks
 
 Revert the merge commit on `main`:
+
 ```bash
 git revert <merge-sha>
 git push origin main
 ```
+
 Vercel auto-deploys the revert. Migration A stays applied (additive, harmless). Users go back to the old `/dashboard/onboarding` checklist — which still exists until Phase 8 deletes it. **This means Phase 8's deletion is the no-going-back point.** Defer Phase 8 until production has been live for at least 7 days with no issues.
 
 ---
@@ -392,6 +410,7 @@ Vercel auto-deploys the revert. Migration A stays applied (additive, harmless). 
 ## Output of this plan
 
 A single trackable workstream with:
+
 - A migrations applied table (per environment)
 - A feature flag state table (per environment)
 - A pause-point log (when, who signed off)

@@ -58,7 +58,8 @@ const LOGIN_GATE_PREFIXES = [
 function requiresLogin(pathname: string): boolean {
   return LOGIN_GATE_PREFIXES.some(
     (prefix) =>
-      pathname === prefix || pathname.startsWith(prefix.endsWith("/") ? prefix : `${prefix}/`),
+      pathname === prefix ||
+      pathname.startsWith(prefix.endsWith("/") ? prefix : `${prefix}/`),
   );
 }
 

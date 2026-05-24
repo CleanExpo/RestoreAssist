@@ -29,16 +29,26 @@ const mockFindUnique = (
 
 /** Minimal GemmaCallResult for happy-path mocks. */
 function makeGemmaResult(text: string) {
-  return { text, inputTokens: 10, outputTokens: 20, cost: 0.0001, model: "gemma-4-31b-it" };
+  return {
+    text,
+    inputTokens: 10,
+    outputTokens: 20,
+    cost: 0.0001,
+    model: "gemma-4-31b-it",
+  };
 }
 
 describe("routeBasic", () => {
   beforeEach(() => vi.restoreAllMocks());
 
   it("returns text + confidence on a successful Gemma call", async () => {
-    mockCallGemma.mockResolvedValueOnce(makeGemmaResult("Moisture detected at 35%."));
+    mockCallGemma.mockResolvedValueOnce(
+      makeGemmaResult("Moisture detected at 35%."),
+    );
 
-    const result = await routeBasic("Describe the moisture reading.", { bypassCreditGate: true });
+    const result = await routeBasic("Describe the moisture reading.", {
+      bypassCreditGate: true,
+    });
 
     expect(result).not.toBeNull();
     expect(typeof result?.text).toBe("string");
@@ -53,7 +63,10 @@ describe("routeBasic", () => {
     mockFindUnique.mockResolvedValueOnce({ creditsRemaining: 0 });
     mockCallGemma.mockResolvedValueOnce(makeGemmaResult("All good."));
 
-    const result = await routeBasic("hello", { userId: "zero-credit-user", bypassCreditGate: true });
+    const result = await routeBasic("hello", {
+      userId: "zero-credit-user",
+      bypassCreditGate: true,
+    });
 
     expect(result).not.toBeNull();
     // findUnique should NOT have been called when bypass is true
@@ -72,9 +85,13 @@ describe("routeBasic", () => {
   });
 
   it("returns null on underlying Gemma error", async () => {
-    mockCallGemma.mockRejectedValueOnce(new Error("GEMMA_ENDPOINT_URL is not configured"));
+    mockCallGemma.mockRejectedValueOnce(
+      new Error("GEMMA_ENDPOINT_URL is not configured"),
+    );
 
-    const result = await routeBasic("trigger an error", { bypassCreditGate: true });
+    const result = await routeBasic("trigger an error", {
+      bypassCreditGate: true,
+    });
 
     expect(result).toBeNull();
   });

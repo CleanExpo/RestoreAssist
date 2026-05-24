@@ -288,9 +288,7 @@ export default function InspectionSignOff({
           // form-unlocked, and the modal's internal onOpenChange(false) must
           // not bounce us back to initial.
           if (!open) {
-            setSignOffState((prev) =>
-              prev === "modal" ? "initial" : prev,
-            );
+            setSignOffState((prev) => (prev === "modal" ? "initial" : prev));
           }
         }}
         inspectionId={inspectionId}

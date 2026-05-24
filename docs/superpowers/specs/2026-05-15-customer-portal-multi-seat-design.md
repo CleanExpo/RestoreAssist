@@ -8,21 +8,21 @@
 
 ## Locked decisions (2026-05-15 Q&A)
 
-| # | Question | LOCKED answer |
-|---|---|---|
-| 1 | Main user iPhone/iPad cost | **Strict $11 per user** (main user pays own $11 for mobile). Anti-share via email alerts on new-device sign-ins, NOT blocking. |
-| 2 | Per-user mobile coverage | **One $11 covers iPhone + iPad** for that user (device-agnostic per User). |
-| 3 | No-seat technician grace | **7-day grace + banner countdown → hard paywall** at `/billing/mobile-seat`. |
-| 4 | OAuth integration scope | **Hybrid:** API keys = org-shared; OAuth integrations (Xero, Google Drive) = admin choice per-integration (default "shared with org"). New `Integration.scope` field. |
-| 5 | Stripe billing | **Org-level Stripe customer + metered Subscription Items per seat**. One invoice to org owner. |
-| 6 | Apple IAP cut | **Absorb 30% cut; $11 everywhere**. Net $7.70 iOS year 1 / $9.35 year 2+. |
-| 7 | App Store IPA model | **Same IPA, multi-mode** (Tradie vs Customer). Per Apple Guideline 4.2.6 Anti-Templating (Margot-validated). |
-| 8 | Content authoring model | **🔒 SINGLE-SOURCE: PLATFORM authors only. Orgs CANNOT author or override content.** RA team owns 100% of editorial. (Major simplification from initial 4-tier proposal.) |
-| 9 | Customer Portal branding | **Org-only branding** — no RA logo visible to client. Optional tiny footer link for legal compliance. |
-| 10 | Customer Link expiry | **Job-closed + 90 days → auto-revoke**. Org admin can extend manually. |
-| 11 | AU state-by-state content | **Phase 1 national, Phase 2 state variants**. ICA + ACL terminology is ~95% identical across states (Margot Q3); only AFCA/tribunal escalation paths differ. |
-| 12 | NRPG content tier | **Bundled into NRPG membership.** NRPG-certified orgs auto-get NRPG_SEED content. Non-members do not have access. Reinforces NRPG's value prop. |
-| 13 | Customer-Mode AI Sidekick | **Defer to Phase 2** (~3 months post-launch). v1 ships with static content only (videos + articles + glossary). |
+| #   | Question                   | LOCKED answer                                                                                                                                                             |
+| --- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Main user iPhone/iPad cost | **Strict $11 per user** (main user pays own $11 for mobile). Anti-share via email alerts on new-device sign-ins, NOT blocking.                                            |
+| 2   | Per-user mobile coverage   | **One $11 covers iPhone + iPad** for that user (device-agnostic per User).                                                                                                |
+| 3   | No-seat technician grace   | **7-day grace + banner countdown → hard paywall** at `/billing/mobile-seat`.                                                                                              |
+| 4   | OAuth integration scope    | **Hybrid:** API keys = org-shared; OAuth integrations (Xero, Google Drive) = admin choice per-integration (default "shared with org"). New `Integration.scope` field.     |
+| 5   | Stripe billing             | **Org-level Stripe customer + metered Subscription Items per seat**. One invoice to org owner.                                                                            |
+| 6   | Apple IAP cut              | **Absorb 30% cut; $11 everywhere**. Net $7.70 iOS year 1 / $9.35 year 2+.                                                                                                 |
+| 7   | App Store IPA model        | **Same IPA, multi-mode** (Tradie vs Customer). Per Apple Guideline 4.2.6 Anti-Templating (Margot-validated).                                                              |
+| 8   | Content authoring model    | **🔒 SINGLE-SOURCE: PLATFORM authors only. Orgs CANNOT author or override content.** RA team owns 100% of editorial. (Major simplification from initial 4-tier proposal.) |
+| 9   | Customer Portal branding   | **Org-only branding** — no RA logo visible to client. Optional tiny footer link for legal compliance.                                                                     |
+| 10  | Customer Link expiry       | **Job-closed + 90 days → auto-revoke**. Org admin can extend manually.                                                                                                    |
+| 11  | AU state-by-state content  | **Phase 1 national, Phase 2 state variants**. ICA + ACL terminology is ~95% identical across states (Margot Q3); only AFCA/tribunal escalation paths differ.              |
+| 12  | NRPG content tier          | **Bundled into NRPG membership.** NRPG-certified orgs auto-get NRPG_SEED content. Non-members do not have access. Reinforces NRPG's value prop.                           |
+| 13  | Customer-Mode AI Sidekick  | **Defer to Phase 2** (~3 months post-launch). v1 ships with static content only (videos + articles + glossary).                                                           |
 
 ### Notable simplifications enabled by locked answers
 
@@ -49,22 +49,22 @@ This single architecture project bundles two intertwined deliverables:
 
 ### Three businesses, one wedge
 
-| Business | Role in this design |
-|---|---|
-| **Disaster Recovery (DR)** | Tenant zero. The "DR Method" — Phill's proprietary restoration approach — is the gold-standard content that seeds the platform. Already integrated into RA via `DrNrpgIntegration` Prisma model + webhooks + cron. |
+| Business                                   | Role in this design                                                                                                                                                                                                                                                         |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Disaster Recovery (DR)**                 | Tenant zero. The "DR Method" — Phill's proprietary restoration approach — is the gold-standard content that seeds the platform. Already integrated into RA via `DrNrpgIntegration` Prisma model + webhooks + cron.                                                          |
 | **NRPG (National Recovery Partner Group)** | Industry content network. The 100-point certification methodology + ANZ Property Services Industry Association vision provide the content backbone. Every NRPG member is a candidate RA org; their Customer Portal can ship NRPG-branded content as the "platform default". |
-| **RestoreAssist (RA)** | The platform that delivers the content. Provides the multi-tenant infrastructure, branding overlay, billing rails, and Customer Link distribution. Charges per-org via $99 desktop + $11 mobile-seat model. |
+| **RestoreAssist (RA)**                     | The platform that delivers the content. Provides the multi-tenant infrastructure, branding overlay, billing rails, and Customer Link distribution. Charges per-org via $99 desktop + $11 mobile-seat model.                                                                 |
 
 ### Why competitors can't easily copy this (Margot-validated 2026-05-15)
 
-| Competitor | Customer-facing surface offered | Education depth | Margot verdict |
-|---|---|---|---|
-| **Encircle** (getencircle.com, fetched Feb 2026) | Interactive web links — photos, floor plans, drying logs | None — passive viewer | Tradie-to-adjuster proof tool, not homeowner-facing |
-| **DocuSketch** (docusketch.com, fetched Mar 2026) | Web Portal — 360 tours, timelines, FastSpring/Zoho invoicing | None — visual asset delivery only | Adjuster + estimator workflow, not consumer education |
-| **ServiceM8** (servicem8.com + "My Customer Portal" add-on, fetched Jul 2025) | Branded portal — quotes, bookings, invoices, QR-asset reporting | None — generic trades tool | No insurance-claim or restoration-specific content |
-| **Ascora** (ascora.com.au/advanced/customerportal, fetched Mar 2026) | Customer Portal — quotes, job approvals, history | None — generic trades tool | Designed for electrical/plumbing/HVAC, no restoration nuance |
-| **Tristar** (tristarperks.com, fetched Mar 2026) | Customer + Booking portal — scheduling, invoices, work orders | None — legacy WinServe extension | No restoration education |
-| **Xactimate ClaimXperience** (verisk.com, fetched Nov 2025) | Cloud portal — video/photo upload, live-stream to adjuster | None — fraud-detection + cycle-time tool | Insurer-led, treats homeowner as data-gatherer (adversarial to tradie) |
+| Competitor                                                                    | Customer-facing surface offered                                 | Education depth                          | Margot verdict                                                         |
+| ----------------------------------------------------------------------------- | --------------------------------------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------- |
+| **Encircle** (getencircle.com, fetched Feb 2026)                              | Interactive web links — photos, floor plans, drying logs        | None — passive viewer                    | Tradie-to-adjuster proof tool, not homeowner-facing                    |
+| **DocuSketch** (docusketch.com, fetched Mar 2026)                             | Web Portal — 360 tours, timelines, FastSpring/Zoho invoicing    | None — visual asset delivery only        | Adjuster + estimator workflow, not consumer education                  |
+| **ServiceM8** (servicem8.com + "My Customer Portal" add-on, fetched Jul 2025) | Branded portal — quotes, bookings, invoices, QR-asset reporting | None — generic trades tool               | No insurance-claim or restoration-specific content                     |
+| **Ascora** (ascora.com.au/advanced/customerportal, fetched Mar 2026)          | Customer Portal — quotes, job approvals, history                | None — generic trades tool               | Designed for electrical/plumbing/HVAC, no restoration nuance           |
+| **Tristar** (tristarperks.com, fetched Mar 2026)                              | Customer + Booking portal — scheduling, invoices, work orders   | None — legacy WinServe extension         | No restoration education                                               |
+| **Xactimate ClaimXperience** (verisk.com, fetched Nov 2025)                   | Cloud portal — video/photo upload, live-stream to adjuster      | None — fraud-detection + cycle-time tool | Insurer-led, treats homeowner as data-gatherer (adversarial to tradie) |
 
 **Margot's verdict:** "No vendor currently offers a free, branded, mobile-first portal designed specifically to educate the homeowner, explain technical restoration processes, and decode insurance jargon." Source: Margot Q1 synthesis (interaction_id `v1_ChdxQUVIYXFick...`).
 
@@ -72,12 +72,12 @@ This single architecture project bundles two intertwined deliverables:
 
 ### Commercial loop — quantified by Margot Q8 case studies
 
-| Lever | Comparable evidence | Implication for RA |
-|---|---|---|
-| Free portal → tradie stickiness | Jobber Client Hub: net revenue retention > 100%, churn ~5-7%/yr, +35% quote-win rate (businessmodelcanvastemplate.com, 2025) | $99 + $11/seat orgs become hard to churn once their clients are accustomed to the portal |
-| Automated follow-up → revenue | Housecall Pro / Sonlight Services: $8k → $1.8M annual profit; 50 → 800 Google reviews (housecallpro.com, 2025) | Customer Portal email/SMS nudges into job stages compound into review velocity |
-| Documentation portal → cycle time | Encircle / FP Property Restoration: 15% annual revenue growth, 2× claim capacity, 100+ admin hours saved (getencircle.com, 2026) | Faster documentation → faster invoice → org cash flow → seat retention |
-| Portal underutilization gap | ServiceTitan: 75% of contractors offer a portal, only 26% use two-way comms (servicetitan.com, 2026) | RA's portal default = two-way + educational; immediate differentiation |
+| Lever                             | Comparable evidence                                                                                                              | Implication for RA                                                                       |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Free portal → tradie stickiness   | Jobber Client Hub: net revenue retention > 100%, churn ~5-7%/yr, +35% quote-win rate (businessmodelcanvastemplate.com, 2025)     | $99 + $11/seat orgs become hard to churn once their clients are accustomed to the portal |
+| Automated follow-up → revenue     | Housecall Pro / Sonlight Services: $8k → $1.8M annual profit; 50 → 800 Google reviews (housecallpro.com, 2025)                   | Customer Portal email/SMS nudges into job stages compound into review velocity           |
+| Documentation portal → cycle time | Encircle / FP Property Restoration: 15% annual revenue growth, 2× claim capacity, 100+ admin hours saved (getencircle.com, 2026) | Faster documentation → faster invoice → org cash flow → seat retention                   |
+| Portal underutilization gap       | ServiceTitan: 75% of contractors offer a portal, only 26% use two-way comms (servicetitan.com, 2026)                             | RA's portal default = two-way + educational; immediate differentiation                   |
 
 Restoration customer anxiety + insurance-claim confusion = slow invoice payment. Customer Portal reduces both. Faster invoice payment = faster org cash flow = more orgs willing to pay $99 + $11/seat. Network compounds.
 
@@ -103,14 +103,14 @@ Margot confirmed the **strategic void** thesis: incumbents offer either generic 
 Margot mapped the canonical Australian property-damage claim journey using Suncorp, Allianz, and ICA framework documents (suncorp.com.au, insurancecouncil.com.au, fetched Mar 2026):
 
 1. **Incident + Claim Lodgement** — homeowner contacts insurer with policy number and preliminary photos.
-2. **Make-Safe + Emergency Repairs** — *Make-Safe = temporary stabilisation, not final repair (e.g., tarping a roof, extracting standing water).*
-3. **Damage Assessment** — internal claims manager, loss adjuster, or specialised tradie assesses; expert hydrology/engineering reports may be commissioned. *Proximate Cause = the dominant, effective reason damage occurred; determines whether a covered peril vs excluded event (wear and tear, poor maintenance) applies.*
+2. **Make-Safe + Emergency Repairs** — _Make-Safe = temporary stabilisation, not final repair (e.g., tarping a roof, extracting standing water)._
+3. **Damage Assessment** — internal claims manager, loss adjuster, or specialised tradie assesses; expert hydrology/engineering reports may be commissioned. _Proximate Cause = the dominant, effective reason damage occurred; determines whether a covered peril vs excluded event (wear and tear, poor maintenance) applies._
 4. **Scope of Work + Claim Decision** — insurer reviews assessment, generates Scope of Work. Key terms:
    - **Excess** (deductible) — homeowner's out-of-pocket before insurer pays. ICA Code mandates claim proceeds even when insured cannot immediately pay excess due to financial hardship (financialrights.org.au).
    - **Actual Cash Value (ACV) vs Replacement Cost** — ACV = replacement minus **Depreciation**.
    - **Indemnity vs Reinstatement** — Indemnity = restore the financial position prior to loss (factors in depreciation); Reinstatement = rebuild to original condition with new materials.
    - **Period of Indemnity** — timeframe insurer pays consequential losses (temporary accommodation, loss of rent) while property is uninhabitable.
-5. **Payment + Settlement Options** — managed repair OR cash settlement. **Lifetime Guarantee on Workmanship** applies when claim settles via insurer's authorised repairer; *forfeited if homeowner takes cash settlement and uses an independent repairer* (youi.com.au, nationalcover.com.au, racv.com.au). **Subrogation** = insurer's legal right to pursue a third party who caused damage; insurers may waive subrogation against tenants for accidental damage.
+5. **Payment + Settlement Options** — managed repair OR cash settlement. **Lifetime Guarantee on Workmanship** applies when claim settles via insurer's authorised repairer; _forfeited if homeowner takes cash settlement and uses an independent repairer_ (youi.com.au, nationalcover.com.au, racv.com.au). **Subrogation** = insurer's legal right to pursue a third party who caused damage; insurers may waive subrogation against tenants for accidental damage.
 6. **Dispute Resolution (AFCA)** — escalate internally then to Australian Financial Complaints Authority for external dispute resolution.
 
 ### Q3 — ICA and AFCA mandatory disclosures + cooling-off periods
@@ -124,17 +124,18 @@ Margot mapped the canonical Australian property-damage claim journey using Sunco
 
 Margot's public search returned an `open_questions` flag for NRPG as a historical institution. **NRPG is not a legacy public association.** Cross-referencing internal Unite Group corpus (`~/Pi-CEO/Pi-SEO/business-charters/PI-CEO-STANDARD.md` + `github.com/CleanExpo/Disaster-Recovery`), NRPG is a proprietary professional-body platform engineered and owned by Unite Group. It operates as a triad with `Disaster-Recovery` (active incident response) and `NRPG-Onboarding` (accreditation pipeline). Tiered memberships: Practitioner / Senior Practitioner / Master Practitioner / Corporate. Members use the National Inspection Report (NIR) methodology, with CPD tracked via the platform.
 
-**The IICRC precedent** (renu.inc, 2026) — IICRC began as voluntary standards (S500 water damage, S520 mould) and, through rigorous training, ethics, and certification exams, became a *de facto insurer-mandated* credential over decades. NRPG is positioning the NIR to achieve identical mandated status in Australia. The Customer Portal must subtly project this authority through a co-branded "RestoreAssist + NRPG Quality Mark" header and an "About Your Practitioner" section that surfaces NRPG tier, background-check status, NIR compliance.
+**The IICRC precedent** (renu.inc, 2026) — IICRC began as voluntary standards (S500 water damage, S520 mould) and, through rigorous training, ethics, and certification exams, became a _de facto insurer-mandated_ credential over decades. NRPG is positioning the NIR to achieve identical mandated status in Australia. The Customer Portal must subtly project this authority through a co-branded "RestoreAssist + NRPG Quality Mark" header and an "About Your Practitioner" section that surfaces NRPG tier, background-check status, NIR compliance.
 
 ### Q5 — Apple App Store 2026 policy for multi-tenant B2B portals
 
 Three guidelines apply directly (apple.com Review Guidelines + appstorereviewguidelineshistory.com, fetched Feb 2026):
 
-- **Guideline 4.2.6 — Anti-Templating** — apps "created from a commercialized template or app generation service" are rejected *unless submitted directly by the provider of the app's content*. RA **cannot** ship separate per-tradie iOS apps ("Bob's Restoration Portal", "Smith Water Damage Portal") under RA's developer account. The compliant pattern is a single binary that aggregates content (a "picker" model).
-- **Guideline 4.7 — Third-Party Software / Mini-Apps** — a shell app may load HTML5 software not embedded in the binary, *provided* the software is not offered in a store-like interface, does not expose native APIs without permission, and is free or purchased via Apple IAP.
+- **Guideline 4.2.6 — Anti-Templating** — apps "created from a commercialized template or app generation service" are rejected _unless submitted directly by the provider of the app's content_. RA **cannot** ship separate per-tradie iOS apps ("Bob's Restoration Portal", "Smith Water Damage Portal") under RA's developer account. The compliant pattern is a single binary that aggregates content (a "picker" model).
+- **Guideline 4.7 — Third-Party Software / Mini-Apps** — a shell app may load HTML5 software not embedded in the binary, _provided_ the software is not offered in a store-like interface, does not expose native APIs without permission, and is free or purchased via Apple IAP.
 - **Guideline 5.2 — Intellectual Property** — RA is liable for any tradie-uploaded logos or assets that infringe third-party IP. Org branding pipeline must include a copyright attestation gate.
 
 **Architectural solution.** Two viable paths:
+
 1. **Universal "Picker" app** — single "RestoreAssist Client" (or "NRPG Client") binary on the App Store. Tradie texts the homeowner a Universal Link `restoreassist.app/portal/<token>`. App opens, reads the token, dynamically loads the tradie's branding + job data. Procore, Jobber, and Housecall Pro have all shipped this pattern successfully.
 2. **Progressive Web App (PWA)** — bypass App Store entirely. Homeowner needs the portal for only 2-4 weeks of an active claim; a frictionless web link typically converts better than forcing a traumatised victim through an App Store install.
 
@@ -155,7 +156,7 @@ The RA model (PLATFORM_DEFAULT > NRPG_SEED > ORG_CUSTOM > ORG_OVERRIDE) maps cle
 
 - **Notifiable Data Breaches scheme (Part IIIC, Privacy Act)** — APP Entities must assess an eligible data breach within 30 days and notify the OAIC plus affected individuals if "serious harm" is likely (oaic.gov.au, fortinet.com, data3.com). Restoration files contain interior home photos, security system details, financial data for excess payments — serious-harm risk is elevated.
 - **2024/2025 Privacy Act amendments — Automated Decision-Making + AI** (levo.ai, dataguidance.com, jonesday.com) — explicit transparency mandated when AI processes personal information. RA's Synthex agent (if used to summarise damage or score claim validity) **must** disclose automated processing to the homeowner.
-- **Practical RA disclosures** — the Customer Portal first-open banner must identify (a) the tradie/org as the entity providing the immediate service and capturing the data; (b) RA/Unite-Group as the underlying data processor; (c) any AI-summary generation with the plain-language line: *"This portal uses Artificial Intelligence to organise and summarise damage reports. AI-generated content is reviewed by your practitioner but should not be considered a final legal determination of coverage."*; (d) cookie/analytics tracking with opt-out where mandated.
+- **Practical RA disclosures** — the Customer Portal first-open banner must identify (a) the tradie/org as the entity providing the immediate service and capturing the data; (b) RA/Unite-Group as the underlying data processor; (c) any AI-summary generation with the plain-language line: _"This portal uses Artificial Intelligence to organise and summarise damage reports. AI-generated content is reviewed by your practitioner but should not be considered a final legal determination of coverage."_; (d) cookie/analytics tracking with opt-out where mandated.
 
 ### Q8 — Free customer portal as competitive differentiator (case studies)
 
@@ -172,13 +173,14 @@ The RA model (PLATFORM_DEFAULT > NRPG_SEED > ORG_CUSTOM > ORG_OVERRIDE) maps cle
 
 ### Pricing tiers
 
-| Seat type | Price (AUD/mo) | Scope |
-|---|---|---|
-| **Desktop main subscription** | **$99** | Organization owner. Configures integrations ONCE on web. Has admin screens (billing, integrations, team roster). All API keys + OAuth tokens live on Organization, NOT User. |
-| **Mobile/Tablet user seat** | **$11 per user** | Per User who wants iPhone OR iPad access. One $11 covers BOTH device types for that user. Inherits all org integrations — no per-device API-key install. |
-| **Customer Portal access** | **$0 (free)** | Per ClientPortalAccount. Branded explainer hub, content-only, no tradie tools, no integration access. Sent via Customer Link by org admin. |
+| Seat type                     | Price (AUD/mo)   | Scope                                                                                                                                                                        |
+| ----------------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Desktop main subscription** | **$99**          | Organization owner. Configures integrations ONCE on web. Has admin screens (billing, integrations, team roster). All API keys + OAuth tokens live on Organization, NOT User. |
+| **Mobile/Tablet user seat**   | **$11 per user** | Per User who wants iPhone OR iPad access. One $11 covers BOTH device types for that user. Inherits all org integrations — no per-device API-key install.                     |
+| **Customer Portal access**    | **$0 (free)**    | Per ClientPortalAccount. Branded explainer hub, content-only, no tradie tools, no integration access. Sent via Customer Link by org admin.                                   |
 
 **Example billing:**
+
 - `phill.mcgurk@gmail.com` org (Disaster Recovery) = $99/mo desktop seat
 - Phill on iPhone = +$11/mo
 - `support@unite-group.in` (Phill's colleague) joins via Technician Link, wants iPhone = +$11/mo
@@ -193,6 +195,7 @@ The RA model (PLATFORM_DEFAULT > NRPG_SEED > ORG_CUSTOM > ORG_OVERRIDE) maps cle
 ### Customer Portal content surface
 
 Per Phill's directive (chat 2026-05-15):
+
 - Process explainer **videos** (day 1, day 3, day 7 of a typical job)
 - "What to expect" sequences
 - Insurance-claim **walkthroughs** (lodgement → assessor → scope → payment → dispute)
@@ -212,15 +215,15 @@ Per Phill's directive (chat 2026-05-15):
 
 ### Locked (per Phill 2026-05-15)
 
-| Decision | Locked value |
-|---|---|
-| Customer Portal pricing | **Free** ($0) |
-| Customer Portal purpose | **Branded explainer hub**, not just job status |
-| Content surface | Videos + blog posts + walkthroughs + glossary + about-the-business |
-| Strategic importance | **Wedge feature** — RA differentiation vs Encircle/DocuSketch/etc |
-| NRPG content role | Network-seed content for NRPG-member orgs |
-| DR Method exposure | Customer-facing simplification of DR Method as the platform-default |
-| Timing | **Post-T-day**, multi-week Wave 3 build |
+| Decision                | Locked value                                                        |
+| ----------------------- | ------------------------------------------------------------------- |
+| Customer Portal pricing | **Free** ($0)                                                       |
+| Customer Portal purpose | **Branded explainer hub**, not just job status                      |
+| Content surface         | Videos + blog posts + walkthroughs + glossary + about-the-business  |
+| Strategic importance    | **Wedge feature** — RA differentiation vs Encircle/DocuSketch/etc   |
+| NRPG content role       | Network-seed content for NRPG-member orgs                           |
+| DR Method exposure      | Customer-facing simplification of DR Method as the platform-default |
+| Timing                  | **Post-T-day**, multi-week Wave 3 build                             |
 
 ### Open — need Phill answer before implementation kicks off
 
@@ -277,6 +280,7 @@ Per Phill's directive (chat 2026-05-15):
 ### Mode determination
 
 On iOS app launch:
+
 - If Capacitor URL contains `/portal/<token>` → Customer Mode (no sign-in needed; token authenticates as `ClientPortalAccount`)
 - Else → Tradie Mode (NextAuth sign-in → User)
 - Same IPA, same React app, mode-branched UI. Lower ops cost than separate apps.
@@ -284,6 +288,7 @@ On iOS app launch:
 ### Seat enforcement
 
 When User signs in on iOS:
+
 1. `/api/auth/native-token-exchange` returns session JWT (existing, fixed today via PR #1093/#1094)
 2. Middleware checks `User.hasMobileSeat`. If false:
    - **Grace period** = `mobileGracePeriodEndsAt`, 7 days from invite. UI shows banner "7 days left to activate your mobile seat."
@@ -422,15 +427,16 @@ Content has `audience: "customer" | "technician" | "both"`.
 
 Minimum viable Customer Portal launch content:
 
-| Category | Articles | Videos | Source |
-|---|---|---|---|
-| process | "Day 1 — Make-safe", "Day 3 — Drying", "Day 7 — Restoration begins", "What we test for" | 4 videos × 90s | PLATFORM + Remotion |
-| insurance | "Lodgement → Assessor → Scope → Settlement → AFCA dispute" (mirrors Margot Q2 canonical 6-step journey), "What's an assessor doing?", "Reading your policy", "Cash settlement vs managed repair — what you give up" (lifetime workmanship guarantee forfeiture, per Margot Q2) | 4 videos × 60s | PLATFORM + Remotion |
-| glossary | **AU policy glossary** — Margot Q2 canonical terms: Excess (deductible), Make-Safe, Proximate Cause, Damage Assessment, Scope of Work, Actual Cash Value (ACV), Replacement Cost, Depreciation, Indemnity, Reinstatement, Period of Indemnity, Subrogation, Cash Settlement, Managed Repair, Lifetime Guarantee on Workmanship, Authorised Repairer, Cooling-Off Period (14-day general / 30-day cash-settlement recommended), AFCA, ICA Code, Notifiable Data Breach, ADM (Automated Decision-Making). Plain English per ICA Code Clause 42. | 0 (text + diagrams) | PLATFORM |
-| about | Templated "About the Business" (org fills via wizard) + **NRPG Quality Mark / NRPG tier surface** (Margot Q4 — IICRC playbook replication) | 0 | ORG + NRPG |
-| blog | 0 articles Phase 1 (defer to Phase 2 ongoing content) | — | — |
+| Category  | Articles                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Videos              | Source              |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- | ------------------- |
+| process   | "Day 1 — Make-safe", "Day 3 — Drying", "Day 7 — Restoration begins", "What we test for"                                                                                                                                                                                                                                                                                                                                                                                                                                                       | 4 videos × 90s      | PLATFORM + Remotion |
+| insurance | "Lodgement → Assessor → Scope → Settlement → AFCA dispute" (mirrors Margot Q2 canonical 6-step journey), "What's an assessor doing?", "Reading your policy", "Cash settlement vs managed repair — what you give up" (lifetime workmanship guarantee forfeiture, per Margot Q2)                                                                                                                                                                                                                                                                | 4 videos × 60s      | PLATFORM + Remotion |
+| glossary  | **AU policy glossary** — Margot Q2 canonical terms: Excess (deductible), Make-Safe, Proximate Cause, Damage Assessment, Scope of Work, Actual Cash Value (ACV), Replacement Cost, Depreciation, Indemnity, Reinstatement, Period of Indemnity, Subrogation, Cash Settlement, Managed Repair, Lifetime Guarantee on Workmanship, Authorised Repairer, Cooling-Off Period (14-day general / 30-day cash-settlement recommended), AFCA, ICA Code, Notifiable Data Breach, ADM (Automated Decision-Making). Plain English per ICA Code Clause 42. | 0 (text + diagrams) | PLATFORM            |
+| about     | Templated "About the Business" (org fills via wizard) + **NRPG Quality Mark / NRPG tier surface** (Margot Q4 — IICRC playbook replication)                                                                                                                                                                                                                                                                                                                                                                                                    | 0                   | ORG + NRPG          |
+| blog      | 0 articles Phase 1 (defer to Phase 2 ongoing content)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | —                   | —                   |
 
 **Total Phase 1 cost:**
+
 - 8 videos × ~$2 ElevenLabs + Remotion render → ~$16
 - 28 articles × MDX authoring → ~$0 (manual platform-team author OR Margot draft + edit)
 - **Budget: ~$50 for Phase 1 launch content**, well within tolerances.
@@ -443,7 +449,7 @@ Minimum viable Customer Portal launch content:
 
 Every NRPG-certified org gets a free baseline of NRPG-branded Customer Portal content automatically. As Phill's NRPG expands into the broader ANZ Property Services Industry Association (per `industry-association-vision-2026`), the content library expands with it.
 
-**Margot Q4 validation (2026-05-15):** public search confirmed NRPG has no legacy public posture — Margot returned an `open_questions` flag, which is consistent with the internal positioning of NRPG as a forward-looking proprietary authority layer engineered by Unite Group (not a pre-existing institution). The strategic playbook is a direct mirror of the **IICRC precedent** (renu.inc, 2026): IICRC began as voluntary standards (S500 water, S520 mould), and through rigorous training + ethics + certification became a *de facto insurer-mandated* credential over decades. RA's Customer Portal projects NRPG authority through a co-branded header ("RestoreAssist + NRPG Quality Mark") and an "About Your Practitioner" surface displaying NRPG tier, background-check status, and NIR compliance — directly priming the market for the same insurer-mandate trajectory.
+**Margot Q4 validation (2026-05-15):** public search confirmed NRPG has no legacy public posture — Margot returned an `open_questions` flag, which is consistent with the internal positioning of NRPG as a forward-looking proprietary authority layer engineered by Unite Group (not a pre-existing institution). The strategic playbook is a direct mirror of the **IICRC precedent** (renu.inc, 2026): IICRC began as voluntary standards (S500 water, S520 mould), and through rigorous training + ethics + certification became a _de facto insurer-mandated_ credential over decades. RA's Customer Portal projects NRPG authority through a co-branded header ("RestoreAssist + NRPG Quality Mark") and an "About Your Practitioner" surface displaying NRPG tier, background-check status, and NIR compliance — directly priming the market for the same insurer-mandate trajectory.
 
 ### Mechanics
 
@@ -469,11 +475,13 @@ What's the NRPG membership cost? Does NRPG content access require a separate pai
 ### Same IPA, multi-mode (default recommendation) — Margot-validated
 
 **Pro:**
+
 - One submission, one review cycle, one binary to maintain.
 - Existing 1.0.x IPA already lives; can ship Customer Mode as a route addition in 2.0.0.
 - Customer Mode is content-only (no IAP, no integration tools) — passes Apple Guideline 4.2 easily.
 
 **Con — concrete Apple guideline risks (Margot Q5, fetched Feb 2026):**
+
 - **Guideline 4.2.6 (Anti-Templating)** — apps created from a "commercialized template or app generation service" are rejected unless submitted directly by the provider of the app's content (apple.com Review Guidelines; appstorereviewguidelineshistory.com). RA cannot ship separate per-tradie iOS apps under RA's developer account. Compliant pattern = single binary, aggregated "picker" content model.
 - **Guideline 4.7 (Third-Party Software / Mini-Apps)** — shell-app loading HTML5 mini-apps is allowed only if it does not present a store-like interface, does not expose native APIs without permission, and is free or sold via Apple IAP.
 - **Guideline 5.2 (Intellectual Property)** — RA is liable for tradie-uploaded logos / assets that infringe third-party IP. The org branding pipeline must include a copyright attestation gate at upload time.
@@ -499,9 +507,10 @@ Apple Guideline 3.1.1 requires IAP for digital subscriptions consumed in the app
 ### Mandatory disclosures (per Privacy Act 1988 amendments + ACL + ICA + AFCA) — Margot-validated
 
 Customer Portal must disclose:
+
 - **Identity of the platform owner** — RestoreAssist (RestoreAssist Pty Ltd / Unite-Group entity), not just the org. Apple Guideline 5.1.1 requires this for any data collection.
 - **Identity of the org serving content** — tradie's business name + ACN + ABN visible in About section.
-- **AI-generated content disclosure (Margot Q7)** — required under 2024/2025 Privacy Act amendments covering Automated Decision-Making (levo.ai, dataguidance.com, jonesday.com, fetched Jan/Mar 2026). Plain-language line: *"This portal uses Artificial Intelligence to organise and summarise damage reports. AI-generated content is reviewed by your practitioner but should not be considered a final legal determination of coverage."*
+- **AI-generated content disclosure (Margot Q7)** — required under 2024/2025 Privacy Act amendments covering Automated Decision-Making (levo.ai, dataguidance.com, jonesday.com, fetched Jan/Mar 2026). Plain-language line: _"This portal uses Artificial Intelligence to organise and summarise damage reports. AI-generated content is reviewed by your practitioner but should not be considered a final legal determination of coverage."_
 - **Tracking/analytics** — opt-in for non-essential analytics. Privacy Banner on first portal open.
 - **Notifiable Data Breaches (NDB) scheme (Part IIIC, Privacy Act 1988)** — APP Entities must assess an eligible data breach within 30 days and notify OAIC + affected individuals if "serious harm" is likely (oaic.gov.au, fortinet.com, data3.com). Restoration files include interior home photos, security details, financial data for excess payments — serious-harm risk is elevated. Privacy policy must split RA (platform/data processor for content data) vs org (data controller for job-level data).
 - **ICA Code Clause 42 (General Insurance Code of Practice 2020, insurancecode.org.au)** — plain-language communication mandated for situational vulnerability. Customer Portal explainers must avoid legalese.
@@ -521,6 +530,7 @@ Customer Portal must disclose:
 ## Implementation phases (post-T-day) — scope-locked per Q&A 2026-05-15
 
 ### Wave 3.1 — Foundation (Week 1-2)
+
 - Prisma migration A (additive) — new fields per Q1/Q5/Q12 + simplified `PortalContent` (2 scopes only per Q8)
 - `PortalContent` model + **admin CRUD scoped to RA platform team only** (per Q8 — no org-level write API needed)
 - Customer Portal routing — Customer Mode in same iOS IPA (per Q7)
@@ -528,6 +538,7 @@ Customer Portal must disclose:
 - **NEW (per Q1):** `Session` model extension with `deviceFingerprint`/`signedInFromIp`/`userAgent` columns + new-device email-alert helper (`lib/security/device-alerts.ts`)
 
 ### Wave 3.2 — Multi-seat billing (Week 2-3)
+
 - Stripe Subscription Items refactor (1 desktop item + N \× $11 mobile seat items) per Q5 org-level customer
 - Apple IAP wiring for $11 mobile seat — **absorb 30% cut, $11 everywhere** per Q6
 - Middleware seat enforcement on iOS sign-in — 7-day grace per Q3 + `/billing/mobile-seat` paywall
@@ -535,6 +546,7 @@ Customer Portal must disclose:
 - `Integration.scope` enum (org-shared vs user-level) per Q4
 
 ### Wave 3.3 — Phase 1 content (Week 3-4) — RA platform authoring only
+
 - 8 Customer Portal videos via Remotion (process + insurance categories) — RA platform team
 - 28 MDX articles (process + insurance + glossary + About template) — RA platform team
 - **NRPG seed content** — 5-10 articles + 3 videos, authored by Phill + NRPG editorial. Bundled into NRPG membership per Q12; gated by `Organization.isNrpgMember` flag (sources via DR/NRPG integration)
@@ -542,18 +554,21 @@ Customer Portal must disclose:
 - **NO org-authored content** per Q8 — orgs cannot write MDX
 
 ### Wave 3.4 — Branding + UX (Week 4-5)
+
 - Org branding (logo + colors) flows into Customer Portal — per Q9 client sees ONLY org brand
 - About-the-Business setup wizard for orgs — **structured form filling Organization fields, NOT MDX authoring** (preserves Q8 single-source authoring)
 - Customer Mode UI polish (no tradie tools visible)
 - Optional tiny "Powered by RestoreAssist" footer link (legal compliance)
 
 ### Wave 3.5 — Compliance + launch (Week 5-6)
+
 - Privacy banner + TOS combined-doc generation (RA + org disclosures per Margot Q7)
 - AFCA / ACCC compliance audit
 - iOS 2.0.0 submission + App Store review (single IPA per Q7)
 - Stripe billing migration cutover
 
 ### Deferred to Wave 4 (post-launch +90 days)
+
 - **Customer-Mode AI Sidekick** (subset of SP-G) — deferred per Q13. v1 ships static content only.
 - **State-by-state AU content variants** (NSW/VIC/QLD/etc) per Q11 — Phase 2 once tenant distribution by state is observable.
 - Phase 2 NRPG content expansion (full library beyond 5-10 seed articles).
@@ -599,6 +614,7 @@ Customer Portal must disclose:
 ---
 
 **Next steps:**
+
 1. Phill reviews this draft (Margot findings now folded in), answers the 13 open questions
 2. CEO Board deliberation if any of Phill's answers create cross-team tension (Apple IAP 30% cut vs revenue model is the most likely trigger)
 3. After approval, invoke `superpowers:writing-plans` to produce the Wave 3 implementation plan (~3000 lines, mirrors SP-2 + SP-3 plan style)

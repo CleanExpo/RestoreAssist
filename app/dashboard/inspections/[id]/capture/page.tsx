@@ -923,7 +923,8 @@ export default function CaptureWorkflowPage({
 
           {isNative && offlineCount > 0 && (
             <div className="bg-amber-900/30 border border-amber-600/50 rounded-lg px-4 py-2 text-sm text-amber-300 mb-4">
-              Working offline — {offlineCount} item{offlineCount > 1 ? "s" : ""} queued
+              Working offline — {offlineCount} item{offlineCount > 1 ? "s" : ""}{" "}
+              queued
             </div>
           )}
 
@@ -1168,34 +1169,8 @@ export default function CaptureWorkflowPage({
           </div>
 
           {/* ============================================ */}
-          {/* SUBMISSION GATE (RA-401) */}
+          {/* SUBMISSION GATE (RA-401) — see SubmissionGatePanel below */}
           {/* ============================================ */}
-          {false &&
-            workflow?.isReadyToSubmit /* replaced by SubmissionGatePanel below */ && (
-              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-5 mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                    <CheckCircle2 className="h-5 w-5 text-green-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-semibold text-green-800 dark:text-green-300">
-                      All mandatory steps complete
-                    </h3>
-                    <p className="text-xs text-green-700 dark:text-green-400 mt-0.5">
-                      Submission score: {workflow?.submissionScore ?? 0}% · This
-                      inspection is ready to submit.
-                    </p>
-                  </div>
-                  <div className="ml-auto">
-                    <Link href={`/dashboard/inspections/${inspectionId}`}>
-                      <Button className="bg-green-600 hover:bg-green-700">
-                        Review & Submit
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            )}
           <SubmissionGatePanel
             inspectionId={inspectionId}
             isReadyToSubmit={workflow.isReadyToSubmit}

@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import { useState, useRef } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useSetupStore } from './store';
+import { useState, useRef } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useSetupStore } from "./store";
 
 async function patchState(field: string, value: string | null): Promise<void> {
-  await fetch('/api/setup/state', {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+  await fetch("/api/setup/state", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ [field]: value }),
   });
 }
@@ -20,7 +20,10 @@ export function BrandCard() {
 
   const [saving, setSaving] = useState<Record<string, boolean>>({});
 
-  const save = async (field: 'primaryColor' | 'accentColor' | 'aboutCopy' | 'logoUrl', value: string | null) => {
+  const save = async (
+    field: "primaryColor" | "accentColor" | "aboutCopy" | "logoUrl",
+    value: string | null,
+  ) => {
     setSaving((p) => ({ ...p, [field]: true }));
     try {
       await patchState(field, value);
@@ -36,9 +39,9 @@ export function BrandCard() {
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = reader.result as string;
-      update('logoUrl', dataUrl);
+      update("logoUrl", dataUrl);
       // Persist to server (eventually replaced by Cloudinary URL)
-      void save('logoUrl', dataUrl);
+      void save("logoUrl", dataUrl);
     };
     reader.readAsDataURL(file);
   };
@@ -49,11 +52,11 @@ export function BrandCard() {
         <CardTitle>Your brand</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {status === 'pending' && (
+        {status === "pending" && (
           <p className="text-sm text-muted-foreground">Waiting for your ABN…</p>
         )}
 
-        {status === 'running' && (
+        {status === "running" && (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground animate-pulse">
               Pulling your logo and brand colours from your website…
@@ -68,11 +71,15 @@ export function BrandCard() {
           </div>
         )}
 
-        {(status === 'ready' || status === 'manual' || status === 'error') && (
+        {(status === "ready" || status === "manual" || status === "error") && (
           <div className="space-y-4">
-            {status === 'error' && (
-              <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm">
-                Something went wrong loading your brand. You can fill it in manually below.
+            {status === "error" && (
+              <div
+                role="alert"
+                className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm"
+              >
+                Something went wrong loading your brand. You can fill it in
+                manually below.
               </div>
             )}
             <div className="flex gap-4 items-start">
@@ -87,9 +94,15 @@ export function BrandCard() {
                   {org?.logoUrl ? (
                     // Use plain img — Next/Image needs domain config, fine for in-progress dev UI
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={org.logoUrl} alt="Business logo" className="w-full h-full object-contain" />
+                    <img
+                      src={org.logoUrl}
+                      alt="Business logo"
+                      className="w-full h-full object-contain"
+                    />
                   ) : (
-                    <span className="text-xs text-muted-foreground text-center px-2">Click to upload</span>
+                    <span className="text-xs text-muted-foreground text-center px-2">
+                      Click to upload
+                    </span>
                   )}
                 </button>
                 <input
@@ -102,7 +115,9 @@ export function BrandCard() {
                   }}
                   className="sr-only"
                 />
-                {saving.logoUrl && <span className="text-xs text-muted-foreground">Saving…</span>}
+                {saving.logoUrl && (
+                  <span className="text-xs text-muted-foreground">Saving…</span>
+                )}
               </div>
 
               {/* Colours */}
@@ -110,52 +125,63 @@ export function BrandCard() {
                 <div className="flex gap-3">
                   <ColorSwatch
                     label="Primary"
-                    hex={org?.primaryColor ?? '#1C2E47'}
+                    hex={org?.primaryColor ?? "#1C2E47"}
                     saving={saving.primaryColor}
                     onChange={(v) => {
-                      update('primaryColor', v);
-                      void save('primaryColor', v);
+                      update("primaryColor", v);
+                      void save("primaryColor", v);
                     }}
                   />
                   <ColorSwatch
                     label="Accent"
-                    hex={org?.accentColor ?? '#8A6B4E'}
+                    hex={org?.accentColor ?? "#8A6B4E"}
                     saving={saving.accentColor}
                     onChange={(v) => {
-                      update('accentColor', v);
-                      void save('accentColor', v);
+                      update("accentColor", v);
+                      void save("accentColor", v);
                     }}
                   />
                 </div>
 
                 {/* About copy */}
                 <div className="space-y-1">
-                  <label htmlFor="about" className="text-xs font-medium text-muted-foreground">
+                  <label
+                    htmlFor="about"
+                    className="text-xs font-medium text-muted-foreground"
+                  >
                     About your business
                   </label>
                   <textarea
                     id="about"
                     rows={3}
-                    value={org?.aboutCopy ?? ''}
-                    onChange={(e) => update('aboutCopy', e.target.value)}
-                    onBlur={(e) => void save('aboutCopy', e.target.value || null)}
+                    value={org?.aboutCopy ?? ""}
+                    onChange={(e) => update("aboutCopy", e.target.value)}
+                    onBlur={(e) =>
+                      void save("aboutCopy", e.target.value || null)
+                    }
                     className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                     placeholder="A short paragraph about what you do, who you serve, and where."
                   />
-                  {saving.aboutCopy && <span className="text-xs text-muted-foreground">Saving…</span>}
+                  {saving.aboutCopy && (
+                    <span className="text-xs text-muted-foreground">
+                      Saving…
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
           </div>
         )}
-
       </CardContent>
     </Card>
   );
 }
 
 function ColorSwatch({
-  label, hex, saving, onChange,
+  label,
+  hex,
+  saving,
+  onChange,
 }: {
   label: string;
   hex: string;
@@ -172,7 +198,10 @@ function ColorSwatch({
         className="h-10 w-16 rounded cursor-pointer border border-border"
         aria-label={`${label} colour picker`}
       />
-      <span className="font-mono text-[10px] text-muted-foreground">{hex}{saving ? ' (saving…)' : ''}</span>
+      <span className="font-mono text-[10px] text-muted-foreground">
+        {hex}
+        {saving ? " (saving…)" : ""}
+      </span>
     </label>
   );
 }

@@ -28,9 +28,6 @@ if (dsn) {
     // Drop expected operational signals (auth-not-present 401s on public
     // endpoints, deliberate rate-limit 429s) so they don't drown out real
     // exceptions.
-    ignoreErrors: [
-      /^Unauthorized$/,
-      /^Rate limit exceeded$/,
-    ],
+    ignoreErrors: [/^Unauthorized$/, /^Rate limit exceeded$/],
   });
 }

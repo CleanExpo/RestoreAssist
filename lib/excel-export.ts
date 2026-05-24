@@ -83,7 +83,7 @@ export interface ParsedReport {
 /**
  * Helper to safely parse JSON
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 function safeParse(value: unknown): any {
   if (!value) return null;
   if (typeof value === "object") return value;
@@ -798,7 +798,7 @@ export async function generateSingleReportExcel(
     ];
 
     let totalEquipmentCost = 0;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     equipmentSelection.forEach((item: any) => {
       const cost =
         item.totalCost ||
@@ -1115,7 +1115,6 @@ export async function generateSingleReportExcel(
         { header: "Specifications", key: "specifications", width: 40 },
       ];
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       equipmentSelection.forEach((item: any) => {
         equipmentSheet.addRow({
           name: item.name || item.equipmentName || "N/A",

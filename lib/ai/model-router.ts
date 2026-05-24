@@ -412,7 +412,11 @@ export async function routeBasic(
         where: { id: opts.userId },
         select: { creditsRemaining: true },
       });
-      if (user && user.creditsRemaining !== null && user.creditsRemaining <= 0) {
+      if (
+        user &&
+        user.creditsRemaining !== null &&
+        user.creditsRemaining <= 0
+      ) {
         return null;
       }
     }

@@ -40,13 +40,17 @@ export function TechLicenceBanner() {
     <div className="border border-[#1C2E47]/30 bg-[#1C2E47]/8 dark:bg-[#1C2E47]/20 rounded-lg p-4 mb-6 flex items-center gap-4">
       <div className="text-2xl flex-shrink-0">📋</div>
       <div className="flex-1 min-w-0">
-        <p className="font-semibold text-sm">Add your credentials to unlock attestations</p>
+        <p className="font-semibold text-sm">
+          Add your credentials to unlock attestations
+        </p>
         <p className="text-xs text-muted-foreground">
           IICRC certificate · WHS White Card · State licence — takes a minute
         </p>
         <div className="flex flex-wrap gap-1.5 mt-2">
           {data.steps.map((s) => {
-            const short = s.title.replace(/^Add your /, "").replace(/ \(if applicable\)$/, "");
+            const short = s.title
+              .replace(/^Add your /, "")
+              .replace(/ \(if applicable\)$/, "");
             return (
               <span
                 key={s.id}

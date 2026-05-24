@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { FileDown, Loader2 } from "lucide-react";
+import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import type { InspectionReportData } from "@/lib/pdf-export";
 
@@ -33,8 +34,7 @@ export default function ExportPdfButton({
       await exportInspectionPdf(data);
     } catch (err) {
       console.error("[ExportPdfButton] Export failed:", err);
-      // Surface error to user in a non-blocking way — rely on console/toast elsewhere
-      alert(
+      toast.error(
         `PDF export failed: ${err instanceof Error ? err.message : String(err)}`,
       );
     } finally {

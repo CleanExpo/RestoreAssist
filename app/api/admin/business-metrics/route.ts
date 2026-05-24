@@ -77,7 +77,10 @@ export async function GET(request: NextRequest) {
     const [newTrialsThisMonth, convertedThisMonth, churnedThisMonth] =
       await Promise.all([
         prisma.user.count({
-          where: { subscriptionStatus: "TRIAL", createdAt: { gte: monthStart } },
+          where: {
+            subscriptionStatus: "TRIAL",
+            createdAt: { gte: monthStart },
+          },
         }),
         prisma.user.count({
           where: {

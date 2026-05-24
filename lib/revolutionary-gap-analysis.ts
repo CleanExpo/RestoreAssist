@@ -559,6 +559,7 @@ Return JSON with this EXACT structure:
   } catch (error: any) {
     throw new Error(
       `Failed to perform revolutionary gap analysis on ${file.name}: ${error.message}`,
+      { cause: error },
     );
   }
 }

@@ -133,18 +133,21 @@ async function addDocumentToPDF(
   yPosition -= 20;
 
   const sanitizeText = (text: string): string => {
-    return text
-      .replace(/✓/g, "[X]")
-      .replace(/✔/g, "[X]")
-      .replace(/✗/g, "[ ]")
-      .replace(/✘/g, "[ ]")
-      .replace(/[^\x00-\x7F]/g, (char) => {
-        const charCode = char.charCodeAt(0);
-        if (charCode >= 0x80 && charCode <= 0xff) {
-          return char;
-        }
-        return "?";
-      });
+    return (
+      text
+        .replace(/✓/g, "[X]")
+        .replace(/✔/g, "[X]")
+        .replace(/✗/g, "[ ]")
+        .replace(/✘/g, "[ ]")
+        // eslint-disable-next-line no-control-regex -- deliberate control-char filter
+        .replace(/[^\x00-\x7F]/g, (char) => {
+          const charCode = char.charCodeAt(0);
+          if (charCode >= 0x80 && charCode <= 0xff) {
+            return char;
+          }
+          return "?";
+        })
+    );
   };
 
   const wrapText = (text: string, maxWidth: number, size: number): string[] => {

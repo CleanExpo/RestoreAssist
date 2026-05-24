@@ -111,7 +111,11 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      let body: { provider?: unknown; apiKey?: unknown; config?: unknown } | null = null;
+      let body: {
+        provider?: unknown;
+        apiKey?: unknown;
+        config?: unknown;
+      } | null = null;
       try {
         body = rawBody ? JSON.parse(rawBody) : null;
       } catch {
@@ -162,8 +166,14 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({ connection });
     } catch (error) {
-      console.error("[POST /api/workspace/scraping-provider-connections]", error);
-      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+      console.error(
+        "[POST /api/workspace/scraping-provider-connections]",
+        error,
+      );
+      return NextResponse.json(
+        { error: "Internal server error" },
+        { status: 500 },
+      );
     }
   });
 }
@@ -208,7 +218,10 @@ export async function DELETE(req: NextRequest) {
 
     return NextResponse.json({ ok: true, provider: body.provider });
   } catch (error) {
-    console.error("[DELETE /api/workspace/scraping-provider-connections]", error);
+    console.error(
+      "[DELETE /api/workspace/scraping-provider-connections]",
+      error,
+    );
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 },

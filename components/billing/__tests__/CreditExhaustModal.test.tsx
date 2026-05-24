@@ -24,6 +24,9 @@ describe("CreditExhaustModal", () => {
       window.dispatchEvent(new CustomEvent("credit-exhausted"));
     });
     const upgradeLink = screen.getByRole("link", { name: /upgrade plan/i });
-    expect(upgradeLink).toHaveAttribute("href", "/billing/upgrade?reason=credits");
+    expect(upgradeLink).toHaveAttribute(
+      "href",
+      "/billing/upgrade?reason=credits",
+    );
   });
 });

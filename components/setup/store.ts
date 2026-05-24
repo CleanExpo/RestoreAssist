@@ -1,7 +1,12 @@
-import { create } from 'zustand';
-import type { HydrationState } from '@/lib/setup/hydration-state-machine';
+import { create } from "zustand";
+import type { HydrationState } from "@/lib/setup/hydration-state-machine";
 
-type SectionKey = 'businessDetails' | 'branding' | 'pricing' | 'storage' | 'integrations';
+type SectionKey =
+  | "businessDetails"
+  | "branding"
+  | "pricing"
+  | "storage"
+  | "integrations";
 
 export interface SetupOrganization {
   id: string;
@@ -18,7 +23,7 @@ export interface SetupOrganization {
   primaryColor: string | null;
   accentColor: string | null;
   aboutCopy: string | null;
-  tradingStatus: 'ACTIVE' | 'PRE_TRADING';
+  tradingStatus: "ACTIVE" | "PRE_TRADING";
   setupStartedAt: string | null;
   setupCompletedAt: string | null;
   pricingConfig: Record<string, unknown> | null;
@@ -29,16 +34,19 @@ interface SetupState {
   sections: Record<SectionKey, HydrationState>;
   setOrg: (org: SetupOrganization | null) => void;
   setSectionStatus: (key: SectionKey, status: HydrationState) => void;
-  updateOrgField: <K extends keyof SetupOrganization>(key: K, value: SetupOrganization[K]) => void;
+  updateOrgField: <K extends keyof SetupOrganization>(
+    key: K,
+    value: SetupOrganization[K],
+  ) => void;
   reset: () => void;
 }
 
 const INITIAL_SECTIONS: Record<SectionKey, HydrationState> = {
-  businessDetails: 'pending',
-  branding: 'pending',
-  pricing: 'pending',
-  storage: 'pending',
-  integrations: 'pending',
+  businessDetails: "pending",
+  branding: "pending",
+  pricing: "pending",
+  storage: "pending",
+  integrations: "pending",
 };
 
 export const useSetupStore = create<SetupState>((set) => ({

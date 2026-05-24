@@ -100,7 +100,7 @@ export async function uploadImage(
     };
   } catch (error) {
     console.error("Cloudinary upload error:", error);
-    throw new Error("Failed to upload image to Cloudinary");
+    throw new Error("Failed to upload image to Cloudinary", { cause: error });
   }
 }
 
@@ -117,6 +117,7 @@ export async function deleteImage(publicId: string): Promise<void> {
     });
     throw new Error(
       `Failed to delete image from Cloudinary: ${error?.message || "Unknown error"}`,
+      { cause: error },
     );
   }
 }
@@ -198,12 +199,16 @@ export async function uploadToCloudinary(
     if (error?.http_code === 401) {
       throw new Error(
         `Cloudinary authentication failed. Error: ${error?.message}`,
+        { cause: error },
       );
     } else if (error?.http_code === 400) {
-      throw new Error(`Cloudinary upload failed: ${error?.message}`);
+      throw new Error(`Cloudinary upload failed: ${error?.message}`, {
+        cause: error,
+      });
     } else {
       throw new Error(
         `Failed to upload image to Cloudinary: ${error?.message || "Unknown error"}`,
+        { cause: error },
       );
     }
   }
@@ -232,12 +237,16 @@ export async function uploadExcelToCloudinary(
     if (error?.http_code === 401) {
       throw new Error(
         `Cloudinary authentication failed. Error: ${error?.message}`,
+        { cause: error },
       );
     } else if (error?.http_code === 400) {
-      throw new Error(`Cloudinary upload failed: ${error?.message}`);
+      throw new Error(`Cloudinary upload failed: ${error?.message}`, {
+        cause: error,
+      });
     } else {
       throw new Error(
         `Failed to upload Excel file to Cloudinary: ${error?.message || "Unknown error"}`,
+        { cause: error },
       );
     }
   }
@@ -289,12 +298,16 @@ export async function uploadPDFToCloudinary(
     if (error?.http_code === 401) {
       throw new Error(
         `Cloudinary authentication failed. Error: ${error?.message}`,
+        { cause: error },
       );
     } else if (error?.http_code === 400) {
-      throw new Error(`Cloudinary upload failed: ${error?.message}`);
+      throw new Error(`Cloudinary upload failed: ${error?.message}`, {
+        cause: error,
+      });
     } else {
       throw new Error(
         `Failed to upload PDF to Cloudinary: ${error?.message || "Unknown error"}`,
+        { cause: error },
       );
     }
   }
@@ -346,12 +359,16 @@ export async function uploadFileToCloudinary(
     if (error?.http_code === 401) {
       throw new Error(
         `Cloudinary authentication failed. Error: ${error?.message}`,
+        { cause: error },
       );
     } else if (error?.http_code === 400) {
-      throw new Error(`Cloudinary upload failed: ${error?.message}`);
+      throw new Error(`Cloudinary upload failed: ${error?.message}`, {
+        cause: error,
+      });
     } else {
       throw new Error(
         `Failed to upload file to Cloudinary: ${error?.message || "Unknown error"}`,
+        { cause: error },
       );
     }
   }
@@ -404,6 +421,7 @@ export async function deleteFile(
     });
     throw new Error(
       `Failed to delete file from Cloudinary: ${error?.message || "Unknown error"}`,
+      { cause: error },
     );
   }
 }
@@ -425,6 +443,7 @@ export async function deleteFilesByTag(
     console.error("[Cloudinary] Batch delete error:", error);
     throw new Error(
       `Failed to delete files by tag: ${error?.message || "Unknown error"}`,
+      { cause: error },
     );
   }
 }
@@ -455,6 +474,7 @@ export async function getFilesByTag(
     console.error("[Cloudinary] Get files by tag error:", error);
     throw new Error(
       `Failed to get files by tag: ${error?.message || "Unknown error"}`,
+      { cause: error },
     );
   }
 }

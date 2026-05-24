@@ -99,13 +99,16 @@ export function CapacitorProvider({ children }: { children: ReactNode }) {
           PushNotifications.requestPermissions().then(({ receive }) => {
             if (receive !== "granted") return;
             PushNotifications.register();
-            PushNotifications.addListener("registration", ({ value: token }) => {
-              fetch("/api/push/subscribe", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ token, platform: "ios" }),
-              }).catch(() => {});
-            });
+            PushNotifications.addListener(
+              "registration",
+              ({ value: token }) => {
+                fetch("/api/push/subscribe", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ token, platform: "ios" }),
+                }).catch(() => {});
+              },
+            );
           });
         })
         .catch(() => {});

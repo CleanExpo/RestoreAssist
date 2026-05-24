@@ -47,10 +47,16 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 },
+    );
   }
 
-  if (!body.subjectLicenceNumber || typeof body.subjectLicenceNumber !== "string") {
+  if (
+    !body.subjectLicenceNumber ||
+    typeof body.subjectLicenceNumber !== "string"
+  ) {
     return NextResponse.json(
       { error: "subjectLicenceNumber is required" },
       { status: 400 },
@@ -124,6 +130,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, authorisationId: created.id });
   } catch (error) {
     console.error("[POST /api/authorisations]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

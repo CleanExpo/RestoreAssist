@@ -387,7 +387,6 @@ export async function PATCH(
     const result = await prisma.$transaction(async (tx) => {
       let updated = 0;
       for (const op of ops) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const r = await (tx.moistureReading.updateMany as any)({
           where: { id: { in: op.ids }, inspectionId },
           data: { affectedArea: op.name },
@@ -396,7 +395,6 @@ export async function PATCH(
       }
       let cleared = 0;
       if (body.clearUnlisted) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const r = await (tx.moistureReading.updateMany as any)({
           where: {
             inspectionId,

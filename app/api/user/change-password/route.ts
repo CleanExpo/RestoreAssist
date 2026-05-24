@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
   // the "wrong current password" response cached for the retry window,
   // so the user gets the same 400 instead of a fresh compare each time.
   return withIdempotency(request, userId, async (rawBody) => {
-    let parsed: { currentPassword?: string; newPassword?: string } = {};
+    let parsed: { currentPassword?: string; newPassword?: string };
     try {
       parsed = rawBody ? JSON.parse(rawBody) : {};
     } catch {

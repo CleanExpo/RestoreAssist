@@ -1,8 +1,8 @@
-import { describe, expect, it, beforeEach, afterAll } from 'vitest';
-import { backfill } from '../backfill-setup-wizard';
-import { prisma } from '@/lib/prisma';
+import { describe, expect, it, beforeEach, afterAll } from "vitest";
+import { backfill } from "../backfill-setup-wizard";
+import { prisma } from "@/lib/prisma";
 
-describe('backfill', () => {
+describe("backfill", () => {
   beforeEach(async () => {
     // Clean slate — order matters (FKs)
     await prisma.organizationPricingConfig.deleteMany({});
@@ -16,51 +16,70 @@ describe('backfill', () => {
     await prisma.$disconnect();
   });
 
-  it('copies User business fields onto owning Organization', async () => {
+  it("copies User business fields onto owning Organization", async () => {
     const user = await prisma.user.create({
       data: {
         email: `a${Date.now()}@test.com`,
-        businessName: 'Acme Pty Ltd',
-        businessABN: '53004085616',
-        businessState: 'NSW',
+        businessName: "Acme Pty Ltd",
+        businessABN: "53004085616",
+        businessState: "NSW",
       },
     });
-    const org = await prisma.organization.create({ data: { name: 'Acme Pty Ltd', ownerId: user.id } });
-    await prisma.user.update({ where: { id: user.id }, data: { organizationId: org.id } });
+    const org = await prisma.organization.create({
+      data: { name: "Acme Pty Ltd", ownerId: user.id },
+    });
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { organizationId: org.id },
+    });
 
     await backfill();
 
-    const after = await prisma.organization.findUniqueOrThrow({ where: { id: org.id } });
-    expect(after.abn).toBe('53004085616');
-    expect(after.state).toBe('NSW');
-    expect(after.legalName).toBe('Acme Pty Ltd');
+    const after = await prisma.organization.findUniqueOrThrow({
+      where: { id: org.id },
+    });
+    expect(after.abn).toBe("53004085616");
+    expect(after.state).toBe("NSW");
+    expect(after.legalName).toBe("Acme Pty Ltd");
   });
 
-  it('is idempotent — re-running is a no-op', async () => {
+  it("is idempotent — re-running is a no-op", async () => {
     const user = await prisma.user.create({
       data: {
         email: `b${Date.now()}@test.com`,
-        businessName: 'X',
-        businessABN: '11111111111',
+        businessName: "X",
+        businessABN: "11111111111",
       },
     });
-    const org = await prisma.organization.create({ data: { name: 'X', ownerId: user.id } });
-    await prisma.user.update({ where: { id: user.id }, data: { organizationId: org.id } });
+    const org = await prisma.organization.create({
+      data: { name: "X", ownerId: user.id },
+    });
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { organizationId: org.id },
+    });
 
     await backfill();
     await backfill();
 
-    const after = await prisma.organization.findUniqueOrThrow({ where: { id: org.id } });
-    expect(after.abn).toBe('11111111111');
-    expect(after.legalName).toBe('X');
+    const after = await prisma.organization.findUniqueOrThrow({
+      where: { id: org.id },
+    });
+    expect(after.abn).toBe("11111111111");
+    expect(after.legalName).toBe("X");
   });
 
-  it('moves CompanyPricingConfig data to OrganizationPricingConfig', async () => {
+  it("moves CompanyPricingConfig data to OrganizationPricingConfig", async () => {
     const user = await prisma.user.create({
       data: { email: `c${Date.now()}@test.com` },
     });
-    const org = await prisma.organization.create({ data: { name: 'Y', ownerId: user.id } });
-    await prisma.user.update({ where: { id: user.id }, data: { organizationId: org.id } });
+    const org = await prisma.organization.create({
+      data: { name: "Y", ownerId: user.id },
+    });
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { organizationId: org.id },
+    });
 
     await prisma.companyPricingConfig.create({
       data: {
@@ -93,7 +112,9 @@ describe('backfill', () => {
 
     await backfill();
 
-    const opc = await prisma.organizationPricingConfig.findUnique({ where: { organizationId: org.id } });
+    const opc = await prisma.organizationPricingConfig.findUnique({
+      where: { organizationId: org.id },
+    });
     expect(opc).not.toBeNull();
     expect(opc?.masterQualifiedNormalHours).toBe(200);
   });

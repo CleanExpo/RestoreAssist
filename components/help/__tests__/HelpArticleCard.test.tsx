@@ -33,6 +33,9 @@ describe("HelpArticleCard", () => {
       />,
     );
     const link = screen.getByRole("link");
-    expect(link).toHaveAttribute("href", "/dashboard/help/inspections/photo-cocoa");
+    expect(link).toHaveAttribute(
+      "href",
+      "/dashboard/help/inspections/photo-cocoa",
+    );
   });
 });

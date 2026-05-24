@@ -11,6 +11,7 @@
 ## Reconciliation 1 — `exportClosedJobToBYOKStorage` signature
 
 **Original disagreement:**
+
 - SP-E proposed `Promise<void>` (fire-and-forget, no return data).
 - SP-A needed a return value to populate `Inspection.closePackageStorageKey`.
 
@@ -30,6 +31,7 @@ export async function exportClosedJobToBYOKStorage(
 ## Reconciliation 2 — `InspectionStatus` enum naming
 
 **Original disagreement:**
+
 - SP-5 spec §8.1 introduces `IN_BILLING` and uses the existing `COMPLETED`.
 - The Wave-1 PR prompt requested adding `CLOSED` and `ARCHIVED`.
 

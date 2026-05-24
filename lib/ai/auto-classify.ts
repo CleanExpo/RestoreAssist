@@ -98,7 +98,7 @@ export function ruleBasedClassify(input: {
 
   // Claim type detection (order matters — most specific first)
   let claimType: ClaimType = "water_damage";
-  let typeReasoning = "";
+  let typeReasoning;
 
   if (/fire|smoke|soot|char|burn|flame|scorch|ember/.test(text)) {
     claimType = "fire_smoke";

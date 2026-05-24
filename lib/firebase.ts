@@ -48,7 +48,7 @@ async function initializeFirebase() {
       const errorMsg =
         "Firebase package is not installed. Please run: npm install firebase";
       console.error("❌", errorMsg);
-      throw new Error(errorMsg);
+      throw new Error(errorMsg, { cause: error });
     }
     throw error;
   }

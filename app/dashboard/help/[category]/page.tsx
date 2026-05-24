@@ -24,7 +24,8 @@ export default async function HelpCategoryPage({
 }) {
   const session = await getServerSession(authOptions);
   const { category } = await params;
-  if (!session?.user?.id) redirect(`/login?callbackUrl=/dashboard/help/${category}`);
+  if (!session?.user?.id)
+    redirect(`/login?callbackUrl=/dashboard/help/${category}`);
   if (!isCategory(category)) notFound();
 
   const articles = await loadCategoryIndex(category);
@@ -32,13 +33,19 @@ export default async function HelpCategoryPage({
   return (
     <main className="container mx-auto max-w-5xl p-6">
       <nav className="mb-4 text-sm text-white/50">
-        <Link href="/dashboard/help" className="hover:text-white">Help</Link>
+        <Link href="/dashboard/help" className="hover:text-white">
+          Help
+        </Link>
         <span className="mx-2">/</span>
         <span className="text-white">{HELP_CATEGORY_LABELS[category]}</span>
       </nav>
-      <h1 className="text-3xl font-semibold text-white">{HELP_CATEGORY_LABELS[category]}</h1>
+      <h1 className="text-3xl font-semibold text-white">
+        {HELP_CATEGORY_LABELS[category]}
+      </h1>
       {articles.length === 0 ? (
-        <p className="mt-8 text-sm text-white/50">More articles landing soon.</p>
+        <p className="mt-8 text-sm text-white/50">
+          More articles landing soon.
+        </p>
       ) : (
         <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {articles.map((a) => (

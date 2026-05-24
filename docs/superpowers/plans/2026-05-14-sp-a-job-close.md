@@ -55,20 +55,20 @@
 
 ## Task Map
 
-| # | Task | Phase | Depends on |
-|---|---|---|---|
-| 0 | SP-E export-hook audit gate | Pre-flight | SP-E PR merged |
-| 1 | Prisma migration A (enum + columns + index) | Foundation | 0 |
-| 2 | `inspection-state-machine.ts` + tests | Foundation | 1 |
-| 3 | `lifecycle-event.ts` audit writer + tests | Foundation | 1 |
-| 4 | `lib/ai/lifecycle/_shared.ts` plumbing | Foundation | — |
-| 5 | `lib/ai/lifecycle/on-close.ts` + tests | API | 2, 4 |
-| 6 | `POST /api/inspections/[id]/close-summary` route + tests | API | 5 |
-| 7 | `POST /api/inspections/[id]/close` route + tests | API | 2, 3, 5 |
-| 8 | `<CloseJobPrompt>` component + tests | UI | 6, 7 |
-| 9 | Mount on inspection detail page | UI | 8 |
-| 10 | E2E specs (2) | Verification | 9 |
-| 11 | Verification-gate manual smoke | Verification | 10 |
+| #   | Task                                                     | Phase        | Depends on     |
+| --- | -------------------------------------------------------- | ------------ | -------------- |
+| 0   | SP-E export-hook audit gate                              | Pre-flight   | SP-E PR merged |
+| 1   | Prisma migration A (enum + columns + index)              | Foundation   | 0              |
+| 2   | `inspection-state-machine.ts` + tests                    | Foundation   | 1              |
+| 3   | `lifecycle-event.ts` audit writer + tests                | Foundation   | 1              |
+| 4   | `lib/ai/lifecycle/_shared.ts` plumbing                   | Foundation   | —              |
+| 5   | `lib/ai/lifecycle/on-close.ts` + tests                   | API          | 2, 4           |
+| 6   | `POST /api/inspections/[id]/close-summary` route + tests | API          | 5              |
+| 7   | `POST /api/inspections/[id]/close` route + tests         | API          | 2, 3, 5        |
+| 8   | `<CloseJobPrompt>` component + tests                     | UI           | 6, 7           |
+| 9   | Mount on inspection detail page                          | UI           | 8              |
+| 10  | E2E specs (2)                                            | Verification | 9              |
+| 11  | Verification-gate manual smoke                           | Verification | 10             |
 
 ---
 
@@ -248,7 +248,7 @@ Per §8.2, the close prompt is "Sidekick-styled" — pulled, not pushed:
 
 ## Testing Strategy
 
-**Unit (Vitest):** state-machine canTransition matrix (Task 2); lifecycle-event hash determinism + idempotency (Task 3); _shared.ts subscription/credit branches (Task 4); on-close hook all four paths (Task 5).
+**Unit (Vitest):** state-machine canTransition matrix (Task 2); lifecycle-event hash determinism + idempotency (Task 3); \_shared.ts subscription/credit branches (Task 4); on-close hook all four paths (Task 5).
 
 **Integration (Vitest + Prisma):** close-summary route (Task 6); close route happy + 8 reject paths (Task 7); ProgressTransition row written within same transaction as inspection update — assert via `prisma.$transaction` mock that both fire or neither does.
 

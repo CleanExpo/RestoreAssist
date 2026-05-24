@@ -61,9 +61,8 @@ vi.mock("@/lib/storage/supabase-provider", () => ({
 }));
 
 vi.mock("@/lib/storage", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/storage")>(
-    "@/lib/storage",
-  );
+  const actual =
+    await vi.importActual<typeof import("@/lib/storage")>("@/lib/storage");
   return {
     ...actual,
     getMirrorStorageProvider: getMirrorStorageProviderMock,

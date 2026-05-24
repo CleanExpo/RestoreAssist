@@ -1,18 +1,18 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi, beforeEach } from 'vitest';
-import '@testing-library/jest-dom/vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { IntegrationsCard } from '../IntegrationsCard';
+import { describe, expect, it, vi, beforeEach } from "vitest";
+import "@testing-library/jest-dom/vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { IntegrationsCard } from "../IntegrationsCard";
 
 beforeEach(() => {
-  Object.defineProperty(window, 'location', {
+  Object.defineProperty(window, "location", {
     writable: true,
-    value: { ...window.location, href: '' },
+    value: { ...window.location, href: "" },
   });
 });
 
-describe('IntegrationsCard', () => {
-  it('renders all 5 provider buttons', () => {
+describe("IntegrationsCard", () => {
+  it("renders all 5 provider buttons", () => {
     render(<IntegrationsCard />);
     expect(screen.getByLabelText(/connect xero/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/connect myob/i)).toBeInTheDocument();
@@ -21,41 +21,49 @@ describe('IntegrationsCard', () => {
     expect(screen.getByLabelText(/connect ascora/i)).toBeInTheDocument();
   });
 
-  it('clicking Xero POSTs to OAuth connect and navigates to returned authUrl', async () => {
+  it("clicking Xero POSTs to OAuth connect and navigates to returned authUrl", async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ authUrl: '/api/integrations/oauth/xero/start-redirect' }),
+      json: async () => ({
+        authUrl: "/api/integrations/oauth/xero/start-redirect",
+      }),
     });
-    vi.stubGlobal('fetch', mockFetch);
+    vi.stubGlobal("fetch", mockFetch);
 
     render(<IntegrationsCard />);
     fireEvent.click(screen.getByLabelText(/connect xero/i));
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(
-        '/api/integrations/oauth/xero/connect',
-        { method: 'POST' },
+        "/api/integrations/oauth/xero/connect",
+        { method: "POST" },
       );
-      expect(window.location.href).toContain('xero');
+      expect(window.location.href).toContain("xero");
     });
 
     vi.unstubAllGlobals();
   });
 
-  it('BYOK section collapses + expands', () => {
+  it("BYOK section collapses + expands", () => {
     render(<IntegrationsCard />);
     const toggle = screen.getByText(/byok ai keys/i);
-    expect(screen.queryByRole('button', { name: /manage ai keys/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /manage ai keys/i }),
+    ).not.toBeInTheDocument();
     fireEvent.click(toggle);
-    expect(screen.getByRole('button', { name: /manage ai keys/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /manage ai keys/i }),
+    ).toBeInTheDocument();
     fireEvent.click(toggle);
-    expect(screen.queryByRole('button', { name: /manage ai keys/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /manage ai keys/i }),
+    ).not.toBeInTheDocument();
   });
 
-  it('Manage AI keys button navigates to the settings page', () => {
+  it("Manage AI keys button navigates to the settings page", () => {
     render(<IntegrationsCard />);
     fireEvent.click(screen.getByText(/byok ai keys/i));
-    fireEvent.click(screen.getByRole('button', { name: /manage ai keys/i }));
-    expect(window.location.href).toContain('/dashboard/settings/ai-providers');
+    fireEvent.click(screen.getByRole("button", { name: /manage ai keys/i }));
+    expect(window.location.href).toContain("/dashboard/settings/ai-providers");
   });
 });

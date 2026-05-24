@@ -330,7 +330,7 @@ export default function ScopingEngine({
     scopeData.equipmentParameters.equipment.forEach((eq: any) => {
       const tiers = equipmentRates[eq.type as keyof typeof equipmentRates];
       if (tiers) {
-        let cost = 0;
+        let cost;
         if (eq.duration <= 7) {
           cost = tiers.day * eq.quantity * eq.duration;
         } else if (eq.duration <= 30) {

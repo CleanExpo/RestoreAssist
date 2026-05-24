@@ -47,7 +47,8 @@ export default function HowToDropdown() {
 
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node))
+        setOpen(false);
     }
     if (open) {
       document.addEventListener("mousedown", onClickOutside);
@@ -65,7 +66,9 @@ export default function HowToDropdown() {
         aria-haspopup="menu"
       >
         How To
-        <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
+        <ChevronDown
+          className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`}
+        />
       </button>
 
       {open && (
@@ -83,8 +86,12 @@ export default function HowToDropdown() {
               >
                 <div className="text-white/70">{CATEGORY_ICONS[cat]}</div>
                 <div>
-                  <div className="text-sm font-medium text-white">{HELP_CATEGORY_LABELS[cat]}</div>
-                  <div className="text-xs text-white/60">{CATEGORY_DESCRIPTIONS[cat]}</div>
+                  <div className="text-sm font-medium text-white">
+                    {HELP_CATEGORY_LABELS[cat]}
+                  </div>
+                  <div className="text-xs text-white/60">
+                    {CATEGORY_DESCRIPTIONS[cat]}
+                  </div>
                 </div>
               </Link>
             ))}

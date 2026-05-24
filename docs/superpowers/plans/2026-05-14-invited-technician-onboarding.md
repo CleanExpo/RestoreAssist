@@ -56,30 +56,31 @@
 
 ## Task Map
 
-| # | Task | Phase |
-|---|---|---|
-| 1 | Prisma migration A (schema deltas) | Foundation |
-| 2 | `phone-validator.ts` + tests | Foundation |
-| 3 | `headshot-utils.ts` + tests | Foundation |
-| 4 | `most-recent.ts` helper + cache + tests | Foundation |
-| 5 | `GET /api/authorisations/most-recent` route + tests | API |
-| 6 | `POST /api/authorisations` route + tests | API |
-| 7 | `require-engagement-authorisation.ts` gate helper + tests | API |
-| 8 | Extend `POST /api/invites/[token]` + tests | API |
-| 9 | `POST /api/invites/oauth-complete` route + tests | API |
-| 10 | Role-branch `GET /api/onboarding/first-run` + tests | API |
-| 11 | `<InviteIdentityStep>` + `<InviteTermsStep>` + page rewrite | UI |
-| 12 | `<EngagementLicenceModal>` | UI |
-| 13 | Wire modal into 4 trigger actions | UI |
-| 14 | E2E specs (8) | Verification |
-| 15 | Visual regression baselines (24) | Verification |
-| 16 | Verification-Gate manual smoke | Verification |
+| #   | Task                                                        | Phase        |
+| --- | ----------------------------------------------------------- | ------------ |
+| 1   | Prisma migration A (schema deltas)                          | Foundation   |
+| 2   | `phone-validator.ts` + tests                                | Foundation   |
+| 3   | `headshot-utils.ts` + tests                                 | Foundation   |
+| 4   | `most-recent.ts` helper + cache + tests                     | Foundation   |
+| 5   | `GET /api/authorisations/most-recent` route + tests         | API          |
+| 6   | `POST /api/authorisations` route + tests                    | API          |
+| 7   | `require-engagement-authorisation.ts` gate helper + tests   | API          |
+| 8   | Extend `POST /api/invites/[token]` + tests                  | API          |
+| 9   | `POST /api/invites/oauth-complete` route + tests            | API          |
+| 10  | Role-branch `GET /api/onboarding/first-run` + tests         | API          |
+| 11  | `<InviteIdentityStep>` + `<InviteTermsStep>` + page rewrite | UI           |
+| 12  | `<EngagementLicenceModal>`                                  | UI           |
+| 13  | Wire modal into 4 trigger actions                           | UI           |
+| 14  | E2E specs (8)                                               | Verification |
+| 15  | Visual regression baselines (24)                            | Verification |
+| 16  | Verification-Gate manual smoke                              | Verification |
 
 ---
 
 ## Task 1: Prisma Migration A
 
 **Files:**
+
 - Modify: `prisma/schema.prisma`
 - Create: `prisma/migrations/20260514000000_invited_technician_onboarding/migration.sql`
 
@@ -169,6 +170,7 @@ git commit -m "feat(prisma): add User.phone + Authorisation WHS columns (sub-pro
 ## Task 2: AU mobile phone validator
 
 **Files:**
+
 - Create: `components/invite/phone-validator.ts`
 - Test: `components/invite/__tests__/phone-validator.test.ts`
 
@@ -282,6 +284,7 @@ git commit -m "feat(invite): AU mobile validator"
 ## Task 3: Headshot validator + square-crop helper
 
 **Files:**
+
 - Create: `components/invite/headshot-utils.ts`
 - Test: `components/invite/__tests__/headshot-utils.test.ts`
 
@@ -310,7 +313,11 @@ describe("validateHeadshotFile", () => {
   });
 
   it("rejects a HEIC file", () => {
-    const f = mockFile({ name: "me.heic", type: "image/heic", size: 1_000_000 });
+    const f = mockFile({
+      name: "me.heic",
+      type: "image/heic",
+      size: 1_000_000,
+    });
     const result = validateHeadshotFile(f);
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -319,13 +326,21 @@ describe("validateHeadshotFile", () => {
   });
 
   it("rejects a non-image", () => {
-    const f = mockFile({ name: "doc.pdf", type: "application/pdf", size: 1_000_000 });
+    const f = mockFile({
+      name: "doc.pdf",
+      type: "application/pdf",
+      size: 1_000_000,
+    });
     const result = validateHeadshotFile(f);
     expect(result.ok).toBe(false);
   });
 
   it("rejects a file over 5MB", () => {
-    const f = mockFile({ name: "big.jpg", type: "image/jpeg", size: 6_000_000 });
+    const f = mockFile({
+      name: "big.jpg",
+      type: "image/jpeg",
+      size: 6_000_000,
+    });
     const result = validateHeadshotFile(f);
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -419,6 +434,7 @@ git commit -m "feat(invite): headshot file validator + square-crop helper"
 ## Task 4: `lib/authorisations/most-recent.ts` helper + cache
 
 **Files:**
+
 - Create: `lib/authorisations/most-recent.ts`
 - Test: `lib/authorisations/__tests__/most-recent.test.ts`
 
@@ -428,7 +444,10 @@ Create `lib/authorisations/__tests__/most-recent.test.ts`:
 
 ```ts
 import { describe, expect, it, beforeEach, vi } from "vitest";
-import { mostRecentAuthorisationForUser, _resetCacheForTests } from "../most-recent";
+import {
+  mostRecentAuthorisationForUser,
+  _resetCacheForTests,
+} from "../most-recent";
 
 const findFirst = vi.fn();
 vi.mock("@/lib/prisma", () => ({
@@ -624,6 +643,7 @@ git commit -m "feat(authorisations): most-recent helper + 5min in-memory cache"
 ## Task 5: `GET /api/authorisations/most-recent` route
 
 **Files:**
+
 - Create: `app/api/authorisations/most-recent/route.ts`
 - Test: `app/api/authorisations/most-recent/__tests__/route.test.ts`
 
@@ -639,10 +659,13 @@ import { GET } from "../route";
 const getServerSession = vi.fn();
 const mostRecentAuthorisationForUser = vi.fn();
 
-vi.mock("next-auth", () => ({ getServerSession: (...a: unknown[]) => getServerSession(...a) }));
+vi.mock("next-auth", () => ({
+  getServerSession: (...a: unknown[]) => getServerSession(...a),
+}));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/authorisations/most-recent", () => ({
-  mostRecentAuthorisationForUser: (...a: unknown[]) => mostRecentAuthorisationForUser(...a),
+  mostRecentAuthorisationForUser: (...a: unknown[]) =>
+    mostRecentAuthorisationForUser(...a),
 }));
 
 beforeEach(() => {
@@ -653,14 +676,18 @@ beforeEach(() => {
 describe("GET /api/authorisations/most-recent", () => {
   it("returns 401 when unauthenticated", async () => {
     getServerSession.mockResolvedValueOnce(null);
-    const res = await GET(new NextRequest("http://localhost/api/authorisations/most-recent"));
+    const res = await GET(
+      new NextRequest("http://localhost/api/authorisations/most-recent"),
+    );
     expect(res.status).toBe(401);
   });
 
   it("returns { row: null } when no prior Authorisation exists", async () => {
     getServerSession.mockResolvedValueOnce({ user: { id: "user_1" } });
     mostRecentAuthorisationForUser.mockResolvedValueOnce(null);
-    const res = await GET(new NextRequest("http://localhost/api/authorisations/most-recent"));
+    const res = await GET(
+      new NextRequest("http://localhost/api/authorisations/most-recent"),
+    );
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ row: null });
   });
@@ -678,7 +705,9 @@ describe("GET /api/authorisations/most-recent", () => {
       publicLiabilityCoverAmount: null,
       verifiedAt,
     });
-    const res = await GET(new NextRequest("http://localhost/api/authorisations/most-recent"));
+    const res = await GET(
+      new NextRequest("http://localhost/api/authorisations/most-recent"),
+    );
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.row.subjectLicenceNumber).toBe("IICRC-1");
@@ -688,7 +717,9 @@ describe("GET /api/authorisations/most-recent", () => {
   it("scopes the query strictly to session.user.id", async () => {
     getServerSession.mockResolvedValueOnce({ user: { id: "user_99" } });
     mostRecentAuthorisationForUser.mockResolvedValueOnce(null);
-    await GET(new NextRequest("http://localhost/api/authorisations/most-recent"));
+    await GET(
+      new NextRequest("http://localhost/api/authorisations/most-recent"),
+    );
     expect(mostRecentAuthorisationForUser).toHaveBeenCalledWith("user_99");
   });
 });
@@ -759,6 +790,7 @@ git commit -m "feat(api): GET /api/authorisations/most-recent for pre-fill"
 ## Task 6: `POST /api/authorisations` route
 
 **Files:**
+
 - Create: `app/api/authorisations/route.ts`
 - Test: `app/api/authorisations/__tests__/route.test.ts`
 
@@ -776,7 +808,9 @@ const userFindUnique = vi.fn();
 const authCreate = vi.fn();
 const invalidateAuthorisationCache = vi.fn();
 
-vi.mock("next-auth", () => ({ getServerSession: (...a: unknown[]) => getServerSession(...a) }));
+vi.mock("next-auth", () => ({
+  getServerSession: (...a: unknown[]) => getServerSession(...a),
+}));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -785,7 +819,8 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 vi.mock("@/lib/authorisations/most-recent", () => ({
-  invalidateAuthorisationCache: (...a: unknown[]) => invalidateAuthorisationCache(...a),
+  invalidateAuthorisationCache: (...a: unknown[]) =>
+    invalidateAuthorisationCache(...a),
 }));
 vi.mock("@/lib/csrf", () => ({ validateCsrf: () => null }));
 
@@ -827,7 +862,9 @@ describe("POST /api/authorisations", () => {
       id: "u_1",
       organization: { name: "Acme", legalName: null, tradingName: null },
     });
-    const res = await POST(makeReq({ ...validBody, subjectLicenceNumber: undefined }));
+    const res = await POST(
+      makeReq({ ...validBody, subjectLicenceNumber: undefined }),
+    );
     expect(res.status).toBe(400);
   });
 
@@ -868,7 +905,11 @@ describe("POST /api/authorisations", () => {
     getServerSession.mockResolvedValueOnce({ user: { id: "u_1" } });
     userFindUnique.mockResolvedValueOnce({
       id: "u_1",
-      organization: { name: "fallback", legalName: "Acme Pty Ltd", tradingName: "Acme" },
+      organization: {
+        name: "fallback",
+        legalName: "Acme Pty Ltd",
+        tradingName: "Acme",
+      },
     });
     authCreate.mockResolvedValueOnce({ id: "auth_1" });
     await POST(makeReq(validBody));
@@ -947,10 +988,16 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 },
+    );
   }
 
-  if (!body.subjectLicenceNumber || typeof body.subjectLicenceNumber !== "string") {
+  if (
+    !body.subjectLicenceNumber ||
+    typeof body.subjectLicenceNumber !== "string"
+  ) {
     return NextResponse.json(
       { error: "subjectLicenceNumber is required" },
       { status: 400 },
@@ -1009,7 +1056,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, authorisationId: created.id });
   } catch (error) {
     console.error("[POST /api/authorisations]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 ```
@@ -1036,6 +1086,7 @@ git commit -m "feat(api): POST /api/authorisations (self-attestation flow)"
 ## Task 7: `requireEngagementAuthorisation` gate helper
 
 **Files:**
+
 - Create: `lib/authorisations/require-engagement-authorisation.ts`
 - Test: `lib/authorisations/__tests__/require-engagement-authorisation.test.ts`
 
@@ -1045,7 +1096,10 @@ Create `lib/authorisations/__tests__/require-engagement-authorisation.test.ts`:
 
 ```ts
 import { describe, expect, it, beforeEach, vi } from "vitest";
-import { needsModal, AUTHORISATION_MAX_AGE_DAYS } from "../require-engagement-authorisation";
+import {
+  needsModal,
+  AUTHORISATION_MAX_AGE_DAYS,
+} from "../require-engagement-authorisation";
 
 describe("needsModal", () => {
   beforeEach(() => {
@@ -1131,6 +1185,7 @@ git commit -m "feat(authorisations): require-engagement-authorisation gate helpe
 ## Task 8: Extend `POST /api/invites/[token]`
 
 **Files:**
+
 - Modify: `app/api/invites/[token]/route.ts`
 - Create: `app/api/invites/[token]/__tests__/route-extended.test.ts`
 
@@ -1156,7 +1211,9 @@ const inviteUpdate = vi.fn();
 const sendInviteEmail = vi.fn();
 const cloudinaryUploadDataUrl = vi.fn();
 
-vi.mock("@/lib/csrf", () => ({ validateCsrf: (...a: unknown[]) => validateCsrf(...a) }));
+vi.mock("@/lib/csrf", () => ({
+  validateCsrf: (...a: unknown[]) => validateCsrf(...a),
+}));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     userInvite: {
@@ -1170,8 +1227,12 @@ vi.mock("@/lib/prisma", () => ({
     },
   },
 }));
-vi.mock("@/lib/email", () => ({ sendInviteEmail: (...a: unknown[]) => sendInviteEmail(...a) }));
-vi.mock("@/lib/email-retry", () => ({ sendWithRetry: async (fn: () => unknown) => fn() }));
+vi.mock("@/lib/email", () => ({
+  sendInviteEmail: (...a: unknown[]) => sendInviteEmail(...a),
+}));
+vi.mock("@/lib/email-retry", () => ({
+  sendWithRetry: async (fn: () => unknown) => fn(),
+}));
 vi.mock("@/lib/notifications", () => ({ notifyTeamMemberJoined: vi.fn() }));
 vi.mock("@/lib/cloudinary", () => ({
   uploadDataUrl: (...a: unknown[]) => cloudinaryUploadDataUrl(...a),
@@ -1211,22 +1272,34 @@ async function ctx() {
 
 describe("POST /api/invites/[token] (extended)", () => {
   it("returns 400 when phone is missing", async () => {
-    const res = await POST(makeReq({ ...baseBody, phone: undefined }), await ctx());
+    const res = await POST(
+      makeReq({ ...baseBody, phone: undefined }),
+      await ctx(),
+    );
     expect(res.status).toBe(400);
   });
 
   it("returns 400 when phone is not a valid AU mobile", async () => {
-    const res = await POST(makeReq({ ...baseBody, phone: "+1 415 555 1234" }), await ctx());
+    const res = await POST(
+      makeReq({ ...baseBody, phone: "+1 415 555 1234" }),
+      await ctx(),
+    );
     expect(res.status).toBe(400);
   });
 
   it("returns 400 when headshotDataUrl is missing on email-password path", async () => {
-    const res = await POST(makeReq({ ...baseBody, headshotDataUrl: undefined }), await ctx());
+    const res = await POST(
+      makeReq({ ...baseBody, headshotDataUrl: undefined }),
+      await ctx(),
+    );
     expect(res.status).toBe(400);
   });
 
   it("returns 400 when acceptedChainOfCustody is not true", async () => {
-    const res = await POST(makeReq({ ...baseBody, acceptedChainOfCustody: false }), await ctx());
+    const res = await POST(
+      makeReq({ ...baseBody, acceptedChainOfCustody: false }),
+      await ctx(),
+    );
     expect(res.status).toBe(400);
   });
 
@@ -1241,7 +1314,9 @@ describe("POST /api/invites/[token] (extended)", () => {
       usedAt: null,
     });
     userFindUnique.mockResolvedValueOnce(null); // email not yet exists
-    cloudinaryUploadDataUrl.mockResolvedValueOnce("https://res.cloudinary.com/.../jamie.jpg");
+    cloudinaryUploadDataUrl.mockResolvedValueOnce(
+      "https://res.cloudinary.com/.../jamie.jpg",
+    );
     userCreate.mockResolvedValueOnce({
       id: "u_new",
       email: "jamie@example.com",
@@ -1282,7 +1357,9 @@ describe("POST /api/invites/[token] (extended)", () => {
       organizationId: "org_1",
       role: "USER",
     });
-    cloudinaryUploadDataUrl.mockResolvedValueOnce("https://res.cloudinary.com/.../jamie.jpg");
+    cloudinaryUploadDataUrl.mockResolvedValueOnce(
+      "https://res.cloudinary.com/.../jamie.jpg",
+    );
     userUpdate.mockResolvedValueOnce({
       id: "u_existing_google",
       phone: "0412345678",
@@ -1368,9 +1445,8 @@ if (!isGoogle && password.length < 12) {
 
 // Phone is required on both paths
 const rawPhone = typeof body.phone === "string" ? body.phone : "";
-const { normaliseAuMobile, isValidAuMobile } = await import(
-  "@/components/invite/phone-validator"
-);
+const { normaliseAuMobile, isValidAuMobile } =
+  await import("@/components/invite/phone-validator");
 if (!isValidAuMobile(rawPhone)) {
   return NextResponse.json(
     { error: "Enter a 10-digit Australian mobile (04…)" },
@@ -1384,10 +1460,7 @@ if (
   typeof body.headshotDataUrl !== "string" ||
   !body.headshotDataUrl.startsWith("data:image/")
 ) {
-  return NextResponse.json(
-    { error: "Headshot is required" },
-    { status: 400 },
-  );
+  return NextResponse.json({ error: "Headshot is required" }, { status: 400 });
 }
 
 if (body.acceptedChainOfCustody !== true) {
@@ -1485,6 +1558,7 @@ git commit -m "feat(invites): extend POST to accept phone + headshot + cocoa"
 ## Task 9: `POST /api/invites/oauth-complete` route
 
 **Files:**
+
 - Create: `app/api/invites/oauth-complete/route.ts`
 - Test: `app/api/invites/oauth-complete/__tests__/route.test.ts`
 - Modify: `lib/auth.ts` — add `events.createUser` handler that reads the `invite_token` cookie
@@ -1502,7 +1576,9 @@ const getServerSession = vi.fn();
 const inviteFindUnique = vi.fn();
 const inviteUpdate = vi.fn();
 
-vi.mock("next-auth", () => ({ getServerSession: (...a: unknown[]) => getServerSession(...a) }));
+vi.mock("next-auth", () => ({
+  getServerSession: (...a: unknown[]) => getServerSession(...a),
+}));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -1529,7 +1605,9 @@ function makeReq(cookieValue: string | undefined): NextRequest {
 
 describe("GET /api/invites/oauth-complete", () => {
   it("returns 400 when invite_token cookie is missing", async () => {
-    getServerSession.mockResolvedValueOnce({ user: { id: "u_1", email: "j@a.com" } });
+    getServerSession.mockResolvedValueOnce({
+      user: { id: "u_1", email: "j@a.com" },
+    });
     const res = await GET(makeReq(undefined));
     expect(res.status).toBe(400);
   });
@@ -1541,7 +1619,9 @@ describe("GET /api/invites/oauth-complete", () => {
   });
 
   it("returns 410 when invite is already used", async () => {
-    getServerSession.mockResolvedValueOnce({ user: { id: "u_1", email: "j@a.com" } });
+    getServerSession.mockResolvedValueOnce({
+      user: { id: "u_1", email: "j@a.com" },
+    });
     inviteFindUnique.mockResolvedValueOnce({
       id: "inv_1",
       email: "j@a.com",
@@ -1555,7 +1635,9 @@ describe("GET /api/invites/oauth-complete", () => {
   });
 
   it("redirects to /invite/[token]?step=2 on success", async () => {
-    getServerSession.mockResolvedValueOnce({ user: { id: "u_1", email: "j@a.com" } });
+    getServerSession.mockResolvedValueOnce({
+      user: { id: "u_1", email: "j@a.com" },
+    });
     inviteFindUnique.mockResolvedValueOnce({
       id: "inv_1",
       email: "j@a.com",
@@ -1571,7 +1653,9 @@ describe("GET /api/invites/oauth-complete", () => {
   });
 
   it("is idempotent on retry (already-used invite that the same user accepted)", async () => {
-    getServerSession.mockResolvedValueOnce({ user: { id: "u_1", email: "j@a.com" } });
+    getServerSession.mockResolvedValueOnce({
+      user: { id: "u_1", email: "j@a.com" },
+    });
     inviteFindUnique.mockResolvedValueOnce({
       id: "inv_1",
       email: "j@a.com",
@@ -1609,7 +1693,10 @@ export async function GET(req: NextRequest) {
 
   const token = req.cookies.get("invite_token")?.value;
   if (!token) {
-    return NextResponse.json({ error: "Missing invite token" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Missing invite token" },
+      { status: 400 },
+    );
   }
 
   const invite = await prisma.userInvite.findUnique({
@@ -1696,6 +1783,7 @@ git commit -m "feat(invites): POST /api/invites/oauth-complete + NextAuth create
 ## Task 10: Role-branch `GET /api/onboarding/first-run`
 
 **Files:**
+
 - Modify: `app/api/onboarding/first-run/route.ts`
 - Create: `app/api/onboarding/first-run/__tests__/route.test.ts` (if missing)
 
@@ -1715,7 +1803,9 @@ import { GET } from "../route";
 const getServerSession = vi.fn();
 const authFindFirst = vi.fn();
 
-vi.mock("next-auth", () => ({ getServerSession: (...a: unknown[]) => getServerSession(...a) }));
+vi.mock("next-auth", () => ({
+  getServerSession: (...a: unknown[]) => getServerSession(...a),
+}));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -1734,7 +1824,9 @@ describe("GET /api/onboarding/first-run", () => {
       user: { id: "u_1", role: "USER" },
     });
     authFindFirst.mockResolvedValueOnce(null);
-    const res = await GET(new NextRequest("http://localhost/api/onboarding/first-run"));
+    const res = await GET(
+      new NextRequest("http://localhost/api/onboarding/first-run"),
+    );
     const body = await res.json();
     expect(body.steps.map((s: { id: string }) => s.id)).toEqual([
       "tech_iicrc",
@@ -1754,7 +1846,9 @@ describe("GET /api/onboarding/first-run", () => {
       subjectLicenceNumber: "IICRC-1",
       whsCardNumber: "WHS-1",
     });
-    const res = await GET(new NextRequest("http://localhost/api/onboarding/first-run"));
+    const res = await GET(
+      new NextRequest("http://localhost/api/onboarding/first-run"),
+    );
     const body = await res.json();
     expect(body.dismissed).toBe(true);
     expect(body.allComplete).toBe(true);
@@ -1764,7 +1858,9 @@ describe("GET /api/onboarding/first-run", () => {
     getServerSession.mockResolvedValueOnce({
       user: { id: "u_1", role: "ADMIN" },
     });
-    const res = await GET(new NextRequest("http://localhost/api/onboarding/first-run"));
+    const res = await GET(
+      new NextRequest("http://localhost/api/onboarding/first-run"),
+    );
     const body = await res.json();
     const techIds = ["tech_iicrc", "tech_whs", "tech_state"];
     for (const id of body.steps.map((s: { id: string }) => s.id)) {
@@ -1810,7 +1906,8 @@ if ((session?.user as { role?: string } | undefined)?.role === "USER") {
     {
       id: "tech_state",
       title: "Add your state licence (if applicable)",
-      description: "QBCC, NSW Fair Trading, etc. Optional unless your state requires it.",
+      description:
+        "QBCC, NSW Fair Trading, etc. Optional unless your state requires it.",
       href: "/dashboard/settings/credentials?focus=state",
       completed: !!auth, // any Authorisation row counts here
     },
@@ -1849,6 +1946,7 @@ git commit -m "feat(onboarding): role-branched first-run steps for USER (technic
 ## Task 11: `<InviteIdentityStep>` + `<InviteTermsStep>` + page rewrite
 
 **Files:**
+
 - Create: `components/invite/InviteIdentityStep.tsx`
 - Create: `components/invite/InviteTermsStep.tsx`
 - Modify: `app/invite/[token]/page.tsx`
@@ -1941,7 +2039,8 @@ export function InviteIdentityStep({
         <p className="text-xs uppercase text-muted-foreground">RestoreAssist</p>
         <h2 className="text-lg font-semibold">You've been invited</h2>
         <p className="text-sm text-muted-foreground">
-          Joining <strong>{organizationName}</strong> as <strong>{inviteeEmail}</strong>
+          Joining <strong>{organizationName}</strong> as{" "}
+          <strong>{inviteeEmail}</strong>
         </p>
       </div>
 
@@ -1990,7 +2089,9 @@ export function InviteIdentityStep({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="headshot">Headshot · used on your evidence photos</Label>
+        <Label htmlFor="headshot">
+          Headshot · used on your evidence photos
+        </Label>
         <Input
           id="headshot"
           type="file"
@@ -2093,7 +2194,9 @@ export function InviteTermsStep({
           checked={acceptedChainOfCustody}
           onCheckedChange={(v) => setAcceptedChainOfCustody(v === true)}
         />
-        <span>I consent to chain-of-custody hashing of my evidence captures</span>
+        <span>
+          I consent to chain-of-custody hashing of my evidence captures
+        </span>
       </label>
 
       <Button
@@ -2298,6 +2401,7 @@ git commit -m "feat(invite): two-step card with identity + terms sub-components"
 ## Task 12: `<EngagementLicenceModal>`
 
 **Files:**
+
 - Create: `components/attestation/EngagementLicenceModal.tsx`
 
 - [ ] **Step 1: Create the component**
@@ -2419,7 +2523,9 @@ export function EngagementLicenceModal({
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
-            {row && !editing ? "Still using these credentials?" : "Add your credentials"}
+            {row && !editing
+              ? "Still using these credentials?"
+              : "Add your credentials"}
           </DialogTitle>
           <DialogDescription>
             {row && !editing
@@ -2433,29 +2539,41 @@ export function EngagementLicenceModal({
         ) : row && !editing ? (
           <div className="space-y-1 text-sm">
             <p>
-              <span className="text-muted-foreground">IICRC:</span> {row.subjectLicenceNumber}
+              <span className="text-muted-foreground">IICRC:</span>{" "}
+              {row.subjectLicenceNumber}
             </p>
             <p>
-              <span className="text-muted-foreground">WHS:</span> {row.whsCardNumber}
+              <span className="text-muted-foreground">WHS:</span>{" "}
+              {row.whsCardNumber}
             </p>
             <p>
               <span className="text-muted-foreground">State:</span>{" "}
-              {row.subjectLicenceState ?? "—"} · {row.subjectLicenceClass ?? "—"}
+              {row.subjectLicenceState ?? "—"} ·{" "}
+              {row.subjectLicenceClass ?? "—"}
             </p>
             <p>
               <span className="text-muted-foreground">PL Insurer:</span>{" "}
-              {row.publicLiabilityInsurer ?? "—"} · {row.publicLiabilityPolicyNumber ?? "—"}
+              {row.publicLiabilityInsurer ?? "—"} ·{" "}
+              {row.publicLiabilityPolicyNumber ?? "—"}
             </p>
           </div>
         ) : (
           <div className="space-y-3">
             <div className="space-y-1">
               <Label htmlFor="iicrc">IICRC certificate number</Label>
-              <Input id="iicrc" value={iicrc} onChange={(e) => setIicrc(e.target.value)} />
+              <Input
+                id="iicrc"
+                value={iicrc}
+                onChange={(e) => setIicrc(e.target.value)}
+              />
             </div>
             <div className="space-y-1">
               <Label htmlFor="whs">WHS card / White Card number</Label>
-              <Input id="whs" value={whs} onChange={(e) => setWhs(e.target.value)} />
+              <Input
+                id="whs"
+                value={whs}
+                onChange={(e) => setWhs(e.target.value)}
+              />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
@@ -2477,9 +2595,19 @@ export function EngagementLicenceModal({
               </div>
             </div>
             <div className="space-y-1">
-              <Label htmlFor="insurer">Public liability insurer + policy #</Label>
-              <Input id="insurer" value={insurer} onChange={(e) => setInsurer(e.target.value)} />
-              <Input id="policy" value={policy} onChange={(e) => setPolicy(e.target.value)} />
+              <Label htmlFor="insurer">
+                Public liability insurer + policy #
+              </Label>
+              <Input
+                id="insurer"
+                value={insurer}
+                onChange={(e) => setInsurer(e.target.value)}
+              />
+              <Input
+                id="policy"
+                value={policy}
+                onChange={(e) => setPolicy(e.target.value)}
+              />
             </div>
           </div>
         )}
@@ -2487,7 +2615,11 @@ export function EngagementLicenceModal({
         <DialogFooter className="flex-col gap-2 sm:flex-col">
           {row && !editing ? (
             <>
-              <Button onClick={handleSubmit} disabled={submitting} className="w-full">
+              <Button
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="w-full"
+              >
                 {submitting ? "Confirming…" : "Yes — confirm and continue →"}
               </Button>
               <Button
@@ -2499,7 +2631,11 @@ export function EngagementLicenceModal({
               </Button>
             </>
           ) : (
-            <Button onClick={handleSubmit} disabled={submitting} className="w-full">
+            <Button
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="w-full"
+            >
               {submitting ? "Saving…" : "Verify and continue →"}
             </Button>
           )}
@@ -2527,6 +2663,7 @@ git commit -m "feat(attestation): EngagementLicenceModal with fresh + prefilled 
 ## Task 13: Wire the modal into the four trigger actions
 
 **Files:**
+
 - Modify: the four call-sites that perform the gated actions. Exact paths depend on the current codebase; locate each via the discovery step below.
 
 - [ ] **Step 1: Discover the four call-sites**
@@ -2611,6 +2748,7 @@ git commit -m "feat(attestation): gate 4 escalation actions behind EngagementLic
 ## Task 14: E2E specs (8)
 
 **Files:**
+
 - Create: `e2e/invite-tech-happy-path.spec.ts`
 - Create: `e2e/invite-tech-google-oauth.spec.ts`
 - Create: `e2e/invite-tech-expired.spec.ts`
@@ -2627,7 +2765,10 @@ import { test, expect } from "@playwright/test";
 
 test.use({ viewport: { width: 393, height: 852 } }); // iPhone 14 Pro
 
-test("invited technician — email/password happy path", async ({ page, request }) => {
+test("invited technician — email/password happy path", async ({
+  page,
+  request,
+}) => {
   // 1. Set up an org + manager (use test seed helper if present, otherwise
   //    seed via API).
   // Replace these placeholders with your test seed helpers:
@@ -2646,13 +2787,11 @@ test("invited technician — email/password happy path", async ({ page, request 
   await page
     .getByLabel("Set a password (min 12 chars)")
     .fill("verysecurepassword12");
-  await page
-    .locator('input[type="file"]')
-    .setInputFiles({
-      name: "head.jpg",
-      mimeType: "image/jpeg",
-      buffer: Buffer.alloc(1024),
-    });
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "head.jpg",
+    mimeType: "image/jpeg",
+    buffer: Buffer.alloc(1024),
+  });
   await page.getByRole("button", { name: /Continue/ }).click();
 
   // 4. Step 2 — terms.

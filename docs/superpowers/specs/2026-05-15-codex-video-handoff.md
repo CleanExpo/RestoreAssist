@@ -11,6 +11,7 @@
 Existing MP4s at `/Users/phill-mac/Pi-CEO/Pi-Dev-Ops/remotion-studio/output/`:
 
 **RA-specific (8):**
+
 - `ra-setup-wizard-signup-60s-2026-05-12.mp4` — signup flow walkthrough
 - `ra-setup-wizard-signin-30s-2026-05-12.mp4` — sign-in flow
 - `ra-setup-wizard-setup-120s-2026-05-12.mp4` — `/setup` wizard end-to-end (ABN → AI hydration → activate)
@@ -21,6 +22,7 @@ Existing MP4s at `/Users/phill-mac/Pi-CEO/Pi-Dev-Ops/remotion-studio/output/`:
 - `ra-app-store-preview-30s.mp4` — App Store / Play Store preview (30s)
 
 **Single-feature explainers (5):**
+
 - `ra-byok.mp4` · `ra-day-in-life.mp4` · `ra-dispute-defence.mp4` · `ra-field-to-pdf.mp4` · `ra-nir-smoke.mp4`
 
 **Total:** 13 RA videos already in `output/`.
@@ -45,6 +47,7 @@ Existing MP4s at `/Users/phill-mac/Pi-CEO/Pi-Dev-Ops/remotion-studio/output/`:
 **Brand config:** `Synthex/packages/brand-config/src/brands/ra.ts` — voice (Phill clone via ElevenLabs voice ID `EXAVITQu4vr4xnSDxMaL` default; alias `phill-elevenlabs-pro` via env `ELEVENLABS_VOICE_ID`), navy `#1C2E47`, warm `#8A6B4E`, light `#D4A574`, dark bg `#050505`.
 
 **Render command:**
+
 ```bash
 cd ~/Pi-CEO/Pi-Dev-Ops/remotion-studio
 npx tsx render/render.ts <CompositionId> --out=output/<filename>.mp4
@@ -58,35 +61,35 @@ npx tsx render/render.ts <CompositionId> --out=output/<filename>.mp4
 
 **Tier 1 — production-critical (start here):**
 
-| # | Slug | Duration | Audience | Hook |
-|---|---|---|---|---|
-| V1 | `ra-onboarding-first-inspection` | 90-120s | Tradie post-setup | "Your first inspection — from photo to PDF in 8 minutes" |
-| V2 | `ra-onboarding-claim-types-iicrc` | 120s | Tradie + admin | "Pick the right standard: S500 water, S520 mould, S540 trauma, S700 fire" |
-| V3 | `ra-onboarding-handover-to-client` | 60s | Tradie | "Hand the job back: the close-and-handover flow" |
-| V4 | `ra-onboarding-evidence-capture` | 90s | Tradie | "Chain-of-custody photos: every shot timestamped + hashed" |
-| V5 | `ra-onboarding-tech-invite` | 60s | Admin | "Invite your crew: licence verification + role-based access" |
-| V6 | `ra-onboarding-byok-upgrade` | 60s | Admin post-trial | "Bring your own AI key, save 60-80% on premium tasks" |
+| #   | Slug                               | Duration | Audience          | Hook                                                                      |
+| --- | ---------------------------------- | -------- | ----------------- | ------------------------------------------------------------------------- |
+| V1  | `ra-onboarding-first-inspection`   | 90-120s  | Tradie post-setup | "Your first inspection — from photo to PDF in 8 minutes"                  |
+| V2  | `ra-onboarding-claim-types-iicrc`  | 120s     | Tradie + admin    | "Pick the right standard: S500 water, S520 mould, S540 trauma, S700 fire" |
+| V3  | `ra-onboarding-handover-to-client` | 60s      | Tradie            | "Hand the job back: the close-and-handover flow"                          |
+| V4  | `ra-onboarding-evidence-capture`   | 90s      | Tradie            | "Chain-of-custody photos: every shot timestamped + hashed"                |
+| V5  | `ra-onboarding-tech-invite`        | 60s      | Admin             | "Invite your crew: licence verification + role-based access"              |
+| V6  | `ra-onboarding-byok-upgrade`       | 60s      | Admin post-trial  | "Bring your own AI key, save 60-80% on premium tasks"                     |
 
 **Tier 2 — value-add (queue after Tier 1):**
 
-| # | Slug | Duration | Audience |
-|---|---|---|---|
-| V7 | `ra-onboarding-billing-stripe` | 60s | Admin |
-| V8 | `ra-onboarding-portal-client-view` | 60s | Client-facing |
-| V9 | `ra-onboarding-mobile-app-android` | 45s | Tradie |
-| V10 | `ra-onboarding-mobile-app-ios` | 45s | Tradie |
-| V11 | `ra-onboarding-reports-pdf-anatomy` | 90s | Admin / insurer-facing |
-| V12 | `ra-onboarding-completed-tab-reopen` | 60s | Admin |
+| #   | Slug                                 | Duration | Audience               |
+| --- | ------------------------------------ | -------- | ---------------------- |
+| V7  | `ra-onboarding-billing-stripe`       | 60s      | Admin                  |
+| V8  | `ra-onboarding-portal-client-view`   | 60s      | Client-facing          |
+| V9  | `ra-onboarding-mobile-app-android`   | 45s      | Tradie                 |
+| V10 | `ra-onboarding-mobile-app-ios`       | 45s      | Tradie                 |
+| V11 | `ra-onboarding-reports-pdf-anatomy`  | 90s      | Admin / insurer-facing |
+| V12 | `ra-onboarding-completed-tab-reopen` | 60s      | Admin                  |
 
 **Tier 3 — compliance / training (later):**
 
-| # | Slug | Duration |
-|---|---|---|
-| V13 | `ra-compliance-s500-water-walkthrough` | 5-7 min |
-| V14 | `ra-compliance-s520-mould-walkthrough` | 5-7 min |
-| V15 | `ra-compliance-s540-trauma-walkthrough` | 5-7 min |
-| V16 | `ra-compliance-s700-fire-walkthrough` | 5-7 min |
-| V17 | `ra-compliance-whs-incident-reporting` | 4 min |
+| #   | Slug                                    | Duration |
+| --- | --------------------------------------- | -------- |
+| V13 | `ra-compliance-s500-water-walkthrough`  | 5-7 min  |
+| V14 | `ra-compliance-s520-mould-walkthrough`  | 5-7 min  |
+| V15 | `ra-compliance-s540-trauma-walkthrough` | 5-7 min  |
+| V16 | `ra-compliance-s700-fire-walkthrough`   | 5-7 min  |
+| V17 | `ra-compliance-whs-incident-reporting`  | 4 min    |
 
 ---
 
@@ -160,6 +163,7 @@ YOUTUBE_UPLOAD_TOKEN=...
 **Generate the brief trio for V1 — `ra-onboarding-first-inspection`.** The 3 files at `~/Pi-CEO/Pi-Dev-Ops/remotion-studio/briefs/ra-onboarding-first-inspection.{json,storyboard.json,script-spec.md}`.
 
 Storyboard scope:
+
 - Hook (0-3s): "Photo to PDF in 8 minutes"
 - Beat 1: Tradie arrives on site, opens app, hits "+ New inspection"
 - Beat 2: Pick claim type (S500 water) — picker UI from PR #1034
@@ -176,6 +180,7 @@ After V1 ships, surface to Phill for sign-off before queuing V2.
 ## 10. Status tracking
 
 Each shipped video should produce:
+
 1. A Linear ticket in the RestoreAssist team labelled `onboarding-video` linked to the slug
 2. An entry in `~/2nd Brain/2nd Brain/Wiki/restoreassist.md` under a `## Onboarding videos` section (URL + slug + status)
 3. The MP4 in `~/Pi-CEO/Pi-Dev-Ops/remotion-studio/output/`
@@ -187,6 +192,7 @@ When done with a video, ping Phill in the Codex session with a one-line summary 
 ## 11. If you (Codex) hit a hard block
 
 Examples:
+
 - ElevenLabs API quota exhausted
 - Cloudinary upload fails
 - Brand asset disagreement between Synthex/packages/brand-config and existing video

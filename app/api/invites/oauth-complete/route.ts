@@ -11,7 +11,10 @@ export async function GET(req: NextRequest) {
 
   const token = req.cookies.get("invite_token")?.value;
   if (!token) {
-    return NextResponse.json({ error: "Missing invite token" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Missing invite token" },
+      { status: 400 },
+    );
   }
 
   const invite = await prisma.userInvite.findUnique({

@@ -1,34 +1,47 @@
-import { redirect } from 'next/navigation';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
-import { SetupShell } from '@/components/setup/SetupShell';
+import { redirect } from "next/navigation";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { SetupShell } from "@/components/setup/SetupShell";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export default async function SetupPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    redirect('/login');
+    redirect("/login");
   }
 
   const org = await prisma.organization.findFirst({
     where: { ownerId: session.user.id },
     select: {
-      id: true, legalName: true, tradingName: true, abn: true, acn: true,
-      state: true, address: true, phone: true, email: true, website: true,
-      logoUrl: true, primaryColor: true, accentColor: true, aboutCopy: true,
-      tradingStatus: true, setupStartedAt: true, setupCompletedAt: true,
+      id: true,
+      legalName: true,
+      tradingName: true,
+      abn: true,
+      acn: true,
+      state: true,
+      address: true,
+      phone: true,
+      email: true,
+      website: true,
+      logoUrl: true,
+      primaryColor: true,
+      accentColor: true,
+      aboutCopy: true,
+      tradingStatus: true,
+      setupStartedAt: true,
+      setupCompletedAt: true,
       pricingConfig: true,
       hydrationJobs: { select: { kind: true, status: true } },
     },
   });
 
   if (!org) {
-    redirect('/');
+    redirect("/");
   }
   if (org.setupCompletedAt) {
-    redirect('/dashboard');
+    redirect("/dashboard");
   }
 
   // Convert Date fields to ISO strings for client component serialization

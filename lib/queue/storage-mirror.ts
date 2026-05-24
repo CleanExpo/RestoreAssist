@@ -170,9 +170,7 @@ async function processJob(job: StorageMirrorJob): Promise<void> {
     // Resolve org's mirror provider — must be Google Drive in v1.
     const provider = await getMirrorStorageProvider(job.orgId);
     if (!provider || !(provider instanceof GoogleDriveStorageProvider)) {
-      throw new Error(
-        `Org ${job.orgId} has no Google Drive mirror configured`,
-      );
+      throw new Error(`Org ${job.orgId} has no Google Drive mirror configured`);
     }
 
     // Pull the original bytes from Supabase. The supabase provider's

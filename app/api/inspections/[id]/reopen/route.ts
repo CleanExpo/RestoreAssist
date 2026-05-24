@@ -69,10 +69,7 @@ export async function POST(
   try {
     body = (await request.json()) as ReopenBody;
   } catch {
-    return NextResponse.json(
-      { error: "Invalid JSON body" },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
   const reason =
@@ -99,7 +96,11 @@ export async function POST(
     );
   }
 
-  if (!TERMINAL_STATUSES.includes(inspection.status as (typeof TERMINAL_STATUSES)[number])) {
+  if (
+    !TERMINAL_STATUSES.includes(
+      inspection.status as (typeof TERMINAL_STATUSES)[number],
+    )
+  ) {
     return NextResponse.json(
       {
         error: `Cannot reopen inspection in status '${inspection.status}'. Only ${TERMINAL_STATUSES.join(" / ")} inspections may be reopened.`,

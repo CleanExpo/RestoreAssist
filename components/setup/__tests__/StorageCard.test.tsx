@@ -1,17 +1,17 @@
 // @vitest-environment jsdom
-import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
-import '@testing-library/jest-dom/vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { StorageCard } from '../StorageCard';
-import { useSetupStore } from '../store';
+import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
+import "@testing-library/jest-dom/vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { StorageCard } from "../StorageCard";
+import { useSetupStore } from "../store";
 
-vi.mock('next/navigation', () => ({
+vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
 function mockStatus(body: Record<string, unknown>) {
   vi.stubGlobal(
-    'fetch',
+    "fetch",
     vi.fn(async () => ({
       ok: true,
       status: 200,
@@ -20,14 +20,14 @@ function mockStatus(body: Record<string, unknown>) {
   );
 }
 
-describe('StorageCard', () => {
+describe("StorageCard", () => {
   beforeEach(() => {
     useSetupStore.getState().reset();
     // jsdom: stub location.href setter so we can assert without navigating
     const originalLocation = window.location;
-    Object.defineProperty(window, 'location', {
+    Object.defineProperty(window, "location", {
       writable: true,
-      value: { ...originalLocation, href: '' },
+      value: { ...originalLocation, href: "" },
     });
   });
 
@@ -35,7 +35,7 @@ describe('StorageCard', () => {
     vi.unstubAllGlobals();
   });
 
-  it('renders all 3 storage options when disconnected', async () => {
+  it("renders all 3 storage options when disconnected", async () => {
     mockStatus({ connected: false, provider: null, accountEmail: null });
     render(<StorageCard />);
     await waitFor(() => screen.getByLabelText(/google drive/i));
@@ -44,48 +44,48 @@ describe('StorageCard', () => {
     expect(screen.getByLabelText(/keep it local/i)).toBeInTheDocument();
   });
 
-  it('OneDrive option is disabled (coming soon)', async () => {
+  it("OneDrive option is disabled (coming soon)", async () => {
     mockStatus({ connected: false, provider: null, accountEmail: null });
     render(<StorageCard />);
     await waitFor(() => screen.getByLabelText(/onedrive/i));
     expect(screen.getByLabelText(/onedrive/i)).toBeDisabled();
   });
 
-  it('clicking Keep it local marks storage section as ready', async () => {
+  it("clicking Keep it local marks storage section as ready", async () => {
     mockStatus({ connected: false, provider: null, accountEmail: null });
     render(<StorageCard />);
     await waitFor(() => screen.getByLabelText(/keep it local/i));
     fireEvent.click(screen.getByLabelText(/keep it local/i));
-    expect(useSetupStore.getState().sections.storage).toBe('ready');
+    expect(useSetupStore.getState().sections.storage).toBe("ready");
   });
 
-  it('clicking Drive navigates to OAuth start path', async () => {
+  it("clicking Drive navigates to OAuth start path", async () => {
     mockStatus({ connected: false, provider: null, accountEmail: null });
     render(<StorageCard />);
     await waitFor(() => screen.getByLabelText(/google drive/i));
     fireEvent.click(screen.getByLabelText(/google drive/i));
-    expect(window.location.href).toContain('/api/oauth/google-drive/start');
+    expect(window.location.href).toContain("/api/oauth/google-drive/start");
   });
 
-  it('renders connected state when status returns GOOGLE_DRIVE', async () => {
+  it("renders connected state when status returns GOOGLE_DRIVE", async () => {
     mockStatus({
       connected: true,
-      provider: 'GOOGLE_DRIVE',
-      accountEmail: 'tradie@example.com',
+      provider: "GOOGLE_DRIVE",
+      accountEmail: "tradie@example.com",
     });
     render(<StorageCard />);
     await waitFor(() =>
       expect(screen.getByText(/connected as/i)).toBeInTheDocument(),
     );
-    expect(screen.getByText('tradie@example.com')).toBeInTheDocument();
-    expect(useSetupStore.getState().sections.storage).toBe('ready');
+    expect(screen.getByText("tradie@example.com")).toBeInTheDocument();
+    expect(useSetupStore.getState().sections.storage).toBe("ready");
   });
 
   it('connected state offers a "Switch storage" affordance', async () => {
     mockStatus({
       connected: true,
-      provider: 'GOOGLE_DRIVE',
-      accountEmail: 'tradie@example.com',
+      provider: "GOOGLE_DRIVE",
+      accountEmail: "tradie@example.com",
     });
     render(<StorageCard />);
     await waitFor(() => screen.getByText(/switch storage/i));

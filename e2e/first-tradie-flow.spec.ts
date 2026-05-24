@@ -38,7 +38,7 @@ async function assertSeam(
     await fn();
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
-    throw new Error(`SEAM FAILED: ${label} — ${reason}`);
+    throw new Error(`SEAM FAILED: ${label} — ${reason}`, { cause: err });
   }
 }
 

@@ -86,7 +86,11 @@ describe("onInvoicePaid", () => {
 
     const result = await onInvoicePaid("inv-1");
 
-    expect(result).toEqual({ ok: true, notified: false, reason: "already_observed" });
+    expect(result).toEqual({
+      ok: true,
+      notified: false,
+      reason: "already_observed",
+    });
     expect(mockNotificationCreate).not.toHaveBeenCalled();
     expect(mockAuditCreate).not.toHaveBeenCalled();
   });
@@ -102,7 +106,11 @@ describe("onInvoicePaid", () => {
 
     const result = await onInvoicePaid("inv-orphan");
 
-    expect(result).toEqual({ ok: true, notified: false, reason: "no_inspection_linked" });
+    expect(result).toEqual({
+      ok: true,
+      notified: false,
+      reason: "no_inspection_linked",
+    });
     expect(mockNotificationCreate).not.toHaveBeenCalled();
     expect(mockAuditCreate).not.toHaveBeenCalled();
     expect(warnSpy).toHaveBeenCalled();

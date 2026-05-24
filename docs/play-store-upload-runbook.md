@@ -24,24 +24,25 @@ Resolve the "Fix issues" banner: phone verification → identity verification.
 
 ## Step 3 — App content (Policy)
 
-| Item | Answer | Source |
-|---|---|---|
-| Privacy policy URL | https://restoreassist.app/privacy | Live |
-| App access | All functionality requires login. Provide test credentials via Step-4 below | — |
-| Ads | No, my app does not contain ads | — |
-| Content rating | Complete questionnaire (utility, no violence/sexual/gambling) | — |
-| Target audience | 18+ | — |
-| News app | No | — |
-| COVID-19 contact tracing | No | — |
-| Data safety form | Use `docs/play-store-data-safety.md` answer key verbatim | Repo |
-| Government app | No | — |
-| Financial features | No | — |
-| Health | No | — |
-| Advertising ID | No (we don't use it) | — |
+| Item                     | Answer                                                                      | Source |
+| ------------------------ | --------------------------------------------------------------------------- | ------ |
+| Privacy policy URL       | https://restoreassist.app/privacy                                           | Live   |
+| App access               | All functionality requires login. Provide test credentials via Step-4 below | —      |
+| Ads                      | No, my app does not contain ads                                             | —      |
+| Content rating           | Complete questionnaire (utility, no violence/sexual/gambling)               | —      |
+| Target audience          | 18+                                                                         | —      |
+| News app                 | No                                                                          | —      |
+| COVID-19 contact tracing | No                                                                          | —      |
+| Data safety form         | Use `docs/play-store-data-safety.md` answer key verbatim                    | Repo   |
+| Government app           | No                                                                          | —      |
+| Financial features       | No                                                                          | —      |
+| Health                   | No                                                                          | —      |
+| Advertising ID           | No (we don't use it)                                                        | —      |
 
 ## Step 4 — Test account (reviewers need a working login)
 
 Run `pnpm tsx scripts/seed-playstore-test-account.ts` against the prod DB to create:
+
 - Email: `playstore-reviewer@restoreassist.app`
 - Password: (printed by script — copy into Play Console "App access" section)
 - Tier: TRIAL with seeded sample data so the reviewer sees the full app surface
@@ -52,20 +53,22 @@ Paste credentials into Play Console → App content → App access.
 
 All in `fastlane/metadata/android/en-AU/`:
 
-| Field | File | Notes |
-|---|---|---|
-| App name | `title.txt` | 28 chars (≤30) |
-| Short description | `short_description.txt` | 79 chars (≤80) |
-| Full description | `full_description.txt` | 2,404 chars (≤4000) |
-| App icon | `images/icon.png` | 512×512 |
-| Feature graphic | `images/featureGraphic.png` | 1024×500 |
+| Field             | File                            | Notes                    |
+| ----------------- | ------------------------------- | ------------------------ |
+| App name          | `title.txt`                     | 28 chars (≤30)           |
+| Short description | `short_description.txt`         | 79 chars (≤80)           |
+| Full description  | `full_description.txt`          | 2,404 chars (≤4000)      |
+| App icon          | `images/icon.png`               | 512×512                  |
+| Feature graphic   | `images/featureGraphic.png`     | 1024×500                 |
 | Phone screenshots | `images/phoneScreenshots/*.png` | 8 PNGs, 1080×1920 (9:16) |
 
 Categorisation:
+
 - **Category:** Business
 - **Tags:** Productivity, Business, Tools
 
 Contact details:
+
 - Email: support@restoreassist.app
 - Phone: (your business number)
 - Website: https://restoreassist.app
@@ -87,6 +90,7 @@ Internal testing has **no review** — testers can install immediately.
 - Copy the **opt-in URL** Google generates — share with testers
 
 Each tester must:
+
 1. Click the opt-in URL on the device they'll test on
 2. Sign in to Play Store with the same Google account
 3. Install via the testing link
@@ -112,4 +116,3 @@ Internal → Closed (alpha/beta) → Open → Production. Each step is reviewed 
 - Play Console "Personal" accounts require 12 testers × 14 days before they can promote to Production. Skip by switching to "Organization" account (D-U-N-S number required) or accept the wait.
 - Google Sign-In on the installed AAB **fails silently** until the OAuth client in Step 8 is created + env var deployed. Test with email/password first.
 - IF Google Play marks the upload key compromised, you can rotate via the upload-key rotation flow (Google retains the signing key). Do NOT lose the upload key — see `~/Documents/RestoreAssist-keystore-backup/`.
-

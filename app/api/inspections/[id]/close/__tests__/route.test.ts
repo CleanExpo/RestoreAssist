@@ -29,8 +29,7 @@ vi.mock("@/lib/queue/exportClosedJobToBYOKStorage", () => ({
     exportClosedJobToBYOKStorage(...a),
 }));
 vi.mock("@/lib/audit/lifecycle-event", () => ({
-  writeLifecycleTransition: (...a: unknown[]) =>
-    writeLifecycleTransition(...a),
+  writeLifecycleTransition: (...a: unknown[]) => writeLifecycleTransition(...a),
 }));
 vi.mock("@/lib/lifecycle/load-context", () => ({
   loadTransitionContext: (...a: unknown[]) => loadTransitionContext(...a),

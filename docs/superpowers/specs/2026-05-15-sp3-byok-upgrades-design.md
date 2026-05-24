@@ -12,7 +12,7 @@ RestoreAssist already has a rich subscription substrate — Stripe customers, `S
 
 What's missing is the **upgrade journey** — there's no in-app surface that nudges a TRIAL user toward ACTIVE, no hard wall at trial expiry, no BYOK upgrade path post-conversion. The setup wizard (sub-project #1) lets new users start without BYOK; SP-3 builds the on-ramp from "started free" to "paying customer (with optional BYOK)".
 
-**Brief from SP-5 audit:** *"AI keys: ⚠ partial (OpenAI/Anthropic/Gemini fields exist; routing patchy) — SP-3 (existing brainstorm queue)"*. From the onboarding-redesign spec: *"BYOK upgrade paths (post-setup 'upgrade your AI' experience; platform-managed keys for paid plans)"*.
+**Brief from SP-5 audit:** _"AI keys: ⚠ partial (OpenAI/Anthropic/Gemini fields exist; routing patchy) — SP-3 (existing brainstorm queue)"_. From the onboarding-redesign spec: _"BYOK upgrade paths (post-setup 'upgrade your AI' experience; platform-managed keys for paid plans)"_.
 
 **Coupled decision (this spec also ships):** trial duration drops from 30 days to **15 days** for new signups; existing TRIAL users grandfathered.
 
@@ -78,14 +78,23 @@ In `middleware.ts`, after the existing auth + `setupCompletedAt` checks:
 
 ```ts
 const trialStatus = await getTrialStatus(session.user.id);
-if (trialStatus.hasTrialExpired && trialStatus.subscriptionStatus !== "ACTIVE") {
+if (
+  trialStatus.hasTrialExpired &&
+  trialStatus.subscriptionStatus !== "ACTIVE"
+) {
   const whitelist = [
-    "/billing/upgrade", "/billing/success",
-    "/api/billing", "/api/webhooks/stripe",
-    "/api/auth", "/logout", "/pricing",
+    "/billing/upgrade",
+    "/billing/success",
+    "/api/billing",
+    "/api/webhooks/stripe",
+    "/api/auth",
+    "/logout",
+    "/pricing",
   ];
-  if (!whitelist.some(p => req.nextUrl.pathname.startsWith(p))) {
-    return NextResponse.redirect(new URL("/billing/upgrade?reason=trial-expired", req.url));
+  if (!whitelist.some((p) => req.nextUrl.pathname.startsWith(p))) {
+    return NextResponse.redirect(
+      new URL("/billing/upgrade?reason=trial-expired", req.url),
+    );
   }
 }
 ```
@@ -116,8 +125,8 @@ type TrialStatus = {
   trialEndsAt: Date | null;
   subscriptionStatus: SubscriptionStatus | null;
   creditsRemaining: number | null;
-  showCountdownBanner: boolean;   // 0 < daysRemaining ≤ 3
-  showHardWall: boolean;          // expired && not ACTIVE
+  showCountdownBanner: boolean; // 0 < daysRemaining ≤ 3
+  showHardWall: boolean; // expired && not ACTIVE
 };
 ```
 
@@ -129,33 +138,33 @@ Client hook SWR-backed, revalidates every 60s. Multi-tab safe.
 
 ### 5.1 New files
 
-| File | Purpose |
-|---|---|
-| `lib/billing/constants.ts` | `TRIAL_DAYS = 15` · `T_MINUS_BANNER_DAYS = 3` |
-| `lib/billing/use-trial-status.ts` | Client SWR hook |
-| `components/billing/TrialCountdownBanner.tsx` | Dashboard top, dismissible per session |
-| `components/billing/CreditExhaustModal.tsx` | Listens for `credit-exhausted` global event |
-| `components/billing/FeatureGateModal.tsx` + `<FeatureGate>` | Wrapper component + modal |
-| `app/billing/upgrade/page.tsx` | Server Component |
-| `app/billing/upgrade/UpgradeHeader.tsx` | `?reason=`-aware copy |
-| `app/billing/upgrade/TierGrid.tsx` | Renders PRICING_CONFIG tiers |
-| `app/billing/upgrade/CheckoutCTA.tsx` | POSTs to /api/billing/checkout |
-| `app/billing/success/page.tsx` | Defensive Stripe-direct retrieve + 30s poll |
-| `app/api/billing/checkout/route.ts` | Creates Stripe Checkout session |
-| `app/api/billing/trial-status/route.ts` | Thin wrapper for client hook |
+| File                                                        | Purpose                                       |
+| ----------------------------------------------------------- | --------------------------------------------- |
+| `lib/billing/constants.ts`                                  | `TRIAL_DAYS = 15` · `T_MINUS_BANNER_DAYS = 3` |
+| `lib/billing/use-trial-status.ts`                           | Client SWR hook                               |
+| `components/billing/TrialCountdownBanner.tsx`               | Dashboard top, dismissible per session        |
+| `components/billing/CreditExhaustModal.tsx`                 | Listens for `credit-exhausted` global event   |
+| `components/billing/FeatureGateModal.tsx` + `<FeatureGate>` | Wrapper component + modal                     |
+| `app/billing/upgrade/page.tsx`                              | Server Component                              |
+| `app/billing/upgrade/UpgradeHeader.tsx`                     | `?reason=`-aware copy                         |
+| `app/billing/upgrade/TierGrid.tsx`                          | Renders PRICING_CONFIG tiers                  |
+| `app/billing/upgrade/CheckoutCTA.tsx`                       | POSTs to /api/billing/checkout                |
+| `app/billing/success/page.tsx`                              | Defensive Stripe-direct retrieve + 30s poll   |
+| `app/api/billing/checkout/route.ts`                         | Creates Stripe Checkout session               |
+| `app/api/billing/trial-status/route.ts`                     | Thin wrapper for client hook                  |
 
 ### 5.2 Extended files
 
-| File | Change |
-|---|---|
-| `lib/trial-handling.ts` | Add `showCountdownBanner` + `showHardWall` derived flags; use `TRIAL_DAYS` constant |
-| `lib/auth.ts:327` | Use `TRIAL_DAYS` constant (15) instead of hardcoded 30 |
-| `lib/email.ts:884, 925` | Use `TRIAL_DAYS` constant in copy |
-| `lib/youtube/metadata.ts:90` | Update marketing string ("15 free reports" — flag for editorial eyeball) |
-| `app/api/setup/activate/route.ts:139` | Fix drift: `trialDays: 14` → `trialDays: TRIAL_DAYS` |
-| `app/dashboard/layout.tsx` | Mount `<TrialCountdownBanner>` at top |
-| `middleware.ts` | Hard-paywall redirect block |
-| `app/api/webhooks/stripe/route.ts` | Add 3 handlers: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted` |
+| File                                  | Change                                                                                                         |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `lib/trial-handling.ts`               | Add `showCountdownBanner` + `showHardWall` derived flags; use `TRIAL_DAYS` constant                            |
+| `lib/auth.ts:327`                     | Use `TRIAL_DAYS` constant (15) instead of hardcoded 30                                                         |
+| `lib/email.ts:884, 925`               | Use `TRIAL_DAYS` constant in copy                                                                              |
+| `lib/youtube/metadata.ts:90`          | Update marketing string ("15 free reports" — flag for editorial eyeball)                                       |
+| `app/api/setup/activate/route.ts:139` | Fix drift: `trialDays: 14` → `trialDays: TRIAL_DAYS`                                                           |
+| `app/dashboard/layout.tsx`            | Mount `<TrialCountdownBanner>` at top                                                                          |
+| `middleware.ts`                       | Hard-paywall redirect block                                                                                    |
+| `app/api/webhooks/stripe/route.ts`    | Add 3 handlers: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted` |
 
 ---
 
@@ -216,12 +225,12 @@ Client hook SWR-backed, revalidates every 60s. Multi-tab safe.
 
 ### 6.5 Subscription state changes (via webhook)
 
-| Stripe event | Our action |
-|---|---|
-| `checkout.session.completed` | Flip to ACTIVE, write SubscriptionEvent |
-| `customer.subscription.updated` (status=past_due) | Flip to PAST_DUE, write SubscriptionEvent |
-| `customer.subscription.deleted` | Flip to CANCELED, write SubscriptionEvent |
-| `invoice.payment_failed` | (Wave 2.x) raise PaymentFailedBanner via Notification |
+| Stripe event                                      | Our action                                            |
+| ------------------------------------------------- | ----------------------------------------------------- |
+| `checkout.session.completed`                      | Flip to ACTIVE, write SubscriptionEvent               |
+| `customer.subscription.updated` (status=past_due) | Flip to PAST_DUE, write SubscriptionEvent             |
+| `customer.subscription.deleted`                   | Flip to CANCELED, write SubscriptionEvent             |
+| `invoice.payment_failed`                          | (Wave 2.x) raise PaymentFailedBanner via Notification |
 
 ### 6.6 Re-subscribe after cancel
 
@@ -233,14 +242,14 @@ User who cancelled signs back in → middleware redirects → upgrade flow → n
 
 ### 7.1 Audit
 
-| Site | Today | Change |
-|---|---|---|
-| `lib/auth.ts:327` | `+ 30 * 24 * 60 * 60 * 1000` (canonical) | use `TRIAL_DAYS` constant |
-| `lib/trial-handling.ts:47` | `daysRemaining: 30` (null fallback) | use `TRIAL_DAYS` |
-| `app/api/setup/activate/route.ts:139` | `trialDays: 14` 🐛 | use `TRIAL_DAYS` (15) — fixes drift |
-| `lib/email.ts:884, 925` | parameterised, callsite passes `trialDays` | callsites pass `TRIAL_DAYS` |
-| `lib/youtube/metadata.ts:90` | "30 free reports" string | "15 free reports" (editorial eyeball) |
-| `app/api/reports/generate-enhanced/route.ts:144` | comment "30-day period" | update comment |
+| Site                                             | Today                                      | Change                                |
+| ------------------------------------------------ | ------------------------------------------ | ------------------------------------- |
+| `lib/auth.ts:327`                                | `+ 30 * 24 * 60 * 60 * 1000` (canonical)   | use `TRIAL_DAYS` constant             |
+| `lib/trial-handling.ts:47`                       | `daysRemaining: 30` (null fallback)        | use `TRIAL_DAYS`                      |
+| `app/api/setup/activate/route.ts:139`            | `trialDays: 14` 🐛                         | use `TRIAL_DAYS` (15) — fixes drift   |
+| `lib/email.ts:884, 925`                          | parameterised, callsite passes `trialDays` | callsites pass `TRIAL_DAYS`           |
+| `lib/youtube/metadata.ts:90`                     | "30 free reports" string                   | "15 free reports" (editorial eyeball) |
+| `app/api/reports/generate-enhanced/route.ts:144` | comment "30-day period"                    | update comment                        |
 
 ### 7.2 Centralisation
 
@@ -332,12 +341,12 @@ Additive only. No backfill.
 
 ### 9.3 Stripe state changes
 
-| Event | Action |
-|---|---|
+| Event                                      | Action                                                                                                                       |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
 | `customer.subscription.updated` → past_due | Flip to PAST_DUE; existing 402 gate (`["TRIAL","ACTIVE","LIFETIME"]` allowlist) blocks AI calls; hard paywall also covers it |
-| `customer.subscription.deleted` | Flip to CANCELED; next sign-in → hard paywall |
-| Re-subscribe after cancel | New `subscriptionId` overwrites; SubscriptionEvent preserves history |
-| Stripe Checkout session timeout | User returns via cancel_url; no state change; can re-initiate |
+| `customer.subscription.deleted`            | Flip to CANCELED; next sign-in → hard paywall                                                                                |
+| Re-subscribe after cancel                  | New `subscriptionId` overwrites; SubscriptionEvent preserves history                                                         |
+| Stripe Checkout session timeout            | User returns via cancel_url; no state change; can re-initiate                                                                |
 
 ### 9.4 Trigger-component edge cases
 
@@ -359,42 +368,42 @@ Additive only. No backfill.
 
 ### 10.1 Unit (Vitest)
 
-| Target | Cases |
-|---|---|
-| `lib/billing/constants.ts` | 1 — `TRIAL_DAYS === 15` regression guard |
-| `lib/trial-handling.ts` (extended) | 6 — active · countdown threshold · expired · ACTIVE-overrides · LIFETIME bypass · null fallback |
-| `lib/billing/use-trial-status` server fn | 4 — TRIAL · ACTIVE · PAST_DUE · CANCELED |
-| `<TrialCountdownBanner>` | 3 — days=3, days=1, days=0 |
-| `<CreditExhaustModal>` | 3 — opens on event · CTA routes · dismiss |
-| `<FeatureGateModal>` + `<FeatureGate>` | 5 — free blocks · paid passes · `?feature=` query · SSR · click propagation |
-| `<UpgradeHeader>` | 4 — one per `?reason=` value |
-| `<TierGrid>` | 3 — 3 tiers rendered · highlights popular · current-plan badge |
-| `<CheckoutCTA>` | 2 — POST · redirect on success |
+| Target                                   | Cases                                                                                           |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `lib/billing/constants.ts`               | 1 — `TRIAL_DAYS === 15` regression guard                                                        |
+| `lib/trial-handling.ts` (extended)       | 6 — active · countdown threshold · expired · ACTIVE-overrides · LIFETIME bypass · null fallback |
+| `lib/billing/use-trial-status` server fn | 4 — TRIAL · ACTIVE · PAST_DUE · CANCELED                                                        |
+| `<TrialCountdownBanner>`                 | 3 — days=3, days=1, days=0                                                                      |
+| `<CreditExhaustModal>`                   | 3 — opens on event · CTA routes · dismiss                                                       |
+| `<FeatureGateModal>` + `<FeatureGate>`   | 5 — free blocks · paid passes · `?feature=` query · SSR · click propagation                     |
+| `<UpgradeHeader>`                        | 4 — one per `?reason=` value                                                                    |
+| `<TierGrid>`                             | 3 — 3 tiers rendered · highlights popular · current-plan badge                                  |
+| `<CheckoutCTA>`                          | 2 — POST · redirect on success                                                                  |
 
 ### 10.2 Integration (Vitest + Prisma)
 
-| Target | Cases |
-|---|---|
-| `/api/billing/checkout` POST | 401 no session · 200 new Customer · 200 existing Customer (idempotent upsert) · 400 invalid tier · 503 Stripe unreachable |
-| `/api/billing/trial-status` GET | 200 full TrialStatus shape · 401 |
-| Webhook `checkout.session.completed` | Idempotency · writes SubscriptionEvent · flips to ACTIVE · sets nextBillingDate |
-| Webhook `customer.subscription.updated` → past_due | Flips PAST_DUE · writes SubscriptionEvent |
-| Webhook `customer.subscription.deleted` | Flips CANCELED · writes SubscriptionEvent |
-| Middleware enforcement | TRIAL not-expired no redirect · expired+not-ACTIVE redirect · LIFETIME bypass · whitelist paths pass · ACTIVE with expired trialEndsAt no redirect |
-| Trial duration migration | New signup gets +15 days · existing TRIAL user with 27 days remaining is unchanged (grandfather) |
+| Target                                             | Cases                                                                                                                                              |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/billing/checkout` POST                       | 401 no session · 200 new Customer · 200 existing Customer (idempotent upsert) · 400 invalid tier · 503 Stripe unreachable                          |
+| `/api/billing/trial-status` GET                    | 200 full TrialStatus shape · 401                                                                                                                   |
+| Webhook `checkout.session.completed`               | Idempotency · writes SubscriptionEvent · flips to ACTIVE · sets nextBillingDate                                                                    |
+| Webhook `customer.subscription.updated` → past_due | Flips PAST_DUE · writes SubscriptionEvent                                                                                                          |
+| Webhook `customer.subscription.deleted`            | Flips CANCELED · writes SubscriptionEvent                                                                                                          |
+| Middleware enforcement                             | TRIAL not-expired no redirect · expired+not-ACTIVE redirect · LIFETIME bypass · whitelist paths pass · ACTIVE with expired trialEndsAt no redirect |
+| Trial duration migration                           | New signup gets +15 days · existing TRIAL user with 27 days remaining is unchanged (grandfather)                                                   |
 
 ### 10.3 E2E (Playwright)
 
-| Spec | Scenario |
-|---|---|
-| `e2e/billing/voluntary-upgrade.spec.ts` | TRIAL → banner → STANDARD → 4242… → success → dashboard renders |
-| `e2e/billing/hard-paywall.spec.ts` | Expired user signs in → redirect → checkout → return → unblocked |
-| `e2e/billing/credit-exhaust.spec.ts` | `creditsRemaining=0` → AI call → modal → CTA → `?reason=credits` |
-| `e2e/billing/feature-gate.spec.ts` | STANDARD → PREMIUM feature → modal → `?reason=feature&feature=…` → PREMIUM pre-selected |
-| `e2e/billing/cancel-flow.spec.ts` | Cancel on Stripe → return `?cancelled=1` → subdued copy |
-| `e2e/billing/webhook-race.spec.ts` | Mocked webhook delay → poll → unblock or support handoff |
-| `e2e/billing/multi-tab.spec.ts` | Tab A converts; Tab B revalidates within 60s → unblocked |
-| `e2e/billing/grandfather.spec.ts` | Seed existing TRIAL user with 27 days remaining; migration didn't shorten |
+| Spec                                    | Scenario                                                                                |
+| --------------------------------------- | --------------------------------------------------------------------------------------- |
+| `e2e/billing/voluntary-upgrade.spec.ts` | TRIAL → banner → STANDARD → 4242… → success → dashboard renders                         |
+| `e2e/billing/hard-paywall.spec.ts`      | Expired user signs in → redirect → checkout → return → unblocked                        |
+| `e2e/billing/credit-exhaust.spec.ts`    | `creditsRemaining=0` → AI call → modal → CTA → `?reason=credits`                        |
+| `e2e/billing/feature-gate.spec.ts`      | STANDARD → PREMIUM feature → modal → `?reason=feature&feature=…` → PREMIUM pre-selected |
+| `e2e/billing/cancel-flow.spec.ts`       | Cancel on Stripe → return `?cancelled=1` → subdued copy                                 |
+| `e2e/billing/webhook-race.spec.ts`      | Mocked webhook delay → poll → unblock or support handoff                                |
+| `e2e/billing/multi-tab.spec.ts`         | Tab A converts; Tab B revalidates within 60s → unblocked                                |
+| `e2e/billing/grandfather.spec.ts`       | Seed existing TRIAL user with 27 days remaining; migration didn't shorten               |
 
 ### 10.4 Test fixtures
 
@@ -406,6 +415,7 @@ Additive only. No backfill.
 ### 10.5 Verification gate (per `.claude/rules/verification-gate.md`)
 
 PR description must include:
+
 - **Where:** Vercel preview URL
 - **How to walk it:** seed test accounts via `/api/test/seed-trial-user?daysUntilExpiry={3|0|-1}`; follow each of the 4 trigger paths
 - **What to see:** countdown banner at T-3 · hard wall redirect at T-0 · credit-exhaust modal on `creditsRemaining=0` · feature-gate modal on PREMIUM click from STANDARD user · all 4 CTAs land on `/billing/upgrade?reason=...` · `4242…` completes → returns → dashboard renders

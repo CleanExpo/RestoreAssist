@@ -8,28 +8,28 @@ This build addresses **Guideline 3.1.1 (In-App Purchase)** rejections from build
 
 > RestoreAssist on iOS is a free B2B field tool. Subscriptions, billing, and account upgrades are managed only on the website restoreassist.app.
 
-Previous builds *talked* about Path B but still rendered upgrade CTAs and pricing UI inside the iOS WebView. Build 1.0(7) wraps every billing surface in `<BillingGate>` so they are not rendered at all on iOS Capacitor.
+Previous builds _talked_ about Path B but still rendered upgrade CTAs and pricing UI inside the iOS WebView. Build 1.0(7) wraps every billing surface in `<BillingGate>` so they are not rendered at all on iOS Capacitor.
 
 ### Files modified (16)
 
-| File | Change |
-|---|---|
-| `app/pricing/page.tsx` | wrapped page in `<BillingGate>` |
-| `app/dashboard/pricing/page.tsx` | wrapped page in `<BillingGate>` |
-| `app/dashboard/subscription/page.tsx` | wrapped page in `<BillingGate>` |
-| `components/UpgradeBanner.tsx` | wrapped output in `<BillingGate fallback={null}>` |
-| `components/clients/upgrade-modal.tsx` | wrapped output in `<BillingGate fallback={null}>` |
-| `components/PricingConfiguration.tsx` | gated locked-banner overlay + iOS-guarded auto-redirect |
-| `app/compliance/page.tsx` | gated "Start free trial" CTA |
-| `app/dashboard/layout.tsx` | iOS-guarded sidebar pricing redirect |
-| `app/dashboard/clients/page.tsx` | iOS-guarded UpgradeModal callback |
-| `app/dashboard/integrations/page.tsx` | wrapped Upgrade dialog in `<BillingGate>` + iOS-guarded push |
-| `app/dashboard/reports/page.tsx` | iOS-guarded both setTimeout pushes |
-| `app/dashboard/reports/new/page.tsx` | wrapped 3 surfaces (empty-state, View Subscription, Upgrade Modal) |
-| `app/dashboard/success/page.tsx` | iOS-guarded auto-redirects + wrapped View Subscription button |
-| `components/InitialDataEntryForm.tsx` | iOS-guarded 2x credit-exhausted pushes |
-| `components/forms/guided-interview/GuidedInterviewPanel.tsx` | wrapped tier-gating prompt |
-| `ios/App/App.xcodeproj/project.pbxproj` | `CURRENT_PROJECT_VERSION = 7` (was 5) |
+| File                                                         | Change                                                             |
+| ------------------------------------------------------------ | ------------------------------------------------------------------ |
+| `app/pricing/page.tsx`                                       | wrapped page in `<BillingGate>`                                    |
+| `app/dashboard/pricing/page.tsx`                             | wrapped page in `<BillingGate>`                                    |
+| `app/dashboard/subscription/page.tsx`                        | wrapped page in `<BillingGate>`                                    |
+| `components/UpgradeBanner.tsx`                               | wrapped output in `<BillingGate fallback={null}>`                  |
+| `components/clients/upgrade-modal.tsx`                       | wrapped output in `<BillingGate fallback={null}>`                  |
+| `components/PricingConfiguration.tsx`                        | gated locked-banner overlay + iOS-guarded auto-redirect            |
+| `app/compliance/page.tsx`                                    | gated "Start free trial" CTA                                       |
+| `app/dashboard/layout.tsx`                                   | iOS-guarded sidebar pricing redirect                               |
+| `app/dashboard/clients/page.tsx`                             | iOS-guarded UpgradeModal callback                                  |
+| `app/dashboard/integrations/page.tsx`                        | wrapped Upgrade dialog in `<BillingGate>` + iOS-guarded push       |
+| `app/dashboard/reports/page.tsx`                             | iOS-guarded both setTimeout pushes                                 |
+| `app/dashboard/reports/new/page.tsx`                         | wrapped 3 surfaces (empty-state, View Subscription, Upgrade Modal) |
+| `app/dashboard/success/page.tsx`                             | iOS-guarded auto-redirects + wrapped View Subscription button      |
+| `components/InitialDataEntryForm.tsx`                        | iOS-guarded 2x credit-exhausted pushes                             |
+| `components/forms/guided-interview/GuidedInterviewPanel.tsx` | wrapped tier-gating prompt                                         |
+| `ios/App/App.xcodeproj/project.pbxproj`                      | `CURRENT_PROJECT_VERSION = 7` (was 5)                              |
 
 The web experience is unchanged. On iOS Capacitor, BillingGate's `shouldHideBillingUI()` returns true and the gated content does not render.
 
@@ -54,6 +54,7 @@ open ios/App/App.xcworkspace
 ### 2. Verify signing & target settings
 
 In Xcode:
+
 - Project navigator → **App** → target **App** → tab **Signing & Capabilities**
 - Confirm: Team is your Apple Developer team, Provisioning Profile is correct (per [feedback_ios_release_workflow.md](../.claude/feedback_ios_release_workflow.md): manual signing, not automatic)
 - Tab **General** → confirm Version = `1.0`, Build = `7`
@@ -67,6 +68,7 @@ In Xcode:
 ### 4. Upload to App Store Connect
 
 In the Organizer:
+
 - Select the new 1.0(7) archive (top of list)
 - Click **Distribute App**
 - Choose **App Store Connect** → **Upload**
@@ -79,6 +81,7 @@ If `altool` upload via CLI is preferred (per [feedback_ios_release_workflow.md](
 ### 5. Submit to App Review
 
 After TestFlight processing finishes (you'll get an email):
+
 - https://appstoreconnect.apple.com → **Apps → RestoreAssist → 1.0** version
 - Under "Build", click **+** and select build **7**
 - **Notes for Review** field — use the text in the next section
@@ -144,8 +147,10 @@ If it returns `"status": "static-clean"` and Apple still rejects, the rejection 
 ## Rollback
 
 If 1.0(7) needs to be pulled before submission:
+
 ```bash
 cd ~/RestoreAssist
 git checkout -- app/ components/ ios/App/App.xcodeproj/project.pbxproj
 ```
+
 This reverts every BillingGate edit and the build-number bump. The verifier infrastructure (`.claude/hooks/`) is independent and stays.

@@ -48,10 +48,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     try {
       body = rawBody ? JSON.parse(rawBody) : {};
     } catch {
-      return NextResponse.json(
-        { error: "Invalid JSON body" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
     const closeSummary = body.closeSummary?.trim();
     if (!closeSummary) {
@@ -163,10 +160,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           });
         })
         .catch((err) => {
-          console.error(
-            `[close] SP-E mirror failed for ${inspectionId}:`,
-            err,
-          );
+          console.error(`[close] SP-E mirror failed for ${inspectionId}:`, err);
         });
 
       return NextResponse.json({

@@ -27,7 +27,10 @@ describe("TrialCountdownBanner", () => {
   });
 
   it("renders nothing while loading", () => {
-    vi.mocked(useTrialStatus).mockReturnValue({ data: undefined, isLoading: true } as any);
+    vi.mocked(useTrialStatus).mockReturnValue({
+      data: undefined,
+      isLoading: true,
+    } as any);
     const { container } = render(<TrialCountdownBanner />);
     expect(container.firstChild).toBeNull();
   });

@@ -23,6 +23,7 @@ import globals from "globals";
 import typescriptParser from "@typescript-eslint/parser";
 import typescriptPlugin from "@typescript-eslint/eslint-plugin";
 import reactHooksPlugin from "eslint-plugin-react-hooks";
+import nextPlugin from "@next/eslint-plugin-next";
 
 export default [
   {
@@ -39,6 +40,15 @@ export default [
       ".pi-ceo/**",
       // Scripts folder has its own tsconfig and historically broke the old linter too
       "scripts/**",
+      // Claude Code worktree copies (full repo duplicates that explode lint counts ~100x)
+      ".claude/**",
+      // Local agent scratch outputs (eslint logs, plans, patch scripts)
+      ".hermes/**",
+      ".superpowers/**",
+      // Storybook build output
+      "storybook-static/**",
+      // Pilot-tester sandbox harness (generated artefacts, not source per .gitignore)
+      "pilot-tester/**",
     ],
   },
   js.configs.recommended,
@@ -62,6 +72,7 @@ export default [
     plugins: {
       "@typescript-eslint": typescriptPlugin,
       "react-hooks": reactHooksPlugin,
+      "@next/next": nextPlugin,
     },
     rules: {
       // TypeScript makes the base `no-unused-vars` noisy on interfaces and

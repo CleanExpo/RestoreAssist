@@ -89,7 +89,10 @@ export async function sweepDeadLetters(): Promise<SweepResult> {
       continue;
     }
 
-    const recipientIds = new Set<string>([org.ownerId, ...org.members.map((m) => m.id)]);
+    const recipientIds = new Set<string>([
+      org.ownerId,
+      ...org.members.map((m) => m.id),
+    ]);
 
     if (recipientIds.size === 0) {
       continue;
