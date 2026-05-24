@@ -99,6 +99,7 @@ export default function ClientDetailPage({
   useEffect(() => {
     fetchClient();
     fetchInspections();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchClient is a stable component-local fetch — fire-on-mount only
   }, [params.id]);
 
   const fetchInspections = async () => {

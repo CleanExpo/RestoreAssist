@@ -88,6 +88,7 @@ export default function PortalReportDetail({
       }
       fetchReport();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only / stable callback ref
   }, [sessionStatus, session, router]);
 
   const fetchReport = async () => {

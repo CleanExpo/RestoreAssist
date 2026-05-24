@@ -41,6 +41,7 @@ export default function PortalInvitationSection({
 
   useEffect(() => {
     fetchInvitations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only / stable callback ref
   }, [clientId]);
 
   const fetchInvitations = async () => {

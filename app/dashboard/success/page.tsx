@@ -481,6 +481,7 @@ export default function SuccessPage() {
         }
       };
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only / stable callback ref
   }, [loading, checking, isAddonPurchase, router, update]);
 
   // For add-ons, don't show any UI - redirect immediately

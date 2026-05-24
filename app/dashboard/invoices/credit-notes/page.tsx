@@ -334,6 +334,7 @@ export default function CreditNotesPage() {
     } else if (authStatus === "authenticated") {
       fetchCreditNotes();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only / stable callback ref
   }, [authStatus]);
 
   async function fetchCreditNotes() {

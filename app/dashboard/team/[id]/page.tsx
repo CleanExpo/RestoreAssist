@@ -129,6 +129,7 @@ export default function TeamMemberDetailPage({
 
   useEffect(() => {
     fetchMember();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only / stable callback ref
   }, [params.id]);
 
   const fetchMember = async () => {

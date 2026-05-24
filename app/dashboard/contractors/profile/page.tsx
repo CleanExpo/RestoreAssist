@@ -103,6 +103,7 @@ export default function ContractorProfileDashboard() {
     } else if (status === "authenticated") {
       fetchProfile();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only / stable callback ref
   }, [status]);
 
   const fetchProfile = async () => {

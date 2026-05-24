@@ -38,6 +38,7 @@ function SignupForm() {
     }
 
     verifyToken();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only / stable callback ref
   }, [token]);
 
   const verifyToken = async () => {

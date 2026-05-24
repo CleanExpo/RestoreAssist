@@ -61,6 +61,7 @@ export default function Tier2Questions({
 
   useEffect(() => {
     fetchExistingResponses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only / stable callback ref
   }, [reportId]);
 
   const fetchExistingResponses = async () => {

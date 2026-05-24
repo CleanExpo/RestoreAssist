@@ -560,6 +560,7 @@ export default function WHSPage() {
     } else if (status === "authenticated") {
       fetchIncidents();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchIncidents is a stable component-local fetch — fire-on-mount only
   }, [status]);
 
   const fetchIncidents = useCallback(async () => {

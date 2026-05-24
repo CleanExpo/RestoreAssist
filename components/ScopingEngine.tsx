@@ -260,6 +260,7 @@ export default function ScopingEngine({
   // Calculate totals whenever data changes
   useEffect(() => {
     calculateTotals();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- calculateTotals is a stable component-local callback; intentional omission
   }, [
     scopeData.labourParameters,
     scopeData.equipmentParameters,

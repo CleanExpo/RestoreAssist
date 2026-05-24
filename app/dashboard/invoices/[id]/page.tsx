@@ -162,6 +162,7 @@ export default function InvoiceDetailPage({
   useEffect(() => {
     if (!invoiceId) return;
     fetchInvoice();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only / stable callback ref
   }, [invoiceId]);
 
   useEffect(() => {

@@ -70,6 +70,7 @@ export default function CostLibrariesPage() {
   // Fetch libraries from API
   useEffect(() => {
     fetchLibraries();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only / stable callback ref
   }, []);
 
   const fetchLibraries = async () => {

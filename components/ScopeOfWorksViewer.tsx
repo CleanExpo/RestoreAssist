@@ -31,6 +31,7 @@ export default function ScopeOfWorksViewer({
   useEffect(() => {
     fetchReport();
     fetchBusinessInfo();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only / stable callback ref
   }, [reportId]);
 
   const fetchBusinessInfo = async () => {

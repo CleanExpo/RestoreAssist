@@ -432,6 +432,7 @@ export function GuidedInterviewPanel({
         };
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only / stable callback ref
   }, [formTemplateId, jobType, postcode, experienceLevel]); // Removed interviewState dependencies to prevent re-creation
 
   /**
@@ -590,7 +591,7 @@ export function GuidedInterviewPanel({
         }));
       }
     },
-    [formTemplateId, jobType, postcode, initializeInterview],
+    [jobType, postcode, initializeInterview],
   );
 
   /**

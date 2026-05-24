@@ -60,6 +60,7 @@ export default function ContractorDirectoryPage() {
 
   useEffect(() => {
     fetchContractors();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only / stable callback ref
   }, [search, postcode, state, minRating, page]);
 
   const fetchContractors = async () => {

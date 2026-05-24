@@ -91,7 +91,10 @@ export default [
       "no-undef": "off",
       // react-hooks rules of Hooks (critical correctness)
       "react-hooks/rules-of-hooks": "error",
-      "react-hooks/exhaustive-deps": "warn",
+      // Tightened from `warn` to `error` after baseline cleared (57 → 0).
+      // Intentional omissions use `// eslint-disable-next-line` with
+      // explicit rationale per site.
+      "react-hooks/exhaustive-deps": "error",
       // RA-1566: ban native browser confirm()/alert()/prompt() in app/ — use shadcn AlertDialog instead
       "no-restricted-globals": [
         "error",

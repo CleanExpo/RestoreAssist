@@ -87,6 +87,7 @@ export default function SettingsPage() {
     } else if (status === "unauthenticated") {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only / stable callback ref
   }, [status, session]);
 
   const fetchProfile = async (isRefresh = false) => {
@@ -174,6 +175,7 @@ export default function SettingsPage() {
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", onFocus);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only / stable callback ref
   }, []);
 
   const getStatusText = (status: string) => {

@@ -51,7 +51,9 @@ export default function ReportsPage() {
     error: fetchError,
     refetch: refetchReports,
   } = useFetch<{ reports: ReportWithSessionData[] }>("/api/reports");
-  const reports = reportsData?.reports ?? [];
+  // Wrap in useMemo so downstream useMemo Hooks don't see a fresh array
+  // identity every render when `reportsData` is unchanged.
+  const reports = useMemo(() => reportsData?.reports ?? [], [reportsData]);
   const [duplicating, setDuplicating] = useState<string | null>(null);
   const [_downloading, setDownloading] = useState<string | null>(null);
   // RA-1192: per-row synopsis generation. Keyed by report id so multiple rows

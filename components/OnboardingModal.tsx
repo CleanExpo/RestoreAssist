@@ -79,6 +79,7 @@ export default function OnboardingModal({
     if (isOpen) {
       fetchOnboardingStatus();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only / stable callback ref
   }, [isOpen]);
 
   const fetchOnboardingStatus = async () => {

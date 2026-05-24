@@ -367,6 +367,7 @@ export default function InspectionDetailPage({
 
   useEffect(() => {
     fetchInspection();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only / stable callback ref
   }, [id]);
 
   // RA-2967 — fetch workspace settings once per mount; non-blocking.
