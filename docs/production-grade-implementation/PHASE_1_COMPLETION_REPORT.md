@@ -16,6 +16,7 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - Mobile offline queue unit coverage added for persistence, duplicate mutation IDs, idempotency headers, successful replay, retry, and failed queue state.
 - Advisory API route production audit gate added for auth/RBAC/query/raw-SQL/error-leakage visibility.
 - First API error-leakage hardening pass completed for progress, assessment generation, bulk status, and scopes routes.
+- Flagged admin business metrics and impersonation routes now revalidate admin role from DB via `verifyAdminFromDb`.
 - Codex Stop hook repaired and trusted with `bash .codex/hooks/stop-verifier.sh`.
 
 ## Validation Evidence
@@ -29,7 +30,7 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - `pnpm audit --audit-level=high --prod`: PASS for high-severity gate during branch recovery; 3 moderate vulnerabilities reported
 - `pnpm exec vitest run --config vitest.config.ts` from `mobile/`: PASS, 1 file / 3 tests
 - `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts`: PASS, 1 file / 6 tests
-- `pnpm exec tsx scripts/audit-api-routes.ts --json`: PASS, scanned 442 routes with 19 error-severity and 68 warning-severity advisory findings after first hardening pass
+- `pnpm exec tsx scripts/audit-api-routes.ts --json`: PASS, scanned 442 routes with 15 error-severity and 68 warning-severity advisory findings after admin DB-role revalidation pass
 - `git diff --check`: PASS
 
 ## Phase 1 Acceptance Criteria Still Open
@@ -57,7 +58,7 @@ Next action: keep mobile queue logic covered by `mobile/vitest.config.ts` while 
 
 ### API route hardening debt
 
-Error: advisory API route scan reports 19 error-severity findings and 68 warnings.
+Error: advisory API route scan reports 15 error-severity findings and 68 warnings.
 
 Cause: inherited route-hardening debt remains across auth decisions, admin DB-role checks, raw SQL patterns, bounded Prisma reads, and 500 response bodies.
 
