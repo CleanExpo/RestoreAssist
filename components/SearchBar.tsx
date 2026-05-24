@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback } from "react";
 import { Search, X } from "lucide-react";
 import { debounce } from "@/lib/search-utils";
 

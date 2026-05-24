@@ -514,7 +514,7 @@ export default function InitialDataEntryForm({
             setPricingConfig(config);
           }
         }
-      } catch (error) {
+      } catch {
         // Error fetching pricing config
       }
     };
@@ -531,7 +531,7 @@ export default function InitialDataEntryForm({
           setQuickFillCredits(data.creditsRemaining);
           setHasUnlimitedQuickFill(data.hasUnlimited || false);
         }
-      } catch (error) {
+      } catch {
         // Error fetching credits
       }
     };
@@ -555,7 +555,7 @@ export default function InitialDataEntryForm({
               setSelectedAssigneeId(data.assignees[0].id);
             }
           }
-        } catch (error) {
+        } catch {
           // Error fetching assignees
         } finally {
           setLoadingAssignees(false);
@@ -674,7 +674,7 @@ export default function InitialDataEntryForm({
             setDurationDays(equipmentData.estimatedDryingDuration);
           }
         }
-      } catch (error) {
+      } catch {
         // Error loading report data
       }
     };
@@ -1287,7 +1287,7 @@ export default function InitialDataEntryForm({
         const error = await response.json();
         toast.error(error.error || "Failed to update report type");
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to update report type");
     } finally {
       setLoading(false);
@@ -1447,7 +1447,7 @@ export default function InitialDataEntryForm({
         const error = await response.json();
         toast.error(error.error || "Failed to save data");
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to save data");
     } finally {
       setLoading(false);
@@ -2409,7 +2409,7 @@ export default function InitialDataEntryForm({
             toast.error(error.error || "Failed to use Quick Fill credit");
           }
         }
-      } catch (error) {
+      } catch {
         toast.error("Failed to check Quick Fill credits");
       } finally {
         setLoadingCredits(false);

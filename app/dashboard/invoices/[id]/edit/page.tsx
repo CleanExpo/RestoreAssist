@@ -199,7 +199,7 @@ export default function EditInvoicePage({
             "Payment is due within 30 days from the date of this invoice. Late payments may incur additional charges.",
         );
         setFooter(inv.footer || "Thank you for your business!");
-      } catch (e) {
+      } catch {
         setFetchError("Failed to load invoice");
       } finally {
         setFetching(false);

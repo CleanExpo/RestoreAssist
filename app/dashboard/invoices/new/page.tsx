@@ -7,7 +7,6 @@ import {
   Plus,
   Trash2,
   User,
-  Building2,
   FileText,
 } from "lucide-react";
 import toast from "react-hot-toast";

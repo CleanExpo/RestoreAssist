@@ -9,7 +9,6 @@ import {
   getQuestionsForSubscriptionTier,
 } from "../question-templates";
 import { QuestionGenerationEngine } from "../question-generation-engine";
-import { Question } from "../types";
 
 describe("Interview Question Templates", () => {
   describe("Library Structure", () => {

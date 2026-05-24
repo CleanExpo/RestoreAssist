@@ -99,7 +99,7 @@ export async function GET(
           assumptions: scopeData.assumptions,
         };
       }
-    } catch (err) {
+    } catch {
       // scope not found
     }
 
@@ -158,7 +158,7 @@ export async function GET(
           disclaimer: estimateData.disclaimer,
         };
       }
-    } catch (err) {
+    } catch {
       // estimate not found
     }
 
@@ -1206,7 +1206,7 @@ function sanitizeText(text: string): string {
 function getTextWidth(text: string, font: any, fontSize: number): number {
   try {
     return font.widthOfTextAtSize(text, fontSize);
-  } catch (error) {
+  } catch {
     // If encoding fails, try with sanitized text
     const sanitized = sanitizeText(text);
     try {
@@ -1284,7 +1284,7 @@ function wrapText(
           currentLine = remainingWord;
         }
       }
-    } catch (error) {
+    } catch {
       // If encoding fails completely, fallback to simple character count
       if (testLine.length * fontSize * 0.6 <= maxWidth) {
         currentLine = testLine;

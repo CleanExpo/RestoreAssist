@@ -37,7 +37,7 @@ export async function PATCH(
     });
 
     return NextResponse.json({ payment: updated });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: "Failed to update payment" },
       { status: 500 },

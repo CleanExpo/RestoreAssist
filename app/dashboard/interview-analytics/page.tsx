@@ -16,17 +16,13 @@ import { Progress } from "@/components/ui/progress";
 import {
   TrendingUp,
   Users,
-  Clock,
-  CheckCircle2,
   AlertCircle,
   BarChart3,
   RefreshCw,
 } from "lucide-react";
 import { useInterviewAnalytics } from "@/lib/forms/hooks";
 import type {
-  UserAnalyticsSummary,
-  TemplatePerformanceAnalytics,
-} from "@/lib/forms/analytics";
+  } from "@/lib/forms/analytics";
 
 /**
  * Interview Analytics Dashboard

@@ -8,8 +8,6 @@ import {
   Building2,
   AlertTriangle,
   Square,
-  Printer,
-  Download,
   FileText,
   MapPin,
   Thermometer,

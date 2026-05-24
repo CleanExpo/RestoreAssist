@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Bell,
   CheckCircle2,
   ExternalLink,
   Info,

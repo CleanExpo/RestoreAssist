@@ -9,8 +9,6 @@ import {
   FieldMapping,
   QuestionGenerationContext,
   GenerateQuestionsResponse,
-  QuestionOption,
-  SkipLogicRule,
   ConditionalShow,
   SubscriptionTier,
 } from "./types";

@@ -7,10 +7,8 @@ import {
   MapPin,
   Camera,
   CheckCircle,
-  AlertCircle,
   Plus,
   X,
-  Save,
   ArrowRight,
   Loader2,
   Sparkles,
@@ -827,7 +825,7 @@ export default function NIRTechnicianInputForm({
           }
         }
       }
-    } catch (error) {
+    } catch {
       /* intentional no-op */
     } finally {
       setLoading(false);
@@ -1118,7 +1116,7 @@ export default function NIRTechnicianInputForm({
 
       await Promise.all(uploadPromises);
       toast.success(`${files.length} photo(s) uploaded successfully`);
-    } catch (error) {
+    } catch {
       toast.error("Failed to upload some photos");
     } finally {
       setUploadingPhotos(false);
@@ -1248,7 +1246,7 @@ export default function NIRTechnicianInputForm({
           toast.error(error.error || "Failed to create inspection");
         }
       }
-    } catch (error) {
+    } catch {
       if (showToast) {
         toast.error("Failed to create inspection");
       }
@@ -2125,7 +2123,7 @@ export default function NIRTechnicianInputForm({
                     );
                   }
                 }
-              } catch (error) {
+              } catch {
                 toast.error("Failed to check Quick Fill credits");
               } finally {
                 setLoadingCredits(false);

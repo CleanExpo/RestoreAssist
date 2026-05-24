@@ -9,7 +9,6 @@ import {
   Copy,
   FileCheck,
   Trash2,
-  Table,
   Download,
   FileSpreadsheet,
   Sparkles,
@@ -297,7 +296,7 @@ export function BulkOperationModal({
       ) {
         try {
           document.body.removeChild(downloadLinkRef.current);
-        } catch (e) {
+        } catch {
           // Link already removed, ignore
         }
       }
@@ -335,7 +334,7 @@ export function BulkOperationModal({
           ) {
             try {
               document.body.removeChild(downloadLinkRef.current);
-            } catch (e) {
+            } catch {
               // Already removed, ignore
             }
           }
@@ -365,7 +364,7 @@ export function BulkOperationModal({
       ) {
         try {
           document.body.removeChild(downloadLinkRef.current);
-        } catch (e) {
+        } catch {
           // Already removed, ignore
         }
       }
@@ -493,7 +492,7 @@ export function BulkOperationModal({
       ) {
         try {
           document.body.removeChild(downloadLinkRef.current);
-        } catch (e) {
+        } catch {
           // Already removed, ignore
         }
       }

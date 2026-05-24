@@ -8,7 +8,6 @@
 import { StandardsContext } from "./standards-retrieval";
 import {
   FormattedCitation,
-  parseAndFormatCitation,
   extractAndFormatCitations,
 } from "./citation-formatter";
 

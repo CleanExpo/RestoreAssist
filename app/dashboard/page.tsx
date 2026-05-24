@@ -5,13 +5,9 @@ import {
   FileText,
   Plus,
   TrendingUp,
-  Clock,
   CheckCircle,
-  AlertTriangle,
   Users,
   DollarSign,
-  BarChart3,
-  Zap,
   Shield,
   Calendar,
   ArrowRight,
@@ -26,7 +22,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useFetch } from "@/lib/hooks/useFetch";
 import toast from "react-hot-toast";
 import Link from "next/link";
-import SessionMetadataCard, {
+import {
   EvaluatorScoreBadge,
 } from "@/components/SessionMetadataCard";
 import { TechLicenceBanner } from "@/components/dashboard/TechLicenceBanner";

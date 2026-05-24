@@ -10,11 +10,10 @@ import type { AgentTask } from "@prisma/client";
 import type {
   ExecutionResult,
   TaskInput,
-  TaskOutput,
   WorkflowContext,
 } from "./types";
 import { getAgent, getAgentHandler } from "./registry";
-import { classifyError, isRetryable } from "./error-handler";
+import { classifyError } from "./error-handler";
 import { logAgentEvent } from "./logger";
 import { transitionTask } from "./state-manager";
 

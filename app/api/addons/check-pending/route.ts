@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
         .map((p) => p.stripeSessionId)
         .filter((id): id is string => id !== null);
       canUsePurchaseTable = true;
-    } catch (error: any) {
+    } catch {
       canUsePurchaseTable = false;
     }
 

@@ -21,14 +21,12 @@ import {
   Info,
   Shield,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import {
   getStepGuidance,
   hasApprenticeGuidance,
   hasExperiencedAlerts,
   getRequiredConfirmations,
 } from "@/lib/evidence/adaptive-guidance";
-import type { StepGuidance } from "@/lib/evidence/adaptive-guidance";
 
 // ============================================
 // TYPES

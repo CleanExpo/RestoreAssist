@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { createRequire } from "module";
 import { applyRateLimit } from "@/lib/rate-limiter";
 
@@ -156,7 +155,7 @@ export async function POST(request: NextRequest) {
       originalPdf: pdfDataUrl,
       message: "PDF parsed successfully",
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 },

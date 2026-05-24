@@ -1,5 +1,4 @@
 import {
-  processPendingWebhookEvents,
   processWebhookEvent,
 } from "@/lib/integrations/webhook-processor";
 import { prisma } from "@/lib/prisma";

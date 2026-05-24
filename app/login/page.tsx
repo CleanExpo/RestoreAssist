@@ -125,7 +125,7 @@ function LoginForm() {
           router.push(target);
         }
       }
-    } catch (error) {
+    } catch {
       setError("An error occurred. Please try again.");
       toast.error("An error occurred. Please try again.");
     } finally {
@@ -141,7 +141,7 @@ function LoginForm() {
       // RA-1842 Ground 3 — on iOS this opens SFSafariViewController
       // instead of bouncing to Safari proper. Web behaviour unchanged.
       await signInWithOAuth("google", { callbackUrl });
-    } catch (error: any) {
+    } catch {
       setError("Google sign-in failed. Please try again.");
       toast.error("Google sign-in failed. Please try again.");
       setIsLoading(false);
@@ -158,7 +158,7 @@ function LoginForm() {
     try {
       const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
       await signInWithOAuth("apple", { callbackUrl });
-    } catch (error: any) {
+    } catch {
       setError("Apple sign-in failed. Please try again.");
       toast.error("Apple sign-in failed. Please try again.");
       setIsLoading(false);

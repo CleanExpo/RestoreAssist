@@ -362,7 +362,7 @@ export default function NewReportPage() {
         const error = await response.json();
         toast.error(error.error || "Failed to upload PDF");
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to upload PDF");
     } finally {
       setUploading(false);

@@ -16,7 +16,6 @@ import {
   Clock,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -284,7 +283,7 @@ export default function EquipmentPage() {
           text: data.error ?? "Failed to add equipment",
         });
       }
-    } catch (err) {
+    } catch {
       setMessage({ type: "error", text: "Failed to add equipment" });
     } finally {
       setAddingEquipment(false);
@@ -339,7 +338,7 @@ export default function EquipmentPage() {
           text: data.error ?? "Failed to log calibration",
         });
       }
-    } catch (err) {
+    } catch {
       setMessage({ type: "error", text: "Failed to log calibration" });
     } finally {
       setLoggingCalibration(false);

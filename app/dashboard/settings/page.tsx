@@ -3,8 +3,6 @@
 import { useState, useEffect } from "react";
 import {
   User,
-  Mail,
-  Calendar,
   CreditCard,
   Crown,
   Zap,

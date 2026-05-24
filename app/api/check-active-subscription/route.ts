@@ -3,7 +3,6 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
-import { PRICING_CONFIG } from "@/lib/pricing";
 import { LIFETIME_PRICING_EMAIL } from "@/lib/lifetime-pricing";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -154,7 +153,7 @@ export async function POST(request: NextRequest) {
             },
           });
           signupBonusApplied = userWithBonus?.signupBonusApplied || false;
-        } catch (e) {
+        } catch {
           // Field doesn't exist yet, assume false
           signupBonusApplied = false;
         }

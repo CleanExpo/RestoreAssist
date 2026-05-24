@@ -4,12 +4,9 @@
  * Applies field transformers, handles multi-field population, and tracks IICRC classifications
  */
 
-import { QuestionGenerationEngine } from "./question-generation-engine";
 import {
   Question,
   FieldMapping,
-  AnswerMappingResult,
-  FieldPopulation,
 } from "./types";
 
 /**

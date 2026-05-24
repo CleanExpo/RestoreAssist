@@ -10,7 +10,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { QuestionType } from "@prisma/client";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import { InterviewFlowEngine } from "@/lib/interview";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";

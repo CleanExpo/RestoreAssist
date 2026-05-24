@@ -84,7 +84,7 @@ export default function VoiceSessionPage({ params }: PageProps) {
       setGreeting(data.greeting);
       setPendingItems(data.pendingItems);
       speak(data.greeting);
-    } catch (e) {
+    } catch {
       setError("Could not start voice session. Check your connection.");
     } finally {
       setStarting(false);

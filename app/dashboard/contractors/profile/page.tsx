@@ -172,7 +172,7 @@ export default function ContractorProfileDashboard() {
           text: data.error || "Failed to update profile",
         });
       }
-    } catch (error) {
+    } catch {
       setMessage({ type: "error", text: "Failed to update profile" });
     }
   });
@@ -220,7 +220,7 @@ export default function ContractorProfileDashboard() {
           text: data.error || "Failed to add certification",
         });
       }
-    } catch (error) {
+    } catch {
       setMessage({ type: "error", text: "Failed to add certification" });
     }
   };
@@ -245,7 +245,7 @@ export default function ContractorProfileDashboard() {
       } else {
         setMessage({ type: "error", text: "Failed to delete certification" });
       }
-    } catch (error) {
+    } catch {
       setMessage({ type: "error", text: "Failed to delete certification" });
     }
   };
@@ -285,7 +285,7 @@ export default function ContractorProfileDashboard() {
           text: data.error || "Failed to add service area",
         });
       }
-    } catch (error) {
+    } catch {
       setMessage({ type: "error", text: "Failed to add service area" });
     }
   };
@@ -310,7 +310,7 @@ export default function ContractorProfileDashboard() {
       } else {
         setMessage({ type: "error", text: "Failed to delete service area" });
       }
-    } catch (error) {
+    } catch {
       setMessage({ type: "error", text: "Failed to delete service area" });
     }
   };

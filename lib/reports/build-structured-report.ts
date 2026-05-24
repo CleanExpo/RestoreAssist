@@ -100,7 +100,7 @@ export function buildStructuredBasicReport(data: {
           }
         });
       }
-    } catch (e) {
+    } catch {
       // Not JSON, skip
     }
   }

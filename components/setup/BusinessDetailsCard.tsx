@@ -48,7 +48,7 @@ export function BusinessDetailsCard() {
         setSectionStatus("branding", "pending");
         setSectionStatus("pricing", "pending");
       }
-    } catch (err) {
+    } catch {
       setSubmitError("Network error — check your connection and try again");
       setSectionStatus("businessDetails", "pending");
       setSectionStatus("branding", "pending");

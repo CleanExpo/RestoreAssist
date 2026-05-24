@@ -18,7 +18,7 @@
  */
 
 import {
-  LineChart,
+  
   Line,
   XAxis,
   YAxis,
@@ -42,7 +42,6 @@ import {
   getDryStandard,
   getMoistureStatus,
   STATUS_COLORS,
-  IICRC_DRY_STANDARDS,
 } from "@/lib/iicrc-dry-standards";
 import {
   computeTargetCurve,

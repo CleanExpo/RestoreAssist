@@ -15,7 +15,6 @@
 
 import {
   getTokens,
-  storeTokens,
   markIntegrationError,
   disconnectIntegration,
 } from "../oauth-handler";

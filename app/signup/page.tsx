@@ -17,7 +17,6 @@ import {
   Info,
   ChevronDown,
   ChevronUp,
-  ExternalLink,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { apiErrorMessage } from "@/lib/api-error-message";
@@ -142,7 +141,7 @@ export default function SignupPage() {
       } else {
         setError(apiErrorMessage(data) ?? "Registration failed");
       }
-    } catch (error) {
+    } catch {
       setError("An error occurred. Please try again.");
     } finally {
       setIsLoading(false);
@@ -156,7 +155,7 @@ export default function SignupPage() {
       // RA-1842 Ground 3 — on iOS this opens SFSafariViewController
       // instead of bouncing to Safari proper. Web behaviour unchanged.
       await signInWithOAuth("google", { callbackUrl: "/dashboard?welcome=1" });
-    } catch (error: any) {
+    } catch {
       setError("Google sign-in failed. Please try again.");
       toast.error("Google sign-in failed. Please try again.");
       setIsLoading(false);
@@ -169,7 +168,7 @@ export default function SignupPage() {
     setError("");
     try {
       await signInWithOAuth("apple", { callbackUrl: "/dashboard?welcome=1" });
-    } catch (error: any) {
+    } catch {
       setError("Apple sign-in failed. Please try again.");
       toast.error("Apple sign-in failed. Please try again.");
       setIsLoading(false);

@@ -7,7 +7,7 @@ import {
   afterAll,
   beforeEach,
 } from "vitest";
-import { runAllChecks, CHECKS, type CheckResult } from "../checks";
+import { runAllChecks, CHECKS } from "../checks";
 import { prisma } from "@/lib/prisma";
 
 vi.mock("@/lib/ai/model-router", () => ({

@@ -14,7 +14,6 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
   legalKeysFrom,
-  type TransitionKey,
 } from "@/lib/progress/state-machine";
 import {
   canPerformTransition,

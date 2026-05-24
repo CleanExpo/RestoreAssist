@@ -6,7 +6,6 @@ import {
   Clock,
   DollarSign,
   FileText,
-  Printer,
   Users,
   Wrench,
 } from "lucide-react";

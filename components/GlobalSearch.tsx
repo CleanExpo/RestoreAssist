@@ -10,7 +10,6 @@ import {
   Clipboard,
   ArrowRight,
 } from "lucide-react";
-import { parseSearchQuery } from "@/lib/search-utils";
 
 interface SearchResult {
   id: string;

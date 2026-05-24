@@ -203,7 +203,7 @@ export async function GET(request: NextRequest) {
         // For team members, get limits from owner's account
         const targetUserId = ownerId || user.id;
         reportLimits = await getUserReportLimits(targetUserId);
-      } catch (error: any) {
+      } catch {
         // Error fetching report limits
       }
     }

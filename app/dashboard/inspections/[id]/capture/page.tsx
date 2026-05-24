@@ -337,7 +337,7 @@ export default function CaptureWorkflowPage({
         );
         if (nextIdx >= 0) setActiveStepIndex(nextIdx);
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to update step status");
     }
   };
@@ -370,7 +370,7 @@ export default function CaptureWorkflowPage({
           s.status === "NOT_STARTED" || s.status === "IN_PROGRESS",
       );
       if (nextIdx >= 0) setActiveStepIndex(nextIdx);
-    } catch (error) {
+    } catch {
       toast.error("Failed to skip step");
     } finally {
       setSkipping(false);
@@ -438,7 +438,7 @@ export default function CaptureWorkflowPage({
       setEvidenceNotes("");
       setSelectedEvidenceClass(null);
       toast.success(`${EVIDENCE_CLASS_LABELS[evidenceClass]} recorded`);
-    } catch (error) {
+    } catch {
       toast.error("Failed to record evidence");
     } finally {
       setUploadingEvidence(false);
@@ -455,7 +455,7 @@ export default function CaptureWorkflowPage({
       if (!res.ok) throw new Error("Failed to delete evidence");
       setEvidenceItems((prev) => prev.filter((e) => e.id !== evidenceId));
       toast.success("Evidence removed");
-    } catch (error) {
+    } catch {
       toast.error("Failed to delete evidence");
     }
   };
@@ -475,7 +475,7 @@ export default function CaptureWorkflowPage({
       }
       toast.success("Inspection submitted successfully");
       router.push(`/dashboard/inspections/${inspectionId}`);
-    } catch (error) {
+    } catch {
       toast.error("Failed to submit inspection");
     } finally {
       setSubmitting(false);

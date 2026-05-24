@@ -11,8 +11,6 @@ import {
   CheckCircle,
   AlertTriangle,
   Settings,
-  BarChart3,
-  Activity,
   Save,
   ArrowRight,
   ArrowLeft,

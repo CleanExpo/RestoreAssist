@@ -64,7 +64,7 @@ export default function DetailedReportViewer({
         setCopied(true);
         toast.success("Detailed report copied to clipboard!");
         setTimeout(() => setCopied(false), 2000);
-      } catch (error) {
+      } catch {
         toast.error("Failed to copy report");
       }
     }
@@ -119,7 +119,7 @@ export default function DetailedReportViewer({
           toast.error(error.error || "Failed to download enhanced PDF", {
             id: "download-enhanced",
           });
-        } catch (e) {
+        } catch {
           toast.error("Invalid response format", { id: "download-enhanced" });
         }
         return;
@@ -172,7 +172,7 @@ export default function DetailedReportViewer({
             errorData.error || "Failed to regenerate enhanced report",
             { id: "regenerate-enhanced" },
           );
-        } catch (e) {
+        } catch {
           toast.error("Failed to regenerate enhanced report", {
             id: "regenerate-enhanced",
           });

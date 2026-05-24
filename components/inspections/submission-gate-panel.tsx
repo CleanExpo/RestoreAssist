@@ -58,7 +58,7 @@ export function SubmissionGatePanel({
       }
       const data = await res.json();
       setValidation(data.validation);
-    } catch (err) {
+    } catch {
       setError("Failed to validate — check your connection");
     } finally {
       setLoading(false);

@@ -16,8 +16,6 @@ import {
   Camera,
   Upload,
   AlertTriangle,
-  ChevronDown,
-  ChevronUp,
   X,
   Save,
   Loader2,
@@ -25,7 +23,6 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Select,

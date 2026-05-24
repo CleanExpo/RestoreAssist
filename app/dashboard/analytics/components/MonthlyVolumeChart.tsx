@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import {
-  BarChart,
   Bar,
   XAxis,
   YAxis,
@@ -10,7 +9,6 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  Cell,
   ComposedChart,
   Line,
 } from "recharts";

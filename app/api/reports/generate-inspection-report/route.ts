@@ -3,10 +3,9 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { detectStateFromPostcode, getStateInfo } from "@/lib/state-detection";
-import { getLatestAIIntegration, callAIProvider } from "@/lib/ai-provider";
+import { callAIProvider } from "@/lib/ai-provider";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import {
-  hasValue,
   extractMaterialsFromReport,
 } from "@/lib/reports/extract-report-data";
 import { buildInspectionReportPrompt } from "@/lib/reports/generate-report-ai";
@@ -210,7 +209,7 @@ export async function POST(request: NextRequest) {
       } else {
         /* intentional no-op */
       }
-    } catch (error: any) {
+    } catch {
       // Continue without standards - report will use general knowledge
     }
 
@@ -231,7 +230,7 @@ export async function POST(request: NextRequest) {
           costEstimates: [],
         };
       }
-    } catch (error) {
+    } catch {
       // Continue without NIR data - report generation will use other Report model data
       inspectionData = null;
     }
@@ -399,7 +398,7 @@ BUSINESS INFORMATION: If business information is provided in the REPORT DATA sec
       },
       message: "Inspection report generated successfully",
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: "Failed to generate inspection report" },
       { status: 500 },

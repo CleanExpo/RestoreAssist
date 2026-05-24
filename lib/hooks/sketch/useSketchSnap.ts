@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useCallback, useEffect } from "react";
+import { useRef, useCallback } from "react";
 import { snapToGrid, formatMetres } from "@/lib/sketch/geometry-utils";
 
 export interface ScaleConfig {

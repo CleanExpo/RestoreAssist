@@ -4,7 +4,7 @@ import { signOut, useSession } from "next-auth/react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { LogOut, FileText, User } from "lucide-react";
+import { LogOut, FileText } from "lucide-react";
 
 export default function PortalNav() {
   const { data: session } = useSession();

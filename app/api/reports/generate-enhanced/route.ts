@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
       let anthropicApiKey: string;
       try {
         anthropicApiKey = await getAnthropicApiKey(userId);
-      } catch (error: any) {
+      } catch {
         return NextResponse.json(
           { error: "Failed to get Anthropic API key" },
           { status: 400 },

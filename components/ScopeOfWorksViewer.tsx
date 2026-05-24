@@ -79,12 +79,12 @@ export default function ScopeOfWorksViewer({
         try {
           const error = await response.json();
           errorMessage = error.error || errorMessage;
-        } catch (e) {
+        } catch {
           errorMessage = `Server error: ${response.status} ${response.statusText}`;
         }
         toast.error(errorMessage);
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to load report");
     } finally {
       setLoading(false);
@@ -132,12 +132,12 @@ export default function ScopeOfWorksViewer({
         try {
           const error = await response.json();
           errorMessage = error.error || errorMessage;
-        } catch (e) {
+        } catch {
           errorMessage = `Server error: ${response.status} ${response.statusText}`;
         }
         toast.error(errorMessage);
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to generate scope of works");
     } finally {
       setGenerating(false);

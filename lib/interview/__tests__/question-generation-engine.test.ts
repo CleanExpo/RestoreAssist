@@ -8,7 +8,6 @@ import { INTERVIEW_QUESTION_LIBRARY } from "../question-templates";
 import {
   Question,
   QuestionGenerationContext,
-  SubscriptionTier,
 } from "../types";
 
 describe("QuestionGenerationEngine", () => {

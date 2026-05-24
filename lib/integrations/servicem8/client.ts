@@ -16,7 +16,6 @@ import {
   storeTokens,
   markIntegrationError,
   disconnectIntegration,
-  PROVIDER_CONFIG,
 } from "../oauth-handler";
 import { prisma } from "@/lib/prisma";
 

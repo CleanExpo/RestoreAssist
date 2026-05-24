@@ -16,14 +16,11 @@
 import type {
   VisionInput,
   AllowedModel,
-  S500StructuredOutput,
 } from "./byok-client";
 import {
   byokDispatch,
-  parseS500Output,
   S500_VISION_SYSTEM_PROMPT,
 } from "./byok-client";
-import type { RestoreAssistAiResponse } from "./restoreassist-ai-client";
 import {
   restoreAssistAiDispatch,
   isRestoreAssistAiHealthy,

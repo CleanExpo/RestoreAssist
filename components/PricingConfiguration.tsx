@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { DollarSign, Save, RefreshCw, Plus, Trash2, Lock } from "lucide-react";
+import { Save, RefreshCw, Plus, Trash2, Lock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import BillingGate from "@/components/capacitor/BillingGate";

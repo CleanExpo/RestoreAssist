@@ -62,7 +62,7 @@ export function FeatureHealthCard({
         setActivateError(j?.error ?? `Activation failed (${r.status})`);
         setActivating(false);
       }
-    } catch (err) {
+    } catch {
       setActivateError("Network error during activation");
       setActivating(false);
     }

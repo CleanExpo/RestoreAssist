@@ -83,7 +83,7 @@ export async function GET(
           userId: scopeData.userId,
         };
       }
-    } catch (err) {
+    } catch {
       // No scope found - continue without it
     }
 
@@ -185,7 +185,7 @@ export async function GET(
           userId: estimateData.userId,
         };
       }
-    } catch (err) {
+    } catch {
       // No estimate found - continue without it
     }
 

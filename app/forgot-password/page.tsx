@@ -68,7 +68,7 @@ function ForgotPasswordForm() {
         );
         setStep("code");
       }
-    } catch (error) {
+    } catch {
       setError("An error occurred. Please try again.");
       toast.error("An error occurred. Please try again.");
     } finally {
@@ -117,7 +117,7 @@ function ForgotPasswordForm() {
         }
         setIsLoading(false);
       }
-    } catch (error) {
+    } catch {
       setError("An error occurred. Please try again.");
       toast.error("An error occurred. Please try again.");
       setIsLoading(false);

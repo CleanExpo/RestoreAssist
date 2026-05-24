@@ -31,7 +31,6 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import {
   validateContentBeforePublish,
-  checkContentGate,
   getAllGateStatuses,
   ContentGateViolationError,
   type ContentMetadata,

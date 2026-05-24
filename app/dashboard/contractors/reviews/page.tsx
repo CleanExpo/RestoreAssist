@@ -116,7 +116,7 @@ export default function ContractorReviewsPage() {
           text: data.error || "Failed to submit response",
         });
       }
-    } catch (error) {
+    } catch {
       setMessage({ type: "error", text: "Failed to submit response" });
     } finally {
       setSubmitting(false);
@@ -162,7 +162,7 @@ export default function ContractorReviewsPage() {
           text: data.error || "Failed to submit dispute",
         });
       }
-    } catch (error) {
+    } catch {
       setMessage({ type: "error", text: "Failed to submit dispute" });
     } finally {
       setSubmitting(false);

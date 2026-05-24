@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import {
   Check,
-  X,
   Calendar,
   CreditCard,
   Download,

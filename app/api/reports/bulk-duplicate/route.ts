@@ -9,7 +9,6 @@ import {
   validateReportIds,
   validateBatchSize,
   deductBulkCredits,
-  formatBulkResponse,
   getUnauthorizedReportIds,
 } from "@/lib/bulk-operations";
 import { apiError, fromException } from "@/lib/api-errors";

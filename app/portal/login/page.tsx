@@ -34,7 +34,7 @@ export default function PortalLoginPage() {
         toast.success("Login successful!");
         router.push("/portal");
       }
-    } catch (err) {
+    } catch {
       setError("An error occurred. Please try again.");
       toast.error("An error occurred. Please try again.");
     } finally {

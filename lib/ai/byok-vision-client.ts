@@ -17,7 +17,6 @@ import OpenAI from "openai";
 import { GoogleGenerativeAI, Part } from "@google/generative-ai";
 import { getLatestAIIntegration } from "@/lib/ai-provider";
 import {
-  BYOK_ALLOWED_MODELS,
   type AllowedModel,
 } from "@/mobile/constants/byok";
 

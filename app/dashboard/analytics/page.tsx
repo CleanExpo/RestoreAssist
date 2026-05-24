@@ -6,7 +6,6 @@ import {
   Loader2,
   TrendingUp,
   TrendingDown,
-  AlertCircle,
   CheckCircle2,
   Clock,
   DollarSign,
@@ -23,8 +22,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  PieChart,
-  Pie,
   Cell,
   Legend,
   LineChart,
@@ -63,7 +60,7 @@ import ActivityByDay from "./components/ActivityByDay";
 import PeriodComparison from "./components/PeriodComparison";
 import InsightsMovers from "./components/InsightsMovers";
 import AINarrativeCard from "./components/AINarrativeCard";
-import { Users, UserCog, Wrench } from "lucide-react";
+import { UserCog, Wrench } from "lucide-react";
 
 interface AnalyticsData {
   kpis: {

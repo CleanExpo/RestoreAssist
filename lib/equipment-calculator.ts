@@ -8,7 +8,6 @@
  * Electrical load validation per AS/NZS 3012:2019 80% continuous-load rule.
  */
 
-import { lgrDehumidifiers } from "@/lib/equipment-matrix";
 
 // ============================================================
 // Types

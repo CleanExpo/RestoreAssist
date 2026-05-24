@@ -5,14 +5,9 @@ import { motion } from "framer-motion";
 import {
   Thermometer,
   Droplets,
-  BarChart3,
   CheckCircle,
   Clock,
-  AlertTriangle,
-  FileText,
   Activity,
-  Settings,
-  Zap,
   Home,
   Wind,
 } from "lucide-react";

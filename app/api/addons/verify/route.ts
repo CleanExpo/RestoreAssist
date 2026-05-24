@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
               stripeSessionId: checkoutSession.id,
             },
           });
-        } catch (error: any) {
+        } catch {
           // Table not available
         }
 

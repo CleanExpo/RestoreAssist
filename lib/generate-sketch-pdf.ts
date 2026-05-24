@@ -8,7 +8,7 @@
  * pdf-lib PDFDocument (RA-120 integration into report PDF).
  */
 
-import { PDFDocument, rgb, StandardFonts, type RGB } from "pdf-lib";
+import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 
 // ── Constants ─────────────────────────────────────────────
 

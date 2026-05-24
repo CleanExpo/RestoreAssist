@@ -13,7 +13,7 @@
  *   Class 4 (≥ 40%)     → red
  */
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { X, Droplets } from "lucide-react";
 import {
