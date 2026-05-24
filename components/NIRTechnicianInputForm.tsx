@@ -304,6 +304,10 @@ export default function NIRTechnicianInputForm({
   // Property Address (required)
   const [propertyAddress, setPropertyAddress] = useState("");
   const [propertyPostcode, setPropertyPostcode] = useState("");
+  // RA-1120 — jurisdiction routing. "AU" applies AS-IICRC S500:2025;
+  // "NZ" pulls in additional NZBS E2/E3 checks via lib/compliance/
+  // nzbs-compliance-gate.ts. Default AU; user can flip per inspection.
+  const [propertyCountry, setPropertyCountry] = useState<"AU" | "NZ">("AU");
 
   // RA-1842 — Native iOS only: surface "Use my current location" button so
   // App Review can observe meaningful native functionality (Guideline 4.2).
@@ -1225,6 +1229,7 @@ export default function NIRTechnicianInputForm({
           reportId,
           propertyAddress,
           propertyPostcode,
+          propertyCountry,
           technicianName: technicianName || undefined,
           claimType: claimType || undefined,
         }),
@@ -2199,7 +2204,7 @@ export default function NIRTechnicianInputForm({
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
+          <div className="md:col-span-2">
             <label
               className={cn(
                 "block text-sm font-medium mb-1",
@@ -2244,6 +2249,43 @@ export default function NIRTechnicianInputForm({
                 {validationErrors.propertyAddress}
               </p>
             )}
+          </div>
+
+          <div>
+            <label
+              htmlFor="propertyCountry"
+              className={cn(
+                "block text-sm font-medium mb-1",
+                "text-neutral-700 dark:text-slate-300",
+              )}
+            >
+              Country <span className="text-red-400">*</span>
+            </label>
+            <select
+              id="propertyCountry"
+              value={propertyCountry}
+              onChange={(e) =>
+                setPropertyCountry(e.target.value as "AU" | "NZ")
+              }
+              className={cn(
+                "w-full px-4 py-2 rounded-lg focus:outline-none focus:border-cyan-500",
+                "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
+                "text-neutral-900 dark:text-white",
+              )}
+              aria-describedby="propertyCountryHelp"
+            >
+              <option value="AU">Australia (AS-IICRC S500:2025)</option>
+              <option value="NZ">New Zealand (+ NZBS E2/E3)</option>
+            </select>
+            <p
+              id="propertyCountryHelp"
+              className={cn(
+                "text-xs mt-1",
+                "text-neutral-500 dark:text-slate-400",
+              )}
+            >
+              Drives jurisdiction-specific compliance checks
+            </p>
           </div>
 
           <div>

@@ -313,6 +313,26 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      // RA-1120 — accept jurisdiction picker from the inspection form. Only
+      // AU and NZ are valid; the schema default is "AU" so legacy callers
+      // omitting the field keep working unchanged.
+      const ALLOWED_COUNTRIES = ["AU", "NZ"] as const;
+      type AllowedCountry = (typeof ALLOWED_COUNTRIES)[number];
+      let propertyCountry: AllowedCountry | undefined;
+      if (body.propertyCountry !== undefined && body.propertyCountry !== null) {
+        if (
+          typeof body.propertyCountry !== "string" ||
+          !ALLOWED_COUNTRIES.includes(body.propertyCountry as AllowedCountry)
+        ) {
+          return apiError(request, {
+            code: "VALIDATION",
+            message: "propertyCountry must be one of: AU, NZ",
+            status: 400,
+          });
+        }
+        propertyCountry = body.propertyCountry as AllowedCountry;
+      }
+
       // RA-1029 P1 #7 — accept the IICRC claim type picked at inspection
       // start. Only the 4 IICRC-governed values are valid via this picker;
       // other ClaimType values (CARPET / HVAC / STORM / etc.) are stamped by
@@ -383,6 +403,7 @@ export async function POST(request: NextRequest) {
           inspectionNumber,
           propertyAddress: sanitizeString(body.propertyAddress, 500),
           propertyPostcode: sanitizeString(body.propertyPostcode, 20),
+          ...(propertyCountry ? { propertyCountry } : {}),
           technicianName: body.technicianName
             ? sanitizeString(body.technicianName, 200)
             : null,
