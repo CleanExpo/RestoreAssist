@@ -199,11 +199,11 @@ export async function POST(
     }
 
     // Check if all signatures for this form are now complete
-    const allSignatures = await prisma.authorityFormSignature.findMany({
-      where: { instanceId: signature.instanceId },
+    const unsignedSignatureCount = await prisma.authorityFormSignature.count({
+      where: { instanceId: signature.instanceId, signedAt: null },
     });
 
-    const allSigned = allSignatures.every((sig) => sig.signedAt !== null);
+    const allSigned = unsignedSignatureCount === 0;
 
     if (allSigned) {
       await prisma.authorityFormInstance.update({

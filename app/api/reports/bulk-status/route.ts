@@ -230,6 +230,7 @@ async function notifyAdminOfCompletedReports(
   const reports = await prisma.report.findMany({
     where: { id: { in: reportIds } },
     select: { id: true, jobNumber: true, hazardType: true },
+    take: reportIds.length,
   });
 
   for (const report of reports) {
