@@ -17,6 +17,7 @@ import { checkWorkspaceBudget } from "@/lib/ai/budget-guard";
 import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import { logAiUsage, estimateCostUsd } from "@/lib/usage/log-usage";
 import { importSketchFromImage } from "@/lib/services/ai/import-sketch-from-image";
+import { applyRateLimit } from "@/lib/rate-limiter";
 
 // RA-1707 / P0-2 — Vision call costs roughly $0.005-0.012 per image at
 // claude-sonnet-4-x pricing (depends on image dimensions). We assume the
@@ -26,22 +27,8 @@ const VISION_COST_ESTIMATE_USD = 0.012;
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png"]);
-
-// In-memory rate limiter: userId -> timestamps of recent calls
-const _rateLimitMap = new Map<string, number[]>();
 const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
-
-function checkRateLimit(userId: string): boolean {
-  const now = Date.now();
-  const calls = (_rateLimitMap.get(userId) ?? []).filter(
-    (t) => now - t < RATE_LIMIT_WINDOW_MS,
-  );
-  if (calls.length >= RATE_LIMIT_MAX) return false;
-  calls.push(now);
-  _rateLimitMap.set(userId, calls);
-  return true;
-}
 
 function detectAllowedImageMediaType(
   buffer: Buffer,
@@ -88,13 +75,13 @@ export async function POST(
     );
   }
 
-  // Rate limit
-  if (!checkRateLimit(userId)) {
-    return NextResponse.json(
-      { error: "Rate limit exceeded — 5 imports per 15 minutes" },
-      { status: 429 },
-    );
-  }
+  const rateLimited = await applyRateLimit(request, {
+    windowMs: RATE_LIMIT_WINDOW_MS,
+    maxRequests: RATE_LIMIT_MAX,
+    prefix: "sketch-import",
+    key: userId,
+  });
+  if (rateLimited) return rateLimited;
 
   // RA-1707 / P0-2 — workspace AI daily budget check. Resolves the user's
   // active workspace and rejects when this Vision call would tip the org

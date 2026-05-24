@@ -8,6 +8,7 @@ const getWorkspaceForUser = vi.fn();
 const checkWorkspaceBudget = vi.fn();
 const importSketchFromImage = vi.fn();
 const logAiUsage = vi.fn();
+const applyRateLimit = vi.fn();
 
 vi.mock("next-auth", () => ({
   getServerSession: (...a: unknown[]) => getServerSession(...a),
@@ -38,6 +39,10 @@ vi.mock("@/lib/services/ai/import-sketch-from-image", () => ({
   importSketchFromImage: (...a: unknown[]) => importSketchFromImage(...a),
 }));
 
+vi.mock("@/lib/rate-limiter", () => ({
+  applyRateLimit: (...a: unknown[]) => applyRateLimit(...a),
+}));
+
 function makeRequest(bytes: Uint8Array, type = "image/jpeg"): NextRequest {
   const form = new FormData();
   form.append("file", new File([bytes], "sketch.jpg", { type }));
@@ -64,9 +69,31 @@ beforeEach(() => {
   checkWorkspaceBudget.mockReset().mockResolvedValue({ ok: true });
   importSketchFromImage.mockReset();
   logAiUsage.mockReset();
+  applyRateLimit.mockReset().mockResolvedValue(null);
 });
 
 describe("POST /api/inspections/[id]/sketches/import-from-image", () => {
+  it("uses the shared per-user rate limiter before parsing the upload", async () => {
+    applyRateLimit.mockResolvedValueOnce(
+      Response.json({ error: "Too many requests" }, { status: 429 }),
+    );
+    const bytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x00]);
+
+    const res = await POST(makeRequest(bytes, "image/jpeg"), ctx());
+
+    expect(res.status).toBe(429);
+    expect(applyRateLimit).toHaveBeenCalledWith(
+      expect.any(NextRequest),
+      expect.objectContaining({
+        windowMs: 15 * 60 * 1000,
+        maxRequests: 5,
+        prefix: "sketch-import",
+        key: "user_1",
+      }),
+    );
+    expect(importSketchFromImage).not.toHaveBeenCalled();
+  });
+
   it("rejects spoofed JPEG content before calling Vision", async () => {
     const bytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x00, 0x00]);
 

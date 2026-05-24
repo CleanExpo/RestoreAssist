@@ -39,6 +39,7 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - Report generation hardening completed for the current Priority 6 slice: enhanced report generation, PDF parsing, and bulk ZIP export no longer return provider/parser/per-report exception details to clients on failure; diagnostics remain server-side.
 - Upload/evidence-chain batch reliability completed for the current Priority 7 slice: partial storage failures no longer shift successful upload metadata onto the wrong EvidenceItem, and per-file storage/DB failures return generic client-safe messages with detailed diagnostics kept server-side.
 - Sketch import upload hardening completed for the current Priority 7 slice: Vision sketch import now validates JPEG/PNG magic bytes before the AI call, uses the detected media type instead of the multipart MIME header, and no longer returns API-key/provider detail to clients.
+- Sketch import rate-limit consolidation completed for the current Priority 7 slice: Vision import throttling now uses the shared `applyRateLimit` helper keyed by `session.user.id` instead of a route-local module `Map`.
 
 ## Validation Evidence
 
@@ -68,6 +69,7 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - Report generation hardening slice: `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 32 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 839 warnings, `git diff --check` PASS.
 - Upload/evidence-chain batch slice: `pnpm exec vitest run app/api/inspections/[id]/evidence/batch/__tests__/route.test.ts` PASS with 1 file / 1 test, `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 32 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 839 warnings, `git diff --check` PASS.
 - Sketch import upload hardening slice: `pnpm exec vitest run app/api/inspections/[id]/sketches/import-from-image/__tests__/route.test.ts` PASS with 1 file / 1 test, `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 32 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 839 warnings, `git diff --check` PASS.
+- Sketch import rate-limit consolidation slice: `pnpm exec vitest run app/api/inspections/[id]/sketches/import-from-image/__tests__/route.test.ts` PASS with 1 file / 2 tests, `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 32 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 839 warnings, `git diff --check` PASS.
 
 ## Phase 1 Acceptance Criteria Still Open
 
@@ -76,7 +78,7 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - Admin route DB-role revalidation sweep is not complete.
 - P0 query/raw SQL/error leakage routes are not fully patched; API audit currently reports 0 errors and 32 warnings.
 - Shared media validator has not been migrated across canonical upload and sketch import.
-- Sketch import still uses process-local rate limiting; magic-byte validation is now covered.
+- Shared route rate limiting still uses in-memory process state, including the sketch import route now that it uses `applyRateLimit`; a distributed backend is still required for multi-instance/serverless enforcement.
 - Offline mutation idempotency foundation is client-tested and mobile package type-check is now repeatable, but server replay is not yet backed by durable database idempotency.
 
 ## Current Blockers
