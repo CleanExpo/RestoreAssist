@@ -3,6 +3,9 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+const MAX_INTEGRATIONS_FOR_HEALTH = 100;
+const MAX_SYNC_LOGS_FOR_HEALTH = 1_000;
+
 /**
  * GET /api/integrations/health - Health check for integration systems
  *
@@ -29,6 +32,12 @@ export async function GET(request: NextRequest) {
         userId: session.user.id,
         status: "CONNECTED",
       },
+      select: {
+        provider: true,
+        tokenExpiresAt: true,
+      },
+      orderBy: { updatedAt: "desc" },
+      take: MAX_INTEGRATIONS_FOR_HEALTH,
     });
 
     const expiredTokens = integrations.filter(
@@ -61,6 +70,12 @@ export async function GET(request: NextRequest) {
           lt: new Date(Date.now() - 24 * 60 * 60 * 1000), // 24 hours ago
         },
       },
+      select: {
+        provider: true,
+        updatedAt: true,
+      },
+      orderBy: { updatedAt: "asc" },
+      take: MAX_INTEGRATIONS_FOR_HEALTH,
     });
 
     checks.push({
@@ -117,6 +132,11 @@ export async function GET(request: NextRequest) {
           gte: new Date(Date.now() - 24 * 60 * 60 * 1000), // Last 24 hours
         },
       },
+      select: {
+        status: true,
+      },
+      orderBy: { startedAt: "desc" },
+      take: MAX_SYNC_LOGS_FOR_HEALTH,
     });
 
     const successRate =
