@@ -3,6 +3,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
+import { logAiUsage } from "@/lib/ai-usage";
 
 // ---------------------------------------------------------------------------
 // Inline type fallbacks — remove once RA-1132b lands and types.ts is available
@@ -242,8 +243,16 @@ export async function invokeClaudeCloud(
   const outputTokens = response.usage.output_tokens;
   const costAudCents = computeCostAudCents(inputTokens, outputTokens);
 
-  // TODO RA-1087: integrate logAiUsage once the Live Teacher session schema
-  // exposes workspaceId. For now, update session cost tallies directly.
+  logAiUsage({
+    model: "claude-opus-4-7",
+    feature: "liveTeacher.turn",
+    usage: response.usage,
+    costAudCents,
+  });
+
+  // Update session cost tallies on the LiveTeacherSession row itself.
+  // (workspaceId is not yet on this scope — when it is, pass to logAiUsage
+  //  above and remove this direct update path.)
   setImmediate(() => {
     prisma.liveTeacherSession
       .updateMany({
