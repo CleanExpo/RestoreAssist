@@ -28,12 +28,14 @@ export interface AiUsageEvent {
   model: string;
   /** Feature that triggered the call — "llmClassify", "liveTeacher.turn", etc. */
   feature: string;
-  /** Anthropic / OpenAI / Gemini SDK usage shape (all fields optional) */
+  /** Anthropic / OpenAI / Gemini SDK usage shape. Accepts the raw `response.usage`
+   *  object verbatim — extra provider-specific fields are ignored. */
   usage: {
-    input_tokens?: number;
-    output_tokens?: number;
-    cache_creation_input_tokens?: number;
-    cache_read_input_tokens?: number;
+    input_tokens?: number | null;
+    output_tokens?: number | null;
+    cache_creation_input_tokens?: number | null;
+    cache_read_input_tokens?: number | null;
+    [key: string]: unknown;
   };
   /** Authoritative user ID from `session.user.id`. Optional only during the
    *  stub phase — full RA-1087 will require it. */
@@ -67,6 +69,9 @@ export function logAiUsage(event: AiUsageEvent): void {
         cache_creation_input_tokens:
           event.usage.cache_creation_input_tokens ?? 0,
         cache_read_input_tokens: event.usage.cache_read_input_tokens ?? 0,
+        // Spread any provider-extras (e.g. server_tool_use, service_tier, billing)
+        // as additional top-level fields so log searches catch them without
+        // requiring per-provider plumbing.
         userId: event.userId,
         workspaceId: event.workspaceId,
         costAudCents: event.costAudCents,
