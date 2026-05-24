@@ -16,6 +16,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
+import Image from "next/image";
 import { AlertCircle, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -268,10 +269,12 @@ export default function InviteAcceptPage() {
                       onChange={handleGoogleHeadshot}
                     />
                     {googleHeadshotDataUrl && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
+                      <Image
                         src={googleHeadshotDataUrl}
                         alt="Headshot preview"
+                        width={80}
+                        height={80}
+                        unoptimized
                         className="h-20 w-20 rounded-full object-cover"
                       />
                     )}

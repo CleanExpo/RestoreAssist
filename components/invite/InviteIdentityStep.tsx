@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -144,10 +145,12 @@ export function InviteIdentityStep({
           onChange={handleHeadshot}
         />
         {headshotDataUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={headshotDataUrl}
             alt="Headshot preview"
+            width={80}
+            height={80}
+            unoptimized
             className="h-20 w-20 rounded-full object-cover"
           />
         )}

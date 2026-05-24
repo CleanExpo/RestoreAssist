@@ -9,6 +9,7 @@
  */
 
 import { useState, useRef, useCallback, useEffect } from "react";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 import {
   MapPin,
@@ -285,11 +286,13 @@ export function FloorPlanUnderlayLoader({
                         : "border-transparent hover:border-neutral-300 dark:hover:border-slate-500",
                     )}
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                    <Image
                       src={img}
                       alt={`Property image ${i + 1}`}
-                      className="w-full h-full object-cover"
+                      fill
+                      sizes="64px"
+                      unoptimized
+                      className="object-cover"
                     />
                     {results?.floorPlanImages.includes(img) && (
                       <span className="absolute bottom-0 left-0 right-0 text-center text-white text-[9px] font-bold bg-cyan-600/70 py-0.5">

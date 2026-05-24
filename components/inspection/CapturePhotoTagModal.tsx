@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -64,12 +65,16 @@ export function CapturePhotoTagModal({
           <DialogTitle>Capture evidence</DialogTitle>
         </DialogHeader>
         {previewUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={previewUrl}
-            alt="Preview"
-            className="w-full aspect-square object-cover rounded"
-          />
+          <div className="relative w-full aspect-square rounded overflow-hidden">
+            <Image
+              src={previewUrl}
+              alt="Preview"
+              fill
+              sizes="(min-width: 640px) 28rem, 100vw"
+              unoptimized
+              className="object-cover"
+            />
+          </div>
         )}
         <div className="text-xs text-muted-foreground space-y-1">
           <p>

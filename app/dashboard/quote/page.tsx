@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import {
   Droplets,
   Flame,
@@ -467,12 +468,16 @@ export default function QuotePage() {
             <div className="flex items-start justify-between border-b border-slate-200 dark:border-slate-700 pb-6">
               <div>
                 {quoteResult.contractor.logo && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={quoteResult.contractor.logo}
-                    alt="Logo"
-                    className="h-12 mb-2"
-                  />
+                  <div className="relative h-12 w-32 mb-2">
+                    <Image
+                      src={quoteResult.contractor.logo}
+                      alt="Logo"
+                      fill
+                      sizes="128px"
+                      unoptimized
+                      className="object-contain object-left"
+                    />
+                  </div>
                 )}
                 <h3 className="text-xl font-bold text-slate-900 dark:text-white">
                   {quoteResult.contractor.businessName || "Your Business"}

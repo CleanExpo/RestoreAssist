@@ -13,6 +13,7 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 import {
   Camera,
   Filter,
@@ -764,11 +765,13 @@ function AssetCard({
       onClick={onToggle}
     >
       <div className="relative aspect-square bg-muted flex items-center justify-center overflow-hidden">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src={`/api/storage/thumbnail?path=${encodeURIComponent(asset.storagePath)}`}
           alt={asset.originalFilename}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+          fill
+          sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
+          unoptimized
+          className="object-cover group-hover:scale-105 transition-transform duration-200"
           onError={(e) => {
             (e.currentTarget as HTMLImageElement).style.display = "none";
           }}

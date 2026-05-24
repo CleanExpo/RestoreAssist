@@ -11,6 +11,7 @@
 
 import { useState, useEffect, use, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   ArrowLeft,
   Camera,
@@ -271,11 +272,12 @@ function PhotoCard({ photo, onClick }: { photo: Photo; onClick: () => void }) {
     >
       {/* Thumbnail */}
       {photo.thumbnailUrl || photo.url ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <Image
           src={photo.thumbnailUrl ?? photo.url}
           alt={photo.location ?? "Inspection photo"}
-          className="h-full w-full object-cover"
+          fill
+          sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
+          className="object-cover"
         />
       ) : (
         <div className="flex h-full items-center justify-center">
@@ -419,13 +421,15 @@ function PhotoPanel({
         )}
 
         {/* Photo */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={photo.url}
-          alt="Inspection photo"
-          className="w-full object-contain"
-          style={{ maxHeight: 320 }}
-        />
+        <div className="relative w-full" style={{ height: 320 }}>
+          <Image
+            src={photo.url}
+            alt="Inspection photo"
+            fill
+            sizes="(min-width: 1024px) 50vw, 100vw"
+            className="object-contain"
+          />
+        </div>
 
         {/* Header */}
         <div className="border-b border-neutral-800 p-4">
