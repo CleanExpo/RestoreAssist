@@ -25,10 +25,15 @@ const sentryWebpackPluginOptions = {
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   typescript: {
-    ignoreBuildErrors: true,
+    // Baseline cleared 2026-05-24 (lint + type-check at 0 problems).
+    // Build now type-checks — any new TS error fails the Vercel build.
+    ignoreBuildErrors: false,
   },
   eslint: {
-    ignoreDuringBuilds: true,
+    // Same — build now runs ESLint and fails on rule violations.
+    // Intentional rule omissions use `// eslint-disable-next-line` with
+    // explicit rationale per site.
+    ignoreDuringBuilds: false,
   },
   async redirects() {
     // Legacy / muscle-memory auth route aliases. Password managers and
