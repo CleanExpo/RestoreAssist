@@ -131,7 +131,10 @@ export async function buildContext(
 
   const completedOutputs: Record<string, TaskOutput> = {};
   for (const task of completedTasks) {
-    if (task.output) {
+    // RA-5178: skip orphan tasks (agentSlug NULL after AgentDefinition was
+    // removed) — their output can't be keyed by an agent that no longer
+    // exists, and downstream consumers look up by slug.
+    if (task.agentSlug && task.output) {
       try {
         completedOutputs[task.agentSlug] = JSON.parse(
           task.output,

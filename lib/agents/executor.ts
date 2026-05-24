@@ -21,6 +21,25 @@ export async function executeTask(
   context: WorkflowContext,
 ): Promise<ExecutionResult> {
   const startTime = Date.now();
+
+  // RA-5178: agentSlug is nullable (SET NULL on AgentDefinition removal).
+  // Orphan tasks can't execute — fail cleanly with a distinct error so the
+  // task survives in the system for audit but is marked non-executable.
+  if (!task.agentSlug) {
+    return {
+      taskId: task.id,
+      status: "FAILED",
+      error: {
+        code: "AGENT_DEFINITION_REMOVED",
+        message:
+          "Agent definition was removed after this task was created — task is orphaned",
+        retryable: false,
+        attempt: task.attempts + 1,
+        maxRetries: task.maxRetries,
+      },
+    };
+  }
+
   const agentSlug = task.agentSlug as any;
 
   const config = getAgent(agentSlug);
