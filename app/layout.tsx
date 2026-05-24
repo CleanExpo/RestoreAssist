@@ -57,9 +57,13 @@ export const metadata: Metadata = {
     title: BRAND.meta.title,
     description: BRAND.meta.ogDescription,
     type: "website",
-    // TODO RA-1120: locale should flow from Organization.country once per-tenant
-    // session data includes it. Use getLocale(org.country) from @/lib/locale/format.
-    // For now, defaults to en_AU.
+    // Static at root layout — Next.js metadata is build-time / per-route,
+    // not per-request, so it can't read the signed-in user's
+    // Organization.country. Per-tenant locale is applied inside
+    // authenticated routes via `getLocale(org.country)`
+    // (lib/locale/format.ts). AU is the correct OpenGraph default for
+    // the public marketing surface (AU/NZ market only —
+    // feedback_au_nz_market_only).
     locale: "en_AU",
     siteName: BRAND.name,
     images: [{ url: "/logo.png", width: 512, height: 512, alt: BRAND.name }],
