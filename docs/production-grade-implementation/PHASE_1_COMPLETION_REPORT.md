@@ -40,6 +40,7 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - Upload/evidence-chain batch reliability completed for the current Priority 7 slice: partial storage failures no longer shift successful upload metadata onto the wrong EvidenceItem, and per-file storage/DB failures return generic client-safe messages with detailed diagnostics kept server-side.
 - Sketch import upload hardening completed for the current Priority 7 slice: Vision sketch import now validates JPEG/PNG magic bytes before the AI call, uses the detected media type instead of the multipart MIME header, and no longer returns API-key/provider detail to clients.
 - Sketch import rate-limit consolidation completed for the current Priority 7 slice: Vision import throttling now uses the shared `applyRateLimit` helper keyed by `session.user.id` instead of a route-local module `Map`.
+- Auth/RBAC tenancy helper hardening completed for the current Priority 8 slice: shared report and inspection tenancy helpers now revalidate admin bypass from the DB, so stale demoted-admin JWTs no longer grant cross-tenant access.
 
 ## Validation Evidence
 
@@ -70,6 +71,7 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - Upload/evidence-chain batch slice: `pnpm exec vitest run app/api/inspections/[id]/evidence/batch/__tests__/route.test.ts` PASS with 1 file / 1 test, `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 32 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 839 warnings, `git diff --check` PASS.
 - Sketch import upload hardening slice: `pnpm exec vitest run app/api/inspections/[id]/sketches/import-from-image/__tests__/route.test.ts` PASS with 1 file / 1 test, `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 32 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 839 warnings, `git diff --check` PASS.
 - Sketch import rate-limit consolidation slice: `pnpm exec vitest run app/api/inspections/[id]/sketches/import-from-image/__tests__/route.test.ts` PASS with 1 file / 2 tests, `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 32 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 839 warnings, `git diff --check` PASS.
+- Auth/RBAC tenancy helper slice: `pnpm exec vitest run lib/auth/__tests__/assert-tenancy.test.ts` PASS with 1 file / 17 tests, `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 32 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 839 warnings, `git diff --check` PASS.
 
 ## Phase 1 Acceptance Criteria Still Open
 

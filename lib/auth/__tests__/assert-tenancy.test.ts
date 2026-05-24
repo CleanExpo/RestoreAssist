@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    user: { findUnique: vi.fn() },
     report: { findUnique: vi.fn(), findFirst: vi.fn() },
     inspection: { findUnique: vi.fn(), findFirst: vi.fn() },
   },
@@ -34,8 +35,14 @@ const inspFindFirst = (
     inspection: { findFirst: ReturnType<typeof vi.fn> };
   }
 ).inspection.findFirst;
+const userFindUnique = (
+  prisma as unknown as {
+    user: { findUnique: ReturnType<typeof vi.fn> };
+  }
+).user.findUnique;
 
 beforeEach(() => {
+  userFindUnique.mockReset();
   reportFindUnique.mockReset();
   reportFindFirst.mockReset();
   inspFindUnique.mockReset();
@@ -84,12 +91,27 @@ describe("assertReportTenancy", () => {
   });
 
   it("admin bypass: returns the report regardless of owner", async () => {
+    userFindUnique.mockResolvedValueOnce({ role: "ADMIN" });
     reportFindUnique.mockResolvedValueOnce({ id: "r_1", userId: "u_other" });
     const r = await assertReportTenancy(
       { user: { id: "u_admin", role: "ADMIN" } },
       "r_1",
     );
     expect(r.ok).toBe(true);
+  });
+
+  it("stale admin JWT does not bypass report ownership", async () => {
+    userFindUnique.mockResolvedValueOnce({ role: "USER" });
+    reportFindUnique.mockResolvedValueOnce({ id: "r_1", userId: "u_other" });
+
+    const r = await assertReportTenancy(
+      { user: { id: "u_admin", role: "ADMIN" } },
+      "r_1",
+    );
+
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error("unreachable");
+    expect(r.status).toBe(404);
   });
 });
 
@@ -104,6 +126,7 @@ describe("assertInspectionTenancy", () => {
   });
 
   it("admin path: uses findUnique by id only", async () => {
+    userFindUnique.mockResolvedValueOnce({ role: "ADMIN" });
     inspFindUnique.mockResolvedValueOnce({
       id: "i_1",
       userId: "u_other",
@@ -119,6 +142,7 @@ describe("assertInspectionTenancy", () => {
   });
 
   it("admin path: 404 when inspection does not exist", async () => {
+    userFindUnique.mockResolvedValueOnce({ role: "ADMIN" });
     inspFindUnique.mockResolvedValueOnce(null);
     const r = await assertInspectionTenancy(
       { user: { id: "u_admin", role: "ADMIN" } },
@@ -127,6 +151,22 @@ describe("assertInspectionTenancy", () => {
     expect(r.ok).toBe(false);
     if (r.ok) throw new Error("unreachable");
     expect(r.status).toBe(404);
+  });
+
+  it("stale admin JWT falls back to normal inspection tenancy", async () => {
+    userFindUnique.mockResolvedValueOnce({ role: "USER" });
+    inspFindFirst.mockResolvedValueOnce(null);
+
+    const r = await assertInspectionTenancy(
+      { user: { id: "u_admin", role: "ADMIN" } },
+      "i_1",
+    );
+
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error("unreachable");
+    expect(r.status).toBe(404);
+    expect(inspFindUnique).not.toHaveBeenCalled();
+    expect(inspFindFirst).toHaveBeenCalledTimes(1);
   });
 
   it("member path: scopes by userId OR active workspace membership", async () => {

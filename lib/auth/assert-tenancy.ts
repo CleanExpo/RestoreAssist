@@ -34,8 +34,16 @@ export interface SessionLike {
   } | null;
 }
 
-function isAdmin(session: SessionLike | null | undefined): boolean {
-  return session?.user?.role === "ADMIN";
+async function hasCurrentAdminRole(
+  session: SessionLike | null | undefined,
+): Promise<boolean> {
+  if (session?.user?.role !== "ADMIN" || !session.user.id) return false;
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { role: true },
+  });
+  return user?.role === "ADMIN";
 }
 
 /**
@@ -52,7 +60,7 @@ export async function assertReportTenancy(
     return { ok: false, status: 401, reason: "Unauthorized" };
   }
   const userId = session.user.id;
-  const admin = isAdmin(session);
+  const admin = await hasCurrentAdminRole(session);
 
   const report = await prisma.report.findUnique({
     where: { id: reportId },
@@ -82,7 +90,7 @@ export async function assertInspectionTenancy(
     return { ok: false, status: 401, reason: "Unauthorized" };
   }
   const userId = session.user.id;
-  const admin = isAdmin(session);
+  const admin = await hasCurrentAdminRole(session);
 
   // Admin path: read by id only.
   if (admin) {
