@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { createSession } from "@/lib/voice/session";
+import { createSession, endSession } from "@/lib/voice/session";
 import { checkCompletion, buildGreeting } from "@/lib/voice/completion-checker";
 import type { VoiceCopilotMode } from "@/lib/voice/types";
 
@@ -49,7 +49,7 @@ export async function POST(
     }
 
     const mode: VoiceCopilotMode = body.mode ?? "assisted";
-    const voiceSession = createSession(inspection.id, session.user.id, mode);
+    const voiceSession = await createSession(inspection.id, session.user.id, mode);
 
     // Check what's missing
     const completionItems = await checkCompletion(inspection.id);
@@ -100,8 +100,14 @@ export async function DELETE(
       );
     }
 
-    const { endSession } = await import("@/lib/voice/session");
-    endSession(sessionId);
+    const { id: inspectionId } = await params;
+    const ended = await endSession(sessionId, session.user.id, inspectionId);
+    if (!ended) {
+      return NextResponse.json(
+        { error: "Session not found or already ended" },
+        { status: 404 },
+      );
+    }
 
     return NextResponse.json({ status: "ended" });
   } catch (error) {

@@ -35,6 +35,7 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - API audit bounded authority/bulk support slice completed: warnings reduced from 41 to 37 by replacing token-signature completion scan with a count and bounding selected authority-form/bulk report reads.
 - API audit bounded report bulk/export slice completed: warnings reduced from 37 to 33 by adding explicit caps to selected bulk duplicate/export report reads.
 - API audit hydration stream slice completed: warnings reduced from 33 to 32 by bounding setup hydration SSE polling to the three expected organization setup jobs.
+- Voice session persistence completed: realtime voice copilot sessions and observations now persist to `VoiceCopilotSession` / `VoiceCopilotObservation` via additive Prisma migration `20260525030000_voice_copilot_sessions`; process-local memory is no longer the source of truth, high-confidence stored observations persist `storedAt`, and ended/expired sessions reject new observations.
 
 ## Validation Evidence
 
@@ -60,6 +61,7 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - API audit bounded authority/bulk support slice: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 37 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 840 warnings, `git diff --check` PASS.
 - API audit bounded report bulk/export slice: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 33 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 840 warnings, `git diff --check` PASS.
 - API audit hydration stream slice: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 32 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 840 warnings, `git diff --check` PASS.
+- Voice session persistence slice: `pnpm prisma:generate` PASS, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 839 warnings, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 32 warnings / 0 errors, `git diff --check` PASS, `pnpm exec vitest run` PASS with 206 files / 1817 tests passed and 16 files / 81 tests skipped, `pnpm build` PASS, `pnpm audit --audit-level=high --prod` PASS for high-severity gate with 3 moderate vulnerabilities reported.
 
 ## Phase 1 Acceptance Criteria Still Open
 
@@ -70,7 +72,6 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - Shared media validator has not been migrated across canonical upload and sketch import.
 - Sketch import still needs non-process-local rate limiting and magic-byte validation verification.
 - Offline mutation idempotency foundation is client-tested and mobile package type-check is now repeatable, but server replay is not yet backed by durable database idempotency.
-- Voice sessions still need durable DB-backed lifecycle persistence.
 
 ## Current Blockers
 
@@ -110,4 +111,4 @@ RestoreAssist is not ship-ready.
 
 ## Next Safe Action
 
-Continue Priority 4 with route-specific review of the remaining 32 API audit warnings. Remaining Prisma warnings are mostly aggregate, sync, invoice-sequence recovery, webhook signature resolution, or pilot-readiness summaries that require route-specific product/security decisions before applying caps. Continue only from `/private/tmp/RestoreAssist-phase1-main` and do not stage `.github/PULL_REQUEST_TEMPLATE.md`.
+Continue with Priority 6 report generation hardening, while leaving the remaining 32 API audit warnings documented for product/security review. Continue only from `/private/tmp/RestoreAssist-phase1-main` and do not stage `.github/PULL_REQUEST_TEMPLATE.md`.

@@ -14,6 +14,7 @@ import {
   addObservation,
   updateSessionState,
   updateMissingItems,
+  markObservationStored,
 } from "@/lib/voice/session";
 import {
   parseTranscript,
@@ -54,7 +55,7 @@ export async function POST(
         );
       }
 
-      const voiceSession = getSession(body.sessionId);
+      const voiceSession = await getSession(body.sessionId);
       if (!voiceSession) {
         return NextResponse.json(
           { error: "Session not found or expired" },
@@ -67,7 +68,7 @@ export async function POST(
       }
 
       // Update session state to processing
-      updateSessionState(body.sessionId, "processing");
+      await updateSessionState(body.sessionId, "processing");
 
       // Parse the transcript
       const { type, parsed, confidence, needsConfirmation } = parseTranscript(
@@ -75,7 +76,7 @@ export async function POST(
       );
 
       // Add observation to session
-      const observation = addObservation(
+      let observation = await addObservation(
         body.sessionId,
         type,
         body.transcript,
@@ -98,15 +99,17 @@ export async function POST(
       // If high-confidence and no confirmation needed, mark as stored directly
       const storedDirectly = confidence === "high" && !needsConfirmation;
       if (storedDirectly) {
-        observation.storedAt = new Date().toISOString();
+        observation =
+          (await markObservationStored(body.sessionId, observation.id)) ??
+          observation;
       }
 
       // Re-check completion (async, update session)
       const updatedItems = await checkCompletion(id);
-      updateMissingItems(body.sessionId, updatedItems);
+      await updateMissingItems(body.sessionId, updatedItems);
 
       // Return to responding state
-      updateSessionState(body.sessionId, "responding");
+      await updateSessionState(body.sessionId, "responding");
 
       return NextResponse.json({
         observation,
