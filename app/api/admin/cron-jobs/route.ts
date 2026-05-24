@@ -43,7 +43,7 @@ const CRON_JOBS = [
 ];
 
 // GET — list all cron jobs
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   const session = await getServerSession(authOptions);
   const auth = await verifyAdminFromDb(session);
   if (auth.response) return auth.response;

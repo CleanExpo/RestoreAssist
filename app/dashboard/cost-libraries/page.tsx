@@ -583,7 +583,7 @@ export default function CostLibrariesPage() {
                 <div className="p-6 rounded-lg border border-slate-700/50 bg-slate-800/30">
                   <h3 className="font-semibold mb-4">Cost Items</h3>
                   <div className="space-y-2">
-                    {currentLibrary.items.map((item, i) => (
+                    {currentLibrary.items.map((item, _i) => (
                       <div
                         key={item.id}
                         className="flex items-center justify-between p-3 rounded-lg bg-slate-700/20 border border-slate-600 hover:bg-slate-700/40 transition-colors"

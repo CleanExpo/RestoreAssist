@@ -8,7 +8,7 @@ import { QuestionGenerationEngine } from "./question-generation-engine";
 import { Question, QuestionGenerationContext, InterviewState } from "./types";
 
 // Type alias for interview response (not yet in types.ts)
-type InterviewResponse = Record<string, unknown>;
+type _InterviewResponse = Record<string, unknown>;
 
 /**
  * Represents the current state of an interview session
@@ -272,11 +272,11 @@ export class InterviewFlowEngine {
     state: InterviewSessionState,
     question: Question,
     answer: any,
-    confidence?: number,
+    _confidence?: number,
   ): void {
     question.fieldMappings.forEach((mapping) => {
       let value = mapping.value;
-      let mappingConfidence = mapping.confidence;
+      let _mappingConfidence = mapping.confidence;
 
       // Apply transformer if present
       if (mapping.transformer) {

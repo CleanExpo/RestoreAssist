@@ -32,7 +32,7 @@ interface LineItem {
 export default function NewInvoicePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [loadingClients, setLoadingClients] = useState(false);
+  const [_loadingClients, setLoadingClients] = useState(false);
 
   // Customer selection
   const [customerType, setCustomerType] = useState<"client" | "manual">(
@@ -452,7 +452,7 @@ export default function NewInvoicePage() {
             </div>
 
             <div className="space-y-3">
-              {lineItems.map((item, index) => (
+              {lineItems.map((item, _index) => (
                 <div
                   key={item.id}
                   className="grid grid-cols-12 gap-3 items-start p-4 bg-slate-50 dark:bg-slate-700/30 rounded-lg"

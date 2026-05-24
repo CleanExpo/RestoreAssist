@@ -156,7 +156,7 @@ export async function retryFailedEvents(
     limit?: number;
   } = {},
 ): Promise<number> {
-  const { eventIds, olderThan, limit = 100 } = options;
+  const { eventIds, olderThan, limit: _limit = 100 } = options;
 
   const where: any = {
     status: "FAILED",

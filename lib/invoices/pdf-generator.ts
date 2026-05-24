@@ -1150,7 +1150,7 @@ async function renderFooter(
   },
 ) {
   const { helvetica, colors, invoice, width, margin } = options;
-  const { height } = page.getSize();
+  const { height: _height } = page.getSize();
 
   // Footer divider
   page.drawLine({

@@ -34,7 +34,7 @@ export default function SignupPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [shouldRedirect, setShouldRedirect] = useState(false);
+  const [shouldRedirect, _setShouldRedirect] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   // RA-1255: ToS + Privacy acceptance required for AU consumer law compliance
   const [acceptedTerms, setAcceptedTerms] = useState(false);

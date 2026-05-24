@@ -8,9 +8,6 @@ import {
   Droplets,
   CheckCircle,
   Users,
-  FileText,
-  Clock,
-  Activity,
 } from "lucide-react";
 
 interface RemediationProceduresProps {
@@ -24,8 +21,8 @@ interface RemediationProceduresProps {
 
 export default function RemediationProcedures({
   waterCategory,
-  waterClass,
-  affectedArea,
+  waterClass: _waterClass,
+  affectedArea: _affectedArea,
   safetyHazards,
   onUpdate,
   initialData,

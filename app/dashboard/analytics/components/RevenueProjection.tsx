@@ -11,7 +11,6 @@ import {
   ResponsiveContainer,
   ComposedChart,
   Area,
-  AreaChart,
 } from "recharts";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";

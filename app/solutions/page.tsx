@@ -8,7 +8,7 @@ import { Menu, X } from "lucide-react";
 import Footer from "@/components/landing/Footer";
 
 export default function SolutionsPage() {
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, _setDarkMode] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {

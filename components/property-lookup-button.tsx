@@ -25,9 +25,9 @@ interface PropertyLookupButtonProps {
 }
 
 export function PropertyLookupButton({
-  inspectionId,
-  address,
-  postcode,
+  inspectionId: _inspectionId,
+  address: _address,
+  postcode: _postcode,
   label = "Lookup Property Data",
   onSuccess,
   onError,

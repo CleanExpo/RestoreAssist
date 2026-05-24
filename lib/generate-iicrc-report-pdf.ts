@@ -595,7 +595,7 @@ export async function generateIICRCReportPDF(
         r.threshold ??
         (r.material?.toLowerCase().includes("timber") ? "≤18%" : "≤14%");
       const numVal = parseFloat(String(val));
-      const statusColor = isNaN(numVal)
+      const _statusColor = isNaN(numVal)
         ? C_MUTED
         : numVal > 18
           ? C_RED

@@ -183,7 +183,7 @@ export async function routeAiRequest(
   }
 
   // Route directly to BYOK for premium tasks
-  const start = Date.now();
+  const _start = Date.now();
   const byokResponse = await byokDispatch({
     model: config.byokModel,
     apiKey: config.byokApiKey,

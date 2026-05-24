@@ -137,7 +137,7 @@ interface NotificationRowProps {
 }
 
 function NotificationRow({ notification, onRead }: NotificationRowProps) {
-  const { Icon, badgeClass, label } = getTypeConfig(notification.type);
+  const { Icon, badgeClass, label: _label } = getTypeConfig(notification.type);
 
   return (
     <div

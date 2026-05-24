@@ -238,7 +238,7 @@ export async function GET(request: NextRequest) {
     const lastIndex = regressionData.length - 1;
 
     // Only calculate RMSE if we have data
-    const rmse =
+    const _rmse =
       regressionData.length > 0
         ? Math.sqrt(
             regressionData.reduce((sum, p) => {

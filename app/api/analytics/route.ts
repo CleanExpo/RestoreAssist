@@ -316,7 +316,7 @@ export async function GET(request: NextRequest) {
         sortDate: data.date,
       }))
       .sort((a, b) => a.sortDate.getTime() - b.sortDate.getTime())
-      .map(({ sortDate, ...rest }) => rest);
+      .map(({ sortDate: _sortDate, ...rest }) => rest);
 
     // Hazard distribution
     const hazardCounts = new Map<string, number>();

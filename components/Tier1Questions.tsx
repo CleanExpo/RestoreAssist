@@ -21,7 +21,7 @@ export default function Tier1Questions({
 }: Tier1QuestionsProps) {
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [reportData, setReportData] = useState<any>(null);
+  const [_reportData, setReportData] = useState<any>(null);
   const [responses, setResponses] = useState({
     // Initial Data Entry Form Fields (for refinement)
     clientName: "",

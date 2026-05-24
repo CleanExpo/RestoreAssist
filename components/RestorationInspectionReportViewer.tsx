@@ -195,8 +195,8 @@ interface RestorationInspectionReportViewerProps {
 export default function RestorationInspectionReportViewer({
   data,
 }: RestorationInspectionReportViewerProps) {
-  const [detailedAnalysis, setDetailedAnalysis] = useState<any>(null);
-  const [loadingAnalysis, setLoadingAnalysis] = useState(false);
+  const [_detailedAnalysis, _setDetailedAnalysis] = useState<any>(null);
+  const [_loadingAnalysis, _setLoadingAnalysis] = useState(false);
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "Not provided";

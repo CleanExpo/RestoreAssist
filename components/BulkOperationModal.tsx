@@ -11,10 +11,7 @@ import {
   Trash2,
   Download,
   FileSpreadsheet,
-  Sparkles,
   Zap,
-  FileX2,
-  Archive,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { cn } from "@/lib/utils";
@@ -68,7 +65,7 @@ export function BulkOperationModal({
       excelUrl: string | null;
     }>
   >([]);
-  const [downloadingZip, setDownloadingZip] = useState(false);
+  const [_downloadingZip, setDownloadingZip] = useState(false);
   const hasTriggeredExport = useRef(false);
   const isDownloading = useRef(false);
   const downloadLinkRef = useRef<HTMLAnchorElement | null>(null);
@@ -388,7 +385,7 @@ export function BulkOperationModal({
     }
   };
 
-  const handleDownloadZip = async () => {
+  const _handleDownloadZip = async () => {
     setDownloadingZip(true);
     try {
       const response = await fetch("/api/reports/bulk-export-excel-list", {

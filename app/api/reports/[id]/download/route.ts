@@ -202,7 +202,7 @@ export async function GET(
     const primaryColor = rgb(0.0, 0.63, 0.8); // RestoreAssist Cyan
     const darkColor = rgb(0.08, 0.09, 0.11); // Dark slate
     const lightColor = rgb(0.5, 0.53, 0.58); // Light slate
-    const accentColor = rgb(0.0, 0.8, 0.67); // Teal accent
+    const _accentColor = rgb(0.0, 0.8, 0.67); // Teal accent
 
     // Helpers to add header/footer per page
     const drawHeader = (p: any) => {

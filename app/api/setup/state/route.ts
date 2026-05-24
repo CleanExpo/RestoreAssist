@@ -17,7 +17,7 @@ const PATCHABLE_FIELDS = [
   "accentColor",
   "aboutCopy",
 ] as const;
-type PatchableField = (typeof PATCHABLE_FIELDS)[number];
+type _PatchableField = (typeof PATCHABLE_FIELDS)[number];
 
 export async function GET() {
   const session = await getServerSession(authOptions);

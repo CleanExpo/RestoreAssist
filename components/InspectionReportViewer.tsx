@@ -25,7 +25,7 @@ export default function InspectionReportViewer({
   reportId,
   onReportGenerated,
 }: InspectionReportViewerProps) {
-  const router = useRouter();
+  const _router = useRouter();
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [exportingExcel, setExportingExcel] = useState(false);
@@ -359,7 +359,7 @@ export default function InspectionReportViewer({
     }
   };
 
-  const handleSave = async () => {
+  const _handleSave = async () => {
     if (!reportContent) {
       toast.error("No report content to save");
       return;

@@ -59,7 +59,7 @@ interface ChecklistItem {
   criticalMissing?: boolean;
 }
 
-const STATUS_LABEL: Record<string, string> = {
+const _STATUS_LABEL: Record<string, string> = {
   DRAFT: "Draft",
   SUBMITTED: "Submitted",
   PROCESSING: "Processing",

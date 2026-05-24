@@ -74,7 +74,7 @@ export default function FormTemplateDetailPage({
 }: {
   params: { id: string };
 }) {
-  const router = useRouter();
+  const _router = useRouter();
   const { id } = params;
 
   const [template, setTemplate] = useState<FormTemplate | null>(null);

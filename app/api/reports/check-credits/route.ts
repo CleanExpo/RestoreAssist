@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { canCreateReport } from "@/lib/report-limits";
 import { getAnthropicApiKey } from "@/lib/ai-provider";
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 

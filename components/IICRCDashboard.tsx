@@ -276,7 +276,7 @@ export default function IICRCDashboard({ reports }: IICRCDashboardProps) {
             Water Category Distribution
           </h3>
           <div className="space-y-3">
-            {getCategoryDistribution().map((item, index) => (
+            {getCategoryDistribution().map((item, _index) => (
               <div
                 key={item.category}
                 className="flex items-center justify-between"
@@ -312,7 +312,7 @@ export default function IICRCDashboard({ reports }: IICRCDashboardProps) {
             Water Class Distribution
           </h3>
           <div className="space-y-3">
-            {getClassDistribution().map((item, index) => (
+            {getClassDistribution().map((item, _index) => (
               <div
                 key={item.class}
                 className="flex items-center justify-between"
@@ -347,7 +347,7 @@ export default function IICRCDashboard({ reports }: IICRCDashboardProps) {
           Recent IICRC S500 Reports
         </h3>
         <div className="space-y-3">
-          {recentReports.map((report, index) => (
+          {recentReports.map((report, _index) => (
             <div
               key={report.id}
               className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg"

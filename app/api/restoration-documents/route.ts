@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 
-const DOC_TYPE_INVOICE = "RESTORATION_INVOICE";
+const _DOC_TYPE_INVOICE = "RESTORATION_INVOICE";
 
 /** GET: List restoration documents (optionally by reportId or documentType) */
 export async function GET(request: NextRequest) {

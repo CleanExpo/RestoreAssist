@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
   // Read raw body for HMAC verification (must happen before any parsing)
   const rawBody = await request.text();
   const signature = request.headers.get("x-drnrpg-signature") ?? "";
-  const eventTimestamp = request.headers.get("x-drnrpg-timestamp") ?? "";
+  const _eventTimestamp = request.headers.get("x-drnrpg-timestamp") ?? "";
 
   // ── Find the active integration by looking for any active DrNrpgIntegration ──
   // DR-NRPG sends to a single endpoint per RestoreAssist instance.

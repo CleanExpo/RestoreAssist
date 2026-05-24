@@ -10,7 +10,7 @@ import { PRICING_CONFIG } from "@/lib/pricing";
 import BillingGate from "@/components/capacitor/BillingGate";
 
 function PricingPageContent() {
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, _setDarkMode] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {

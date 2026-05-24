@@ -29,7 +29,7 @@ const WHITE = rgb(1, 1, 1);
 const DIVIDER = rgb(0.8, 0.8, 0.8);
 const GREEN = rgb(0.13, 0.55, 0.13);
 const RED = rgb(0.7, 0.15, 0.15);
-const AMBER = rgb(0.8, 0.6, 0.0);
+const _AMBER = rgb(0.8, 0.6, 0.0);
 
 // ── Page constants ─────────────────────────────────────────────────────────────
 const PAGE_W = 595; // A4 width

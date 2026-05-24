@@ -41,18 +41,14 @@ import {
   Upload,
   FileText,
   Thermometer,
-  Droplets,
   Video,
   Mic,
   MapPin,
   Shield,
   Clock,
-  ChevronDown,
   ChevronUp,
   X,
   Play,
-  Pause,
-  Info,
   Lock,
 } from "lucide-react";
 import {
@@ -226,7 +222,7 @@ export default function CaptureWorkflowPage({
   const [selectedEvidenceClass, setSelectedEvidenceClass] =
     useState<EvidenceClass | null>(null);
   const [evidenceNotes, setEvidenceNotes] = useState("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const _fileInputRef = useRef<HTMLInputElement>(null);
 
   // Adaptive guidance — apprentice confirmation gate
   const [confirmationsComplete, setConfirmationsComplete] = useState(true);

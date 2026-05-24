@@ -132,7 +132,7 @@ export class CircuitBreaker {
       );
     }
 
-    const startTime = Date.now();
+    const _startTime = Date.now();
 
     try {
       // Execute the function

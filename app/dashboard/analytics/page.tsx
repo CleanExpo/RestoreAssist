@@ -24,8 +24,6 @@ import {
   ResponsiveContainer,
   Cell,
   Legend,
-  LineChart,
-  Line,
   Area,
   AreaChart,
 } from "recharts";
@@ -225,8 +223,8 @@ export default function AnalyticsPage() {
     const avgValue = data.kpis.avgReportValue.value;
 
     // Calculate status distribution
-    const statusCounts = data.reportTrendData.reduce(
-      (acc, item) => {
+    const _statusCounts = data.reportTrendData.reduce(
+      (acc, _item) => {
         // This would need status data from API, using placeholder logic
         return acc;
       },

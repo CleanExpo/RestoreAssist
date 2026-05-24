@@ -229,7 +229,7 @@ function buildClaimsReportHTML(
     <table>
       <tr>
         ${Object.entries(summary.averageScores)
-          .map(([k, v]) => `<th>${k.replace(/([A-Z])/g, " $1").trim()}</th>`)
+          .map(([k, _v]) => `<th>${k.replace(/([A-Z])/g, " $1").trim()}</th>`)
           .join("")}
       </tr>
       <tr>
@@ -324,12 +324,12 @@ export async function exportClaimsPDF(
       logging: false,
       backgroundColor: "#ffffff",
     });
-    const imgData = canvas.toDataURL("image/png");
+    const _imgData = canvas.toDataURL("image/png");
     const pageW = 210;
     const margin = 10;
     const contentW = pageW - margin * 2;
     const imgW = contentW;
-    const imgH = (canvas.height * contentW) / canvas.width;
+    const _imgH = (canvas.height * contentW) / canvas.width;
     const pageH = 297;
     const contentH = pageH - margin * 2;
     const pdf = new jsPDF({

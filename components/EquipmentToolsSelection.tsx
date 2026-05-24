@@ -31,7 +31,6 @@ import {
   calculateTotalCost,
   getEquipmentDailyRate,
   type EquipmentSelection,
-  type EquipmentGroup,
 } from "@/lib/equipment-matrix";
 
 interface EquipmentToolsSelectionProps {
@@ -68,7 +67,7 @@ export default function EquipmentToolsSelection({
   const [waterClass, setWaterClass] = useState<1 | 2 | 3 | 4>(2);
   const [temperature, setTemperature] = useState(25);
   const [humidity, setHumidity] = useState(60);
-  const [systemType, setSystemType] = useState<"open" | "closed">("closed");
+  const [systemType, _setSystemType] = useState<"open" | "closed">("closed");
 
   // Step 2: Scope Areas
   const [areas, setAreas] = useState<ScopeArea[]>(
@@ -172,7 +171,7 @@ export default function EquipmentToolsSelection({
     return total;
   }, 0);
 
-  const totalAirflow = equipmentSelections.reduce((total, sel) => {
+  const _totalAirflow = equipmentSelections.reduce((total, sel) => {
     // Only count air movers toward "air movement" target (exclude AFD units which also have airflow).
     if (!sel.groupId.startsWith("airmover-")) return total;
     const group = getEquipmentGroupById(sel.groupId);

@@ -603,7 +603,7 @@ export async function analyzeInspectionPhotos(
  * Check if a model supports vision input.
  * All models in the current allowlist support vision.
  */
-export function supportsVision(model: AllowedModel): boolean {
+export function supportsVision(_model: AllowedModel): boolean {
   // All current allowlist models have vision capabilities
   return true;
 }

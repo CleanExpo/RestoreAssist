@@ -36,7 +36,7 @@ const ACTION_TABS: { key: ActionFilter; label: string }[] = [
   { key: "view", label: "View" },
 ];
 
-function getActionVariant(
+function _getActionVariant(
   action: string,
 ): "default" | "secondary" | "destructive" | "outline" {
   const lower = action.toLowerCase();

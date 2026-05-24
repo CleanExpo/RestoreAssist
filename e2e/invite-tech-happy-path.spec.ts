@@ -11,7 +11,7 @@ test("invited technician — email/password happy path", async ({
   const seed = await request.post("/api/test/seed-org-with-manager", {
     data: { managerEmail: `mgr-${Date.now()}@test.com` },
   });
-  const { token, inviteeEmail } = await seed.json();
+  const { token, inviteeEmail: _inviteeEmail } = await seed.json();
 
   await page.goto(`/invite/${token}`);
   await expect(page.getByText("You've been invited")).toBeVisible();

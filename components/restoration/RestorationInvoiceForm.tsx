@@ -125,9 +125,9 @@ export default function RestorationInvoiceForm({
   reportId,
   initialSeed,
   initialSavedData,
-  suggestedInvoiceNumber,
-  defaultInvDate,
-  defaultDueDate,
+  suggestedInvoiceNumber: _suggestedInvoiceNumber,
+  defaultInvDate: _defaultInvDate,
+  defaultDueDate: _defaultDueDate,
 }: {
   documentId?: string;
   reportId?: string | null;

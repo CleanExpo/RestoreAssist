@@ -182,7 +182,7 @@ export async function PATCH(
 
   const { id: inspectionId } = await params;
   const body = await request.json();
-  const { stepId, status, skipReason, skipNotes } = body as {
+  const { stepId, status, skipReason: _skipReason, skipNotes: _skipNotes } = body as {
     stepId: string;
     status: "IN_PROGRESS" | "COMPLETED" | "SKIPPED" | "BLOCKED";
     skipReason?: string;

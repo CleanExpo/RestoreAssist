@@ -246,7 +246,7 @@ export function SketchViewer({
     }
   }, [floors, inspectionId, exportingPdf]);
 
-  const activeFloor = floors[activeIdx];
+  const _activeFloor = floors[activeIdx];
   const hasMultipleFloors = floors.length > 1;
 
   // ── Loading state ─────────────────────────────────────────

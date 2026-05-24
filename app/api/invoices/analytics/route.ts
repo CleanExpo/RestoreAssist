@@ -9,7 +9,7 @@ import {
   isExcludedFromRevenue,
 } from "@/lib/invoice-status";
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {

@@ -7,7 +7,7 @@ import {
   getOrganizationOwner,
 } from "@/lib/organization-credits";
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
 
     // Subscription is no longer required for onboarding - users get 30 free credits to start
     // Use effective subscription for team members
-    const hasActiveSubscription = effectiveSub?.subscriptionStatus === "ACTIVE";
+    const _hasActiveSubscription = effectiveSub?.subscriptionStatus === "ACTIVE";
 
     // For Managers/Technicians, check Admin's onboarding status
     // For Admins, check their own onboarding status
@@ -196,7 +196,7 @@ export async function GET(request: NextRequest) {
 
     // Get incomplete required steps
     const incompleteSteps = Object.entries(steps)
-      .filter(([key, step]) => step.required && !step.completed)
+      .filter(([_key, step]) => step.required && !step.completed)
       .map(([key]) => key);
 
     const isComplete = incompleteSteps.length === 0;

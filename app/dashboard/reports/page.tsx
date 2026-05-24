@@ -18,7 +18,6 @@ import {
   Trash2,
   CheckSquare,
   Square,
-  X,
   GitBranch,
   RefreshCw,
   Sparkles,
@@ -56,7 +55,7 @@ export default function ReportsPage() {
   } = useFetch<{ reports: ReportWithSessionData[] }>("/api/reports");
   const reports = reportsData?.reports ?? [];
   const [duplicating, setDuplicating] = useState<string | null>(null);
-  const [downloading, setDownloading] = useState<string | null>(null);
+  const [_downloading, setDownloading] = useState<string | null>(null);
   // RA-1192: per-row synopsis generation. Keyed by report id so multiple rows
   // can be generated in parallel without stepping on each other's state.
   const [synopsising, setSynopsising] = useState<string | null>(null);
@@ -88,7 +87,7 @@ export default function ReportsPage() {
       });
 
       if (response.ok) {
-        const newReport = await response.json();
+        const _newReport = await response.json();
         toast.success("Report duplicated successfully!", {
           duration: 4000,
           style: {
@@ -187,7 +186,7 @@ export default function ReportsPage() {
   };
 
   // Download report function
-  const downloadReport = async (reportId: string) => {
+  const _downloadReport = async (reportId: string) => {
     try {
       setDownloading(reportId);
       const response = await fetch(`/api/reports/${reportId}/download`);

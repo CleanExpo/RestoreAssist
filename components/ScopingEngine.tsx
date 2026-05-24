@@ -1080,7 +1080,7 @@ export default function ScopingEngine({
   );
 
   const renderStep5 = () => {
-    const totalHours = scopeData.labourParameters.roles.reduce(
+    const _totalHours = scopeData.labourParameters.roles.reduce(
       (sum, role) => sum + role.hours,
       0,
     );

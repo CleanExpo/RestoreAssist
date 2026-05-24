@@ -89,7 +89,7 @@ export async function analyzeClaimPDF(
   pdfBuffer: Buffer,
   fileName: string,
   apiKey: string,
-  integrationName: string = "Anthropic",
+  _integrationName: string = "Anthropic",
 ): Promise<ClaimAnalysisResult> {
   // Support multiple AI providers
   const anthropic = new Anthropic({ apiKey });
@@ -336,7 +336,7 @@ export async function generateStandardTemplate(
   analyses: ClaimAnalysisResult[],
   templateType: "INITIAL_INSPECTION_REPORT" | "SCOPE_OF_WORKS" | "JOB_COSTING",
   apiKey: string,
-  integrationName: string = "Anthropic",
+  _integrationName: string = "Anthropic",
 ): Promise<any> {
   const anthropic = new Anthropic({ apiKey });
 

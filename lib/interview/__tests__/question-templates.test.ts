@@ -246,7 +246,7 @@ describe("Interview Question Templates", () => {
 
   describe("Conditional Shows", () => {
     it("conditional show rules should reference valid fields", () => {
-      const validFieldTypes = [
+      const _validFieldTypes = [
         "water_source",
         "time_since_loss",
         "affected_area_percentage",

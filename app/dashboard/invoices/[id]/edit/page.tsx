@@ -61,7 +61,7 @@ export default function EditInvoicePage({
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [loadingClients, setLoadingClients] = useState(false);
+  const [_loadingClients, setLoadingClients] = useState(false);
 
   const [customerType, setCustomerType] = useState<"client" | "manual">(
     "manual",

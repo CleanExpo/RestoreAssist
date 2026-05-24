@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
         content: msg.content,
       }));
 
-      const lastUserMessage =
+      const _lastUserMessage =
         conversation[conversation.length - 1]?.content || "";
       const conversationLength = conversation.length;
 

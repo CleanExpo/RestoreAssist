@@ -1,6 +1,6 @@
 import { Resend } from "resend";
 
-const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.app";
+const _APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.app";
 
 let resend: Resend | null = null;
 function getResendClient(): Resend {

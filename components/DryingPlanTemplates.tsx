@@ -24,7 +24,7 @@ interface DryingPlanTemplatesProps {
 export default function DryingPlanTemplates({
   waterClass,
   affectedArea,
-  waterCategory,
+  waterCategory: _waterCategory,
   onPlanUpdate,
   initialData,
 }: DryingPlanTemplatesProps) {

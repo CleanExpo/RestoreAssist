@@ -8,8 +8,6 @@ import {
   CheckCircle,
   Users,
   DollarSign,
-  Shield,
-  Calendar,
   ArrowRight,
   Activity,
   GitBranch,

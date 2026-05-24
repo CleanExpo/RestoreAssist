@@ -40,7 +40,7 @@ export default function VoiceSessionPage({ params }: PageProps) {
 
   const [mode, setMode] = useState<VoiceCopilotMode>("assisted");
   const [session, setSession] = useState<VoiceSession | null>(null);
-  const [greeting, setGreeting] = useState<string>("");
+  const [_greeting, setGreeting] = useState<string>("");
   const [pendingItems, setPendingItems] = useState<S500CompletionItem[]>([]);
   const [observations, setObservations] = useState<VoiceObservation[]>([]);
   const [isListening, setIsListening] = useState(false);

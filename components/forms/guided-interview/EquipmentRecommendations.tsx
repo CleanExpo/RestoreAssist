@@ -76,8 +76,8 @@ const calculateEquipmentNeeds = (
     affectedArea,
     ceilingHeight = 8,
     temperatureCelsius = 20,
-    humidityCurrent = 60,
-    isUrgent = false,
+    humidityCurrent: _humidityCurrent = 60,
+    isUrgent: _isUrgent = false,
   } = props;
 
   const recommendations: EquipmentRecommendation[] = [];

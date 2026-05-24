@@ -18,7 +18,7 @@ interface Report {
  */
 export async function createZipArchive(
   pdfBuffers: ZipItem[],
-  reports?: Report[],
+  _reports?: Report[],
 ): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const archive = archiver("zip", { zlib: { level: 9 } });

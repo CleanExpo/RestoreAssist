@@ -16,7 +16,7 @@ type CachedResponse = { data: unknown; expiresAt: number };
 let cachedResponse: CachedResponse | null = null;
 const CACHE_TTL_MS = 60_000;
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     const auth = await verifyAdminFromDb(session);

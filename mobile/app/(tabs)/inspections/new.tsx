@@ -93,7 +93,7 @@ export default function NewInspectionScreen() {
     ];
   }
 
-  function labelStyle(field: FormField, required = false) {
+  function labelStyle(field: FormField, _required = false) {
     return [
       styles.label,
       field.focused && styles.labelFocused,
