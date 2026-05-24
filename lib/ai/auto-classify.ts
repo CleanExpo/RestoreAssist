@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-// TODO RA-1087: import { logAiUsage } from "@/lib/ai-usage"; — module does not yet exist
+import { logAiUsage } from "@/lib/ai-usage";
 
 export type ClaimType =
   | "water_damage"
@@ -362,7 +362,11 @@ export async function llmClassify(input: {
     // Enforce humanReviewRequired when confidence is below threshold
     const humanReviewRequired = llm.humanReviewRequired || llm.confidence < 0.7;
 
-    // TODO RA-1087: logAiUsage({ model: "claude-opus-4-7", usage: response.usage, feature: "llmClassify" });
+    logAiUsage({
+      model: "claude-sonnet-4-6",
+      feature: "llmClassify",
+      usage: response.usage,
+    });
 
     const claimType = mapLlmClaimType(llm.claimType);
 
