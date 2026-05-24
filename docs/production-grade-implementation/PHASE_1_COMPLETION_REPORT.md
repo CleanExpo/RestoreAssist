@@ -37,6 +37,7 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - API audit hydration stream slice completed: warnings reduced from 33 to 32 by bounding setup hydration SSE polling to the three expected organization setup jobs.
 - Voice session persistence completed: realtime voice copilot sessions and observations now persist to `VoiceCopilotSession` / `VoiceCopilotObservation` via additive Prisma migration `20260525030000_voice_copilot_sessions`; process-local memory is no longer the source of truth, high-confidence stored observations persist `storedAt`, and ended/expired sessions reject new observations.
 - Report generation hardening completed for the current Priority 6 slice: enhanced report generation, PDF parsing, and bulk ZIP export no longer return provider/parser/per-report exception details to clients on failure; diagnostics remain server-side.
+- Upload/evidence-chain batch reliability completed for the current Priority 7 slice: partial storage failures no longer shift successful upload metadata onto the wrong EvidenceItem, and per-file storage/DB failures return generic client-safe messages with detailed diagnostics kept server-side.
 
 ## Validation Evidence
 
@@ -64,6 +65,7 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - API audit hydration stream slice: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 32 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 840 warnings, `git diff --check` PASS.
 - Voice session persistence slice: `pnpm prisma:generate` PASS, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 839 warnings, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 32 warnings / 0 errors, `git diff --check` PASS, `pnpm exec vitest run` PASS with 206 files / 1817 tests passed and 16 files / 81 tests skipped, `pnpm build` PASS, `pnpm audit --audit-level=high --prod` PASS for high-severity gate with 3 moderate vulnerabilities reported.
 - Report generation hardening slice: `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 32 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 839 warnings, `git diff --check` PASS.
+- Upload/evidence-chain batch slice: `pnpm exec vitest run app/api/inspections/[id]/evidence/batch/__tests__/route.test.ts` PASS with 1 file / 1 test, `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 32 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 839 warnings, `git diff --check` PASS.
 
 ## Phase 1 Acceptance Criteria Still Open
 
