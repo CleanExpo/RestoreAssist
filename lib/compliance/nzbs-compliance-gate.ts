@@ -12,9 +12,9 @@
  *   E3 — Internal Moisture
  *   F2 — Hazardous Building Materials
  *
- * TODO RA-1120: propertyCountry is not yet on the Inspection model.
- * Until that field is added, this gate defaults to "AU" and is a no-op for all
- * inspections. Wire up the country field once RA-1120 lands.
+ * Authority + jurisdiction routing: Inspection.propertyCountry (default "AU")
+ * — added 2026-05-25 (RA-1120). When NZ is selected, the required-clause
+ * matrix below is evaluated; AU inspections short-circuit to canSubmit:true.
  */
 
 import { prisma } from "@/lib/prisma";
@@ -52,7 +52,7 @@ export async function checkNzbsGate(
   const inspection = await prisma.inspection.findUnique({
     where: { id: inspectionId },
     select: {
-      // TODO RA-1120: add propertyCountry to select once field exists on schema
+      propertyCountry: true,
       propertyYearBuilt: true,
       inspectionDate: true,
       affectedAreas: {
@@ -66,11 +66,7 @@ export async function checkNzbsGate(
     return { canSubmit: true, blockers: [], requiredClauses: [] };
   }
 
-  // TODO RA-1120: replace with `inspection.propertyCountry ?? "AU"` once field added.
-  // Currently no country field exists — default AU so this gate is a no-op.
-  const propertyCountry: string = "AU";
-
-  if (propertyCountry !== "NZ") {
+  if (inspection.propertyCountry !== "NZ") {
     return { canSubmit: true, blockers: [], requiredClauses: [] };
   }
 
