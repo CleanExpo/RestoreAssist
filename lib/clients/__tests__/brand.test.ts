@@ -30,8 +30,12 @@ describe("brandPrimaryColorSchema", () => {
   });
 
   it("rejects rgba / rgb / named colors", () => {
-    expect(brandPrimaryColorSchema.safeParse("rgba(0,0,0,1)").success).toBe(false);
-    expect(brandPrimaryColorSchema.safeParse("rgb(28,46,71)").success).toBe(false);
+    expect(brandPrimaryColorSchema.safeParse("rgba(0,0,0,1)").success).toBe(
+      false,
+    );
+    expect(brandPrimaryColorSchema.safeParse("rgb(28,46,71)").success).toBe(
+      false,
+    );
     expect(brandPrimaryColorSchema.safeParse("navy").success).toBe(false);
   });
 
@@ -58,7 +62,9 @@ describe("brandLogoUrlSchema", () => {
   });
 
   it("rejects relative URLs", () => {
-    expect(brandLogoUrlSchema.safeParse("/logos/client.png").success).toBe(false);
+    expect(brandLogoUrlSchema.safeParse("/logos/client.png").success).toBe(
+      false,
+    );
   });
 
   it("rejects malformed URLs", () => {

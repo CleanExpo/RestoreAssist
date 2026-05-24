@@ -2,13 +2,18 @@ import Image from "next/image";
 import { cloudinaryUrl } from "@/lib/help/cloudinary";
 
 export type ScreenshotProps = {
-  src: string;            // Cloudinary public ID, e.g. "ra-help/getting-started/hero"
-  alt: string;            // Required for a11y
+  src: string; // Cloudinary public ID, e.g. "ra-help/getting-started/hero"
+  alt: string; // Required for a11y
   caption?: string;
-  width?: number;         // Default 1200
+  width?: number; // Default 1200
 };
 
-export default function Screenshot({ src, alt, caption, width = 1200 }: ScreenshotProps) {
+export default function Screenshot({
+  src,
+  alt,
+  caption,
+  width = 1200,
+}: ScreenshotProps) {
   const url = cloudinaryUrl(src, { width, quality: "auto", format: "auto" });
   return (
     <figure className="my-8 overflow-hidden rounded-lg border border-white/10 bg-[#0E1320]">

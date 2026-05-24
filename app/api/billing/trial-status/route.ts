@@ -10,7 +10,11 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return apiError(request, { code: "UNAUTHORIZED", message: "Unauthorized", status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
     const status = await getTrialStatus(session.user.id);
     return NextResponse.json({ data: status });

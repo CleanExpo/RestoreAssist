@@ -1,44 +1,46 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { lookupAbn } from '../client';
-import company from '../__fixtures__/company.json';
+import { describe, expect, it, vi, beforeEach } from "vitest";
+import { lookupAbn } from "../client";
+import company from "../__fixtures__/company.json";
 
-describe('lookupAbn', () => {
+describe("lookupAbn", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    process.env.ABR_API_GUID = 'test-guid';
-    process.env.ABR_BASE_URL = 'https://abr.business.gov.au/json/';
+    process.env.ABR_API_GUID = "test-guid";
+    process.env.ABR_BASE_URL = "https://abr.business.gov.au/json/";
   });
 
-  it('returns parsed data when ABR responds 200', async () => {
+  it("returns parsed data when ABR responds 200", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => company,
     } as Response);
 
-    const result = await lookupAbn('53004085616');
+    const result = await lookupAbn("53004085616");
     expect(result.ok).toBe(true);
   });
 
-  it('returns MALFORMED on non-200 from ABR', async () => {
-    global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 } as Response);
-    const result = await lookupAbn('53004085616');
+  it("returns MALFORMED on non-200 from ABR", async () => {
+    global.fetch = vi
+      .fn()
+      .mockResolvedValue({ ok: false, status: 500 } as Response);
+    const result = await lookupAbn("53004085616");
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.reason).toBe('MALFORMED');
+    expect(result.reason).toBe("MALFORMED");
   });
 
-  it('rejects an invalid ABN before hitting the network', async () => {
+  it("rejects an invalid ABN before hitting the network", async () => {
     const spy = vi.fn();
     global.fetch = spy;
-    await expect(lookupAbn('invalid')).resolves.toMatchObject({ ok: false });
+    await expect(lookupAbn("invalid")).resolves.toMatchObject({ ok: false });
     expect(spy).not.toHaveBeenCalled();
   });
 
-  it('returns MALFORMED on network failure (rejected fetch)', async () => {
-    global.fetch = vi.fn().mockRejectedValue(new Error('network down'));
-    const result = await lookupAbn('53004085616');
+  it("returns MALFORMED on network failure (rejected fetch)", async () => {
+    global.fetch = vi.fn().mockRejectedValue(new Error("network down"));
+    const result = await lookupAbn("53004085616");
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.reason).toBe('MALFORMED');
+    expect(result.reason).toBe("MALFORMED");
   });
 });

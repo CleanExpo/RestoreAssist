@@ -7,7 +7,9 @@ const inviteFindUnique = vi.fn();
 const inviteUpdate = vi.fn();
 const userUpdate = vi.fn();
 
-vi.mock("next-auth", () => ({ getServerSession: (...a: unknown[]) => getServerSession(...a) }));
+vi.mock("next-auth", () => ({
+  getServerSession: (...a: unknown[]) => getServerSession(...a),
+}));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -38,7 +40,9 @@ function makeReq(cookieValue: string | undefined): NextRequest {
 
 describe("GET /api/invites/oauth-complete", () => {
   it("returns 400 when invite_token cookie is missing", async () => {
-    getServerSession.mockResolvedValueOnce({ user: { id: "u_1", email: "j@a.com" } });
+    getServerSession.mockResolvedValueOnce({
+      user: { id: "u_1", email: "j@a.com" },
+    });
     const res = await GET(makeReq(undefined));
     expect(res.status).toBe(400);
   });
@@ -50,7 +54,9 @@ describe("GET /api/invites/oauth-complete", () => {
   });
 
   it("returns 410 when invite is already used", async () => {
-    getServerSession.mockResolvedValueOnce({ user: { id: "u_1", email: "j@a.com" } });
+    getServerSession.mockResolvedValueOnce({
+      user: { id: "u_1", email: "j@a.com" },
+    });
     inviteFindUnique.mockResolvedValueOnce({
       id: "inv_1",
       email: "j@a.com",
@@ -64,7 +70,9 @@ describe("GET /api/invites/oauth-complete", () => {
   });
 
   it("redirects to /invite/[token]?step=2 on success", async () => {
-    getServerSession.mockResolvedValueOnce({ user: { id: "u_1", email: "j@a.com" } });
+    getServerSession.mockResolvedValueOnce({
+      user: { id: "u_1", email: "j@a.com" },
+    });
     inviteFindUnique.mockResolvedValueOnce({
       id: "inv_1",
       email: "j@a.com",
@@ -89,7 +97,9 @@ describe("GET /api/invites/oauth-complete", () => {
   });
 
   it("returns 410 idempotently on retry when invite already used", async () => {
-    getServerSession.mockResolvedValueOnce({ user: { id: "u_1", email: "j@a.com" } });
+    getServerSession.mockResolvedValueOnce({
+      user: { id: "u_1", email: "j@a.com" },
+    });
     inviteFindUnique.mockResolvedValueOnce({
       id: "inv_1",
       email: "j@a.com",
@@ -103,7 +113,9 @@ describe("GET /api/invites/oauth-complete", () => {
   });
 
   it("does NOT update user when invite is already used (atomic semantics)", async () => {
-    getServerSession.mockResolvedValueOnce({ user: { id: "u_1", email: "j@a.com" } });
+    getServerSession.mockResolvedValueOnce({
+      user: { id: "u_1", email: "j@a.com" },
+    });
     inviteFindUnique.mockResolvedValueOnce({
       id: "inv_1",
       email: "j@a.com",

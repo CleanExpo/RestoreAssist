@@ -347,7 +347,9 @@ Return JSON with this exact structure:
       fileName: file.name,
     };
   } catch (error: any) {
-    throw new Error(`Failed to analyze ${file.name}: ${error.message}`);
+    throw new Error(`Failed to analyze ${file.name}: ${error.message}`, {
+      cause: error,
+    });
   }
 }
 

@@ -108,14 +108,19 @@ async function main() {
   const prisma = new PrismaClient();
   let rows;
   try {
-    rows = await prisma.$queryRawUnsafe(`
+    rows = await prisma.$queryRawUnsafe(
+      `
       SELECT table_name, column_name
       FROM information_schema.columns
       WHERE table_schema = 'public'
         AND table_name = ANY($1::text[])
-    `, modelNames);
+    `,
+      modelNames,
+    );
   } catch (err) {
-    console.error(`✗ could not query information_schema.columns: ${err.message}`);
+    console.error(
+      `✗ could not query information_schema.columns: ${err.message}`,
+    );
     await prisma.$disconnect();
     process.exit(2);
   }
@@ -139,18 +144,30 @@ async function main() {
   }
 
   if (drift.length === 0) {
-    console.log(`[drift-check] ✓ no schema drift — ${modelNames.length} models, all scalar columns present`);
+    console.log(
+      `[drift-check] ✓ no schema drift — ${modelNames.length} models, all scalar columns present`,
+    );
     process.exit(0);
   }
 
-  console.error(`[drift-check] ✗ schema drift detected on ${drift.length} model(s):`);
+  console.error(
+    `[drift-check] ✗ schema drift detected on ${drift.length} model(s):`,
+  );
   for (const { model, missing } of drift) {
-    console.error(`  ${model}: ${missing.length} missing — ${missing.slice(0, 5).join(", ")}${missing.length > 5 ? ", …" : ""}`);
+    console.error(
+      `  ${model}: ${missing.length} missing — ${missing.slice(0, 5).join(", ")}${missing.length > 5 ? ", …" : ""}`,
+    );
   }
   console.error("");
-  console.error("This means `prisma migrate deploy` reported success but the DDL never");
-  console.error("applied. Either re-run the affected migrations explicitly or apply the");
-  console.error("missing columns via ALTER TABLE. Reference: /tmp/ra-deep-audit.md.");
+  console.error(
+    "This means `prisma migrate deploy` reported success but the DDL never",
+  );
+  console.error(
+    "applied. Either re-run the affected migrations explicitly or apply the",
+  );
+  console.error(
+    "missing columns via ALTER TABLE. Reference: /tmp/ra-deep-audit.md.",
+  );
   process.exit(1);
 }
 

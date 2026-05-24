@@ -361,6 +361,7 @@ export async function PUT(request: NextRequest) {
         businessPhone !== undefined ||
         businessEmail !== undefined
       ) {
+        /* intentional no-op */
       }
     }
 

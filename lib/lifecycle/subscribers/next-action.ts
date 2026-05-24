@@ -137,7 +137,10 @@ export async function onNextAction(
     }
 
     const recipients: string[] = [inspection.userId];
-    if (inspection.technicianId && inspection.technicianId !== inspection.userId) {
+    if (
+      inspection.technicianId &&
+      inspection.technicianId !== inspection.userId
+    ) {
       recipients.push(inspection.technicianId);
     }
 

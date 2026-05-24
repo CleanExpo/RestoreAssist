@@ -110,7 +110,10 @@ function CloseJobPromptActive({
   inspectionNumber,
   invoiceId,
   onClosed,
-}: Pick<Props, "inspectionId" | "inspectionNumber" | "invoiceId" | "onClosed">) {
+}: Pick<
+  Props,
+  "inspectionId" | "inspectionNumber" | "invoiceId" | "onClosed"
+>) {
   const [draft, setDraft] = useState<string>("");
   const [loadingDraft, setLoadingDraft] = useState<boolean>(true);
   const [draftError, setDraftError] = useState<string | null>(null);

@@ -28,7 +28,10 @@ describe("parseHelpFrontmatter", () => {
   });
 
   it("rejects unknown category", () => {
-    const result = parseHelpFrontmatter({ ...valid, category: "not-a-real-category" });
+    const result = parseHelpFrontmatter({
+      ...valid,
+      category: "not-a-real-category",
+    });
     expect(result.success).toBe(false);
   });
 

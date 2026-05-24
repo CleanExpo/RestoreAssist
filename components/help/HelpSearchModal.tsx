@@ -55,7 +55,10 @@ export default function HelpSearchModal() {
 
   const results = useMemo(() => {
     if (!query.trim()) return index.slice(0, 7);
-    return fuse.search(query).slice(0, 7).map((r) => r.item);
+    return fuse
+      .search(query)
+      .slice(0, 7)
+      .map((r) => r.item);
   }, [query, index, fuse]);
 
   if (!open) return null;
@@ -91,9 +94,15 @@ export default function HelpSearchModal() {
                 onClick={() => setOpen(false)}
                 className="block border-b border-white/5 px-6 py-4 hover:bg-white/5"
               >
-                <div className="text-xs text-white/50">{HELP_CATEGORY_LABELS[r.category]}</div>
-                <div className="mt-1 text-sm font-medium text-white">{r.title}</div>
-                <div className="mt-1 text-xs text-white/60 line-clamp-1">{r.aiSummary}</div>
+                <div className="text-xs text-white/50">
+                  {HELP_CATEGORY_LABELS[r.category]}
+                </div>
+                <div className="mt-1 text-sm font-medium text-white">
+                  {r.title}
+                </div>
+                <div className="mt-1 text-xs text-white/60 line-clamp-1">
+                  {r.aiSummary}
+                </div>
               </Link>
             </li>
           ))}

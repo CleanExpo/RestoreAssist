@@ -35,9 +35,11 @@
 ## 2. Landing page hero
 
 ### Headline
+
 **AI-driven from your first ABN entry. Not after Phase 7.**
 
 ### Sub-headline
+
 RestoreAssist is the Australian water-damage CRM that turns one field — your ABN — into a configured, branded, ready-to-quote workspace in under 90 seconds.
 
 ### Three proof bullets
@@ -47,20 +49,22 @@ RestoreAssist is the Australian water-damage CRM that turns one field — your A
 - **IICRC S500:2025 §7.1 cited correctly in every report footer.** GST at 10%. ABN at 11 digits. State codes routed through the correct jurisdictional authority.
 
 ### Primary CTA
+
 **Start with your ABN — it takes under 90 seconds.**
 
 ### Secondary CTA (below the fold)
+
 **Watch the 2-minute walkthrough.** (Links to the `setup-wizard-setup` YouTube explainer.)
 
 ---
 
 ## 3. Email subject lines — beta invite to free-tier users (3 variants for A/B test)
 
-| # | Subject line | Pre-header |
-|---|---|---|
-| A | Your RestoreAssist workspace is one ABN away from done | The new setup wizard fills in the next ten fields for you. 90 seconds. |
-| B | The setup wizard you signed up for never existed — until today | One field in: your ABN. Eleven fields out. Try it now. |
-| C | What changed since you last opened RestoreAssist | New: ABN-anchored setup wizard, live capability checks, six video walk-throughs. |
+| #   | Subject line                                                   | Pre-header                                                                       |
+| --- | -------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| A   | Your RestoreAssist workspace is one ABN away from done         | The new setup wizard fills in the next ten fields for you. 90 seconds.           |
+| B   | The setup wizard you signed up for never existed — until today | One field in: your ABN. Eleven fields out. Try it now.                           |
+| C   | What changed since you last opened RestoreAssist               | New: ABN-anchored setup wizard, live capability checks, six video walk-throughs. |
 
 A/B/C split: 33% / 33% / 34%. Decide a winner at 48 hours by setup-wizard completion rate, not by open rate.
 
@@ -92,6 +96,7 @@ A/B/C split: 33% / 33% / 34%. Decide a winner at 48 hours by setup-wizard comple
 All six videos live at `https://www.youtube.com/watch?v={youtubeId}` and are embedded in `/dashboard/learn`.
 
 ### 4.1 Creating your RestoreAssist account
+
 **Video ID:** wREGInp5yPQ
 **Duration:** 0:60
 **Title:** Creating your RestoreAssist account
@@ -110,6 +115,7 @@ All six videos live at `https://www.youtube.com/watch?v={youtubeId}` and are emb
 > 0:45 What happens next
 
 ### 4.2 Signing in to RestoreAssist
+
 **Video ID:** tsmZpgLrn5Y
 **Duration:** 0:30
 **Title:** Signing in to RestoreAssist
@@ -121,6 +127,7 @@ All six videos live at `https://www.youtube.com/watch?v={youtubeId}` and are emb
 > Sign in: https://restoreassist.app/login
 
 ### 4.3 The RestoreAssist Setup Wizard — end-to-end
+
 **Video ID:** G2CIyp-gDKA
 **Duration:** 2:00
 **Title:** The RestoreAssist Setup Wizard — end-to-end
@@ -149,6 +156,7 @@ All six videos live at `https://www.youtube.com/watch?v={youtubeId}` and are emb
 > 1:55 Activate
 
 ### 4.4 Your RestoreAssist dashboard, post-activation
+
 **Video ID:** sp3bMYSaZa8
 **Duration:** 2:00
 **Title:** Your RestoreAssist dashboard, post-activation
@@ -165,6 +173,7 @@ All six videos live at `https://www.youtube.com/watch?v={youtubeId}` and are emb
 > See the full walkthrough series: https://restoreassist.app/dashboard/learn
 
 ### 4.5 Connect Xero, MYOB, QuickBooks, ServiceM8 or Ascora
+
 **Video ID:** P6rVHLOVNsQ
 **Duration:** 1:30
 **Title:** Connect Xero, MYOB, QuickBooks, ServiceM8 or Ascora
@@ -183,6 +192,7 @@ All six videos live at `https://www.youtube.com/watch?v={youtubeId}` and are emb
 > Connect your tools: https://restoreassist.app/dashboard/integrations
 
 ### 4.6 Your RestoreAssist Workspace Health page
+
 **Video ID:** UHUiqnhxGtw
 **Duration:** 1:00
 **Title:** Your RestoreAssist Workspace Health page
@@ -205,6 +215,7 @@ All six videos live at `https://www.youtube.com/watch?v={youtubeId}` and are emb
 ## 5. X/Twitter — 5 launch posts
 
 ### 5.1 Problem framing
+
 > Every Australian restoration CRM I evaluated this year claims to be "AI-powered".
 >
 > Every one of them puts the AI behind a 14-field setup form.
@@ -212,6 +223,7 @@ All six videos live at `https://www.youtube.com/watch?v={youtubeId}` and are emb
 > The AI is not the product. The first 90 seconds are the product.
 
 ### 5.2 Social proof tease (no name dropped — quote is real but anonymised)
+
 > Operator I spoke to last week:
 >
 > "I lost a A$5,300 claim because the insurer asked for photo timestamps and I couldn't produce them."
@@ -219,6 +231,7 @@ All six videos live at `https://www.youtube.com/watch?v={youtubeId}` and are emb
 > Every photo in RestoreAssist carries a SHA-256 + UTC + GPS manifest at capture. Verified at read.
 
 ### 5.3 Feature reveal
+
 > RestoreAssist setup, the full pipeline:
 >
 > 1. You enter your ABN.
@@ -231,6 +244,7 @@ All six videos live at `https://www.youtube.com/watch?v={youtubeId}` and are emb
 > 90 seconds.
 
 ### 5.4 Compliance specificity
+
 > Every RestoreAssist report cites IICRC S500:2025 §7.1 by edition and section. Not "industry standards".
 >
 > GST at 10%. ABN at 11 digits. State codes via the correct jurisdictional authority.
@@ -238,6 +252,7 @@ All six videos live at `https://www.youtube.com/watch?v={youtubeId}` and are emb
 > Built for Australia. Not retranslated from a US product.
 
 ### 5.5 Soft CTA
+
 > If you run a water-damage restoration business in Australia and your evening is being eaten by report admin, the new RestoreAssist setup wizard is live.
 >
 > One field in. Workspace out.
@@ -249,14 +264,17 @@ All six videos live at `https://www.youtube.com/watch?v={youtubeId}` and are emb
 ## 6. In-app announcement banner
 
 ### Headline (50 character cap)
+
 **Setup wizard, rebuilt. One field in: your ABN.**
 (46 characters)
 
 ### Body (120 character cap)
+
 **Auto-fills your legal name, ACN, GST, address, logo, brand colours, rates. Live capability check. Under 90 seconds.**
 (118 characters)
 
 ### CTA
+
 **Try it →** (links to `/setup`)
 
 ---

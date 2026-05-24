@@ -11,7 +11,11 @@ describe("apiErrorMessage", () => {
   it("returns the inner message when error is the new envelope shape", () => {
     expect(
       apiErrorMessage({
-        error: { code: "VALIDATION", message: "Password too short", eventId: "x1" },
+        error: {
+          code: "VALIDATION",
+          message: "Password too short",
+          eventId: "x1",
+        },
       }),
     ).toBe("Password too short");
   });

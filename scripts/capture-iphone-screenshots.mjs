@@ -6,7 +6,10 @@ import { fileURLToPath } from "url";
 const BASE = "https://restoreassist.app";
 const EMAIL = "reviewer@restoreassist.app";
 const PASSWORD = process.env.REVIEWER_PASSWORD;
-const OUT = path.join(path.dirname(fileURLToPath(import.meta.url)), "iphone-screenshots");
+const OUT = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "iphone-screenshots",
+);
 fs.mkdirSync(OUT, { recursive: true });
 
 const SIZES = [
@@ -15,11 +18,11 @@ const SIZES = [
 ];
 
 const PAGES = [
-  { name: "1-dashboard",      path: "/dashboard" },
-  { name: "2-inspections",    path: "/dashboard/inspections" },
+  { name: "1-dashboard", path: "/dashboard" },
+  { name: "2-inspections", path: "/dashboard/inspections" },
   { name: "3-new-inspection", path: "/dashboard/inspections/new" },
-  { name: "4-reports",        path: "/dashboard/reports" },
-  { name: "5-settings",       path: "/dashboard/settings" },
+  { name: "4-reports", path: "/dashboard/reports" },
+  { name: "5-settings", path: "/dashboard/settings" },
 ];
 
 const browser = await chromium.launch({ headless: true });
@@ -29,7 +32,8 @@ for (const size of SIZES) {
   const ctx = await browser.newContext({
     viewport: { width: size.w, height: size.h },
     deviceScaleFactor: size.dpr,
-    userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+    userAgent:
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
   });
   const page = await ctx.newPage();
   await page.goto(`${BASE}/login`, { waitUntil: "networkidle" });

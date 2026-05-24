@@ -446,12 +446,9 @@ export default function SuccessPage() {
     }
   }, [isAddonPurchase, router]);
 
-  // For add-ons, don't show any UI - redirect immediately
-  if (isAddonPurchase) {
-    return null;
-  }
-
-  // Auto-show setup guide after verification completes
+  // Auto-show setup guide after verification completes.
+  // Hook MUST run unconditionally (react-hooks/rules-of-hooks);
+  // the isAddonPurchase early-return is moved below.
   useEffect(() => {
     if (!loading && !checking && !isAddonPurchase && !isCompletedRef.current) {
       // Small delay to show success first
@@ -485,6 +482,11 @@ export default function SuccessPage() {
       };
     }
   }, [loading, checking, isAddonPurchase, router, update]);
+
+  // For add-ons, don't show any UI - redirect immediately
+  if (isAddonPurchase) {
+    return null;
+  }
 
   const handleStartSetup = async () => {
     if (isRedirecting) return;

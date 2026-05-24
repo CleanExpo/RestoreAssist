@@ -140,14 +140,14 @@ Single-column card sized for one-thumb interaction on a phone. Above the fold:
 
 ### Field validation
 
-| Field | Rule | Error |
-|---|---|---|
-| `name` | 1–200 chars, sanitised via `sanitizeString` | "Please enter your full name" |
-| `password` (email path only) | ≥ 12 chars | "Password must be at least 12 characters" |
-| `phone` | AU mobile after stripping spaces and a leading `+61`: `^04\d{8}$` | "Enter a 10-digit Australian mobile (04…)" |
-| `headshotDataUrl` | `image/jpeg` or `image/png`, decoded byte length ≤ 5 MB, square-cropped client-side | "Photo must be a JPG or PNG under 5 MB" |
-| `acceptedTerms` | `=== true` | "You must accept the Terms of Service" |
-| `acceptedChainOfCustody` | `=== true` | "You must consent to evidence hashing" |
+| Field                        | Rule                                                                                | Error                                      |
+| ---------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------ |
+| `name`                       | 1–200 chars, sanitised via `sanitizeString`                                         | "Please enter your full name"              |
+| `password` (email path only) | ≥ 12 chars                                                                          | "Password must be at least 12 characters"  |
+| `phone`                      | AU mobile after stripping spaces and a leading `+61`: `^04\d{8}$`                   | "Enter a 10-digit Australian mobile (04…)" |
+| `headshotDataUrl`            | `image/jpeg` or `image/png`, decoded byte length ≤ 5 MB, square-cropped client-side | "Photo must be a JPG or PNG under 5 MB"    |
+| `acceptedTerms`              | `=== true`                                                                          | "You must accept the Terms of Service"     |
+| `acceptedChainOfCustody`     | `=== true`                                                                          | "You must consent to evidence hashing"     |
 
 ### Existing error states (no new code)
 
@@ -165,12 +165,12 @@ Single-column card sized for one-thumb interaction on a phone. Above the fold:
 
 The modal opens **only** at the four escalation actions below. Junior Technicians (USER role) can capture photos, moisture readings, and sketches without ever seeing it — that's the rule 25 invariant.
 
-| Action | Why it gates |
-|---|---|
-| Sign off final evidence on an inspection | Creates `ProgressAttestation` (rule 26) |
-| Promote inspection to "Submitted for review" | Requires verified Authorisation (rule 23) |
+| Action                                                 | Why it gates                                          |
+| ------------------------------------------------------ | ----------------------------------------------------- |
+| Sign off final evidence on an inspection               | Creates `ProgressAttestation` (rule 26)               |
+| Promote inspection to "Submitted for review"           | Requires verified Authorisation (rule 23)             |
 | Generate an IICRC-cited report (e.g. "S500:2025 §7.1") | Compliance citation requires verified IICRC (rule 14) |
-| Confirm chain-of-custody report on a completed job | Attestor identity hash requires licence (rule 21) |
+| Confirm chain-of-custody report on a completed job     | Attestor identity hash requires licence (rule 21)     |
 
 Each gated action calls a single helper `requireEngagementAuthorisation(action)` which:
 
@@ -201,7 +201,7 @@ Pre-fill source query (CLAUDE.md rule 4 — explicit select + take):
 ```ts
 prisma.authorisation.findFirst({
   where: { subjectUserId: session.user.id },
-  orderBy: { verifiedAt: 'desc' },
+  orderBy: { verifiedAt: "desc" },
   select: {
     subjectLicenceNumber: true,
     subjectLicenceState: true,
@@ -212,7 +212,7 @@ prisma.authorisation.findFirst({
     publicLiabilityCoverAmount: true,
     verifiedAt: true,
   },
-})
+});
 ```
 
 5-minute in-memory LRU cache keyed by `userId`. Cache invalidates on every POST to `/api/authorisations` (write-through invalidation).

@@ -277,7 +277,9 @@ export async function GET(
         width: logoDims.width,
         height: logoDims.height,
       });
-    } catch {}
+    } catch {
+      /* intentional no-op */
+    }
 
     // Title
     page.drawText("RestoreAssist", {
@@ -393,7 +395,9 @@ Estimate: ${JSON.stringify(estimate)}`,
           if (text) executiveSummary = sanitizeText(text);
         }
       }
-    } catch {}
+    } catch {
+      /* intentional no-op */
+    }
 
     page.drawText("Executive Summary", {
       x: 50,

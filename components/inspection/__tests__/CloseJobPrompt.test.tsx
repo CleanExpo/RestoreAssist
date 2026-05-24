@@ -169,9 +169,7 @@ describe("CloseJobPrompt — active state", () => {
     expect(
       screen.getByText(/Invoice must be marked PAID/i),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/Report must be COMPLETED/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Report must be COMPLETED/i)).toBeInTheDocument();
   });
 
   it("happy-path confirm fires onClosed callback", async () => {

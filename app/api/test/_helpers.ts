@@ -61,7 +61,9 @@ export async function forgeSessionJwt(args: ForgeArgs): Promise<string> {
   return token;
 }
 
-export function sessionCookieAttributes(maxAgeSeconds: number = MAX_AGE_SECONDS): string {
+export function sessionCookieAttributes(
+  maxAgeSeconds: number = MAX_AGE_SECONDS,
+): string {
   const base = `Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSeconds}`;
   // NextAuth requires the Secure flag in production; the `__Secure-` cookie
   // prefix is also browser-enforced HTTPS-only.

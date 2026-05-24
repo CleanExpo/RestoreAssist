@@ -133,7 +133,6 @@ export async function POST(
         createData.mapY = Math.min(1, Math.max(0, my));
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const moistureReading = await (prisma.moistureReading.create as any)({
         data: createData,
       });

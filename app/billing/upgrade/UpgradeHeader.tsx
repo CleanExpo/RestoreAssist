@@ -1,6 +1,12 @@
 type Reason = "trial-expired" | "credits" | "feature" | "voluntary" | null;
 
-export default function UpgradeHeader({ reason, feature }: { reason: Reason; feature?: string }) {
+export default function UpgradeHeader({
+  reason,
+  feature,
+}: {
+  reason: Reason;
+  feature?: string;
+}) {
   if (reason === "trial-expired") {
     return (
       <header className="mb-8 rounded border border-amber-300 bg-amber-50 p-6">
@@ -24,7 +30,9 @@ export default function UpgradeHeader({ reason, feature }: { reason: Reason; fea
   if (reason === "feature") {
     return (
       <header className="mb-8 rounded border border-purple-300 bg-purple-50 p-6">
-        <h1 className="text-2xl font-semibold">Unlock {feature ?? "this feature"}</h1>
+        <h1 className="text-2xl font-semibold">
+          Unlock {feature ?? "this feature"}
+        </h1>
         <p className="mt-2 text-muted-foreground">
           This feature is included in the PREMIUM and ENTERPRISE plans.
         </p>
@@ -34,7 +42,9 @@ export default function UpgradeHeader({ reason, feature }: { reason: Reason; fea
   return (
     <header className="mb-8">
       <h1 className="text-2xl font-semibold">Choose a plan</h1>
-      <p className="mt-2 text-muted-foreground">All plans include the IICRC-compliant report generator.</p>
+      <p className="mt-2 text-muted-foreground">
+        All plans include the IICRC-compliant report generator.
+      </p>
     </header>
   );
 }

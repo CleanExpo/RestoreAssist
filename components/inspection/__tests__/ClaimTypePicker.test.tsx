@@ -7,10 +7,18 @@ import ClaimTypePicker from "../ClaimTypePicker";
 describe("ClaimTypePicker — inspection-start IICRC standard selector (RA-1029 P1 #7)", () => {
   it("renders all 4 IICRC-governed claim types as radio options", () => {
     render(<ClaimTypePicker value={null} onChange={vi.fn()} />);
-    expect(screen.getByLabelText(/Water Damage \(IICRC S500:2025\)/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Mould Remediation \(IICRC S520:2024\)/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Trauma \/ Biohazard \(IICRC S540:2023\)/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Fire & Smoke \(IICRC S700:2025\)/)).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(/Water Damage \(IICRC S500:2025\)/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(/Mould Remediation \(IICRC S520:2024\)/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(/Trauma \/ Biohazard \(IICRC S540:2023\)/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(/Fire & Smoke \(IICRC S700:2025\)/),
+    ).toBeInTheDocument();
   });
 
   it("renders 4 options via radio role", () => {
@@ -21,7 +29,9 @@ describe("ClaimTypePicker — inspection-start IICRC standard selector (RA-1029 
   it("calls onChange with the selected claim type when an option is clicked", () => {
     const onChange = vi.fn();
     render(<ClaimTypePicker value={null} onChange={onChange} />);
-    fireEvent.click(screen.getByLabelText(/Trauma \/ Biohazard \(IICRC S540:2023\)/));
+    fireEvent.click(
+      screen.getByLabelText(/Trauma \/ Biohazard \(IICRC S540:2023\)/),
+    );
     expect(onChange).toHaveBeenCalledWith("BIOHAZARD");
   });
 
@@ -40,7 +50,11 @@ describe("ClaimTypePicker — inspection-start IICRC standard selector (RA-1029 
 
   it("surfaces the validation error when provided", () => {
     render(
-      <ClaimTypePicker value={null} onChange={vi.fn()} error="Claim type is required" />,
+      <ClaimTypePicker
+        value={null}
+        onChange={vi.fn()}
+        error="Claim type is required"
+      />,
     );
     expect(screen.getByText(/Claim type is required/)).toBeInTheDocument();
   });

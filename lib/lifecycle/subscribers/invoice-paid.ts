@@ -35,10 +35,16 @@ import { prisma } from "@/lib/prisma";
 
 export type InvoicePaidResult =
   | { ok: true; notified: true }
-  | { ok: true; notified: false; reason: "already_observed" | "no_inspection_linked" }
+  | {
+      ok: true;
+      notified: false;
+      reason: "already_observed" | "no_inspection_linked";
+    }
   | { ok: false; reason: "invoice_not_found" | "internal_error" };
 
-export async function onInvoicePaid(invoiceId: string): Promise<InvoicePaidResult> {
+export async function onInvoicePaid(
+  invoiceId: string,
+): Promise<InvoicePaidResult> {
   try {
     const invoice = await prisma.invoice.findUnique({
       where: { id: invoiceId },

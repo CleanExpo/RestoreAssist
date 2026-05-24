@@ -69,9 +69,8 @@ vi.mock("@/lib/storage/supabase-provider", () => ({
 }));
 
 vi.mock("@/lib/storage", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/storage")>(
-    "@/lib/storage",
-  );
+  const actual =
+    await vi.importActual<typeof import("@/lib/storage")>("@/lib/storage");
   return {
     ...actual,
     getMirrorStorageProvider: getMirrorStorageProviderMock,
@@ -83,10 +82,7 @@ vi.mock("@/lib/cloud-mirror/drive", () => ({
 }));
 
 import { MirrorJobKind, MirrorJobStatus } from "@prisma/client";
-import {
-  queueMirrorJob,
-  processNextBatch,
-} from "@/lib/queue/storage-mirror";
+import { queueMirrorJob, processNextBatch } from "@/lib/queue/storage-mirror";
 import { GoogleDriveStorageProvider } from "@/lib/storage/google-drive-provider";
 
 function fakeJob(overrides: Record<string, unknown> = {}) {
@@ -157,7 +153,9 @@ describe("queueMirrorJob — idempotency", () => {
       { code: "P2002", clientVersion: "x" },
     );
     storageMirrorJobMock.create.mockRejectedValueOnce(p2002);
-    storageMirrorJobMock.findFirst.mockResolvedValueOnce({ id: "job_existing" });
+    storageMirrorJobMock.findFirst.mockResolvedValueOnce({
+      id: "job_existing",
+    });
 
     const id = await queueMirrorJob({
       orgId: "org_1",
@@ -214,7 +212,9 @@ describe("processNextBatch — happy path", () => {
 
 describe("processNextBatch — retry path", () => {
   it("leaves status PENDING and increments attempts on a transient failure", async () => {
-    uploadToDriveMock.mockRejectedValueOnce(new Error("503 Service Unavailable"));
+    uploadToDriveMock.mockRejectedValueOnce(
+      new Error("503 Service Unavailable"),
+    );
 
     storageMirrorJobMock.findMany.mockResolvedValueOnce([{ id: "job_1" }]);
     storageMirrorJobMock.updateMany.mockResolvedValueOnce({ count: 1 });

@@ -110,11 +110,11 @@ restoreassist/
 
 ## Design Decisions
 
-| Decision                                 | Rationale                                                                           |
-| ---------------------------------------- | ----------------------------------------------------------------------------------- |
-| Server-hosted WebView (Capacitor)        | Avoids maintaining two codebases; SSR API routes stay intact; single deployment     |
-| Fire-and-forget integration sync         | User-facing operations must never be blocked by third-party failures                |
-| 120+ Prisma models in single schema      | Monolith-first approach; domain boundaries enforced by file structure, not services |
-| `ignoreBuildErrors: true` in next.config | Large codebase with some TS strictness gaps; CI uses separate type-check step       |
-| pnpm over npm                            | Faster installs, strict dependency resolution, workspace support                    |
+| Decision                                 | Rationale                                                                            |
+| ---------------------------------------- | ------------------------------------------------------------------------------------ |
+| Server-hosted WebView (Capacitor)        | Avoids maintaining two codebases; SSR API routes stay intact; single deployment      |
+| Fire-and-forget integration sync         | User-facing operations must never be blocked by third-party failures                 |
+| 120+ Prisma models in single schema      | Monolith-first approach; domain boundaries enforced by file structure, not services  |
+| `ignoreBuildErrors: true` in next.config | Large codebase with some TS strictness gaps; CI uses separate type-check step        |
+| pnpm over npm                            | Faster installs, strict dependency resolution, workspace support                     |
 | Vercel for prod + previews               | Simplest Next.js host; native App Router + edge runtime support; per-PR preview URLs |

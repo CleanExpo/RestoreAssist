@@ -344,17 +344,16 @@ export default function PrivacyPage() {
             <p>
               Every photograph captured through the RestoreAssist field app is
               stored together with its EXIF header (camera model, capture
-              timestamp, exposure settings) and, where you have granted
-              location permission, the GPS coordinates at the moment of
-              capture. This metadata is required by IICRC S500:2025 §10.5 for
-              admissible chain-of-custody and is signed by a per-device
-              Ed25519 key so the photograph cannot be silently altered after
-              capture.
+              timestamp, exposure settings) and, where you have granted location
+              permission, the GPS coordinates at the moment of capture. This
+              metadata is required by IICRC S500:2025 §10.5 for admissible
+              chain-of-custody and is signed by a per-device Ed25519 key so the
+              photograph cannot be silently altered after capture.
             </p>
             <p className="mt-2">
-              EXIF and GPS metadata are not shared with third parties beyond
-              the storage providers listed in section 4. They remain accessible
-              only to authorised users on your account.
+              EXIF and GPS metadata are not shared with third parties beyond the
+              storage providers listed in section 4. They remain accessible only
+              to authorised users on your account.
             </p>
           </section>
 
@@ -384,11 +383,11 @@ export default function PrivacyPage() {
             </ul>
             <p className="mt-2">
               By using RestoreAssist you consent to your personal information
-              being transferred to and processed in these jurisdictions. We
-              take reasonable steps (vendor due-diligence, contractual data
+              being transferred to and processed in these jurisdictions. We take
+              reasonable steps (vendor due-diligence, contractual data
               processing addenda, encryption in transit and at rest) to ensure
-              your information receives an equivalent standard of protection
-              to that required by Australian Privacy Principle 8.
+              your information receives an equivalent standard of protection to
+              that required by Australian Privacy Principle 8.
             </p>
           </section>
 
@@ -400,8 +399,8 @@ export default function PrivacyPage() {
               RestoreAssist is an occupational tool for licenced restoration
               technicians, insurance assessors, and business operators. The
               service is not directed at children. We do not knowingly collect
-              personal information from anyone under 18. If you believe a
-              child has provided personal information to us, please contact{" "}
+              personal information from anyone under 18. If you believe a child
+              has provided personal information to us, please contact{" "}
               <a
                 href={`mailto:${CONTACT_EMAIL}`}
                 className="text-cyan-600 hover:underline"
@@ -427,10 +426,10 @@ export default function PrivacyPage() {
                 {CONTACT_EMAIL}
               </a>{" "}
               with the subject line &ldquo;Account deletion request&rdquo;.
-              Deletion requests submitted by email are completed within 30
-              days. Records that we are legally required to retain (see
-              section 5) will be quarantined from active access and destroyed
-              once their statutory retention period expires.
+              Deletion requests submitted by email are completed within 30 days.
+              Records that we are legally required to retain (see section 5)
+              will be quarantined from active access and destroyed once their
+              statutory retention period expires.
             </p>
           </section>
 

@@ -13,21 +13,23 @@ test.describe("Delete Account", () => {
     await deleteBtn.click();
 
     // Modal should open
-    await expect(
-      page.getByRole("dialog"),
-    ).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5000 });
 
     await expect(
       page.getByText(/permanently deletes your account/i),
     ).toBeVisible();
   });
 
-  test("confirm button is disabled until exact phrase is typed", async ({ page }) => {
+  test("confirm button is disabled until exact phrase is typed", async ({
+    page,
+  }) => {
     await page.goto("/dashboard/settings");
     await page.getByRole("button", { name: /delete account/i }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
 
-    const confirmBtn = page.getByRole("button", { name: /^delete account$/i }).last();
+    const confirmBtn = page
+      .getByRole("button", { name: /^delete account$/i })
+      .last();
 
     // Should be disabled before typing
     await expect(confirmBtn).toBeDisabled();

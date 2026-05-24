@@ -325,7 +325,9 @@ export const authOptions: NextAuthOptions = {
             subscriptionStatus: "TRIAL",
             creditsRemaining: 30,
             totalCreditsUsed: 0,
-            trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
+            trialEndsAt: new Date(
+              Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000,
+            ),
             quickFillCreditsRemaining: 30,
             totalQuickFillUsed: 0,
           } as any,

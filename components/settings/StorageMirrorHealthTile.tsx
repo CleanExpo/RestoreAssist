@@ -97,10 +97,7 @@ export function StorageMirrorHealthTile() {
             {new Date(stats.lastCompletedAt).toLocaleString("en-AU")}
           </div>
         )}
-        <a
-          className="text-xs underline"
-          href="/dashboard/settings/storage"
-        >
+        <a className="text-xs underline" href="/dashboard/settings/storage">
           Open storage settings →
         </a>
       </CardContent>

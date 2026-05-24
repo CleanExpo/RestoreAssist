@@ -44,24 +44,25 @@
 
 ## Task Map
 
-| # | Task | Phase |
-|---|---|---|
-| 1 | Prisma migration (enum extension + 4 columns) | Foundation |
-| 2 | `lib/storage/google-drive-oauth.ts` + tests | Foundation |
-| 3 | `GET /api/oauth/google-drive/start` + tests | API |
-| 4 | `GET /api/oauth/google-drive/callback` + tests | API |
-| 5 | `GET /api/oauth/google-drive/status` + tests | API |
-| 6 | `lib/storage/index.ts` switch-case extension | API |
-| 7 | `StorageCard.tsx` refactor — remove TODOs, real connect state | UI |
-| 8 | `.env.example` documentation | Foundation |
-| 9 | E2E `setup-storage-google-drive.spec.ts` | Verification |
-| 10 | Verification-Gate manual smoke (§4.1 acceptance) | Verification |
+| #   | Task                                                          | Phase        |
+| --- | ------------------------------------------------------------- | ------------ |
+| 1   | Prisma migration (enum extension + 4 columns)                 | Foundation   |
+| 2   | `lib/storage/google-drive-oauth.ts` + tests                   | Foundation   |
+| 3   | `GET /api/oauth/google-drive/start` + tests                   | API          |
+| 4   | `GET /api/oauth/google-drive/callback` + tests                | API          |
+| 5   | `GET /api/oauth/google-drive/status` + tests                  | API          |
+| 6   | `lib/storage/index.ts` switch-case extension                  | API          |
+| 7   | `StorageCard.tsx` refactor — remove TODOs, real connect state | UI           |
+| 8   | `.env.example` documentation                                  | Foundation   |
+| 9   | E2E `setup-storage-google-drive.spec.ts`                      | Verification |
+| 10  | Verification-Gate manual smoke (§4.1 acceptance)              | Verification |
 
 ---
 
 ## Task 1: Prisma migration — storage provider extension
 
 **Files:**
+
 - Modify: `prisma/schema.prisma`
 - Create: `prisma/migrations/20260514100000_storage_provider_google_drive/migration.sql`
 
@@ -140,6 +141,7 @@ Expected: type-check passes (no callers reference the new columns yet).
 ## Task 2: `lib/storage/google-drive-oauth.ts` + unit tests
 
 **Files:**
+
 - Create: `lib/storage/google-drive-oauth.ts`
 - Create: `lib/storage/__tests__/google-drive-oauth.test.ts`
 
@@ -166,8 +168,10 @@ describe("buildGoogleDriveAuthUrl", () => {
   });
   it("sets PKCE method S256 + code_challenge", () => {
     const url = buildGoogleDriveAuthUrl({
-      state: "abc", codeChallenge: "xyz",
-      redirectUri: "http://x", clientId: "id",
+      state: "abc",
+      codeChallenge: "xyz",
+      redirectUri: "http://x",
+      clientId: "id",
     });
     const p = new URL(url).searchParams;
     expect(p.get("code_challenge_method")).toBe("S256");
@@ -228,7 +232,9 @@ export async function exchangeCodeForTokens(opts: {
   expiresAt: Date | null;
 }> {
   const client = new google.auth.OAuth2(
-    opts.clientId, opts.clientSecret, opts.redirectUri,
+    opts.clientId,
+    opts.clientSecret,
+    opts.redirectUri,
   );
   const { tokens } = await client.getToken({
     code: opts.code,
@@ -241,7 +247,9 @@ export async function exchangeCodeForTokens(opts: {
   };
 }
 
-export async function fetchGoogleUserEmail(accessToken: string): Promise<string | null> {
+export async function fetchGoogleUserEmail(
+  accessToken: string,
+): Promise<string | null> {
   const res = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
@@ -271,6 +279,7 @@ git commit -m "feat(storage): add Google Drive OAuth URL + token-exchange helper
 ## Task 3: `GET /api/oauth/google-drive/start`
 
 **Files:**
+
 - Create: `app/api/oauth/google-drive/start/route.ts`
 - Create: `app/api/oauth/google-drive/start/__tests__/route.test.ts`
 
@@ -302,19 +311,31 @@ export async function GET(request: NextRequest | Request) {
   });
   if (!org) {
     return NextResponse.redirect(
-      new URL("/setup?error=no-org", process.env.NEXTAUTH_URL ?? "http://localhost:3000"),
+      new URL(
+        "/setup?error=no-org",
+        process.env.NEXTAUTH_URL ?? "http://localhost:3000",
+      ),
     );
   }
-  const clientId = process.env.GOOGLE_DRIVE_CLIENT_ID ?? process.env.GOOGLE_CLIENT_ID;
+  const clientId =
+    process.env.GOOGLE_DRIVE_CLIENT_ID ?? process.env.GOOGLE_CLIENT_ID;
   if (!clientId) {
     return NextResponse.redirect(
-      new URL("/setup?error=drive-not-configured", process.env.NEXTAUTH_URL ?? "http://localhost:3000"),
+      new URL(
+        "/setup?error=drive-not-configured",
+        process.env.NEXTAUTH_URL ?? "http://localhost:3000",
+      ),
     );
   }
   const nonce = crypto.randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
   await prisma.oAuthStateNonce.create({
-    data: { nonce, userId: session.user.id, provider: "GOOGLE_DRIVE", expiresAt },
+    data: {
+      nonce,
+      userId: session.user.id,
+      provider: "GOOGLE_DRIVE",
+      expiresAt,
+    },
   });
   const { codeVerifier, codeChallenge } = generatePKCE();
   await prisma.organization.update({
@@ -322,7 +343,12 @@ export async function GET(request: NextRequest | Request) {
     data: { storageProviderPkceVerifier: codeVerifier },
   });
   const redirectUri = `${process.env.NEXTAUTH_URL}/api/oauth/google-drive/callback`;
-  const authUrl = buildGoogleDriveAuthUrl({ state: nonce, codeChallenge, redirectUri, clientId });
+  const authUrl = buildGoogleDriveAuthUrl({
+    state: nonce,
+    codeChallenge,
+    redirectUri,
+    clientId,
+  });
   return NextResponse.redirect(authUrl);
 }
 ```
@@ -341,6 +367,7 @@ git commit -m "feat(api): GET /api/oauth/google-drive/start — PKCE OAuth kicko
 ## Task 4: `GET /api/oauth/google-drive/callback`
 
 **Files:**
+
 - Create: `app/api/oauth/google-drive/callback/route.ts`
 - Create: `app/api/oauth/google-drive/callback/__tests__/route.test.ts`
 
@@ -371,8 +398,14 @@ export async function GET(request: NextRequest | Request) {
   const state = url.searchParams.get("state");
   const oauthError = url.searchParams.get("error");
 
-  if (oauthError) return NextResponse.redirect(SETUP_URL(`/setup?error=${encodeURIComponent(oauthError)}`));
-  if (!code || !state) return NextResponse.redirect(SETUP_URL("/setup?error=missing-code-or-state"));
+  if (oauthError)
+    return NextResponse.redirect(
+      SETUP_URL(`/setup?error=${encodeURIComponent(oauthError)}`),
+    );
+  if (!code || !state)
+    return NextResponse.redirect(
+      SETUP_URL("/setup?error=missing-code-or-state"),
+    );
 
   const stateData = await validateOAuthState(state);
   if (!stateData || stateData.provider !== "GOOGLE_DRIVE") {
@@ -392,8 +425,10 @@ export async function GET(request: NextRequest | Request) {
       code,
       codeVerifier: org.storageProviderPkceVerifier,
       redirectUri: `${process.env.NEXTAUTH_URL}/api/oauth/google-drive/callback`,
-      clientId: (process.env.GOOGLE_DRIVE_CLIENT_ID ?? process.env.GOOGLE_CLIENT_ID)!,
-      clientSecret: (process.env.GOOGLE_DRIVE_CLIENT_SECRET ?? process.env.GOOGLE_CLIENT_SECRET)!,
+      clientId: (process.env.GOOGLE_DRIVE_CLIENT_ID ??
+        process.env.GOOGLE_CLIENT_ID)!,
+      clientSecret: (process.env.GOOGLE_DRIVE_CLIENT_SECRET ??
+        process.env.GOOGLE_CLIENT_SECRET)!,
     });
     const email = await fetchGoogleUserEmail(tokens.accessToken);
 
@@ -401,8 +436,12 @@ export async function GET(request: NextRequest | Request) {
       where: { id: org.id },
       data: {
         storageProvider: "GOOGLE_DRIVE",
-        storageProviderAccessToken: tokens.accessToken ? encrypt(tokens.accessToken) : null,
-        storageProviderRefreshToken: tokens.refreshToken ? encrypt(tokens.refreshToken) : null,
+        storageProviderAccessToken: tokens.accessToken
+          ? encrypt(tokens.accessToken)
+          : null,
+        storageProviderRefreshToken: tokens.refreshToken
+          ? encrypt(tokens.refreshToken)
+          : null,
         storageProviderTokenExpiresAt: tokens.expiresAt,
         storageProviderAccountEmail: email,
         storageProviderPkceVerifier: null,
@@ -412,7 +451,9 @@ export async function GET(request: NextRequest | Request) {
     return NextResponse.redirect(SETUP_URL("/setup?storage=connected"));
   } catch (err) {
     console.error("[google-drive/callback] exchange failed:", err);
-    return NextResponse.redirect(SETUP_URL("/setup?error=token-exchange-failed"));
+    return NextResponse.redirect(
+      SETUP_URL("/setup?error=token-exchange-failed"),
+    );
   }
 }
 ```
@@ -431,6 +472,7 @@ git commit -m "feat(api): GET /api/oauth/google-drive/callback — persist encry
 ## Task 5: `GET /api/oauth/google-drive/status`
 
 **Files:**
+
 - Create: `app/api/oauth/google-drive/status/route.ts` + tests.
 
 - [ ] **Step 1: Write the failing test** for three cases (unauth/no-org/connected).
@@ -444,12 +486,18 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session?.user?.id)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const org = await prisma.organization.findFirst({
     where: { ownerId: session.user.id },
     select: { storageProvider: true, storageProviderAccountEmail: true },
   });
-  if (!org) return NextResponse.json({ connected: false, provider: null, accountEmail: null });
+  if (!org)
+    return NextResponse.json({
+      connected: false,
+      provider: null,
+      accountEmail: null,
+    });
   const connected = org.storageProvider === "GOOGLE_DRIVE";
   return NextResponse.json({
     connected,
@@ -525,24 +573,24 @@ switch (org.storageProvider) {
 
 ## Task 10: Verification Gate (manual smoke per §4.1)
 
-The spec's literal verification-gate language: *"new tradie signs up → setup wizard StorageCard 'Connect Google Drive' → OAuth grant → return to `/setup` → Organization row has `storageProvider=GOOGLE_DRIVE` + encrypted refresh token."*
+The spec's literal verification-gate language: _"new tradie signs up → setup wizard StorageCard 'Connect Google Drive' → OAuth grant → return to `/setup` → Organization row has `storageProvider=GOOGLE_DRIVE` + encrypted refresh token."_
 
 - [ ] **Step 1:** Deploy this PR to the sandbox env (`restoreassist-sandbox.vercel.app`).
 - [ ] **Step 2:** Register a fresh test account with a never-before-used gmail.
 - [ ] **Step 3:** Walk the flow: `/setup` → click "Google Drive" → consent → return to `/setup?storage=connected` → confirm "Connected as `<your-test-gmail>`" → confirm `useSetupStore().sections.storage === 'ready'`.
 - [ ] **Step 4:** Verify the DB row in Supabase Studio:
 
-   ```sql
-   SELECT id, "storageProvider", "storageProviderAccountEmail",
-          length("storageProviderRefreshToken") AS refresh_len,
-          length("storageProviderAccessToken")  AS access_len,
-          "storageProviderTokenExpiresAt",
-          "storageProviderPkceVerifier"
-   FROM "Organization"
-   WHERE "ownerId" = '<test-user-id>';
-   ```
+  ```sql
+  SELECT id, "storageProvider", "storageProviderAccountEmail",
+         length("storageProviderRefreshToken") AS refresh_len,
+         length("storageProviderAccessToken")  AS access_len,
+         "storageProviderTokenExpiresAt",
+         "storageProviderPkceVerifier"
+  FROM "Organization"
+  WHERE "ownerId" = '<test-user-id>';
+  ```
 
-   Expected: `storageProvider = 'GOOGLE_DRIVE'`, both `refresh_len` and `access_len` > 100, `storageProviderPkceVerifier IS NULL`, `storageProviderAccountEmail` matches the gmail.
+  Expected: `storageProvider = 'GOOGLE_DRIVE'`, both `refresh_len` and `access_len` > 100, `storageProviderPkceVerifier IS NULL`, `storageProviderAccountEmail` matches the gmail.
 
 - [ ] **Step 5:** Verify decryption round-trips (run a one-shot script on the sandbox host calling `decrypt(o.storageProviderRefreshToken)` — expected output starts with `1//`).
 - [ ] **Step 6:** Replay-attack check (POST the same callback twice → second call returns `/setup?error=invalid-state`).

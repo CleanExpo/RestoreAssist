@@ -1,6 +1,9 @@
 import { test, expect } from "@playwright/test";
 
-test("upgrade page renders feature-gated reason copy", async ({ page, request }) => {
+test("upgrade page renders feature-gated reason copy", async ({
+  page,
+  request,
+}) => {
   // STANDARD user clicks a PREMIUM feature
   const seed = await request.post("/api/test/seed-trial-user", {
     data: { daysUntilExpiry: 10, subscriptionStatus: "ACTIVE" },

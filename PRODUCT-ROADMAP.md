@@ -196,15 +196,15 @@ Backend interview engine works, but the guided interview UX is missing.
 
 ### V3.1 — LiDAR 3D Scanning
 
-| #   | Task                                                      | Priority | Complexity |
-| --- | --------------------------------------------------------- | -------- | ---------- |
-| 1   | Build LiDAR capture integration (iPhone/iPad LiDAR API)   | P0       | XL         |
+| #   | Task                                                              | Priority | Complexity |
+| --- | ----------------------------------------------------------------- | -------- | ---------- |
+| 1   | Build LiDAR capture integration (iPhone/iPad LiDAR API)           | P0       | XL         |
 | 2   | Point cloud upload and storage (S3 / Cloudflare R2 / Vercel Blob) | P0       | Large      |
-| 3   | 3D viewer component (Three.js / WebGL)                    | P0       | XL         |
-| 4   | Auto-generate 2D floor plan from point cloud              | P1       | XL         |
-| 5   | Overlay moisture readings on 3D model                     | P1       | Large      |
-| 6   | Room detection and measurement from scan                  | P2       | XL         |
-| 7   | Export 3D model for insurance documentation               | P2       | Large      |
+| 3   | 3D viewer component (Three.js / WebGL)                            | P0       | XL         |
+| 4   | Auto-generate 2D floor plan from point cloud                      | P1       | XL         |
+| 5   | Overlay moisture readings on 3D model                             | P1       | Large      |
+| 6   | Room detection and measurement from scan                          | P2       | XL         |
+| 7   | Export 3D model for insurance documentation                       | P2       | Large      |
 
 ### V3.2 — Voice Notes & AI Transcription
 

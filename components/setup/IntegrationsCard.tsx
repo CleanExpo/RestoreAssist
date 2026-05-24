@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { ChevronRight, KeyRound } from 'lucide-react';
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { ChevronRight, KeyRound } from "lucide-react";
 
 interface Provider {
   key: string;
@@ -12,11 +12,15 @@ interface Provider {
 }
 
 const PROVIDERS: Provider[] = [
-  { key: 'xero',       name: 'Xero',       description: 'Invoice + payment sync' },
-  { key: 'myob',       name: 'MYOB',       description: 'AccountRight ledger sync' },
-  { key: 'quickbooks', name: 'QuickBooks', description: 'Customer + invoice sync' },
-  { key: 'servicem8',  name: 'ServiceM8',  description: 'Job import' },
-  { key: 'ascora',     name: 'Ascora',     description: 'Work orders + line items' },
+  { key: "xero", name: "Xero", description: "Invoice + payment sync" },
+  { key: "myob", name: "MYOB", description: "AccountRight ledger sync" },
+  {
+    key: "quickbooks",
+    name: "QuickBooks",
+    description: "Customer + invoice sync",
+  },
+  { key: "servicem8", name: "ServiceM8", description: "Job import" },
+  { key: "ascora", name: "Ascora", description: "Work orders + line items" },
 ];
 
 export function IntegrationsCard() {
@@ -24,9 +28,12 @@ export function IntegrationsCard() {
 
   async function handleConnect(providerKey: string) {
     try {
-      const res = await fetch(`/api/integrations/oauth/${providerKey}/connect`, {
-        method: 'POST',
-      });
+      const res = await fetch(
+        `/api/integrations/oauth/${providerKey}/connect`,
+        {
+          method: "POST",
+        },
+      );
       if (res.ok) {
         const data = await res.json();
         if (data.authUrl) {
@@ -58,9 +65,14 @@ export function IntegrationsCard() {
             >
               <span className="flex flex-col gap-0.5">
                 <span className="font-medium text-sm">{p.name}</span>
-                <span className="text-xs text-muted-foreground">{p.description}</span>
+                <span className="text-xs text-muted-foreground">
+                  {p.description}
+                </span>
               </span>
-              <ChevronRight className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
+              <ChevronRight
+                className="w-4 h-4 text-muted-foreground"
+                aria-hidden="true"
+              />
             </button>
           ))}
         </div>
@@ -75,17 +87,25 @@ export function IntegrationsCard() {
           >
             <KeyRound className="w-4 h-4" aria-hidden="true" />
             <span>BYOK AI keys (optional)</span>
-            <ChevronRight className={`w-4 h-4 transition-transform ${byokOpen ? 'rotate-90' : ''}`} aria-hidden="true" />
+            <ChevronRight
+              className={`w-4 h-4 transition-transform ${byokOpen ? "rotate-90" : ""}`}
+              aria-hidden="true"
+            />
           </button>
           {byokOpen && (
             <div id="byok-section" className="mt-3 space-y-2 text-sm">
               <p className="text-muted-foreground">
-                Add your own OpenAI / Anthropic / Gemini key to use premium models. We&apos;ll keep using our default Gemma if you skip this.
+                Add your own OpenAI / Anthropic / Gemini key to use premium
+                models. We&apos;ll keep using our default Gemma if you skip
+                this.
               </p>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => { window.location.href = '/dashboard/settings/ai-providers?return=/setup'; }}
+                onClick={() => {
+                  window.location.href =
+                    "/dashboard/settings/ai-providers?return=/setup";
+                }}
               >
                 Manage AI keys →
               </Button>

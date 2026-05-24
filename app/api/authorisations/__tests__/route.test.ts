@@ -7,7 +7,9 @@ const userFindUnique = vi.fn();
 const authCreate = vi.fn();
 const invalidateAuthorisationCache = vi.fn();
 
-vi.mock("next-auth", () => ({ getServerSession: (...a: unknown[]) => getServerSession(...a) }));
+vi.mock("next-auth", () => ({
+  getServerSession: (...a: unknown[]) => getServerSession(...a),
+}));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -16,7 +18,8 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 vi.mock("@/lib/authorisations/most-recent", () => ({
-  invalidateAuthorisationCache: (...a: unknown[]) => invalidateAuthorisationCache(...a),
+  invalidateAuthorisationCache: (...a: unknown[]) =>
+    invalidateAuthorisationCache(...a),
 }));
 vi.mock("@/lib/csrf", () => ({ validateCsrf: () => null }));
 
@@ -58,7 +61,9 @@ describe("POST /api/authorisations", () => {
       id: "u_1",
       organization: { name: "Acme", legalName: null, tradingName: null },
     });
-    const res = await POST(makeReq({ ...validBody, subjectLicenceNumber: undefined }));
+    const res = await POST(
+      makeReq({ ...validBody, subjectLicenceNumber: undefined }),
+    );
     expect(res.status).toBe(400);
   });
 
@@ -99,7 +104,11 @@ describe("POST /api/authorisations", () => {
     getServerSession.mockResolvedValueOnce({ user: { id: "u_1" } });
     userFindUnique.mockResolvedValueOnce({
       id: "u_1",
-      organization: { name: "fallback", legalName: "Acme Pty Ltd", tradingName: "Acme" },
+      organization: {
+        name: "fallback",
+        legalName: "Acme Pty Ltd",
+        tradingName: "Acme",
+      },
     });
     authCreate.mockResolvedValueOnce({ id: "auth_1" });
     await POST(makeReq(validBody));
@@ -158,9 +167,7 @@ describe("POST /api/authorisations", () => {
       organization: { name: "Acme", legalName: null, tradingName: null },
     });
     authCreate.mockResolvedValueOnce({ id: "auth_1" });
-    await POST(
-      makeReq({ ...validBody, subjectLicenceClassEnum: "OPEN" }),
-    );
+    await POST(makeReq({ ...validBody, subjectLicenceClassEnum: "OPEN" }));
     expect(authCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({

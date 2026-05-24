@@ -58,18 +58,18 @@
 
 ### Consumers of GCP project `292141944467`
 
-| Surface                                  | Where it reads                                                                         | Failure mode if project is touched                                          |
-| ---------------------------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| iOS native Google Sign-In (capgo plugin) | `ios/App/App/Info.plist` line 81 (`com.googleusercontent.apps.292141944467-…`)         | Sign-In returns immediately to the app with no token (silent failure)       |
-| iOS WebView OAuth fallback (NextAuth)    | `NEXTAUTH_GOOGLE_CLIENT_ID` env (web-client ID, same project)                          | Login screen returns `redirect_uri_mismatch` (visible error)                |
-| Android Play Console upload              | `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` secret (service account provisioned in the project) | `r0adkll/upload-google-play` job fails with `Developer API … is disabled`   |
+| Surface                                  | Where it reads                                                                         | Failure mode if project is touched                                        |
+| ---------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| iOS native Google Sign-In (capgo plugin) | `ios/App/App/Info.plist` line 81 (`com.googleusercontent.apps.292141944467-…`)         | Sign-In returns immediately to the app with no token (silent failure)     |
+| iOS WebView OAuth fallback (NextAuth)    | `NEXTAUTH_GOOGLE_CLIENT_ID` env (web-client ID, same project)                          | Login screen returns `redirect_uri_mismatch` (visible error)              |
+| Android Play Console upload              | `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` secret (service account provisioned in the project) | `r0adkll/upload-google-play` job fails with `Developer API … is disabled` |
 
 ### Historical incidents tied to the coupling
 
-| Date       | What broke                                                                | Linear                                   |
-| ---------- | ------------------------------------------------------------------------- | ---------------------------------------- |
-| 2026-05-08 | Android pipeline outage — Play Developer API disabled on the GCP project  | run 25665767520; ticket: see RA-2997     |
-| 2026-05-04 | iOS Google Sign-In silent failure post-restore                            | RA-2119 ⇄ RA-2073 (re-enabled 3 times)   |
+| Date       | What broke                                                               | Linear                                 |
+| ---------- | ------------------------------------------------------------------------ | -------------------------------------- |
+| 2026-05-08 | Android pipeline outage — Play Developer API disabled on the GCP project | run 25665767520; ticket: see RA-2997   |
+| 2026-05-04 | iOS Google Sign-In silent failure post-restore                           | RA-2119 ⇄ RA-2073 (re-enabled 3 times) |
 
 ### Long-term fix (operator action — not autonomous)
 

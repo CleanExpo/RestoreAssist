@@ -49,26 +49,27 @@
 
 ## Task Map
 
-| # | Task | Phase | Approx |
-|---|---|---|---|
-| 1 | `<TechLicenceBanner>` + tests | Seam B | 30min |
-| 2 | Mount banner + new `/dashboard/settings/credentials` page | Seam B | 20min |
-| 3 | `<InspectionSignOff>` state machine refactor | Seam D | 90min |
-| 4 | Prisma migration A (cocoa cols) | Seam C foundation | 15min |
-| 5 | `lib/capture/cocoa-client.ts` + tests | Seam C foundation | 30min |
-| 6 | `<CapturePhotoTagModal>` + tests | Seam C UI | 60min |
-| 7 | `<CapturePhotoFab>` + tests | Seam C UI | 45min |
-| 8 | Extend `POST /api/inspections/[id]/photos` (magic-byte + hash + cocoa) + tests | Seam C API | 60min |
-| 9 | Mount `<CapturePhotoFab>` on inspection page | Seam C wire | 10min |
-| 10 | New E2E `tech-second-signoff-prefilled.spec.ts` | Verification | 20min |
-| 11 | Visual regression baselines (15 PNGs) | Verification | manual |
-| 12 | Manual Verification Gate on staging | Verification | manual |
+| #   | Task                                                                           | Phase             | Approx |
+| --- | ------------------------------------------------------------------------------ | ----------------- | ------ |
+| 1   | `<TechLicenceBanner>` + tests                                                  | Seam B            | 30min  |
+| 2   | Mount banner + new `/dashboard/settings/credentials` page                      | Seam B            | 20min  |
+| 3   | `<InspectionSignOff>` state machine refactor                                   | Seam D            | 90min  |
+| 4   | Prisma migration A (cocoa cols)                                                | Seam C foundation | 15min  |
+| 5   | `lib/capture/cocoa-client.ts` + tests                                          | Seam C foundation | 30min  |
+| 6   | `<CapturePhotoTagModal>` + tests                                               | Seam C UI         | 60min  |
+| 7   | `<CapturePhotoFab>` + tests                                                    | Seam C UI         | 45min  |
+| 8   | Extend `POST /api/inspections/[id]/photos` (magic-byte + hash + cocoa) + tests | Seam C API        | 60min  |
+| 9   | Mount `<CapturePhotoFab>` on inspection page                                   | Seam C wire       | 10min  |
+| 10  | New E2E `tech-second-signoff-prefilled.spec.ts`                                | Verification      | 20min  |
+| 11  | Visual regression baselines (15 PNGs)                                          | Verification      | manual |
+| 12  | Manual Verification Gate on staging                                            | Verification      | manual |
 
 ---
 
 ## Task 1: `<TechLicenceBanner>` component
 
 **Files:**
+
 - Create: `components/dashboard/TechLicenceBanner.tsx`
 - Test: `components/dashboard/__tests__/TechLicenceBanner.test.tsx`
 
@@ -117,15 +118,35 @@ describe("TechLicenceBanner", () => {
         completedCount: 0,
         totalCount: 3,
         steps: [
-          { id: "tech_iicrc", title: "Add your IICRC certificate", description: "...", href: "/dashboard/settings/credentials?focus=iicrc", completed: false },
-          { id: "tech_whs", title: "Add your WHS card", description: "...", href: "/dashboard/settings/credentials?focus=whs", completed: false },
-          { id: "tech_state", title: "Add your state licence (if applicable)", description: "...", href: "/dashboard/settings/credentials?focus=state", completed: false },
+          {
+            id: "tech_iicrc",
+            title: "Add your IICRC certificate",
+            description: "...",
+            href: "/dashboard/settings/credentials?focus=iicrc",
+            completed: false,
+          },
+          {
+            id: "tech_whs",
+            title: "Add your WHS card",
+            description: "...",
+            href: "/dashboard/settings/credentials?focus=whs",
+            completed: false,
+          },
+          {
+            id: "tech_state",
+            title: "Add your state licence (if applicable)",
+            description: "...",
+            href: "/dashboard/settings/credentials?focus=state",
+            completed: false,
+          },
         ],
       }),
     });
     render(<TechLicenceBanner />);
     await waitFor(() =>
-      expect(screen.getByText(/Add your credentials to unlock attestations/)).toBeInTheDocument(),
+      expect(
+        screen.getByText(/Add your credentials to unlock attestations/),
+      ).toBeInTheDocument(),
     );
   });
 
@@ -137,7 +158,13 @@ describe("TechLicenceBanner", () => {
         completedCount: 0,
         totalCount: 4,
         steps: [
-          { id: "first_inspection", title: "Create your first inspection", description: "...", href: "/dashboard/inspections/new", completed: false },
+          {
+            id: "first_inspection",
+            title: "Create your first inspection",
+            description: "...",
+            href: "/dashboard/inspections/new",
+            completed: false,
+          },
         ],
       }),
     });
@@ -205,13 +232,17 @@ export function TechLicenceBanner() {
     <div className="border border-[#1C2E47]/30 bg-[#1C2E47]/8 dark:bg-[#1C2E47]/20 rounded-lg p-4 mb-6 flex items-center gap-4">
       <div className="text-2xl flex-shrink-0">📋</div>
       <div className="flex-1 min-w-0">
-        <p className="font-semibold text-sm">Add your credentials to unlock attestations</p>
+        <p className="font-semibold text-sm">
+          Add your credentials to unlock attestations
+        </p>
         <p className="text-xs text-muted-foreground">
           IICRC certificate · WHS White Card · State licence — takes a minute
         </p>
         <div className="flex flex-wrap gap-1.5 mt-2">
           {data.steps.map((s) => {
-            const short = s.title.replace(/^Add your /, "").replace(/ \(if applicable\)$/, "");
+            const short = s.title
+              .replace(/^Add your /, "")
+              .replace(/ \(if applicable\)$/, "");
             return (
               <span
                 key={s.id}
@@ -262,6 +293,7 @@ git commit -m "feat(dashboard): TechLicenceBanner component (Seam B)"
 ## Task 2: Mount banner + create `/dashboard/settings/credentials` page
 
 **Files:**
+
 - Modify: `app/dashboard/page.tsx`
 - Create: `app/dashboard/settings/credentials/page.tsx`
 
@@ -321,7 +353,8 @@ export default function CredentialsPage() {
     <div className="container mx-auto p-6 max-w-2xl">
       <h1 className="text-xl font-semibold mb-4">Your credentials</h1>
       <p className="text-sm text-muted-foreground mb-6">
-        IICRC certificate, WHS White Card, and state licence are verified at every attestation moment per rule 28. You can pre-fill them here.
+        IICRC certificate, WHS White Card, and state licence are verified at
+        every attestation moment per rule 28. You can pre-fill them here.
       </p>
       <EngagementLicenceModal
         open={open}
@@ -360,6 +393,7 @@ git commit -m "feat(dashboard): mount TechLicenceBanner + standalone credentials
 ## Task 3: `<InspectionSignOff>` state-machine refactor (Seam D)
 
 **Files:**
+
 - Modify: `components/inspection/InspectionSignOff.tsx`
 - Test: `components/inspection/__tests__/InspectionSignOff.test.tsx` (create if missing)
 
@@ -394,7 +428,10 @@ beforeEach(() => {
   fetchMock.mockReset();
   // Default: no recent Authorisation
   fetchMock.mockImplementation((url) => {
-    if (typeof url === "string" && url.includes("/api/authorisations/most-recent")) {
+    if (
+      typeof url === "string" &&
+      url.includes("/api/authorisations/most-recent")
+    ) {
       return Promise.resolve({ json: async () => ({ row: null }) });
     }
     return Promise.resolve({ ok: true, json: async () => ({}) });
@@ -421,7 +458,9 @@ describe("InspectionSignOff state machine", () => {
 
   it("click Sign Inspection in State A opens licence modal (State B)", async () => {
     render(<InspectionSignOff {...props} />);
-    await waitFor(() => screen.getByRole("button", { name: /Sign Inspection/ }));
+    await waitFor(() =>
+      screen.getByRole("button", { name: /Sign Inspection/ }),
+    );
     fireEvent.click(screen.getByRole("button", { name: /Sign Inspection/ }));
     await waitFor(() => {
       expect(screen.getByText(/Add your credentials/i)).toBeInTheDocument();
@@ -430,16 +469,27 @@ describe("InspectionSignOff state machine", () => {
 
   it("modal confirm advances to State C: form visible, signatoryName prefilled", async () => {
     fetchMock.mockImplementation((url) => {
-      if (typeof url === "string" && url.includes("/api/authorisations/most-recent")) {
+      if (
+        typeof url === "string" &&
+        url.includes("/api/authorisations/most-recent")
+      ) {
         return Promise.resolve({ json: async () => ({ row: null }) });
       }
-      if (typeof url === "string" && url.includes("/api/authorisations") && !url.includes("most-recent")) {
-        return Promise.resolve({ json: async () => ({ ok: true, authorisationId: "auth_1" }) });
+      if (
+        typeof url === "string" &&
+        url.includes("/api/authorisations") &&
+        !url.includes("most-recent")
+      ) {
+        return Promise.resolve({
+          json: async () => ({ ok: true, authorisationId: "auth_1" }),
+        });
       }
       return Promise.resolve({ ok: true, json: async () => ({}) });
     });
     render(<InspectionSignOff {...props} />);
-    await waitFor(() => screen.getByRole("button", { name: /Sign Inspection/ }));
+    await waitFor(() =>
+      screen.getByRole("button", { name: /Sign Inspection/ }),
+    );
     fireEvent.click(screen.getByRole("button", { name: /Sign Inspection/ }));
     await waitFor(() => screen.getByText(/Add your credentials/i));
     // Fill modal IICRC + WHS
@@ -449,7 +499,9 @@ describe("InspectionSignOff state machine", () => {
     fireEvent.change(screen.getByLabelText(/WHS card/i), {
       target: { value: "WHS-1" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /Verify and continue/ }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Verify and continue/ }),
+    );
     await waitFor(() => {
       const name = screen.getByDisplayValue("Jamie Tradie");
       expect(name).toBeInTheDocument();
@@ -458,7 +510,10 @@ describe("InspectionSignOff state machine", () => {
 
   it("State C: Confirm sign-off disabled until confirmed checkbox checked", async () => {
     fetchMock.mockImplementation((url) => {
-      if (typeof url === "string" && url.includes("/api/authorisations/most-recent")) {
+      if (
+        typeof url === "string" &&
+        url.includes("/api/authorisations/most-recent")
+      ) {
         return Promise.resolve({
           json: async () => ({
             row: {
@@ -481,7 +536,10 @@ describe("InspectionSignOff state machine", () => {
 
   it("recent Authorisation on mount opens directly at State C (skip modal)", async () => {
     fetchMock.mockImplementation((url) => {
-      if (typeof url === "string" && url.includes("/api/authorisations/most-recent")) {
+      if (
+        typeof url === "string" &&
+        url.includes("/api/authorisations/most-recent")
+      ) {
         return Promise.resolve({
           json: async () => ({
             row: {
@@ -501,19 +559,26 @@ describe("InspectionSignOff state machine", () => {
 
   it("modal cancel reverts to State A", async () => {
     render(<InspectionSignOff {...props} />);
-    await waitFor(() => screen.getByRole("button", { name: /Sign Inspection/ }));
+    await waitFor(() =>
+      screen.getByRole("button", { name: /Sign Inspection/ }),
+    );
     fireEvent.click(screen.getByRole("button", { name: /Sign Inspection/ }));
     await waitFor(() => screen.getByText(/Add your credentials/i));
     fireEvent.keyDown(document.body, { key: "Escape" });
     await waitFor(() => {
-      expect(screen.queryByText(/Add your credentials/i)).not.toBeInTheDocument();
+      expect(
+        screen.queryByText(/Add your credentials/i),
+      ).not.toBeInTheDocument();
     });
     expect(screen.queryByLabelText(/Full name/i)).not.toBeInTheDocument();
   });
 
   it("submit POSTs /api/inspections/[id]/sign and calls onSigned", async () => {
     fetchMock.mockImplementation((url, init) => {
-      if (typeof url === "string" && url.includes("/api/authorisations/most-recent")) {
+      if (
+        typeof url === "string" &&
+        url.includes("/api/authorisations/most-recent")
+      ) {
         return Promise.resolve({
           json: async () => ({
             row: {
@@ -550,6 +615,7 @@ Expected: FAIL — the component still uses the old form-first contract.
 - [ ] **Step 4: Refactor `components/inspection/InspectionSignOff.tsx`**
 
 Open the file. The current shape has these key elements (verified at plan time):
+
 - `useState` declarations for `signatoryName`, `role`, `confirmed`, `submitting`, `error`, `signedAt`, `signedByName`, `licenceModalOpen`.
 - A render block with the form fields visible and a "Sign Inspection" button gated by `submitting || !signatoryName.trim() || !confirmed`.
 
@@ -597,7 +663,9 @@ export default function InspectionSignOff({
   const [signedAt, setSignedAt] = useState<Date | null>(
     initialSignedAt ? new Date(initialSignedAt) : null,
   );
-  const [signedByName, setSignedByName] = useState<string | null>(initialSignedByName);
+  const [signedByName, setSignedByName] = useState<string | null>(
+    initialSignedByName,
+  );
 
   // On mount, check for a recent Authorisation. If found, skip the modal step.
   useEffect(() => {
@@ -608,7 +676,11 @@ export default function InspectionSignOff({
         const res = await fetch("/api/authorisations/most-recent");
         const data = await res.json().catch(() => ({ row: null }));
         if (cancelled) return;
-        if (data.row && Date.now() - new Date(data.row.verifiedAt).getTime() < AUTHORISATION_FRESH_MS) {
+        if (
+          data.row &&
+          Date.now() - new Date(data.row.verifiedAt).getTime() <
+            AUTHORISATION_FRESH_MS
+        ) {
           setSignOffState("form-unlocked");
         }
       } catch {
@@ -666,11 +738,16 @@ export default function InspectionSignOff({
   if (signOffState === "initial") {
     return (
       <div className="rounded-md border p-4">
-        <p className="text-sm font-medium mb-1">Ready to sign off this inspection?</p>
+        <p className="text-sm font-medium mb-1">
+          Ready to sign off this inspection?
+        </p>
         <p className="text-xs text-muted-foreground mb-3">
           We'll verify your credentials first, then collect your sign-off.
         </p>
-        <Button onClick={() => setSignOffState("modal")} className="bg-[#1C2E47] text-white">
+        <Button
+          onClick={() => setSignOffState("modal")}
+          className="bg-[#1C2E47] text-white"
+        >
           Sign Inspection →
         </Button>
         <EngagementLicenceModal
@@ -718,7 +795,11 @@ export default function InspectionSignOff({
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="role">Role</Label>
-        <Input id="role" value={role} onChange={(e) => setRole(e.target.value)} />
+        <Input
+          id="role"
+          value={role}
+          onChange={(e) => setRole(e.target.value)}
+        />
       </div>
       <label className="flex items-start gap-2 text-sm">
         <Checkbox
@@ -768,6 +849,7 @@ git commit -m "refactor(inspection): modal-first sign-off state machine (Seam D)
 ## Task 4: Prisma migration — InspectionPhoto cocoa columns
 
 **Files:**
+
 - Modify: `prisma/schema.prisma`
 - Create: `prisma/migrations/20260514100000_inspection_photo_cocoa/migration.sql`
 
@@ -832,6 +914,7 @@ git commit -m "feat(prisma): add InspectionPhoto cocoa* columns (Seam C foundati
 ## Task 5: `lib/capture/cocoa-client.ts` helpers + tests
 
 **Files:**
+
 - Create: `lib/capture/cocoa-client.ts`
 - Test: `lib/capture/__tests__/cocoa-client.test.ts`
 
@@ -922,7 +1005,9 @@ export interface GpsCoords {
   lng: number;
 }
 
-export async function getCurrentGps(timeoutMs = 10_000): Promise<GpsCoords | null> {
+export async function getCurrentGps(
+  timeoutMs = 10_000,
+): Promise<GpsCoords | null> {
   if (typeof navigator === "undefined" || !navigator.geolocation) return null;
   return new Promise<GpsCoords | null>((resolve) => {
     let settled = false;
@@ -978,6 +1063,7 @@ git commit -m "feat(capture): SHA-256 + GPS client helpers (rule 21)"
 ## Task 6: `<CapturePhotoTagModal>` component + tests
 
 **Files:**
+
 - Create: `components/inspection/CapturePhotoTagModal.tsx`
 - Test: `components/inspection/__tests__/CapturePhotoTagModal.test.tsx`
 
@@ -990,7 +1076,9 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { CapturePhotoTagModal } from "../CapturePhotoTagModal";
 
-const blob = new Blob([new Uint8Array([0xff, 0xd8, 0xff])], { type: "image/jpeg" });
+const blob = new Blob([new Uint8Array([0xff, 0xd8, 0xff])], {
+  type: "image/jpeg",
+});
 const sampleFile = new File([blob], "head.jpg", { type: "image/jpeg" });
 
 beforeEach(() => {
@@ -1121,7 +1209,13 @@ interface Props {
   onSubmit: (payload: CaptureSubmitPayload) => void;
 }
 
-export function CapturePhotoTagModal({ file, sha256, gps, onCancel, onSubmit }: Props) {
+export function CapturePhotoTagModal({
+  file,
+  sha256,
+  gps,
+  onCancel,
+  onSubmit,
+}: Props) {
   const [caption, setCaption] = useState("");
   const previewUrl = useMemo(
     () => (file ? URL.createObjectURL(file) : null),
@@ -1167,7 +1261,9 @@ export function CapturePhotoTagModal({ file, sha256, gps, onCancel, onSubmit }: 
               ? `${gps.lat.toFixed(4)}, ${gps.lng.toFixed(4)}`
               : "GPS unavailable"}
           </p>
-          <p>🕐 {new Date().toISOString().replace("T", " ").slice(0, 16)} UTC</p>
+          <p>
+            🕐 {new Date().toISOString().replace("T", " ").slice(0, 16)} UTC
+          </p>
           {sha256 && <p>🔒 SHA-256: {sha256.slice(0, 16)}…</p>}
         </div>
         <Input
@@ -1180,7 +1276,10 @@ export function CapturePhotoTagModal({ file, sha256, gps, onCancel, onSubmit }: 
           <Button variant="outline" onClick={onCancel} className="flex-1">
             Cancel
           </Button>
-          <Button onClick={handleSubmit} className="flex-1 bg-[#1C2E47] text-white">
+          <Button
+            onClick={handleSubmit}
+            className="flex-1 bg-[#1C2E47] text-white"
+          >
             Save photo
           </Button>
         </div>
@@ -1218,6 +1317,7 @@ git commit -m "feat(inspection): CapturePhotoTagModal component"
 ## Task 7: `<CapturePhotoFab>` component + tests
 
 **Files:**
+
 - Create: `components/inspection/CapturePhotoFab.tsx`
 - Test: `components/inspection/__tests__/CapturePhotoFab.test.tsx`
 
@@ -1244,25 +1344,47 @@ beforeEach(() => {
 
 describe("CapturePhotoFab", () => {
   it("renders FAB when inspection status is not COMPLETED", () => {
-    render(<CapturePhotoFab inspectionId="i_1" inspectionStatus="DRAFT" onUploaded={vi.fn()} />);
-    expect(screen.getByRole("button", { name: /Capture photo/i })).toBeInTheDocument();
+    render(
+      <CapturePhotoFab
+        inspectionId="i_1"
+        inspectionStatus="DRAFT"
+        onUploaded={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: /Capture photo/i }),
+    ).toBeInTheDocument();
   });
 
   it("returns null when inspection status is COMPLETED (handled at mount site)", () => {
     // Component itself doesn't gate; the mount site decides. But assert the rendered
     // markup is the FAB regardless — gating is in the mount.
     const { container } = render(
-      <CapturePhotoFab inspectionId="i_1" inspectionStatus="COMPLETED" onUploaded={vi.fn()} />,
+      <CapturePhotoFab
+        inspectionId="i_1"
+        inspectionStatus="COMPLETED"
+        onUploaded={vi.fn()}
+      />,
     );
     // Component renders unconditionally; gating is by the page mount.
     expect(container.firstChild).not.toBeNull();
   });
 
   it("opens the tag modal after file is selected via the hidden input", async () => {
-    render(<CapturePhotoFab inspectionId="i_1" inspectionStatus="DRAFT" onUploaded={vi.fn()} />);
-    const blob = new Blob([new Uint8Array([0xff, 0xd8, 0xff])], { type: "image/jpeg" });
+    render(
+      <CapturePhotoFab
+        inspectionId="i_1"
+        inspectionStatus="DRAFT"
+        onUploaded={vi.fn()}
+      />,
+    );
+    const blob = new Blob([new Uint8Array([0xff, 0xd8, 0xff])], {
+      type: "image/jpeg",
+    });
     const file = new File([blob], "head.jpg", { type: "image/jpeg" });
-    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const input = document.querySelector(
+      'input[type="file"]',
+    ) as HTMLInputElement;
     Object.defineProperty(input, "files", { value: [file] });
     fireEvent.change(input);
     await waitFor(() => {
@@ -1291,12 +1413,19 @@ import { useRef, useState } from "react";
 import { Camera } from "lucide-react";
 import toast from "react-hot-toast";
 import { sha256OfFile, getCurrentGps } from "@/lib/capture/cocoa-client";
-import { CapturePhotoTagModal, type CaptureSubmitPayload } from "./CapturePhotoTagModal";
+import {
+  CapturePhotoTagModal,
+  type CaptureSubmitPayload,
+} from "./CapturePhotoTagModal";
 
 interface Props {
   inspectionId: string;
   inspectionStatus: string;
-  onUploaded?: (photo: { id: string; url: string; thumbnailUrl: string | null }) => void;
+  onUploaded?: (photo: {
+    id: string;
+    url: string;
+    thumbnailUrl: string | null;
+  }) => void;
 }
 
 export function CapturePhotoFab({ inspectionId, onUploaded }: Props) {
@@ -1435,6 +1564,7 @@ git commit -m "feat(inspection): CapturePhotoFab (Seam C) + bump DESIGN.md basel
 ## Task 8: Extend `POST /api/inspections/[id]/photos` for cocoa fields
 
 **Files:**
+
 - Modify: `app/api/inspections/[id]/photos/route.ts`
 - Test: `app/api/inspections/[id]/photos/__tests__/cocoa.test.ts`
 
@@ -1462,7 +1592,9 @@ const photoCreate = vi.fn();
 const storageUpload = vi.fn();
 const rateLimit = vi.fn();
 
-vi.mock("next-auth", () => ({ getServerSession: (...a: unknown[]) => getServerSession(...a) }));
+vi.mock("next-auth", () => ({
+  getServerSession: (...a: unknown[]) => getServerSession(...a),
+}));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -1471,21 +1603,36 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 vi.mock("@/lib/storage", () => ({
-  getStorageProvider: () => ({ upload: (...a: unknown[]) => storageUpload(...a) }),
+  getStorageProvider: () => ({
+    upload: (...a: unknown[]) => storageUpload(...a),
+  }),
 }));
-vi.mock("@/lib/media/exif-extract", () => ({ extractAndSaveMediaAsset: vi.fn() }));
+vi.mock("@/lib/media/exif-extract", () => ({
+  extractAndSaveMediaAsset: vi.fn(),
+}));
 vi.mock("@/lib/media/catalog", () => ({ scheduleCatalog: vi.fn() }));
-vi.mock("@/lib/rate-limiter", () => ({ applyRateLimit: (...a: unknown[]) => rateLimit(...a) }));
+vi.mock("@/lib/rate-limiter", () => ({
+  applyRateLimit: (...a: unknown[]) => rateLimit(...a),
+}));
 
 function sha256Hex(bytes: Uint8Array): string {
   return crypto.createHash("sha256").update(bytes).digest("hex");
 }
 
-const JPEG_MAGIC = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46]);
-const PNG_MAGIC = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-const BAD_MAGIC = new Uint8Array([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+const JPEG_MAGIC = new Uint8Array([
+  0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46,
+]);
+const PNG_MAGIC = new Uint8Array([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+]);
+const BAD_MAGIC = new Uint8Array([
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+]);
 
-function makeRequest(file: Uint8Array, fields: Record<string, string> = {}): NextRequest {
+function makeRequest(
+  file: Uint8Array,
+  fields: Record<string, string> = {},
+): NextRequest {
   const form = new FormData();
   form.append("file", new Blob([file], { type: "image/jpeg" }), "test.jpg");
   for (const [k, v] of Object.entries(fields)) form.append(k, v);
@@ -1505,7 +1652,9 @@ beforeEach(() => {
   photoCreate.mockReset();
   storageUpload.mockReset();
   rateLimit.mockReset().mockResolvedValue(null); // rate limit pass-through
-  getServerSession.mockResolvedValue({ user: { id: "u_1", image: "https://example.com/me.jpg" } });
+  getServerSession.mockResolvedValue({
+    user: { id: "u_1", image: "https://example.com/me.jpg" },
+  });
   inspectionFindFirst.mockResolvedValue({ id: "i_1" });
   storageUpload.mockResolvedValue({
     url: "https://stor/test.jpg",
@@ -1520,7 +1669,10 @@ describe("POST /api/inspections/[id]/photos (cocoa extension)", () => {
     file.set(BAD_MAGIC, 0);
     const sha = sha256Hex(file);
     const res = await POST(
-      makeRequest(file, { cocoaSha256: sha, capturedAtUtc: new Date().toISOString() }),
+      makeRequest(file, {
+        cocoaSha256: sha,
+        capturedAtUtc: new Date().toISOString(),
+      }),
       await ctx(),
     );
     expect(res.status).toBe(400);
@@ -1531,7 +1683,10 @@ describe("POST /api/inspections/[id]/photos (cocoa extension)", () => {
     file.set(JPEG_MAGIC, 0);
     const wrongSha = "0".repeat(64);
     const res = await POST(
-      makeRequest(file, { cocoaSha256: wrongSha, capturedAtUtc: new Date().toISOString() }),
+      makeRequest(file, {
+        cocoaSha256: wrongSha,
+        capturedAtUtc: new Date().toISOString(),
+      }),
       await ctx(),
     );
     expect(res.status).toBe(400);
@@ -1599,10 +1754,20 @@ Add this helper at the top of the file (after imports):
 import crypto from "crypto";
 
 function hasJpegMagic(bytes: Buffer): boolean {
-  return bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  return (
+    bytes.length >= 3 &&
+    bytes[0] === 0xff &&
+    bytes[1] === 0xd8 &&
+    bytes[2] === 0xff
+  );
 }
 function hasPngMagic(bytes: Buffer): boolean {
-  return bytes.length >= 8 && bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  return (
+    bytes.length >= 8 &&
+    bytes
+      .subarray(0, 8)
+      .equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+  );
 }
 
 function sha256Hex(buf: Buffer): string {
@@ -1651,7 +1816,9 @@ const cocoaCapturedAtUtc =
     ? new Date(capturedAtUtcRaw)
     : null;
 const cocoaSha256 =
-  typeof clientSha256 === "string" && clientSha256.length > 0 ? clientSha256 : null;
+  typeof clientSha256 === "string" && clientSha256.length > 0
+    ? clientSha256
+    : null;
 ```
 
 Then in the `prisma.inspectionPhoto.create` data block (existing), ADD these four fields next to the existing ones:
@@ -1696,6 +1863,7 @@ git commit -m "feat(api): chain-of-custody on photo POST — magic bytes + hash 
 ## Task 9: Mount `<CapturePhotoFab>` on inspection detail page
 
 **Files:**
+
 - Modify: `app/dashboard/inspections/[id]/page.tsx`
 
 - [ ] **Step 1: Find the existing action cluster**
@@ -1755,6 +1923,7 @@ git commit -m "feat(inspection): mount CapturePhotoFab on detail page (Seam C wi
 ## Task 10: New E2E spec — `tech-second-signoff-prefilled`
 
 **Files:**
+
 - Create: `e2e/tech-second-signoff-prefilled.spec.ts`
 
 - [ ] **Step 1: Write the spec**
@@ -1765,7 +1934,10 @@ Create `e2e/tech-second-signoff-prefilled.spec.ts`:
 import { test, expect } from "@playwright/test";
 import { loginAs } from "./_helpers/auth";
 
-test("second sign-off: modal opens prefilled (one-tap confirm)", async ({ page, request }) => {
+test("second sign-off: modal opens prefilled (one-tap confirm)", async ({
+  page,
+  request,
+}) => {
   await loginAs(page, "USER");
   await page.request.post("/api/test/seed-inspection", {
     data: { inspectionId: "test-inspection", status: "COMPLETED" },
@@ -1874,15 +2046,19 @@ For the USER role just created, verify on sandbox:
 - [ ] **Step 4: Negative checks**
 
 For an ADMIN or MANAGER role:
+
 - `<TechLicenceBanner>` NOT visible on `/dashboard`
 
 For evidence-capture as a USER:
+
 - Tapping `<CapturePhotoFab>` and saving a photo NEVER opens `<EngagementLicenceModal>` (rule 25)
 
 For an unauthenticated request:
+
 - `POST /api/inspections/[id]/photos` returns 401
 
 For a tampered upload:
+
 - POST with `cocoaSha256` that doesn't match the file's actual hash returns 400
 
 - [ ] **Step 5: Attach screenshots to the release PR description**
@@ -1908,9 +2084,9 @@ git commit --allow-empty -m "verify(sub-project-7): Verification Gate complete (
 1. Unit + integration tests pass: `pnpm type-check && npx vitest run`.
 2. All 5 invited-tech E2E specs green against sandbox: `npx playwright test e2e/tech-*.spec.ts`.
 3. Visual baselines: snapshot diff = 0 on subsequent runs.
-4. Schema migration round-trips: apply on staging snapshot; existing `InspectionPhoto` rows backfill to NULL on cocoa* columns; re-run migration; no-op.
+4. Schema migration round-trips: apply on staging snapshot; existing `InspectionPhoto` rows backfill to NULL on cocoa\* columns; re-run migration; no-op.
 5. Manual Verification Gate (Task 12) executed by a human with the 5 confirmation screenshots in the release PR.
-6. No regressions in legacy flows: existing photos render in the inspection's photo list (their cocoa* fields are NULL; the renderer flags them as "legacy capture"); existing sign-off API still accepts the same payload from the refactored form.
+6. No regressions in legacy flows: existing photos render in the inspection's photo list (their cocoa\* fields are NULL; the renderer flags them as "legacy capture"); existing sign-off API still accepts the same payload from the refactored form.
 
 ---
 

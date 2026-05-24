@@ -10,9 +10,9 @@
 
 RestoreAssist is a CRM for Australian water-damage restoration that sells itself as **AI-driven** — "we perform the tasks so the customer doesn't have to". The current first-run reality contradicts that promise:
 
-- The dashboard is **fully accessible the moment a user signs in**. Setup is an *optional* sidebar checklist (`/dashboard/onboarding`, 14 steps).
+- The dashboard is **fully accessible the moment a user signs in**. Setup is an _optional_ sidebar checklist (`/dashboard/onboarding`, 14 steps).
 - Two competing onboarding flows coexist (the 14-step checklist + a 3-step embedded first-run), confusing the surface area.
-- Sample data is auto-seeded at `/api/auth/register` so the dashboard is never blank — which hides the fact that *the user hasn't configured anything yet*.
+- Sample data is auto-seeded at `/api/auth/register` so the dashboard is never blank — which hides the fact that _the user hasn't configured anything yet_.
 - **Zero AI-driven hydration.** Every field (business name, ABN, ACN, address, logo, brand colours, "about us" copy, pricing) is manual entry into static forms. The marketing promise doesn't show up until much later, if at all.
 - No verification that the advertised capabilities (AI report generation, IICRC compliance, photo chain-of-custody, accounting sync, cloud storage) actually work end-to-end for a brand-new tenant.
 
@@ -24,7 +24,7 @@ The redesign converts this into a **hard-gated, single-page setup experience** a
 2. **Admin onboards; technicians invited later** — primary persona is the business owner/admin; invitees get a separate lighter flow (sub-project #2).
 3. **Platform Gemma powers hydration** — wizard completes without requiring user BYOK; BYOK is an optional final-section toggle.
 4. **ABN-anchored** — single input drives all auto-hydration.
-5. **Feature-health card at the end** — proves each advertised capability is wired up for *this* tenant.
+5. **Feature-health card at the end** — proves each advertised capability is wired up for _this_ tenant.
 6. **Auto-build single-page architecture** — one URL (`/setup`); sections progressively reveal as hydration jobs complete.
 7. **Schema migration: business profile moves `User → Organization`** — two-step migration per CLAUDE.md rule #16.
 
@@ -50,15 +50,16 @@ The redesign converts this into a **hard-gated, single-page setup experience** a
 
 **Three parallel jobs** dispatched on ABN submit:
 
-| Job | Source | Writes to |
-|-----|--------|-----------|
-| **A. ABR Lookup** | abr.business.gov.au (registered consumer key, free) | `Organization.{legalName, tradingName, acn, state, address}`, GST/entity-type metadata; cache in new `AbnLookupCache` table (TTL 30d) |
-| **B. Website Hydration** | Playwright fetch on user-provided URL | Logo (`<link rel="icon">`, `og:image`, common paths), primary+accent colours (k-means on logo pixels), about copy (Gemma summarises `/about` or hero); writes to `Organization.{logoUrl, primaryColor, accentColor, aboutCopy}` |
-| **C. Pricing Defaults** | New static dataset `lib/pricing/defaults-au.ts` keyed by state + entity type | `OrganizationPricingConfig` (renamed from per-user `CompanyPricingConfig`); Gemma adjusts based on business-size signal |
+| Job                      | Source                                                                       | Writes to                                                                                                                                                                                                                       |
+| ------------------------ | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A. ABR Lookup**        | abr.business.gov.au (registered consumer key, free)                          | `Organization.{legalName, tradingName, acn, state, address}`, GST/entity-type metadata; cache in new `AbnLookupCache` table (TTL 30d)                                                                                           |
+| **B. Website Hydration** | Playwright fetch on user-provided URL                                        | Logo (`<link rel="icon">`, `og:image`, common paths), primary+accent colours (k-means on logo pixels), about copy (Gemma summarises `/about` or hero); writes to `Organization.{logoUrl, primaryColor, accentColor, aboutCopy}` |
+| **C. Pricing Defaults**  | New static dataset `lib/pricing/defaults-au.ts` keyed by state + entity type | `OrganizationPricingConfig` (renamed from per-user `CompanyPricingConfig`); Gemma adjusts based on business-size signal                                                                                                         |
 
 **Status delivery:** single SSE endpoint `/api/setup/hydrate/stream` pushes `{ jobKind, status, payload? }` messages. Client merges into store; sections reveal as state → `ready`.
 
 **New Prisma models:**
+
 - `HydrationJob` — `organizationId`, `kind` (`ABR | WEBSITE | PRICING`), `status`, `payload` (JSON), `errorMessage`, `startedAt`, `completedAt`. Append-only.
 - `AbnLookupCache` — `abn` (PK), `payload`, `fetchedAt`, `expiresAt`.
 
@@ -68,26 +69,28 @@ The redesign converts this into a **hard-gated, single-page setup experience** a
 
 The page is a vertical card-stack. Each card has 5 states (pending / running / ready / error / manual). Sections fade in as their hydration job hits `ready`.
 
-| # | Card | Hydration source | Inline editing |
-|---|------|------------------|----------------|
-| ① | **Business details** | ABR | legal name, trading names (radio if multiple), ACN, GST status, entity type, address; "Show advanced" expander for phone/email/website override |
-| ② | **Your brand** | Website scrape | Logo preview (256px), primary+accent colour swatches, about copy textarea; drag-replace logo, colour pickers |
-| ③ | **Your pricing structure** | Static dataset + Gemma adjustment | Compact table (labour 3 levels + top equipment rates + fees + multiplier); "Show all rates" expander for full ~30-field config; "Why these numbers?" tooltip per row |
-| ④ | **Cloud storage** | User choice | Three cards: Google Drive (OAuth), OneDrive (disabled "Coming soon"), Keep it local |
-| ⑤ | **Connect your existing tools** | User choice | Xero, MYOB, QuickBooks, ServiceM8, Ascora cards; collapsible "BYOK AI keys (optional)" — OpenAI / Anthropic / Gemini |
-| ⑥ | **Feature health & Activate** | Real-time checks | (See Section 5 below) |
+| #   | Card                            | Hydration source                  | Inline editing                                                                                                                                                       |
+| --- | ------------------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ①   | **Business details**            | ABR                               | legal name, trading names (radio if multiple), ACN, GST status, entity type, address; "Show advanced" expander for phone/email/website override                      |
+| ②   | **Your brand**                  | Website scrape                    | Logo preview (256px), primary+accent colour swatches, about copy textarea; drag-replace logo, colour pickers                                                         |
+| ③   | **Your pricing structure**      | Static dataset + Gemma adjustment | Compact table (labour 3 levels + top equipment rates + fees + multiplier); "Show all rates" expander for full ~30-field config; "Why these numbers?" tooltip per row |
+| ④   | **Cloud storage**               | User choice                       | Three cards: Google Drive (OAuth), OneDrive (disabled "Coming soon"), Keep it local                                                                                  |
+| ⑤   | **Connect your existing tools** | User choice                       | Xero, MYOB, QuickBooks, ServiceM8, Ascora cards; collapsible "BYOK AI keys (optional)" — OpenAI / Anthropic / Gemini                                                 |
+| ⑥   | **Feature health & Activate**   | Real-time checks                  | (See Section 5 below)                                                                                                                                                |
 
 **Resumability:** wizard is resumable. `Organization.setupStartedAt` set on first ABN entry; jobs continue server-side; closing the tab and returning rehydrates from `Organization` + `HydrationJob`.
 
 ### 4 — Errors, fallbacks & edge cases
 
 **ABN failures**
+
 - **Invalid format:** inline validation, no API call.
 - **ABR unreachable:** Section ① flips to `manual`. Background job re-tries automatically.
 - **ABR "no record":** manual entry + background re-check daily for 7 days.
 - **No ABN:** "I don't have an ABN" link → modal with 3 options: (a) link out to register, (b) **Pre-trading mode** — Organization created with `tradingStatus = PRE_TRADING`, invoicing + accounting integrations gated until ABN added, (c) "Help me apply" — captures intent, surfaces application steps in dashboard.
 
 **Website / scrape failures**
+
 - **No URL:** Section ② starts in `manual`.
 - **URL invalid/unreachable:** `manual` fallback + note + retry.
 - **No logo found:** logo slot empty, colour extraction skipped; user uploads manually.
@@ -95,6 +98,7 @@ The page is a vertical card-stack. Each card has 5 states (pending / running / r
 - **About copy junk:** Gemma confidence < threshold → skip auto-fill, prompt user to write.
 
 **Cross-cutting**
+
 - **ABN edit after submit:** confirmation modal; prior field values preserved until new hydration succeeds.
 - **Network drop mid-stream:** SSE auto-reconnect; server-authoritative state.
 - **Race / dedup:** ABN field debounced 500ms; server uses `(organizationId, kind)` ON-CONFLICT coalescing.
@@ -106,22 +110,23 @@ The page is a vertical card-stack. Each card has 5 states (pending / running / r
 
 **Pre-flight checks** (Section ⑥ row, polled every 5s while visible):
 
-| Capability | Check | Red/Yellow/Green logic |
-|---|---|---|
-| Business profile complete | required fields populated; ABN valid OR `PRE_TRADING` | 🔴 if missing required |
-| Branding set | logo + primary colour both non-null | 🟡 if missing one, 🔴 if both |
-| Pricing config | labour rates + admin fee set | 🔴 if not set |
-| AI generation (Gemma) | live 1-line tagline call; check response shape | 🔴 on failure |
-| Sample report renders | synthesise 2-page DRAFT in-memory (don't write yet) | 🔴 on failure |
-| Photo chain-of-custody | C2PA manifest generator runs against 1-px test image (rule #21) | 🔴 on failure |
-| Cloud storage (if connected) | list 1 file via OAuth token | 🟡 not connected · 🔴 broken |
-| Accounting integration (if connected) | list 1 contact/customer | 🟡 not connected · 🔴 broken |
-| BYOK keys (if entered) | 1-token validate per provider | 🟡 not entered · 🔴 invalid |
-| Welcome email | Resend/SES deliverability test | 🔴 on rejection |
+| Capability                            | Check                                                           | Red/Yellow/Green logic        |
+| ------------------------------------- | --------------------------------------------------------------- | ----------------------------- |
+| Business profile complete             | required fields populated; ABN valid OR `PRE_TRADING`           | 🔴 if missing required        |
+| Branding set                          | logo + primary colour both non-null                             | 🟡 if missing one, 🔴 if both |
+| Pricing config                        | labour rates + admin fee set                                    | 🔴 if not set                 |
+| AI generation (Gemma)                 | live 1-line tagline call; check response shape                  | 🔴 on failure                 |
+| Sample report renders                 | synthesise 2-page DRAFT in-memory (don't write yet)             | 🔴 on failure                 |
+| Photo chain-of-custody                | C2PA manifest generator runs against 1-px test image (rule #21) | 🔴 on failure                 |
+| Cloud storage (if connected)          | list 1 file via OAuth token                                     | 🟡 not connected · 🔴 broken  |
+| Accounting integration (if connected) | list 1 contact/customer                                         | 🟡 not connected · 🔴 broken  |
+| BYOK keys (if entered)                | 1-token validate per provider                                   | 🟡 not entered · 🔴 invalid   |
+| Welcome email                         | Resend/SES deliverability test                                  | 🔴 on rejection               |
 
 **Activate button:** disabled while any 🔴; enabled with notice if any 🟡; enabled cleanly if all 🟢.
 
 **`POST /api/setup/activate`** (transactional):
+
 1. Re-run pre-flight checks server-side (defence-in-depth)
 2. Propagate `Organization.brandingDefaults → InvoiceTemplate`
 3. Seed one sample DRAFT report **plus** an accompanying sample Client (both `isSample = true`, FK linked) using the hydrated business profile so the report can be opened from the dashboard

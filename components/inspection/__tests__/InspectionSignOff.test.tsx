@@ -18,7 +18,10 @@ beforeEach(() => {
   fetchMock.mockReset();
   // Default: no recent Authorisation
   fetchMock.mockImplementation((url) => {
-    if (typeof url === "string" && url.includes("/api/authorisations/most-recent")) {
+    if (
+      typeof url === "string" &&
+      url.includes("/api/authorisations/most-recent")
+    ) {
       return Promise.resolve({ json: async () => ({ row: null }) });
     }
     return Promise.resolve({ ok: true, json: async () => ({}) });
@@ -45,7 +48,9 @@ describe("InspectionSignOff state machine", () => {
 
   it("click Sign Inspection in State A opens licence modal", async () => {
     render(<InspectionSignOff {...props} />);
-    await waitFor(() => screen.getByRole("button", { name: /Sign Inspection/ }));
+    await waitFor(() =>
+      screen.getByRole("button", { name: /Sign Inspection/ }),
+    );
     fireEvent.click(screen.getByRole("button", { name: /Sign Inspection/ }));
     await waitFor(() => {
       expect(screen.getByText(/Add your credentials/i)).toBeInTheDocument();
@@ -54,16 +59,28 @@ describe("InspectionSignOff state machine", () => {
 
   it("modal confirm advances to State C: form visible, signatoryName prefilled", async () => {
     fetchMock.mockImplementation((url) => {
-      if (typeof url === "string" && url.includes("/api/authorisations/most-recent")) {
+      if (
+        typeof url === "string" &&
+        url.includes("/api/authorisations/most-recent")
+      ) {
         return Promise.resolve({ json: async () => ({ row: null }) });
       }
-      if (typeof url === "string" && url.includes("/api/authorisations") && !url.includes("most-recent")) {
-        return Promise.resolve({ ok: true, json: async () => ({ ok: true, authorisationId: "auth_1" }) });
+      if (
+        typeof url === "string" &&
+        url.includes("/api/authorisations") &&
+        !url.includes("most-recent")
+      ) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ ok: true, authorisationId: "auth_1" }),
+        });
       }
       return Promise.resolve({ ok: true, json: async () => ({}) });
     });
     render(<InspectionSignOff {...props} />);
-    await waitFor(() => screen.getByRole("button", { name: /Sign Inspection/ }));
+    await waitFor(() =>
+      screen.getByRole("button", { name: /Sign Inspection/ }),
+    );
     fireEvent.click(screen.getByRole("button", { name: /Sign Inspection/ }));
     await waitFor(() => screen.getByText(/Add your credentials/i));
     fireEvent.change(screen.getByLabelText(/IICRC certificate number/i), {
@@ -72,7 +89,9 @@ describe("InspectionSignOff state machine", () => {
     fireEvent.change(screen.getByLabelText(/WHS card/i), {
       target: { value: "WHS-1" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /Verify and continue/ }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Verify and continue/ }),
+    );
     await waitFor(() => {
       expect(screen.getByDisplayValue("Jamie Tradie")).toBeInTheDocument();
     });
@@ -80,7 +99,10 @@ describe("InspectionSignOff state machine", () => {
 
   it("State C: Confirm sign-off disabled until confirmed checkbox checked", async () => {
     fetchMock.mockImplementation((url) => {
-      if (typeof url === "string" && url.includes("/api/authorisations/most-recent")) {
+      if (
+        typeof url === "string" &&
+        url.includes("/api/authorisations/most-recent")
+      ) {
         return Promise.resolve({
           json: async () => ({
             row: {
@@ -103,7 +125,10 @@ describe("InspectionSignOff state machine", () => {
 
   it("recent Authorisation on mount opens directly at State C (skip modal)", async () => {
     fetchMock.mockImplementation((url) => {
-      if (typeof url === "string" && url.includes("/api/authorisations/most-recent")) {
+      if (
+        typeof url === "string" &&
+        url.includes("/api/authorisations/most-recent")
+      ) {
         return Promise.resolve({
           json: async () => ({
             row: {
@@ -123,19 +148,26 @@ describe("InspectionSignOff state machine", () => {
 
   it("modal cancel reverts to State A", async () => {
     render(<InspectionSignOff {...props} />);
-    await waitFor(() => screen.getByRole("button", { name: /Sign Inspection/ }));
+    await waitFor(() =>
+      screen.getByRole("button", { name: /Sign Inspection/ }),
+    );
     fireEvent.click(screen.getByRole("button", { name: /Sign Inspection/ }));
     await waitFor(() => screen.getByText(/Add your credentials/i));
     fireEvent.keyDown(document.body, { key: "Escape" });
     await waitFor(() => {
-      expect(screen.queryByText(/Add your credentials/i)).not.toBeInTheDocument();
+      expect(
+        screen.queryByText(/Add your credentials/i),
+      ).not.toBeInTheDocument();
     });
     expect(screen.queryByLabelText(/Full name/i)).not.toBeInTheDocument();
   });
 
   it("submit POSTs sign and calls onSigned", async () => {
     fetchMock.mockImplementation((url) => {
-      if (typeof url === "string" && url.includes("/api/authorisations/most-recent")) {
+      if (
+        typeof url === "string" &&
+        url.includes("/api/authorisations/most-recent")
+      ) {
         return Promise.resolve({
           json: async () => ({
             row: {

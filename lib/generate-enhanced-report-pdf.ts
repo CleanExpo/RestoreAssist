@@ -27,7 +27,7 @@ export async function generateEnhancedReportPDF(
   const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
   let currentPage = page;
-  let yPosition = height - 50;
+  let yPosition: number;
   const margin = 50;
   const lineHeight = 16;
   const sectionSpacing = 20;
@@ -405,8 +405,6 @@ export async function generateEnhancedReportPDF(
         signatureY -= 14;
       }
     });
-
-    yPosition = signatureY;
   }
 
   // Add footer to all pages

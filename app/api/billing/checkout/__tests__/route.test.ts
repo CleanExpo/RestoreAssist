@@ -6,12 +6,10 @@ vi.mock("stripe", () => {
   const ctor = vi.fn().mockImplementation(() => ({
     checkout: {
       sessions: {
-        create: vi
-          .fn()
-          .mockResolvedValue({
-            id: "cs_test_123",
-            url: "https://stripe.test/cs_123",
-          }),
+        create: vi.fn().mockResolvedValue({
+          id: "cs_test_123",
+          url: "https://stripe.test/cs_123",
+        }),
       },
     },
     customers: {

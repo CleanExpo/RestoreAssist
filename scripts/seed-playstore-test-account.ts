@@ -145,7 +145,9 @@ async function main() {
 
   // ── 4. Client ──────────────────────────────────────────────────────────────
   const client = await prisma.client.upsert({
-    where: { userId_email: { userId: user.id, email: "claims@demo-insurance.example" } },
+    where: {
+      userId_email: { userId: user.id, email: "claims@demo-insurance.example" },
+    },
     create: {
       userId: user.id,
       name: CLIENT_NAME,
@@ -213,10 +215,34 @@ async function main() {
     where: { inspectionId: inspection.id },
   });
   const readings = [
-    { location: "Living Room - Wall A", surfaceType: "drywall", moistureLevel: 32.5, depth: "Surface", isBaseline: false },
-    { location: "Living Room - Floor", surfaceType: "carpet", moistureLevel: 45.8, depth: "Surface", isBaseline: false },
-    { location: "Kitchen - Wall B", surfaceType: "drywall", moistureLevel: 18.2, depth: "Surface", isBaseline: false },
-    { location: "Hallway - Reference", surfaceType: "drywall", moistureLevel: 8.4, depth: "Surface", isBaseline: true },
+    {
+      location: "Living Room - Wall A",
+      surfaceType: "drywall",
+      moistureLevel: 32.5,
+      depth: "Surface",
+      isBaseline: false,
+    },
+    {
+      location: "Living Room - Floor",
+      surfaceType: "carpet",
+      moistureLevel: 45.8,
+      depth: "Surface",
+      isBaseline: false,
+    },
+    {
+      location: "Kitchen - Wall B",
+      surfaceType: "drywall",
+      moistureLevel: 18.2,
+      depth: "Surface",
+      isBaseline: false,
+    },
+    {
+      location: "Hallway - Reference",
+      surfaceType: "drywall",
+      moistureLevel: 8.4,
+      depth: "Surface",
+      isBaseline: true,
+    },
   ];
   for (const r of readings) {
     await prisma.moistureReading.create({

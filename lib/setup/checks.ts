@@ -493,7 +493,7 @@ const welcomeEmailCheck: Check = async () => {
   const fromDomain =
     extractFromDomain(process.env.RESEND_FROM_EMAIL) ?? "restoreassist.app";
 
-  let body: { data?: ResendDomain[] } | null = null;
+  let body: { data?: ResendDomain[] } | null;
   try {
     const res = await fetch("https://api.resend.com/domains", {
       method: "GET",

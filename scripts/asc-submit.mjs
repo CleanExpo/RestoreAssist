@@ -31,7 +31,11 @@ console.log("[asc] launching Chrome...");
 const browser = await chromium.launchPersistentContext(PROFILE, {
   channel: "chrome",
   headless: false,
-  args: ["--no-sandbox", "--disable-dev-shm-usage", "--profile-directory=Default"],
+  args: [
+    "--no-sandbox",
+    "--disable-dev-shm-usage",
+    "--profile-directory=Default",
+  ],
   viewport: { width: 1440, height: 900 },
 });
 
@@ -48,8 +52,14 @@ await screenshot(page, "01-landing");
 console.log("[asc] URL:", page.url());
 
 // Handle Apple ID login if needed
-if (page.url().includes("appleid") || page.url().includes("signin") || page.url().includes("auth")) {
-  console.log("[asc] Apple ID sign-in detected — waiting up to 60s for manual login...");
+if (
+  page.url().includes("appleid") ||
+  page.url().includes("signin") ||
+  page.url().includes("auth")
+) {
+  console.log(
+    "[asc] Apple ID sign-in detected — waiting up to 60s for manual login...",
+  );
   await page.waitForURL("**/appstoreconnect.apple.com/**", { timeout: 60000 });
   await page.waitForTimeout(3000);
 }
@@ -57,15 +67,17 @@ await screenshot(page, "02-apps-list");
 
 // ── 2. Find RestoreAssist ──────────────────────────────────────────────────────
 console.log("[asc] looking for RestoreAssist...");
-const appLink = page.locator('text=RestoreAssist').first();
+const appLink = page.locator("text=RestoreAssist").first();
 if (await appLink.isVisible({ timeout: 10000 })) {
   await appLink.click();
   await page.waitForTimeout(3000);
 } else {
   // Try direct navigation
-  await page.goto("https://appstoreconnect.apple.com/apps", { waitUntil: "networkidle" });
+  await page.goto("https://appstoreconnect.apple.com/apps", {
+    waitUntil: "networkidle",
+  });
   await page.waitForTimeout(2000);
-  const links = await page.locator('a').all();
+  const links = await page.locator("a").all();
   for (const link of links) {
     const text = await link.textContent().catch(() => "");
     if (text?.includes("RestoreAssist")) {
@@ -81,7 +93,9 @@ console.log("[asc] URL:", page.url());
 // ── 3. Navigate to iOS version / Prepare for Submission ───────────────────────
 console.log("[asc] navigating to iOS app version...");
 // Look for the version link (1.0 Prepare for Submission or similar)
-const versionLink = page.locator('text=Prepare for Submission, text=1.0, a[href*="version"]').first();
+const versionLink = page
+  .locator('text=Prepare for Submission, text=1.0, a[href*="version"]')
+  .first();
 if (await versionLink.isVisible({ timeout: 8000 })) {
   await versionLink.click();
   await page.waitForTimeout(3000);
@@ -90,13 +104,21 @@ await screenshot(page, "04-version");
 console.log("[asc] URL:", page.url());
 
 // If still in review, click Remove from Review
-const removeBtn = page.locator('button:has-text("Remove from Review"), a:has-text("Remove from Review")').first();
+const removeBtn = page
+  .locator(
+    'button:has-text("Remove from Review"), a:has-text("Remove from Review")',
+  )
+  .first();
 if (await removeBtn.isVisible({ timeout: 5000 })) {
   console.log("[asc] removing from review...");
   await removeBtn.click();
   await page.waitForTimeout(2000);
   // Confirm dialog if it appears
-  const confirmBtn = page.locator('button:has-text("Remove"), button:has-text("Confirm"), button:has-text("OK")').first();
+  const confirmBtn = page
+    .locator(
+      'button:has-text("Remove"), button:has-text("Confirm"), button:has-text("OK")',
+    )
+    .first();
   if (await confirmBtn.isVisible({ timeout: 3000 })) {
     await confirmBtn.click();
     await page.waitForTimeout(3000);
@@ -110,7 +132,11 @@ console.log("[asc] looking for build selector...");
 await screenshot(page, "06-before-build-change");
 
 // Find and click the minus button next to the current build
-const minusBtn = page.locator('[aria-label="Remove Build"], button[class*="remove"][class*="build"], .build-remove, button:near(:text("1.0 (7)"))').first();
+const minusBtn = page
+  .locator(
+    '[aria-label="Remove Build"], button[class*="remove"][class*="build"], .build-remove, button:near(:text("1.0 (7)"))',
+  )
+  .first();
 if (await minusBtn.isVisible({ timeout: 5000 })) {
   console.log("[asc] removing build 7...");
   await minusBtn.click();
@@ -118,18 +144,24 @@ if (await minusBtn.isVisible({ timeout: 5000 })) {
 }
 
 // Click + to add a build
-const addBuildBtn = page.locator('button[aria-label*="Add Build"], button:has-text("+ Add"), a:has-text("Add Build"), button[class*="add-build"]').first();
+const addBuildBtn = page
+  .locator(
+    'button[aria-label*="Add Build"], button:has-text("+ Add"), a:has-text("Add Build"), button[class*="add-build"]',
+  )
+  .first();
 if (await addBuildBtn.isVisible({ timeout: 5000 })) {
   console.log("[asc] clicking add build...");
   await addBuildBtn.click();
   await page.waitForTimeout(3000);
   // Select build 10
-  const build10 = page.locator('text=1.0 (10)').first();
+  const build10 = page.locator("text=1.0 (10)").first();
   if (await build10.isVisible({ timeout: 5000 })) {
     console.log("[asc] selecting build 10...");
     await build10.click();
     await page.waitForTimeout(1000);
-    const doneBtn = page.locator('button:has-text("Done"), button:has-text("Select")').first();
+    const doneBtn = page
+      .locator('button:has-text("Done"), button:has-text("Select")')
+      .first();
     if (await doneBtn.isVisible({ timeout: 3000 })) {
       await doneBtn.click();
       await page.waitForTimeout(2000);
@@ -140,12 +172,18 @@ await screenshot(page, "07-after-build-change");
 
 // ── 5. Update reviewer sign-in credentials ────────────────────────────────────
 console.log("[asc] updating reviewer credentials...");
-const emailField = page.locator('input[placeholder*="Username"], input[placeholder*="Email"], label:has-text("User Name") + input').first();
+const emailField = page
+  .locator(
+    'input[placeholder*="Username"], input[placeholder*="Email"], label:has-text("User Name") + input',
+  )
+  .first();
 if (await emailField.isVisible({ timeout: 5000 })) {
   await emailField.triple_click();
   await emailField.fill(REVIEWER_EMAIL);
 }
-const passwordField = page.locator('input[placeholder*="Password"], label:has-text("Password") + input').first();
+const passwordField = page
+  .locator('input[placeholder*="Password"], label:has-text("Password") + input')
+  .first();
 if (await passwordField.isVisible({ timeout: 5000 })) {
   await passwordField.triple_click();
   await passwordField.fill(REVIEWER_PASSWORD);
@@ -154,7 +192,11 @@ await screenshot(page, "08-reviewer-creds");
 
 // ── 6. Update review notes ────────────────────────────────────────────────────
 console.log("[asc] updating review notes...");
-const notesField = page.locator('textarea[placeholder*="Notes"], label:has-text("Notes") + textarea, #notes').first();
+const notesField = page
+  .locator(
+    'textarea[placeholder*="Notes"], label:has-text("Notes") + textarea, #notes',
+  )
+  .first();
 if (await notesField.isVisible({ timeout: 5000 })) {
   await notesField.click();
   await page.keyboard.selectAll();
@@ -173,12 +215,18 @@ await screenshot(page, "10-saved");
 
 // ── 8. Submit for Review ──────────────────────────────────────────────────────
 console.log("[asc] submitting for review...");
-const submitBtn = page.locator('button:has-text("Submit for Review"), button:has-text("Add for Review")').first();
+const submitBtn = page
+  .locator(
+    'button:has-text("Submit for Review"), button:has-text("Add for Review")',
+  )
+  .first();
 if (await submitBtn.isVisible({ timeout: 8000 })) {
   await submitBtn.click();
   await page.waitForTimeout(3000);
   // Handle any confirmation dialog
-  const confirmSubmit = page.locator('button:has-text("Submit"), button:has-text("Confirm")').first();
+  const confirmSubmit = page
+    .locator('button:has-text("Submit"), button:has-text("Confirm")')
+    .first();
   if (await confirmSubmit.isVisible({ timeout: 3000 })) {
     await confirmSubmit.click();
     await page.waitForTimeout(3000);

@@ -22,26 +22,26 @@ When Phill approves the brainstorm-processed packs, implementation kicks off wit
 
 ### ALREADY EXISTS (do NOT re-scaffold)
 
-| Spec-promised primitive | Existing precedent |
-|---|---|
-| `TeacherSession` Prisma model | `LiveTeacherSession` @ `prisma/schema.prisma:6090-6110` |
-| `TeacherTurnRecord` Prisma model | `TeacherUtterance` @ `prisma/schema.prisma:6112-6127` |
-| Tool-call tracking model | `TeacherToolCall` @ `prisma/schema.prisma:6129-6143` |
-| `User.liveTeacherSessions` relation | `prisma/schema.prisma:1963` |
-| BYOK storage export (Sidekick → BYOK) | `exportClosedJobToBYOKStorage()` @ `lib/queue/exportClosedJobToBYOKStorage.ts` |
-| Storage dispatcher | `getStorageProvider()` @ `lib/storage/index.ts` |
-| Help types/schema | `lib/help/types.ts` + `lib/help/frontmatter-schema.ts` |
-| Help MDX loader | `lib/help/load-article.ts` |
-| Offline job cache | `lib/offline/job-cache.ts` |
-| Offline inspection store | `lib/offline/inspection-store.ts` |
-| Lifecycle hook framework (credit deduction + BYOK override) | `lib/ai/lifecycle/_shared.ts:58-137` |
-| AuditLog model | `prisma/schema.prisma:2799-2829` (ready for `AI_SIDEKICK_*` actions) |
-| Shadcn Sheet component | `components/ui/sheet.tsx` (139 lines) |
-| Live-teacher router | `lib/live-teacher/router.ts` |
-| Live-teacher context engine | `lib/live-teacher/context-engine.ts` |
-| Claude cloud client | `lib/live-teacher/claude-cloud.ts` (TODO at :188 — ready for tool definitions) |
-| Tool registry | `lib/live-teacher/tools/index.ts` |
-| 6 existing tools | take-reading, capture-photo, start-lidar-scan, fill-scope-item, flag-whs-hazard, check-report-gaps |
+| Spec-promised primitive                                     | Existing precedent                                                                                 |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `TeacherSession` Prisma model                               | `LiveTeacherSession` @ `prisma/schema.prisma:6090-6110`                                            |
+| `TeacherTurnRecord` Prisma model                            | `TeacherUtterance` @ `prisma/schema.prisma:6112-6127`                                              |
+| Tool-call tracking model                                    | `TeacherToolCall` @ `prisma/schema.prisma:6129-6143`                                               |
+| `User.liveTeacherSessions` relation                         | `prisma/schema.prisma:1963`                                                                        |
+| BYOK storage export (Sidekick → BYOK)                       | `exportClosedJobToBYOKStorage()` @ `lib/queue/exportClosedJobToBYOKStorage.ts`                     |
+| Storage dispatcher                                          | `getStorageProvider()` @ `lib/storage/index.ts`                                                    |
+| Help types/schema                                           | `lib/help/types.ts` + `lib/help/frontmatter-schema.ts`                                             |
+| Help MDX loader                                             | `lib/help/load-article.ts`                                                                         |
+| Offline job cache                                           | `lib/offline/job-cache.ts`                                                                         |
+| Offline inspection store                                    | `lib/offline/inspection-store.ts`                                                                  |
+| Lifecycle hook framework (credit deduction + BYOK override) | `lib/ai/lifecycle/_shared.ts:58-137`                                                               |
+| AuditLog model                                              | `prisma/schema.prisma:2799-2829` (ready for `AI_SIDEKICK_*` actions)                               |
+| Shadcn Sheet component                                      | `components/ui/sheet.tsx` (139 lines)                                                              |
+| Live-teacher router                                         | `lib/live-teacher/router.ts`                                                                       |
+| Live-teacher context engine                                 | `lib/live-teacher/context-engine.ts`                                                               |
+| Claude cloud client                                         | `lib/live-teacher/claude-cloud.ts` (TODO at :188 — ready for tool definitions)                     |
+| Tool registry                                               | `lib/live-teacher/tools/index.ts`                                                                  |
+| 6 existing tools                                            | take-reading, capture-photo, start-lidar-scan, fill-scope-item, flag-whs-hazard, check-report-gaps |
 
 ### TO CREATE (clean slate)
 
@@ -64,7 +64,7 @@ When Phill approves the brainstorm-processed packs, implementation kicks off wit
 
 ### SCHEMA NOTES
 
-**No duplication risk.** Brainstorm-processed already flagged the LiveTeacher* models; this confirms safe to extend.
+**No duplication risk.** Brainstorm-processed already flagged the LiveTeacher\* models; this confirms safe to extend.
 
 ---
 
@@ -75,14 +75,14 @@ When Phill approves the brainstorm-processed packs, implementation kicks off wit
 
 ### ALREADY EXISTS (do NOT re-scaffold)
 
-| Spec-promised primitive | Existing precedent |
-|---|---|
-| Resend SDK integration (singleton + 10 send functions) | `lib/email.ts:1-15` (all 10 hardcoded to `getResendClient()`) |
-| AES-256-GCM credential encryption | `lib/credential-vault.ts` (90 LOC) — `encrypt()` / `decrypt()` with multi-key fallback |
-| Provider abstraction pattern (mirror this) | `lib/storage/types.ts` (StorageProvider interface) + `lib/storage/index.ts` (factory) + 3 providers (`supabase-provider.ts`, `s3-provider.ts`, `google-drive-provider.ts`) |
-| Async queue + retry pattern (mirror this) | `lib/queue/storage-mirror.ts` (StorageMirrorJob model + cron + retry logic) |
-| Email HTML sanitization (CLAUDE.md rule 12) | `lib/email.ts:36-43` (`escapeHtml()` + `sanitiseEmailField()`) |
-| Organization model BYOK field pattern | `Organization.storageProvider` + `storageProviderRefreshToken` + `storageProviderAccessToken` |
+| Spec-promised primitive                                | Existing precedent                                                                                                                                                         |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Resend SDK integration (singleton + 10 send functions) | `lib/email.ts:1-15` (all 10 hardcoded to `getResendClient()`)                                                                                                              |
+| AES-256-GCM credential encryption                      | `lib/credential-vault.ts` (90 LOC) — `encrypt()` / `decrypt()` with multi-key fallback                                                                                     |
+| Provider abstraction pattern (mirror this)             | `lib/storage/types.ts` (StorageProvider interface) + `lib/storage/index.ts` (factory) + 3 providers (`supabase-provider.ts`, `s3-provider.ts`, `google-drive-provider.ts`) |
+| Async queue + retry pattern (mirror this)              | `lib/queue/storage-mirror.ts` (StorageMirrorJob model + cron + retry logic)                                                                                                |
+| Email HTML sanitization (CLAUDE.md rule 12)            | `lib/email.ts:36-43` (`escapeHtml()` + `sanitiseEmailField()`)                                                                                                             |
+| Organization model BYOK field pattern                  | `Organization.storageProvider` + `storageProviderRefreshToken` + `storageProviderAccessToken`                                                                              |
 
 ### TO CREATE (clean slate)
 
@@ -119,6 +119,7 @@ When Phill approves the brainstorm-processed packs, implementation kicks off wit
 ### CRITICAL DEPENDENCY
 
 `lib/email.ts` 10 send functions need `orgId` parameter on every call site. Trace via grep — particularly:
+
 - `app/api/team/invites/route.ts` (sendInviteEmail)
 - `app/api/authority-forms/[id]/send-completed/route.ts` (sendSignedFormEmail)
 - Stripe webhook routes (sendPaymentFailedEmail, etc.)
@@ -134,16 +135,16 @@ This refactor is the riskiest part of SP-6 implementation. Consider it the long 
 
 ### ALREADY EXISTS (do NOT re-scaffold)
 
-| Spec-promised primitive | Existing precedent |
-|---|---|
-| OpenAI `text-embedding-3-small` wiring | `lib/rag/embed.ts:1-38` — `embedText()`, `embedBatch()`, `EMBEDDING_MODEL = "text-embedding-3-small"`, 1536 dims |
-| pgvector extension | `prisma/schema.prisma:18` — `extensions = [pgvector(map: "vector")]` |
-| `IicrcChunk` model precedent | `prisma/schema.prisma:5777-5793` — separate table with embedding, section, heading, contentHash, pgvector HNSW index pattern (Q1+Q3 precedent) |
-| `StandardsChunk` model precedent | `prisma/schema.prisma:6145-6157` — embedding column planned at :6153, not yet migrated; parallel domain |
-| IICRC retrieval API | `lib/rag/retrieve.ts:24-52` — `retrieveChunks(query, k=5, standard?)` with cosine `<=>` SQL + `formatChunksAsContext()` |
-| IICRC ingester template | `scripts/ingest-iicrc.ts:1-135+` — chunking, `embedBatch()`, contentHash upsert by SHA-256, raw SQL INSERT |
-| AI usage logging | `lib/usage/log-usage.ts:1-124` — `logAiUsage()`, fire-and-forget, embedding cost trackable |
-| Similar-jobs retrieval pattern | `lib/ai/rag-context.ts:116+` — `retrieveSimilarJobs()`, pgvector cosine search + threshold filtering |
+| Spec-promised primitive                | Existing precedent                                                                                                                             |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| OpenAI `text-embedding-3-small` wiring | `lib/rag/embed.ts:1-38` — `embedText()`, `embedBatch()`, `EMBEDDING_MODEL = "text-embedding-3-small"`, 1536 dims                               |
+| pgvector extension                     | `prisma/schema.prisma:18` — `extensions = [pgvector(map: "vector")]`                                                                           |
+| `IicrcChunk` model precedent           | `prisma/schema.prisma:5777-5793` — separate table with embedding, section, heading, contentHash, pgvector HNSW index pattern (Q1+Q3 precedent) |
+| `StandardsChunk` model precedent       | `prisma/schema.prisma:6145-6157` — embedding column planned at :6153, not yet migrated; parallel domain                                        |
+| IICRC retrieval API                    | `lib/rag/retrieve.ts:24-52` — `retrieveChunks(query, k=5, standard?)` with cosine `<=>` SQL + `formatChunksAsContext()`                        |
+| IICRC ingester template                | `scripts/ingest-iicrc.ts:1-135+` — chunking, `embedBatch()`, contentHash upsert by SHA-256, raw SQL INSERT                                     |
+| AI usage logging                       | `lib/usage/log-usage.ts:1-124` — `logAiUsage()`, fire-and-forget, embedding cost trackable                                                     |
+| Similar-jobs retrieval pattern         | `lib/ai/rag-context.ts:116+` — `retrieveSimilarJobs()`, pgvector cosine search + threshold filtering                                           |
 
 ### TO CREATE (clean slate)
 
@@ -173,6 +174,7 @@ Given dependencies:
 3. **SP-6 third** (email BYOK) — independent of SP-G + SP-H; ship in parallel if capacity allows, but its scope (10-function refactor) is the long pole
 
 If running 3 implementation tracks in parallel, dispatch order:
+
 - Track A: SP-H (~1 week — Prisma model + retrieve API + Python ingester extension)
 - Track B: SP-G (~2 weeks — 8 new components + 3 new tools + tool-registry wiring; **gated on Track A's `retrieve()` API**)
 - Track C: SP-6 (~2 weeks — 9 new files + 10-function refactor; independent)

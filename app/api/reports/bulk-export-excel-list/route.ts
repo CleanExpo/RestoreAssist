@@ -69,85 +69,83 @@ export async function POST(request: NextRequest) {
 
     // If zip is requested, create a zip file
     if (zip) {
-      return new Promise<NextResponse>(async (resolve, reject) => {
-        try {
-          const archive = archiver("zip", { zlib: { level: 9 } });
-          const buffers: Buffer[] = [];
+      const archive = archiver("zip", { zlib: { level: 9 } });
+      const buffers: Buffer[] = [];
 
-          archive.on("data", (chunk: Buffer) => {
-            buffers.push(chunk);
-          });
-
-          archive.on("end", () => {
-            const zipBuffer = Buffer.concat(buffers);
-            resolve(
-              new NextResponse(zipBuffer, {
-                status: 200,
-                headers: {
-                  "Content-Type": "application/zip",
-                  "Content-Disposition": `attachment; filename="Excel_Reports_${new Date().toISOString().split("T")[0]}.zip"`,
-                  "Content-Length": zipBuffer.length.toString(),
-                },
-              }),
-            );
-          });
-
-          archive.on("error", (err) => {
-            reject(err);
-          });
-
-          // Download and add each Excel file to the zip (one by one from Cloudinary)
-          // RA-1344: only refetch from allowlisted hosts (Cloudinary) to prevent
-          // server-side fetch of internal URLs via attacker-controlled excelReportUrl.
-          const isAllowedExportUrl = (u: string): boolean => {
-            try {
-              const parsed = new URL(u);
-              return (
-                parsed.protocol === "https:" &&
-                parsed.hostname === "res.cloudinary.com"
-              );
-            } catch {
-              return false;
-            }
-          };
-          for (const report of reports) {
-            if (report.excelReportUrl) {
-              if (!isAllowedExportUrl(report.excelReportUrl)) {
-                console.error(
-                  `[Bulk Excel Export] ✗ Rejected non-allowlisted URL for report ${report.id}`,
-                );
-                continue;
-              }
-              try {
-                const response = await fetch(report.excelReportUrl);
-
-                if (response.ok) {
-                  const buffer = Buffer.from(await response.arrayBuffer());
-                  const filename = `${report.reportNumber || report.id}.xlsx`;
-                  archive.append(buffer, { name: filename });
-                } else {
-                  console.error(
-                    `[Bulk Excel Export] ✗ Failed to download Excel for report ${report.id}: HTTP ${response.status}`,
-                  );
-                }
-              } catch (error) {
-                console.error(
-                  `[Bulk Excel Export] ✗ Error downloading Excel for report ${report.id}:`,
-                  error,
-                );
-              }
-            } else {
-              console.warn(
-                `[Bulk Excel Export] Report ${report.id} has no Excel URL`,
-              );
-            }
-          }
-
-          await archive.finalize();
-        } catch (error) {
-          reject(error);
-        }
+      archive.on("data", (chunk: Buffer) => {
+        buffers.push(chunk);
       });
+
+      // Promise constructor stays sync — async work is awaited below it.
+      const archivePromise = new Promise<NextResponse>((resolve, reject) => {
+        archive.on("end", () => {
+          const zipBuffer = Buffer.concat(buffers);
+          resolve(
+            new NextResponse(zipBuffer, {
+              status: 200,
+              headers: {
+                "Content-Type": "application/zip",
+                "Content-Disposition": `attachment; filename="Excel_Reports_${new Date().toISOString().split("T")[0]}.zip"`,
+                "Content-Length": zipBuffer.length.toString(),
+              },
+            }),
+          );
+        });
+
+        archive.on("error", (err) => {
+          reject(err);
+        });
+      });
+
+      // Download and add each Excel file to the zip (one by one from Cloudinary)
+      // RA-1344: only refetch from allowlisted hosts (Cloudinary) to prevent
+      // server-side fetch of internal URLs via attacker-controlled excelReportUrl.
+      const isAllowedExportUrl = (u: string): boolean => {
+        try {
+          const parsed = new URL(u);
+          return (
+            parsed.protocol === "https:" &&
+            parsed.hostname === "res.cloudinary.com"
+          );
+        } catch {
+          return false;
+        }
+      };
+      for (const report of reports) {
+        if (report.excelReportUrl) {
+          if (!isAllowedExportUrl(report.excelReportUrl)) {
+            console.error(
+              `[Bulk Excel Export] ✗ Rejected non-allowlisted URL for report ${report.id}`,
+            );
+            continue;
+          }
+          try {
+            const response = await fetch(report.excelReportUrl);
+
+            if (response.ok) {
+              const buffer = Buffer.from(await response.arrayBuffer());
+              const filename = `${report.reportNumber || report.id}.xlsx`;
+              archive.append(buffer, { name: filename });
+            } else {
+              console.error(
+                `[Bulk Excel Export] ✗ Failed to download Excel for report ${report.id}: HTTP ${response.status}`,
+              );
+            }
+          } catch (error) {
+            console.error(
+              `[Bulk Excel Export] ✗ Error downloading Excel for report ${report.id}:`,
+              error,
+            );
+          }
+        } else {
+          console.warn(
+            `[Bulk Excel Export] Report ${report.id} has no Excel URL`,
+          );
+        }
+      }
+
+      await archive.finalize();
+      return archivePromise;
     }
 
     // Return list of Excel URLs

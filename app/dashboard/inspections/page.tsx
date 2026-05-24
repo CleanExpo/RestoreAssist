@@ -320,7 +320,10 @@ export default function InspectionsPage() {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
-            <label htmlFor="inspections-date-from" className="text-xs font-medium text-neutral-500 dark:text-slate-400 whitespace-nowrap">
+            <label
+              htmlFor="inspections-date-from"
+              className="text-xs font-medium text-neutral-500 dark:text-slate-400 whitespace-nowrap"
+            >
               From
             </label>
             <input
@@ -332,7 +335,10 @@ export default function InspectionsPage() {
             />
           </div>
           <div className="flex items-center gap-2">
-            <label htmlFor="inspections-date-to" className="text-xs font-medium text-neutral-500 dark:text-slate-400 whitespace-nowrap">
+            <label
+              htmlFor="inspections-date-to"
+              className="text-xs font-medium text-neutral-500 dark:text-slate-400 whitespace-nowrap"
+            >
               To
             </label>
             <input
@@ -408,7 +414,9 @@ export default function InspectionsPage() {
       {/* Fetch error */}
       {fetchError && !loading && (
         <div className="flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-300">
-          <span className="text-sm">Failed to load inspections — {fetchError}</span>
+          <span className="text-sm">
+            Failed to load inspections — {fetchError}
+          </span>
           <button
             type="button"
             onClick={refetchInspections}

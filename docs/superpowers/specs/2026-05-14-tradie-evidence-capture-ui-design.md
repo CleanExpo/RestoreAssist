@@ -112,15 +112,15 @@ Tap FAB on /dashboard/inspections/[id]
 
 ### CLAUDE.md rule coverage
 
-| Rule | Coverage |
-|---|---|
-| 1 — getServerSession on every route | photo route + authorisations route already gated |
-| 4 — explicit Prisma select + take | photo write uses `select: { id, url, thumbnailUrl }` |
-| 7 — no error.message in 500s | upload errors return generic 502; Cloudinary error logged server-side |
-| 11 — magic-byte validation | new server check on photo POST |
-| 21 — chain-of-custody hashing | cocoa* columns populated per photo |
-| 25 — Junior Tech evidence-only | FAB renders for USER role; photo capture never gates on licence modal |
-| 28 — engagement-time licence verification | Seam D refactor moves licence-verify before sign-off act |
+| Rule                                      | Coverage                                                              |
+| ----------------------------------------- | --------------------------------------------------------------------- |
+| 1 — getServerSession on every route       | photo route + authorisations route already gated                      |
+| 4 — explicit Prisma select + take         | photo write uses `select: { id, url, thumbnailUrl }`                  |
+| 7 — no error.message in 500s              | upload errors return generic 502; Cloudinary error logged server-side |
+| 11 — magic-byte validation                | new server check on photo POST                                        |
+| 21 — chain-of-custody hashing             | cocoa\* columns populated per photo                                   |
+| 25 — Junior Tech evidence-only            | FAB renders for USER role; photo capture never gates on licence modal |
+| 28 — engagement-time licence verification | Seam D refactor moves licence-verify before sign-off act              |
 
 ---
 
@@ -144,7 +144,13 @@ interface FirstRunChecklistResponse {
   allComplete: boolean;
   completedCount: number;
   totalCount: number;
-  steps: Array<{ id: string; title: string; description: string; href: string; completed: boolean }>;
+  steps: Array<{
+    id: string;
+    title: string;
+    description: string;
+    href: string;
+    completed: boolean;
+  }>;
 }
 
 export function TechLicenceBanner() {
@@ -166,18 +172,29 @@ export function TechLicenceBanner() {
     <div className="border border-[#1C2E47]/30 bg-[#1C2E47]/8 rounded-lg p-4 mb-6 flex items-center gap-4">
       <div className="text-2xl">📋</div>
       <div className="flex-1">
-        <p className="font-semibold text-sm">Add your credentials to unlock attestations</p>
-        <p className="text-xs text-muted-foreground">IICRC certificate · WHS White Card · State licence — takes a minute</p>
+        <p className="font-semibold text-sm">
+          Add your credentials to unlock attestations
+        </p>
+        <p className="text-xs text-muted-foreground">
+          IICRC certificate · WHS White Card · State licence — takes a minute
+        </p>
         <div className="flex gap-2 mt-2">
           {data.steps.map((s) => (
-            <span key={s.id} className="text-[10px] px-2 py-0.5 border rounded-full">
-              {s.title.replace(/^Add your /, "")} {s.completed ? "✓" : "pending"}
+            <span
+              key={s.id}
+              className="text-[10px] px-2 py-0.5 border rounded-full"
+            >
+              {s.title.replace(/^Add your /, "")}{" "}
+              {s.completed ? "✓" : "pending"}
             </span>
           ))}
         </div>
       </div>
       <Link
-        href={data.steps.find((s) => !s.completed)?.href ?? "/dashboard/settings/credentials"}
+        href={
+          data.steps.find((s) => !s.completed)?.href ??
+          "/dashboard/settings/credentials"
+        }
         className="bg-[#1C2E47] text-white px-4 py-2 rounded-md text-sm font-medium"
       >
         Add credentials →
@@ -219,12 +236,12 @@ return (
 
 ### State machine
 
-| State | Button | Form fields | Trigger out |
-|---|---|---|---|
-| **A — Initial** | "Sign Inspection" enabled | hidden | click → B |
-| **B — Modal open** | spinner | hidden | modal cancel → A; modal confirm → C |
-| **C — Form unlocked** | "Confirm sign-off" (enabled when form valid) | `signatoryName` prefilled from `session.user.name`, `confirmed` checkbox required | submit → D |
-| **D — Submitted** | success state (existing) | readonly summary | — |
+| State                 | Button                                       | Form fields                                                                       | Trigger out                         |
+| --------------------- | -------------------------------------------- | --------------------------------------------------------------------------------- | ----------------------------------- |
+| **A — Initial**       | "Sign Inspection" enabled                    | hidden                                                                            | click → B                           |
+| **B — Modal open**    | spinner                                      | hidden                                                                            | modal cancel → A; modal confirm → C |
+| **C — Form unlocked** | "Confirm sign-off" (enabled when form valid) | `signatoryName` prefilled from `session.user.name`, `confirmed` checkbox required | submit → D                          |
+| **D — Submitted**     | success state (existing)                     | readonly summary                                                                  | —                                   |
 
 ### Edge cases
 
@@ -249,7 +266,11 @@ useEffect(() => {
   fetch("/api/authorisations/most-recent")
     .then((r) => r.json())
     .then((data) => {
-      if (data.row && Date.now() - new Date(data.row.verifiedAt).getTime() < 90 * 24 * 60 * 60 * 1000) {
+      if (
+        data.row &&
+        Date.now() - new Date(data.row.verifiedAt).getTime() <
+          90 * 24 * 60 * 60 * 1000
+      ) {
         setState("form-unlocked");
       }
     })
@@ -294,7 +315,7 @@ useEffect(() => {
 4. **NEW compute cocoaUserHash**: `sha256(session.user.id + ":" + (session.user.image ?? ""))` — client doesn't supply this.
 5. **NEW capture cocoaDeviceHint**: `req.headers.get("user-agent")?.slice(0, 200) ?? null`.
 6. Existing Cloudinary upload (uses `lib/cloudinary.ts` post-PR#1008 fix).
-7. Create `InspectionPhoto` row with all existing fields PLUS cocoa* fields.
+7. Create `InspectionPhoto` row with all existing fields PLUS cocoa\* fields.
 
 ### Schema migration
 
@@ -326,7 +347,7 @@ Additive only. Existing rows backfill to NULL. NIR report renderer flags `cocoaS
 - FAB renders on inspection detail page when status != COMPLETED
 - Tap → native camera opens (mobile) or file picker (desktop)
 - Tag modal shows GPS + SHA-256 + caption
-- Submit → photo appears in inspection's photo list, `InspectionPhoto` row has all four cocoa* fields populated
+- Submit → photo appears in inspection's photo list, `InspectionPhoto` row has all four cocoa\* fields populated
 - Photo capture NEVER opens the licence modal (rule 25 invariant)
 
 ### Out of scope for v1 (note for future cycles)
@@ -343,13 +364,13 @@ Additive only. Existing rows backfill to NULL. NIR report renderer flags `cocoaS
 
 ### Unit (Vitest) — ~27 new cases
 
-| Module | Cases |
-|---|---|
-| `TechLicenceBanner` | dismissed → null · tech steps → render · ADMIN/MANAGER steps → null · CTA href maps to first incomplete step |
+| Module                            | Cases                                                                                                                                                                                                                                                                                                                                             |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TechLicenceBanner`               | dismissed → null · tech steps → render · ADMIN/MANAGER steps → null · CTA href maps to first incomplete step                                                                                                                                                                                                                                      |
 | `InspectionSignOff` state machine | Initial A render (button enabled, form hidden) · click A → B opens modal · modal cancel B → A · modal confirm B → C unlocks form · State C `signatoryName` prefilled from session · State C submit disabled until `confirmed` checked · submit C → D · submit fails → stays in C with error · Authorisation < 90 days on mount → opens at State C |
-| `cocoa-client.ts` | SHA-256 of known input matches expected · GPS helper returns null on permission denied (no throw) · GPS helper times out at 10s |
-| `CapturePhotoFab` | renders only when status !== COMPLETED · hidden file input triggered on click · onChange opens tag modal |
-| `CapturePhotoTagModal` | preview renders · GPS readout shown when available · caption submits trimmed · cancel closes without POST · submit calls onUpload with full payload |
+| `cocoa-client.ts`                 | SHA-256 of known input matches expected · GPS helper returns null on permission denied (no throw) · GPS helper times out at 10s                                                                                                                                                                                                                   |
+| `CapturePhotoFab`                 | renders only when status !== COMPLETED · hidden file input triggered on click · onChange opens tag modal                                                                                                                                                                                                                                          |
+| `CapturePhotoTagModal`            | preview renders · GPS readout shown when available · caption submits trimmed · cancel closes without POST · submit calls onUpload with full payload                                                                                                                                                                                               |
 
 ### Integration (Vitest + Prisma) — 4 new cases
 
@@ -394,7 +415,7 @@ Additive only. Existing rows backfill to NULL. NIR report renderer flags `cocoaS
 
 - Render dashboard with TechLicenceBanner
 - Open EngagementLicenceModal + persist Authorisation row
-- Capture photos + persist InspectionPhoto rows with cocoa* fields
+- Capture photos + persist InspectionPhoto rows with cocoa\* fields
 - Sign off an inspection (no AI call involved)
 
 `USER` with 0 credits must still be **blocked** from any AI route. Existing model-router gate covers it; no new behavior here.
@@ -432,7 +453,7 @@ Pre-merge manual checklist:
 - `components/attestation/EngagementLicenceModal.tsx` — reused as-is from #989
 - `components/FirstRunChecklist.tsx` — sibling component, NOT modified
 - `app/api/onboarding/first-run/route.ts` — role-branched, NOT modified
-- `app/api/inspections/[id]/photos/route.ts` — extended for cocoa* fields
+- `app/api/inspections/[id]/photos/route.ts` — extended for cocoa\* fields
 - `app/api/inspections/[id]/sign/route.ts` — NOT modified
 - `app/api/authorisations/most-recent/route.ts` — read by InspectionSignOff for fresh-Authorisation check
 - `prisma/schema.prisma` — `InspectionPhoto` model edits

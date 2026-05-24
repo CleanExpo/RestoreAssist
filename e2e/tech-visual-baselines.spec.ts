@@ -16,11 +16,7 @@
  */
 
 import { test, expect } from "@playwright/test";
-import {
-  loginAs,
-  seedInspection,
-  seedAuthorisation,
-} from "./_helpers/auth";
+import { loginAs, seedInspection, seedAuthorisation } from "./_helpers/auth";
 
 // ── Viewport definitions ──────────────────────────────────────────────────────
 
@@ -48,7 +44,9 @@ for (const vp of VIEWPORTS) {
         page.getByText(/add your credentials to unlock attestations/i),
       ).toBeVisible({ timeout: 10_000 });
 
-      await expect(page).toHaveScreenshot(`dashboard-with-banner-${vp.name}.png`);
+      await expect(page).toHaveScreenshot(
+        `dashboard-with-banner-${vp.name}.png`,
+      );
     });
 
     // ── Surface 2: dashboard WITHOUT banner (Authorisation seeded < 90 days) ──
@@ -65,7 +63,9 @@ for (const vp of VIEWPORTS) {
         page.getByText(/add your credentials to unlock attestations/i),
       ).toHaveCount(0);
 
-      await expect(page).toHaveScreenshot(`dashboard-without-banner-${vp.name}.png`);
+      await expect(page).toHaveScreenshot(
+        `dashboard-without-banner-${vp.name}.png`,
+      );
     });
 
     // ── Surface 3: inspection detail with CapturePhotoFab (status DRAFT) ──────
@@ -102,12 +102,28 @@ for (const vp of VIEWPORTS) {
         mimeType: "image/jpeg",
         // Minimal valid JPEG: SOI + APP0 marker + EOI
         buffer: Buffer.from([
-          0xff, 0xd8, // SOI
-          0xff, 0xe0, 0x00, 0x10, // APP0 marker + length
-          0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, // "JFIF\0" version
-          0x01, 0x00, 0x00, 0x01, 0x00, 0x01, // density unit + pixel density
-          0x00, 0x00, // thumbnail size (0×0)
-          0xff, 0xd9, // EOI
+          0xff,
+          0xd8, // SOI
+          0xff,
+          0xe0,
+          0x00,
+          0x10, // APP0 marker + length
+          0x4a,
+          0x46,
+          0x49,
+          0x46,
+          0x00,
+          0x01, // "JFIF\0" version
+          0x01,
+          0x00,
+          0x00,
+          0x01,
+          0x00,
+          0x01, // density unit + pixel density
+          0x00,
+          0x00, // thumbnail size (0×0)
+          0xff,
+          0xd9, // EOI
         ]),
       });
 

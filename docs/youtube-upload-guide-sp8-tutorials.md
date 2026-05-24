@@ -15,6 +15,7 @@ Should be at: `https://studio.youtube.com/channel/<your-channel>/videos/upload`
 Source folder: `/Users/phill-mac/RestoreAssist/public/videos/help/`
 
 Files to upload:
+
 1. `help-billing.mp4` (7.8 MB · 75s)
 2. `help-clients-and-portal.mp4` (7.4 MB · 75s)
 3. `help-compliance.mp4` (7.8 MB · 75s)
@@ -27,70 +28,88 @@ YouTube accepts all 6 in parallel. Drag all at once.
 ## Step 3 — For EACH video, paste this metadata + set Unlisted
 
 ### Video 1 — `help-billing.mp4`
+
 - **Title:** `Billing and subscription on RestoreAssist`
 - **Description:**
+
   ```
   Where to view your invoices, change your card, upgrade or cancel your RestoreAssist subscription, and what each billing line item means. 75-second walkthrough.
 
   RestoreAssist is an Australian CRM for water-damage restoration tradies. Learn more at https://restoreassist.app
   ```
+
 - **Tags:** `restoreassist, water damage restoration, restoration crm, australia, billing, subscription, saas`
 - **Visibility:** `Unlisted`
 - **Category:** `Science & Technology` (or `Education`)
 - **Audience:** `No, it's not made for kids`
 
 ### Video 2 — `help-clients-and-portal.mp4`
+
 - **Title:** `Inviting clients to your Customer Portal`
 - **Description:**
+
   ```
   Send your insurance-claim customer a branded portal link so they can see process explainers, claim walkthroughs, and policy terminology while you work. 75-second walkthrough.
 
   RestoreAssist is an Australian CRM for water-damage restoration tradies. Learn more at https://restoreassist.app
   ```
+
 - **Tags:** `restoreassist, customer portal, water damage restoration, insurance claim, australia, branded portal`
 - **Visibility:** `Unlisted`
 
 ### Video 3 — `help-compliance.mp4`
+
 - **Title:** `IICRC compliance citations in your reports`
 - **Description:**
+
   ```
   How RestoreAssist automatically cites the right IICRC standards (S500:2025, S520, S540) in your reports and where to verify the citations match. 75-second walkthrough.
 
   RestoreAssist is an Australian CRM for water-damage restoration tradies. Learn more at https://restoreassist.app
   ```
+
 - **Tags:** `restoreassist, iicrc, s500, water damage restoration, compliance, australia, restoration standards`
 - **Visibility:** `Unlisted`
 
 ### Video 4 — `help-inspections.mp4`
+
 - **Title:** `Photo chain-of-custody on RestoreAssist`
 - **Description:**
+
   ```
   Capture inspection photos with SHA-256 hash + GPS + UTC + device fingerprint stamped at capture time. C2PA-style chain-of-custody every insurance assessor will accept. 75-second walkthrough.
 
   RestoreAssist is an Australian CRM for water-damage restoration tradies. Learn more at https://restoreassist.app
   ```
+
 - **Tags:** `restoreassist, photo evidence, c2pa, chain of custody, water damage restoration, australia, inspection`
 - **Visibility:** `Unlisted`
 
 ### Video 5 — `help-reports.mp4`
+
 - **Title:** `Your first AI-generated restoration report`
 - **Description:**
+
   ```
   How to generate, review, and customise your first AI-powered IICRC-compliant restoration report on RestoreAssist. 75-second walkthrough.
 
   RestoreAssist is an Australian CRM for water-damage restoration tradies. Learn more at https://restoreassist.app
   ```
+
 - **Tags:** `restoreassist, ai report, water damage restoration, iicrc, australia, restoration software`
 - **Visibility:** `Unlisted`
 
 ### Video 6 — `help-team.mp4`
+
 - **Title:** `Inviting technicians and managing your team`
 - **Description:**
+
   ```
   Send a Technician Link to bring crew members onto your RestoreAssist account. Manage roles, mobile-seat billing, and access scope. 75-second walkthrough.
 
   RestoreAssist is an Australian CRM for water-damage restoration tradies. Learn more at https://restoreassist.app
   ```
+
 - **Tags:** `restoreassist, team management, technician onboarding, water damage restoration, australia, multi-user`
 - **Visibility:** `Unlisted`
 

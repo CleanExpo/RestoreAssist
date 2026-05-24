@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { loadArticle, loadAllArticles, loadCategoryIndex } from "../load-article";
+import {
+  loadArticle,
+  loadAllArticles,
+  loadCategoryIndex,
+} from "../load-article";
 
 describe("loadArticle", () => {
   it("loads and parses a valid fixture", async () => {

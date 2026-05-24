@@ -58,7 +58,6 @@ export async function GET(request: NextRequest) {
     // (Prisma v5+ supports this on 1-1 relations).
     let lastId: string | null = null;
 
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       const batch: Array<{ id: string; status: ReportStatus }> =
         await prisma.report.findMany({

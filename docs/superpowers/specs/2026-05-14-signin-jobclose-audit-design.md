@@ -12,12 +12,13 @@ A structural read of the full tradie journey — signup → setup → admin invi
 ### 1.2 Scope boundary
 
 - **In scope:** the 9 journey stages, their state machine, AI orchestration substrate, BYOK infrastructure, on-site handover deliverables.
-- **Out of scope of *this* audit (each gets its own brainstorm):** SP-D evidence-capture expansion (video / LiDAR / GeoMap view), SP-F role-gate consolidation, SP-K SMS BYOK.
+- **Out of scope of _this_ audit (each gets its own brainstorm):** SP-D evidence-capture expansion (video / LiDAR / GeoMap view), SP-F role-gate consolidation, SP-K SMS BYOK.
 - **Out of scope entirely:** marketing-site rewrites, billing-plan changes, mobile native-app rewrites, dispute / claims-defense workflows, multi-region deploys.
 
 ### 1.3 Deliverable
 
 This spec doc — comprising:
+
 - Gap inventory across all 9 stages (Section 2)
 - Cross-cutting findings (Section 3)
 - Foundation: onboarding hotfix + SP-E storage BYOK (Section 4)
@@ -37,6 +38,7 @@ This spec doc — comprising:
 ### 1.4 Success criteria
 
 After the roadmap ships:
+
 - `Inspection.status = COMPLETED` is actually written (no longer enum decay).
 - A tradie can close a job, the client receives the full package on-site, and the system records everything with chain-of-custody.
 - Setup wizard's BYOK choices (storage, AI, email) are honoured end-to-end.
@@ -49,38 +51,44 @@ After the roadmap ships:
 
 **Severity:** P0 = blocks the journey · P1 = forces work-around · P2 = polish.
 
-| Stage | Top gaps |
-|---|---|
-| **1 Signup** | P1: no auto-redirect to `/setup` after register. P2: no `AuditLog` row for `USER_REGISTERED`. |
-| **2 Setup wizard** | P1: `HydrationJob` status not surfaced — long-running setup can hang silently. **P0: GDrive storage card advertises Drive but `/api/oauth/google-drive/start` doesn't exist** — broken promise on day one. |
-| **3 Admin invites tech** | P0: `/dashboard/team` page not found in routes — admins can only invite via API. P1: invite expiry not enforced. P2: no "resend invite" UI. |
-| **4 Tech accepts invite + Authorisation** | P1: EngagementLicenceModal can be dismissed without re-trigger. P1: no race-condition guard on accept-after-expiry. P2: no "complete licence later" deferred path. |
-| **5 Inspection start** | P1: no status column in list view. P0: no "Start inspection" → "Capture evidence" CTA chain. |
+| Stage                                                                                  | Top gaps                                                                                                                                                                                                                                         |
+| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **1 Signup**                                                                           | P1: no auto-redirect to `/setup` after register. P2: no `AuditLog` row for `USER_REGISTERED`.                                                                                                                                                    |
+| **2 Setup wizard**                                                                     | P1: `HydrationJob` status not surfaced — long-running setup can hang silently. **P0: GDrive storage card advertises Drive but `/api/oauth/google-drive/start` doesn't exist** — broken promise on day one.                                       |
+| **3 Admin invites tech**                                                               | P0: `/dashboard/team` page not found in routes — admins can only invite via API. P1: invite expiry not enforced. P2: no "resend invite" UI.                                                                                                      |
+| **4 Tech accepts invite + Authorisation**                                              | P1: EngagementLicenceModal can be dismissed without re-trigger. P1: no race-condition guard on accept-after-expiry. P2: no "complete licence later" deferred path.                                                                               |
+| **5 Inspection start**                                                                 | P1: no status column in list view. P0: no "Start inspection" → "Capture evidence" CTA chain.                                                                                                                                                     |
 | **6 Capture (photos + readings + sketch + bluetooth + moisture canvas + voice notes)** | P1: no "required photos" validation gate before sign-off. P1: sketch/moisture/voice-notes have no cross-references. P2: bluetooth meter disconnect mid-reading isn't surfaced. **MISSING:** video, LiDAR scan, GeoMap pin view → SP-D candidate. |
-| **7 Sign-off** | P1: signed state has no "Hand over to client" CTA — terminal dead-end. P1: `SUBMITTED` is the final inspection status the code ever sets. |
-| **8 Invoice + sync** | **P0: no auto-generation from sign-off** — manual click required. P0: `Invoice.status=PAID` has no signal back to inspection. P1: failed `InvoiceSyncJob` rows have no retry CTA in UI. |
-| **9 Job close + archive** | **P0: doesn't exist.** `InspectionStatus.COMPLETED` defined, never written. No archive flag. No closure audit-log action. No client-facing "your job is complete" surface. |
+| **7 Sign-off**                                                                         | P1: signed state has no "Hand over to client" CTA — terminal dead-end. P1: `SUBMITTED` is the final inspection status the code ever sets.                                                                                                        |
+| **8 Invoice + sync**                                                                   | **P0: no auto-generation from sign-off** — manual click required. P0: `Invoice.status=PAID` has no signal back to inspection. P1: failed `InvoiceSyncJob` rows have no retry CTA in UI.                                                          |
+| **9 Job close + archive**                                                              | **P0: doesn't exist.** `InspectionStatus.COMPLETED` defined, never written. No archive flag. No closure audit-log action. No client-facing "your job is complete" surface.                                                                       |
 
 ---
 
 ## 3. Cross-cutting findings & architectural implications
 
 ### 3.1 No state machine governs the journey (P0)
+
 Every stage advances by manual click. SP-A + SP-B introduce a lightweight `lib/lifecycle/inspection-state-machine.ts` exporting `canTransition(currentStatus, targetStatus, context)` + `nextSuggestions(currentStatus, context)`. Routes call `canTransition` before any UPDATE; UI calls `nextSuggestions` to render the "Ready to X?" prompts.
 
 ### 3.2 Storage BYOK pipeline half-built (P0)
+
 Setup wizard offers GDrive; OAuth start route doesn't exist; photos still only go to Supabase. Affects Stages 5–9. Onboarding hotfix + SP-E.
 
 ### 3.3 InspectionStatus enum decay (P0)
+
 `COMPLETED` + `REJECTED` defined but never written. SP-A writes COMPLETED. SP-A migration formalises `IN_BILLING` as a new intermediate state.
 
 ### 3.4 Audit log retrofit (P1)
+
 ~half the journey events have no `AuditLog` row. SP-A introduces `lib/audit/lifecycle-event.ts` reused by SP-B, SP-C, SP-J. Backfill of historical events is out of scope (no provenance).
 
 ### 3.5 Modal-first dismissal recovery (P1)
+
 SP-2 (EngagementLicenceModal) + SP-7 (sign-off) lack re-trigger if dismissed. Documented in inventory; no SP designed — surface-level fix bundled into whichever SP touches each modal next.
 
 ### 3.6 Role-gate consolidation (P1)
+
 Junior Technician restrictions live in UI but not server. Out of scope for this audit's SPs — flagged for `lib/auth/rbac.ts` consolidation as SP-F candidate. Each SP-A/B/C/J respects existing role guards; doesn't add new ones.
 
 ---
@@ -107,6 +115,7 @@ Junior Technician restrictions live in UI but not server. Out of scope for this 
 **Why now:** SP-A (job-close) needs to export a close-package to the client's Drive. SP-J (handover) needs to mirror the handover bundle to Drive at sign-off. Without SP-E both have nowhere to write.
 
 **Components:**
+
 - `lib/storage/google-drive-provider.ts` — implements existing `StorageProvider` interface alongside `s3-provider.ts` and `supabase-provider.ts`
 - `lib/storage/index.ts` — `getStorageProvider(orgId)` reads `Organization.storageProvider` and dispatches
 - **Dual-write strategy:** when `storageProvider === GOOGLE_DRIVE`, primary write to Supabase (latency + reliability), background mirror to GDrive via `lib/queue/storage-mirror.ts`. Failed mirrors retry with exponential backoff; permanent failures surface in Workspace Health.
@@ -126,14 +135,14 @@ Junior Technician restrictions live in UI but not server. Out of scope for this 
 
 ### 5.1 Lifecycle hooks
 
-| Trigger | Hook | Produces | User action |
-|---|---|---|---|
-| Photo uploaded | `auto-tag-photo.ts` | damage type · room · severity · S500 §X.Y | Tap to accept/edit |
-| Sign-off completed | `draft-invoice.ts` | line items + GST 10% + IICRC citations | "Looks right, send" |
-| Invoice PAID detected | `close-summary.ts` | client-facing summary | One-tap accept |
-| Close confirmed | `next-action.ts` | follow-up suggestions (30d callback, survey, upsell, warranty) | Schedule or dismiss |
-| Anywhere in Completed list | `smart-search.ts` | semantic matches | Click to view |
-| GDrive mirror failure | `mirror-recovery.ts` | diagnosis + fix suggestion | "Fix it" → auto-retry |
+| Trigger                    | Hook                 | Produces                                                       | User action           |
+| -------------------------- | -------------------- | -------------------------------------------------------------- | --------------------- |
+| Photo uploaded             | `auto-tag-photo.ts`  | damage type · room · severity · S500 §X.Y                      | Tap to accept/edit    |
+| Sign-off completed         | `draft-invoice.ts`   | line items + GST 10% + IICRC citations                         | "Looks right, send"   |
+| Invoice PAID detected      | `close-summary.ts`   | client-facing summary                                          | One-tap accept        |
+| Close confirmed            | `next-action.ts`     | follow-up suggestions (30d callback, survey, upsell, warranty) | Schedule or dismiss   |
+| Anywhere in Completed list | `smart-search.ts`    | semantic matches                                               | Click to view         |
+| GDrive mirror failure      | `mirror-recovery.ts` | diagnosis + fix suggestion                                     | "Fix it" → auto-retry |
 
 ### 5.2 Implementation pattern
 
@@ -173,14 +182,14 @@ When `Organization.storageProvider = GOOGLE_DRIVE`, AI drafts are stored alongsi
 
 ### 6.2 Mapped to user-stated abilities
 
-| Sidekick ability | Mechanism today |
-|---|---|
-| Do paperwork | `fill-scope-item.ts` + Section 5 `draft-invoice.ts` |
-| Research | NEW: `tools/lookup-iicrc.ts` + `tools/find-similar-jobs.ts` |
-| Suggest good/better/best methods | NEW: `tools/method-recommendation.ts` |
-| Talk and discuss | Router exists; voice mode NEW |
-| Ask for missing details | `check-report-gaps.ts` + `capture-photo.ts` + `take-reading.ts` |
-| Analyse images | NEW: `tools/analyse-photo.ts` (vision model) |
+| Sidekick ability                 | Mechanism today                                                 |
+| -------------------------------- | --------------------------------------------------------------- |
+| Do paperwork                     | `fill-scope-item.ts` + Section 5 `draft-invoice.ts`             |
+| Research                         | NEW: `tools/lookup-iicrc.ts` + `tools/find-similar-jobs.ts`     |
+| Suggest good/better/best methods | NEW: `tools/method-recommendation.ts`                           |
+| Talk and discuss                 | Router exists; voice mode NEW                                   |
+| Ask for missing details          | `check-report-gaps.ts` + `capture-photo.ts` + `take-reading.ts` |
+| Analyse images                   | NEW: `tools/analyse-photo.ts` (vision model)                    |
 
 ### 6.3 What's missing (SP-G scope, ~2 weeks build)
 
@@ -206,14 +215,14 @@ A RAG layer that makes the existing 102-note Obsidian wiki + user-added restorat
 
 ### 7.2 Architecture
 
-| Component | Purpose |
-|---|---|
+| Component                      | Purpose                                                                                                                                       |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Ingester** (CLI + scheduled) | Scans `~/2nd Brain/2nd Brain/Wiki/` + future RA-domain folder; chunks by heading; embeds via `text-embedding-3-small`; writes to vector store |
-| **Vector store** | Supabase `pgvector` (already on Supabase — no new infra) |
-| **Tags** | Frontmatter `ra-domain: true`, `iicrc: S500:2025 §7.1`, `category: water/cat-3` for retrieval filters |
-| **Retrieval API** | `lib/knowledge/retrieve.ts` exporting `searchKnowledge(query, filters?, topK = 5)` |
-| **Sync mode** | Incremental — file-mtime watch + manual `pnpm knowledge:ingest` for first bulk |
-| **Audit** | Every retrieval writes `KnowledgeQuery` row |
+| **Vector store**               | Supabase `pgvector` (already on Supabase — no new infra)                                                                                      |
+| **Tags**                       | Frontmatter `ra-domain: true`, `iicrc: S500:2025 §7.1`, `category: water/cat-3` for retrieval filters                                         |
+| **Retrieval API**              | `lib/knowledge/retrieve.ts` exporting `searchKnowledge(query, filters?, topK = 5)`                                                            |
+| **Sync mode**                  | Incremental — file-mtime watch + manual `pnpm knowledge:ingest` for first bulk                                                                |
+| **Audit**                      | Every retrieval writes `KnowledgeQuery` row                                                                                                   |
 
 ### 7.3 Consumers
 
@@ -258,6 +267,7 @@ When `inspection.status === "IN_BILLING"` AND `invoice.status === "PAID"` AND `r
 `POST /api/inspections/[id]/close` — body `{ closeSummary: string }`.
 
 Server logic (transactional):
+
 1. `getServerSession` + role guard (USER who created OR ADMIN/MANAGER)
 2. Re-check preconditions
 3. `prisma.inspection.update` → `status: "COMPLETED"`, `completedAt: now()`, `closeSummary`
@@ -297,20 +307,20 @@ A single "Hand over to client" flow the tech triggers before leaving site. Compo
 
 ### 9.2 Existing scaffolding
 
-| Requirement | Status |
-|---|---|
-| Client portal | ✅ `app/portal/[token]/page.tsx` + `app/dashboard/clients/[id]/portal/page.tsx` + `PortalInvitePanel` |
-| Report PDF | ✅ `ExportPdfButton.tsx` + `lib/pdf-export.ts` + `lib/nir-report-generation.ts` |
-| Scope of Works | ✅ via `/api/inspections/[id]/scope-variations` |
-| Estimate | ✅ `/api/estimates/route.ts` |
-| Change-orders / variations | ✅ `/api/invoices/[id]/variations` |
-| Invoice PDF | ✅ `lib/invoices/pdf-generator.ts` |
-| Bulk-export ZIP | ✅ `bulk-export-zip` route |
-| Org-branded documents | ✅ `Organization.brandingDefaults` |
-| **Single "hand over" moment** | ❌ — no UI bundles all of these |
-| **Client co-brand** | ❌ — only org brand today |
-| **Portal pre-populated + invite sent at sign-off** | ❌ |
-| **On-site additional-scope billing UI** | ⚠ API exists; mobile form missing |
+| Requirement                                        | Status                                                                                                |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Client portal                                      | ✅ `app/portal/[token]/page.tsx` + `app/dashboard/clients/[id]/portal/page.tsx` + `PortalInvitePanel` |
+| Report PDF                                         | ✅ `ExportPdfButton.tsx` + `lib/pdf-export.ts` + `lib/nir-report-generation.ts`                       |
+| Scope of Works                                     | ✅ via `/api/inspections/[id]/scope-variations`                                                       |
+| Estimate                                           | ✅ `/api/estimates/route.ts`                                                                          |
+| Change-orders / variations                         | ✅ `/api/invoices/[id]/variations`                                                                    |
+| Invoice PDF                                        | ✅ `lib/invoices/pdf-generator.ts`                                                                    |
+| Bulk-export ZIP                                    | ✅ `bulk-export-zip` route                                                                            |
+| Org-branded documents                              | ✅ `Organization.brandingDefaults`                                                                    |
+| **Single "hand over" moment**                      | ❌ — no UI bundles all of these                                                                       |
+| **Client co-brand**                                | ❌ — only org brand today                                                                             |
+| **Portal pre-populated + invite sent at sign-off** | ❌                                                                                                    |
+| **On-site additional-scope billing UI**            | ⚠ API exists; mobile form missing                                                                     |
 
 ### 9.3 The handover screen (Sidekick-led)
 
@@ -348,17 +358,17 @@ Triggered by tech via Sidekick: "Generate handover package". Shows ✓ Report, �
 
 If a piece of admin work has been done anywhere (BYOK integration, wiki, prior inspection, public registry, OAuth profile, weather API, imported job), the system **pulls** it. The human never re-types data that's already known.
 
-| Stage | What the system pulls |
-|---|---|
-| 1 Signup | Name, photo, email from Google OAuth ✅ |
-| 2 Setup | ABN → ABR (legal name, ACN, GST status, address) ✅. Logo + colours + about-copy from website ✅. Pricing by state ✅. |
-| 3 Admin invites tech | When admin types an email → pull LinkedIn name/photo/role suggestion to pre-fill |
-| 4 Tech accepts | Google profile ✅. Licence number from public registry (IICRC public, WHS Card scheme) |
-| 5 Inspection start | If imported from ServiceM8/Ascora/Xero — job, customer, address, scope all pre-attached |
-| 6 Capture | Weather at capture time+place (BoM/OpenMeteo). Property age from real-estate APIs. EXIF GPS ✅. Vision auto-tag ✅ (Section 5). |
-| 7 Sign-off | Tech's current Authorisation ✅ |
-| 8 Invoice | Pricing from `CompanyPricingConfig` ✅. Customer from imported job. Scope lines from AI draft. |
-| 9 Close | Payment status from Stripe/Xero webhook — NOT a manual "mark as paid" |
+| Stage                | What the system pulls                                                                                                           |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| 1 Signup             | Name, photo, email from Google OAuth ✅                                                                                         |
+| 2 Setup              | ABN → ABR (legal name, ACN, GST status, address) ✅. Logo + colours + about-copy from website ✅. Pricing by state ✅.          |
+| 3 Admin invites tech | When admin types an email → pull LinkedIn name/photo/role suggestion to pre-fill                                                |
+| 4 Tech accepts       | Google profile ✅. Licence number from public registry (IICRC public, WHS Card scheme)                                          |
+| 5 Inspection start   | If imported from ServiceM8/Ascora/Xero — job, customer, address, scope all pre-attached                                         |
+| 6 Capture            | Weather at capture time+place (BoM/OpenMeteo). Property age from real-estate APIs. EXIF GPS ✅. Vision auto-tag ✅ (Section 5). |
+| 7 Sign-off           | Tech's current Authorisation ✅                                                                                                 |
+| 8 Invoice            | Pricing from `CompanyPricingConfig` ✅. Customer from imported job. Scope lines from AI draft.                                  |
+| 9 Close              | Payment status from Stripe/Xero webhook — NOT a manual "mark as paid"                                                           |
 
 **Anti-pattern flag:** anywhere in the audit you find a form field that could be pulled, it's a P0 gap.
 
@@ -366,16 +376,16 @@ If a piece of admin work has been done anywhere (BYOK integration, wiki, prior i
 
 RestoreAssist is the orchestrator. The tenant is the integrator. Setup wizard is the BYOK hub.
 
-| BYOK domain | Status | Completed by |
-|---|---|---|
-| Storage | ⚠ half-built | Onboarding hotfix + SP-E |
-| AI keys | ⚠ partial (OpenAI/Anthropic/Gemini fields exist; routing patchy) | SP-3 (existing brainstorm queue) |
-| Email | ❌ no per-tenant Resend/SendGrid/SES | SP-6 (existing brainstorm queue) |
-| SMS | ❌ no per-tenant Twilio/MessageBird | SP-K candidate |
-| Accounting | ✅ Xero/MYOB/QB/Ascora | Audit confirms BYOK story is clean |
-| Calendar | ⚠ Google Calendar OAuth exists; full tenant-side check needed | Minor fix |
-| Knowledge | ❌ no per-tenant wiki ingest | SP-H (platform v1, per-tenant v2) |
-| Customer-data warehouse | ⚠ implicit (Supabase only) | covered by SP-E once Drive lands |
+| BYOK domain             | Status                                                           | Completed by                       |
+| ----------------------- | ---------------------------------------------------------------- | ---------------------------------- |
+| Storage                 | ⚠ half-built                                                     | Onboarding hotfix + SP-E           |
+| AI keys                 | ⚠ partial (OpenAI/Anthropic/Gemini fields exist; routing patchy) | SP-3 (existing brainstorm queue)   |
+| Email                   | ❌ no per-tenant Resend/SendGrid/SES                             | SP-6 (existing brainstorm queue)   |
+| SMS                     | ❌ no per-tenant Twilio/MessageBird                              | SP-K candidate                     |
+| Accounting              | ✅ Xero/MYOB/QB/Ascora                                           | Audit confirms BYOK story is clean |
+| Calendar                | ⚠ Google Calendar OAuth exists; full tenant-side check needed    | Minor fix                          |
+| Knowledge               | ❌ no per-tenant wiki ingest                                     | SP-H (platform v1, per-tenant v2)  |
+| Customer-data warehouse | ⚠ implicit (Supabase only)                                       | covered by SP-E once Drive lands   |
 
 The setup wizard is the system's most important surface — it's a living BYOK dashboard, not a one-time wizard. Already partially this way via `/dashboard/settings/health`; this audit elevates it.
 
@@ -432,12 +442,14 @@ The retrieval/archive surface for closed jobs.
 ## 13. Testing strategy
 
 ### 13.1 Unit (Vitest)
+
 - State machine `canTransition` matrix
 - `nextSuggestions` for each (status, context) tuple
 - AI hook subscription-gate behaviour (TRIAL/ACTIVE/CANCELED → expected outcomes)
 - Credit-deduction atomic semantics
 
 ### 13.2 Integration (Vitest + Prisma)
+
 - POST `/api/inspections/[id]/close` happy path + reject paths
 - POST `/api/inspections/[id]/handover` transactional integrity
 - POST `/api/inspections/[id]/reopen` admin-only + audit-log row
@@ -445,15 +457,19 @@ The retrieval/archive surface for closed jobs.
 - BYOK Drive provider dual-write idempotency
 
 ### 13.3 E2E (Playwright)
+
 Full happy-path spec: signup → setup (with GDrive BYOK) → admin invites tech → tech accepts → inspection → photos via FAB → sign-off → handover → invoice paid (mock webhook) → close → Completed tab → admin re-open.
 
 ### 13.4 CI gates
+
 `pnpm type-check` · `pnpm lint` · `npx vitest run` · `npx playwright test e2e/signin-to-close.spec.ts` · `npx prisma migrate diff = no drift` · visual snapshot diff = 0 on new surfaces.
 
 ### 13.5 Subscription regression
+
 TRIAL user with 0 credits: AI hooks degrade to manual draft form (NOT error). Hotfix + SP-E + SP-A still function (no AI calls). Confirms platform doesn't become unusable mid-journey when credits run out.
 
 ### 13.6 Verification Gate (per `.claude/rules/verification-gate.md`)
+
 Each SP ships with its own manual gate. The overall gate: end-to-end on staging using real Google OAuth, real Stripe test mode, real Supabase, with screenshots of: setup BYOK Drive connected · banner gone · FAB capture · sign-off · handover screen · client portal as the client sees it · close prompt · Completed tab.
 
 ---
@@ -461,31 +477,34 @@ Each SP ships with its own manual gate. The overall gate: end-to-end on staging 
 ## 14. Out-of-scope sub-projects (flagged for separate brainstorms)
 
 ### 14.1 SP-D — Evidence-capture expansion
+
 Add video, LiDAR (RoomPlan/ARKit on iOS, web fallback), GeoMap pin view for photos with GPS. Substantial mobile UX work; brainstorm cycle should explore: voice annotations, AI room-shape extraction, multi-photo batch capture.
 
 ### 14.2 SP-F — Role-gate consolidation
+
 Server-side enforcement of Junior Technician restrictions. Refactor `lib/auth/rbac.ts` + add transition-route guards. Compliance / regulatory risk reduction.
 
 ### 14.3 SP-K — SMS BYOK
+
 Per-tenant Twilio / MessageBird credentials for handover SMS and customer reminders. May be folded into SP-6 (Email BYOK) as "Outbound BYOK" if scope permits.
 
 ---
 
 ## 15. Roadmap summary
 
-| # | SP | Approx | Brainstorm? | Depends on |
-|---|---|---|---|---|
-| 1 | Onboarding hotfix (sub-project #1 patch) | ~2 days | No — direct fix | — |
-| 2 | SP-E: Storage BYOK pipeline | ~1 week | No (designed here) | Hotfix |
-| 3 | SP-H: Knowledge substrate | ~1 week build | Yes (own cycle) | — |
-| 4 | SP-G: AI Sidekick surface | ~2 weeks build | Yes (own cycle) | SP-H |
-| 5 | SP-J: On-site handover package | ~2 weeks build | Yes (own cycle) | SP-E + SP-G + Section 5 |
-| 6 | SP-A: Job-close terminal state | ~3-4 days | No (designed here) | SP-J + SP-E + Section 5 |
-| 7 | SP-B: Auto-progression (shrunk scope) | ~3 days | No (designed here) | SP-A |
-| 8 | SP-C: Completed tab + admin re-open | ~3 days | No (designed here) | SP-A |
-| 9 | SP-3: AI BYOK upgrades | already-queued | Yes (existing queue) | — |
-| 10 | SP-6: Email BYOK | already-queued | Yes (existing queue) | — |
-| ⏭ | SP-D, SP-F, SP-K | TBD | Yes (own cycles) | — |
+| #   | SP                                       | Approx         | Brainstorm?          | Depends on              |
+| --- | ---------------------------------------- | -------------- | -------------------- | ----------------------- |
+| 1   | Onboarding hotfix (sub-project #1 patch) | ~2 days        | No — direct fix      | —                       |
+| 2   | SP-E: Storage BYOK pipeline              | ~1 week        | No (designed here)   | Hotfix                  |
+| 3   | SP-H: Knowledge substrate                | ~1 week build  | Yes (own cycle)      | —                       |
+| 4   | SP-G: AI Sidekick surface                | ~2 weeks build | Yes (own cycle)      | SP-H                    |
+| 5   | SP-J: On-site handover package           | ~2 weeks build | Yes (own cycle)      | SP-E + SP-G + Section 5 |
+| 6   | SP-A: Job-close terminal state           | ~3-4 days      | No (designed here)   | SP-J + SP-E + Section 5 |
+| 7   | SP-B: Auto-progression (shrunk scope)    | ~3 days        | No (designed here)   | SP-A                    |
+| 8   | SP-C: Completed tab + admin re-open      | ~3 days        | No (designed here)   | SP-A                    |
+| 9   | SP-3: AI BYOK upgrades                   | already-queued | Yes (existing queue) | —                       |
+| 10  | SP-6: Email BYOK                         | already-queued | Yes (existing queue) | —                       |
+| ⏭  | SP-D, SP-F, SP-K                         | TBD            | Yes (own cycles)     | —                       |
 
 **Critical path to close-the-loop:** Hotfix → SP-E → SP-H → SP-G → SP-J → SP-A → SP-B → SP-C. ~8 weeks if each is sequential; parallelisable where dependencies don't conflict.
 
@@ -528,14 +547,14 @@ RestoreAssist is not just a SaaS product the user sells to other tradies — it'
 
 ### 18.2 Existing DR/NRPG scaffolding
 
-| Component | Status |
-|---|---|
-| `DrNrpgIntegration` Prisma model | ✅ (apiKey, baseUrl, webhookSecret, isActive, lastSyncAt) |
-| `DrNrpgJobSync` Prisma model | ✅ (inspection ↔ DR/NRPG job link) |
-| `/api/dr-nrpg/connect/route.ts` | ✅ (connection setup) |
-| `/api/webhooks/dr-nrpg/route.ts` | ✅ (inbound jobs from DR/NRPG) |
-| `/api/cron/dr-nrpg-liveness/route.ts` | ✅ (health probe) |
-| `lib/cron/dr-nrpg-liveness.ts` | ✅ |
+| Component                             | Status                                                    |
+| ------------------------------------- | --------------------------------------------------------- |
+| `DrNrpgIntegration` Prisma model      | ✅ (apiKey, baseUrl, webhookSecret, isActive, lastSyncAt) |
+| `DrNrpgJobSync` Prisma model          | ✅ (inspection ↔ DR/NRPG job link)                        |
+| `/api/dr-nrpg/connect/route.ts`       | ✅ (connection setup)                                     |
+| `/api/webhooks/dr-nrpg/route.ts`      | ✅ (inbound jobs from DR/NRPG)                            |
+| `/api/cron/dr-nrpg-liveness/route.ts` | ✅ (health probe)                                         |
+| `lib/cron/dr-nrpg-liveness.ts`        | ✅                                                        |
 
 The integration ships; what's missing is the **job-import UX** that takes inbound DR/NRPG jobs and lands them as ready-to-inspect rows on `/dashboard/inspections`. This is implicit in Stage 5's P0 gap ("no Start inspection → Capture evidence CTA chain") and should be elevated to: "imported DR/NRPG jobs auto-populate the inspection list with one-tap 'Start' action."
 

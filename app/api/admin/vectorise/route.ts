@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   const auth = await verifyAdminFromDb(session);
   if (auth.response) return auth.response;
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+
   const user = auth.user!;
   const userId = user.id;
 

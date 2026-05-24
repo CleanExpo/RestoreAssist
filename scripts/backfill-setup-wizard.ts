@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma';
+import { prisma } from "@/lib/prisma";
 
 /**
  * Idempotent backfill from User.business* + CompanyPricingConfig
@@ -33,7 +33,9 @@ export async function backfill(): Promise<{
   });
 
   if (users.length === PAGE_LIMIT) {
-    console.warn(`[backfill] WARNING: fetched ${PAGE_LIMIT} users (the limit). If you have more than ${PAGE_LIMIT} users in this database, results are truncated and a paginated re-run is required.`);
+    console.warn(
+      `[backfill] WARNING: fetched ${PAGE_LIMIT} users (the limit). If you have more than ${PAGE_LIMIT} users in this database, results are truncated and a paginated re-run is required.`,
+    );
   }
 
   let orgsUpdated = 0;
@@ -61,14 +63,14 @@ export async function backfill(): Promise<{
     if (!org) continue;
 
     const patch: Record<string, string> = {};
-    if (!org.legalName && u.businessName)     patch.legalName = u.businessName;
-    if (!org.abn && u.businessABN)            patch.abn = u.businessABN;
-    if (!org.acn && u.businessACN)            patch.acn = u.businessACN;
-    if (!org.state && u.businessState)        patch.state = u.businessState;
-    if (!org.address && u.businessAddress)    patch.address = u.businessAddress;
-    if (!org.phone && u.businessPhone)        patch.phone = u.businessPhone;
-    if (!org.email && u.businessEmail)        patch.email = u.businessEmail;
-    if (!org.logoUrl && u.businessLogo)       patch.logoUrl = u.businessLogo;
+    if (!org.legalName && u.businessName) patch.legalName = u.businessName;
+    if (!org.abn && u.businessABN) patch.abn = u.businessABN;
+    if (!org.acn && u.businessACN) patch.acn = u.businessACN;
+    if (!org.state && u.businessState) patch.state = u.businessState;
+    if (!org.address && u.businessAddress) patch.address = u.businessAddress;
+    if (!org.phone && u.businessPhone) patch.phone = u.businessPhone;
+    if (!org.email && u.businessEmail) patch.email = u.businessEmail;
+    if (!org.logoUrl && u.businessLogo) patch.logoUrl = u.businessLogo;
 
     if (Object.keys(patch).length > 0) {
       await prisma.organization.update({ where: { id: org.id }, data: patch });
@@ -76,7 +78,9 @@ export async function backfill(): Promise<{
     }
 
     // Move CompanyPricingConfig → OrganizationPricingConfig (per-user → per-org)
-    const cpc = await prisma.companyPricingConfig.findFirst({ where: { userId: u.id } });
+    const cpc = await prisma.companyPricingConfig.findFirst({
+      where: { userId: u.id },
+    });
     if (cpc) {
       const existing = await prisma.organizationPricingConfig.findUnique({
         where: { organizationId: org.id },
@@ -103,7 +107,7 @@ export async function backfill(): Promise<{
 
 // CLI entry point — ESM-compatible main check
 const isMain =
-  typeof process !== 'undefined' &&
+  typeof process !== "undefined" &&
   process.argv[1] != null &&
   new URL(import.meta.url).pathname === process.argv[1];
 

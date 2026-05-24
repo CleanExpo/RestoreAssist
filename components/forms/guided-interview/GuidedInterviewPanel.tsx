@@ -1341,55 +1341,55 @@ export function GuidedInterviewPanel({
       {/* Tier Gating - Upgrade Prompt — gated for iOS App Review (RA-1842) */}
       {showUpgradePrompt && lockedTier && (
         <BillingGate fallback={null}>
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="max-w-md w-full">
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 flex items-center justify-center">
-                  <Lock className="text-white" size={24} />
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <Card className="max-w-md w-full">
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 flex items-center justify-center">
+                    <Lock className="text-white" size={24} />
+                  </div>
+                  <div>
+                    <CardTitle>Upgrade Required</CardTitle>
+                    <CardDescription>
+                      Tier {lockedTier} questions are locked
+                    </CardDescription>
+                  </div>
                 </div>
-                <div>
-                  <CardTitle>Upgrade Required</CardTitle>
-                  <CardDescription>
-                    Tier {lockedTier} questions are locked
-                  </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Alert>
+                  <Crown className="h-4 w-4" />
+                  <AlertDescription>
+                    To access Tier {lockedTier} questions, you need to upgrade
+                    to {lockedTier <= 2 ? "Premium" : "Enterprise"} plan.
+                  </AlertDescription>
+                </Alert>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowUpgradePrompt(false);
+                      setLockedTier(null);
+                    }}
+                    className="flex-1"
+                  >
+                    Continue with Current Tier
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      if (!isCapacitorIOS()) {
+                        router.push("/dashboard/pricing?upgrade=true");
+                      }
+                    }}
+                    className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
+                  >
+                    <Crown className="w-4 h-4 mr-2" />
+                    Upgrade Now
+                  </Button>
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Alert>
-                <Crown className="h-4 w-4" />
-                <AlertDescription>
-                  To access Tier {lockedTier} questions, you need to upgrade to{" "}
-                  {lockedTier <= 2 ? "Premium" : "Enterprise"} plan.
-                </AlertDescription>
-              </Alert>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowUpgradePrompt(false);
-                    setLockedTier(null);
-                  }}
-                  className="flex-1"
-                >
-                  Continue with Current Tier
-                </Button>
-                <Button
-                  onClick={() => {
-                    if (!isCapacitorIOS()) {
-                      router.push("/dashboard/pricing?upgrade=true");
-                    }
-                  }}
-                  className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
-                >
-                  <Crown className="w-4 h-4 mr-2" />
-                  Upgrade Now
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              </CardContent>
+            </Card>
+          </div>
         </BillingGate>
       )}
     </div>

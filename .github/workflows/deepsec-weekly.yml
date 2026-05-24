@@ -1,7 +1,7 @@
 name: Deepsec weekly security scan
 on:
   schedule:
-    - cron: '0 13 * * 1'   # 23:00 UTC Monday = 09:00 AEST Tuesday
+    - cron: "0 13 * * 1" # 23:00 UTC Monday = 09:00 AEST Tuesday
   workflow_dispatch:
 
 permissions:

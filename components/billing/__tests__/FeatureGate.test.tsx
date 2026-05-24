@@ -8,8 +8,18 @@ describe("FeatureGate", () => {
   it("passes click through when userTier includes feature", () => {
     let clicked = false;
     render(
-      <FeatureGate feature="advanced-damage" userTier="PREMIUM" featureMap={{ "advanced-damage": ["PREMIUM", "ENTERPRISE"] }}>
-        <button onClick={() => { clicked = true; }}>Run analysis</button>
+      <FeatureGate
+        feature="advanced-damage"
+        userTier="PREMIUM"
+        featureMap={{ "advanced-damage": ["PREMIUM", "ENTERPRISE"] }}
+      >
+        <button
+          onClick={() => {
+            clicked = true;
+          }}
+        >
+          Run analysis
+        </button>
       </FeatureGate>,
     );
     fireEvent.click(screen.getByText("Run analysis"));
@@ -19,8 +29,18 @@ describe("FeatureGate", () => {
   it("blocks click and opens modal when userTier missing feature", () => {
     let clicked = false;
     render(
-      <FeatureGate feature="advanced-damage" userTier="STANDARD" featureMap={{ "advanced-damage": ["PREMIUM", "ENTERPRISE"] }}>
-        <button onClick={() => { clicked = true; }}>Run analysis</button>
+      <FeatureGate
+        feature="advanced-damage"
+        userTier="STANDARD"
+        featureMap={{ "advanced-damage": ["PREMIUM", "ENTERPRISE"] }}
+      >
+        <button
+          onClick={() => {
+            clicked = true;
+          }}
+        >
+          Run analysis
+        </button>
       </FeatureGate>,
     );
     fireEvent.click(screen.getByText("Run analysis"));

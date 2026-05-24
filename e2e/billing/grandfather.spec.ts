@@ -1,7 +1,11 @@
 import { test, expect } from "@playwright/test";
 
-test("existing TRIAL user with 27 days remaining (grandfathered) is unchanged", async ({ request }) => {
-  const seed = await request.post("/api/test/seed-trial-user", { data: { daysUntilExpiry: 27 } });
+test("existing TRIAL user with 27 days remaining (grandfathered) is unchanged", async ({
+  request,
+}) => {
+  const seed = await request.post("/api/test/seed-trial-user", {
+    data: { daysUntilExpiry: 27 },
+  });
   const { data } = await seed.json();
   expect(data.daysRemaining).toBe(27);
 

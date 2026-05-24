@@ -27,7 +27,9 @@ export async function grandfatherExistingOrgs(): Promise<{ marked: number }> {
 // ESM-compatible CLI entry point (project uses "type": "module")
 const isMainModule =
   process.argv[1] &&
-  fileURLToPath(import.meta.url).endsWith(process.argv[1].split("/").pop() ?? "");
+  fileURLToPath(import.meta.url).endsWith(
+    process.argv[1].split("/").pop() ?? "",
+  );
 if (isMainModule) {
   grandfatherExistingOrgs()
     .then((r) => {

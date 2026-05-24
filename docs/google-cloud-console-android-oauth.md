@@ -10,17 +10,17 @@ separate `serverClientId` parameter on the plugin's Android surface.
 The goal is two OAuth clients in the existing `restoreassist` Google
 Cloud Console project (same project the iOS client lives in):
 
-1. An **Android-type** client that authenticates the *caller* — the
+1. An **Android-type** client that authenticates the _caller_ — the
    APK/AAB signed with the upload key, with package name
    `com.restoreassist.app`.
-2. A **Web application-type** client that authenticates the *token
-   audience* — its client ID becomes the `webClientId` value the capgo
+2. A **Web application-type** client that authenticates the _token
+   audience_ — its client ID becomes the `webClientId` value the capgo
    plugin passes to Google Sign-In and the `aud` claim our NextAuth
    backend verifies.
 
 The Web client almost certainly already exists from earlier work — you
-will probably only need to *create the Android client* and then
-*read* the existing Web client ID out of the Credentials page.
+will probably only need to _create the Android client_ and then
+_read_ the existing Web client ID out of the Credentials page.
 
 ---
 
@@ -48,7 +48,7 @@ will probably only need to *create the Android client* and then
 
 The resulting Android Client ID does **not** need to be referenced
 from our code. The Google Sign-In SDK on Android uses the
-*package name + SHA-1 anchor* to authenticate the caller — there is no
+_package name + SHA-1 anchor_ to authenticate the caller — there is no
 client-ID string to embed for that role.
 
 ### 3. Verify (or create) the Web application OAuth client
@@ -60,7 +60,7 @@ client-ID string to embed for that role.
      `292141944467-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com`.
    - If it does **not** exist: **+ Create Credentials → OAuth client
      ID → Application type: Web application**. Name it `RestoreAssist
-     Web`. No redirect URIs or origins are required for the
+Web`. No redirect URIs or origins are required for the
      Android-token-verification role; the NextAuth web sign-in flow has
      its own redirect URIs separately.
 
@@ -89,9 +89,9 @@ This Web Client ID is what we need.
 
 Google Play App Signing is mandatory for new apps. The flow:
 
-1. You upload the AAB signed with the *upload key* you generated locally.
+1. You upload the AAB signed with the _upload key_ you generated locally.
 2. Play re-signs the artifact distributed to devices with a separate
-   *Play-managed app-signing key*.
+   _Play-managed app-signing key_.
 3. **Google Sign-In on installed devices verifies against the
    Play-managed key's SHA-1, not your upload key's SHA-1.**
 
@@ -103,7 +103,7 @@ So after the first Play Console upload:
 3. Back in GCP → APIs & Services → Credentials → open your Android
    OAuth client → **Add fingerprint** → paste it.
 
-You now have *two* fingerprints registered (upload + Play-managed). Both
+You now have _two_ fingerprints registered (upload + Play-managed). Both
 are required: the upload fingerprint covers local debug installs of
 release builds; the Play-managed fingerprint covers devices installing
 from the store.

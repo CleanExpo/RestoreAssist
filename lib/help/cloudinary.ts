@@ -8,12 +8,20 @@ export type CloudinaryUrlOpts = {
 
 function resolveCloudName(opts: CloudinaryUrlOpts): string {
   if (opts.cloudName) return opts.cloudName;
-  const fromUrl = process.env.CLOUDINARY_URL?.match(/cloudinary:\/\/[^@]+@(.+)$/)?.[1];
-  if (!fromUrl) throw new Error("Cloudinary cloud name missing — set CLOUDINARY_URL or pass cloudName");
+  const fromUrl = process.env.CLOUDINARY_URL?.match(
+    /cloudinary:\/\/[^@]+@(.+)$/,
+  )?.[1];
+  if (!fromUrl)
+    throw new Error(
+      "Cloudinary cloud name missing — set CLOUDINARY_URL or pass cloudName",
+    );
   return fromUrl;
 }
 
-export function cloudinaryUrl(publicId: string, opts: CloudinaryUrlOpts = {}): string {
+export function cloudinaryUrl(
+  publicId: string,
+  opts: CloudinaryUrlOpts = {},
+): string {
   const cloud = resolveCloudName(opts);
   const transforms: string[] = [];
   if (opts.width) transforms.push(`w_${opts.width}`);

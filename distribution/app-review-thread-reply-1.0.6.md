@@ -25,6 +25,7 @@ RestoreAssist." There is no URL, no email, no CTA, and no website
 reference on this screen.
 
 Additional 3.1.1 hardening:
+
 - The Credits page (/dashboard/credits) is now wrapped in the same
   client-side BillingGate as pricing and subscription, so iOS reviewers
   see the workspace-admin placeholder instead of upgrade or add-on CTAs.

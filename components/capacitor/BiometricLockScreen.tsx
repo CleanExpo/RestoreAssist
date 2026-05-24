@@ -2,7 +2,10 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useSession } from "next-auth/react";
-import { authenticateBiometric, isBiometricAvailable } from "@/lib/auth/biometric";
+import {
+  authenticateBiometric,
+  isBiometricAvailable,
+} from "@/lib/auth/biometric";
 import { Lock } from "lucide-react";
 
 const STORAGE_KEY = "ra-biometric-lock";

@@ -10,7 +10,11 @@ export default function FeatureGateModal({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      role="dialog"
+      aria-modal="true"
+    >
       <div className="w-full max-w-md rounded-lg bg-white p-6">
         <h2 className="text-xl font-semibold">Unlock {feature}</h2>
         <p className="mt-2 text-sm text-muted-foreground">

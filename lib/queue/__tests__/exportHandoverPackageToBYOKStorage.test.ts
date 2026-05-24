@@ -12,7 +12,10 @@
  */
 
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { RA_DEFAULT_PRIMARY_COLOR, RA_DEFAULT_LOGO_URL } from "@/lib/clients/brand";
+import {
+  RA_DEFAULT_PRIMARY_COLOR,
+  RA_DEFAULT_LOGO_URL,
+} from "@/lib/clients/brand";
 
 const {
   inspectionMock,

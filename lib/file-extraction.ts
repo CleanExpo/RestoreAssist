@@ -66,10 +66,12 @@ export async function extractTextFromPDF(buffer: Buffer): Promise<string> {
     ) {
       throw new Error(
         "PDF parsing failed. The PDF may be image-based or have compatibility issues. Please try a text-based PDF.",
+        { cause: error },
       );
     }
     throw new Error(
       `Failed to extract text from PDF: ${error.message || "Unknown error"}`,
+      { cause: error },
     );
   }
 }
@@ -84,7 +86,9 @@ export async function extractTextFromDOCX(buffer: Buffer): Promise<string> {
     const result = await mammoth.extractRawText({ buffer });
     return result.value || "";
   } catch (error: any) {
-    throw new Error(`Failed to extract text from DOCX: ${error.message}`);
+    throw new Error(`Failed to extract text from DOCX: ${error.message}`, {
+      cause: error,
+    });
   }
 }
 
@@ -95,6 +99,8 @@ export async function extractTextFromTXT(buffer: Buffer): Promise<string> {
   try {
     return buffer.toString("utf-8");
   } catch (error: any) {
-    throw new Error(`Failed to extract text from TXT: ${error.message}`);
+    throw new Error(`Failed to extract text from TXT: ${error.message}`, {
+      cause: error,
+    });
   }
 }

@@ -10,15 +10,15 @@
 
 ### Firmographics
 
-| Attribute | Range |
-|---|---|
-| Headcount | 1 (sole trader) → 5 technicians |
-| Annual revenue | A$180k → A$1.2M |
-| Years trading | 18 months → 12 years (skews toward 2–6 years — past the survival phase, hitting the admin wall) |
-| Entity type | Sole Trader · Pty Ltd · Family Trust (mixed) |
-| ABN status | Active, GST-registered. Pre-trading mode is supported but rare in the ICP. |
-| Geography | All Australian states and territories. Volume skews NSW, QLD, VIC. |
-| Service mix | Water damage (S500:2025) primary; mould remediation (S520:2024) common; fire/smoke (S700) opportunistic. |
+| Attribute      | Range                                                                                                    |
+| -------------- | -------------------------------------------------------------------------------------------------------- |
+| Headcount      | 1 (sole trader) → 5 technicians                                                                          |
+| Annual revenue | A$180k → A$1.2M                                                                                          |
+| Years trading  | 18 months → 12 years (skews toward 2–6 years — past the survival phase, hitting the admin wall)          |
+| Entity type    | Sole Trader · Pty Ltd · Family Trust (mixed)                                                             |
+| ABN status     | Active, GST-registered. Pre-trading mode is supported but rare in the ICP.                               |
+| Geography      | All Australian states and territories. Volume skews NSW, QLD, VIC.                                       |
+| Service mix    | Water damage (S500:2025) primary; mould remediation (S520:2024) common; fire/smoke (S700) opportunistic. |
 
 ### Roles in the buying group
 
@@ -71,7 +71,7 @@ There is no procurement department. There is no IT department. The owner signs u
 
 - Single decision-maker (the owner). Reaches out in the evening after a frustrating day.
 - Wants to try, not to be sold. Books a demo only after they have already poked at a free trial.
-- Low CAC tolerance: they will pay A$80–A$200/month per seat for a tool that proves itself in week one. They will *not* pay anything if onboarding takes more than 30 minutes before the first useful action.
+- Low CAC tolerance: they will pay A$80–A$200/month per seat for a tool that proves itself in week one. They will _not_ pay anything if onboarding takes more than 30 minutes before the first useful action.
 - Sales cycle: 0 days (signs up on the spot) to 14 days (talks it over with their lead tech first).
 - Cancels fast and cancels publicly if it doesn't work. Will post in the Facebook group.
 
@@ -96,7 +96,7 @@ Not the buyer in v1, but the silent influencer. They reject reports. They escala
 
 ### Implication for messaging
 
-We do not market to insurers in v1. But every operator-facing piece of copy that mentions the report quality is *also* read by their assessor. So claims like "every photo carries a C2PA-style manifest verified at read" and "IICRC citations carry edition and section" do double duty.
+We do not market to insurers in v1. But every operator-facing piece of copy that mentions the report quality is _also_ read by their assessor. So claims like "every photo carries a C2PA-style manifest verified at read" and "IICRC citations carry edition and section" do double duty.
 
 ---
 

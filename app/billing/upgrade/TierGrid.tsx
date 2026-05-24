@@ -16,20 +16,32 @@ const DEFAULT_TIERS: Tier[] = [
     name: "STANDARD",
     displayName: "Standard",
     price: "$99",
-    features: ["Up to 20 reports/month", "Platform-managed AI", "Email support"],
+    features: [
+      "Up to 20 reports/month",
+      "Platform-managed AI",
+      "Email support",
+    ],
   },
   {
     name: "PREMIUM",
     displayName: "Premium",
     price: "$199",
     popular: true,
-    features: ["Up to 100 reports/month", "Advanced damage analysis", "Priority support"],
+    features: [
+      "Up to 100 reports/month",
+      "Advanced damage analysis",
+      "Priority support",
+    ],
   },
   {
     name: "ENTERPRISE",
     displayName: "Enterprise",
     price: "Contact us",
-    features: ["Unlimited reports", "All standards coverage", "Dedicated success manager"],
+    features: [
+      "Unlimited reports",
+      "All standards coverage",
+      "Dedicated success manager",
+    ],
   },
 ];
 
@@ -40,7 +52,9 @@ export default function TierGrid({
   initialTier?: Tier["name"];
   currentTier?: Tier["name"] | null;
 }) {
-  const [selected, setSelected] = useState<Tier["name"]>(initialTier ?? "PREMIUM");
+  const [selected, setSelected] = useState<Tier["name"]>(
+    initialTier ?? "PREMIUM",
+  );
 
   return (
     <div className="grid gap-6 md:grid-cols-3">
@@ -50,7 +64,9 @@ export default function TierGrid({
           type="button"
           onClick={() => setSelected(t.name)}
           className={`relative rounded-lg border p-6 text-left transition ${
-            selected === t.name ? "border-[#1C2E47] ring-2 ring-[#1C2E47]" : "border-gray-200"
+            selected === t.name
+              ? "border-[#1C2E47] ring-2 ring-[#1C2E47]"
+              : "border-gray-200"
           }`}
         >
           {t.popular && (
@@ -66,7 +82,9 @@ export default function TierGrid({
           <h2 className="text-xl font-semibold">{t.displayName}</h2>
           <p className="mt-2 text-2xl font-bold">
             {t.price}
-            <span className="text-sm font-normal text-muted-foreground">/mo</span>
+            <span className="text-sm font-normal text-muted-foreground">
+              /mo
+            </span>
           </p>
           <ul className="mt-4 space-y-2 text-sm">
             {t.features.map((f) => (

@@ -71,6 +71,7 @@ export function buildJobEmbeddingText(job: JobEmbeddingInput): string {
         ? job.customFields
         : JSON.stringify(job.customFields);
     const sanitised = raw
+      // eslint-disable-next-line no-control-regex -- deliberate control-char filter
       .replace(/[\x00-\x1F\x7F]/g, " ") // strip control characters
       .replace(/\s+/g, " ")
       .trim()

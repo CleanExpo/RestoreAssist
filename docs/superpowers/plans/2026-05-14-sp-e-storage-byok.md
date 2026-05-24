@@ -13,6 +13,7 @@
 **Tech stack:** Next.js 15 App Router, Prisma 5, Postgres, `googleapis` SDK (already a dep), `archiver` for ZIP assembly (already used by `bulk-export-zip` route — verify), existing `lib/integrations/{retry,circuit-breaker,rate-limiter}.ts` helpers, existing `lib/cloud-mirror/drive.ts` Google Drive client. AES-256-GCM at-rest encryption for OAuth tokens via `lib/credential-vault.ts` is owned by the Onboarding hotfix (prerequisite).
 
 **Dependencies (prerequisite, NOT in this plan):** the Onboarding hotfix ships first and provides:
+
 - `/api/oauth/google-drive/start` + `/callback` routes (Google OAuth 2.0 PKCE with `drive.file` + `drive.appdata` scopes)
 - `StorageProviderType` enum extended with `GOOGLE_DRIVE` and `ONEDRIVE` values
 - `Organization.storageProviderRefreshToken` (encrypted) + `Organization.storageProviderAccessToken` + `Organization.storageProviderAccountEmail` columns
@@ -158,6 +159,7 @@ The `@@unique` composite (with nullable fields collapsing on Postgres) gives **e
    ```
 
    SP-A imports against this signature.
+
 5. **Verify**: test green; manual smoke run produces a real ZIP visible in Supabase.
 
 ### Block 6 — Cron route + Vercel schedule (½ day)
@@ -193,6 +195,7 @@ The `@@unique` composite (with nullable fields collapsing on Postgres) gives **e
 **Why dual-write via queue instead of swap-storage:** the spec is explicit at §4.2 — "primary write to Supabase (latency + reliability), background mirror to GDrive". Photo uploads need to return `<201 Created>` in <2s for the FAB capture UX. Drive's API can take 5-15s under load and has 24-hour outage windows in 2025 history. Supabase remains the source-of-truth for thumbnails, signed URLs in the dashboard, AI vision pipelines, EXIF extraction. Drive is the tenant's **archive**, not their operational store.
 
 **Write path for a photo (GDrive-connected org):**
+
 1. `POST /api/inspections/[id]/photos` — `SupabaseStorageProvider.upload()` runs (compression, thumbnail, signed URL, sha256). Returns in ~600ms.
 2. `prisma.inspectionPhoto.create` writes the row with Supabase URLs. ~50ms.
 3. `enqueueMirror({ kind: "PHOTO", id: photo.id, orgId, storagePath, filename, mimeType })` — single INSERT into `StorageMirrorJob`. ~20ms. Idempotent.

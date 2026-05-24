@@ -9,17 +9,20 @@
 ## Open question 1 — Provider set (Resend + SendGrid + SES vs subset)
 
 **Evidence**
+
 - `resend` v6.12.3 already in tree; no `@sendgrid/mail`, no `@aws-sdk/client-ses`.
 - Total platform volume: ~1–2k emails/month. Individual tenant peak (CCW insurance invoicing) likely <500/month.
 - SP-E shipped 3 storage providers (Supabase / S3 / Google Drive) — symmetric BYOK story across pillars matters for the BYOE positioning (§10.2).
 - AWS SES sandbox mode requires production-mode application (24-72h AWS review) — onboarding friction tenants will hit, then complain to Phill.
 
 **Candidates**
+
 1. **All three** (Resend + SendGrid + SES) — matches the spec as-written.
 2. **Two (Resend + SendGrid)** — cover small + enterprise; defer SES until a tenant asks.
 3. **Resend only, with multi-account** — every tenant brings their own Resend key; no provider abstraction in v1.
 
 **Recommendation: (2) Resend + SendGrid for v1, SES deferred to v1.1.**
+
 - SES forces a multi-day AWS sandbox approval gate that breaks the "paste key, validate, done" UX promise made elsewhere in the spec (§6). It's not graceful degradation — it's a wall.
 - SendGrid covers the high-volume / enterprise need (CCW invoicing to insurers wants reputable IP + analytics) without the sandbox blocker.
 - Provider abstraction (`EmailProvider` interface) lands in v1 regardless — adding `aws-ses-provider.ts` later is a 1-day task once a tenant actually requests it. **Don't ship dead code.**
@@ -30,17 +33,20 @@
 ## Open question 2 — Default provider (Resend vs SES for cost-sensitive)
 
 **Evidence**
+
 - `lib/email-send.ts` is already Resend; switching the platform default means rewriting a working path.
 - Resend $0.00075/email × 2000/month = **$1.50/month** — cost is not a constraint.
 - SES = $0.10/1000 emails = **$0.20/month** — saves $1.30/month at platform scale. Negligible.
 - Deliverability moat for platform sends (welcome, password reset) matters more than $1.30. Resend's verified-domain DKIM is automatic; SES requires per-region identity setup.
 
 **Candidates**
+
 1. **Keep Resend as `PLATFORM_RESEND` default** — zero migration; preserves existing deliverability.
 2. **Switch platform default to SES** — cheapest, but introduces sandbox/region friction for the platform account itself.
 3. **Configurable platform default via env var** — `PLATFORM_EMAIL_PROVIDER=resend|ses`, decide later.
 
 **Recommendation: (1) Keep Resend as platform default.**
+
 - Cost delta is below noise threshold. Switching providers is a deliverability risk (warm-up new IP) for $1.30/month savings.
 - Tenant BYOK is the cost-optimisation lever — high-volume tenants pick SendGrid/SES on their own account; platform stays on Resend for fallback.
 - Reversibility: **medium** — switching platform default later requires DNS + warm-up; do it once, do it now (Resend) or not at all in v1.
@@ -50,17 +56,20 @@
 ## Open question 3 — DKIM/SPF/DMARC strictness (warn vs block at connect)
 
 **Evidence**
+
 - Spec §3.6 already locks "verification at connect time" but leaves strictness open in §19.3.
 - RA-1548 envelope requires anti-spoofing compliance; tenants doing insurer-bound invoicing (CCW → Allianz/IAG) need deliverability.
 - `lib/email-retry.ts` re-throws on final failure (RA-1552) — callers already surface failures to users. The "graceful degradation" pattern is fail-soft for transient errors, not config errors.
 - SP-E pattern: invalid storage config → falls back to Supabase silently. Email's failure mode is different — silent fallback to platform Resend hides the tenant's DNS problem.
 
 **Candidates**
+
 1. **Warn only** — yellow banner; send goes via BYOK regardless of DKIM status.
 2. **Block at connect** — `validate()` returns `valid: false` if DKIM inactive; tenant cannot save the provider config until DNS is fixed.
 3. **Warn at connect, downgrade to fallback at send-time** — save the config, but the dispatcher routes via platform Resend until DKIM verified; banner reads "BYOK paused — fix DKIM to activate."
 
 **Recommendation: (3) Warn at connect, downgrade to fallback at send.**
+
 - Pure warn (1) lets tenants ship invoices that get spam-filtered by Allianz's mail gateway — the user sees "sent successfully" and the insurer never receives. Worst outcome.
 - Hard block (2) is unfriendly — tenant pastes valid key, hits a wall, doesn't understand DNS. Setup-wizard abandonment.
 - (3) preserves the spec's fail-soft promise while protecting deliverability. The status block in `/dashboard/settings/email` is the UX surface for the fix loop.
@@ -71,17 +80,20 @@
 ## Open question 4 — Fallback chain behaviour (BYOK ↔ platform)
 
 **Evidence**
+
 - Spec §4.5 says: BYOK up → BYOK; BYOK down/invalid → platform; no BYOK → platform.
 - SP-E inverts this: **Supabase is always primary**, Drive/S3 is async mirror. Hot path never falls through to BYOK.
 - CLAUDE.md rule 13: "All sync is fire-and-forget — failures queue to dead-letter, never block user-facing requests."
 - Critical-path emails (password reset, invite, signup confirmation) cannot wait for a BYOK provider that's having a regional outage. RA-1552 retry window is seconds-to-minutes; BYOK outages can be hours.
 
 **Candidates**
+
 1. **Spec as-written** — BYOK primary, platform fallback on detected failure (current draft §4.5).
 2. **SP-E parity** — platform primary on hot path, BYOK async mirror via `EmailSendJob` queue. User always gets the email; tenant gets the deliverability/analytics benefit on the queue replay.
 3. **Email-class split** — transactional (password reset, invite, OTP) goes platform-Resend always; bulk/business (invoices, handover packages, reports) goes BYOK with platform fallback.
 
 **Recommendation: (3) Email-class split.**
+
 - (1) means a SendGrid outage breaks password reset = locked-out users = support tickets.
 - (2) defeats the BYOK deliverability moat for the emails tenants actually care about (invoices reaching insurers from `@tenantdomain.com.au`).
 - (3) gives each class its correct primary: transactional uses the always-warm platform IP; business uses the tenant-owned domain.
@@ -93,17 +105,20 @@
 ## Open question 5 — `EmailSendJob` queue depth + dead-letter handling
 
 **Evidence**
+
 - Spec §7.3: status `pending | sent | failed | skipped`; no DLQ concept.
 - `lib/integrations/sync-queue.ts` (SP-E pattern referenced §14) uses `nextAttemptAt` + max-attempts; permanent failures stay rows with `status=failed`.
 - RA-1552 retry: 3 attempts, jittered, re-throws. SP-6 queue should pick up where the request-lifecycle retry gives up.
 - 2000 emails/month = ~70/day = trivial queue depth. Cron at 60s interval is sufficient.
 
 **Candidates**
+
 1. **5 attempts over 24h, then `status=failed` + org-owner notification.**
 2. **3 attempts over 1h, then DLQ table + Linear-ticket fire-and-forget.**
 3. **Unbounded with capped backoff (max 6h between attempts), expire after 72h.**
 
 **Recommendation: (1) — 5 attempts, exponential backoff (1m, 5m, 30m, 2h, 6h), then `status=failed` + email org-owner via platform-Resend.**
+
 - 24h window covers regional cloud outages without giving up too fast; matches industry transactional-email retry conventions (SendGrid/Postmark both retry ~72h, but RA tenants want to know sooner).
 - Org-owner notification on permanent failure uses the platform fallback path (§4.5) — never the failing BYOK.
 - No separate DLQ table — `EmailSendJob status=failed` IS the DLQ. Admin UI later (out of scope) can surface failed rows.
@@ -115,17 +130,20 @@
 ## Open question 6 — Reply-To routing (per-tenant vs platform)
 
 **Evidence**
+
 - Spec §4.1 `send()` signature already accepts `replyTo?: string`.
 - Current call sites in `lib/email.ts` — most omit reply-to (relies on `from: noreply@restoreassist.app`); a few (invite, signed-form) pass the admin/sender's email.
 - CCW's invoicing email: insurer replies should reach the tenant's accounts team (`accounts@ccwarehouse.com.au`), NOT RestoreAssist support.
 - `Organization` model already has an `email` field per spec §4.2; can serve as default reply-to.
 
 **Candidates**
+
 1. **Platform-wide reply-to** — all emails reply to `support@restoreassist.app`. Simplest.
 2. **Per-org reply-to** — `Organization.replyToEmail` field; defaults to `Organization.email`; per-call override possible.
 3. **Per-email-class reply-to** — transactional → platform support; business → tenant org email; per-call override.
 
 **Recommendation: (3) Per-email-class reply-to, matching the class split from Q4.**
+
 - Transactional (password reset, signup verification): reply-to `support@restoreassist.app` — replies need to reach the platform, not the tenant org owner who can't help with auth bugs.
 - Business (invoice, handover, report-completed): reply-to `Organization.replyToEmail ?? Organization.email` — replies are about that tenant's job; must reach them.
 - Adds one Prisma field `Organization.replyToEmail String?` (additive, no backfill — falls back to `Organization.email`).
@@ -135,14 +153,14 @@
 
 ## Refined open-question summary (for Phill 5-min review)
 
-| # | Question | Recommendation | Reversibility |
-|---|---|---|---|
-| 1 | Provider set | Resend + SendGrid for v1; SES deferred | high |
-| 2 | Platform default | Keep Resend | medium |
-| 3 | DKIM strictness | Warn at connect; downgrade to fallback at send until verified | medium |
-| 4 | Fallback chain | Email-class split: transactional→platform-primary, business→BYOK-primary+platform-fallback | medium-low |
-| 5 | Queue retry/DLQ | 5 attempts over 24h; `status=failed` = DLQ; notify org-owner via platform fallback | high |
-| 6 | Reply-To | Per-class: transactional→support@restoreassist.app, business→`Organization.replyToEmail ?? Organization.email` | high |
+| #   | Question         | Recommendation                                                                                                 | Reversibility |
+| --- | ---------------- | -------------------------------------------------------------------------------------------------------------- | ------------- |
+| 1   | Provider set     | Resend + SendGrid for v1; SES deferred                                                                         | high          |
+| 2   | Platform default | Keep Resend                                                                                                    | medium        |
+| 3   | DKIM strictness  | Warn at connect; downgrade to fallback at send until verified                                                  | medium        |
+| 4   | Fallback chain   | Email-class split: transactional→platform-primary, business→BYOK-primary+platform-fallback                     | medium-low    |
+| 5   | Queue retry/DLQ  | 5 attempts over 24h; `status=failed` = DLQ; notify org-owner via platform fallback                             | high          |
+| 6   | Reply-To         | Per-class: transactional→support@restoreassist.app, business→`Organization.replyToEmail ?? Organization.email` | high          |
 
 ## Spec changes implied (one-paragraph diffs Phill confirms)
 

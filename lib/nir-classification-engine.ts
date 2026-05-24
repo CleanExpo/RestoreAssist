@@ -148,8 +148,8 @@ export async function classifyIICRC(
     S500_FIELD_MAP;
 
   // ── Category — IICRC S500 §7.1–7.3 ─────────────────────────────────────────
-  let category = "1";
-  let categoryJustification = "";
+  let category;
+  let categoryJustification;
   let timeEscalationApplied = false;
 
   const waterSourceLower = input.waterSource.toLowerCase();
@@ -218,8 +218,8 @@ export async function classifyIICRC(
   }
 
   // ── Class — S500 §8.1–8.4 ───────────────────────────────────────────────────
-  let classValue = "1";
-  let classJustification = "";
+  let classValue;
+  let classJustification;
 
   const hasSpecialtyMaterial = input.moistureReadings.some((r) =>
     SPECIALTY_MATERIALS.some((m) => r.surfaceType.toLowerCase().includes(m)),

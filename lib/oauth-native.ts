@@ -94,7 +94,8 @@ async function ensureSocialLoginInitialised() {
     socialLoginInitialised = true;
     console.log("[oauth-native] SocialLogin.initialize OK");
   } catch (err) {
-    const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+    const msg =
+      err instanceof Error ? `${err.name}: ${err.message}` : String(err);
     console.error("[oauth-native] SocialLogin.initialize FAILED", msg);
     if (typeof window !== "undefined") {
       window.alert(`Sign-in plugin failed to initialise:\n${msg}`);
@@ -163,7 +164,10 @@ export async function signInWithOAuth(
       // string | null). Older versions of the plugin bury it under
       // `authentication.idToken` — guard for both shapes.
       const r = result.result as
-        | { idToken?: string | null; authentication?: { idToken?: string | null } }
+        | {
+            idToken?: string | null;
+            authentication?: { idToken?: string | null };
+          }
         | undefined;
       idToken = r?.idToken ?? r?.authentication?.idToken ?? undefined;
     }
@@ -180,8 +184,9 @@ export async function signInWithOAuth(
     if (typeof window !== "undefined" && !/cancel/i.test(errMsg)) {
       window.alert(`${provider} sign-in failed:\n${errName}: ${errMsg}`);
     }
-    const msg = err instanceof Error ? err.message : `${provider} sign-in was cancelled.`;
-    throw new Error(msg);
+    const msg =
+      err instanceof Error ? err.message : `${provider} sign-in was cancelled.`;
+    throw new Error(msg, { cause: err });
   }
 
   if (!idToken) {
@@ -203,7 +208,7 @@ export async function signInWithOAuth(
   });
 
   if (!exchangeResponse.ok) {
-    let details = "";
+    let details;
     try {
       const body = await exchangeResponse.json();
       details =

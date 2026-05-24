@@ -399,8 +399,8 @@ export async function POST(request: NextRequest) {
 function calculateEquipmentNeeds(waterClass: string, affectedArea: number) {
   if (!affectedArea) return { airmovers: 0, dehumidification: 0 };
 
-  let airmovers = 0;
-  let dehumidification = 0;
+  let airmovers;
+  let dehumidification;
 
   switch (waterClass) {
     case "Class 1":

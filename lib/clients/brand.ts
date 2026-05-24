@@ -31,12 +31,10 @@ export const RA_DEFAULT_PRIMARY_COLOR = "#1C2E47";
  */
 export const RA_DEFAULT_LOGO_URL = "";
 
-export const brandPrimaryColorSchema = z
-  .string()
-  .regex(/^#[0-9a-fA-F]{6}$/, {
-    message:
-      "brandPrimaryColor must be 6-character hex with leading #, e.g. #1C2E47",
-  });
+export const brandPrimaryColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, {
+  message:
+    "brandPrimaryColor must be 6-character hex with leading #, e.g. #1C2E47",
+});
 
 export const brandLogoUrlSchema = z
   .string()
@@ -65,7 +63,10 @@ export interface ClientBrandTheme {
  * about absent values.
  */
 export function resolveClientBrandTheme(
-  client: { brandLogoUrl?: string | null; brandPrimaryColor?: string | null } | null | undefined,
+  client:
+    | { brandLogoUrl?: string | null; brandPrimaryColor?: string | null }
+    | null
+    | undefined,
 ): ClientBrandTheme {
   return {
     logoUrl: client?.brandLogoUrl ?? RA_DEFAULT_LOGO_URL,

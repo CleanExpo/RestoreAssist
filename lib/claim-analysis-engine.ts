@@ -96,7 +96,7 @@ export async function analyzeClaimPDF(
 
   // Try to extract text from PDF, but don't fail if it doesn't work
   // Claude can read PDFs directly, so we'll use that as fallback
-  let extractedText = "";
+  let extractedText;
   try {
     extractedText = await extractTextFromPDF(pdfBuffer);
   } catch (textError: any) {
@@ -323,7 +323,9 @@ Return the analysis as a JSON object matching this structure:
 
     return analysisResult;
   } catch (error: any) {
-    throw new Error(`Failed to analyze claim PDF: ${error.message}`);
+    throw new Error(`Failed to analyze claim PDF: ${error.message}`, {
+      cause: error,
+    });
   }
 }
 
@@ -436,6 +438,8 @@ Return as JSON with structure, checklist, and line items.`;
 
     return JSON.parse(jsonMatch[0]);
   } catch (error: any) {
-    throw new Error(`Failed to generate standard template: ${error.message}`);
+    throw new Error(`Failed to generate standard template: ${error.message}`, {
+      cause: error,
+    });
   }
 }

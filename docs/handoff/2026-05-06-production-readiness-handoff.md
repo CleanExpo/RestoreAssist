@@ -9,28 +9,28 @@
 
 ## TL;DR
 
-| | |
-|---|---|
-| **Production status** | ✅ Healthy. `https://restoreassist.app/api/health` → HTTP 200, DB OK |
-| **Open PRs** | 0 |
-| **Sandbox state** | All in-flight work merged. Sandbox tracks main with the standard 2-commit squash-cosmetic offset. |
-| **Test coverage** | 13 `@smoke` tests, 100% pass rate across 20 prod runs (260/260) |
-| **Scheduled monitoring** | `@smoke` cron fires every 15 min vs prod (`.github/workflows/smoke-prod.yml`) |
-| **Security** | 0 actionable CVEs (1 ignored, pre-existing in `pnpm.auditConfig.ignoreGhsas`) |
-| **Type safety** | 0 errors in committed code |
-| **CI gates enforcing** | Build, TypeScript Check, Prisma migration drift |
-| **CI gates non-enforcing** | Lint (`continue-on-error: true` — backlog of 73,512 problems blocks the flip) |
+|                            |                                                                                                   |
+| -------------------------- | ------------------------------------------------------------------------------------------------- |
+| **Production status**      | ✅ Healthy. `https://restoreassist.app/api/health` → HTTP 200, DB OK                              |
+| **Open PRs**               | 0                                                                                                 |
+| **Sandbox state**          | All in-flight work merged. Sandbox tracks main with the standard 2-commit squash-cosmetic offset. |
+| **Test coverage**          | 13 `@smoke` tests, 100% pass rate across 20 prod runs (260/260)                                   |
+| **Scheduled monitoring**   | `@smoke` cron fires every 15 min vs prod (`.github/workflows/smoke-prod.yml`)                     |
+| **Security**               | 0 actionable CVEs (1 ignored, pre-existing in `pnpm.auditConfig.ignoreGhsas`)                     |
+| **Type safety**            | 0 errors in committed code                                                                        |
+| **CI gates enforcing**     | Build, TypeScript Check, Prisma migration drift                                                   |
+| **CI gates non-enforcing** | Lint (`continue-on-error: true` — backlog of 73,512 problems blocks the flip)                     |
 
 ---
 
 ## What shipped to prod across 4 cutover bundles
 
-| Cutover | PR | Wave | What |
-|---|---|---|---|
-| 1st | #893 | Wave 1-5 bundle | CI build gate enforcing, Sentry wired, DigitalOcean cleanup, 15 type fixes, sandbox revival |
-| 2nd | #895 | Wave 6.1 | Cron board-memo parser (RA-1979), iOS Capacitor SPM regen, 2 HIGH CVE overrides |
-| 3rd | #897 | Wave 6.2 | 6 moderate + 1 low CVE overrides |
-| 4th | #900 | Wave 6.3 | Scheduled prod smoke cron, `/api/health` DB cache (54% latency reduction) |
+| Cutover | PR   | Wave            | What                                                                                        |
+| ------- | ---- | --------------- | ------------------------------------------------------------------------------------------- |
+| 1st     | #893 | Wave 1-5 bundle | CI build gate enforcing, Sentry wired, DigitalOcean cleanup, 15 type fixes, sandbox revival |
+| 2nd     | #895 | Wave 6.1        | Cron board-memo parser (RA-1979), iOS Capacitor SPM regen, 2 HIGH CVE overrides             |
+| 3rd     | #897 | Wave 6.2        | 6 moderate + 1 low CVE overrides                                                            |
+| 4th     | #900 | Wave 6.3        | Scheduled prod smoke cron, `/api/health` DB cache (54% latency reduction)                   |
 
 Plus #887 + #888 merged direct to main early in the session (CI build gate flip + Apple env var docs).
 
@@ -66,11 +66,11 @@ Sentry is wired (`sentry.client.config.ts` / `sentry.server.config.ts` / `sentry
 
 Current state of the sandbox Vercel project:
 
-| Var | Currently | Should be |
-|---|---|---|
-| `DIRECT_URL` | Points at `udooysjajglluvuxkijp` (the prod-2026 Supabase) — **wrong project** | The sandbox Supabase's direct connection (port 5432) |
-| `NEXT_PUBLIC_SUPABASE_URL` | Points at `oxeiaavuspvpvanzcrjc` (the older 1-user Supabase) | Whichever Supabase the sandbox env should target |
-| `DATABASE_URL` | Stale credentials → Prisma `P1000: Authentication failed` on every build | Same Supabase as DIRECT_URL, pooler URL (port 6543) |
+| Var                        | Currently                                                                     | Should be                                            |
+| -------------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `DIRECT_URL`               | Points at `udooysjajglluvuxkijp` (the prod-2026 Supabase) — **wrong project** | The sandbox Supabase's direct connection (port 5432) |
+| `NEXT_PUBLIC_SUPABASE_URL` | Points at `oxeiaavuspvpvanzcrjc` (the older 1-user Supabase)                  | Whichever Supabase the sandbox env should target     |
+| `DATABASE_URL`             | Stale credentials → Prisma `P1000: Authentication failed` on every build      | Same Supabase as DIRECT_URL, pooler URL (port 6543)  |
 
 Decide which Supabase project sandbox should use, then update all three env vars in the Vercel sandbox project to point at the same one. Without this, every PR will continue to show the documented-ignorable red X on `Vercel – restoreassist-sandbox`.
 
@@ -78,7 +78,7 @@ Decide which Supabase project sandbox should use, then update all three env vars
 
 **Effort: 10 min · Impact: drops `/api/health` avg from 787ms to ~200ms**
 
-PR #899 cached the DB probe (1.7s → 787ms). Remaining 787ms is mostly the Upstash ratelimit round-trip. `/api/health` is an infra endpoint — uptime monitors *should* be unconstrained. Drop the rate-limit:
+PR #899 cached the DB probe (1.7s → 787ms). Remaining 787ms is mostly the Upstash ratelimit round-trip. `/api/health` is an infra endpoint — uptime monitors _should_ be unconstrained. Drop the rate-limit:
 
 In `app/api/health/route.ts`, remove (or skip on this route specifically):
 
@@ -136,11 +136,12 @@ OR delete the four files if the work is stale.
 
 **Effort: 2–4 weeks · Impact: enables flipping the lint gate to enforcing**
 
-`pnpm lint` reports **20,784 errors + 52,728 warnings** (73,512 problems total). I attempted `pnpm lint --fix` autonomously and it did *unsafe* fixes (removed `// eslint-disable-next-line` directives that were intentionally suppressing `@ts-ignore` comments). **Don't run `--fix` blindly.**
+`pnpm lint` reports **20,784 errors + 52,728 warnings** (73,512 problems total). I attempted `pnpm lint --fix` autonomously and it did _unsafe_ fixes (removed `// eslint-disable-next-line` directives that were intentionally suppressing `@ts-ignore` comments). **Don't run `--fix` blindly.**
 
 Recommended phased approach:
 
 **Phase A — Triage** (~1 day)
+
 - Categorize all 20,784 errors by rule. The top 5–10 rules will cover ~80% of errors.
 - Commands:
   ```bash
@@ -150,10 +151,12 @@ Recommended phased approach:
 - Decide for each top rule: **fix** (write a targeted codemod / batch fix), **disable** (relax the rule in `eslint.config.mjs`), or **defer** (add to a new `tsc-baseline.json`-style ratchet).
 
 **Phase B — Targeted batches** (~2 weeks, parallelisable)
+
 - One PR per rule: e.g. "lint: fix all 4,200 `no-useless-escape` errors". Each PR is mechanical and reviewable in chunks.
 - Run codemods (`jscodeshift`, `eslint --fix --rule "X"`) with manual review of a sample before commit.
 
 **Phase C — Flip the gate** (~1 day)
+
 - Once errors drop below ~50, update `.github/workflows/pr-checks.yml`:
   ```yaml
   - name: Lint
@@ -205,4 +208,4 @@ pnpm type-check
 
 ---
 
-*Generated 2026-05-06 by an autonomous Claude Code Opus 4.7 (1M context) session. 16 PRs landed, 4 prod cutovers, 9 CVEs patched, 15 type errors fixed, 2 CI gates flipped, scheduled prod smoke established. Production has been continuously healthy throughout.*
+_Generated 2026-05-06 by an autonomous Claude Code Opus 4.7 (1M context) session. 16 PRs landed, 4 prod cutovers, 9 CVEs patched, 15 type errors fixed, 2 CI gates flipped, scheduled prod smoke established. Production has been continuously healthy throughout._

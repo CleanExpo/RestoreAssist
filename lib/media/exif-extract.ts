@@ -63,7 +63,7 @@ export interface ExtractedExif {
 export async function extractExif(buffer: Buffer): Promise<ExtractedExif> {
   try {
     // Dynamic import — exifr is optional; gracefully skip if not installed
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/ban-ts-comment
+
     // @ts-ignore
     const exifr = (await import("exifr").catch(() => null)) as any;
     if (!exifr) return {};
@@ -201,7 +201,7 @@ export function extractAndSaveMediaAsset(input: ExifExtractionInput): void {
           exposureTime: exif.exposureTime ?? null,
           iso: exif.iso ?? null,
           flash: exif.flash ?? null,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           rawExifData: exif.raw ? (exif.raw as any) : undefined,
         },
         select: { id: true },

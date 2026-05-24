@@ -52,12 +52,7 @@ export default function ClaimTypePicker({
           Claim type <span className="text-red-500">*</span>
         </Label>
       </div>
-      <p
-        className={cn(
-          "text-sm mb-4",
-          "text-neutral-600 dark:text-slate-400",
-        )}
-      >
+      <p className={cn("text-sm mb-4", "text-neutral-600 dark:text-slate-400")}>
         Which IICRC standard governs this job? Selection determines which
         evidence-capture fields render below.
       </p>

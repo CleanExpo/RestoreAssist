@@ -89,7 +89,9 @@ describe("POST /api/inspections/[id]/reopen", () => {
   });
 
   it("returns 403 when the caller is not an admin", async () => {
-    mockSession.mockResolvedValueOnce({ user: { id: "tech_1", role: "TECHNICIAN" } });
+    mockSession.mockResolvedValueOnce({
+      user: { id: "tech_1", role: "TECHNICIAN" },
+    });
     mockVerifyAdmin.mockResolvedValueOnce({
       response: new Response(JSON.stringify({ error: "Forbidden" }), {
         status: 403,
@@ -106,7 +108,9 @@ describe("POST /api/inspections/[id]/reopen", () => {
   it("returns 403 when JWT role says ADMIN but DB role is no longer ADMIN (stale-claim defence)", async () => {
     // Simulates a demoted admin whose JWT still carries role=ADMIN. The
     // DB re-check inside verifyAdminFromDb catches this and returns 403.
-    mockSession.mockResolvedValueOnce({ user: { id: "demoted_1", role: "ADMIN" } });
+    mockSession.mockResolvedValueOnce({
+      user: { id: "demoted_1", role: "ADMIN" },
+    });
     mockVerifyAdmin.mockResolvedValueOnce({
       response: new Response(JSON.stringify({ error: "Forbidden" }), {
         status: 403,
@@ -121,7 +125,9 @@ describe("POST /api/inspections/[id]/reopen", () => {
   });
 
   it("returns 400 when reason is missing", async () => {
-    mockSession.mockResolvedValueOnce({ user: { id: ADMIN.id, role: "ADMIN" } });
+    mockSession.mockResolvedValueOnce({
+      user: { id: ADMIN.id, role: "ADMIN" },
+    });
     mockVerifyAdmin.mockResolvedValueOnce({ user: ADMIN });
 
     const res = await POST(makePost({}), {
@@ -132,7 +138,9 @@ describe("POST /api/inspections/[id]/reopen", () => {
   });
 
   it("returns 400 when reason is shorter than 10 characters", async () => {
-    mockSession.mockResolvedValueOnce({ user: { id: ADMIN.id, role: "ADMIN" } });
+    mockSession.mockResolvedValueOnce({
+      user: { id: ADMIN.id, role: "ADMIN" },
+    });
     mockVerifyAdmin.mockResolvedValueOnce({ user: ADMIN });
 
     const res = await POST(makePost({ reason: "short" }), {
@@ -143,7 +151,9 @@ describe("POST /api/inspections/[id]/reopen", () => {
   });
 
   it("returns 404 when the inspection does not exist", async () => {
-    mockSession.mockResolvedValueOnce({ user: { id: ADMIN.id, role: "ADMIN" } });
+    mockSession.mockResolvedValueOnce({
+      user: { id: ADMIN.id, role: "ADMIN" },
+    });
     mockVerifyAdmin.mockResolvedValueOnce({ user: ADMIN });
     p.inspection.findUnique.mockResolvedValueOnce(null);
 
@@ -155,7 +165,9 @@ describe("POST /api/inspections/[id]/reopen", () => {
   });
 
   it("returns 409 when the inspection is not in a terminal state", async () => {
-    mockSession.mockResolvedValueOnce({ user: { id: ADMIN.id, role: "ADMIN" } });
+    mockSession.mockResolvedValueOnce({
+      user: { id: ADMIN.id, role: "ADMIN" },
+    });
     mockVerifyAdmin.mockResolvedValueOnce({ user: ADMIN });
     p.inspection.findUnique.mockResolvedValueOnce({
       id: "i1",
@@ -171,7 +183,9 @@ describe("POST /api/inspections/[id]/reopen", () => {
   });
 
   it("returns 200 on happy path — flips COMPLETED → ESTIMATED and writes AuditLog", async () => {
-    mockSession.mockResolvedValueOnce({ user: { id: ADMIN.id, role: "ADMIN" } });
+    mockSession.mockResolvedValueOnce({
+      user: { id: ADMIN.id, role: "ADMIN" },
+    });
     mockVerifyAdmin.mockResolvedValueOnce({ user: ADMIN });
     p.inspection.findUnique.mockResolvedValueOnce({
       id: "i1",
@@ -213,7 +227,9 @@ describe("POST /api/inspections/[id]/reopen", () => {
   });
 
   it("returns 200 when reopening a REJECTED inspection (also terminal)", async () => {
-    mockSession.mockResolvedValueOnce({ user: { id: ADMIN.id, role: "ADMIN" } });
+    mockSession.mockResolvedValueOnce({
+      user: { id: ADMIN.id, role: "ADMIN" },
+    });
     mockVerifyAdmin.mockResolvedValueOnce({ user: ADMIN });
     p.inspection.findUnique.mockResolvedValueOnce({
       id: "i1",

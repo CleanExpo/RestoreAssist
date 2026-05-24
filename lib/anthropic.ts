@@ -71,6 +71,7 @@ export async function generateDetailedReport(
     }
     throw new Error(
       `Failed to generate detailed report: ${error instanceof Error ? error.message : "Unknown error"}`,
+      { cause: error },
     );
   }
 }

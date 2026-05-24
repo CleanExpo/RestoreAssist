@@ -1,7 +1,12 @@
 import { test, expect } from "@playwright/test";
 
-test("success page renders pending-activation or redirects", async ({ page, request }) => {
-  const seed = await request.post("/api/test/seed-trial-user", { data: { daysUntilExpiry: 5 } });
+test("success page renders pending-activation or redirects", async ({
+  page,
+  request,
+}) => {
+  const seed = await request.post("/api/test/seed-trial-user", {
+    data: { daysUntilExpiry: 5 },
+  });
   const { data } = await seed.json();
   await request.post("/api/test/sign-in-as", { data: { email: data.email } });
 

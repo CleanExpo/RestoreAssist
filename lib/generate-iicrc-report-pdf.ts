@@ -317,10 +317,7 @@ function drawPageHeader(
   });
 }
 
-function drawPageFooter(
-  w: PDFWriter,
-  accent: ReturnType<typeof rgb> = C_NAVY,
-) {
+function drawPageFooter(w: PDFWriter, accent: ReturnType<typeof rgb> = C_NAVY) {
   const p = w.page;
   p.drawRectangle({ x: 0, y: 0, width: A4_W, height: 28, color: accent });
   p.drawText(
@@ -388,7 +385,8 @@ export async function generateIICRCReportPDF(
   // Optional client logo — fetched once, embedded on the cover header.
   // A non-HTTPS / unreachable / non-PNG/JPG URL silently falls back to
   // the text-only header so a broken brand asset never blocks a handover.
-  let clientLogoImage: Awaited<ReturnType<PDFDocument["embedPng"]>> | null = null;
+  let clientLogoImage: Awaited<ReturnType<PDFDocument["embedPng"]>> | null =
+    null;
   if (options.theme?.logoUrl && options.theme.logoUrl.startsWith("https://")) {
     try {
       const res = await fetch(options.theme.logoUrl);

@@ -687,7 +687,7 @@ function buildScopeOfWorksDocument(scopeData: any): string {
       output += `- **Unit:** ${item.unit}\n`;
 
       // Calculate effective rate - use direct rate if available, otherwise calculate from subtotal/qty
-      let effectiveRate = 0;
+      let effectiveRate;
       if (item.rate !== undefined && !item.labour && !item.equipment) {
         // Simple item with direct rate
         effectiveRate = Number(item.rate) || 0;

@@ -41,9 +41,14 @@ export default async function BillingSuccessPage({
 function Confirmation({ tier }: { tier: string | null }) {
   return (
     <main className="container mx-auto max-w-2xl p-8 text-center">
-      <h1 className="text-2xl font-semibold">Welcome to {tier ?? "RestoreAssist"}</h1>
+      <h1 className="text-2xl font-semibold">
+        Welcome to {tier ?? "RestoreAssist"}
+      </h1>
       <p className="mt-4 text-muted-foreground">Your subscription is active.</p>
-      <Link href="/dashboard" className="mt-8 inline-block rounded bg-[#1C2E47] px-6 py-3 text-white">
+      <Link
+        href="/dashboard"
+        className="mt-8 inline-block rounded bg-[#1C2E47] px-6 py-3 text-white"
+      >
         Continue to dashboard
       </Link>
     </main>
@@ -54,7 +59,9 @@ function PendingActivation({ sessionId }: { sessionId: string }) {
   return (
     <main className="container mx-auto max-w-2xl p-8 text-center">
       <h1 className="text-2xl font-semibold">Activating your subscription…</h1>
-      <p className="mt-4 text-muted-foreground">This usually takes a few seconds.</p>
+      <p className="mt-4 text-muted-foreground">
+        This usually takes a few seconds.
+      </p>
       <PollScript />
       <p className="mt-8 text-sm text-muted-foreground">
         Stuck? Contact support with this reference: <code>{sessionId}</code>

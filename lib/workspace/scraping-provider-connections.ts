@@ -99,7 +99,6 @@ function decryptConfig(encrypted: string): ConfigPayload {
   return JSON.parse(decrypt(encrypted)) as ConfigPayload;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function toSummary(row: any): ScrapingProviderConnectionSummary {
   let maskedKey = "•••••••••••••••••••";
   try {
@@ -156,9 +155,7 @@ export async function listScrapingProviderConnections(
  * IMPORTANT: The returned key must NEVER be sent to the client.
  * Only callable from server-side scrape dispatch.
  */
-export async function getActiveScrapingProvider(
-  workspaceId: string,
-): Promise<{
+export async function getActiveScrapingProvider(workspaceId: string): Promise<{
   provider: ScrapingProvider;
   apiKey: string;
   config: ConfigPayload | null;
@@ -182,9 +179,7 @@ export async function getActiveScrapingProvider(
     return {
       provider: row.provider as ScrapingProvider,
       apiKey: apiKey ?? "",
-      config: row.encryptedConfig
-        ? decryptConfig(row.encryptedConfig)
-        : null,
+      config: row.encryptedConfig ? decryptConfig(row.encryptedConfig) : null,
     };
   } catch (err) {
     console.error(
@@ -339,7 +334,10 @@ async function testScrapingProviderKey(
   }
 }
 
-async function testApifyKey(apiKey: string, signal: AbortSignal): Promise<void> {
+async function testApifyKey(
+  apiKey: string,
+  signal: AbortSignal,
+): Promise<void> {
   // GET /v2/users/me — cheap, auth-only, no actor run
   const res = await fetch("https://api.apify.com/v2/users/me", {
     headers: { Authorization: `Bearer ${apiKey}` },
@@ -350,7 +348,10 @@ async function testApifyKey(apiKey: string, signal: AbortSignal): Promise<void> 
   }
 }
 
-async function testBrightDataKey(apiKey: string, signal: AbortSignal): Promise<void> {
+async function testBrightDataKey(
+  apiKey: string,
+  signal: AbortSignal,
+): Promise<void> {
   // GET /api/zone — auth-only
   const res = await fetch("https://api.brightdata.com/zone", {
     headers: { Authorization: `Bearer ${apiKey}` },
@@ -370,7 +371,10 @@ async function testZyteKey(apiKey: string, signal: AbortSignal): Promise<void> {
       Authorization: `Basic ${Buffer.from(`${apiKey}:`).toString("base64")}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ url: "https://httpbin.org/get", httpResponseBody: false }),
+    body: JSON.stringify({
+      url: "https://httpbin.org/get",
+      httpResponseBody: false,
+    }),
     signal,
   });
   // 200 or 422 (bad request shape but auth worked) both mean key is valid
@@ -379,7 +383,10 @@ async function testZyteKey(apiKey: string, signal: AbortSignal): Promise<void> {
   }
 }
 
-async function testFirecrawlKey(apiKey: string, signal: AbortSignal): Promise<void> {
+async function testFirecrawlKey(
+  apiKey: string,
+  signal: AbortSignal,
+): Promise<void> {
   const res = await fetch("https://api.firecrawl.dev/v1/account", {
     headers: { Authorization: `Bearer ${apiKey}` },
     signal,

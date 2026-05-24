@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useSetupStore } from './store';
-import { Check, Cloud, HardDrive } from 'lucide-react';
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useSetupStore } from "./store";
+import { Check, Cloud, HardDrive } from "lucide-react";
 
-type Choice = 'drive' | 'onedrive' | 'local';
+type Choice = "drive" | "onedrive" | "local";
 
 type StatusResponse = {
   connected: boolean;
@@ -14,8 +14,8 @@ type StatusResponse = {
   accountEmail: string | null;
 };
 
-const DRIVE_OAUTH_PATH = '/api/oauth/google-drive/start';
-const STATUS_PATH = '/api/oauth/google-drive/status';
+const DRIVE_OAUTH_PATH = "/api/oauth/google-drive/start";
+const STATUS_PATH = "/api/oauth/google-drive/status";
 
 export function StorageCard() {
   const setSectionStatus = useSetupStore((s) => s.setSectionStatus);
@@ -25,8 +25,8 @@ export function StorageCard() {
   const [forceGrid, setForceGrid] = useState(false);
   const [choice, setChoice] = useState<Choice | null>(null);
 
-  const oauthError = searchParams?.get('error') ?? null;
-  const storageFlag = searchParams?.get('storage') ?? null;
+  const oauthError = searchParams?.get("error") ?? null;
+  const storageFlag = searchParams?.get("storage") ?? null;
 
   useEffect(() => {
     let cancelled = false;
@@ -34,15 +34,17 @@ export function StorageCard() {
       try {
         const res = await fetch(STATUS_PATH);
         if (!res.ok) {
-          if (!cancelled) setStatus({ connected: false, provider: null, accountEmail: null });
+          if (!cancelled)
+            setStatus({ connected: false, provider: null, accountEmail: null });
           return;
         }
         const json = (await res.json()) as StatusResponse;
         if (cancelled) return;
         setStatus(json);
-        if (json.connected) setSectionStatus('storage', 'ready');
+        if (json.connected) setSectionStatus("storage", "ready");
       } catch {
-        if (!cancelled) setStatus({ connected: false, provider: null, accountEmail: null });
+        if (!cancelled)
+          setStatus({ connected: false, provider: null, accountEmail: null });
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -56,13 +58,13 @@ export function StorageCard() {
 
   const pick = (c: Choice) => {
     setChoice(c);
-    if (c === 'drive') {
+    if (c === "drive") {
       window.location.href = DRIVE_OAUTH_PATH;
       return;
     }
-    if (c === 'local') {
+    if (c === "local") {
       // UI-only for now; SP-E will persist Organization.storageProvider='LOCAL'
-      setSectionStatus('storage', 'ready');
+      setSectionStatus("storage", "ready");
     }
   };
 
@@ -80,7 +82,7 @@ export function StorageCard() {
   }
 
   const showConnected =
-    status?.connected && status.provider === 'GOOGLE_DRIVE' && !forceGrid;
+    status?.connected && status.provider === "GOOGLE_DRIVE" && !forceGrid;
 
   return (
     <Card>
@@ -107,7 +109,8 @@ export function StorageCard() {
         ) : (
           <>
             <p className="text-sm text-muted-foreground">
-              Choose where your evidence photos live. You can change this later in Settings.
+              Choose where your evidence photos live. You can change this later
+              in Settings.
             </p>
             {oauthError ? (
               <p
@@ -122,8 +125,8 @@ export function StorageCard() {
                 label="Google Drive"
                 description="OAuth into your Drive — we mirror photos to a folder you choose."
                 icon={<Cloud className="w-5 h-5" aria-hidden="true" />}
-                active={choice === 'drive'}
-                onClick={() => pick('drive')}
+                active={choice === "drive"}
+                onClick={() => pick("drive")}
               />
               <StorageOption
                 label="OneDrive"
@@ -135,8 +138,8 @@ export function StorageCard() {
                 label="Keep it local"
                 description="No cloud mirror. Photos stay in the app."
                 icon={<HardDrive className="w-5 h-5" aria-hidden="true" />}
-                active={choice === 'local'}
-                onClick={() => pick('local')}
+                active={choice === "local"}
+                onClick={() => pick("local")}
               />
             </div>
           </>
@@ -166,16 +169,16 @@ function StorageOption({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      aria-pressed={active ? 'true' : undefined}
+      aria-pressed={active ? "true" : undefined}
       aria-label={label}
       className={[
-        'rounded-md border p-3 text-left transition flex flex-col gap-2 min-h-[110px]',
+        "rounded-md border p-3 text-left transition flex flex-col gap-2 min-h-[110px]",
         active
-          ? 'border-primary bg-primary/5'
+          ? "border-primary bg-primary/5"
           : disabled
-            ? 'border-border bg-muted/30 cursor-not-allowed opacity-60'
-            : 'border-border hover:border-foreground/40 cursor-pointer',
-      ].join(' ')}
+            ? "border-border bg-muted/30 cursor-not-allowed opacity-60"
+            : "border-border hover:border-foreground/40 cursor-pointer",
+      ].join(" ")}
     >
       <span className="flex items-center gap-2">
         {icon}

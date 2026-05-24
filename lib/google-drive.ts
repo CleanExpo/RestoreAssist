@@ -122,16 +122,20 @@ export async function listDriveItems(
     ) {
       throw new Error(
         `Permission denied: The service account does not have access to this folder. Please share the folder with ${process.env.GOOGLE_CLIENT_EMAIL || "your-service-account@project.iam.gserviceaccount.com"}`,
+        { cause: error },
       );
     }
 
     if (errorCode === 404 || errorMessage.includes("not found")) {
       throw new Error(
         `Folder not found: The folder ID "${folderId}" does not exist or is not accessible.`,
+        { cause: error },
       );
     }
 
-    throw new Error(`Failed to list Drive items: ${errorMessage}`);
+    throw new Error(`Failed to list Drive items: ${errorMessage}`, {
+      cause: error,
+    });
   }
 }
 
@@ -249,7 +253,9 @@ export async function downloadDriveFile(
 
     return { buffer, mimeType: exportMimeType };
   } catch (error: any) {
-    throw new Error(`Failed to download Drive file: ${error.message}`);
+    throw new Error(`Failed to download Drive file: ${error.message}`, {
+      cause: error,
+    });
   }
 }
 

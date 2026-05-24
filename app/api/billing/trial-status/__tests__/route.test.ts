@@ -18,7 +18,9 @@ describe("GET /api/billing/trial-status", () => {
   });
 
   it("returns 200 with TrialStatus shape", async () => {
-    vi.mocked(getServerSession).mockResolvedValue({ user: { id: "u1" } } as any);
+    vi.mocked(getServerSession).mockResolvedValue({
+      user: { id: "u1" },
+    } as any);
     vi.mocked(getTrialStatus).mockResolvedValue({
       isTrialActive: true,
       hasTrialExpired: false,

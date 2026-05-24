@@ -179,7 +179,10 @@ describe("onNextAction", () => {
 
   it("handles SUBMITTED, CLASSIFIED, REJECTED with INFO type and correct messages", async () => {
     const cases: Array<{ status: InspectionStatus; title: string }> = [
-      { status: InspectionStatus.SUBMITTED, title: "AI is processing your inspection" },
+      {
+        status: InspectionStatus.SUBMITTED,
+        title: "AI is processing your inspection",
+      },
       { status: InspectionStatus.CLASSIFIED, title: "Classification ready" },
       { status: InspectionStatus.REJECTED, title: "Inspection rejected" },
     ];

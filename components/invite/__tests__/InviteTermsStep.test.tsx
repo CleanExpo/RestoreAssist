@@ -15,7 +15,9 @@ const baseProps = {
 describe("InviteTermsStep", () => {
   it("disables the submit button until both checkboxes are ticked", () => {
     render(<InviteTermsStep {...baseProps} />);
-    const submit = screen.getByRole("button", { name: /join acme restoration/i });
+    const submit = screen.getByRole("button", {
+      name: /join acme restoration/i,
+    });
     expect(submit).toBeDisabled();
 
     fireEvent.click(screen.getByLabelText(/terms of service/i));
@@ -29,7 +31,9 @@ describe("InviteTermsStep", () => {
     render(<InviteTermsStep {...baseProps} disabled />);
     fireEvent.click(screen.getByLabelText(/terms of service/i));
     fireEvent.click(screen.getByLabelText(/chain-of-custody/i));
-    const submit = screen.getByRole("button", { name: /join acme restoration/i });
+    const submit = screen.getByRole("button", {
+      name: /join acme restoration/i,
+    });
     expect(submit).toBeDisabled();
   });
 

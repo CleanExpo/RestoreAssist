@@ -55,9 +55,9 @@ export default async function StorageSettingsPage() {
       <header>
         <h1 className="text-2xl font-semibold">Storage</h1>
         <p className="text-sm text-muted-foreground">
-          Where RestoreAssist mirrors closed-job evidence packages and
-          working files. Supabase remains the primary store; the queue
-          below pushes a background copy to your provider.
+          Where RestoreAssist mirrors closed-job evidence packages and working
+          files. Supabase remains the primary store; the queue below pushes a
+          background copy to your provider.
         </p>
       </header>
 

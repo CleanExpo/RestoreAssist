@@ -43,7 +43,9 @@ export async function GET(_request: Request) {
   const clientId =
     process.env.GOOGLE_DRIVE_CLIENT_ID ?? process.env.GOOGLE_CLIENT_ID;
   if (!clientId) {
-    return NextResponse.redirect(SETUP_URL("/setup?error=drive-not-configured"));
+    return NextResponse.redirect(
+      SETUP_URL("/setup?error=drive-not-configured"),
+    );
   }
 
   const nonce = crypto.randomBytes(32).toString("hex");

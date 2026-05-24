@@ -164,8 +164,7 @@ async function verifyAndNormaliseToken(
   const emailVerified =
     payload.email_verified === true || payload.email_verified === "true";
   const name = typeof payload.name === "string" ? payload.name : null;
-  const picture =
-    typeof payload.picture === "string" ? payload.picture : null;
+  const picture = typeof payload.picture === "string" ? payload.picture : null;
 
   if (provider === "apple") {
     return {
@@ -201,7 +200,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const provider: Provider = body.provider;
 
   if (typeof body.idToken !== "string" || body.idToken.length < 32) {
-    return jsonError(request, 400, "VALIDATION", "Missing or malformed idToken");
+    return jsonError(
+      request,
+      400,
+      "VALIDATION",
+      "Missing or malformed idToken",
+    );
   }
 
   let claims: VerifiedClaims;
@@ -212,7 +216,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       request,
       401,
       "TOKEN_VERIFICATION_FAILED",
-      err instanceof Error ? err.message : `${provider} token verification failed`,
+      err instanceof Error
+        ? err.message
+        : `${provider} token verification failed`,
     );
   }
 
@@ -280,8 +286,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       where: { id: user.id },
       select: { organization: { select: { setupCompletedAt: true } } },
     });
-    const value = (userWithOrg as { organization?: { setupCompletedAt: Date | null } } | null)
-      ?.organization?.setupCompletedAt;
+    const value = (
+      userWithOrg as { organization?: { setupCompletedAt: Date | null } } | null
+    )?.organization?.setupCompletedAt;
     setupCompletedAt = value ? (value as Date).toISOString() : null;
   } catch {
     // Fail-open — middleware will treat null the same as a real null

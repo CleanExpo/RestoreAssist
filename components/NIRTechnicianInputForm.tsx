@@ -403,7 +403,7 @@ export default function NIRTechnicianInputForm({
   ];
 
   const populateQuickFillData = (useCaseId: string) => {
-    let useCaseData: any = {};
+    let useCaseData: any;
 
     switch (useCaseId) {
       case "residential-burst-pipe":
@@ -828,6 +828,7 @@ export default function NIRTechnicianInputForm({
         }
       }
     } catch (error) {
+      /* intentional no-op */
     } finally {
       setLoading(false);
     }

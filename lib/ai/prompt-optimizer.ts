@@ -97,7 +97,7 @@ const MODEL = "claude-sonnet-4-6" as const;
  */
 async function loadTestCases(claimType: string): Promise<TestCase[]> {
   // Dynamic import for the JSON file — works in both Node.js and Next.js
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+
   const examples: Array<Record<string, unknown>> =
     await import("@/content/training/scope-examples.json").then(
       (m) => m.default ?? m,

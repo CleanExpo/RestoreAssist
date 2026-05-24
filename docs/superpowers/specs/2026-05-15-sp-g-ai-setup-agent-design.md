@@ -9,6 +9,7 @@
 ### 0.1 What the SP-5 audit said about SP-G
 
 Section 6 of `2026-05-14-signin-jobclose-audit-design.md` defines SP-G (the AI Sidekick) as a **Live Teacher** surface that:
+
 - Helps tradies research, do paperwork, analyse images, and ask for missing details during inspection
 - Surfaces the 3 new missing tools (`lookup-iicrc`, `method-recommendation`, `analyse-photo`)
 - Requires Prisma persistence (`TeacherSession` + `TeacherTurnRecord`), cost gating, audit logging, and a UI surface on the inspection detail page
@@ -18,23 +19,24 @@ Section 6 of `2026-05-14-signin-jobclose-audit-design.md` defines SP-G (the AI S
 
 **Existing scaffolding** (as of 2026-05-15):
 
-| Component | Status | LOC |
-|---|---|---|
-| `types.ts` | ✅ Complete | ~66 |
-| `router.ts` | ✅ Complete (routing logic: gemma_local vs claude_cloud) | ~65 |
-| `context-engine.ts` | ✅ Complete (builds TeacherContext from RawInspectionState) | ~72 |
-| `claude-cloud.ts` | ✅ Partial (Opus 4.7 client, cost calc, TODO: wire tool definitions) | ~276 |
-| `tools/take-reading.ts` | ✅ Complete | — |
-| `tools/capture-photo.ts` | ✅ Complete | — |
-| `tools/start-lidar-scan.ts` | ✅ Complete | — |
-| `tools/fill-scope-item.ts` | ✅ Complete | — |
-| `tools/flag-whs-hazard.ts` | ✅ Complete | — |
-| `tools/check-report-gaps.ts` | ✅ Complete | — |
-| `app/api/live-teacher/session/route.ts` | ✅ Partial (POST create, GET list; idempotency, rate-limit) | ~80+ |
-| `app/api/live-teacher/turn/route.ts` | ✅ Partial (POST turn dispatch, TODO: full tool registry) | ~60+ |
-| **Unit tests** | ✅ Tests exist | `__tests__/*.test.ts` |
+| Component                               | Status                                                               | LOC                   |
+| --------------------------------------- | -------------------------------------------------------------------- | --------------------- |
+| `types.ts`                              | ✅ Complete                                                          | ~66                   |
+| `router.ts`                             | ✅ Complete (routing logic: gemma_local vs claude_cloud)             | ~65                   |
+| `context-engine.ts`                     | ✅ Complete (builds TeacherContext from RawInspectionState)          | ~72                   |
+| `claude-cloud.ts`                       | ✅ Partial (Opus 4.7 client, cost calc, TODO: wire tool definitions) | ~276                  |
+| `tools/take-reading.ts`                 | ✅ Complete                                                          | —                     |
+| `tools/capture-photo.ts`                | ✅ Complete                                                          | —                     |
+| `tools/start-lidar-scan.ts`             | ✅ Complete                                                          | —                     |
+| `tools/fill-scope-item.ts`              | ✅ Complete                                                          | —                     |
+| `tools/flag-whs-hazard.ts`              | ✅ Complete                                                          | —                     |
+| `tools/check-report-gaps.ts`            | ✅ Complete                                                          | —                     |
+| `app/api/live-teacher/session/route.ts` | ✅ Partial (POST create, GET list; idempotency, rate-limit)          | ~80+                  |
+| `app/api/live-teacher/turn/route.ts`    | ✅ Partial (POST turn dispatch, TODO: full tool registry)            | ~60+                  |
+| **Unit tests**                          | ✅ Tests exist                                                       | `__tests__/*.test.ts` |
 
 **Prisma models** (existing):
+
 - `User.liveTeacherSession` relation missing → **to add**
 - `Inspection.auditLogs` relation exists; AuditLog model at line 2799 ready to receive AI-action rows
 
@@ -53,22 +55,22 @@ Section 6 of `2026-05-14-signin-jobclose-audit-design.md` defines SP-G (the AI S
 
 ## 1. Existing-code audit (files SP-G touches or extends)
 
-| File | Role | SP-G dependency | Notes |
-|---|---|---|---|
-| `lib/live-teacher/types.ts` | Shared types | Core (no change) | `TeacherContext`, `TeacherStage`, `TeacherTurn`, `ToolName` already defined. SP-G extends toolset. |
-| `lib/live-teacher/router.ts` | Routing logic | Core (no change) | `routeTurn(RoutingInput)` decides gemma_local vs claude_cloud. SP-G callers use this as-is. |
-| `lib/live-teacher/context-engine.ts` | State snapshot | Core (no change) | `buildTeacherContext(RawInspectionState)` produces live context. SP-G hooks read this. |
-| `lib/live-teacher/claude-cloud.ts` | Cloud client | Extend (wire tools) | Lines 188–189 TODO: currently `tools = []`. SP-G wires tool definitions here. |
-| `lib/live-teacher/tools/index.ts` | Tool registry | Extend (add 3 new) | `TOOL_DEFINITIONS`, `TOOL_HANDLERS`. SP-G adds `lookup-iicrc`, `method-recommendation`, `analyse-photo`. |
-| `lib/live-teacher/tools/*.ts` (existing 6) | Tool implementations | Extend (reference) | SP-G's new tools follow same pattern. |
-| `app/api/live-teacher/session/route.ts` | Session lifecycle | Extend (add columns) | POST creates `liveTeacherSession` row; GET lists. SP-G adds `modelUsedLocal`, `totalLocalTokens` columns if Gemma path taken. |
-| `app/api/live-teacher/turn/route.ts` | Turn dispatch | Extend (add tool call handler) | POST turns call `invokeClaudeCloud()`; SP-G adds post-response tool-call processing (fire, log, feed back to history). |
-| `prisma/schema.prisma` | Data model | Add 2 models | `TeacherSession`, `TeacherTurnRecord` (append-only), migration needed. |
-| `lib/help/types.ts` | Help schema | Read (no change) | `HelpFrontmatter` shape with `aiSummary`, `userIntents`, `successCriteria`. SP-G consumes these. |
-| `lib/help/frontmatter-schema.ts` | Validation | Read (no change) | Zod schema validates frontmatter; SP-G calls parser on-demand. |
-| `content/help/**/*.mdx` | Help content | Read (consume) | Frontmatter + body read as retrieval context for Sidekick queries. |
-| `lib/audit/` | Audit trail | Extend | SP-G writes `AuditLog` rows with `action = "AI_SIDEKICK_*"`. Existing AuditLog at line 2799. |
-| `app/dashboard/inspections/[id]/page.tsx` | Detail page | Extend (mount UI) | SP-G mounts `<SidekickPanel>` component. |
+| File                                       | Role                 | SP-G dependency                | Notes                                                                                                                         |
+| ------------------------------------------ | -------------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| `lib/live-teacher/types.ts`                | Shared types         | Core (no change)               | `TeacherContext`, `TeacherStage`, `TeacherTurn`, `ToolName` already defined. SP-G extends toolset.                            |
+| `lib/live-teacher/router.ts`               | Routing logic        | Core (no change)               | `routeTurn(RoutingInput)` decides gemma_local vs claude_cloud. SP-G callers use this as-is.                                   |
+| `lib/live-teacher/context-engine.ts`       | State snapshot       | Core (no change)               | `buildTeacherContext(RawInspectionState)` produces live context. SP-G hooks read this.                                        |
+| `lib/live-teacher/claude-cloud.ts`         | Cloud client         | Extend (wire tools)            | Lines 188–189 TODO: currently `tools = []`. SP-G wires tool definitions here.                                                 |
+| `lib/live-teacher/tools/index.ts`          | Tool registry        | Extend (add 3 new)             | `TOOL_DEFINITIONS`, `TOOL_HANDLERS`. SP-G adds `lookup-iicrc`, `method-recommendation`, `analyse-photo`.                      |
+| `lib/live-teacher/tools/*.ts` (existing 6) | Tool implementations | Extend (reference)             | SP-G's new tools follow same pattern.                                                                                         |
+| `app/api/live-teacher/session/route.ts`    | Session lifecycle    | Extend (add columns)           | POST creates `liveTeacherSession` row; GET lists. SP-G adds `modelUsedLocal`, `totalLocalTokens` columns if Gemma path taken. |
+| `app/api/live-teacher/turn/route.ts`       | Turn dispatch        | Extend (add tool call handler) | POST turns call `invokeClaudeCloud()`; SP-G adds post-response tool-call processing (fire, log, feed back to history).        |
+| `prisma/schema.prisma`                     | Data model           | Add 2 models                   | `TeacherSession`, `TeacherTurnRecord` (append-only), migration needed.                                                        |
+| `lib/help/types.ts`                        | Help schema          | Read (no change)               | `HelpFrontmatter` shape with `aiSummary`, `userIntents`, `successCriteria`. SP-G consumes these.                              |
+| `lib/help/frontmatter-schema.ts`           | Validation           | Read (no change)               | Zod schema validates frontmatter; SP-G calls parser on-demand.                                                                |
+| `content/help/**/*.mdx`                    | Help content         | Read (consume)                 | Frontmatter + body read as retrieval context for Sidekick queries.                                                            |
+| `lib/audit/`                               | Audit trail          | Extend                         | SP-G writes `AuditLog` rows with `action = "AI_SIDEKICK_*"`. Existing AuditLog at line 2799.                                  |
+| `app/dashboard/inspections/[id]/page.tsx`  | Detail page          | Extend (mount UI)              | SP-G mounts `<SidekickPanel>` component.                                                                                      |
 
 ---
 
@@ -105,12 +107,14 @@ Section 6 of `2026-05-14-signin-jobclose-audit-design.md` defines SP-G (the AI S
 **Recommendation:** Bottom-sheet panel anchored to the bottom of the inspection detail page, sliding up on "Ask Sidekick" tap, dismissible via swipe or X button.
 
 **Justification:**
+
 - On mobile (primary use case — tech on-site), a bottom-sheet preserves the inspection details above (photos, readings) for reference while the user chats.
 - RA's existing patterns: `EngagementLicenceModal` (full-screen), `CapturePhotoFAB` (floating action), sign-off (`SignaturePad` — modal). Bottom-sheet is a new pattern but closest to "inspector + helper side-by-side."
 - Desktop unfolds to a sidebar or right-panel.
 - Minimal re-architecture of inspection detail page — mount `<SidekickPanel inspectionId={id} />` in a Suspense boundary.
 
 **Components:**
+
 - `components/sidekick/SidekickPanel.tsx` — main container, mounting logic
 - `components/sidekick/TurnHistory.tsx` — scrollable turn list (user, assistant, editable drafts)
 - `components/sidekick/TextComposer.tsx` — textarea + send button (always visible)
@@ -120,11 +124,13 @@ Section 6 of `2026-05-14-signin-jobclose-audit-design.md` defines SP-G (the AI S
 ### 4.2 Text-only mode, voice deferred
 
 **Wave 1 (v1):**
+
 - TextComposer is the primary input.
 - VoiceAfford is a disabled button with tooltip: "Voice support launching soon — for now, type or copy/paste your question."
 - No Web Speech API, no streaming transcription.
 
 **Wave 3:**
+
 - Wire Web Speech API (getUserMedia → SpeechRecognition API on Chrome/Safari; Webkit fallback for Android).
 - Push-to-talk UX: hold microphone button → red visual feedback → release to send transcript to turn endpoint.
 - Handle offline gracefully (voice works offline; sends on reconnect).
@@ -139,10 +145,11 @@ Section 6 of `2026-05-14-signin-jobclose-audit-design.md` defines SP-G (the AI S
 
 3. **Article content + frontmatter:** For a matched article, load the full MDX + frontmatter. Extract `aiSummary` (1-sentence summary), `successCriteria` (action items the user should complete), and the body text.
 
-4. **Sidekick context injection:** Inject the matched article into the Claude system prompt: 
+4. **Sidekick context injection:** Inject the matched article into the Claude system prompt:
+
    ```
-   [Context: user asked about "taking photos"; matched help article "photo-cocoa" 
-   says: [aiSummary]. If the user hasn't met the successCriteria yet, 
+   [Context: user asked about "taking photos"; matched help article "photo-cocoa"
+   says: [aiSummary]. If the user hasn't met the successCriteria yet,
    suggest them as next steps.]
    ```
 
@@ -182,6 +189,7 @@ SP-G does NOT change this logic. The router runs as-is; caller (turn route handl
 **Gemma response (local):** "Let me check my local knowledge… I'd suggest re-reading each room. Can you tell me which rooms you've already done?"
 
 **Help index lookup (parallel):** Matches `inspections/moisture-reading-guide.mdx`:
+
 - `userIntents: ["how to take a moisture reading", "where to measure moisture", "verify readings", "re-check readings"]`
 - `aiSummary: "Explains how to take a moisture reading with the RestoAssist moisture meter, where to place the probe, and how to record each room systematically."`
 - `successCriteria: ["Reading captured in every affected room", "Reading > 24h old re-measured", "Photo of meter reading saved"]`
@@ -203,36 +211,50 @@ Each tool is a Prisma transactional handler + Anthropic tool definition. Schemas
 **Purpose:** Answer questions about IICRC S500:2025 clauses, cross-referenced with the SP-H knowledge substrate (once live).
 
 **Input schema:**
+
 ```typescript
 const LookupIircInputSchema = z.object({
-  query: z.string().min(3).max(500).describe("Search phrase, e.g. 'Cat 3 on wood' or 'clause 7.1'"),
-  section: z.enum(["S500", "AS/NZS", "NZBS"]).optional().describe("Standard to search in"),
+  query: z
+    .string()
+    .min(3)
+    .max(500)
+    .describe("Search phrase, e.g. 'Cat 3 on wood' or 'clause 7.1'"),
+  section: z
+    .enum(["S500", "AS/NZS", "NZBS"])
+    .optional()
+    .describe("Standard to search in"),
   jurisdiction: z.enum(["AU", "NZ"]).optional().describe("Jurisdiction hint"),
 });
 ```
 
 **Output schema:**
+
 ```typescript
 const LookupIircOutputSchema = z.object({
   clauseRef: z.string().describe("[S500:2025 §X.Y.Z]"),
   excerpt: z.string().describe("200-word extract from the clause"),
   fullCitation: z.string().describe("Full text of the clause (if <2KB)"),
-  relatedClauses: z.array(z.string()).describe("List of other relevant clause refs"),
+  relatedClauses: z
+    .array(z.string())
+    .describe("List of other relevant clause refs"),
   jurisdiction: z.string().describe("AU or NZ"),
 });
 ```
 
 **Implementation:**
+
 - Query the SP-H vector store (retrieval API `lib/knowledge/retrieve.ts`, to be built in SP-H) with the query string.
 - Filter results by `standard:S500` or user-provided section.
 - Return top result's clause ref, excerpt, full text if available, and related clauses.
 - **Handler file:** `lib/live-teacher/tools/lookup-iicrc.ts`
 
 **Tool definition (Anthropic format):**
+
 ```typescript
 export const lookupIircDefinition = {
   name: "lookup_iicrc",
-  description: "Look up an IICRC S500:2025 clause, standard, or related guidance. Use this when the user asks about compliance, standards, or best-practice requirements.",
+  description:
+    "Look up an IICRC S500:2025 clause, standard, or related guidance. Use this when the user asks about compliance, standards, or best-practice requirements.",
   input_schema: {
     type: "object",
     properties: {
@@ -250,16 +272,20 @@ export const lookupIircDefinition = {
 **Purpose:** Given a damage class, category, and affected material, suggest restoration methods from the knowledge substrate.
 
 **Input schema:**
+
 ```typescript
 const MethodRecommendationInputSchema = z.object({
   damageClass: z.enum(["1", "2", "3", "4"]).describe("Water class (IICRC)"),
   damageCategory: z.enum(["1", "2", "3"]).describe("Water category (IICRC)"),
-  affectedMaterial: z.string().describe("e.g. 'hardwood floor', 'plasterboard wall', 'carpet'"),
+  affectedMaterial: z
+    .string()
+    .describe("e.g. 'hardwood floor', 'plasterboard wall', 'carpet'"),
   jurisdiction: z.enum(["AU", "NZ"]).optional(),
 });
 ```
 
 **Output schema:**
+
 ```typescript
 const MethodRecommendationOutputSchema = z.object({
   recommendedMethod: z.string().describe("Name of the restoration method"),
@@ -272,6 +298,7 @@ const MethodRecommendationOutputSchema = z.object({
 ```
 
 **Implementation:**
+
 - Query the knowledge store with filter: `damageClass:X AND damageCategory:Y AND material:Z` (or semantic search).
 - Retrieve the top matching restoration procedure from the SP-H vault (e.g., "Hardwood Floor Restoration for Cat 3").
 - Return structured method with steps + citations.
@@ -282,27 +309,41 @@ const MethodRecommendationOutputSchema = z.object({
 **Purpose:** Vision-based photo analysis — identify damage type, material, severity, and applicable IICRC sections.
 
 **Input schema:**
+
 ```typescript
 const AnalysePhotoInputSchema = z.object({
-  photoUrl: z.string().url().describe("Supabase public URL or signed URL of the photo"),
+  photoUrl: z
+    .string()
+    .url()
+    .describe("Supabase public URL or signed URL of the photo"),
   context: z.string().optional().describe("e.g. 'bathroom, day 2 post-loss'"),
   jurisdiction: z.enum(["AU", "NZ"]).optional(),
 });
 ```
 
 **Output schema:**
+
 ```typescript
 const AnalysePhotoOutputSchema = z.object({
-  damageType: z.string().describe("e.g. 'water-stained plasterboard, visible mould'"),
+  damageType: z
+    .string()
+    .describe("e.g. 'water-stained plasterboard, visible mould'"),
   materialIdentified: z.string().describe("Type of affected surface"),
-  estimatedSeverity: z.enum(["minor", "moderate", "severe"]).describe("Visual assessment"),
-  suggestedMethods: z.array(z.string()).describe("Applicable restoration methods"),
+  estimatedSeverity: z
+    .enum(["minor", "moderate", "severe"])
+    .describe("Visual assessment"),
+  suggestedMethods: z
+    .array(z.string())
+    .describe("Applicable restoration methods"),
   clauseRefs: z.array(z.string()).describe("IICRC clauses that apply"),
-  recommendations: z.array(z.string()).describe("Next actions (capture readings, document drying, etc.)"),
+  recommendations: z
+    .array(z.string())
+    .describe("Next actions (capture readings, document drying, etc.)"),
 });
 ```
 
 **Implementation:**
+
 - Call Claude's vision capability (Opus 4.7 supports vision in `content` array with `type: "image"`).
 - Inject the image into a Claude turn with the system prompt: "You are an IICRC-certified damage assessor. Analyse this photo and identify: damage type, affected material, severity, and applicable IICRC clauses."
 - Return structured assessment.
@@ -408,12 +449,14 @@ model TeacherTurnRecord {
 ### 7.2 Schema updates to existing models
 
 **User model:**
+
 ```prisma
 // Add to User model (around line 240+):
 liveTeacherSessions TeacherSession[] @relation("TeacherSessions")
 ```
 
 **Organization model:**
+
 ```prisma
 // Already has byokAiProvider field? Verify it exists or add:
 byokAiProvider String? // "openai" | "gemini" | "custom" — if set, routes Sidekick through tenant's key
@@ -421,6 +464,7 @@ byokAiProviderKey String? @db.Text // AES-256-GCM encrypted
 ```
 
 **Inspection model:**
+
 ```prisma
 // Already has auditLogs relation. Verify it exists (line ~1899):
 auditLogs AuditLog[] @relation(fields: [id], references: [inspectionId])
@@ -448,9 +492,9 @@ CREATE TABLE "TeacherSession" (
   "startedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "endedAt" TIMESTAMP(3),
   "lastActivityAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT "TeacherSession_inspectionId_fkey" 
+  CONSTRAINT "TeacherSession_inspectionId_fkey"
     FOREIGN KEY ("inspectionId") REFERENCES "Inspection" ("id") ON DELETE CASCADE,
-  CONSTRAINT "TeacherSession_userId_fkey" 
+  CONSTRAINT "TeacherSession_userId_fkey"
     FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE
 );
 
@@ -479,7 +523,7 @@ CREATE TABLE "TeacherTurnRecord" (
   "wasEdited" BOOLEAN NOT NULL DEFAULT false,
   "editedContent" TEXT,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT "TeacherTurnRecord_sessionId_fkey" 
+  CONSTRAINT "TeacherTurnRecord_sessionId_fkey"
     FOREIGN KEY ("sessionId") REFERENCES "TeacherSession" ("id") ON DELETE CASCADE
 );
 
@@ -584,14 +628,14 @@ if (byokProvider && byokProvider !== "platform") {
 
 Every action listed in the SP-5 audit Section 6.2 ("Mapped to user-stated abilities"):
 
-| Action | AuditLog action field | Trigger |
-|---|---|---|
-| User sends turn | `AI_SIDEKICK_USER_TURN` | Turn submitted |
-| Claude responds | `AI_SIDEKICK_CLAUDE_RESPONSE` | Response received + cost deducted |
-| Tool call made | `AI_SIDEKICK_TOOL_CALL` (toolName = `lookup_iicrc`, etc.) | Tool invoked |
-| Tool result returned | `AI_SIDEKICK_TOOL_RESULT_SUCCESS` or `_ERROR` | Tool completed or failed |
-| User edits draft | `AI_SIDEKICK_TURN_EDITED` | User commits edited version |
-| Session ended | `AI_SIDEKICK_SESSION_ENDED` | Explicit "close" or 30min idle timeout |
+| Action               | AuditLog action field                                     | Trigger                                |
+| -------------------- | --------------------------------------------------------- | -------------------------------------- |
+| User sends turn      | `AI_SIDEKICK_USER_TURN`                                   | Turn submitted                         |
+| Claude responds      | `AI_SIDEKICK_CLAUDE_RESPONSE`                             | Response received + cost deducted      |
+| Tool call made       | `AI_SIDEKICK_TOOL_CALL` (toolName = `lookup_iicrc`, etc.) | Tool invoked                           |
+| Tool result returned | `AI_SIDEKICK_TOOL_RESULT_SUCCESS` or `_ERROR`             | Tool completed or failed               |
+| User edits draft     | `AI_SIDEKICK_TURN_EDITED`                                 | User commits edited version            |
+| Session ended        | `AI_SIDEKICK_SESSION_ENDED`                               | Explicit "close" or 30min idle timeout |
 
 ### 9.2 AuditLog row structure
 
@@ -662,23 +706,28 @@ await prisma.auditLog.create({
 ### 12.1 Unit (Vitest)
 
 **Router tests (existing, extend):**
+
 - `routeTurn({ utterance, online: false, … })` → expects `target: "gemma_local", bypassCloud: true`
 - `routeTurn({ utterance, requiresClauseCitation: true, … })` → expects `target: "claude_cloud"`
 
 **Context engine tests (existing, extend):**
+
 - `buildTeacherContext` with missing moisture → expects `missingFields: ["moisture.bedroom"]`
 
 **Cost gating tests (new):**
+
 - `deductCreditsAtomic(userId, inspectionId, 100, "CLAUDE_RESPONSE")` with balance=200 → expects success, newBalance=100
 - Same with balance=50 → expects error "Insufficient credits"
 - Transactional atomicity: simulate failure halfway → verify no credits deducted
 
 **Audit log tests (new):**
+
 - Every `deductCreditsAtomic` call → asserts `AuditLog` row created with correct action, entityId, changes JSON
 
 ### 12.2 Integration (Vitest + Prisma)
 
 **Session lifecycle:**
+
 - POST `/api/live-teacher/session` (authenticated user) → creates `TeacherSession` row
 - GET `/api/live-teacher/session?inspectionId=X` → returns active session (if exists)
 - Turn dispatch happy path:
@@ -688,10 +737,12 @@ await prisma.auditLog.create({
   - Tool call: `check_report_gaps` invoked → tool result captured in turn record
 
 **BYOK override:**
+
 - User with `byokAiProvider = "openai"` + key set → turn route skips credit deduction, invokes custom provider
 - Audit log reflects BYOK provider, not platform
 
 **Help index integration:**
+
 - Help article loaded at session start → frontmatter parsed
 - User query matched to `userIntents` → matched article injected into Sidekick context
 - Sidekick suggests action from `successCriteria`
@@ -699,6 +750,7 @@ await prisma.auditLog.create({
 ### 12.3 E2E (Playwright)
 
 **Happy path spec:**
+
 1. Tradie signs in → navigates to inspection detail page.
 2. Taps "Ask Sidekick" → bottom-sheet opens, text composer visible.
 3. Types "How do I check if this is Cat 3?" (moisture photo showing 12% readings).
@@ -732,38 +784,38 @@ npx prisma migrate diff = no drift
 
 ### 13.1 Critical files (read, no change)
 
-| File | Purpose | Lines read |
-|---|---|---|
-| `lib/live-teacher/types.ts` | Shared types | ~66 |
-| `lib/live-teacher/router.ts` | Routing logic | ~65 |
-| `lib/live-teacher/context-engine.ts` | Context snapshot | ~72 |
-| `lib/live-teacher/claude-cloud.ts` | Cloud client | ~276 |
-| `lib/live-teacher/tools/*.ts` | Existing 6 tools | — |
-| `app/api/live-teacher/session/route.ts` | Session POST/GET | ~80+ |
-| `app/api/live-teacher/turn/route.ts` | Turn dispatch | ~60+ |
-| `lib/help/types.ts` | Help schema | ~30 |
-| `lib/help/frontmatter-schema.ts` | Validation | ~26 |
-| `prisma/schema.prisma` | Data model | Lines 861–930 (Organization), 1822–1901 (Inspection), 2799–2829 (AuditLog) |
+| File                                    | Purpose          | Lines read                                                                 |
+| --------------------------------------- | ---------------- | -------------------------------------------------------------------------- |
+| `lib/live-teacher/types.ts`             | Shared types     | ~66                                                                        |
+| `lib/live-teacher/router.ts`            | Routing logic    | ~65                                                                        |
+| `lib/live-teacher/context-engine.ts`    | Context snapshot | ~72                                                                        |
+| `lib/live-teacher/claude-cloud.ts`      | Cloud client     | ~276                                                                       |
+| `lib/live-teacher/tools/*.ts`           | Existing 6 tools | —                                                                          |
+| `app/api/live-teacher/session/route.ts` | Session POST/GET | ~80+                                                                       |
+| `app/api/live-teacher/turn/route.ts`    | Turn dispatch    | ~60+                                                                       |
+| `lib/help/types.ts`                     | Help schema      | ~30                                                                        |
+| `lib/help/frontmatter-schema.ts`        | Validation       | ~26                                                                        |
+| `prisma/schema.prisma`                  | Data model       | Lines 861–930 (Organization), 1822–1901 (Inspection), 2799–2829 (AuditLog) |
 
 ### 13.2 New files to create
 
-| File path | Type | Responsibility | LOC (estimate) |
-|---|---|---|---|
-| `lib/live-teacher/tools/lookup-iicrc.ts` | Tool handler | Implement lookup_iicrc, schema, definition | ~80 |
-| `lib/live-teacher/tools/method-recommendation.ts` | Tool handler | Implement method_recommendation, schema, definition | ~90 |
-| `lib/live-teacher/tools/analyse-photo.ts` | Tool handler | Implement analyse_photo, schema, definition, vision call | ~120 |
-| `lib/live-teacher/_shared.ts` | Utilities | Cost gating, BYOK override, deductCreditsAtomic | ~60 |
-| `lib/storage/export-sidekick-transcript.ts` | Storage hook | BYOK Drive mirror at job close | ~80 |
-| `components/sidekick/SidekickPanel.tsx` | UI component | Main container, mounting | ~120 |
-| `components/sidekick/TurnHistory.tsx` | UI component | Scrollable turn list | ~100 |
-| `components/sidekick/TextComposer.tsx` | UI component | Textarea + send button | ~60 |
-| `components/sidekick/VoiceAfford.tsx` | UI component | Disabled "Voice coming soon" button | ~30 |
-| `components/sidekick/ToolResultsDisplay.tsx` | UI component | Render tool outputs (lookup, method, photo analysis) | ~100 |
-| `app/api/live-teacher/turn/route.ts` (modify) | API route | Wire tool definitions, implement tool call handler | +50 (extend existing) |
-| `lib/live-teacher/tools/index.ts` (modify) | Tool registry | Add 3 new tool definitions + handlers to export | +20 (extend existing) |
-| `lib/live-teacher/claude-cloud.ts` (modify) | Cloud client | Wire tools at line 188–189 | +5 (change TODO to import) |
-| `prisma/migrations/<ts>-sp-g-teacher-session-persistence/migration.sql` | Migration | CreateTable TeacherSession, TeacherTurnRecord | ~80 |
-| `app/dashboard/inspections/[id]/page.tsx` (modify) | Page | Mount <SidekickPanel /> in Suspense boundary | +10 (extend existing) |
+| File path                                                               | Type          | Responsibility                                           | LOC (estimate)             |
+| ----------------------------------------------------------------------- | ------------- | -------------------------------------------------------- | -------------------------- |
+| `lib/live-teacher/tools/lookup-iicrc.ts`                                | Tool handler  | Implement lookup_iicrc, schema, definition               | ~80                        |
+| `lib/live-teacher/tools/method-recommendation.ts`                       | Tool handler  | Implement method_recommendation, schema, definition      | ~90                        |
+| `lib/live-teacher/tools/analyse-photo.ts`                               | Tool handler  | Implement analyse_photo, schema, definition, vision call | ~120                       |
+| `lib/live-teacher/_shared.ts`                                           | Utilities     | Cost gating, BYOK override, deductCreditsAtomic          | ~60                        |
+| `lib/storage/export-sidekick-transcript.ts`                             | Storage hook  | BYOK Drive mirror at job close                           | ~80                        |
+| `components/sidekick/SidekickPanel.tsx`                                 | UI component  | Main container, mounting                                 | ~120                       |
+| `components/sidekick/TurnHistory.tsx`                                   | UI component  | Scrollable turn list                                     | ~100                       |
+| `components/sidekick/TextComposer.tsx`                                  | UI component  | Textarea + send button                                   | ~60                        |
+| `components/sidekick/VoiceAfford.tsx`                                   | UI component  | Disabled "Voice coming soon" button                      | ~30                        |
+| `components/sidekick/ToolResultsDisplay.tsx`                            | UI component  | Render tool outputs (lookup, method, photo analysis)     | ~100                       |
+| `app/api/live-teacher/turn/route.ts` (modify)                           | API route     | Wire tool definitions, implement tool call handler       | +50 (extend existing)      |
+| `lib/live-teacher/tools/index.ts` (modify)                              | Tool registry | Add 3 new tool definitions + handlers to export          | +20 (extend existing)      |
+| `lib/live-teacher/claude-cloud.ts` (modify)                             | Cloud client  | Wire tools at line 188–189                               | +5 (change TODO to import) |
+| `prisma/migrations/<ts>-sp-g-teacher-session-persistence/migration.sql` | Migration     | CreateTable TeacherSession, TeacherTurnRecord            | ~80                        |
+| `app/dashboard/inspections/[id]/page.tsx` (modify)                      | Page          | Mount <SidekickPanel /> in Suspense boundary             | +10 (extend existing)      |
 
 **Total new LOC estimate:** ~1000 (excluding test files, component CSS, and modifications to existing files).
 

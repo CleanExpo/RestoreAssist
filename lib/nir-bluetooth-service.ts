@@ -30,10 +30,9 @@
 import { isCapacitorIOS } from "./capacitor";
 
 // ─── Web Bluetooth API type stubs (not in default lib.dom.d.ts) ──────────────
-/* eslint-disable @typescript-eslint/no-explicit-any */
+
 type BluetoothDevice = any;
 type BluetoothRemoteGATTCharacteristic = any;
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
 // ─── CONSTANTS & DEVICE PROFILES ─────────────────────────────────────────────
 
@@ -206,9 +205,8 @@ export async function pairDevice(deviceKey: DeviceKey): Promise<PairedDevice> {
         `${profile.name} is not supported on iOS in Phase 1. Only Testo 605-H1 and Vaisala HM70 are available.`,
       );
     }
-    const { scanAndConnect, disconnect: bridgeDisconnect } = await import(
-      "./capacitor-bluetooth-bridge"
-    );
+    const { scanAndConnect, disconnect: bridgeDisconnect } =
+      await import("./capacitor-bluetooth-bridge");
     const nameFilters = profile.filters.map((f) =>
       "namePrefix" in f ? (f as { namePrefix: string }).namePrefix : "",
     );
@@ -293,9 +291,8 @@ export async function readEnvironmentalData(
 
   // iOS Capacitor path — reads go through the native bridge
   if (device._capacitorDeviceId) {
-    const { readHumidity, readTemperature } = await import(
-      "./capacitor-bluetooth-bridge"
-    );
+    const { readHumidity, readTemperature } =
+      await import("./capacitor-bluetooth-bridge");
     const rh = await readHumidity(device._capacitorDeviceId);
     const temperatureCelsius = await readTemperature(device._capacitorDeviceId);
     const dewPointCelsius = calculateDewPoint(rh, temperatureCelsius);

@@ -31,7 +31,11 @@ import {
 import { cn } from "@/lib/utils";
 import { MobileNav } from "@/components/mobile/MobileNav";
 import { format, isToday, isYesterday, formatDistanceToNow } from "date-fns";
-import { cacheJobs, getCachedJobs, type CachedJob } from "@/lib/offline/job-cache";
+import {
+  cacheJobs,
+  getCachedJobs,
+  type CachedJob,
+} from "@/lib/offline/job-cache";
 import { isCapacitor } from "@/lib/capacitor";
 
 const STATUS_COLOR: Record<string, string> = {
@@ -69,19 +73,20 @@ export default function FieldDashboardPage() {
   useEffect(() => {
     if (!isCapacitor()) return;
     let cleanup: (() => void) | undefined;
-    import("@capacitor/network").then(({ Network }) => {
-      // Seed initial state
-      Network.getStatus().then(({ connected }) => setIsOffline(!connected));
-      // Listen for changes
-      Network.addListener("networkStatusChange", ({ connected }) => {
-        setIsOffline(!connected);
-        if (connected) loadInspections();
-      }).then((handle) => {
-        cleanup = () => handle.remove();
-      });
-    }).catch(() => {});
+    import("@capacitor/network")
+      .then(({ Network }) => {
+        // Seed initial state
+        Network.getStatus().then(({ connected }) => setIsOffline(!connected));
+        // Listen for changes
+        Network.addListener("networkStatusChange", ({ connected }) => {
+          setIsOffline(!connected);
+          if (connected) loadInspections();
+        }).then((handle) => {
+          cleanup = () => handle.remove();
+        });
+      })
+      .catch(() => {});
     return () => cleanup?.();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function loadInspections() {
@@ -161,7 +166,6 @@ export default function FieldDashboardPage() {
 
   useEffect(() => {
     loadInspections();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const activeJobs = inspections.filter((i) =>
@@ -203,7 +207,9 @@ export default function FieldDashboardPage() {
         <p className="text-white/50 text-sm">{greeting}</p>
         <h1 className="text-2xl font-bold text-white">Field Dashboard</h1>
         <p className="text-white/40 text-sm mt-0.5">
-          {loading ? "Loading…" : `${activeJobs.length} active job${activeJobs.length !== 1 ? "s" : ""}`}
+          {loading
+            ? "Loading…"
+            : `${activeJobs.length} active job${activeJobs.length !== 1 ? "s" : ""}`}
         </p>
       </div>
 
@@ -262,7 +268,10 @@ export default function FieldDashboardPage() {
                 <RefreshCw className="h-3.5 w-3.5" />
               </button>
             )}
-            <Link href="/dashboard/inspections" className="text-xs text-[#D4A574]">
+            <Link
+              href="/dashboard/inspections"
+              className="text-xs text-[#D4A574]"
+            >
               All jobs
             </Link>
           </div>

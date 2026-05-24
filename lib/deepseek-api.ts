@@ -112,6 +112,8 @@ Return as a JSON object matching the InitialDataEntryForm structure.`;
     return JSON.parse(cleanedResponse);
   } catch (error) {
     // If parsing fails, return the raw response and let the caller handle it
-    throw new Error(`Failed to parse Deepseek response as JSON: ${error}`);
+    throw new Error(`Failed to parse Deepseek response as JSON: ${error}`, {
+      cause: error,
+    });
   }
 }

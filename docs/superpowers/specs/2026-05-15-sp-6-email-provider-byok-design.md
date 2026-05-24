@@ -19,18 +19,18 @@
 
 **Current email-send call sites (10 functions in `lib/email.ts`):**
 
-| Function | Trigger | Recipient | Volume/month | Resend dependency |
-|---|---|---|---|---|
-| `sendSignedFormEmail` | Authority form fully signed | recipients in signatories | ~50 | yes (attachments) |
-| `sendInviteEmail` | Admin invites technician | technician email | ~200–500 | yes |
-| `sendPaymentFailedEmail` | Stripe webhook `payment_failed` | subscription owner | ~10 | yes |
-| `sendSubscriptionCancelledEmail` | User cancels subscription | user email | ~5 | yes |
-| `sendTrialExpiringEmail` | Cron: 7 days before trial end | user email | ~50 | yes |
-| `sendPasswordResetEmail` | User clicks "Forgot password" | user email | ~100 | yes |
-| `sendWelcomeEmail` | After signup or paid conversion | user email | ~200 | yes |
-| `sendReportCompletedEmail` | Report generation finishes (unused pathway) | report viewer email | ~0 (draft) | yes |
-| `sendSubscriptionActivatedEmail` | Stripe webhook `checkout.session.completed` | user email | ~100 | yes |
-| `sendWinbackEmail` | Manual re-engagement campaign | user email | ~20 | yes |
+| Function                         | Trigger                                     | Recipient                 | Volume/month | Resend dependency |
+| -------------------------------- | ------------------------------------------- | ------------------------- | ------------ | ----------------- |
+| `sendSignedFormEmail`            | Authority form fully signed                 | recipients in signatories | ~50          | yes (attachments) |
+| `sendInviteEmail`                | Admin invites technician                    | technician email          | ~200–500     | yes               |
+| `sendPaymentFailedEmail`         | Stripe webhook `payment_failed`             | subscription owner        | ~10          | yes               |
+| `sendSubscriptionCancelledEmail` | User cancels subscription                   | user email                | ~5           | yes               |
+| `sendTrialExpiringEmail`         | Cron: 7 days before trial end               | user email                | ~50          | yes               |
+| `sendPasswordResetEmail`         | User clicks "Forgot password"               | user email                | ~100         | yes               |
+| `sendWelcomeEmail`               | After signup or paid conversion             | user email                | ~200         | yes               |
+| `sendReportCompletedEmail`       | Report generation finishes (unused pathway) | report viewer email       | ~0 (draft)   | yes               |
+| `sendSubscriptionActivatedEmail` | Stripe webhook `checkout.session.completed` | user email                | ~100         | yes               |
+| `sendWinbackEmail`               | Manual re-engagement campaign               | user email                | ~20          | yes               |
 
 **Plus:** `app/api/invoices/[id]/send/route.ts` (invoice PDF via email), `app/api/notifications/email/route.ts` (generic notification dispatch). Lightweight `sendEmail()` in `lib/email-send.ts` (raw fetch, no SDK).
 
@@ -71,14 +71,18 @@ export interface EmailProvider {
     subject: string;
     html: string;
     replyTo?: string;
-    attachments?: Array<{ filename: string; content: string; contentType: string }>;
+    attachments?: Array<{
+      filename: string;
+      content: string;
+      contentType: string;
+    }>;
   }): Promise<{ messageId: string; success: boolean; error?: string }>;
 
   /** Validate provider connectivity + domain config at connect time. */
-  validate(): Promise<{ 
-    valid: boolean; 
-    domain?: string; 
-    dkimActive?: boolean; 
+  validate(): Promise<{
+    valid: boolean;
+    domain?: string;
+    dkimActive?: boolean;
     error?: string;
   }>;
 }
@@ -87,18 +91,21 @@ export interface EmailProvider {
 ### 4.2 Three provider implementations (API-key only)
 
 **`lib/email/resend-provider.ts`** (platform default, already imported)
+
 - Uses existing `resend` npm package (v6.12.3)
 - `send()` delegates to `Resend.emails.send()`
 - `validate()` calls `/v0/domains` API; lists domains tied to the API key; checks DKIM status via provider API
 - From email: `${Organization.email || "noreply@restoreassist.app"}`
 
 **`lib/email/sendgrid-provider.ts`** (enterprise BYOK)
+
 - Uses `@sendgrid/mail` npm package (needs adding to package.json)
 - `send()` calls `sgMail.send()`
 - `validate()` calls GET `/v3/validated_senders` or similar; checks domain ownership
 - From email: extract from the tenant's SendGrid account profile or require explicit config
 
 **`lib/email/aws-ses-provider.ts`** (high-volume, cheapest)
+
 - Uses `@aws-sdk/client-ses` (needs adding to package.json)
 - `send()` calls `sesClient.sendEmail()`
 - `validate()` checks if email is verified in SES account (GET `/v2/email/identities`)
@@ -107,6 +114,7 @@ export interface EmailProvider {
 ### 4.3 Provider dispatcher
 
 `lib/email/index.ts` — `getEmailProvider(organizationId)`:
+
 - Reads `Organization.emailProvider` enum (`RESEND | SENDGRID | SES | PLATFORM_RESEND`)
 - Returns instance of corresponding provider
 - On error (invalid config, missing credentials), logs + returns platform-Resend fallback
@@ -114,6 +122,7 @@ export interface EmailProvider {
 ### 4.4 Credential vault wiring
 
 `Organization.emailProviderEncryptedCredentials` — AES-256-GCM encrypted JSON (mirror of SP-E pattern):
+
 ```json
 {
   "type": "sendgrid",
@@ -256,6 +265,7 @@ Existing `EmailConnection` (Gmail/Microsoft auth) and `ScheduledEmail` remain un
 ## 8. Migration plan
 
 **Migration A (additive, no backfill):**
+
 - Add `EmailProviderType` enum
 - Add columns to `Organization` (5 fields)
 - Add `EmailSendJob` table
@@ -322,6 +332,7 @@ No separate `AuditLog` row (unlike SP-A's lifecycle events) — `EmailSendJob` I
 ## 11. DKIM / SPF / DMARC verification at provider connect
 
 When tenant pastes API key + clicks "Validate":
+
 1. Instantiate provider with credentials
 2. Call `provider.validate()` — hits provider API to list domains + verify DKIM active
 3. If unverified: show yellow warning "DKIM not active — configure DNS" with link to provider's docs
@@ -346,24 +357,28 @@ On `/dashboard/settings/email`: show status block with refresh button. Revalidat
 ## 13. Testing strategy
 
 ### 13.1 Unit (Vitest)
+
 - Provider `send()` with mocked HTTP
 - Provider `validate()` with mocked API responses
 - Dispatcher fallback logic (BYOK down → platform)
 - Credential encryption/decryption
 
 ### 13.2 Integration (Vitest + Prisma)
+
 - POST `/api/email/validate` with each provider + credentials
 - POST `/api/email/test-send` happy path + error path
 - Queue cron processes `EmailSendJob` rows, calls provider, marks status
 - Retry logic: max 3 attempts, exponential backoff
 
 ### 13.3 E2E (Playwright)
+
 - Setup wizard BYOK flow: paste Resend key → validate → save
 - Send invite → job lands in SendGrid account (via API check)
 - Provider down → fallback to platform Resend (mocked outage)
 - Settings page: connection status rendered, test-send button works
 
 ### 13.4 Fixture data
+
 - Dummy API keys for each provider (test-only; generate via provider sandbox)
 - Mocked provider responses (JSON fixtures)
 - Test email addresses (safe@example.com, does-not-bounce@example.com)
@@ -384,20 +399,20 @@ On `/dashboard/settings/email`: show status block with refresh button. Revalidat
 
 ## 15. New files to create
 
-| Path | Purpose |
-|---|---|
-| `lib/email/types.ts` | `EmailProvider` interface + `EmailPayload` type |
-| `lib/email/index.ts` | Dispatcher `getEmailProvider(orgId)` + fallback |
-| `lib/email/resend-provider.ts` | Resend implementation |
-| `lib/email/sendgrid-provider.ts` | SendGrid implementation |
-| `lib/email/aws-ses-provider.ts` | AWS SES implementation |
-| `lib/queue/email-send.ts` | Durable queue: `queueEmailSend`, `processNextBatch` |
-| `app/api/cron/email-send/route.ts` | Vercel cron handler |
-| `app/api/email/validate/route.ts` | Provider validation endpoint |
-| `app/api/email/test-send/route.ts` | Test-send endpoint |
-| `app/dashboard/settings/email/page.tsx` | Settings UI (connection status, test-send button) |
-| `lib/email/__tests__/` | Unit tests (providers, dispatcher, encryption) |
-| `e2e/email-byok.spec.ts` | E2E: setup BYOK → send → verify |
+| Path                                    | Purpose                                             |
+| --------------------------------------- | --------------------------------------------------- |
+| `lib/email/types.ts`                    | `EmailProvider` interface + `EmailPayload` type     |
+| `lib/email/index.ts`                    | Dispatcher `getEmailProvider(orgId)` + fallback     |
+| `lib/email/resend-provider.ts`          | Resend implementation                               |
+| `lib/email/sendgrid-provider.ts`        | SendGrid implementation                             |
+| `lib/email/aws-ses-provider.ts`         | AWS SES implementation                              |
+| `lib/queue/email-send.ts`               | Durable queue: `queueEmailSend`, `processNextBatch` |
+| `app/api/cron/email-send/route.ts`      | Vercel cron handler                                 |
+| `app/api/email/validate/route.ts`       | Provider validation endpoint                        |
+| `app/api/email/test-send/route.ts`      | Test-send endpoint                                  |
+| `app/dashboard/settings/email/page.tsx` | Settings UI (connection status, test-send button)   |
+| `lib/email/__tests__/`                  | Unit tests (providers, dispatcher, encryption)      |
+| `e2e/email-byok.spec.ts`                | E2E: setup BYOK → send → verify                     |
 
 ---
 
@@ -422,6 +437,7 @@ SP-6 v1 is shipped when:
 **No external prerequisites.** SP-E (Storage BYOK) is independent. SP-6 can ship in parallel or after SP-E.
 
 **Package additions needed:**
+
 - `@sendgrid/mail` (existing? verify package.json; if not, add)
 - `@aws-sdk/client-ses` (new)
 
@@ -456,4 +472,3 @@ After Phill approves this spec:
 3. Plan execution via SDD or parallel slots (providers are independent files)
 
 No code implementation before that approval gate clears.
-

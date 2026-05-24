@@ -1,6 +1,12 @@
 "use client";
 
-import { Children, cloneElement, isValidElement, useState, MouseEvent } from "react";
+import {
+  Children,
+  cloneElement,
+  isValidElement,
+  useState,
+  MouseEvent,
+} from "react";
 import FeatureGateModal from "./FeatureGateModal";
 
 type Tier = "STANDARD" | "PREMIUM" | "ENTERPRISE" | null;
@@ -33,7 +39,8 @@ export default function FeatureGate({
   return (
     <>
       {Children.map(children, (child) => {
-        if (!isValidElement<{ onClick?: (e: MouseEvent) => void }>(child)) return child;
+        if (!isValidElement<{ onClick?: (e: MouseEvent) => void }>(child))
+          return child;
         return cloneElement(child, {
           onClick: (e: MouseEvent) => {
             e.preventDefault();
@@ -42,7 +49,12 @@ export default function FeatureGate({
           },
         });
       })}
-      {modalOpen && <FeatureGateModal feature={feature} onClose={() => setModalOpen(false)} />}
+      {modalOpen && (
+        <FeatureGateModal
+          feature={feature}
+          onClose={() => setModalOpen(false)}
+        />
+      )}
     </>
   );
 }
