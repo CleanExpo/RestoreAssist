@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "'/Users/phill-mac/RestoreAssist/.codex/hooks/stop-verifier.sh'"
+            "command": "bash .codex/hooks/stop-verifier.sh"
           }
         ]
       },
