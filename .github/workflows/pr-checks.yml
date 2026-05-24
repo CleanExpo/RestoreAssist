@@ -141,7 +141,13 @@ jobs:
       - name: Build
         run: pnpm build
         env:
-          NODE_OPTIONS: --max-old-space-size=4096
+          # Bumped 4096 → 8192 on 2026-05-25 (RA-5193). With
+          # `ignoreBuildErrors: false` and `ignoreDuringBuilds: false`
+          # in next.config.mjs, `next build` now runs `tsc` + full ESLint
+          # alongside webpack/turbopack on a ~800-file tree. The previous
+          # 4 GB cap OOM'd consistently after the gate flip even though
+          # Vercel's build (16 GB by default) succeeded.
+          NODE_OPTIONS: --max-old-space-size=8192
           SKIP_ENV_VALIDATION: true
           NEXTAUTH_SECRET: ci-placeholder
           NEXTAUTH_URL: http://localhost:3000
