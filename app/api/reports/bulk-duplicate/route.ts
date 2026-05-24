@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
       ? new Date(options.inspectionDate)
       : undefined;
 
-    const errors: Array<{ reportId: string; error: string }> = [];
+    const _errors: Array<{ reportId: string; error: string }> = [];
     const newReportIds: string[] = [];
 
     // 9. Execute duplications in transaction

@@ -145,7 +145,7 @@ function Field({
 
 export default function ReportPreviewPage() {
   const params = useParams();
-  const router = useRouter();
+  const _router = useRouter();
   const id = params?.id as string;
 
   const [report, setReport] = useState<Report | null>(null);

@@ -10,7 +10,6 @@ import {
   FileText,
   Clock,
   Home,
-  Briefcase,
 } from "lucide-react";
 
 interface InsuranceInformationProps {

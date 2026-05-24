@@ -86,7 +86,7 @@ interface VisualCostEstimationViewerProps {
 export default function VisualCostEstimationViewer({
   data,
 }: VisualCostEstimationViewerProps) {
-  const handlePrint = () => {
+  const _handlePrint = () => {
     window.print();
   };
 

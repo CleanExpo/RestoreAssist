@@ -1,6 +1,5 @@
 import { verifyInsurerToken } from "@/lib/portal-token";
 import { prisma } from "@/lib/prisma";
-import Link from "next/link";
 
 interface PageProps {
   params: Promise<{ token: string }>;

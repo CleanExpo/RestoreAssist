@@ -105,7 +105,7 @@ export function QuickMoistureEntry({
         }),
       });
       if (!res.ok) throw new Error("Failed to save");
-      const data = await res.json();
+      const _data = await res.json();
       setSaved(true);
       onSaved?.({ location, moistureLevel: numericValue, material });
       // Reset after brief success flash

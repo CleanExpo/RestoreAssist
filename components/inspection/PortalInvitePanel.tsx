@@ -17,7 +17,7 @@ interface PortalInvitePanelProps {
 }
 
 export default function PortalInvitePanel({
-  inspectionId,
+  inspectionId: _inspectionId,
   preselectedClientId,
 }: PortalInvitePanelProps) {
   const [clients, setClients] = useState<Client[]>([]);

@@ -47,7 +47,7 @@ interface QuestionCardProps {
 export function QuestionCard({
   question,
   onAnswer,
-  isLoading = false,
+  isLoading: _isLoading = false,
   answeredQuestions = 0,
   totalQuestions = 0,
 }: QuestionCardProps) {

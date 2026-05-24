@@ -169,13 +169,13 @@ export async function POST(request: NextRequest) {
         }
 
         // Get current user value before update
-        const userBefore = await prisma.user.findUnique({
+        const _userBefore = await prisma.user.findUnique({
           where: { id: session.user.id },
           select: { addonReports: true },
         });
 
         // ALWAYS update user's addonReports (works with or without table)
-        const updatedUser = await prisma.user.update({
+        const _updatedUser = await prisma.user.update({
           where: { id: session.user.id },
           data: {
             addonReports: {

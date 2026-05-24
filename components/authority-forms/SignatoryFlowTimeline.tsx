@@ -34,7 +34,7 @@ interface SignatoryFlowTimelineProps {
 export function SignatoryFlowTimeline({
   signatories,
   className,
-  compact = false,
+  compact: _compact = false,
 }: SignatoryFlowTimelineProps) {
   if (signatories.length === 0) {
     return null;

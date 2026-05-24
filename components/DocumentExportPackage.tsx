@@ -20,8 +20,8 @@ interface DocumentExportPackageProps {
 
 export default function DocumentExportPackage({
   reportId,
-  reportNumber,
-  claimReference,
+  reportNumber: _reportNumber,
+  claimReference: _claimReference,
 }: DocumentExportPackageProps) {
   const [exporting, setExporting] = useState<string | null>(null);
 

@@ -247,7 +247,7 @@ function FeatureStatusBadge({ status }: { status: FeatureStatus }) {
 }
 
 function FeatureRow({ feature }: { feature: MobileFeature }) {
-  const Icon = feature.icon;
+  const _Icon = feature.icon;
   return (
     <div
       className={cn(

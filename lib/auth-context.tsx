@@ -66,7 +66,7 @@ const DEMO_USERS = {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const router = useRouter();
+  const _router = useRouter();
 
   // Check if user is logged in on mount
   useEffect(() => {

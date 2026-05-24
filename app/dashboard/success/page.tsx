@@ -24,7 +24,7 @@ let globalVerificationComplete = false;
 export default function SuccessPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { data: session, update } = useSession();
+  const { data: _session, update } = useSession();
   const addonKey = searchParams.get("addon");
   const isAddonPurchase = !!addonKey;
   const [loading, setLoading] = useState(true);
@@ -41,7 +41,7 @@ export default function SuccessPage() {
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Helper to safely set state only if not completed
-  const safeSetState = (fn: () => void) => {
+  const _safeSetState = (fn: () => void) => {
     if (!isCompletedRef.current && !isProcessingRef.current) {
       fn();
     }
@@ -279,7 +279,7 @@ export default function SuccessPage() {
             return;
           }
 
-          const verifyData = await verifyResponse.json();
+          const _verifyData = await verifyResponse.json();
 
           // DON'T call update() - it causes remounts and infinite loops
           markCompleted();
@@ -643,7 +643,7 @@ export default function SuccessPage() {
 
               {/* Setup Steps */}
               <div className="space-y-4">
-                {setupSteps.map((step, index) => {
+                {setupSteps.map((step, _index) => {
                   const Icon = step.icon;
                   return (
                     <div

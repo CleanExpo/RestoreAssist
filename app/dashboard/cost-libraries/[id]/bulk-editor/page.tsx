@@ -72,7 +72,7 @@ function itemToRow(item: CostItem): RowState {
   };
 }
 
-function blankRow(libraryId: string): RowState {
+function blankRow(_libraryId: string): RowState {
   return {
     original: null,
     current: {

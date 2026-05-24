@@ -15,7 +15,6 @@ import {
   Shield,
   Image as ImageIcon,
   User,
-  Clock,
   CheckCircle,
 } from "lucide-react";
 

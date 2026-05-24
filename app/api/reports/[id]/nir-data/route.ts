@@ -258,7 +258,7 @@ export async function POST(
 
     if (savedReport?.moistureReadings) {
       try {
-        const savedNirData = JSON.parse(savedReport.moistureReadings);
+        const _savedNirData = JSON.parse(savedReport.moistureReadings);
       } catch {
         // Error verifying saved data
       }

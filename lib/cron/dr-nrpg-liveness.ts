@@ -14,7 +14,7 @@ import { prisma } from "@/lib/prisma";
 import type { CronJobResult } from "./runner";
 
 const PROBE_TIMEOUT_MS = 10_000;
-const MAX_CONSECUTIVE_FAILURES_BEFORE_DEACTIVATE = 3;
+const _MAX_CONSECUTIVE_FAILURES_BEFORE_DEACTIVATE = 3;
 
 export async function runDrNrpgLiveness(): Promise<CronJobResult> {
   const integrations = await (prisma as any).drNrpgIntegration.findMany({

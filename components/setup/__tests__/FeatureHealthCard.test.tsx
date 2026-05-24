@@ -42,7 +42,7 @@ const CHECKS_WITH_YELLOW = [
 ];
 
 function mockChecksFetch(rows: any[]) {
-  global.fetch = vi.fn((url: string, init?: any) => {
+  global.fetch = vi.fn((url: string, _init?: any) => {
     if (typeof url === "string" && url.includes("/api/setup/checks")) {
       return Promise.resolve({
         ok: true,

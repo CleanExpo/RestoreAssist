@@ -11,7 +11,6 @@ import {
   Building2,
   DollarSign,
   FileText,
-  CreditCard,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 // @ts-ignore - canvas-confetti types
@@ -34,7 +33,7 @@ export default function OnboardingGuide({
   value,
   children,
 }: OnboardingGuideProps) {
-  const router = useRouter();
+  const _router = useRouter();
   const searchParams = useSearchParams();
   const isOnboarding = searchParams.get("onboarding") === "true";
   const [isVisible, setIsVisible] = useState(false);
@@ -96,7 +95,7 @@ export default function OnboardingGuide({
     },
   ];
 
-  const triggerConfetti = () => {
+  const _triggerConfetti = () => {
     confetti({
       particleCount: 100,
       spread: 70,
@@ -211,7 +210,7 @@ export default function OnboardingGuide({
                   {steps.map((s) => {
                     const isCompleted = completedSteps.includes(s.number);
                     const isCurrent = s.number === step;
-                    const isUpcoming = s.number > step;
+                    const _isUpcoming = s.number > step;
 
                     return (
                       <motion.div

@@ -6,7 +6,6 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "./prisma";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import jwt from "jsonwebtoken";
 import {
   verifyToken as verifyTotp,
   parseRecoveryCodes,

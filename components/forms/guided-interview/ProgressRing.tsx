@@ -130,7 +130,7 @@ export function ProgressRing({
   /**
    * Calculate SVG path for circular progress
    */
-  const calculateCirclePath = (): string => {
+  const _calculateCirclePath = (): string => {
     const radius = 40;
     const circumference = 2 * Math.PI * radius;
     const strokeDashoffset = circumference - (percentage / 100) * circumference;

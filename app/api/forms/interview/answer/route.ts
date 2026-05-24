@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
           status: 400,
         });
       }
-      const { sessionId, answer, confidence } = body;
+      const { sessionId, answer, confidence: _confidence } = body;
 
       if (!sessionId || answer === undefined) {
         return apiError(request, {
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
       const storedAnswers = interviewSession.answers
         ? JSON.parse(interviewSession.answers)
         : {};
-      const currentAutoPopulated = interviewSession.autoPopulatedFields
+      const _currentAutoPopulated = interviewSession.autoPopulatedFields
         ? JSON.parse(interviewSession.autoPopulatedFields)
         : {};
 

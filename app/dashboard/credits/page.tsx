@@ -107,7 +107,7 @@ export default function CreditsPage() {
 }
 
 function CreditsPageContent() {
-  const { data: session, status: sessionStatus } = useSession();
+  const { data: _session, status: sessionStatus } = useSession();
   const [data, setData] = useState<CreditData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils";
 export default function NewReportPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { data: session, update } = useSession();
+  const { data: _session, update } = useSession();
   const [uploading, setUploading] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
   const [uploadedData, setUploadedData] = useState<any>(null);
@@ -797,7 +797,7 @@ export default function NewReportPage() {
 
               {/* Setup Steps */}
               <div className="space-y-4">
-                {setupSteps.map((step, index) => {
+                {setupSteps.map((step, _index) => {
                   const Icon = step.icon;
                   return (
                     <div

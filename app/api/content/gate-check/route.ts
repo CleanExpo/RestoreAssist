@@ -191,7 +191,7 @@ export async function POST(request: NextRequest) {
 
 // ─── GET — Full gate dashboard (all domains) ─────────────────────────────────
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });

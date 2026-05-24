@@ -375,7 +375,7 @@ function extractActionItems(
 
 async function createLinearActionItems(
   items: Array<{ title: string; description: string }>,
-  meetingDate: string,
+  _meetingDate: string,
 ): Promise<number> {
   if (!process.env.LINEAR_API_KEY) return 0;
 

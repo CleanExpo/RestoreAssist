@@ -136,10 +136,10 @@ export async function generateForensicReportPDF(
     report,
     analysis,
     tier1,
-    tier2,
-    tier3,
-    stateInfo,
-    psychrometricAssessment,
+    tier2: _tier2,
+    tier3: _tier3,
+    stateInfo: _stateInfo,
+    psychrometricAssessment: _psychrometricAssessment,
     scopeAreas,
     equipmentSelection,
     standardsContext,
@@ -395,15 +395,15 @@ async function renderPage1(
     helvetica,
     helveticaBold,
     colors,
-    jobRef,
-    inspectionDate,
+    jobRef: _jobRef,
+    inspectionDate: _inspectionDate,
     waterCategory,
     waterClass,
     methScreen,
     methTestCount,
     bioMouldDetected,
     bioMouldCategory,
-    businessInfo,
+    businessInfo: _businessInfo,
   } = options;
   const margin = 50;
   // Start content below header (header is ~100px with section title)
@@ -705,7 +705,7 @@ async function renderPage2(
   },
 ) {
   const { width, height } = page.getSize();
-  const { helvetica, helveticaBold, colors, jobRef, scopeItems } = options;
+  const { helvetica, helveticaBold, colors, jobRef: _jobRef, scopeItems } = options;
   const margin = 50;
   // Title is now in header, start content below
   let yPosition = height - 80;
@@ -749,7 +749,7 @@ async function renderPage2(
   yPosition -= 20;
 
   // Scope Table
-  const tableStartY = yPosition;
+  const _tableStartY = yPosition;
   const tableWidth = width - 2 * margin;
   const colWidths = {
     item: 100,
@@ -1344,7 +1344,7 @@ async function renderPage3(
   const ganttY = yPosition;
   const ganttHeight = 150;
   const ganttWidth = width - 2 * margin;
-  const weekWidth = ganttWidth / 2;
+  const _weekWidth = ganttWidth / 2;
 
   // Draw timeline background
   page.drawRectangle({
@@ -1401,7 +1401,7 @@ async function renderPage3(
   const phaseSpacing = 30;
   let phaseY = ganttY - 40;
 
-  phases.forEach((phase: TimelinePhase, index: number) => {
+  phases.forEach((phase: TimelinePhase, _index: number) => {
     const barX = margin + (phase.start / 14) * ganttWidth;
     const barWidth = Math.max(10, (phase.duration / 14) * ganttWidth); // Minimum width for visibility
 
@@ -1715,7 +1715,7 @@ async function renderPage4(
   },
 ) {
   const { width, height } = page.getSize();
-  const { helvetica, helveticaBold, colors, jobRef, businessInfo } = options;
+  const { helvetica, helveticaBold, colors, jobRef, businessInfo: _businessInfo } = options;
   const margin = 50;
   let yPosition = height - 80;
 
@@ -1886,13 +1886,13 @@ function addHeaderFooter(
     helveticaBold,
     colors,
     businessInfo,
-    logoImage,
+    logoImage: _logoImage,
     jobRef,
     inspectionDate,
     pageNumber,
     totalPages,
     isFirstPage,
-    reportTitle,
+    reportTitle: _reportTitle,
     sectionTitle,
   } = options;
 
@@ -2085,9 +2085,9 @@ function addHeaderFooter(
  */
 function buildScopeItems(
   data: ReportData,
-  standardsContext: string,
+  _standardsContext: string,
 ): ScopeItem[] {
-  const { report, tier1, tier2, tier3, scopeAreas } = data;
+  const { report, tier1, tier2: _tier2, tier3: _tier3, scopeAreas } = data;
 
   const waterCategory = tier1?.T1_Q3_waterSource
     ? extractWaterCategory(tier1.T1_Q3_waterSource)
@@ -2308,7 +2308,7 @@ function buildMoistureData(data: ReportData): MoistureDataResult {
  * Build psychrometric data from report
  */
 function buildPsychrometricData(data: ReportData): PsychrometricDataResult {
-  const { report, psychrometricAssessment, tier2 } = data;
+  const { report, psychrometricAssessment, tier2: _tier2 } = data;
 
   let psychrometricReadings: any[] = [];
 

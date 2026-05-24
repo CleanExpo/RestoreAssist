@@ -13,7 +13,7 @@ const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
  */
 export function rateLimit(
   userId: string,
-  operation: string,
+  _operation: string,
 ): { allowed: boolean; retryAfter?: number } {
   const now = Date.now();
   const entry = rateLimitStore.get(userId);
@@ -115,7 +115,7 @@ export async function checkBulkCreateCredits(
 export async function deductBulkCredits(
   userId: string,
   count: number,
-  reason: string,
+  _reason: string,
 ): Promise<{ success: boolean; creditsRemaining: number }> {
   try {
     // Get the organization owner (Admin) - they own the credits

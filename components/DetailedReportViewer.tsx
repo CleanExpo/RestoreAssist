@@ -70,7 +70,7 @@ export default function DetailedReportViewer({
     }
   };
 
-  const handleDownload = () => {
+  const _handleDownload = () => {
     if (reportContent) {
       const blob = new Blob([reportContent], { type: "text/plain" });
       const url = URL.createObjectURL(blob);

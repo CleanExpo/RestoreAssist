@@ -92,7 +92,7 @@ export function GuidedInterviewPanel({
   reportId,
   onComplete,
   onCancel,
-  showAutoPopulatedFields = true,
+  showAutoPopulatedFields: _showAutoPopulatedFields = true,
   onAnswersChange,
 }: GuidedInterviewPanelProps) {
   const router = useRouter();
@@ -625,7 +625,7 @@ export function GuidedInterviewPanel({
           throw new Error(`Failed to submit answer: ${response.statusText}`);
         }
 
-        const progressData = await response.json();
+        const _progressData = await response.json();
 
         // Process field mappings from this question
         const newAutoPopulated = new Map(interviewState.autoPopulatedFields);

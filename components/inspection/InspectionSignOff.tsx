@@ -165,7 +165,7 @@ export default function InspectionSignOff({
     setSignOffState("modal");
   };
 
-  const isInitial = signOffState === "initial";
+  const _isInitial = signOffState === "initial";
   const isModal = signOffState === "modal";
   const isFormUnlocked = signOffState === "form-unlocked";
 

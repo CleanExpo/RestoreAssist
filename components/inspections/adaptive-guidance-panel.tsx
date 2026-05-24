@@ -51,7 +51,7 @@ interface AdaptiveGuidancePanelProps {
 
 export function AdaptiveGuidancePanel({
   stepKey,
-  stepTitle,
+  stepTitle: _stepTitle,
   stepDescription,
   stepDescriptionShort,
   escalationNote,
@@ -108,7 +108,7 @@ export function AdaptiveGuidancePanel({
     });
   }, []);
 
-  const hasGuidance = hasApprenticeGuidance(stepKey);
+  const _hasGuidance = hasApprenticeGuidance(stepKey);
   const hasAlerts = hasExperiencedAlerts(stepKey);
 
   // ============================================

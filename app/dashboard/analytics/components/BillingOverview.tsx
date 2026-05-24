@@ -202,7 +202,7 @@ export default function BillingOverview() {
     },
   ].filter((d) => d.value > 0);
 
-  const planSplitData = [
+  const _planSplitData = [
     {
       name: "Monthly",
       value: data.subscriptions.byPlan.monthly,

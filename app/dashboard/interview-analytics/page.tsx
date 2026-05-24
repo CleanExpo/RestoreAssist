@@ -37,7 +37,7 @@ export default function InterviewAnalyticsDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
 
-  const { data: userAnalytics, isLoading: isLoadingUser } =
+  const { data: _userAnalytics, isLoading: _isLoadingUser } =
     useInterviewAnalytics({
       type: "user",
       autoFetch: false,
@@ -114,7 +114,7 @@ export default function InterviewAnalyticsDashboard() {
   /**
    * Format currency
    */
-  const formatCurrency = (value: number): string => {
+  const _formatCurrency = (value: number): string => {
     return new Intl.NumberFormat("en-AU", {
       style: "currency",
       currency: "AUD",

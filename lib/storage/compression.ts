@@ -38,7 +38,7 @@ export function isImageMimeType(mimeType: string): boolean {
  */
 export async function compressImage(
   buffer: Buffer,
-  mimeType: string,
+  _mimeType: string,
 ): Promise<CompressionResult> {
   // Dynamic import — sharp is a native module, keep it server-only
   const sharp = (await import("sharp")).default;

@@ -13,7 +13,6 @@ import {
   CheckSquare,
   Download,
   Share2,
-  Copy,
   Check,
   Loader2,
 } from "lucide-react";

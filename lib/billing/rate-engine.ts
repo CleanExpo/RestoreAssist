@@ -254,7 +254,7 @@ export async function lookupRates(
  */
 export async function lookupMultipliers(
   prisma: PrismaClient,
-  userId: string,
+  _userId: string,
 ): Promise<MultiplierSet> {
   // CompanyPricingConfig does not yet have multiplier columns — fall back to
   // NRPG hard-coded defaults. The DB query is intentionally omitted here; when

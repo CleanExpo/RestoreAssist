@@ -83,7 +83,7 @@ export default function ActivityTimeline({
   return (
     <div className="max-w-2xl">
       <div className="relative border-l-2 border-gray-200 dark:border-slate-700 ml-1.5 space-y-0">
-        {activity.map((entry, index) => (
+        {activity.map((entry, _index) => (
           <div key={entry.id} className="relative pl-6 pb-6">
             {/* Timeline dot */}
             <span className="absolute -left-1.5 top-1 h-3 w-3 rounded-full bg-blue-500 ring-2 ring-white dark:ring-slate-900" />

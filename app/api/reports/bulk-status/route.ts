@@ -108,7 +108,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // 7. Update reports in transaction
-    const errors: Array<{ reportId: string; error: string }> = [];
+    const _errors: Array<{ reportId: string; error: string }> = [];
 
     try {
       // Update all reports atomically

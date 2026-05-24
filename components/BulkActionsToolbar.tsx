@@ -22,9 +22,9 @@ interface BulkActionsToolbarProps {
 export function BulkActionsToolbar({
   selectedCount,
   totalCount,
-  onSelectedIdsChange,
+  onSelectedIdsChange: _onSelectedIdsChange,
   selectedIds,
-  onRefresh,
+  onRefresh: _onRefresh,
 }: BulkActionsToolbarProps) {
   const [isLoading, setIsLoading] = useState(false);
 

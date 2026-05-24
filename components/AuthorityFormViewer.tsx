@@ -10,8 +10,6 @@ import {
   Eye,
   X,
   Loader2,
-  Send,
-  Users,
   Mail,
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -73,7 +71,7 @@ interface FormData {
 
 export default function AuthorityFormViewer({
   formId,
-  onClose,
+  onClose: _onClose,
 }: AuthorityFormViewerProps) {
   const { data: session } = useSession();
   const [form, setForm] = useState<FormData | null>(null);
@@ -277,8 +275,8 @@ export default function AuthorityFormViewer({
     );
   }
 
-  const signedCount = form.signatures.filter((s) => s.signedAt).length;
-  const totalSignatures = form.signatures.length;
+  const _signedCount = form.signatures.filter((s) => s.signedAt).length;
+  const _totalSignatures = form.signatures.length;
 
   return (
     <>
@@ -463,7 +461,7 @@ export default function AuthorityFormViewer({
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {form.signatures.map((signature, index) => (
+                {form.signatures.map((signature, _index) => (
                   <div
                     key={signature.id}
                     className="border-2 border-gray-300 rounded-lg p-6"

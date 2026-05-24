@@ -195,7 +195,7 @@ function ManifestRow({ item, index, onUpdate }: ManifestRowProps) {
     item.estimatedValueAud.toString(),
   );
   const [localQty, setLocalQty] = useState(item.quantity.toString());
-  const [localNotes, setLocalNotes] = useState(item.technicianNotes ?? "");
+  const [localNotes, _setLocalNotes] = useState(item.technicianNotes ?? "");
   const descRef = useRef<HTMLInputElement>(null);
 
   const restorability =

@@ -412,7 +412,7 @@ function ShowcaseCardHorizontal({
   services = [],
   className,
   imagePosition = "left",
-  enableParallax = true,
+  enableParallax: _enableParallax = true,
 }: ShowcaseCardHorizontalProps) {
   const [isHovered, setIsHovered] = React.useState(false);
 

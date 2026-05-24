@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const forceRefresh = searchParams.get("refresh") === "true";
+    const _forceRefresh = searchParams.get("refresh") === "true";
 
     // Get user from database
     const user = await prisma.user.findUnique({

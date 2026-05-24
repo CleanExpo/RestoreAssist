@@ -28,7 +28,7 @@ const INTEGRATION_PUBLIC_SELECT = {
   updatedAt: true,
 } as const;
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 

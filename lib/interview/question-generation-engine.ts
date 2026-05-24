@@ -87,7 +87,7 @@ export class QuestionGenerationEngine {
    */
   private static organizeTiers(
     questions: Question[],
-    tierLevel: SubscriptionTier,
+    _tierLevel: SubscriptionTier,
   ): TieredQuestions {
     const tier1 = questions.filter(
       (q) => q.sequenceNumber && q.sequenceNumber <= 5,
@@ -115,7 +115,7 @@ export class QuestionGenerationEngine {
    */
   private static prioritizeQuestions(
     questions: Question[],
-    context: QuestionGenerationContext,
+    _context: QuestionGenerationContext,
   ): Question[] {
     return questions.sort((a, b) => {
       // 1. Sequence number priority
@@ -165,7 +165,7 @@ export class QuestionGenerationEngine {
   static evaluateSkipLogic(
     question: Question,
     previousAnswers: Map<string, any>,
-    allQuestions: Question[],
+    _allQuestions: Question[],
   ): { shouldSkip: boolean; nextQuestionId?: string; reason?: string } {
     if (!question.skipLogic || question.skipLogic.length === 0) {
       return { shouldSkip: false };
@@ -260,7 +260,7 @@ export class QuestionGenerationEngine {
   static getNextQuestionId(
     currentQuestion: Question,
     currentAnswer: any,
-    allQuestions: Question[],
+    _allQuestions: Question[],
   ): string | undefined {
     if (!currentQuestion.skipLogic) return undefined;
 

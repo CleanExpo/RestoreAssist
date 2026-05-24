@@ -166,7 +166,7 @@ const EMPTY_CALIBRATION_FORM = {
 // ─── Main page component ──────────────────────────────────────────────────────
 
 export default function EquipmentPage() {
-  const { data: session, status } = useSession();
+  const { data: _session, status } = useSession();
   const router = useRouter();
 
   const [equipment, setEquipment] = useState<Equipment[]>([]);

@@ -20,7 +20,7 @@ function LoginForm() {
   // RA-2073 — Sign in with Apple is now fully wired (see useEffect below).
   // The previous workaround that hid both third-party buttons on iOS for
   // the 1.0(4)..1.0(10) builds is no longer needed.
-  const [authHydrated, setAuthHydrated] = useState(false);
+  const [_authHydrated, setAuthHydrated] = useState(false);
   // Track whether we're inside the iOS Capacitor shell. Used to:
   //   1. Default rememberMe to true (field techs want a 90-day session).
   //   2. Show the Apple Sign-In button via the native plugin path even

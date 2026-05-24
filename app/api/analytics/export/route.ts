@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
           status: 400,
         });
       }
-      const { format, dateRange, includeCharts = false } = body;
+      const { format, dateRange, includeCharts: _includeCharts = false } = body;
 
       // Parse dates
       const fromDate = new Date(dateRange.from);

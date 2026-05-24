@@ -240,7 +240,7 @@ export async function POST(
       // Create signature placeholders for required signatories
       if (signatoryRoles && Array.isArray(signatoryRoles)) {
         const signatureData = signatoryRoles.map(
-          (role: string, index: number) => ({
+          (role: string, _index: number) => ({
             instanceId: formInstance.id,
             signatoryName: role === "CLIENT" ? report.clientName : "",
             signatoryRole: role as AuthoritySignatoryRole,

@@ -179,14 +179,14 @@ export async function GET(
   }
 }
 
-async function generatePDFDocument(
+async function _generatePDFDocument(
   title: string,
   content: string,
   report: any,
 ): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
   const page = pdfDoc.addPage([595.28, 841.89]); // A4
-  const { width, height } = page.getSize();
+  const { width: _width, height } = page.getSize();
 
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
@@ -247,7 +247,7 @@ async function generatePDFDocument(
   const lines = content.split("\n");
   for (const line of lines) {
     if (yPosition < 50) {
-      const newPage = pdfDoc.addPage([595.28, 841.89]);
+      const _newPage = pdfDoc.addPage([595.28, 841.89]);
       yPosition = height - 50;
     }
 
@@ -280,10 +280,10 @@ async function addDocumentToPDF(
   pdfDoc: PDFDocument,
   title: string,
   content: string,
-  report: any,
+  _report: any,
 ) {
   let page = pdfDoc.addPage([595.28, 841.89]);
-  const { width, height } = page.getSize();
+  const { width: _width, height } = page.getSize();
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   const headerColor = rgb(0.0, 0.63, 0.8);
@@ -344,10 +344,10 @@ async function addDocumentToPDF(
 async function addVersionHistoryToPDF(
   pdfDoc: PDFDocument,
   versionHistory: any[],
-  report: any,
+  _report: any,
 ) {
   const page = pdfDoc.addPage([595.28, 841.89]);
-  const { width, height } = page.getSize();
+  const { width: _width, height } = page.getSize();
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   const headerColor = rgb(0.0, 0.63, 0.8);

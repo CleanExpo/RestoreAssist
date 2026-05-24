@@ -154,7 +154,7 @@ export default function ContractorProfilePage() {
     certifications,
     serviceAreas,
     reviews,
-    ratingBreakdown,
+    ratingBreakdown: _ratingBreakdown,
     subRatings,
     requiresAuthForContact,
   } = data;

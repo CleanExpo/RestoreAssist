@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const anthropic = new Anthropic({
+      const _anthropic = new Anthropic({
         apiKey: anthropicApiKey,
       });
 
@@ -230,14 +230,14 @@ function buildCostEstimationData(data: {
   const {
     report,
     tier1,
-    tier2,
+    tier2: _tier2,
     tier3,
     pricingConfig,
     stateInfo,
     scopeData,
     equipmentSelection = [],
-    psychrometricAssessment,
-    scopeAreas = [],
+    psychrometricAssessment: _psychrometricAssessment,
+    scopeAreas: _scopeAreas = [],
   } = data;
 
   // Extract information
@@ -245,7 +245,7 @@ function buildCostEstimationData(data: {
     tier3?.T3_Q1_timelineRequirements || "No specific deadline";
   const isEmergency = timelineRequirements.includes("ASAP");
   const dryingPreferences = tier3?.T3_Q2_dryingPreferences || "Balanced";
-  const isSpeedPriority = dryingPreferences.includes("Speed priority");
+  const _isSpeedPriority = dryingPreferences.includes("Speed priority");
 
   const materials = tier1?.T1_Q6_materialsAffected || [];
   const hasYellowTongue = materials.some((m: string) =>

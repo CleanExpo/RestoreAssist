@@ -257,7 +257,7 @@ export async function POST(
       };
 
       // Helper function to draw text with line wrapping
-      const drawWrappedText = (
+      const _drawWrappedText = (
         text: string,
         x: number,
         y: number,
@@ -1203,12 +1203,12 @@ export async function POST(
 }
 
 // Generate comprehensive assessment report from expert perspective
-function generateComprehensiveAssessment(
+function _generateComprehensiveAssessment(
   report: any,
   scope: any,
   estimate: any,
   formatDate: (date: any) => string,
-  formatTime: (date: any) => string,
+  _formatTime: (date: any) => string,
 ): string {
   let assessment = "PROFESSIONAL ASSESSMENT AND RECOMMENDATIONS\n\n";
 

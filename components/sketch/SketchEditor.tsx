@@ -391,7 +391,7 @@ export function SketchEditor({
           const fabric = await import("fabric");
           const {
             Line: FLine,
-            Group,
+            Group: _Group,
             Rect,
             IText,
           } = fabric as unknown as {

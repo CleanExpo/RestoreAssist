@@ -11,8 +11,6 @@ import {
   AlertTriangle,
   CheckCircle,
   TrendingUp,
-  BarChart3,
-  Activity,
 } from "lucide-react";
 
 interface InsuranceDashboardProps {
@@ -313,7 +311,7 @@ export default function InsuranceDashboard({
             Coverage Distribution
           </h3>
           <div className="space-y-4">
-            {coverageDistribution.map((coverage, index) => (
+            {coverageDistribution.map((coverage, _index) => (
               <div
                 key={coverage.type}
                 className="flex items-center justify-between"
@@ -426,7 +424,7 @@ export default function InsuranceDashboard({
           Recent Reports with Insurance Coverage
         </h3>
         <div className="space-y-3">
-          {recentReports.map((report, index) => {
+          {recentReports.map((report, _index) => {
             const hasProperty =
               report.propertyCover && JSON.parse(report.propertyCover);
             const hasContents =

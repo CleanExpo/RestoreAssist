@@ -44,7 +44,7 @@ interface EditableItem extends ContentsManifestItem {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function conditionBadge(condition: ContentsManifestItem["condition"]) {
+function _conditionBadge(condition: ContentsManifestItem["condition"]) {
   const map: Record<
     typeof condition,
     {

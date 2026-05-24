@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { sanitizeString } from "@/lib/sanitize";
 import { withIdempotency } from "@/lib/idempotency";
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 

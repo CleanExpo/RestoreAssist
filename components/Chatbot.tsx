@@ -101,7 +101,7 @@ export default function Chatbot() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [_isLoadingHistory, setIsLoadingHistory] = useState(true);
 
   // Voice state
   const [isListening, setIsListening] = useState(false);
@@ -119,7 +119,7 @@ export default function Chatbot() {
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const languageMenuRef = useRef<HTMLDivElement>(null);
 
-  const userName = session?.user?.name || "there";
+  const _userName = session?.user?.name || "there";
 
   // Close language menu on outside click
   useEffect(() => {

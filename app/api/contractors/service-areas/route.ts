@@ -5,7 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { withIdempotency } from "@/lib/idempotency";
 
 // Get contractor's service areas
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 

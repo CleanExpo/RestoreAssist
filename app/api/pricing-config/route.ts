@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { NRPG_RATE_RANGES } from "@/lib/nrpg-rate-ranges";
 
 // GET - Retrieve pricing configuration for current user
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 

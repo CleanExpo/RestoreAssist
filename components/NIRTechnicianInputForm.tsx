@@ -15,11 +15,9 @@ import {
   ClipboardCheck,
   Trash2,
   Upload,
-  FileImage,
   Map,
   Shield,
   Zap,
-  Eye,
   Locate,
 } from "lucide-react";
 import toast from "react-hot-toast";

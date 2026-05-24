@@ -11,7 +11,6 @@ import {
   CheckCircle,
   AlertTriangle,
   Settings,
-  Save,
   ArrowRight,
   ArrowLeft,
 } from "lucide-react";
@@ -35,7 +34,7 @@ export default function IICRCReportBuilder({
 }: IICRCReportBuilderProps) {
   const [currentStep, setCurrentStep] = useState(1);
   const [clients, setClients] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [_loading, _setLoading] = useState(false);
   const [reportData, setReportData] = useState({
     // Basic Information
     title: "",

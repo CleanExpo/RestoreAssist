@@ -101,9 +101,9 @@ export class InterviewAnalyticsService {
    */
   static async trackSessionStart(
     sessionId: string,
-    userId: string,
-    formTemplateId: string,
-    reportId?: string,
+    _userId: string,
+    _formTemplateId: string,
+    _reportId?: string,
   ): Promise<void> {
     try {
       await prisma.interviewSession.update({

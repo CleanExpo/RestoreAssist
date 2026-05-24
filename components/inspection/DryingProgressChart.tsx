@@ -130,7 +130,7 @@ function toMaterial(surfaceType: string): string {
 }
 
 /** Day label relative to a start date */
-function dayLabel(recordedAt: string, startMs: number): string {
+function _dayLabel(recordedAt: string, startMs: number): string {
   const day =
     Math.floor((new Date(recordedAt).getTime() - startMs) / 86_400_000) + 1;
   return `Day ${day}`;
