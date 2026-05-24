@@ -78,7 +78,10 @@ interface HistoricalJobRow {
 
 // ─── Route handler ────────────────────────────────────────────────────────────
 
-export async function POST(request: NextRequest, { params: _params }: RouteParams) {
+export async function POST(
+  request: NextRequest,
+  { params: _params }: RouteParams,
+) {
   const startTime = Date.now();
 
   try {

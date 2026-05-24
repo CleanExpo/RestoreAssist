@@ -11,11 +11,7 @@ import {
   getClientId,
   getClientSecret,
 } from "../base-client";
-import {
-  getTokens,
-  storeTokens,
-  markIntegrationError,
-} from "../oauth-handler";
+import { getTokens, storeTokens, markIntegrationError } from "../oauth-handler";
 import { prisma } from "@/lib/prisma";
 
 interface XeroContact {

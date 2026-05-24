@@ -60,7 +60,7 @@ interface MYOBInvoiceResponse {
   URI: string;
 }
 
-interface MYOBCustomer {
+interface _MYOBCustomer {
   UID: string;
   CompanyName?: string;
   FirstName?: string;

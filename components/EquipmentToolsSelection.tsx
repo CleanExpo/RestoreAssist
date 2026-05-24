@@ -231,7 +231,7 @@ export default function EquipmentToolsSelection({
           s.groupId === groupId ? { ...s, quantity: newQuantity } : s,
         );
       } else if (delta > 0) {
-        const group = getEquipmentGroupById(groupId);
+        const _group = getEquipmentGroupById(groupId);
         // Use pricing config rate if available, otherwise use default from equipment matrix
         // This ensures we use the correct rate for each capacity group
         const rate = pricingConfig

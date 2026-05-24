@@ -38,9 +38,7 @@ import {
 } from "lucide-react";
 import { exportClaimsCSV, exportClaimsPDF } from "@/lib/claims-export";
 import { GoogleDriveFolderPicker } from "@/components/claims/GoogleDriveFolderPicker";
-import {
-  StandardsBadge,
-} from "@/components/claims/StandardsBadge";
+import { StandardsBadge } from "@/components/claims/StandardsBadge";
 import { ScoreRingGroup } from "@/components/claims/ScoreRing";
 import { StatCard, StatCardGrid } from "@/components/claims/StatCard";
 import {

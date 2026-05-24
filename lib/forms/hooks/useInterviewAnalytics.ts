@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import type {
-  } from "@/lib/forms/analytics";
+import type {} from "@/lib/forms/analytics";
 
 /**
  * Hook for accessing interview analytics data

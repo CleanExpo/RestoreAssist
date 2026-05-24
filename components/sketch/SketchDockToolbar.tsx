@@ -145,7 +145,8 @@ export function SketchDockToolbar({
       const dy = e.clientY - dragRef.current.startY;
       const container = barRef.current?.parentElement;
       if (!container) return;
-      const { width: _width, height: _height } = container.getBoundingClientRect();
+      const { width: _width, height: _height } =
+        container.getBoundingClientRect();
 
       // Determine new dock position from pointer quadrant
       const absDx = Math.abs(dx);

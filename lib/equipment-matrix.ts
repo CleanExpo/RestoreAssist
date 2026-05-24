@@ -235,7 +235,7 @@ export function getEquipmentPricingField(groupId: string): string | null {
   }
   if (groupId.startsWith("airmover-")) {
     // Determine if axial or centrifugal based on group
-    const group = getEquipmentGroupById(groupId);
+    const _group = getEquipmentGroupById(groupId);
     // For now, use axial for all air movers (can be refined later)
     return "airMoverAxialDailyRate";
   }

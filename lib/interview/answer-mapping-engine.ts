@@ -4,10 +4,7 @@
  * Applies field transformers, handles multi-field population, and tracks IICRC classifications
  */
 
-import {
-  Question,
-  FieldMapping,
-} from "./types";
+import { Question, FieldMapping } from "./types";
 
 /**
  * Represents a single field population result
@@ -198,7 +195,6 @@ export class AnswerMappingEngine {
       string,
       { code: string; questions: Set<string> }
     >();
-    let totalConfidence = 0;
     let fieldCount = 0;
 
     questionsWithAnswers.forEach(({ question, answer }) => {
@@ -210,7 +206,6 @@ export class AnswerMappingEngine {
       // Merge field populations (later answers override earlier ones)
       fieldPopulations.forEach((pop) => {
         allFieldPopulations[pop.formFieldId] = pop;
-        totalConfidence += pop.confidence;
         fieldCount += 1;
       });
 

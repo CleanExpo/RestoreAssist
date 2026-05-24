@@ -592,7 +592,7 @@ export async function retrieveRelevantStandards(
       .map((item) => item.file);
 
     topFiles.forEach((file, _index) => {
-      const score =
+      const _score =
         Array.from(uniqueFiles.values()).find((f) => f.file.id === file.id)
           ?.score || 0;
     });

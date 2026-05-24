@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  PieChart,
-  Pie,
-  Cell,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";

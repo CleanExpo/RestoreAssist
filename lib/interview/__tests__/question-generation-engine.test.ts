@@ -5,10 +5,7 @@
 
 import { QuestionGenerationEngine } from "../question-generation-engine";
 import { INTERVIEW_QUESTION_LIBRARY } from "../question-templates";
-import {
-  Question,
-  QuestionGenerationContext,
-} from "../types";
+import { Question, QuestionGenerationContext } from "../types";
 
 describe("QuestionGenerationEngine", () => {
   // Test data setup

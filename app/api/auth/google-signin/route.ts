@@ -86,10 +86,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const email = body.email;
+    const _email = body.email;
     const name = sanitizeString(body.name, 200);
     const image = sanitizeString(body.image, 2000);
-    const firebaseUid = body.firebaseUid;
+    const _firebaseUid = body.firebaseUid;
     const emailVerified = body.emailVerified;
 
     // Always use the server-verified email from the Firebase token (never body.email)

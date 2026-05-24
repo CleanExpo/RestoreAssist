@@ -270,23 +270,12 @@ function buildCostEstimationData(data: {
     ? equipmentSelection
     : [];
 
-  // Calculate equipment quantities from actual selections
+  // Only airMoversQty is read downstream — dehumidifiers + AFDs were
+  // tracked historically but the report copy no longer references them.
   let airMoversQty = 0;
-  let dehumidifiersQty = 0;
-  let afdQty = 0;
-
   equipmentSelections.forEach((sel: any) => {
-    if (sel.groupId && sel.quantity) {
-      if (sel.groupId.startsWith("airmover-")) {
-        airMoversQty += sel.quantity || 0;
-      } else if (
-        sel.groupId.startsWith("lgr-") ||
-        sel.groupId.startsWith("desiccant-")
-      ) {
-        dehumidifiersQty += sel.quantity || 0;
-      } else if (sel.groupId.includes("afd")) {
-        afdQty += sel.quantity || 0;
-      }
+    if (sel.groupId && sel.quantity && sel.groupId.startsWith("airmover-")) {
+      airMoversQty += sel.quantity || 0;
     }
   });
 

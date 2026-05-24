@@ -29,8 +29,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { HelpCircle, Loader2, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  } from "@/components/ui/tooltip";
+import {} from "@/components/ui/tooltip";
 import type { Question } from "@/lib/interview";
 
 interface QuestionCardProps {

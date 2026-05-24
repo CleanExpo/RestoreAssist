@@ -175,8 +175,8 @@ export default function EquipmentSizingGuidelines({
   };
 
   const getPlacementGuidelines = () => {
-    const area = parseFloat(affectedArea.toString());
-    const airmovers = calculateAirmoverRequirements();
+    const _area = parseFloat(affectedArea.toString());
+    const _airmovers = calculateAirmoverRequirements();
 
     return {
       airmovers: [

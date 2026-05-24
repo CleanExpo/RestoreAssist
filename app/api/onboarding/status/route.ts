@@ -39,14 +39,14 @@ export async function GET(_request: NextRequest) {
 
     // Subscription is no longer required for onboarding - users get 30 free credits to start
     // Use effective subscription for team members
-    const _hasActiveSubscription = effectiveSub?.subscriptionStatus === "ACTIVE";
+    const _hasActiveSubscription =
+      effectiveSub?.subscriptionStatus === "ACTIVE";
 
     // For Managers/Technicians, check Admin's onboarding status
     // For Admins, check their own onboarding status
     const isAdmin = user.role === "ADMIN";
     const isTeamMember = user.role === "MANAGER" || user.role === "USER";
 
-    let targetUserId = session.user.id;
     let businessProfileCompleted = !!(
       user.businessName && user.businessAddress
     );
@@ -57,8 +57,6 @@ export async function GET(_request: NextRequest) {
       // Get Admin's ID
       const ownerId = await getOrganizationOwner(session.user.id);
       if (ownerId) {
-        targetUserId = ownerId;
-
         // Check Admin's business profile
         const owner = await prisma.user.findUnique({
           where: { id: ownerId },

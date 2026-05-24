@@ -78,8 +78,12 @@ export default [
       // TypeScript makes the base `no-unused-vars` noisy on interfaces and
       // re-exports; use the TS-aware one instead.
       "no-unused-vars": "off",
+      // RA-5168: tightened from `warn` to `error` after the baseline was
+      // cleared (706 → 0 unused-vars violations across PRs #1178, #1180,
+      // and the closure PR). `_`-prefixed identifiers remain allowed as
+      // the escape hatch for intentionally-unused params/vars.
       "@typescript-eslint/no-unused-vars": [
-        "warn",
+        "error",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
       // `no-undef` is unhelpful in TS (TS's own checker catches undefined refs);

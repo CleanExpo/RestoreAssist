@@ -1,12 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
-import {
-  render,
-  screen,
-  fireEvent,
-  waitFor,
-} from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { FeatureHealthCard } from "../FeatureHealthCard";
 
 const CHECKS_ALL_GREEN = [

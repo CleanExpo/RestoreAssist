@@ -1,24 +1,12 @@
 "use client";
 
-import {
-  useState,
-  useRef,
-  useCallback,
-  useEffect,
-  useId,
-} from "react";
+import { useState, useRef, useCallback, useEffect, useId } from "react";
 import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 import { SketchToolbar } from "./SketchToolbar";
 import { FloorPlanUnderlayLoader } from "./FloorPlanUnderlayLoader";
 import type { ToolMode, FabricCanvasRef } from "./SketchCanvas";
-import {
-  Plus,
-  Layers,
-  Loader2,
-  Check,
-  FileDown,
-} from "lucide-react";
+import { Plus, Layers, Loader2, Check, FileDown } from "lucide-react";
 
 // Dynamic import to avoid SSR issues
 const SketchCanvas = dynamic(() => import("./SketchCanvas"), {

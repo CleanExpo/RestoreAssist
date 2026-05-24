@@ -149,7 +149,7 @@ export class CircuitBreaker {
       throw error;
     } finally {
       // Track request
-      const success = true; // Will be false if error was thrown
+      const _success = true; // Will be false if error was thrown
       this.recentRequests.push({
         timestamp: Date.now(),
         success: (this.state as CircuitState) !== CircuitState.OPEN,

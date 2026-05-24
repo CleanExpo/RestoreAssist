@@ -18,7 +18,6 @@
  */
 
 import {
-  
   Line,
   XAxis,
   YAxis,

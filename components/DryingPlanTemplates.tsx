@@ -259,7 +259,7 @@ export default function DryingPlanTemplates({
   };
 
   const getEquipmentPlacement = () => {
-    const area = parseFloat(affectedArea.toString());
+    const _area = parseFloat(affectedArea.toString());
     const airmovers = calculateEquipmentNeeds().airmovers;
 
     return {

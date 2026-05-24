@@ -21,8 +21,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useInterviewAnalytics } from "@/lib/forms/hooks";
-import type {
-  } from "@/lib/forms/analytics";
+import type {} from "@/lib/forms/analytics";
 
 /**
  * Interview Analytics Dashboard

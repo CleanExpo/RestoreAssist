@@ -123,15 +123,17 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // CRITICAL: Create purchase record FIRST (to prevent duplicates)
-        // This acts as a unique lock - if creation fails, purchase was already processed
-        let purchaseRecord = null;
+        // CRITICAL: Create purchase record FIRST (to prevent duplicates).
+        // The create() call itself acts as a unique lock — if it fails with
+        // P2002 the purchase was already processed and we skip. The returned
+        // row is not used; only the side-effect (insert + unique-key clash)
+        // matters.
         let shouldProcess = false;
 
         if (canUsePurchaseTable) {
           try {
             // Try to create the record - this will fail if it already exists (unique constraint)
-            purchaseRecord = await prisma.addonPurchase.create({
+            await prisma.addonPurchase.create({
               data: {
                 userId: session.user.id,
                 addonKey: addonKey,
