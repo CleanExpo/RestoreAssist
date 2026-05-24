@@ -2,7 +2,7 @@
  * POST /api/inspections/[id]/sketches/import-from-image
  * RA-1607 — Claude Vision: convert a hand-drawn sketch photo to polygon data.
  *
- * Request: multipart/form-data with a single `file` field (JPEG/PNG/HEIC, max 10 MB).
+ * Request: multipart/form-data with a single `file` field (JPEG/PNG, max 10 MB).
  * Response: { rooms: [{ label: string, vertices: [{ x: number, y: number }, ...] }] }
  *   Vertices are in normalized coordinates [0, 1] relative to the image dimensions.
  *
@@ -41,6 +41,22 @@ function checkRateLimit(userId: string): boolean {
   calls.push(now);
   _rateLimitMap.set(userId, calls);
   return true;
+}
+
+function detectAllowedImageMediaType(
+  buffer: Buffer,
+): "image/jpeg" | "image/png" | null {
+  const isJpeg =
+    buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+  const isPng =
+    buffer[0] === 0x89 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x4e &&
+    buffer[3] === 0x47;
+
+  if (isJpeg) return "image/jpeg";
+  if (isPng) return "image/png";
+  return null;
 }
 
 interface Room {
@@ -133,6 +149,16 @@ export async function POST(
     );
   }
 
+  const arrayBuffer = await file.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+  const mediaType = detectAllowedImageMediaType(buffer);
+  if (!mediaType) {
+    return NextResponse.json(
+      { error: "Unsupported file type — use JPEG or PNG" },
+      { status: 400 },
+    );
+  }
+
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
   if (!apiKey) {
     console.error("[InspectionsSketchImport]", {
@@ -142,15 +168,13 @@ export async function POST(
       detail: "ANTHROPIC_API_KEY not configured",
     });
     return NextResponse.json(
-      { error: "KEY_MISSING", detail: "ANTHROPIC_API_KEY not configured" },
+      { error: "AI service unavailable" },
       { status: 402 },
     );
   }
 
   // Convert to base64
-  const arrayBuffer = await file.arrayBuffer();
-  const base64 = Buffer.from(arrayBuffer).toString("base64");
-  const mediaType = file.type as "image/jpeg" | "image/png";
+  const base64 = buffer.toString("base64");
 
   const callStart = Date.now();
   const visionModel = "claude-sonnet-4-6";
@@ -199,7 +223,7 @@ export async function POST(
         ? { "Retry-After": String(Math.ceil(result.retryAfterMs / 1000)) }
         : {};
     return NextResponse.json(
-      { error: result.reason, detail: result.detail },
+      { error: result.reason },
       { status, headers },
     );
   }
