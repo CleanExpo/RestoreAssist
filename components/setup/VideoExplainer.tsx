@@ -12,6 +12,7 @@
  * grab the 11-char ID from the youtu.be/<id> URL, add a slug entry below.
  */
 import { useRef, useState } from "react";
+import Image from "next/image";
 import {
   VIDEO_REGISTRY,
   type VideoExplainerSlug,
@@ -100,12 +101,13 @@ export function VideoExplainer({ slug, className }: VideoExplainerProps) {
         }
       }}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
+      <Image
         src={thumb}
         alt={title}
-        loading="lazy"
-        className="h-full w-full object-cover"
+        fill
+        sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+        unoptimized
+        className="object-cover"
         onError={(e) => {
           // Some uploads only generate hqdefault. Fall back.
           (e.currentTarget as HTMLImageElement).src =

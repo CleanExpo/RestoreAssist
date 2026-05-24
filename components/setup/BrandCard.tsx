@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useSetupStore } from "./store";
 
@@ -92,11 +93,12 @@ export function BrandCard() {
                   className="w-24 h-24 rounded-md bg-muted overflow-hidden border border-border hover:border-foreground/50 transition cursor-pointer flex items-center justify-center"
                 >
                   {org?.logoUrl ? (
-                    // Use plain img — Next/Image needs domain config, fine for in-progress dev UI
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <Image
                       src={org.logoUrl}
                       alt="Business logo"
+                      width={96}
+                      height={96}
+                      unoptimized
                       className="w-full h-full object-contain"
                     />
                   ) : (

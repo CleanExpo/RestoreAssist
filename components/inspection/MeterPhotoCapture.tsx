@@ -18,6 +18,7 @@
  */
 
 import { useRef, useState } from "react";
+import Image from "next/image";
 import { apiErrorMessage } from "@/lib/api-error-message";
 import {
   Camera,
@@ -703,12 +704,16 @@ export function MeterPhotoCapture({
       {preview && !extraction && (
         <div className="space-y-3">
           {/* Preview */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={preview}
-            alt="Meter display preview"
-            className="w-full max-h-52 object-contain rounded-lg bg-neutral-100 dark:bg-slate-800"
-          />
+          <div className="relative w-full h-52 rounded-lg overflow-hidden bg-neutral-100 dark:bg-slate-800">
+            <Image
+              src={preview}
+              alt="Meter display preview"
+              fill
+              sizes="(min-width: 640px) 28rem, 100vw"
+              unoptimized
+              className="object-contain"
+            />
+          </div>
 
           {/* Error panel */}
           {error && (

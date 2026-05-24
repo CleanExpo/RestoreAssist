@@ -9,12 +9,11 @@
 
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import {
-  legalKeysFrom,
-} from "@/lib/progress/state-machine";
+import { legalKeysFrom } from "@/lib/progress/state-machine";
 import {
   canPerformTransition,
   resolveProgressRole,
@@ -336,13 +335,13 @@ export default async function ClaimDetailPage({ params }: Props) {
                 className="rounded-md border p-3 flex gap-3 items-start"
               >
                 {a.signatureDataUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <Image
                     src={a.signatureDataUrl}
                     alt="signature"
                     className="border rounded bg-white"
                     width={120}
                     height={50}
+                    unoptimized
                     style={{ objectFit: "contain" }}
                   />
                 ) : (
