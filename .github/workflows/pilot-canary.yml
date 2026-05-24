@@ -55,9 +55,7 @@ jobs:
 
       - name: Install pnpm
         uses: pnpm/action-setup@v6
-        with:
-          version: 9
-
+        # version is read from package.json#packageManager (pnpm@9.15.9) — single SSOT
       - name: Install root deps (for prisma client + lib types)
         run: pnpm install --frozen-lockfile
         env:
