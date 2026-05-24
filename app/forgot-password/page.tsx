@@ -51,7 +51,7 @@ function ForgotPasswordForm() {
         body: JSON.stringify({ email }),
       });
 
-      const data = await response.json();
+      const _data = await response.json();
 
       if (response.ok) {
         toast.success(

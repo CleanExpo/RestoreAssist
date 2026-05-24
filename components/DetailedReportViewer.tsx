@@ -331,7 +331,7 @@ export default function DetailedReportViewer({
                       {children}
                     </h4>
                   ),
-                  p: ({ children, ...props }) => {
+                  p: ({ children, ..._props }) => {
                     // Convert children to string for pattern matching
                     const getText = (children: any): string => {
                       if (typeof children === "string") return children;

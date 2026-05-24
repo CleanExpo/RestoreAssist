@@ -20,9 +20,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useFetch } from "@/lib/hooks/useFetch";
 import toast from "react-hot-toast";
 import Link from "next/link";
-import {
-  EvaluatorScoreBadge,
-} from "@/components/SessionMetadataCard";
+import { EvaluatorScoreBadge } from "@/components/SessionMetadataCard";
 import { TechLicenceBanner } from "@/components/dashboard/TechLicenceBanner";
 import { InboundJobAlert } from "@/components/dashboard/InboundJobAlert";
 import type { ReportWithSessionData } from "@/lib/session-types";

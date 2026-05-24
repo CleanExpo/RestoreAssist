@@ -13,14 +13,8 @@
  * BYOK allowlist is IMMUTABLE and NOT modified by this file.
  */
 
-import type {
-  VisionInput,
-  AllowedModel,
-} from "./byok-client";
-import {
-  byokDispatch,
-  S500_VISION_SYSTEM_PROMPT,
-} from "./byok-client";
+import type { VisionInput, AllowedModel } from "./byok-client";
+import { byokDispatch, S500_VISION_SYSTEM_PROMPT } from "./byok-client";
 import {
   restoreAssistAiDispatch,
   isRestoreAssistAiHealthy,

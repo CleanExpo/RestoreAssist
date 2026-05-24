@@ -23,9 +23,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import {
-  EvaluatorScoreBadge,
-} from "@/components/SessionMetadataCard";
+import { EvaluatorScoreBadge } from "@/components/SessionMetadataCard";
 import { Button } from "@/components/ui/button";
 import { StatusBadge, type StatusTone } from "@/components/StatusBadge";
 import { EmptyState } from "@/components/EmptyState";

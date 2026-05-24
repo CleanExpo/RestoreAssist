@@ -4,12 +4,7 @@ import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -17,8 +12,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import {
-  } from "@/components/ui/table";
+import {} from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
 import {
   Building2,

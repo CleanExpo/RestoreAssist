@@ -149,7 +149,7 @@ export default function SuccessPage() {
                 cleanup();
                 return;
               } else {
-                const errorData = await addonVerifyResponse
+                const _errorData = await addonVerifyResponse
                   .json()
                   .catch(() => ({}));
                 // Continue to try finding session
@@ -213,7 +213,7 @@ export default function SuccessPage() {
                 return;
               }
 
-              const checkData = await checkResponse.json();
+              const _checkData = await checkResponse.json();
 
               // DON'T call update() here - it causes re-renders/remounts
               // Just mark as completed - session will update naturally
@@ -287,7 +287,7 @@ export default function SuccessPage() {
           cleanup();
         } else {
           // If verification fails, try checking active subscription directly
-          const errorData = await verifyResponse
+          const _errorData = await verifyResponse
             .json()
             .catch(() => ({ error: "Unknown error" }));
 
@@ -309,7 +309,7 @@ export default function SuccessPage() {
               return;
             }
 
-            const checkData = await checkResponse.json();
+            const _checkData = await checkResponse.json();
 
             // DON'T call update() - it causes remounts
             markCompleted();

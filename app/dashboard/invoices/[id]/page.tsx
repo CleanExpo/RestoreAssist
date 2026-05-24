@@ -312,7 +312,7 @@ export default function InvoiceDetailPage({
       });
 
       if (response.ok) {
-        const data = await response.json();
+        const _data = await response.json();
         toast.success(`Invoice synced successfully to ${provider}`);
         fetchInvoice();
       } else {

@@ -5,9 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { detectStateFromPostcode, getStateInfo } from "@/lib/state-detection";
 import { callAIProvider } from "@/lib/ai-provider";
 import { applyRateLimit } from "@/lib/rate-limiter";
-import {
-  extractMaterialsFromReport,
-} from "@/lib/reports/extract-report-data";
+import { extractMaterialsFromReport } from "@/lib/reports/extract-report-data";
 import { buildInspectionReportPrompt } from "@/lib/reports/generate-report-ai";
 import { buildStructuredBasicReport } from "@/lib/reports/build-structured-report";
 import { expandContext } from "@/lib/knowledge";

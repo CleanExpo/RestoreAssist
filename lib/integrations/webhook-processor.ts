@@ -8,7 +8,7 @@ import { IntegrationProvider, WebhookEventStatus } from "@prisma/client";
  * Handles payment status updates, invoice changes, and customer sync
  */
 
-interface WebhookEvent {
+interface _WebhookEvent {
   id: string;
   provider: IntegrationProvider;
   integrationId: string;

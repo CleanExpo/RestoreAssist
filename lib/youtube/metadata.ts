@@ -29,7 +29,14 @@ export function generateYouTubeMetadata(params: {
   voiceoverText: string | null;
   cta: string | null;
 }): YouTubeMetadata {
-  const { hook, caption, hashtags, product, voiceoverText: _voiceoverText, cta } = params;
+  const {
+    hook,
+    caption,
+    hashtags,
+    product,
+    voiceoverText: _voiceoverText,
+    cta,
+  } = params;
 
   // ── Title ────────────────────────────────────────────────────────────────
   // Use hook as title, trimmed to 100 chars (YouTube max)

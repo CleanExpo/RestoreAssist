@@ -2,13 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import {
-  ArrowLeft,
-  Plus,
-  Trash2,
-  User,
-  FileText,
-} from "lucide-react";
+import { ArrowLeft, Plus, Trash2, User, FileText } from "lucide-react";
 import toast from "react-hot-toast";
 
 interface Client {

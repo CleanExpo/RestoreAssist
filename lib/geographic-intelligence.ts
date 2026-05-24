@@ -79,7 +79,9 @@ export function getGeographicIntelligence(
     councilContact = COUNCIL_LOOKUP[postcode].contact;
   } else {
     // Check ranges
-    for (const [_councilName, data] of Object.entries(COUNCIL_POSTCODE_RANGES)) {
+    for (const [_councilName, data] of Object.entries(
+      COUNCIL_POSTCODE_RANGES,
+    )) {
       for (const [min, max] of data.ranges) {
         if (numericPostcode >= min && numericPostcode <= max) {
           council = data.name;

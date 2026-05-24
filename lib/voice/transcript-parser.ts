@@ -162,7 +162,7 @@ function isRoomEntry(text: string): boolean {
  */
 export function parseTranscript(transcript: string): ParseResult {
   const text = transcript.trim();
-  const lower = text.toLowerCase();
+  const _lower = text.toLowerCase();
 
   const room = extractRoom(text);
   const material = extractMaterial(text);

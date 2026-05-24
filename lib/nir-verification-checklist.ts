@@ -16,9 +16,7 @@
  */
 
 import { S500_FIELD_MAP } from "@/lib/nir-standards-mapping";
-import {
-  type TieredField,
-} from "@/lib/nir-tiered-completion";
+import { type TieredField } from "@/lib/nir-tiered-completion";
 
 // ─── INPUT TYPES ──────────────────────────────────────────────────────────────
 

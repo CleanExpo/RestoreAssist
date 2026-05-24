@@ -318,7 +318,7 @@ export default function MonitoringVerificationProcedures({
 
   const getComplianceStatus = () => {
     const targets = getPsychrometricTargets();
-    const moistureTargets = getMoistureTargets();
+    const _moistureTargets = getMoistureTargets();
 
     let complianceScore = 0;
     let totalChecks = 0;

@@ -13,8 +13,7 @@ import {
 } from "recharts";
 import { AlertTriangle, TrendingDown, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  } from "@/lib/iicrc-dry-standards";
+import {} from "@/lib/iicrc-dry-standards";
 
 /** Default reference line — timber/generic dry threshold */
 const DRY_STANDARD = 19; // IICRC S500 timber dry threshold (most common material)

@@ -14,8 +14,7 @@ import {
   PDFPage,
   PDFImage,
 } from "pdf-lib";
-import {
-  } from "./standards-retrieval";
+import {} from "./standards-retrieval";
 import { describeClause } from "./reports/clause-descriptions";
 
 interface BusinessInfo {
@@ -705,7 +704,13 @@ async function renderPage2(
   },
 ) {
   const { width, height } = page.getSize();
-  const { helvetica, helveticaBold, colors, jobRef: _jobRef, scopeItems } = options;
+  const {
+    helvetica,
+    helveticaBold,
+    colors,
+    jobRef: _jobRef,
+    scopeItems,
+  } = options;
   const margin = 50;
   // Title is now in header, start content below
   let yPosition = height - 80;
@@ -1715,7 +1720,13 @@ async function renderPage4(
   },
 ) {
   const { width, height } = page.getSize();
-  const { helvetica, helveticaBold, colors, jobRef, businessInfo: _businessInfo } = options;
+  const {
+    helvetica,
+    helveticaBold,
+    colors,
+    jobRef,
+    businessInfo: _businessInfo,
+  } = options;
   const margin = 50;
   let yPosition = height - 80;
 

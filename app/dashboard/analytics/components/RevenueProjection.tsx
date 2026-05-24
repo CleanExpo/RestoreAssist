@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  
   Line,
   XAxis,
   YAxis,

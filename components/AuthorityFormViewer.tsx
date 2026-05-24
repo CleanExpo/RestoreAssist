@@ -18,9 +18,7 @@ import { useSession } from "next-auth/react";
 import { SignatureCanvas } from "@/components/authority-forms/SignatureCanvas";
 import { SignatoryManager } from "@/components/authority-forms/SignatoryManager";
 import { FormPreviewModal } from "@/components/authority-forms/FormPreviewModal";
-import {
-  SignatoryFlowTimeline,
-} from "@/components/authority-forms/SignatoryFlowTimeline";
+import { SignatoryFlowTimeline } from "@/components/authority-forms/SignatoryFlowTimeline";
 import {
   Dialog,
   DialogContent,

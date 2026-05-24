@@ -1165,7 +1165,7 @@ export default function InitialDataEntryForm({
           s.groupId === groupId ? { ...s, quantity: newQuantity } : s,
         );
       } else if (delta > 0) {
-        const group = getEquipmentGroupById(groupId);
+        const _group = getEquipmentGroupById(groupId);
         const rate = pricingConfig
           ? getEquipmentDailyRate(groupId, pricingConfig)
           : 0;
