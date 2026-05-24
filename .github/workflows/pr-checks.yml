@@ -121,9 +121,15 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=8192
 
+      # Lint flipped to enforcing 2026-05-25 (RA-5193) — paired with the
+      # scoped `@eslint/config-array>minimatch` + `eslint>minimatch`
+      # overrides in package.json. Those overrides force the ESLint chain
+      # to resolve `minimatch@^10` instead of the broken `minimatch@3.1.5`
+      # that was triggering `TypeError: expand is not a function` on
+      # `--no-frozen-lockfile` re-resolves. Baseline cleared 982 → 0 by
+      # PRs #1172, #1178, #1179, #1180, #1181, #1183.
       - name: Lint
         run: pnpm lint
-        continue-on-error: true
 
       # Build flipped to enforcing 2026-05-06 (Wave 1 PR-B production-readiness push).
       # Vercel previews already pass `pnpm build` against both `restoreassist` and
