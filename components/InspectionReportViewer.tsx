@@ -190,7 +190,7 @@ export default function InspectionReportViewer({
               } else {
                 throw new Error("Not structured data");
               }
-            } catch (e) {
+            } catch {
               // It's text/markdown content
               const processedContent = preprocessReportContent(
                 data.detailedReport,
@@ -209,12 +209,12 @@ export default function InspectionReportViewer({
         try {
           const error = await response.json();
           errorMessage = error.error || errorMessage;
-        } catch (e) {
+        } catch {
           errorMessage = `Server error: ${response.status} ${response.statusText}`;
         }
         toast.error(errorMessage);
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to load report");
     } finally {
       setLoading(false);
@@ -280,7 +280,7 @@ export default function InspectionReportViewer({
               } else {
                 throw new Error("Not structured data");
               }
-            } catch (e) {
+            } catch {
               // It's text/markdown content
               const processedContent = preprocessReportContent(
                 data.report.detailedReport,
@@ -307,12 +307,12 @@ export default function InspectionReportViewer({
         try {
           const error = await response.json();
           errorMessage = error.error || errorMessage;
-        } catch (e) {
+        } catch {
           errorMessage = `Server error: ${response.status} ${response.statusText}`;
         }
         toast.error(errorMessage);
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to generate report");
     } finally {
       setGenerating(false);
@@ -354,7 +354,7 @@ export default function InspectionReportViewer({
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       toast.success("Inspection Report PDF downloaded");
-    } catch (error) {
+    } catch {
       toast.error("Failed to download PDF");
     }
   };
@@ -381,7 +381,7 @@ export default function InspectionReportViewer({
       } else {
         toast.error("Failed to save report");
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to save report");
     }
   };

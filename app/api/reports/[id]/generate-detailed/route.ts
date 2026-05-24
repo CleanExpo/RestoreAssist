@@ -88,7 +88,7 @@ export async function POST(
               : null,
           };
         }
-      } catch (err) {
+      } catch {
         // No scope found - continue without it
       }
 
@@ -125,7 +125,7 @@ export async function POST(
               : null,
           };
         }
-      } catch (err) {
+      } catch {
         // No estimate found - continue without it
       }
 
@@ -239,7 +239,7 @@ export async function POST(
             } else {
               currentLine = testLine;
             }
-          } catch (e) {
+          } catch {
             // If encoding fails, try to sanitize further
             const sanitizedWord = sanitizeText(word);
             if (sanitizedWord) {

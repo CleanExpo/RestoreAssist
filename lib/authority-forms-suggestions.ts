@@ -121,7 +121,7 @@ export function extractReportAnalysis(report: any): ReportAnalysis {
           .filter(Boolean);
       }
     }
-  } catch (e) {
+  } catch {
     // Ignore parse errors
   }
 

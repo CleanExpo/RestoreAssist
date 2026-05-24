@@ -41,9 +41,8 @@ import { exportClaimsCSV, exportClaimsPDF } from "@/lib/claims-export";
 import { GoogleDriveFolderPicker } from "@/components/claims/GoogleDriveFolderPicker";
 import {
   StandardsBadge,
-  StandardsGroup,
 } from "@/components/claims/StandardsBadge";
-import { ScoreRing, ScoreRingGroup } from "@/components/claims/ScoreRing";
+import { ScoreRingGroup } from "@/components/claims/ScoreRing";
 import { StatCard, StatCardGrid } from "@/components/claims/StatCard";
 import {
   SeverityDistributionChart,

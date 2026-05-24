@@ -11,8 +11,6 @@ import {
   AlertTriangle,
   CheckCircle,
   TrendingUp,
-  Users,
-  FileText,
   BarChart3,
   Activity,
 } from "lucide-react";

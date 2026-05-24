@@ -76,7 +76,7 @@ export default function CostEstimationViewer({
         try {
           const error = await response.json();
           errorMessage = error.error || errorMessage;
-        } catch (e) {
+        } catch {
           errorMessage = `Server error: ${response.status} ${response.statusText}`;
         }
         toast.error(errorMessage);
@@ -117,7 +117,7 @@ export default function CostEstimationViewer({
         try {
           const error = await response.json();
           errorMessage = error.error || errorMessage;
-        } catch (e) {
+        } catch {
           errorMessage = `Server error: ${response.status} ${response.statusText}`;
         }
         toast.error(errorMessage);

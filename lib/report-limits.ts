@@ -45,7 +45,7 @@ export async function getUserReportLimits(
         purchasedAt: true,
       },
     });
-  } catch (error: any) {
+  } catch {
     // If AddonPurchase model doesn't exist yet, just use addonReports field
   }
 

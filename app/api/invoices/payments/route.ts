@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
       take: 200,
     });
     return NextResponse.json({ payments });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: "Failed to fetch payments" },
       { status: 500 },
@@ -85,7 +85,7 @@ export async function PATCH(request: NextRequest) {
     });
 
     return NextResponse.json({ payment: updated });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: "Failed to update payment" },
       { status: 500 },

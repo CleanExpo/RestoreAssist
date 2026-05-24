@@ -12,7 +12,6 @@ import {
   Download,
   Eye,
   Edit,
-  MoreVertical,
   ChevronLeft,
   ChevronRight,
   Copy,
@@ -27,7 +26,6 @@ import {
 import toast from "react-hot-toast";
 import {
   EvaluatorScoreBadge,
-  PhaseProgressBar,
 } from "@/components/SessionMetadataCard";
 import { Button } from "@/components/ui/button";
 import { StatusBadge, type StatusTone } from "@/components/StatusBadge";

@@ -60,7 +60,7 @@ function SignupForm() {
       } else {
         setError(apiErrorMessage(data) ?? "Invalid invitation");
       }
-    } catch (err) {
+    } catch {
       setError("Failed to verify invitation");
     } finally {
       setVerifying(false);

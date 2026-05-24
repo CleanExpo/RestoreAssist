@@ -6,7 +6,6 @@ import {
   Calendar,
   CheckCircle,
   ClipboardCheck,
-  DollarSign,
   Droplet,
   FileText,
   HardHat,

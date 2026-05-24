@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles,
   ArrowRight,
-  CheckCircle,
   Zap,
   Building2,
   KeyRound,

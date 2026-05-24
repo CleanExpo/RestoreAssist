@@ -4,7 +4,7 @@
  * Organized in 4 tiers of progressive detail
  */
 
-import { Question, SubscriptionTier } from "./types";
+import { Question } from "./types";
 
 /**
  * TIER 1: ESSENTIAL QUESTIONS (5 questions)

@@ -5,13 +5,11 @@ import Link from "next/link";
 import {
   ArrowLeft,
   Edit,
-  Trash2,
   Phone,
   Mail,
   MapPin,
   Building,
   User,
-  Calendar,
   DollarSign,
   FileText,
   AlertTriangle,

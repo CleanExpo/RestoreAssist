@@ -7,7 +7,6 @@
  * Exposes room type, label, colour, opacity, and stroke controls.
  */
 
-import { useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { Trash2, X } from "lucide-react";
 

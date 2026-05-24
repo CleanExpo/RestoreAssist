@@ -32,7 +32,7 @@ export async function GET(
     if (report.moistureReadings) {
       try {
         nirData = JSON.parse(report.moistureReadings);
-      } catch (error) {
+      } catch {
         // Error parsing NIR data
       }
     }
@@ -46,7 +46,7 @@ export async function GET(
         photos: [],
       },
     });
-  } catch (error: any) {
+  } catch {
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 },
@@ -133,7 +133,7 @@ export async function POST(
     if (photoCategoriesJson) {
       try {
         photoCategories = JSON.parse(photoCategoriesJson);
-      } catch (e) {
+      } catch {
         // Error parsing photoCategories
       }
     }
@@ -202,7 +202,7 @@ export async function POST(
           };
 
           uploadedPhotos.push(photoData);
-        } catch (error) {
+        } catch {
           // Continue with other photos even if one fails
         }
       }
@@ -219,7 +219,7 @@ export async function POST(
     if (report.moistureReadings) {
       try {
         existingNirData = JSON.parse(report.moistureReadings);
-      } catch (e) {
+      } catch {
         // If parsing fails, use empty structure
       }
     }
@@ -259,7 +259,7 @@ export async function POST(
     if (savedReport?.moistureReadings) {
       try {
         const savedNirData = JSON.parse(savedReport.moistureReadings);
-      } catch (e) {
+      } catch {
         // Error verifying saved data
       }
     }
@@ -274,7 +274,7 @@ export async function POST(
         photoUrls: allPhotos.map((p: any) => p.url), // Include URLs in response for debugging
       },
     });
-  } catch (error: any) {
+  } catch {
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 },

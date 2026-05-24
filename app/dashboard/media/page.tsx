@@ -12,7 +12,7 @@
  * - Cursor-based pagination (load more)
  */
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Camera,
   Filter,

@@ -36,7 +36,6 @@ import {
   Copy,
   Check,
   Clock,
-  Shield,
   UserCog,
   Wrench,
   Search,
@@ -211,7 +210,7 @@ export default function TeamPage() {
       else toast.error(mJson.error || "Failed to load team");
       if (iRes.ok) setInvites(iJson.invites || []);
       else toast.error(iJson.error || "Failed to load invites");
-    } catch (e) {
+    } catch {
       toast.error("Failed to load team data");
     } finally {
       setLoading(false);
@@ -354,7 +353,7 @@ export default function TeamPage() {
       setCopiedInviteId(inviteId);
       toast.success("Invite link copied to clipboard!");
       setTimeout(() => setCopiedInviteId(null), 2000);
-    } catch (err) {
+    } catch {
       toast.error("Failed to copy link");
     }
   };
@@ -380,7 +379,7 @@ export default function TeamPage() {
           : `${field === "email" ? "Email" : "Password"} copied to clipboard!`,
       );
       setTimeout(() => setCopiedField(null), 2000);
-    } catch (err) {
+    } catch {
       toast.error("Failed to copy to clipboard");
     }
   };
@@ -426,7 +425,7 @@ export default function TeamPage() {
       toast.success(json.message || "Team member removed successfully");
       setMemberToRemove(null);
       await load();
-    } catch (err) {
+    } catch {
       toast.error("Failed to remove team member");
     } finally {
       setRemoving(false);

@@ -8,12 +8,10 @@ import {
   Download,
   Printer,
   MapPin,
-  Calendar,
   Droplets,
   Thermometer,
   FileText,
   DollarSign,
-  Image,
   AlertTriangle,
   ChevronRight,
 } from "lucide-react";

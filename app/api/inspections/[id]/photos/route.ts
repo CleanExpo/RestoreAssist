@@ -16,7 +16,6 @@ import { getStorageProvider } from "@/lib/storage";
 import { enqueueMirror } from "@/lib/storage/dual-write";
 import { MirrorJobKind } from "@prisma/client";
 import { extractAndSaveMediaAsset } from "@/lib/media/exif-extract";
-import { scheduleCatalog } from "@/lib/media/catalog";
 import { applyRateLimit } from "@/lib/rate-limiter";
 
 // GET - List photos for inspection

@@ -11,7 +11,6 @@ import {
   Settings,
   Sparkles,
   ArrowRight,
-  Check,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";

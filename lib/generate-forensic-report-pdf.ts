@@ -15,9 +15,7 @@ import {
   PDFImage,
 } from "pdf-lib";
 import {
-  retrieveRelevantStandards,
-  buildStandardsContextPrompt,
-} from "./standards-retrieval";
+  } from "./standards-retrieval";
 import { describeClause } from "./reports/clause-descriptions";
 
 interface BusinessInfo {
@@ -2244,7 +2242,7 @@ function buildMoistureData(data: ReportData): MoistureDataResult {
       if (Array.isArray(parsed)) {
         moistureReadings = parsed;
       }
-    } catch (e) {
+    } catch {
       // Ignore parse errors
     }
   }
@@ -2324,7 +2322,7 @@ function buildPsychrometricData(data: ReportData): PsychrometricDataResult {
       if (Array.isArray(parsed)) {
         psychrometricReadings = parsed;
       }
-    } catch (e) {
+    } catch {
       // Ignore parse errors
     }
   }
@@ -2974,7 +2972,7 @@ function wrapText(
       } else {
         currentLine = testLine;
       }
-    } catch (error) {
+    } catch {
       // If encoding fails, try sanitizing the word again
       const sanitizedWord = sanitizeTextForPDF(word);
       const testLineSanitized = currentLine
@@ -2988,7 +2986,7 @@ function wrapText(
         } else {
           currentLine = testLineSanitized;
         }
-      } catch (e) {
+      } catch {
         // Skip problematic words
         continue;
       }

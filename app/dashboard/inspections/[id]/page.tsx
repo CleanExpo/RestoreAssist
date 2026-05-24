@@ -63,7 +63,6 @@ import {
   Thermometer,
   AlertTriangle,
   ClipboardCheck,
-  FileText,
   DollarSign,
   Camera,
   Shield,

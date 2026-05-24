@@ -6,7 +6,6 @@ import {
   useCallback,
   useEffect,
   useId,
-  type ChangeEvent,
 } from "react";
 import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
@@ -15,11 +14,8 @@ import { FloorPlanUnderlayLoader } from "./FloorPlanUnderlayLoader";
 import type { ToolMode, FabricCanvasRef } from "./SketchCanvas";
 import {
   Plus,
-  Trash2,
-  ChevronDown,
   Layers,
   Loader2,
-  Save,
   Check,
   FileDown,
 } from "lucide-react";

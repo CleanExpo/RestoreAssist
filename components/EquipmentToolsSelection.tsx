@@ -19,15 +19,12 @@ import {
   calculateWaterRemovalTarget,
   calculateAirMoversRequired,
   calculateTotalVolume,
-  type PsychrometricData,
 } from "@/lib/psychrometric-calculations";
 import {
   lgrDehumidifiers,
   desiccantDehumidifiers,
   airMovers,
   afdUnits,
-  heatDrying,
-  getAllEquipmentGroups,
   getEquipmentGroupById,
   calculateTotalAmps,
   calculateTotalDailyCost,

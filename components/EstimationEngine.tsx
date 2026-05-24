@@ -15,7 +15,6 @@ import {
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -28,7 +27,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Save,
   FileText,
@@ -36,8 +34,6 @@ import {
   Settings,
   AlertCircle,
   CheckCircle,
-  Lock,
-  History,
   Plus,
   Trash2,
   Edit2,

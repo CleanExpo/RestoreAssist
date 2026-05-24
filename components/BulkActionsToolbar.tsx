@@ -2,11 +2,9 @@
 
 import { useState } from "react";
 import {
-  Download,
   Copy,
   CheckSquare,
   Trash2,
-  ChevronDown,
   Loader2,
   FileText,
   Archive,

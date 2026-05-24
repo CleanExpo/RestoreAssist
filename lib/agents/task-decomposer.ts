@@ -5,7 +5,6 @@
 
 import type {
   WorkflowDefinition,
-  WorkflowStep,
   TaskGraphJSON,
   TaskGraphNode,
   TaskGraphEdge,

@@ -26,7 +26,6 @@ import {
   parseOnTheHouseSearchResults,
   parseDomainComAuHTML,
   parseDomainComAuSearchResults,
-  type ScrapedPropertyData,
 } from "@/lib/property-data-parser";
 import { fetchHtmlViaWorkspaceProvider } from "@/lib/scraping/dispatch";
 

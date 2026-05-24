@@ -4,11 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import Anthropic from "@anthropic-ai/sdk";
 import { detectStateFromPostcode, getStateInfo } from "@/lib/state-detection";
-import { tryClaudeModels } from "@/lib/anthropic-models";
 import {
   getEquipmentGroupById,
-  calculateTotalDailyCost,
-  calculateTotalCost,
   getEquipmentDailyRate,
 } from "@/lib/equipment-matrix";
 import { applyRateLimit } from "@/lib/rate-limiter";
@@ -157,7 +154,7 @@ export async function POST(request: NextRequest) {
       let anthropicApiKey: string;
       try {
         anthropicApiKey = await getAnthropicApiKey(user.id);
-      } catch (error: any) {
+      } catch {
         return NextResponse.json(
           { error: "Failed to get Anthropic API key" },
           { status: 400 },

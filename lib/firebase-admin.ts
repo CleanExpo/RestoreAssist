@@ -23,7 +23,7 @@ async function initializeAdminAuth() {
       if (serviceAccountKey) {
         try {
           serviceAccount = JSON.parse(serviceAccountKey);
-        } catch (parseError) {
+        } catch {
           console.warn("Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY");
         }
       }

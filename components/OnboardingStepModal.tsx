@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { X, CheckCircle, Circle, ArrowRight, Sparkles } from "lucide-react";
+import { CheckCircle, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface OnboardingStepModalProps {

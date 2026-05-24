@@ -111,7 +111,7 @@ export default function SuccessPage() {
             return;
           }
         }
-      } catch (error) {
+      } catch {
         // Continue with verification if pre-check fails
       }
 

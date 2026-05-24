@@ -309,7 +309,7 @@ Be thorough but precise. Each extracted section should be directly usable in the
     }
 
     return [];
-  } catch (error) {
+  } catch {
     // Fallback: return a simple summary
     return [
       `Document contains relevant information about ${query.reportType} damage restoration`,
@@ -428,7 +428,7 @@ Analyse this folder structure and identify the most relevant standards documents
                 : folderItems.files.slice(0, 10),
             reasoning: analysis.reasoning || "AI analysis completed",
           };
-        } catch (e) {
+        } catch {
           // Fallback: use text analysis
         }
       }

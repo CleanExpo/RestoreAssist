@@ -6,7 +6,6 @@ import {
   screen,
   fireEvent,
   waitFor,
-  act,
 } from "@testing-library/react";
 import { FeatureHealthCard } from "../FeatureHealthCard";
 

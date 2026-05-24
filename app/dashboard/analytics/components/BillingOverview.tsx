@@ -3,12 +3,9 @@
 import { useState, useEffect } from "react";
 import {
   DollarSign,
-  Users,
   TrendingUp,
   TrendingDown,
   AlertTriangle,
-  CreditCard,
-  ArrowUpRight,
   RefreshCw,
   ShieldCheck,
   UserMinus,
@@ -16,11 +13,6 @@ import {
   Package,
 } from "lucide-react";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
   Tooltip,
   ResponsiveContainer,
   PieChart,

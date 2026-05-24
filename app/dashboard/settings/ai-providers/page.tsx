@@ -11,7 +11,6 @@ import {
   Loader2,
   Plus,
   RefreshCw,
-  Trash2,
   X,
 } from "lucide-react";
 import toast from "react-hot-toast";

@@ -15,8 +15,6 @@ import {
   getTokens,
   storeTokens,
   markIntegrationError,
-  generatePKCE,
-  PROVIDER_CONFIG,
 } from "../oauth-handler";
 import { prisma } from "@/lib/prisma";
 

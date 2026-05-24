@@ -413,7 +413,7 @@ export default function DashboardLayout({
                             }
                           }
                           router.push(item.href);
-                        } catch (error) {
+                        } catch {
                           router.push(item.href);
                         }
                       }}
