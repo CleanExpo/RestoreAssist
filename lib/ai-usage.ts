@@ -29,14 +29,12 @@ export interface AiUsageEvent {
   /** Feature that triggered the call — "llmClassify", "liveTeacher.turn", etc. */
   feature: string;
   /** Anthropic / OpenAI / Gemini SDK usage shape. Accepts the raw `response.usage`
-   *  object verbatim — extra provider-specific fields are ignored. */
-  usage: {
-    input_tokens?: number | null;
-    output_tokens?: number | null;
-    cache_creation_input_tokens?: number | null;
-    cache_read_input_tokens?: number | null;
-    [key: string]: unknown;
-  };
+   *  object verbatim — only the four canonical token fields are read; any
+   *  extra provider-specific fields (e.g. Anthropic's `service_tier`,
+   *  `server_tool_use`) are ignored. Typed as `object` so the structural
+   *  assignability check passes against any SDK's strongly-typed
+   *  `Usage` definition. */
+  usage: object;
   /** Authoritative user ID from `session.user.id`. Optional only during the
    *  stub phase — full RA-1087 will require it. */
   userId?: string;
@@ -53,6 +51,12 @@ export interface AiUsageEvent {
  * Errors are swallowed — observability writes must never throw into
  * the user-facing request path.
  */
+/** Safely pull a numeric token-count field off a vendor SDK's usage object. */
+function tokenField(usage: object, key: string): number {
+  const value = (usage as Record<string, unknown>)[key];
+  return typeof value === "number" ? value : 0;
+}
+
 export function logAiUsage(event: AiUsageEvent): void {
   try {
     // Structured JSON line — Vercel logs ingest this verbatim; Sentry's
@@ -64,14 +68,16 @@ export function logAiUsage(event: AiUsageEvent): void {
         timestamp: new Date().toISOString(),
         model: event.model,
         feature: event.feature,
-        input_tokens: event.usage.input_tokens ?? 0,
-        output_tokens: event.usage.output_tokens ?? 0,
-        cache_creation_input_tokens:
-          event.usage.cache_creation_input_tokens ?? 0,
-        cache_read_input_tokens: event.usage.cache_read_input_tokens ?? 0,
-        // Spread any provider-extras (e.g. server_tool_use, service_tier, billing)
-        // as additional top-level fields so log searches catch them without
-        // requiring per-provider plumbing.
+        input_tokens: tokenField(event.usage, "input_tokens"),
+        output_tokens: tokenField(event.usage, "output_tokens"),
+        cache_creation_input_tokens: tokenField(
+          event.usage,
+          "cache_creation_input_tokens",
+        ),
+        cache_read_input_tokens: tokenField(
+          event.usage,
+          "cache_read_input_tokens",
+        ),
         userId: event.userId,
         workspaceId: event.workspaceId,
         costAudCents: event.costAudCents,
