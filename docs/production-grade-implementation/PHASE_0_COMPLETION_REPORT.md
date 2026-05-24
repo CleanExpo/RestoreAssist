@@ -1,7 +1,7 @@
 # Phase 0 Completion Report
 
 Date: 2026-05-24  
-Status: PASS for local Phase 0 environment readiness. CI must confirm the updated PR gate on the next pull request before Phase 1 starts.
+Status: CI FIX IN PROGRESS. Local Phase 0 validation passed on Node 22.22.3; first PR run exposed that Node 20.18.0 is not a reliable validation runtime for the current Vitest/jsdom dependency graph.
 
 ## Scope
 
@@ -11,8 +11,8 @@ Phase 0 was limited to local and CI validation reliability. No Phase 1 productio
 
 | Check | Result |
 |---|---|
-| Node requirement | PASS. `package.json` allows `20.x || 22.x`; local Node is `v22.22.3`. |
-| CI Node pin | PASS. PR gate now reads `.nvmrc`, currently `20.18.0`, instead of duplicating a loose `20`. |
+| Node requirement | PASS for validation on Node `v22.22.3`. `package.json` still allows `20.x || 22.x`, but Phase 0 validation is pinned to Node 22 because CI Node 20 failed unit-test worker startup. |
+| CI Node pin | FIXED AFTER FIRST CI RUN. PR and release gates read `.nvmrc`, now `22.22.3`, instead of duplicating a loose `20`. |
 | npm | Available as `10.9.8`; used only for global tooling repair, not repo dependencies. |
 | corepack | Restored and available at `/Users/phillmcgurk/.local/bin/corepack`, version `0.35.0`. |
 | pnpm | Restored and available at `/Users/phillmcgurk/.local/bin/pnpm`, version `9.15.9`. |
@@ -47,6 +47,18 @@ Use `scripts/bootstrap-restoreassist-env.sh` or `scripts/bootstrap-restoreassist
 | `scripts/bootstrap-restoreassist-env.sh` | PASS | Completed install, Prisma generate, type-check, lint, and unit tests. |
 
 ## Non-Blocking Findings
+
+Error:
+GitHub PR Quality Gates failed at `pnpm exec vitest run` on Node 20.18.0 with `ERR_REQUIRE_ESM` from `html-encoding-sniffer` requiring `@exodus/bytes/encoding-lite.js` while starting jsdom-related Vitest fork workers.
+
+Cause:
+The CI runtime came from `.nvmrc` (`20.18.0`), while the locally passing baseline used Node 22.22.3. Node 20 cannot reliably execute the current Vitest/jsdom dependency graph.
+
+Fix:
+Pinned `.nvmrc` to `22.22.3` and updated bootstrap scripts to require Node 22 for Phase 0 validation parity.
+
+Next action:
+Re-run PR Quality Gates and confirm install, Prisma generate, type-check, lint, unit tests, build, audit, and pgvector migration drift pass under Node 22.
 
 Error:  
 `pnpm install`, `pnpm exec vitest run`, and audit commands warn: `using --force I sure hope you know what you are doing`.
@@ -116,7 +128,7 @@ The PR gate now requires:
 Phase 1 can safely start when:
 
 1. Local `scripts/bootstrap-restoreassist-env.sh` or `scripts/bootstrap-restoreassist-env.ps1` passes.
-2. `pnpm`, `corepack`, and Node 20.x or 22.x are available.
+2. `pnpm`, `corepack`, and Node 22.x are available.
 3. `pnpm-lock.yaml` is authoritative and no competing lockfiles exist.
 4. `pnpm type-check`, `pnpm lint`, `pnpm exec vitest run`, and `pnpm build` pass locally or in CI.
 5. The updated PR gate passes on GitHub, including pgvector migration drift.

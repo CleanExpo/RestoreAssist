@@ -22,8 +22,8 @@ fi
 
 NODE_VERSION="$(node -v)"
 NODE_MAJOR="$(major_version "$NODE_VERSION")"
-if [ "$NODE_MAJOR" != "20" ] && [ "$NODE_MAJOR" != "22" ]; then
-  print_problem "Unsupported Node.js version: $NODE_VERSION." "RestoreAssist package.json allows Node 20.x or 22.x." "Install Node.js 20.x or 22.x. .nvmrc currently pins 20.18.0 for CI parity." "Re-run this bootstrap script after switching Node."
+if [ "$NODE_MAJOR" != "22" ]; then
+  print_problem "Unsupported Node.js version: $NODE_VERSION." "Phase 0 validation requires Node 22.x because the current Vitest/jsdom dependency graph fails under CI Node 20 with ERR_REQUIRE_ESM." "Install Node.js 22.x. .nvmrc currently pins 22.22.3 for CI parity." "Re-run this bootstrap script after switching Node."
   exit 1
 fi
 echo "[bootstrap] node: $NODE_VERSION"

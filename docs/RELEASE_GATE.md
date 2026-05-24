@@ -16,6 +16,7 @@ Subjective release calls have caused premature "ready" claims in the past. This 
 ## How to run it
 
 ```bash
+nvm use                                           # uses .nvmrc, currently Node 22.22.3
 scripts/bootstrap-restoreassist-env.sh             # local env bootstrap and baseline checks
 pnpm tsx scripts/release-gate-score.ts            # local dry-run
 pnpm tsx scripts/release-gate-score.ts --json     # CI artifact mode (writes release-gate-report.json)
