@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
 import { z } from "zod";
 import fs from "fs";
 import path from "path";
+import { authOptions } from "@/lib/auth";
+import { verifyAdminFromDb } from "@/lib/admin-auth";
 
 const BetaSignupSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -97,6 +100,10 @@ export async function POST(req: NextRequest) {
 
 export async function GET() {
   // Admin convenience: return signup count (not full list for privacy)
+  const session = await getServerSession(authOptions);
+  const auth = await verifyAdminFromDb(session);
+  if (auth.response) return auth.response;
+
   const signups = readSignups();
   return NextResponse.json({
     count: signups.length,

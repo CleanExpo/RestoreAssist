@@ -27,9 +27,15 @@ const EXEMPT_ROUTE_PREFIXES = [
 ];
 
 const PUBLIC_TOKEN_ROUTE_PREFIXES = [
+  "app/api/contractors/",
   "app/api/health/",
+  "app/api/inspections/checklists/",
+  "app/api/integrations/oauth/",
   "app/api/portal/",
   "app/api/invites/",
+  "app/api/oauth/google-drive/callback/",
+  "app/api/observability/client-error/",
+  "app/api/properties/scrape/health/",
   "app/api/authority-forms/sign/",
   "app/api/test/",
 ];
