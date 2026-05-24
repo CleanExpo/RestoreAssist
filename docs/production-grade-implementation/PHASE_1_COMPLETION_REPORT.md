@@ -14,6 +14,7 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - Billing redirect salvage work preserved on the clean branch.
 - Mobile offline queue core preserved on the clean branch.
 - Mobile offline queue unit coverage added for persistence, duplicate mutation IDs, idempotency headers, successful replay, retry, and failed queue state.
+- Advisory API route production audit gate added for auth/RBAC/query/raw-SQL/error-leakage visibility.
 - Codex Stop hook repaired and trusted with `bash .codex/hooks/stop-verifier.sh`.
 
 ## Validation Evidence
@@ -26,6 +27,8 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - `pnpm build`: PASS during branch recovery
 - `pnpm audit --audit-level=high --prod`: PASS for high-severity gate during branch recovery; 3 moderate vulnerabilities reported
 - `pnpm exec vitest run --config vitest.config.ts` from `mobile/`: PASS, 1 file / 3 tests
+- `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts`: PASS, 1 file / 5 tests
+- `pnpm exec tsx scripts/audit-api-routes.ts --json`: PASS, scanned 442 routes with 31 error-severity and 68 warning-severity advisory findings
 - `git diff --check`: PASS
 
 ## Phase 1 Acceptance Criteria Still Open
@@ -51,11 +54,20 @@ Fix: define a mobile dependency/workspace policy or run mobile type-check in its
 
 Next action: keep mobile queue logic covered by `mobile/vitest.config.ts` while dependency ownership is resolved.
 
+### API route hardening debt
+
+Error: advisory API route scan reports 31 error-severity findings and 68 warnings.
+
+Cause: inherited route-hardening debt remains across auth decisions, admin DB-role checks, raw SQL patterns, bounded Prisma reads, and 500 response bodies.
+
+Fix: remediate route groups in small commits and run `pnpm exec tsx scripts/audit-api-routes.ts --json` after each group; enable `--strict` only after the inherited error count reaches zero.
+
+Next action: begin with admin DB-role revalidation and generic 500 response leakage, because those map directly to Phase 1 production rules and have localized fixes.
+
 ## Ship Readiness
 
 RestoreAssist is not ship-ready.
 
 ## Next Safe Action
 
-Continue Phase 1 MOB-001 with additive durable idempotency schema/service work, then move to VOI-001 only after MOB-001 is complete or clearly blocked.
-
+Continue Phase 1 with narrow API route hardening fixes from the advisory scan, or resume MOB-001 durable server idempotency once database migration ownership is safe.
