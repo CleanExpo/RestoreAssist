@@ -5,12 +5,14 @@
  * Works with both Expo Camera and the device photo library.
  *
  * The server-side provider dispatch (Claude / GPT / Gemini) is handled by
- * lib/ai/byok-vision-client.ts — this module is the mobile transport layer only.
+ * `lib/ai/byok-vision-client.ts` — this module is the mobile transport
+ * layer only. Until that server module lands (tracked as RA-5194), the
+ * `S500VisionResult` type is mirrored locally in `./types/vision.ts`.
  *
  * RA-393: Phase 0.5 — BYOK Vision Extension
  */
 
-import type { S500VisionResult } from "@/lib/ai/byok-vision-client";
+import type { S500VisionResult } from "../types/vision";
 
 const API_BASE =
   process.env.EXPO_PUBLIC_API_BASE ?? "https://restoreassist.app";
