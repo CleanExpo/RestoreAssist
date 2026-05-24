@@ -16,7 +16,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { GoogleGenerativeAI, Part } from "@google/generative-ai";
 import { getLatestAIIntegration } from "@/lib/ai-provider";
-import { type AllowedModel } from "@/mobile/constants/byok";
+import { type AllowedModel } from "@/lib/constants/byok";
 
 // ─── Evidence & damage taxonomy (IICRC S500:2025) ────────────────────────────
 
