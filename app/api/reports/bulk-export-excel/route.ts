@@ -101,6 +101,7 @@ export async function POST(request: NextRequest) {
         scopeOfWorksData: options?.includeScope ? true : false,
         costEstimationData: options?.includeEstimate ? true : false,
       },
+      take: ownedIds.length,
     });
 
     if (reports.length === 0) {

@@ -105,6 +105,7 @@ export async function POST(request: NextRequest) {
       where: {
         id: { in: ownedIds },
       },
+      take: ownedIds.length,
     });
 
     if (reportsToClone.length === 0) {

@@ -123,6 +123,7 @@ export async function POST(request: NextRequest) {
         clientName: true,
       },
       orderBy: { createdAt: "asc" },
+      take: ownedIds.length,
     });
 
     if (reports.length === 0) {
