@@ -147,6 +147,7 @@ export async function GET(request: NextRequest) {
         missingElements: { orderBy: { severity: "desc" } },
       },
       orderBy: { createdAt: "asc" },
+      take: 200,
     });
 
     const results = analyses.map((a) => {

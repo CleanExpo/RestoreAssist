@@ -48,6 +48,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const users = await prisma.user.findMany({
       where: { id: { in: userIds } },
       select: { id: true, name: true },
+      take: userIds.length,
     });
     const userMap: Record<string, string | null> = {};
     for (const u of users) {

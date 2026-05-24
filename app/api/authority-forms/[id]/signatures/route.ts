@@ -130,6 +130,8 @@ export async function POST(
       // Check if all signatures are complete
       const allSignatures = await prisma.authorityFormSignature.findMany({
         where: { instanceId: formId },
+        orderBy: { createdAt: "asc" },
+        take: 100,
       });
 
       const allSigned = allSignatures.every((sig) => sig.signedAt !== null);
@@ -213,6 +215,7 @@ export async function GET(
     const signatures = await prisma.authorityFormSignature.findMany({
       where: { instanceId: formId },
       orderBy: { createdAt: "asc" },
+      take: 100,
     });
 
     return NextResponse.json({ signatures });

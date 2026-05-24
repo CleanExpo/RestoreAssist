@@ -96,10 +96,6 @@ export async function POST(request: NextRequest) {
       // Recreate interview state using FlowEngine
       // Note: In production, you'd want to store InterviewSessionState in database
       // For now, we reconstruct from stored data
-      const questionResponse = await prisma.interviewQuestion.findMany({
-        where: { isActive: true },
-      });
-
       // This is a simplified approach - in production, store full session state
       // For now, we'll update the database and return the next question
       storedAnswers[body.questionId] = answer;
@@ -120,7 +116,9 @@ export async function POST(request: NextRequest) {
 
       // Create InterviewResponse record for this answer
       if (body.questionId) {
-        const question = questionResponse.find((q) => q.id === body.questionId);
+        const question = await prisma.interviewQuestion.findFirst({
+          where: { id: body.questionId, isActive: true },
+        });
         if (question) {
           await prisma.interviewResponse.create({
             data: {

@@ -162,6 +162,11 @@ Follow-up hardening pass:
 - `app/api/integrations/oauth/[provider]/clients/route.ts`
 - `app/api/integrations/oauth/[provider]/jobs/route.ts`
 - `app/api/portal/invitations/route.ts`
+- `app/api/authority-forms/[id]/signatures/route.ts`
+- `app/api/claims/analyses/latest/route.ts`
+- `app/api/forms/interview/answer/route.ts`
+- `app/api/inspections/[id]/activity/route.ts`
+- `app/api/inspections/[id]/audit/route.ts`
 
 ## Validation Run
 
@@ -176,6 +181,7 @@ Follow-up hardening pass:
 - Mobile validation path slice: `pnpm --dir mobile install --ignore-workspace` PASS after network access, `pnpm --dir mobile --ignore-workspace type-check` PASS, `cd mobile && pnpm exec vitest run --config vitest.config.ts` PASS with 1 file / 3 tests.
 - API audit warning-reduction slice: starting audit 442 routes / 76 warnings / 0 errors. Warning categories were `prisma-findmany-take` and `public-token-route-review`. The scanner now checks the full `findMany(...)` call instead of a 25-line window, with regression coverage for large include/select blocks. Added explicit caps to high-confidence authenticated list routes and replaced one existence-only integration lookup with `findFirst`. Ending audit: 442 routes / 61 warnings / 0 errors.
 - API audit bounded bulk/import slice: added request-size limits and matching Prisma `take` caps for client bulk-delete, external integration client/job imports, and portal invitation listing. Ending audit: 442 routes / 57 warnings / 0 errors before final validation.
+- API audit bounded detail/helper slice: capped authority-form signatures and latest claim-analysis detail reads, changed interview answer question lookup from `findMany` to `findFirst`, and bounded inspection activity/audit helper reads. Ending audit: 442 routes / 52 warnings / 0 errors before final validation.
 
 ## Failing Or Blocked Checks
 
@@ -201,9 +207,9 @@ Next action: run `vercel env rm NODE_TLS_REJECT_UNAUTHORIZED production --scope 
 
 ### API route audit inherited findings
 
-Error: advisory API route scan reports 0 error-severity findings and 57 warning-severity findings.
+Error: advisory API route scan reports 0 error-severity findings and 52 warning-severity findings.
 
-Cause: error-severity auth/raw-SQL/500-leak findings have been remediated or classified as documented public exception candidates. Recent slices removed false positives and high-confidence unbounded list/import reads, but warning-severity inherited debt remains across public exception reviews and heavier Prisma `findMany` candidates that need route-specific product/security decisions.
+Cause: error-severity auth/raw-SQL/500-leak findings have been remediated or classified as documented public exception candidates. Recent slices removed false positives and high-confidence unbounded list/import/detail reads, but warning-severity inherited debt remains across public exception reviews and heavier Prisma `findMany` candidates that need route-specific product/security decisions.
 
 Fix: continue remediating warning groups in narrow commits, then run the scanner without `--strict` to verify count reduction. `--strict` can now be considered for error-severity findings only, but warnings still need manual review before ship.
 
@@ -215,7 +221,7 @@ Next action: review the remaining warning-severity public exceptions and heavier
 - `ClientMutation` and `FieldCaptureEvent` Prisma models are still absent.
 - Process-local idempotency in `lib/idempotency.ts` is not sufficient for multi-instance/serverless offline replay guarantees.
 - Mobile validation is now repeatable as a standalone Expo package path, but mobile is intentionally not part of root workspace validation yet.
-- API route audit is advisory only. It has identified inherited route-hardening debt and these slices reduced warnings from 76 to 57, but remaining public/token and heavier query warnings still need review.
+- API route audit is advisory only. It has identified inherited route-hardening debt and these slices reduced warnings from 76 to 52, but remaining public/token and heavier query warnings still need review.
 - Protected `.github/PULL_REQUEST_TEMPLATE.md` case-collision dirtiness remains visible and must not be staged with Phase 1 work.
 
 ## Rollback Notes
@@ -225,4 +231,4 @@ Next action: review the remaining warning-severity public exceptions and heavier
 
 ## Next Safe Action
 
-Continue Priority 4 with route-specific review of the remaining 57 API audit warnings, starting with bounded `findMany` candidates that can be capped without changing aggregate semantics. Keep using `/private/tmp/RestoreAssist-phase1-main` only, and do not stage `.github/PULL_REQUEST_TEMPLATE.md`.
+Continue Priority 4 with route-specific review of the remaining 52 API audit warnings, starting with bounded `findMany` candidates that can be capped without changing aggregate semantics. Keep using `/private/tmp/RestoreAssist-phase1-main` only, and do not stage `.github/PULL_REQUEST_TEMPLATE.md`.
