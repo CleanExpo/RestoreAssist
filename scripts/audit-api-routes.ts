@@ -27,6 +27,7 @@ const EXEMPT_ROUTE_PREFIXES = [
 ];
 
 const PUBLIC_TOKEN_ROUTE_PREFIXES = [
+  "app/api/health/",
   "app/api/portal/",
   "app/api/invites/",
   "app/api/authority-forms/sign/",
@@ -222,11 +223,11 @@ export function auditApiRoute(file: string, content: string): ApiRouteFinding[] 
     addFinding(
       findings,
       normalized,
-      "public-token-route-review",
-      "warning",
-      "Public/token route is unauthenticated by design candidate; verify token scope, expiry, revocation, audit event, and rate limit.",
-      true,
-    );
+    "public-token-route-review",
+    "warning",
+    "Public/token/monitoring route is unauthenticated by design candidate; verify scope, expiry where applicable, audit event, and rate limit.",
+    true,
+  );
   }
 
   return findings;

@@ -60,7 +60,8 @@ Follow-up hardening pass:
 - replaced direct 500 body exception/service messages in the first route group with generic client responses
 - switched the remaining flagged admin role-claim checks to `verifyAdminFromDb`
 - replaced the bulk duplicate transaction 500 body with a generic client message
-- current scan result: 442 routes, 82 findings, 14 errors, 68 warnings
+- converted health raw SQL checks to `Prisma.sql`, removed migration exception detail leakage, and classified documented public health monitor endpoints as exception candidates
+- current scan result: 442 routes, 81 findings, 11 errors, 70 warnings
 
 ## Files Changed
 
@@ -82,12 +83,14 @@ Follow-up hardening pass:
 - `app/api/admin/impersonate/log/route.ts`
 - `app/api/admin/impersonate/stop/route.ts`
 - `app/api/reports/bulk-duplicate/route.ts`
+- `app/api/health/route.ts`
+- `app/api/health/migrations/route.ts`
 
 ## Validation Run
 
 - `pnpm exec vitest run --config vitest.config.ts` from `mobile/`: PASS, 1 file / 3 tests
 - `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts`: PASS, 1 file / 6 tests
-- `pnpm exec tsx scripts/audit-api-routes.ts --json`: PASS, scanned 442 routes with 82 advisory findings after the bulk duplicate 500-response hardening pass
+- `pnpm exec tsx scripts/audit-api-routes.ts --json`: PASS, scanned 442 routes with 81 advisory findings after health route hardening/classification
 - `pnpm type-check`: PASS
 - `pnpm lint`: PASS with 0 errors and 840 warnings
 - `git diff --check`: PASS
@@ -106,7 +109,7 @@ Next action: keep Phase 1 web validation authoritative for this branch and use t
 
 ### API route audit inherited findings
 
-Error: advisory API route scan reports 14 error-severity findings and 68 warning-severity findings.
+Error: advisory API route scan reports 11 error-severity findings and 70 warning-severity findings.
 
 Cause: the current codebase still contains inherited API production risks across unauthenticated route candidates, admin routes without DB-role revalidation, unsafe/raw SQL patterns, unbounded `findMany` candidates, and remaining direct 500 response message leaks.
 
