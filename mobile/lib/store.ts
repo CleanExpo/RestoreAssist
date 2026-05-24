@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { Inspection } from "@/shared/types";
+import type { SyncStatus } from "@/lib/sync/engine";
 
 interface AppStore {
   // Inspection list
@@ -11,6 +12,16 @@ interface AppStore {
   // Network status
   isOnline: boolean;
   setOnline: (v: boolean) => void;
+  syncStatus: SyncStatus;
+  queuedMutationCount: number;
+  failedMutationCount: number;
+  syncError: string | null;
+  setSyncSnapshot: (snapshot: {
+    syncStatus?: SyncStatus;
+    queuedMutationCount?: number;
+    failedMutationCount?: number;
+    syncError?: string | null;
+  }) => void;
 
   // Trigger list refetch after mutations
   refreshCounter: number;
@@ -25,6 +36,11 @@ export const useAppStore = create<AppStore>((set) => ({
 
   isOnline: true,
   setOnline: (v) => set({ isOnline: v }),
+  syncStatus: "idle",
+  queuedMutationCount: 0,
+  failedMutationCount: 0,
+  syncError: null,
+  setSyncSnapshot: (snapshot) => set(snapshot),
 
   refreshCounter: 0,
   triggerRefresh: () => set((s) => ({ refreshCounter: s.refreshCounter + 1 })),
