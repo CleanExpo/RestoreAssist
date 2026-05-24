@@ -53,11 +53,13 @@ export async function GET(
     const evidenceItems = await prisma.evidenceItem.findMany({
       where: { inspectionId },
       orderBy: { capturedAt: "desc" },
+      take: 500,
     });
 
     // Load exception reasons
     const exceptions = await prisma.exceptionReason.findMany({
       where: { evidenceItem: { inspectionId } },
+      take: 500,
     });
 
     return NextResponse.json({
@@ -246,6 +248,7 @@ export async function PATCH(
     const allSteps = await prisma.workflowStep.findMany({
       where: { workflowId: workflow.id },
       orderBy: { stepOrder: "asc" },
+      take: 100,
     });
 
     const completedSteps = allSteps.filter(

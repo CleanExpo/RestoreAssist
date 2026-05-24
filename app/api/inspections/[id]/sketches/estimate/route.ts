@@ -49,6 +49,7 @@ export async function GET(
       equipmentPoints: true,
       moisturePoints: true,
     },
+    take: 50,
   });
 
   // Only process structural sketches for the estimate

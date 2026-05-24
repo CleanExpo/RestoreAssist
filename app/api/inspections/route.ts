@@ -35,6 +35,8 @@ export async function GET(request: NextRequest) {
       const clientReports = await prisma.report.findMany({
         where: { clientId, userId: session.user.id },
         select: { id: true },
+        orderBy: { createdAt: "desc" },
+        take: 500,
       });
       const reportIds = clientReports.map((r: { id: string }) => r.id);
 
