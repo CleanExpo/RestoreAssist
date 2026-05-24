@@ -37,6 +37,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
@@ -113,31 +114,28 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const tenantId = session.user.id;
 
     // ── Count total jobs (cheap) and fetch only un-embedded rows ─────────────
-    const [{ count: totalCount }] = await prisma.$queryRawUnsafe<
+    const [{ count: totalCount }] = await prisma.$queryRaw<
       [{ count: bigint }]
     >(
-      `SELECT COUNT(*) AS count FROM "HistoricalJob" WHERE "tenantId" = $1`,
-      tenantId,
+      Prisma.sql`SELECT COUNT(*) AS count FROM "HistoricalJob" WHERE "tenantId" = ${tenantId}`,
     );
     const total = Number(totalCount);
 
     // MAX_EMBED_PER_RUN caps one invocation to 1 000 rows — prevents Vercel timeout
     const MAX_EMBED_PER_RUN = 1000;
-    const unembedded = await prisma.$queryRawUnsafe<HistoricalJobRow[]>(
-      `
+    const unembedded = await prisma.$queryRaw<HistoricalJobRow[]>(
+      Prisma.sql`
       SELECT
         id, "tenantId", "claimType", "waterCategory", "waterClass",
         suburb, state, description, "jobName", "customerName",
         "totalExTax", "itemCount", "equipmentCount", "customFields",
         "embeddedAt"
       FROM "HistoricalJob"
-      WHERE "tenantId" = $1
+      WHERE "tenantId" = ${tenantId}
         AND "embeddedAt" IS NULL
       ORDER BY "createdAt" ASC
-      LIMIT $2
+      LIMIT ${MAX_EMBED_PER_RUN}
       `,
-      tenantId,
-      MAX_EMBED_PER_RUN,
     );
 
     const skipped = total - unembedded.length;
@@ -190,18 +188,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                 ? "text-embedding-3-small"
                 : "hash-fallback-v1";
 
-            await prisma.$executeRawUnsafe(
-              `
+            await prisma.$executeRaw(
+              Prisma.sql`
               UPDATE "HistoricalJob"
               SET
-                "embeddingVector" = $1::vector,
-                "embeddingModel"  = $2,
+                "embeddingVector" = ${vectorStr}::vector,
+                "embeddingModel"  = ${modelName},
                 "embeddedAt"      = NOW()
-              WHERE id = $3
+              WHERE id = ${job.id}
               `,
-              vectorStr,
-              modelName,
-              job.id,
             );
 
             embedded++;
@@ -227,7 +222,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   } catch (err) {
     console.error("[vectorise-jobs] Unexpected error:", err);
     return NextResponse.json(
-      { error: (err as Error).message ?? "Internal server error" },
+      { error: "Internal server error" },
       { status: 500 },
     );
   }
