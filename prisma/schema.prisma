@@ -4212,7 +4212,13 @@ model AgentTask {
   workflowId       String
   workflow         AgentWorkflow    @relation(fields: [workflowId], references: [id], onDelete: Cascade)
   agentSlug        String
-  agentDefinition  AgentDefinition? @relation(fields: [agentSlug], references: [slug], onDelete: SetNull)
+  // RA-5169: was `onDelete: SetNull` but agentSlug is non-nullable, so SET NULL
+  // would fail the NOT NULL constraint at delete-time — the practical effect
+  // was already Restrict (delete blocked). Schema now matches runtime.
+  // Future: if true history-preservation is wanted (orphan task without agent),
+  // make agentSlug nullable AND switch back to SetNull AND add null-handling
+  // to lib/agents/{executor,state-manager,orchestrator}.ts — separate epic.
+  agentDefinition  AgentDefinition? @relation(fields: [agentSlug], references: [slug], onDelete: Restrict)
   taskType         String
   displayName      String
   sequenceOrder    Int              @default(0)
