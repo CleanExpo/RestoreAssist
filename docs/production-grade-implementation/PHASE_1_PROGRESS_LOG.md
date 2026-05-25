@@ -227,6 +227,7 @@ Follow-up hardening pass:
 - API audit invoice analytics aggregate slice: replaced unbounded invoice hydration in analytics totals/status counts with Prisma aggregate and groupBy queries while preserving total revenue, outstanding, draft, paid-this-month, overdue, and status-count semantics. Advisory audit warnings reduced from 22 to 21. Final validation: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 21 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 838 warnings, `git diff --check` PASS.
 - API audit admin usage aggregate slice: replaced month-wide usage event hydration with exact aggregate/groupBy queries and one bounded user metadata lookup, preserving MTD totals, billing counts, event-type summaries, user summaries, and daily cost breakdown. Advisory audit warnings reduced from 21 to 20. Final validation: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 20 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 838 warnings, `git diff --check` PASS.
 - API audit Ascora imported-job lookup slice: bounded the imported Ascora job foreign-key lookup to the size of the imported job ID set and added deterministic ordering. Advisory audit warnings reduced from 20 to 19. Final validation: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 19 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 838 warnings, `git diff --check` PASS.
+- API audit test-helper classification slice: removed `app/api/test/**` from the public/token exception bucket and only accepts test helper routes when the source contains the hard `ALLOW_TEST_HELPERS !== "true"` guard. Added regression coverage so unguarded test helpers still require auth. Advisory audit warnings reduced from 19 to 15. Final validation: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 8 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 15 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 838 warnings, `git diff --check` PASS.
 
 ## Failing Or Blocked Checks
 
@@ -252,9 +253,9 @@ Next action: run `vercel env rm NODE_TLS_REJECT_UNAUTHORIZED production --scope 
 
 ### API route audit inherited findings
 
-Error: advisory API route scan reports 0 error-severity findings and 19 warning-severity findings.
+Error: advisory API route scan reports 0 error-severity findings and 15 warning-severity findings.
 
-Cause: error-severity auth/raw-SQL/500-leak findings have been remediated or classified as documented public exception candidates. Recent slices removed false positives and high-confidence unbounded list/import/detail/workflow/bulk support/export reads, but warning-severity inherited debt remains across public exception reviews and a heavier Prisma `findMany` candidate that needs route-specific product/security decisions.
+Cause: error-severity auth/raw-SQL/500-leak findings have been remediated or classified as documented public exception candidates. Recent slices removed false positives, high-confidence unbounded reads, and env-guarded test helpers from the manual public-route review bucket, but warning-severity inherited debt remains across public exception reviews and a heavier Prisma `findMany` candidate that needs route-specific product/security decisions.
 
 Fix: continue remediating warning groups in narrow commits, then run the scanner without `--strict` to verify count reduction. `--strict` can now be considered for error-severity findings only, but warnings still need manual review before ship.
 
@@ -267,7 +268,7 @@ Next action: review the remaining warning-severity public exceptions and heavier
 - Process-local idempotency in `lib/idempotency.ts` is not sufficient for multi-instance/serverless offline replay guarantees.
 - Shared `lib/rate-limiter.ts` remains in-memory, so API throttles still reset on serverless cold starts until a distributed backend is adopted.
 - Mobile validation is now repeatable as a standalone Expo package path, but mobile is intentionally not part of root workspace validation yet.
-- API route audit is advisory only. It has identified inherited route-hardening debt and these slices reduced warnings from 76 to 28, but remaining public/token and heavier query warnings still need review.
+- API route audit is advisory only. It has identified inherited route-hardening debt and these slices reduced warnings from 76 to 15, but remaining public/token and heavier query warnings still need review.
 - Protected `.github/PULL_REQUEST_TEMPLATE.md` case-collision dirtiness remains visible and must not be staged with Phase 1 work.
 
 ## Rollback Notes

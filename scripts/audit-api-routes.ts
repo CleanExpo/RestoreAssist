@@ -37,7 +37,6 @@ const PUBLIC_TOKEN_ROUTE_PREFIXES = [
   "app/api/observability/client-error/",
   "app/api/properties/scrape/health/",
   "app/api/authority-forms/sign/",
-  "app/api/test/",
 ];
 
 function normalisePath(file: string): string {
@@ -81,6 +80,10 @@ function hasAuth(content: string): boolean {
     content.includes("getToken(") ||
     content.includes("verifyAdminFromDb(")
   );
+}
+
+function hasTestHelperEnvGuard(content: string): boolean {
+  return /process\.env\.ALLOW_TEST_HELPERS\s*!==\s*["']true["']/.test(content);
 }
 
 function findManyWithoutTake(content: string): boolean {
@@ -177,12 +180,19 @@ export function auditApiRoute(file: string, content: string): ApiRouteFinding[] 
   const normalized = normalisePath(file);
   const findings: ApiRouteFinding[] = [];
   const isExempt = isPrefixMatch(normalized, EXEMPT_ROUTE_PREFIXES);
+  const isGuardedTestHelper =
+    normalized.startsWith("app/api/test/") && hasTestHelperEnvGuard(content);
   const isPublicTokenRoute = isPrefixMatch(
     normalized,
     PUBLIC_TOKEN_ROUTE_PREFIXES,
   );
 
-  if (!isExempt && !isPublicTokenRoute && !hasAuth(content)) {
+  if (
+    !isExempt &&
+    !isPublicTokenRoute &&
+    !isGuardedTestHelper &&
+    !hasAuth(content)
+  ) {
     addFinding(
       findings,
       normalized,

@@ -148,4 +148,20 @@ describe("auditApiRoute", () => {
       }),
     ]);
   });
+
+  it("accepts test helpers with an explicit ALLOW_TEST_HELPERS hard guard", () => {
+    const findings = auditApiRoute(
+      "app/api/test/sign-in-as/route.ts",
+      `
+        export async function POST() {
+          if (process.env.ALLOW_TEST_HELPERS !== "true") {
+            return Response.json({ error: "disabled" }, { status: 404 });
+          }
+          return Response.json({ ok: true });
+        }
+      `,
+    );
+
+    expect(findings).toHaveLength(0);
+  });
 });
