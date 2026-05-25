@@ -22,6 +22,7 @@ External dependencies added: no.
 - `scripts/__tests__/audit-ai-call-sites.test.ts`
 - `lib/ai/task-policy.ts`
 - `docs/production-grade-implementation/PHASE_2_AI_POLICY_WRAP_CANDIDATE.md`
+- `docs/production-grade-implementation/PHASE_2_AI_POLICY_WRAP_CANDIDATE_2.md`
 
 ## Audit Result
 
@@ -53,15 +54,16 @@ Task-class counts:
 
 | Task class | Count |
 | --- | ---: |
-| Fast classification | 17 |
+| Fast classification | 16 |
 | Support response draft | 1 |
+| Support ticket analysis | 1 |
 | OCR/image understanding | 41 |
 | Report drafting | 6 |
 | Standards/RAG lookup | 6 |
 | Voice/realtime | 2 |
-| Workflow automation | 4 |
+| Workflow automation | 5 |
 | Embeddings | 10 |
-| Unknown | 1 |
+| Unknown | 0 |
 
 ## Refinement Pass
 
@@ -70,7 +72,8 @@ The 117-call baseline included obvious false positives from non-AI BYOK/storage/
 Classification was also tightened:
 
 - `draft-support-ticket.ts` is the only current `support_response_draft` task.
-- support ticket analysis is kept in `fast_classification`.
+- `analyse-support-ticket.ts` is the only current `support_ticket_analysis` task.
+- `analytics-narrative.ts` is a real AI call site and is classified as `workflow_automation`, not excluded.
 - OCR/image/vision paths remain visible as evidence-media tasks.
 - voice/realtime is no longer inferred from incidental support/report wording alone.
 
@@ -107,6 +110,7 @@ The new `lib/ai/task-policy.ts` defines these initial task classes:
 
 - `fast_classification`
 - `support_response_draft`
+- `support_ticket_analysis`
 - `ocr_image_understanding`
 - `report_drafting`
 - `standards_rag_lookup`
@@ -115,7 +119,7 @@ The new `lib/ai/task-policy.ts` defines these initial task classes:
 - `embeddings`
 - `unknown`
 
-The audit assigns a best-effort class from file path and source patterns. Unknown classifications remain review prompts, not failures.
+The audit assigns a best-effort class from file path and source patterns. Unknown classifications remain review prompts, not failures. Current unknown task-class count is zero.
 
 ### Is the call tenant/account aware?
 
@@ -155,7 +159,12 @@ The audit marks external sensitivity when source uses Anthropic, OpenAI, Gemini,
 - budget check requirements.
 - fallback policy.
 
-The first runtime use is intentionally narrow: `lib/services/ai/draft-support-ticket.ts` now requires the `support_response_draft` policy before calling the existing Anthropic gateway. Provider, model, prompt, user message shape, max token value, and output shape are unchanged.
+The first runtime uses are intentionally narrow:
+
+- `lib/services/ai/draft-support-ticket.ts` now requires the `support_response_draft` policy before calling the existing Anthropic gateway.
+- `lib/services/ai/analyse-support-ticket.ts` now requires the `support_ticket_analysis` policy before calling the existing Anthropic gateway.
+
+For both wrappers, provider, model, prompt, user message shape, max token value, and output shape are unchanged.
 
 ## High-Risk Follow-Up Areas
 
@@ -180,8 +189,9 @@ Review these areas before any provider routing changes:
 
 Focused validation:
 
-- `pnpm exec vitest run scripts/__tests__/audit-ai-call-sites.test.ts`: PASS, 1 file / 9 tests.
+- `pnpm exec vitest run scripts/__tests__/audit-ai-call-sites.test.ts`: PASS, 1 file / 10 tests.
 - `pnpm exec vitest run lib/services/ai/__tests__/draft-support-ticket.test.ts`: PASS, 1 file / 6 tests.
+- `pnpm exec vitest run lib/services/ai/__tests__/analyse-support-ticket.test.ts`: PASS, 1 file / 6 tests.
 - `pnpm exec tsx scripts/audit-ai-call-sites.ts --json`: PASS, 88 call-site surfaces found.
 
 Visibility checks:
@@ -196,9 +206,9 @@ Do not reroute production calls yet.
 
 Next slice:
 
-1. Review the remaining 88-call refined inventory for the single unknown task and high-value cost-observability gaps.
+1. Review the remaining 88-call refined inventory for high-value cost-observability gaps.
 2. Add task-policy tests for cost caps, fallback permission, and required tenant/usage/budget flags where they are not already covered by the selected service tests.
-3. Select the next low-risk migrated task, likely interview question suggestion or support ticket analysis.
+3. Select the next low-risk migrated task, likely interview question suggestion or support-adjacent classification.
 4. Wrap that one task with policy guardrails while preserving existing provider/prompt behavior.
 5. Run targeted service tests plus root validation.
 

@@ -39,6 +39,10 @@ Phase 2 has started from the Phase 1 review-ready baseline. The first runtime-to
 - Documented the first policy-wrap candidate in `PHASE_2_AI_POLICY_WRAP_CANDIDATE.md`.
 - Wrapped `lib/services/ai/draft-support-ticket.ts` with `support_response_draft` policy guardrails without changing the Anthropic request contract.
 - Added support draft preservation tests in `lib/services/ai/__tests__/draft-support-ticket.test.ts`.
+- Resolved the remaining unknown AI task classification: `lib/services/ai/analytics-narrative.ts` is a real call site now classified as `workflow_automation`.
+- Documented the second policy-wrap candidate in `PHASE_2_AI_POLICY_WRAP_CANDIDATE_2.md`.
+- Wrapped `lib/services/ai/analyse-support-ticket.ts` with `support_ticket_analysis` policy guardrails without changing the Anthropic request contract.
+- Added support ticket analysis preservation tests in `lib/services/ai/__tests__/analyse-support-ticket.test.ts`.
 
 ## AI Baseline Notes
 
@@ -72,9 +76,9 @@ Refined static inventory:
 - source files scanned: 1,193
 - AI/provider/RAG surfaces found: 88
 - provider families: Anthropic 41, OpenAI 9, Gemini 17, RestoreAssist AI 14, BYOK 14, RAG/vector 18, local/hash fallback 7, unknown 3
-- task classes: fast classification 17, support response draft 1, OCR/image understanding 41, report drafting 6, standards/RAG lookup 6, voice/realtime 2, workflow automation 4, embeddings 10, unknown 1
+- task classes: fast classification 16, support response draft 1, support ticket analysis 1, OCR/image understanding 41, report drafting 6, standards/RAG lookup 6, voice/realtime 2, workflow automation 5, embeddings 10, unknown 0
 
-Runtime behavior changed: no provider/model/prompt/output-shape behavior changed. The support draft helper now fails closed if its task policy is missing.
+Runtime behavior changed: no provider/model/prompt/output-shape behavior changed. The support draft and support analysis helpers now fail closed if their task policies are missing.
 
 Prompts/provider selection changed: no.
 
@@ -97,13 +101,39 @@ Preserved behavior:
 - no public route behavior change.
 - no report, voice, OCR/image, or RAG workflow changed.
 
+## Support Ticket Analysis Policy Wrap Slice
+
+Selected candidate:
+
+- `lib/services/ai/analyse-support-ticket.ts`
+- task class: `support_ticket_analysis`
+- provider: existing Anthropic gateway
+- model: `claude-haiku-4-5-20251001`
+- max output tokens: unchanged at `1024`, now sourced from policy
+
+Preserved behavior:
+
+- no provider selection change.
+- no prompt change.
+- no user message shape change.
+- no output shape change.
+- no public route behavior change.
+- no report, voice, OCR/image, or RAG workflow changed.
+
+Unknown inventory item result:
+
+- `lib/services/ai/analytics-narrative.ts` is a real AI call site.
+- It was not selected for policy wrapping in this slice because it drives dashboard-facing prose.
+- It is now classified as `workflow_automation`; no AI task-class unknowns remain.
+
 ## Validation
 
 Latest focused validation:
 
-- `pnpm exec vitest run scripts/__tests__/audit-ai-call-sites.test.ts`: PASS, 1 file / 9 tests.
+- `pnpm exec vitest run scripts/__tests__/audit-ai-call-sites.test.ts`: PASS, 1 file / 10 tests.
 - `pnpm exec tsx scripts/audit-ai-call-sites.ts --json`: PASS, 88 call-site surfaces found.
 - `pnpm exec vitest run lib/services/ai/__tests__/draft-support-ticket.test.ts`: PASS, 1 file / 6 tests.
+- `pnpm exec vitest run lib/services/ai/__tests__/analyse-support-ticket.test.ts`: PASS, 1 file / 6 tests.
 - `pnpm type-check`: PASS.
 - `pnpm lint`: PASS with 0 errors and 838 existing warnings.
 - `git diff --check`: PASS.
@@ -112,4 +142,4 @@ Latest focused validation:
 
 ## Next Safe Action
 
-Run final slice validation, commit the narrow policy-wrap slice, then review the single remaining unknown inventory item before selecting the next low-risk task.
+Run final slice validation, commit the narrow second policy-wrap slice, then review high-value cost-observability gaps before selecting the next low-risk task.

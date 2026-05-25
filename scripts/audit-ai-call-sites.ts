@@ -188,6 +188,12 @@ export function classifyAiTask(file: string, content: string): AiTaskClass {
   if (normalizedFile.includes("draft-support-ticket")) {
     return "support_response_draft";
   }
+  if (normalizedFile.includes("analyse-support-ticket")) {
+    return "support_ticket_analysis";
+  }
+  if (normalizedFile.includes("analytics-narrative")) {
+    return "workflow_automation";
+  }
   if (includesAny(target, ["vision", "image", "photo", "ocr", "reading", "sketch"])) {
     return "ocr_image_understanding";
   }
@@ -313,6 +319,7 @@ export function auditAiCallSites(rootDir = process.cwd()): AiCallSiteAuditReport
     ([
       "fast_classification",
       "support_response_draft",
+      "support_ticket_analysis",
       "ocr_image_understanding",
       "report_drafting",
       "standards_rag_lookup",

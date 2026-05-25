@@ -1,6 +1,7 @@
 export type AiTaskClass =
   | "fast_classification"
   | "support_response_draft"
+  | "support_ticket_analysis"
   | "ocr_image_understanding"
   | "report_drafting"
   | "standards_rag_lookup"
@@ -50,6 +51,20 @@ export const AI_TASK_POLICIES: Record<
     requiresBudgetCheck: false,
     allowsFallback: false,
     notes: "Admin/platform support reply drafting; provider, model, prompt, and output shape must remain stable during the first policy-wrap slice.",
+  },
+  support_ticket_analysis: {
+    taskClass: "support_ticket_analysis",
+    allowedProviderFamilies: ["anthropic-platform"],
+    defaultLatencyClass: "interactive",
+    dataClass: "customer_content",
+    maxInputTokens: 8_000,
+    maxOutputTokens: 1_024,
+    maxEstimatedCostUsd: 0.02,
+    requiresTenantContext: false,
+    requiresUsageLogging: true,
+    requiresBudgetCheck: false,
+    allowsFallback: false,
+    notes: "Admin/platform inbound support ticket classification and draft response; provider, model, prompt, and JSON output contract must remain stable during policy wrapping.",
   },
   fast_classification: {
     taskClass: "fast_classification",

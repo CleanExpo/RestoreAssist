@@ -105,7 +105,7 @@ describe("classifyAiTask", () => {
         "lib/services/ai/analyse-support-ticket.ts",
         "callAnthropic({ request: { model: 'claude-haiku-4-5', messages: supportTicketMessages } })",
       ),
-    ).toBe("fast_classification");
+    ).toBe("support_ticket_analysis");
   });
 
   it("classifies support reply drafting as the explicit policy-wrapped task", () => {
@@ -115,6 +115,15 @@ describe("classifyAiTask", () => {
         "callAnthropic({ request: { model: 'claude-haiku-4-5', max_tokens: 1024 } })",
       ),
     ).toBe("support_response_draft");
+  });
+
+  it("classifies analytics narrative as workflow automation instead of unknown", () => {
+    expect(
+      classifyAiTask(
+        "lib/services/ai/analytics-narrative.ts",
+        "callAnthropic({ request: { model: 'claude-haiku-4-5', max_tokens: 300 } })",
+      ),
+    ).toBe("workflow_automation");
   });
 });
 

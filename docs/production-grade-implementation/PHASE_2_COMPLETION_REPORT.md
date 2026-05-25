@@ -37,6 +37,12 @@ This report prevents accidental completion claims while Phase 2 AI/workflow upgr
   - `draftSupportTicketReply` wrapped with `support_response_draft` policy guardrails.
   - provider, model, prompt, request shape, and output shape preserved.
   - missing/unknown policy fails closed.
+- Third safe implementation slice completed locally:
+  - remaining unknown AI task item resolved: `analytics-narrative.ts` is a real call site classified as `workflow_automation`.
+  - second low-risk candidate documented in `PHASE_2_AI_POLICY_WRAP_CANDIDATE_2.md`.
+  - `analyseSupportTicket` wrapped with `support_ticket_analysis` policy guardrails.
+  - provider, model, prompt, request shape, and output shape preserved.
+  - missing/unknown policy fails closed.
 
 ## Not Yet Complete
 
@@ -66,4 +72,4 @@ RestoreAssist remains **DO NOT SHIP**. Phase 2 planning does not approve product
 
 ## Next Safe Action
 
-Review the single remaining unknown inventory item and remaining cost-observability gaps, then migrate one additional low-risk AI task through policy guardrails without changing provider, prompt, or public route behavior.
+Review remaining cost-observability gaps, then migrate one additional low-risk AI task through policy guardrails without changing provider, prompt, or public route behavior.
