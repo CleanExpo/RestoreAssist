@@ -10,7 +10,44 @@
  * RA-393: Phase 0.5 — BYOK Vision Extension
  */
 
-import type { S500VisionResult } from "@/lib/ai/byok-vision-client";
+type EvidenceClass =
+  | "SITE_OVERVIEW"
+  | "DAMAGE_CLOSE_UP"
+  | "MOISTURE_READING"
+  | "THERMAL_IMAGE"
+  | "EQUIPMENT_PLACEMENT"
+  | "CONTAINMENT_SETUP"
+  | "AIR_QUALITY_READING"
+  | "MATERIAL_SAMPLE"
+  | "FLOOR_PLAN_ANNOTATION"
+  | "PROGRESS_PHOTO"
+  | "COMPLETION_PHOTO"
+  | "AFFECTED_CONTENTS"
+  | "STRUCTURAL_ASSESSMENT"
+  | "SAFETY_HAZARD"
+  | "UTILITY_STATUS"
+  | "ENVIRONMENTAL_CONDITION"
+  | "OTHER";
+
+type DamageCategory = "Category 1" | "Category 2" | "Category 3";
+type DamageClass = "Class 1" | "Class 2" | "Class 3" | "Class 4";
+
+export interface S500VisionResult {
+  damageCategory: DamageCategory | null;
+  damageClass: DamageClass | null;
+  affectedArea: string;
+  moistureIndicators: string[];
+  suggestedEvidenceClass: EvidenceClass;
+  safetyHazards: string[];
+  structuralConcerns: string[];
+  materials: string[];
+  photoQualityScore: number;
+  s500ComplianceNotes: string;
+  rawDescription: string;
+  confidence: number;
+  model: string;
+  provider: "anthropic" | "openai" | "gemini";
+}
 
 const API_BASE =
   process.env.EXPO_PUBLIC_API_BASE ?? "https://restoreassist.app";
