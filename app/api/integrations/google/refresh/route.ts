@@ -84,10 +84,11 @@ export async function POST(request: NextRequest) {
       signal: AbortSignal.timeout(10_000),
     });
   } catch (err) {
+    console.error("[google/refresh] token refresh fetch failed:", err);
     return NextResponse.json(
       {
         ok: false,
-        reason: err instanceof Error ? err.message : "fetch-failed",
+        reason: "fetch-failed",
       },
       { status: 502 },
     );
@@ -107,7 +108,6 @@ export async function POST(request: NextRequest) {
       {
         ok: false,
         reason: isInvalidGrant ? "invalid_grant" : `upstream-${res.status}`,
-        detail: text.slice(0, 200),
       },
       { status: isInvalidGrant ? 410 : 502 },
     );
