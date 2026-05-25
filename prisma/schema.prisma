@@ -97,6 +97,9 @@ model User {
   managedBy   User?   @relation("UserManager", fields: [managedById], references: [id], onDelete: SetNull)
   manages     User[]  @relation("UserManager")
 
+  clientMutations    ClientMutation[]
+  fieldCaptureEvents FieldCaptureEvent[]
+
   // Subscription fields (temporarily optional for migration)
   subscriptionStatus SubscriptionStatus?
   subscriptionPlan   String?
@@ -1941,6 +1944,8 @@ model Inspection {
   auditLogs         AuditLog[]
   photos            InspectionPhoto[]
   usageEvents       UsageEvent[]        @relation("usageEvents")
+  clientMutations   ClientMutation[]
+  fieldCaptureEvents FieldCaptureEvent[]
 
   // RA-1717 — Unified assessment-generation artefacts.
   assessmentGenerations AssessmentGeneration[] @relation("InspectionAssessmentGenerations")
@@ -5537,6 +5542,9 @@ model Workspace {
   // RA-417: media asset tags
   mediaAssetTags MediaAssetTag[] @relation("WorkspaceMediaAssetTags")
 
+  clientMutations    ClientMutation[]
+  fieldCaptureEvents FieldCaptureEvent[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -7065,4 +7073,68 @@ model RateLimitHit {
 
   @@index([key, createdAt])
   @@index([expiresAt])
+}
+
+/// Durable mobile/offline mutation ledger. `mutationId` is generated on the
+/// client and deduped per workspace so mobile replay, retry, and conflict
+/// handling have a server-side audit spine independent of response replay
+/// caching.
+model ClientMutation {
+  id              String    @id @default(cuid())
+  workspaceId     String
+  userId          String?
+  inspectionId    String?
+  mutationId      String
+  mutationType    String
+  method          String
+  path            String
+  requestHash     String
+  status          String    @default("PENDING")
+  responseStatus  Int?
+  responseBody    String?   @db.Text
+  errorCode       String?
+  clientCreatedAt DateTime?
+  receivedAt      DateTime  @default(now())
+  completedAt     DateTime?
+  updatedAt       DateTime  @updatedAt
+
+  workspace  Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user       User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  inspection Inspection?         @relation(fields: [inspectionId], references: [id], onDelete: SetNull)
+  events     FieldCaptureEvent[]
+
+  @@unique([workspaceId, mutationId])
+  @@index([workspaceId, status, receivedAt])
+  @@index([userId, receivedAt])
+  @@index([inspectionId, receivedAt])
+}
+
+/// Append-only field-capture event ledger for offline/mobile evidence capture.
+/// Application code should insert rows only; no update path is required for the
+/// Phase 1 audit spine.
+model FieldCaptureEvent {
+  id               String   @id @default(cuid())
+  workspaceId      String
+  userId           String?
+  inspectionId     String?
+  clientMutationId String?
+  eventId          String?
+  eventType        String
+  entityType       String?
+  entityId         String?
+  fieldPath        String?
+  value            Json?
+  metadata         Json?
+  capturedAt       DateTime
+  receivedAt       DateTime @default(now())
+
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user           User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  inspection     Inspection?     @relation(fields: [inspectionId], references: [id], onDelete: SetNull)
+  clientMutation ClientMutation? @relation(fields: [clientMutationId], references: [id], onDelete: SetNull)
+
+  @@unique([workspaceId, eventId])
+  @@index([workspaceId, eventType, receivedAt])
+  @@index([inspectionId, capturedAt])
+  @@index([clientMutationId])
 }
