@@ -8,9 +8,9 @@
  * GET /api/ascora/connect
  * Return integration status (no apiKey in response).
  *
- * SSL NOTE: Ascora API uses a self-signed/non-standard cert.
- *   Set NODE_TLS_REJECT_UNAUTHORIZED=0 in .env.local (dev) or Vercel env vars (prod)
- *   if you receive SSL handshake errors.
+ * TLS NOTE: if Ascora connectivity fails on certificate validation, fix the
+ * upstream certificate chain or configure scoped trusted CA material. Do not
+ * disable process-wide Node TLS verification.
  */
 
 import { NextRequest, NextResponse } from "next/server";

@@ -7,9 +7,9 @@
  * Runs paginated (pageSize=1000 per Ascora).
  * Idempotent: existing ascoraJobId records are upserted on conflict.
  *
- * SSL NOTE: Ascora API requires SSL bypass (self-signed cert).
- *   Dev:  add NODE_TLS_REJECT_UNAUTHORIZED=0 to .env.local
- *   Prod: add to Vercel env vars (or supply NODE_EXTRA_CA_CERTS with the Ascora root cert)
+ * TLS NOTE: if Ascora connectivity fails on certificate validation, fix the
+ * upstream certificate chain or configure scoped trusted CA material. Do not
+ * disable process-wide Node TLS verification.
  *
  * Query params:
  *   ?incremental=true          — only jobs completed since lastSyncAt (faster, use for cron)
