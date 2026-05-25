@@ -18,6 +18,7 @@ import {
   checkIntegrationAccess,
   createSubscriptionRequiredResponse,
 } from "@/lib/integrations/subscription-guard";
+import { INTEGRATION_IMPORT_FAILURE_MESSAGE } from "@/lib/integrations/sync-error";
 
 export async function GET(
   request: NextRequest,
@@ -206,9 +207,10 @@ export async function POST(
 
         imported.push(externalClient.externalId);
       } catch (err) {
+        console.error("External client import error:", err);
         errors.push({
           id: externalClient.externalId,
-          error: err instanceof Error ? err.message : String(err),
+          error: INTEGRATION_IMPORT_FAILURE_MESSAGE,
         });
       }
     }
