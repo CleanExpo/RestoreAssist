@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { isPortalInvitationToken } from "@/lib/public-token-shape";
 
 // GET /api/portal/invitations/verify?token=... - Verify invitation token
 export async function GET(request: NextRequest) {
@@ -17,6 +18,16 @@ export async function GET(request: NextRequest) {
 
     if (!token) {
       return NextResponse.json({ error: "Token is required" }, { status: 400 });
+    }
+
+    if (!isPortalInvitationToken(token)) {
+      return NextResponse.json(
+        {
+          valid: false,
+          error: "Invalid invitation token",
+        },
+        { status: 404 },
+      );
     }
 
     const invitation = await prisma.portalInvitation.findUnique({

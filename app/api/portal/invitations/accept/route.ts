@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { validateCsrf } from "@/lib/csrf";
+import { isPortalInvitationToken } from "@/lib/public-token-shape";
 
 // POST /api/portal/invitations/accept - Accept invitation and create ClientUser account
 export async function POST(request: NextRequest) {
@@ -13,6 +15,9 @@ export async function POST(request: NextRequest) {
     });
     if (rateLimited) return rateLimited;
 
+    const csrfError = validateCsrf(request);
+    if (csrfError) return csrfError;
+
     const body = await request.json();
     const { token, password, name, phone } = body;
 
@@ -20,6 +25,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "Token, password, and name are required" },
         { status: 400 },
+      );
+    }
+
+    if (!isPortalInvitationToken(token)) {
+      return NextResponse.json(
+        { error: "Invalid invitation token" },
+        { status: 404 },
       );
     }
 

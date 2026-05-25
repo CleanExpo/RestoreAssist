@@ -20,6 +20,7 @@ import { prisma } from "@/lib/prisma";
 import { sanitizeString } from "@/lib/sanitize";
 import { validateCsrf } from "@/lib/csrf";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { isUserInviteToken } from "@/lib/public-token-shape";
 
 interface RouteContext {
   params: Promise<{ token: string }>;
@@ -44,6 +45,10 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
   const { token } = await params;
   if (!token) {
     return NextResponse.json({ error: "Token required" }, { status: 400 });
+  }
+
+  if (!isUserInviteToken(token)) {
+    return NextResponse.json({ error: "Invite not found" }, { status: 404 });
   }
 
   const invite = await prisma.userInvite.findUnique({
@@ -103,6 +108,10 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   const { token } = await params;
   if (!token) {
     return NextResponse.json({ error: "Token required" }, { status: 400 });
+  }
+
+  if (!isUserInviteToken(token)) {
+    return NextResponse.json({ error: "Invite not found" }, { status: 404 });
   }
 
   let body: {
