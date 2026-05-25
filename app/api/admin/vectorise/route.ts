@@ -19,6 +19,8 @@ import { prisma } from "@/lib/prisma";
 import { embedText, buildJobEmbeddingText } from "@/lib/ai/embeddings";
 import { withIdempotency } from "@/lib/idempotency";
 
+const VECTORISE_JOB_FAILURE_ERROR = "Embedding failed";
+
 interface HistoricalJobRow {
   id: string;
   tenantId: string;
@@ -138,9 +140,11 @@ export async function POST(request: NextRequest) {
         `);
         embeddedCount++;
       } catch (err) {
-        errors.push(
-          `${job.id}: ${err instanceof Error ? err.message : String(err)}`,
-        );
+        console.error("[admin/vectorise] Job embedding failed:", {
+          jobId: job.id,
+          error: err,
+        });
+        errors.push(`${job.id}: ${VECTORISE_JOB_FAILURE_ERROR}`);
       }
     }
 

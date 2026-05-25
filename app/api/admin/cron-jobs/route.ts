@@ -42,6 +42,8 @@ const CRON_JOBS = [
   },
 ];
 
+const CRON_TRIGGER_FAILURE_ERROR = "Cron job trigger failed";
+
 // GET — list all cron jobs
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -67,8 +69,9 @@ export async function POST(request: NextRequest) {
     });
     return NextResponse.json({ success: res.ok, status: res.status });
   } catch (err) {
+    console.error("[admin/cron-jobs POST] Cron trigger failed:", err);
     return NextResponse.json(
-      { success: false, error: String(err) },
+      { success: false, error: CRON_TRIGGER_FAILURE_ERROR },
       { status: 500 },
     );
   }
