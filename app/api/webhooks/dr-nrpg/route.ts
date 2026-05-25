@@ -34,6 +34,8 @@ import { prisma } from "@/lib/prisma";
 import { recordWebhookFailure } from "@/lib/webhook-audit";
 import { mapPayloadToInspection } from "@/lib/dr-nrpg/inbound-mapper";
 
+const MAX_ACTIVE_DRNRPG_INTEGRATIONS = 100;
+
 // ============================================================
 // HMAC-SHA256 signature verification
 // ============================================================
@@ -119,6 +121,9 @@ export async function POST(request: NextRequest) {
   // We resolve which user/integration this belongs to via the signature check.
   const integrations = await (prisma as any).drNrpgIntegration.findMany({
     where: { isActive: true },
+    select: { id: true, webhookSecret: true },
+    orderBy: { createdAt: "asc" },
+    take: MAX_ACTIVE_DRNRPG_INTEGRATIONS,
   });
 
   if (integrations.length === 0) {
