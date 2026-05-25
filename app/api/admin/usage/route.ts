@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
@@ -20,62 +21,93 @@ export async function GET(request: NextRequest) {
   const to = new Date(year, monthNum, 0, 23, 59, 59);
 
   try {
-    // Collect IDs of all users in the same organization to prevent cross-tenant data leakage
-    const orgUserIds = await prisma.user
-      .findMany({
-        where: { organizationId: adminUser!.organizationId },
-        select: { id: true },
-      })
-      .then((users) => users.map((u) => u.id));
-
-    const events = await prisma.usageEvent.findMany({
+    const usageWhere = {
       where: {
         timestamp: { gte: from, lte: to },
-        userId: { in: orgUserIds },
+        user: { organizationId: adminUser!.organizationId },
       },
-      include: { user: { select: { id: true, name: true, email: true } } },
-    });
+    } satisfies Prisma.UsageEventFindManyArgs;
 
-    const totalCostMtd = events.reduce((s, e) => s + (e.totalCost ?? 0), 0);
-    const pendingBillingCount = events.filter(
-      (e) => e.billingStatus === "pending",
-    ).length;
-    const billedMtd = events
-      .filter((e) => e.billingStatus === "billed")
-      .reduce((s, e) => s + (e.totalCost ?? 0), 0);
-    const failedCount = events.filter(
-      (e) => e.billingStatus === "failed",
-    ).length;
-
-    // Aggregate by event type
-    const byEventTypeMap = new Map<
-      string,
-      { count: number; units: number; totalCost: number }
-    >();
-    for (const e of events) {
-      const key = e.eventType;
-      const existing = byEventTypeMap.get(key) ?? {
-        count: 0,
-        units: 0,
-        totalCost: 0,
-      };
-      byEventTypeMap.set(key, {
-        count: existing.count + 1,
-        units: existing.units + (e.units ?? 0),
-        totalCost: existing.totalCost + (e.totalCost ?? 0),
-      });
-    }
-    const byEventType = Array.from(byEventTypeMap.entries()).map(
-      ([eventType, agg]) => ({
-        eventType,
-        count: agg.count,
-        units: agg.units,
-        avgUnitCost: agg.count > 0 ? agg.totalCost / agg.count : 0,
-        totalCost: agg.totalCost,
+    const [
+      totalCostResult,
+      pendingBillingCount,
+      billedResult,
+      failedCount,
+      byEventTypeRows,
+      byUserBillingRows,
+      dailyRows,
+    ] = await Promise.all([
+      prisma.usageEvent.aggregate({
+        ...usageWhere,
+        _sum: { totalCost: true },
       }),
-    );
+      prisma.usageEvent.count({
+        where: { ...usageWhere.where, billingStatus: "pending" },
+      }),
+      prisma.usageEvent.aggregate({
+        where: { ...usageWhere.where, billingStatus: "billed" },
+        _sum: { totalCost: true },
+      }),
+      prisma.usageEvent.count({
+        where: { ...usageWhere.where, billingStatus: "failed" },
+      }),
+      prisma.usageEvent.groupBy({
+        by: ["eventType"],
+        ...usageWhere,
+        _count: { _all: true },
+        _sum: { units: true, totalCost: true },
+      }),
+      prisma.usageEvent.groupBy({
+        by: ["userId", "billingStatus"],
+        ...usageWhere,
+        _count: { _all: true },
+        _sum: { totalCost: true },
+      }),
+      prisma.$queryRaw<
+        Array<{ date: Date | string; eventType: string; totalCost: number | null }>
+      >`
+        SELECT
+          DATE(ue."timestamp") as date,
+          ue."eventType"::text as "eventType",
+          SUM(ue."totalCost")::float as "totalCost"
+        FROM "UsageEvent" ue
+        INNER JOIN "User" u ON u."id" = ue."userId"
+        WHERE ue."timestamp" >= ${from}
+          AND ue."timestamp" <= ${to}
+          AND u."organizationId" ${
+            adminUser!.organizationId === null
+              ? Prisma.sql`IS NULL`
+              : Prisma.sql`= ${adminUser!.organizationId}`
+          }
+        GROUP BY DATE(ue."timestamp"), ue."eventType"
+        ORDER BY date ASC
+      `,
+    ]);
 
-    // Aggregate by user
+    const totalCostMtd = totalCostResult._sum.totalCost ?? 0;
+    const billedMtd = billedResult._sum.totalCost ?? 0;
+    const byEventType = byEventTypeRows.map((row) => ({
+      eventType: row.eventType,
+      count: row._count._all,
+      units: row._sum.units ?? 0,
+      avgUnitCost:
+        row._count._all > 0 ? (row._sum.totalCost ?? 0) / row._count._all : 0,
+      totalCost: row._sum.totalCost ?? 0,
+    }));
+
+    const userIds = Array.from(
+      new Set(byUserBillingRows.map((row) => row.userId)),
+    );
+    const users =
+      userIds.length > 0
+        ? await prisma.user.findMany({
+            where: { id: { in: userIds } },
+            select: { id: true, name: true, email: true },
+            take: userIds.length,
+          })
+        : [];
+    const usersById = new Map(users.map((user) => [user.id, user]));
+
     const byUserMap = new Map<
       string,
       {
@@ -88,25 +120,30 @@ export async function GET(request: NextRequest) {
         failed: number;
       }
     >();
-    for (const e of events) {
-      const uid = e.userId;
-      const u = e.user;
-      const existing = byUserMap.get(uid) ?? {
-        name: u.name ?? "",
-        email: u.email ?? "",
+    for (const row of byUserBillingRows) {
+      const user = usersById.get(row.userId);
+      const existing = byUserMap.get(row.userId) ?? {
+        name: user?.name ?? "",
+        email: user?.email ?? "",
         eventCount: 0,
         totalCost: 0,
         pending: 0,
         billed: 0,
         failed: 0,
       };
-      byUserMap.set(uid, {
+      byUserMap.set(row.userId, {
         ...existing,
-        eventCount: existing.eventCount + 1,
-        totalCost: existing.totalCost + (e.totalCost ?? 0),
-        pending: existing.pending + (e.billingStatus === "pending" ? 1 : 0),
-        billed: existing.billed + (e.billingStatus === "billed" ? 1 : 0),
-        failed: existing.failed + (e.billingStatus === "failed" ? 1 : 0),
+        eventCount: existing.eventCount + row._count._all,
+        totalCost: existing.totalCost + (row._sum.totalCost ?? 0),
+        pending:
+          existing.pending +
+          (row.billingStatus === "pending" ? row._count._all : 0),
+        billed:
+          existing.billed +
+          (row.billingStatus === "billed" ? row._count._all : 0),
+        failed:
+          existing.failed +
+          (row.billingStatus === "failed" ? row._count._all : 0),
       });
     }
     const byUser = Array.from(byUserMap.entries()).map(([userId, agg]) => ({
@@ -116,12 +153,15 @@ export async function GET(request: NextRequest) {
 
     // Daily cost breakdown — last 30 days clamped to the month window
     const dailyMap = new Map<string, Record<string, number>>();
-    for (const e of events) {
-      const dateStr = e.timestamp.toISOString().slice(0, 10);
+    for (const row of dailyRows) {
+      const dateStr =
+        row.date instanceof Date
+          ? row.date.toISOString().slice(0, 10)
+          : row.date;
       const existing = dailyMap.get(dateStr) ?? {};
       dailyMap.set(dateStr, {
         ...existing,
-        [e.eventType]: (existing[e.eventType] ?? 0) + (e.totalCost ?? 0),
+        [row.eventType]: (existing[row.eventType] ?? 0) + (row.totalCost ?? 0),
       });
     }
     const dailyCosts = Array.from(dailyMap.entries())
