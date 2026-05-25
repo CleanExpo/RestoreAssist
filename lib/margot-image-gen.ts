@@ -9,6 +9,7 @@
 
 import { createHash } from "crypto";
 import { GoogleGenAI } from "@google/genai";
+import { formatImageGenerateFailure } from "./margot-tool-errors";
 import { getSupabaseServerClient } from "./supabase-server";
 
 const BUCKET = "margot-generations";
@@ -96,7 +97,7 @@ export async function generateAndStoreImage(
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       return {
-        error: "image_generate failed: GEMINI_API_KEY not configured",
+        error: "image_generate is not configured",
         retryable: false,
       };
     }
@@ -105,8 +106,7 @@ export async function generateAndStoreImage(
       !process.env.SUPABASE_SERVICE_ROLE_KEY
     ) {
       return {
-        error:
-          "image_generate failed: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not configured",
+        error: "image_generate is not configured",
         retryable: false,
       };
     }
@@ -183,7 +183,7 @@ export async function generateAndStoreImage(
       });
     if (uploadErr) {
       return {
-        error: `image_generate upload failed: ${uploadErr.message}`,
+        error: "image_generate failed",
         retryable: true,
       };
     }
@@ -201,9 +201,6 @@ export async function generateAndStoreImage(
       cost_usd_approx: COST_BY_SIZE[image_size],
     };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    const retryable =
-      /rate|quota|timeout|network|ECONN|5\d\d|unavailable/i.test(msg);
-    return { error: `image_generate failed: ${msg}`, retryable };
+    return formatImageGenerateFailure(err);
   }
 }
