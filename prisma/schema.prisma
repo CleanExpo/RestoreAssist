@@ -7052,3 +7052,17 @@ model IdempotencyRecord {
   @@index([status, expiresAt])
   @@index([expiresAt])
 }
+
+/// Durable shared route rate-limit hits. Each call to `applyRateLimit`
+/// records a window-scoped hit so limits survive serverless cold starts and
+/// multi-instance execution without introducing another infrastructure
+/// dependency.
+model RateLimitHit {
+  id        String   @id @default(cuid())
+  key       String
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([key, createdAt])
+  @@index([expiresAt])
+}
