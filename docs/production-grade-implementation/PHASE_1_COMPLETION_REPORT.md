@@ -57,6 +57,7 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - OAuth callback hardening completed for the current public-route review slice: integration OAuth and Google Drive setup OAuth callbacks are now rate-limited, and generic integration callback failures no longer reflect provider exception text into redirect query parameters.
 - Authority signing token hardening completed for the current public-route review slice: signing links now reject non-UUID token shapes before database lookup, cap sibling signature metadata, narrow POST token lookup fields, and record client IP through the shared helper.
 - Client-error sink hardening completed for the current public-route review slice: public observability submissions now have a 32 KiB body-size guard, logged client fields are length-bounded, and arbitrary client payload fields are no longer spread into structured server logs.
+- Public route exception review completed for the current Priority 4 scope: all 14 remaining `public-token-route-review` warnings are documented in `API_PUBLIC_ROUTE_EXCEPTION_REVIEW_REPORT.md` with route purpose, safeguards, and the exact product/security decision still required. The scanner intentionally still reports the warnings until exceptions are formally approved or route auth policy changes are made.
 
 ## Validation Evidence
 
@@ -104,13 +105,14 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - OAuth callback hardening slice: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 8 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 14 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 838 warnings, `git diff --check` PASS.
 - Authority signing token hardening slice: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 8 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 14 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 838 warnings, `git diff --check` PASS.
 - Client-error sink hardening slice: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 8 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 14 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 838 warnings, `git diff --check` PASS.
+- Public route exception review slice: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 8 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 14 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 838 warnings, `git diff --check` PASS.
 
 ## Phase 1 Acceptance Criteria Still Open
 
 - Production forbidden-env audit is not yet green: Vercel Production lists `NODE_TLS_REJECT_UNAUTHORIZED`.
 - Live Supabase RLS revalidation still needs an authenticated check against project `udooysjajglluvuxkijp`, but the RA-4970 migration and production apply evidence are present in this branch.
 - Admin route DB-role revalidation sweep is not complete.
-- P0 query/raw SQL/error leakage routes are not fully patched; API audit currently reports 0 errors and 14 warnings, all public/token-route review warnings.
+- P0 query/raw SQL/error leakage routes have no current audit error findings; API audit currently reports 0 errors and 14 warnings, all public/token-route review warnings that are documented in `API_PUBLIC_ROUTE_EXCEPTION_REVIEW_REPORT.md` and pending product/security sign-off.
 - Shared media validator has not been migrated across canonical upload and sketch import.
 - Shared route rate limiting still uses in-memory process state, including the sketch import route now that it uses `applyRateLimit`; a distributed backend is still required for multi-instance/serverless enforcement.
 - Offline mutation idempotency foundation is client-tested and mobile package type-check is now repeatable, but server replay is not yet backed by durable database idempotency.
@@ -145,7 +147,7 @@ Cause: inherited warning-severity debt remains across public exception reviews t
 
 Fix: remediate warning groups in small commits and run `pnpm exec tsx scripts/audit-api-routes.ts --json` after each group. Treat public exception warnings as a manual security review checklist before ship.
 
-Next action: continue with warning-severity `findMany` bounds/selects where semantics are clear, then review public exception candidates for expiry, rate limit, scope, and audit events.
+Next action: use `API_PUBLIC_ROUTE_EXCEPTION_REVIEW_REPORT.md` to decide whether each remaining public route is approved as-is, needs bearer-token/session auth, or should be encoded in an approved exception registry.
 
 ## Ship Readiness
 
@@ -153,4 +155,4 @@ RestoreAssist is not ship-ready.
 
 ## Next Safe Action
 
-Continue reducing Priority 4 API audit warnings where route semantics are clear. Continue only from `/private/tmp/RestoreAssist-phase1-main` and do not stage `.github/PULL_REQUEST_TEMPLATE.md`.
+Resolve the external/manual blockers now preventing a ship-ready Phase 1 claim: Vercel Production `NODE_TLS_REJECT_UNAUTHORIZED`, live Supabase RLS revalidation, and product/security sign-off for the documented public API route exceptions. Continue only from `/private/tmp/RestoreAssist-phase1-main` and do not stage `.github/PULL_REQUEST_TEMPLATE.md`.
