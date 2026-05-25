@@ -85,6 +85,13 @@ This report prevents accidental completion claims while Phase 2 AI/workflow upgr
   - audit tests cover known pass behavior, unknown fail-closed behavior, wrapped count reporting, JSON parseability, and explicit exclusions.
   - no runtime AI behavior changed.
   - no provider, model, prompt, output shape, public-route behavior, DB write, provider call, additional AI-surface wrapping, or runtime routing change added.
+- Tenth safe implementation slice completed locally:
+  - remaining unwrapped service-layer AI helpers reviewed against the approved low-risk criteria.
+  - no further local wrapper was selected.
+  - `analytics-narrative.ts` was deferred because it is dashboard/user-facing business prose rather than internal/admin/support/interview-only.
+  - `anthropic-gateway.ts` remains deferred because it is shared provider infrastructure.
+  - report drafting/finalisation, OCR/image/evidence-media, RAG/IICRC standards retrieval, voice/realtime, public-route behavior, and unclear/high-risk output contexts remain out of scope.
+  - no `PHASE_2_AI_POLICY_WRAP_CANDIDATE_6.md` was created because no safe candidate was selected.
 
 ## Not Yet Complete
 
@@ -115,4 +122,4 @@ RestoreAssist remains **DO NOT SHIP**. Phase 2 planning does not approve product
 
 ## Next Safe Action
 
-Validate and commit the CI-wired AI guardrail audit gate. Then perform a fresh owner-reviewed candidate selection before wrapping any more AI surfaces, or document that no further local low-risk wrapper remains.
+Prepare the Phase 2 review-ready handoff and Phase 3 release-candidate plan. Do not wrap additional AI surfaces without owner-reviewed candidate selection.

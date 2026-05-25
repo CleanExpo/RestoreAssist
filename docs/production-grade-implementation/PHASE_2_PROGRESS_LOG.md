@@ -335,3 +335,20 @@ Preserved behavior:
 ## Next Safe Action
 
 Commit the CI-wired audit gate after validation. Then perform a fresh owner-reviewed candidate selection before wrapping any more AI surfaces, or document that no further local low-risk wrapper remains.
+
+## Remaining Candidate Review
+
+Reviewed unwrapped `lib/services/ai/*` surfaces after the CI-wired audit gate.
+
+Result:
+
+- no further local service-layer helper currently meets all low-risk selection criteria without owner review.
+- `analytics-narrative.ts` was the closest candidate because it has focused tests and a clear output contract, but it is dashboard/user-facing business prose rather than internal/admin/support/interview-only and is deferred.
+- `anthropic-gateway.ts` is shared provider infrastructure and remains deferred.
+- remaining helpers are excluded by current rules because they touch report drafting/finalisation, OCR/image/evidence-media, RAG/IICRC standards retrieval, voice/realtime, public-route behavior, or unclear/high-risk output contexts.
+
+No `PHASE_2_AI_POLICY_WRAP_CANDIDATE_6.md` was created because no safe candidate was selected.
+
+## Next Safe Action
+
+Prepare the Phase 2 review-ready handoff and Phase 3 release-candidate plan. Do not wrap additional AI surfaces without owner-reviewed candidate selection.

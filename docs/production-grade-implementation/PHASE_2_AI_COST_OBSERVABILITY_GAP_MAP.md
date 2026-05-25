@@ -107,9 +107,37 @@ The previously recommended low-risk candidate has now been wrapped:
 
 - `lib/services/ai/suggest-next-interview-question.ts`
 
-No further service-layer helper should be selected automatically without a fresh inventory review. The next low-risk work should either tighten the non-runtime audit/test gate or document an owner-reviewed candidate before runtime changes.
+Fresh inventory review result:
 
-`lib/services/ai/anthropic-gateway.ts` is low-level infrastructure, not a first-choice migration target. It should be instrumented only after enough service-layer call sites produce consistent metadata.
+- no further local service-layer helper currently meets all low-risk selection criteria without product/security/architecture review.
+- `lib/services/ai/analytics-narrative.ts` has focused tests and a clear string output, but it is dashboard/user-facing business prose rather than internal/admin/support/interview-only, so it is deferred.
+- `lib/services/ai/anthropic-gateway.ts` is shared infrastructure, not a first-choice migration target.
+- remaining service helpers are report drafting/finalisation, OCR/image/evidence-media, RAG/IICRC standards retrieval, or otherwise sensitive workflow areas.
+
+No further wrapper should be added until an owner-reviewed candidate is selected and a candidate report is written before code changes.
+
+## DB-Backed Usage Logging Later Candidates
+
+Do not add DB writes yet. Later DB-backed usage logging candidates should start where all of the following are true:
+
+- task policy is already selected.
+- pure usage metadata is already built.
+- tenant/account context is present or explicitly not required.
+- existing `logAiUsage` semantics match the task.
+- logging failure behavior is defined as non-user-facing.
+
+Best later candidates after review:
+
+- `lib/services/ai/generate-interview-question.ts`
+- `lib/services/ai/validate-interview-response.ts`
+- `lib/services/ai/suggest-next-interview-question.ts`
+
+Deferred logging candidates:
+
+- `lib/services/ai/draft-support-ticket.ts`
+- `lib/services/ai/analyse-support-ticket.ts`
+
+These support helpers are policy-wrapped, but do not yet attach pure usage metadata and should be handled in a separate low-risk metadata-only pass before DB logging is considered.
 
 ## Do-Not-Touch-Yet Candidates
 
@@ -154,6 +182,18 @@ Focused tests:
 5. Defer high-cost areas until policy wrapping, telemetry metadata, and focused tests are stable across low-risk services.
 6. Defer broad model routing until cost metadata and logging coverage are visible.
 
+## Before Model Routing Changes
+
+Model routing must wait until:
+
+- every routed task has an explicit policy.
+- provider/model compatibility is tested per task class.
+- fallback permission is explicit per task class.
+- max estimated cost and max token/request caps are enforced.
+- BYOK versus platform-provider behavior has owner approval.
+- rollback can restore the existing provider/model path per task.
+- high-risk task classes have domain fixtures and reviewer-approved acceptance criteria.
+
 ## Next Safe Slice
 
-Do not add DB writes yet. The next safe slice is a non-runtime audit/test gate or an owner-reviewed candidate selection pass. Shared gateways, provider routing, report generation, OCR/image, RAG/IICRC, and voice/realtime remain out of scope.
+Do not add DB writes yet. The next safe local slice is review packaging and Phase 3 release-candidate planning. Shared gateways, provider routing, report generation, OCR/image, RAG/IICRC, and voice/realtime remain out of scope until architecture review.

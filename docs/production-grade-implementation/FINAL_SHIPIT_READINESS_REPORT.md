@@ -6,6 +6,8 @@ Worktree: `/private/tmp/RestoreAssist-phase1-main`
 
 Branch: `codex/phase-1-production-readiness-clean`
 
+Current Phase 2 review branch: `codex/phase-2-ai-workflow-upgrades`
+
 ## Executive Decision
 
 RestoreAssist is **NOT currently approved for full production ship**.
@@ -108,6 +110,41 @@ Required before ship:
 - rerun `pnpm exec tsx scripts/audit-env.ts --json` on release day.
 - confirm no executable/deploy config sets `NODE_TLS_REJECT_UNAUTHORIZED=0`.
 - confirm no public service-role env names are present.
+
+## Phase 2 AI Guardrail Status
+
+Status: review-ready for Phase 2 guardrail scope, not ship approval.
+
+Current Phase 2 evidence:
+
+- AI audit command exists: `pnpm audit:ai`.
+- PR workflow runs `pnpm audit:ai` after lint and before unit tests.
+- AI audit baseline: 88 surfaces / 0 unknown task classes / 5 policy-wrapped surfaces / 66 sensitive external-provider surfaces.
+- policy-wrapped surfaces:
+  - `lib/services/ai/draft-support-ticket.ts`
+  - `lib/services/ai/analyse-support-ticket.ts`
+  - `lib/services/ai/generate-interview-question.ts`
+  - `lib/services/ai/validate-interview-response.ts`
+  - `lib/services/ai/suggest-next-interview-question.ts`
+- pure usage metadata helper exists and is tested.
+
+Phase 2 deliberately did not change:
+
+- providers.
+- model selection.
+- prompts.
+- output shapes.
+- public-route behavior.
+- DB writes.
+- provider calls.
+- runtime model routing.
+- final report generation.
+- customer-facing report generation.
+- OCR/image workflows.
+- RAG/IICRC standards retrieval.
+- voice/realtime flows.
+
+Current decision impact: Phase 2 improves reviewability and AI guardrail visibility, but does not remove Phase 1 ship blockers and does not approve production release.
 
 ## Supabase RLS Status
 
