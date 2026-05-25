@@ -41,6 +41,7 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - Sketch import upload hardening completed for the current Priority 7 slice: Vision sketch import now validates JPEG/PNG magic bytes before the AI call, uses the detected media type instead of the multipart MIME header, and no longer returns API-key/provider detail to clients.
 - Sketch import rate-limit consolidation completed for the current Priority 7 slice: Vision import throttling now uses the shared `applyRateLimit` helper keyed by `session.user.id` instead of a route-local module `Map`.
 - Auth/RBAC tenancy helper hardening completed for the current Priority 8 slice: shared report and inspection tenancy helpers now revalidate admin bypass from the DB, so stale demoted-admin JWTs no longer grant cross-tenant access.
+- Admin DB-role revalidation sweep is currently audit-green: the API scanner reports 0 `admin-db-role-revalidation` errors, and every current `app/api/admin/**/route.ts` file contains `verifyAdminFromDb(`.
 - API audit integration/pilot hardening completed: user-scoped integration metrics/health and pilot admin reads now have explicit caps/order/selects, pilot admin GET routes revalidate DB admin role, and advisory audit warnings were reduced from 32 to 28.
 - API audit estimate line-item bounds completed: estimate create/update now caps request `lineItems` at 500, and the existing line-item diff query has deterministic ordering plus an explicit `take` with fail-closed handling for legacy over-cap estimates. Advisory audit warnings were reduced from 28 to 27.
 - API audit DR-NRPG webhook lookup completed: the inbound HMAC matching query now reads at most 100 active integrations in deterministic order and selects only `id` plus `webhookSecret`. Advisory audit warnings were reduced from 27 to 26.
@@ -113,7 +114,6 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 
 - Production forbidden-env audit is not yet green: Vercel Production lists `NODE_TLS_REJECT_UNAUTHORIZED`.
 - Live Supabase RLS revalidation still needs an authenticated check against project `udooysjajglluvuxkijp`, but the RA-4970 migration and production apply evidence are present in this branch.
-- Admin route DB-role revalidation sweep is not complete.
 - P0 query/raw SQL/error leakage routes have no current audit error findings; API audit currently reports 0 errors and 14 warnings, all public/token-route review warnings that are documented in `API_PUBLIC_ROUTE_EXCEPTION_REVIEW_REPORT.md` and pending product/security sign-off.
 - Shared route rate limiting still uses in-memory process state, including the sketch import route now that it uses `applyRateLimit`; a distributed backend is still required for multi-instance/serverless enforcement.
 - Offline mutation idempotency foundation is client-tested and mobile package type-check is now repeatable, but server replay is not yet backed by durable database idempotency.
