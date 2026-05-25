@@ -5,6 +5,8 @@ import { runCronJob } from "@/lib/cron/runner";
 import { getValidXeroAccessToken } from "@/lib/services/xero/credentials";
 import { processXeroWebhookBatch } from "@/lib/integrations/xero/webhook-processor";
 
+const MAX_XERO_INTEGRATIONS_PER_CRON_RUN = 100;
+
 /**
  * GET /api/cron/sync-xero-payments — Fallback payment reconciliation for Xero
  *
@@ -68,6 +70,8 @@ async function syncXeroPaymentsOnce() {
       tenantId: true,
       userId: true,
     },
+    orderBy: { createdAt: "asc" },
+    take: MAX_XERO_INTEGRATIONS_PER_CRON_RUN,
   });
 
   for (const integration of xeroIntegrations) {

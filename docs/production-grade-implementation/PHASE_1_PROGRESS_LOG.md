@@ -222,6 +222,7 @@ Follow-up hardening pass:
 - API audit integration/pilot slice: added deterministic ordering, explicit `take` caps, and narrower selects to user-scoped integration metrics/health reads and pilot readiness/observation admin reads. Pilot readiness and observation listing now use `verifyAdminFromDb` instead of trusting stale JWT role claims. Advisory audit warnings reduced from 32 to 28. Final validation: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 28 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 839 warnings, `git diff --check` PASS.
 - API audit estimate line-item bounds slice: added a 500-line-item request cap to estimate create/update and bounded the existing estimate line-item diff query with deterministic ordering plus a fail-closed legacy over-cap check, preserving full diff semantics instead of truncating deletes/updates. Advisory audit warnings reduced from 28 to 27. Final validation: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 27 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 839 warnings, `git diff --check` PASS.
 - API audit DR-NRPG webhook lookup slice: bounded the active DR-NRPG integration scan used for HMAC matching, added deterministic ordering, and narrowed the selected fields to `id` plus `webhookSecret`. Advisory audit warnings reduced from 27 to 26. Final validation: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 26 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 839 warnings, `git diff --check` PASS.
+- API audit cron integration bounds slice: bounded invoice-sync and Xero payment reconciliation integration scans to 100 deterministic records per cron run, and made the invoice-sync per-integration invoice batch oldest-updated-first with an explicit 50-invoice constant. Advisory audit warnings reduced from 26 to 24. Final validation: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 24 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 839 warnings, `git diff --check` PASS.
 
 ## Failing Or Blocked Checks
 
@@ -247,7 +248,7 @@ Next action: run `vercel env rm NODE_TLS_REJECT_UNAUTHORIZED production --scope 
 
 ### API route audit inherited findings
 
-Error: advisory API route scan reports 0 error-severity findings and 26 warning-severity findings.
+Error: advisory API route scan reports 0 error-severity findings and 24 warning-severity findings.
 
 Cause: error-severity auth/raw-SQL/500-leak findings have been remediated or classified as documented public exception candidates. Recent slices removed false positives and high-confidence unbounded list/import/detail/workflow/bulk support/export reads, but warning-severity inherited debt remains across public exception reviews and heavier Prisma `findMany` candidates that need route-specific product/security decisions.
 

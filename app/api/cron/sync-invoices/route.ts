@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { queueInvoiceSync } from "@/lib/integrations/sync-queue";
 import { verifyCronAuth } from "@/lib/cron/auth";
 
+const MAX_INTEGRATIONS_PER_CRON_RUN = 100;
+const MAX_INVOICES_PER_INTEGRATION = 50;
+
 /**
  * GET /api/cron/sync-invoices - Scheduled invoice sync cron job
  *
@@ -33,6 +36,8 @@ export async function GET(request: NextRequest) {
         userId: true,
         lastSyncAt: true,
       },
+      orderBy: { createdAt: "asc" },
+      take: MAX_INTEGRATIONS_PER_CRON_RUN,
     });
 
     if (integrations.length === 0) {
@@ -88,7 +93,8 @@ export async function GET(request: NextRequest) {
             invoiceNumber: true,
             status: true,
           },
-          take: 50, // Limit to 50 per integration per run
+          orderBy: { updatedAt: "asc" },
+          take: MAX_INVOICES_PER_INTEGRATION,
         });
 
         if (invoices.length === 0) {
