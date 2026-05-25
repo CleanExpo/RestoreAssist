@@ -58,6 +58,7 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - Authority signing token hardening completed for the current public-route review slice: signing links now reject non-UUID token shapes before database lookup, cap sibling signature metadata, narrow POST token lookup fields, and record client IP through the shared helper.
 - Client-error sink hardening completed for the current public-route review slice: public observability submissions now have a 32 KiB body-size guard, logged client fields are length-bounded, and arbitrary client payload fields are no longer spread into structured server logs.
 - Public route exception review completed for the current Priority 4 scope: all 14 remaining `public-token-route-review` warnings are documented in `API_PUBLIC_ROUTE_EXCEPTION_REVIEW_REPORT.md` with route purpose, safeguards, and the exact product/security decision still required. The scanner intentionally still reports the warnings until exceptions are formally approved or route auth policy changes are made.
+- Shared image upload validator completed for the current upload-hardening scope: canonical image upload and Vision sketch import now share `lib/media/validate-image-upload.ts` for magic-byte detection, declared MIME allowlist checks, and size caps while preserving route-specific media policies.
 
 ## Validation Evidence
 
@@ -106,6 +107,7 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - Authority signing token hardening slice: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 8 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 14 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 838 warnings, `git diff --check` PASS.
 - Client-error sink hardening slice: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 8 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 14 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 838 warnings, `git diff --check` PASS.
 - Public route exception review slice: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 8 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 14 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 838 warnings, `git diff --check` PASS.
+- Shared image upload validator slice: `pnpm exec vitest run lib/media/__tests__/validate-image-upload.test.ts app/api/inspections/[id]/sketches/import-from-image/__tests__/route.test.ts` PASS with 2 files / 7 tests, `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 8 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 14 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 838 warnings, `git diff --check` PASS.
 
 ## Phase 1 Acceptance Criteria Still Open
 
@@ -113,7 +115,6 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - Live Supabase RLS revalidation still needs an authenticated check against project `udooysjajglluvuxkijp`, but the RA-4970 migration and production apply evidence are present in this branch.
 - Admin route DB-role revalidation sweep is not complete.
 - P0 query/raw SQL/error leakage routes have no current audit error findings; API audit currently reports 0 errors and 14 warnings, all public/token-route review warnings that are documented in `API_PUBLIC_ROUTE_EXCEPTION_REVIEW_REPORT.md` and pending product/security sign-off.
-- Shared media validator has not been migrated across canonical upload and sketch import.
 - Shared route rate limiting still uses in-memory process state, including the sketch import route now that it uses `applyRateLimit`; a distributed backend is still required for multi-instance/serverless enforcement.
 - Offline mutation idempotency foundation is client-tested and mobile package type-check is now repeatable, but server replay is not yet backed by durable database idempotency.
 

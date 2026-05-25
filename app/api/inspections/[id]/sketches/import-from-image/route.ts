@@ -18,6 +18,7 @@ import { getWorkspaceForUser } from "@/lib/workspace/provider-connections";
 import { logAiUsage, estimateCostUsd } from "@/lib/usage/log-usage";
 import { importSketchFromImage } from "@/lib/services/ai/import-sketch-from-image";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { validateImageUpload } from "@/lib/media/validate-image-upload";
 
 // RA-1707 / P0-2 — Vision call costs roughly $0.005-0.012 per image at
 // claude-sonnet-4-x pricing (depends on image dimensions). We assume the
@@ -26,25 +27,9 @@ import { applyRateLimit } from "@/lib/rate-limiter";
 const VISION_COST_ESTIMATE_USD = 0.012;
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
-const ALLOWED_TYPES = new Set(["image/jpeg", "image/png"]);
+const ALLOWED_TYPES = ["image/jpeg", "image/png"] as const;
 const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
-
-function detectAllowedImageMediaType(
-  buffer: Buffer,
-): "image/jpeg" | "image/png" | null {
-  const isJpeg =
-    buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
-  const isPng =
-    buffer[0] === 0x89 &&
-    buffer[1] === 0x50 &&
-    buffer[2] === 0x4e &&
-    buffer[3] === 0x47;
-
-  if (isJpeg) return "image/jpeg";
-  if (isPng) return "image/png";
-  return null;
-}
 
 interface Room {
   label: string;
@@ -122,29 +107,28 @@ export async function POST(
     return NextResponse.json({ error: "Missing file field" }, { status: 400 });
   }
 
-  if (!ALLOWED_TYPES.has(file.type)) {
-    return NextResponse.json(
-      { error: "Unsupported file type — use JPEG or PNG" },
-      { status: 400 },
-    );
-  }
-
-  if (file.size > MAX_FILE_BYTES) {
+  const arrayBuffer = await file.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+  const imageCheck = validateImageUpload({
+    declaredType: file.type,
+    sizeBytes: file.size,
+    buffer,
+    maxBytes: MAX_FILE_BYTES,
+    allowedTypes: ALLOWED_TYPES,
+  });
+  if (!imageCheck.ok && imageCheck.reason === "too-large") {
     return NextResponse.json(
       { error: "File too large — maximum 10 MB" },
       { status: 400 },
     );
   }
-
-  const arrayBuffer = await file.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
-  const mediaType = detectAllowedImageMediaType(buffer);
-  if (!mediaType) {
+  if (!imageCheck.ok) {
     return NextResponse.json(
       { error: "Unsupported file type — use JPEG or PNG" },
       { status: 400 },
     );
   }
+  const mediaType = imageCheck.mediaType as (typeof ALLOWED_TYPES)[number];
 
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
   if (!apiKey) {
