@@ -25,6 +25,9 @@ import {
 import { z } from "zod";
 import { withIdempotency } from "@/lib/idempotency";
 
+const VISION_PROVIDER_CONFIGURATION_ERROR =
+  "Vision provider is not configured";
+
 // ─── Request validation ───────────────────────────────────────────────────────
 
 const VisionRequestSchema = z.object({
@@ -94,7 +97,11 @@ export async function POST(request: NextRequest) {
         error instanceof Error ? error.message : "Vision analysis failed";
 
       if (message.includes("No AI provider") || message.includes("API key")) {
-        return NextResponse.json({ error: message }, { status: 402 });
+        console.error("[vision] Provider configuration error:", error);
+        return NextResponse.json(
+          { error: VISION_PROVIDER_CONFIGURATION_ERROR },
+          { status: 402 },
+        );
       }
 
       console.error("[vision] Analysis error:", error);
