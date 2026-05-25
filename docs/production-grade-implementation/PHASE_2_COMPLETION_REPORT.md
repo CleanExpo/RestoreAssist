@@ -76,6 +76,14 @@ This report prevents accidental completion claims while Phase 2 AI/workflow upgr
   - pure usage metadata attached without DB persistence.
   - existing Haiku 4.5 -> 3.5 fallback chain, prompt, request shape, max token value, parse fallback behavior, and output shape preserved.
   - no DB writes, new provider calls, public-route behavior changes, final report changes, customer-facing report changes, voice/realtime changes, OCR/image changes, RAG/IICRC changes, or broad runtime routing added.
+- Ninth safe implementation slice completed locally:
+  - non-runtime AI guardrail audit gate added as `pnpm audit:ai`.
+  - gate fails on unknown AI task classes.
+  - current baseline remains 88 AI surfaces, 0 unknown task classes, 5 policy-wrapped surfaces, and 66 sensitive external-provider surfaces.
+  - audit report now includes guardrail summary, wrapped count, sensitive external-provider count, pass/fail status, and explicit false-positive exclusions.
+  - audit tests cover known pass behavior, unknown fail-closed behavior, wrapped count reporting, JSON parseability, and explicit exclusions.
+  - no runtime AI behavior changed.
+  - no provider, model, prompt, output shape, public-route behavior, DB write, provider call, additional AI-surface wrapping, or runtime routing change added.
 
 ## Not Yet Complete
 
@@ -106,4 +114,4 @@ RestoreAssist remains **DO NOT SHIP**. Phase 2 planning does not approve product
 
 ## Next Safe Action
 
-Validate and commit the `suggest-next-interview-question.ts` policy/metadata wrapper. After this slice, prefer a non-runtime audit/test gate or explicit owner-reviewed candidate selection before wrapping more AI surfaces.
+Validate and commit the AI guardrail audit gate. After review, add `pnpm audit:ai` to CI or perform a fresh owner-reviewed candidate selection before wrapping any more AI surfaces.

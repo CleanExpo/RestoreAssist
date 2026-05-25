@@ -292,3 +292,45 @@ Preserved behavior:
 ## Next Safe Action
 
 Validate and commit the suggest-next policy/metadata wrapper. After this slice, prefer a non-runtime audit/test gate or explicit owner-reviewed candidate selection before wrapping more AI surfaces.
+
+## AI Guardrail Audit Gate Slice
+
+Added non-runtime AI guardrail audit gate:
+
+- command: `pnpm audit:ai`.
+- implementation: `tsx scripts/audit-ai-call-sites.ts --gate`.
+- gate fails when any detected AI/provider/RAG surface has `taskClass: "unknown"`.
+- gate reports policy-wrapped surface count.
+- gate reports sensitive external-provider surface count.
+- JSON output remains available through `pnpm exec tsx scripts/audit-ai-call-sites.ts --json`.
+- false-positive exclusions remain explicit through `guardrailSummary.ignoredFilePatterns`.
+
+Current baseline:
+
+- AI surfaces: 88.
+- unknown task classes: 0.
+- policy-wrapped surfaces: 5.
+- sensitive external-provider surfaces: 66.
+- files scanned: 1,194.
+
+Tests added/updated:
+
+- known task classes pass.
+- unknown task class summary fails closed.
+- wrapped count is reported.
+- JSON report shape remains parseable.
+- false-positive exclusions are explicit.
+
+Preserved behavior:
+
+- no runtime AI behavior changed.
+- no provider/model/prompt/output changes.
+- no public route behavior changes.
+- no DB writes.
+- no provider calls added.
+- no runtime model routing.
+- no additional AI surfaces wrapped in this slice.
+
+## Next Safe Action
+
+Commit the audit gate after validation. After review, add `pnpm audit:ai` to CI or perform a fresh owner-reviewed candidate selection before wrapping any more AI surfaces.

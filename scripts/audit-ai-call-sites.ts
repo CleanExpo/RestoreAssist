@@ -23,8 +23,17 @@ export interface AiCallSiteFinding {
   maxRequestGuardrail: boolean;
   executionMode: "synchronous" | "queued" | "background" | "unknown";
   sendsSensitiveDataExternally: boolean;
+  policyWrapped: boolean;
   evidence: string[];
   notes: string;
+}
+
+export interface AiCallSiteGuardrailSummary {
+  unknownTaskClassCount: number;
+  policyWrappedCount: number;
+  sensitiveExternalProviderCount: number;
+  ignoredFilePatterns: string[];
+  pass: boolean;
 }
 
 export interface AiCallSiteAuditReport {
@@ -33,6 +42,7 @@ export interface AiCallSiteAuditReport {
   callSiteCount: number;
   providerCounts: Record<AiProviderFamily, number>;
   taskClassCounts: Record<AiTaskClass, number>;
+  guardrailSummary: AiCallSiteGuardrailSummary;
   findings: AiCallSiteFinding[];
 }
 
@@ -47,6 +57,10 @@ const IGNORED_FILE_PATTERNS = [
   ".spec.tsx",
   "scripts/audit-ai-call-sites.ts",
 ];
+
+export function getAiAuditIgnoredFilePatterns(): string[] {
+  return [...IGNORED_FILE_PATTERNS];
+}
 
 function normalisePath(file: string): string {
   return file.split(path.sep).join("/");
@@ -82,6 +96,10 @@ function unique<T>(items: T[]): T[] {
 
 function includesAny(content: string, needles: string[]): boolean {
   return needles.some((needle) => content.includes(needle));
+}
+
+function hasTaskPolicyCall(content: string): boolean {
+  return /\brequireAiTaskPolicy\(\s*["'][a-z_]+["']/.test(content);
 }
 
 function detectProviderFamilies(content: string): AiProviderFamily[] {
@@ -253,6 +271,8 @@ export function auditAiCallSite(file: string, content: string): AiCallSiteFindin
   if (!hasAiSurface) return null;
 
   const evidence = [
+    hasTaskPolicyCall(content) ? "policy-wrapper" : "",
+    content.includes("buildAiUsageMetadata(") ? "usage-metadata" : "",
     content.includes("checkWorkspaceBudget(") ? "budget-check" : "",
     content.includes("logAiUsage(") || content.includes("aiUsageLog") ? "usage-log" : "",
     /\bmax_tokens\b|\bmaxTokens\b|\bmaxOutputTokens\b|\bmaxInputTokens\b/.test(content)
@@ -284,11 +304,30 @@ export function auditAiCallSite(file: string, content: string): AiCallSiteFindin
       providerFamilies.some((provider) =>
         ["anthropic", "openai", "gemini", "byok"].includes(provider),
       ) && !normalized.includes("__tests__"),
+    policyWrapped: hasTaskPolicyCall(content),
     evidence,
     notes:
       taskClass === "unknown"
         ? "AI/provider surface detected but task class could not be inferred from filename/content."
         : "Detected by static source scan; review before migrating runtime behavior.",
+  };
+}
+
+export function buildAiCallSiteGuardrailSummary(
+  findings: AiCallSiteFinding[],
+): AiCallSiteGuardrailSummary {
+  const unknownTaskClassCount = findings.filter(
+    (finding) => finding.taskClass === "unknown",
+  ).length;
+
+  return {
+    unknownTaskClassCount,
+    policyWrappedCount: findings.filter((finding) => finding.policyWrapped).length,
+    sensitiveExternalProviderCount: findings.filter(
+      (finding) => finding.sendsSensitiveDataExternally,
+    ).length,
+    ignoredFilePatterns: getAiAuditIgnoredFilePatterns(),
+    pass: unknownTaskClassCount === 0,
   };
 }
 
@@ -332,6 +371,7 @@ export function auditAiCallSites(rootDir = process.cwd()): AiCallSiteAuditReport
       findings.filter((finding) => finding.taskClass === taskClass).length,
     ]),
   ) as Record<AiTaskClass, number>;
+  const guardrailSummary = buildAiCallSiteGuardrailSummary(findings);
 
   return {
     scannedAt: new Date().toISOString(),
@@ -339,6 +379,7 @@ export function auditAiCallSites(rootDir = process.cwd()): AiCallSiteAuditReport
     callSiteCount: findings.length,
     providerCounts,
     taskClassCounts,
+    guardrailSummary,
     findings,
   };
 }
@@ -347,6 +388,11 @@ function printTextReport(report: AiCallSiteAuditReport): void {
   console.log("# AI Call-Site Audit");
   console.log(`Files scanned: ${report.fileCount}`);
   console.log(`AI surfaces found: ${report.callSiteCount}`);
+  console.log(`Policy-wrapped surfaces: ${report.guardrailSummary.policyWrappedCount}`);
+  console.log(
+    `Sensitive external-provider surfaces: ${report.guardrailSummary.sensitiveExternalProviderCount}`,
+  );
+  console.log(`Unknown task classes: ${report.guardrailSummary.unknownTaskClassCount}`);
   console.log("");
   console.log("Provider counts:");
   for (const [provider, count] of Object.entries(report.providerCounts)) {
@@ -362,6 +408,7 @@ function printTextReport(report: AiCallSiteAuditReport): void {
     console.log(`- ${finding.file}`);
     console.log(`  providers: ${finding.providerFamilies.join(", ")}`);
     console.log(`  task: ${finding.taskClass}`);
+    console.log(`  policy wrapped: ${finding.policyWrapped ? "yes" : "no"}`);
     console.log(`  guardrails: ${finding.evidence.length ? finding.evidence.join(", ") : "none detected"}`);
   }
 }
@@ -372,5 +419,11 @@ if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
     console.log(JSON.stringify(report, null, 2));
   } else {
     printTextReport(report);
+  }
+  if (process.argv.includes("--gate") && !report.guardrailSummary.pass) {
+    console.error(
+      `AI guardrail audit failed: ${report.guardrailSummary.unknownTaskClassCount} unknown task class finding(s).`,
+    );
+    process.exitCode = 1;
   }
 }
