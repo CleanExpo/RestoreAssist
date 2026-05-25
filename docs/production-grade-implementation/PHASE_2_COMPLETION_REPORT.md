@@ -18,14 +18,26 @@ This report is a placeholder to prevent accidental completion claims while Phase
 - Existing AI service layer and provider usage inspected.
 - Phase 2 start report created.
 - Phase 2 execution plan created.
-- First safe implementation slice queued with no application code changes.
+- Initial Phase 2 planning docs committed in `0c621772`.
+- First safe implementation slice started:
+  - non-runtime AI call-site audit script added.
+  - task-policy map added.
+  - audit/task-policy tests added.
+  - AI call-site inventory report added.
+- First safe implementation slice validated:
+  - focused audit tests pass.
+  - root type-check passes.
+  - lint passes with existing warnings.
+  - API audit remains 442 routes / 0 errors / 14 warnings.
+  - mobile type-check passes.
+  - whitespace check passes.
 
 ## Not Yet Complete
 
 - Provider-neutral gateway implementation.
 - Central task policy.
-- AI call-site inventory artifact or tests.
-- Model routing tests.
+- Reviewed false-positive/false-negative pass over the AI call-site inventory.
+- Runtime model routing tests for migrated calls.
 - Cost guardrail tests for migrated calls.
 - RAG false-citation eval gate.
 - OCR/image pipeline improvements.
@@ -48,4 +60,4 @@ RestoreAssist remains **DO NOT SHIP**. Phase 2 planning does not approve product
 
 ## Next Safe Action
 
-Add a narrow AI call-site inventory/task-policy test slice, validate it, and only then begin migrating low-risk AI calls through a central gateway.
+Review the inventory for false positives/negatives, then migrate one low-risk AI task through policy guardrails without changing provider, prompt, or public route behavior.
