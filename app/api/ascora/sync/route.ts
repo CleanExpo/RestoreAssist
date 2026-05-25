@@ -542,6 +542,8 @@ export async function POST(request: NextRequest) {
       const dbJobRows = await (prisma as any).ascoraJob.findMany({
         where: { ascoraJobId: { in: [...importedJobIdSet] } },
         select: { id: true, ascoraJobId: true },
+        orderBy: { ascoraJobId: "asc" },
+        take: importedJobIdSet.size,
       });
       const ascoraIdToDbId = new Map(
         dbJobRows.map((r: any) => [r.ascoraJobId, r.id]),

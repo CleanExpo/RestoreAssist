@@ -226,6 +226,7 @@ Follow-up hardening pass:
 - API audit invoice sequence repair slice: replaced two P2002 invoice-sequence repair scans with deterministic single-record latest invoice lookups in manual invoice creation and inspection invoice generation. Advisory audit warnings reduced from 24 to 22. Final validation: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 22 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 839 warnings, `git diff --check` PASS.
 - API audit invoice analytics aggregate slice: replaced unbounded invoice hydration in analytics totals/status counts with Prisma aggregate and groupBy queries while preserving total revenue, outstanding, draft, paid-this-month, overdue, and status-count semantics. Advisory audit warnings reduced from 22 to 21. Final validation: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 21 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 838 warnings, `git diff --check` PASS.
 - API audit admin usage aggregate slice: replaced month-wide usage event hydration with exact aggregate/groupBy queries and one bounded user metadata lookup, preserving MTD totals, billing counts, event-type summaries, user summaries, and daily cost breakdown. Advisory audit warnings reduced from 21 to 20. Final validation: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 20 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 838 warnings, `git diff --check` PASS.
+- API audit Ascora imported-job lookup slice: bounded the imported Ascora job foreign-key lookup to the size of the imported job ID set and added deterministic ordering. Advisory audit warnings reduced from 20 to 19. Final validation: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 19 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 838 warnings, `git diff --check` PASS.
 
 ## Failing Or Blocked Checks
 
@@ -251,9 +252,9 @@ Next action: run `vercel env rm NODE_TLS_REJECT_UNAUTHORIZED production --scope 
 
 ### API route audit inherited findings
 
-Error: advisory API route scan reports 0 error-severity findings and 20 warning-severity findings.
+Error: advisory API route scan reports 0 error-severity findings and 19 warning-severity findings.
 
-Cause: error-severity auth/raw-SQL/500-leak findings have been remediated or classified as documented public exception candidates. Recent slices removed false positives and high-confidence unbounded list/import/detail/workflow/bulk support/export reads, but warning-severity inherited debt remains across public exception reviews and heavier Prisma `findMany` candidates that need route-specific product/security decisions.
+Cause: error-severity auth/raw-SQL/500-leak findings have been remediated or classified as documented public exception candidates. Recent slices removed false positives and high-confidence unbounded list/import/detail/workflow/bulk support/export reads, but warning-severity inherited debt remains across public exception reviews and a heavier Prisma `findMany` candidate that needs route-specific product/security decisions.
 
 Fix: continue remediating warning groups in narrow commits, then run the scanner without `--strict` to verify count reduction. `--strict` can now be considered for error-severity findings only, but warnings still need manual review before ship.
 
