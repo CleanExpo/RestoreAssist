@@ -16,6 +16,14 @@ import { applyRateLimit, getClientIp } from "@/lib/rate-limiter";
 
 export const dynamic = "force-dynamic";
 
+const MAX_CLIENT_ERROR_BODY_BYTES = 32 * 1024;
+const MAX_LOG_FIELD_LENGTH = 2000;
+
+function boundedString(value: unknown, fallback: string): string {
+  if (typeof value !== "string") return fallback;
+  return value.slice(0, MAX_LOG_FIELD_LENGTH);
+}
+
 export async function POST(request: NextRequest) {
   const rateLimited = await applyRateLimit(request, {
     windowMs: 60 * 1000,
@@ -24,6 +32,14 @@ export async function POST(request: NextRequest) {
     key: getClientIp(request),
   });
   if (rateLimited) return rateLimited;
+
+  const contentLength = Number(request.headers.get("content-length") ?? "0");
+  if (contentLength > MAX_CLIENT_ERROR_BODY_BYTES) {
+    return NextResponse.json(
+      { ok: false, error: "payload too large" },
+      { status: 413 },
+    );
+  }
 
   let body: Record<string, unknown>;
   try {
@@ -39,14 +55,13 @@ export async function POST(request: NextRequest) {
   console.error(
     "[client-error]",
     JSON.stringify({
-      message: body.message ?? "(no message)",
-      name: body.name ?? "UnknownError",
-      stack: body.stack,
-      url: body.url,
-      userAgent: body.userAgent,
+      message: boundedString(body.message, "(no message)"),
+      name: boundedString(body.name, "UnknownError"),
+      stack: boundedString(body.stack, ""),
+      url: boundedString(body.url, ""),
+      userAgent: boundedString(body.userAgent, ""),
       ip: getClientIp(request),
       timestamp: new Date().toISOString(),
-      ...body,
     }),
   );
 
