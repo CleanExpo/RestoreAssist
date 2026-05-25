@@ -10,6 +10,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
 
+const MAX_MISSING_ELEMENTS_SUMMARY_ROWS = 5000;
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -43,30 +45,46 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    // Get all missing elements
+    const totalMissingElements = await prisma.missingElement.count({ where });
+    const billableTotals = await prisma.missingElement.aggregate({
+      where: {
+        ...where,
+        isBillable: true,
+      },
+      _sum: {
+        estimatedCost: true,
+        estimatedHours: true,
+      },
+    });
+
     const missingElements = await prisma.missingElement.findMany({
       where,
-      include: {
+      select: {
+        analysisId: true,
+        category: true,
+        elementName: true,
+        elementType: true,
+        severity: true,
+        isBillable: true,
+        estimatedCost: true,
+        estimatedHours: true,
+        description: true,
         analysis: {
           select: {
-            id: true,
             fileName: true,
             technicianName: true,
-            batch: {
-              select: {
-                folderName: true,
-              },
-            },
           },
         },
       },
+      orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+      take: MAX_MISSING_ELEMENTS_SUMMARY_ROWS,
     });
 
     // Aggregate by category
     const byCategory = new Map<string, any>();
     const byElement = new Map<string, any>();
-    let totalBillableValue = 0;
-    let totalBillableHours = 0;
+    const totalBillableValue = billableTotals._sum.estimatedCost ?? 0;
+    const totalBillableHours = billableTotals._sum.estimatedHours ?? 0;
 
     missingElements.forEach((element) => {
       // Aggregate by category
@@ -92,8 +110,6 @@ export async function GET(request: NextRequest) {
         categoryData.billableCount++;
         categoryData.totalBillableValue += element.estimatedCost || 0;
         categoryData.totalBillableHours += element.estimatedHours || 0;
-        totalBillableValue += element.estimatedCost || 0;
-        totalBillableHours += element.estimatedHours || 0;
       }
 
       // Aggregate by specific element
@@ -138,7 +154,11 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       summary: {
-        totalMissingElements: missingElements.length,
+        totalMissingElements,
+        rowsReturned: missingElements.length,
+        isTruncated:
+          totalMissingElements > MAX_MISSING_ELEMENTS_SUMMARY_ROWS,
+        rowLimit: MAX_MISSING_ELEMENTS_SUMMARY_ROWS,
         totalBillableValue,
         totalBillableHours,
         categoriesCount: byCategory.size,
