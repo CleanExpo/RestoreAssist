@@ -50,7 +50,9 @@ Live Vercel env names/scopes were inspected from a temporary directory outside t
 
 Created `docs/production-grade-implementation/VERCEL_TLS_ENV_VERIFICATION_REPORT.md`. Priority 2 was documented as a live production env blocker: remove the production variable or provide audited proof its value is not `0` and harmless. No secrets were pulled or printed into repo docs.
 
-Latest authenticated Vercel correction removed the Production variable with `vercel env rm NODE_TLS_REJECT_UNAUTHORIZED production --scope unite-group --yes`. Follow-up `vercel env ls production --scope unite-group`, `vercel env ls preview --scope unite-group`, and `vercel env ls development --scope unite-group` no longer list `NODE_TLS_REJECT_UNAUTHORIZED`. No env values were pulled. Remaining runtime action: deploy/promote production so the served runtime receives a fresh env snapshot.
+Latest authenticated Vercel correction removed the Production variable with `vercel env rm NODE_TLS_REJECT_UNAUTHORIZED production --scope unite-group --yes`. Follow-up `vercel env ls production --scope unite-group`, `vercel env ls preview --scope unite-group`, and `vercel env ls development --scope unite-group` no longer list `NODE_TLS_REJECT_UNAUTHORIZED`. No env values were pulled.
+
+Production runtime refresh is complete: redeployed the previous production deployment with `vercel redeploy https://restoreassist-q1jnwop0f-unite-group.vercel.app --target production --scope unite-group`. New deployment `https://restoreassist-lsy4h48b0-unite-group.vercel.app` / `dpl_E74G3FfRAJkxmHGz3VFsBrNhSRmh` is `Ready`, aliased to `https://restoreassist.app`, and `curl -I https://restoreassist.app` returned `HTTP/2 200`.
 
 Added the SEC-002 local forbidden-env audit gate:
 
@@ -308,16 +310,6 @@ Follow-up hardening pass:
 
 ## Failing Or Blocked Checks
 
-### Vercel production TLS runtime refresh
-
-Error: Vercel project env configuration no longer lists `NODE_TLS_REJECT_UNAUTHORIZED`, but the currently served production deployment may still have an older env snapshot until redeployed.
-
-Cause: Vercel environment changes apply to new deployments; existing deployments are not proven refreshed by env-list removal alone.
-
-Fix: run a production deployment after the env removal and verify runtime behavior. Prefer a scoped Ascora TLS trust strategy over process-wide certificate verification bypass if Ascora integration fails.
-
-Next action: create or promote a production deployment without the deleted variable in its env snapshot, then confirm the live runtime no longer has `NODE_TLS_REJECT_UNAUTHORIZED`.
-
 ### API route audit inherited findings
 
 Error: advisory API route scan reports 0 error-severity findings and 14 warning-severity findings.
@@ -343,4 +335,4 @@ Next action: use `API_PUBLIC_ROUTE_EXCEPTION_REVIEW_REPORT.md` to decide whether
 
 ## Next Safe Action
 
-Resolve the external/manual blockers now preventing a ship-ready Phase 1 claim: production redeploy/runtime confirmation after Vercel TLS env removal and product/security sign-off for the documented public API route exceptions. Keep using `/private/tmp/RestoreAssist-phase1-main` only, and do not stage `.github/PULL_REQUEST_TEMPLATE.md`.
+Resolve the external/manual blockers now preventing a ship-ready Phase 1 claim: product/security sign-off for the documented public API route exceptions and mobile simulator/device validation. Keep using `/private/tmp/RestoreAssist-phase1-main` only, and do not stage `.github/PULL_REQUEST_TEMPLATE.md`.

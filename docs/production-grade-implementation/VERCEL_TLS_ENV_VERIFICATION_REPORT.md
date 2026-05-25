@@ -93,15 +93,29 @@ Vercel env values are encrypted in `vercel env ls`. I did not run `vercel env pu
 
 ## Blocker Status
 
-Status: RESOLVED for Vercel project env configuration. `NODE_TLS_REJECT_UNAUTHORIZED` is no longer listed in Production, Preview, or Development.
+Status: RESOLVED for Vercel project env configuration and production runtime refresh. `NODE_TLS_REJECT_UNAUTHORIZED` is no longer listed in Production, Preview, or Development.
 
-Remaining runtime note: existing Vercel deployments may retain the old environment snapshot until a new production deployment is created. Do not claim runtime-level remediation for the currently served deployment until a production redeploy has completed and runtime environment evidence is checked.
+Runtime refresh performed:
+
+```bash
+vercel redeploy https://restoreassist-q1jnwop0f-unite-group.vercel.app --target production --scope unite-group
+```
+
+Result:
+
+- new deployment: `https://restoreassist-lsy4h48b0-unite-group.vercel.app`
+- deployment ID: `dpl_E74G3FfRAJkxmHGz3VFsBrNhSRmh`
+- target: Production
+- status: Ready
+- created: 2026-05-25 16:11:28 AEST
+- aliases include `https://restoreassist.app`
+- production HTTP check: `curl -I https://restoreassist.app` returned `HTTP/2 200`
 
 Cause: historical Ascora self-signed/non-standard certificate workaround was documented as a production env option and appears to have been applied.
 
 Fix applied: removed the Production env var. If Ascora needs custom trust handling, implement a dedicated, reviewed TLS trust strategy. Do not use a process-wide TLS verification bypass for production.
 
-Next action: create or promote a production deployment without the deleted variable in its environment snapshot, then verify the live runtime no longer has `NODE_TLS_REJECT_UNAUTHORIZED`.
+Next action: monitor Ascora/Xero/integration runtime logs for TLS failures after the env removal. If failures occur, roll forward with scoped trust for the affected integration rather than re-adding `NODE_TLS_REJECT_UNAUTHORIZED`.
 
 ## Manual Verification Commands
 
@@ -149,12 +163,12 @@ Then replace the Ascora workaround with one of these reviewed options:
 
 ## Rollback Notes
 
-Removing `NODE_TLS_REJECT_UNAUTHORIZED` restores normal Node TLS certificate verification for new deployments that receive the updated env snapshot. If Ascora calls fail after removal, roll forward with a scoped Ascora TLS fix or disable the Ascora sync feature path temporarily. Do not roll back by re-adding a global production TLS bypass without explicit owner sign-off and incident-risk acceptance.
+Removing `NODE_TLS_REJECT_UNAUTHORIZED` restores normal Node TLS certificate verification for deployments that receive the updated env snapshot. If Ascora calls fail after removal, roll forward with a scoped Ascora TLS fix or disable the Ascora sync feature path temporarily. Do not roll back by re-adding a global production TLS bypass without explicit owner sign-off and incident-risk acceptance.
 
 ## Decision
 
-Priority 2 is corrected at the Vercel project env configuration layer. The repo does not execute or document the bypass directly, and Vercel Production, Preview, and Development no longer list the dangerous env var by name.
+Priority 2 is corrected. The repo does not execute or document the bypass directly, Vercel Production, Preview, and Development no longer list the dangerous env var by name, and Production has been redeployed after removal.
 
 ## Next Safe Action
 
-Run a production deployment so the live runtime gets a fresh environment snapshot, then confirm runtime behavior. Keep the local env audit green with `pnpm exec tsx scripts/audit-env.ts --json`.
+Monitor integration runtime behavior after the TLS env removal and keep the local env audit green with `pnpm exec tsx scripts/audit-env.ts --json`.
