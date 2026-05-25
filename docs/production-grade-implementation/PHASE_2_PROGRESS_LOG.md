@@ -135,6 +135,7 @@ Latest focused validation:
 - `pnpm exec vitest run lib/services/ai/__tests__/draft-support-ticket.test.ts`: PASS, 1 file / 6 tests.
 - `pnpm exec vitest run lib/services/ai/__tests__/analyse-support-ticket.test.ts`: PASS, 1 file / 6 tests.
 - `pnpm exec vitest run lib/ai/__tests__/usage-metadata.test.ts`: PASS, 1 file / 5 tests.
+- `pnpm exec vitest run lib/services/ai/__tests__/validate-interview-response.test.ts`: PASS, 1 file / 6 tests.
 - `pnpm type-check`: PASS.
 - `pnpm lint`: PASS with 0 errors and 838 existing warnings.
 - `git diff --check`: PASS.
@@ -190,6 +191,36 @@ Preserved behavior:
 - no new provider calls.
 - no report, voice, OCR/image, or RAG workflow changed.
 
+## Interview Validation Policy And Metadata Slice
+
+Selected candidate:
+
+- `lib/services/ai/validate-interview-response.ts`
+- rejected fallback: `lib/services/ai/suggest-next-interview-question.ts`, deferred because the validation helper has the clearer bounded output contract for preservation tests.
+- task class: `fast_classification`
+- provider: existing Anthropic fallback gateway
+- model selection: unchanged explicit Haiku 4.5 -> 3.5 fallback chain
+- max output tokens: unchanged at `1200`
+
+Added:
+
+- `PHASE_2_AI_POLICY_WRAP_CANDIDATE_4.md`
+- policy lookup via `fast_classification`
+- pure usage metadata build with `providerFamily: "anthropic-platform"` and `userId: "system"`
+- preservation tests in `lib/services/ai/__tests__/validate-interview-response.test.ts`
+
+Preserved behavior:
+
+- no provider selection change.
+- no model selection change.
+- no prompt change.
+- no user message shape change.
+- no output shape change.
+- no public route behavior change.
+- no DB writes.
+- no new provider calls.
+- no final report, customer-facing report, voice, OCR/image, or RAG retrieval workflow changed.
+
 ## Next Safe Action
 
-Run final slice validation, commit the interview question policy/metadata wrapper, then consider `suggest-next-interview-question.ts` or `validate-interview-response.ts` as the next low-risk candidate.
+Run final slice validation, commit the interview validation policy/metadata wrapper, then consider `suggest-next-interview-question.ts` as the next low-risk candidate.
