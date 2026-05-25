@@ -81,23 +81,34 @@ WHERE schemaname='public' AND rowsecurity=false
 ORDER BY tablename;
 ```
 
-The aggregate count recheck and security advisor recheck were attempted, but the Supabase pooler began rejecting temporary CLI login connections with `ECIRCUITBREAKER` after repeated advisor/query authentication failures. The strongest completed live evidence in this turn is therefore:
+Final live aggregate recheck result:
+
+```json
+{
+  "rls_off": 0,
+  "rls_on": 198,
+  "anon_select_policies": 12
+}
+```
+
+Security advisor recheck:
+
+```text
+No issues found
+```
+
+Completed live evidence:
 
 - before fix: `rls_off=1`, `rls_on=197`, `anon_select_policies=12`
 - drift table identified: `XeroSyncStatus`
 - fix applied: `ALTER TABLE public."XeroSyncStatus" ENABLE ROW LEVEL SECURITY` through the committed migration file
-- after fix: `SELECT tablename ... rowsecurity=false` returned no rows
+- after fix: `rls_off=0`, `rls_on=198`, `anon_select_policies=12`
+- security advisor: no ERROR-level findings returned by `supabase db advisors --linked --type security --level error --fail-on none`
 
 ## Remaining Blocker
 
-Error: Supabase security advisor ERROR-level recheck was not completed after the drift repair.
-
-Cause: Supabase CLI temporary pooler login began failing with `ECIRCUITBREAKER` after advisor/query auth retries.
-
-Fix: wait for the Supabase pooler auth circuit breaker to clear, then rerun the aggregate RLS count and security advisor checks.
-
-Next action: confirm `rls_off=0`, `rls_on=198`, `anon_select_policies=12`, and `0` ERROR-level security advisor findings with live Supabase access.
+None for Supabase RLS P0.
 
 ## Decision
 
-Phase 1 RLS implementation now includes the original RA-4970 closeout plus the `XeroSyncStatus` drift repair. Live RLS disabled-table verification is green by row listing, but security advisor confirmation remains blocked by the temporary Supabase pooler auth circuit breaker.
+Phase 1 RLS implementation now includes the original RA-4970 closeout plus the `XeroSyncStatus` drift repair. Live RLS aggregate counts and security advisor verification are green.

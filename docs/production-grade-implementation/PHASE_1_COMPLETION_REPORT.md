@@ -25,7 +25,7 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - Runtime DDL paths were removed from admin migrate-v2 and Ascora sync; both now require Prisma migrations to own schema setup.
 - Codex Stop hook repaired and trusted with `bash .codex/hooks/stop-verifier.sh`.
 - Supabase RLS P0 local/code validation completed from safe-branch RA-4970 artifacts: original migration present, production apply log records `rls_off=0`, and post-apply security advisor evidence records 0 ERROR-level findings.
-- Supabase RLS live revalidation found one post-RA-4970 drift table, `XeroSyncStatus`; added and applied `supabase/migrations/20260525061000_enable_rls_xero_sync_status.sql`. Post-fix disabled-table listing returned no rows. Aggregate count and security advisor rechecks remain pending because Supabase CLI temporary pooler login hit `ECIRCUITBREAKER`.
+- Supabase RLS live revalidation found one post-RA-4970 drift table, `XeroSyncStatus`; added and applied `supabase/migrations/20260525061000_enable_rls_xero_sync_status.sql`. Post-fix disabled-table listing returned no rows, final aggregate count returned `rls_off=0`, `rls_on=198`, `anon_select_policies=12`, and security advisor ERROR-level recheck returned `No issues found`.
 - Checkout correction report committed from the verified safe worktree.
 - Vercel TLS env verification and correction completed for project env configuration: repo does not execute or document the bypass directly, and authenticated Vercel CLI removal means Production, Preview, and Development no longer list `NODE_TLS_REJECT_UNAUTHORIZED`. `VERCEL_TLS_ENV_VERIFICATION_REPORT.md` documents the evidence and remaining runtime redeploy note.
 - SEC-002 local forbidden-env audit gate added: `scripts/audit-env.ts` fails on executable/deploy-config `NODE_TLS_REJECT_UNAUTHORIZED=0`, missing required `.env.example` entries, and public service-role env names. Current local repo audit has 0 errors and 0 warnings after replacing unsafe Ascora TLS-bypass guidance with scoped-trust guidance.
@@ -170,22 +170,12 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 ## Phase 1 Acceptance Criteria Still Open
 
 - Production forbidden-env config is green at the Vercel project env listing layer: local repo audit has 0 error findings, and Vercel Production/Preview/Development no longer list `NODE_TLS_REJECT_UNAUTHORIZED`. Runtime confirmation still requires a new production deployment after the env removal.
-- Supabase RLS disabled-table drift has been repaired for `XeroSyncStatus`; security advisor ERROR-level revalidation still needs to be rerun against project `udooysjajglluvuxkijp` after the Supabase pooler auth circuit breaker clears.
+- Supabase RLS disabled-table drift has been repaired for `XeroSyncStatus`; live aggregate and security advisor revalidation are green.
 - P0 query/raw SQL/error leakage routes have no current audit error findings; API audit currently reports 0 errors and 14 warnings, all public/token-route review warnings that are documented in `API_PUBLIC_ROUTE_EXCEPTION_REVIEW_REPORT.md` and pending product/security sign-off.
 - Shared route rate limiting now uses Prisma-backed `RateLimitHit` records through `applyRateLimit`; only the low-level synchronous compatibility helper and DB-unavailable fallback path remain process-local.
 - Offline mutation idempotency foundation is client-tested, JSON mutation replay is backed by durable database idempotency through `withIdempotency`, multipart evidence-photo replay dedupe is backed by durable fingerprint-based idempotency, the `ClientMutation`/`FieldCaptureEvent` model spine now exists, inspection evidence, environmental-data, moisture-reading, and affected-area JSON mutations write the `ClientMutation` ledger, mobile conflict responses fail fast instead of retrying known-impossible writes, and mobile online/offline state is backed by API reachability. Remaining gap is device/emulator integration coverage.
 
 ## Current Blockers
-
-### Supabase RLS advisor revalidation
-
-Error: security advisor ERROR-level recheck was not completed after the `XeroSyncStatus` drift repair.
-
-Cause: Supabase CLI temporary pooler login began failing with `ECIRCUITBREAKER` after advisor/query auth retries.
-
-Fix: wait for the Supabase pooler auth circuit breaker to clear, then rerun the aggregate RLS count and security advisor checks.
-
-Next action: confirm `rls_off=0`, `rls_on=198`, `anon_select_policies=12`, and `0` ERROR-level security advisor findings with live Supabase access.
 
 ### Vercel production TLS runtime refresh
 
@@ -223,4 +213,4 @@ RestoreAssist is not ship-ready.
 
 ## Next Safe Action
 
-Resolve the external/manual blockers now preventing a ship-ready Phase 1 claim: production redeploy/runtime confirmation after Vercel TLS env removal, Supabase security advisor revalidation after the `XeroSyncStatus` RLS repair, product/security sign-off for the documented public API route exceptions, and mobile simulator/device validation from `MOBILE_DEVICE_VALIDATION_BLOCKER_REPORT.md`. Continue only from `/private/tmp/RestoreAssist-phase1-main` and do not stage `.github/PULL_REQUEST_TEMPLATE.md`.
+Resolve the external/manual blockers now preventing a ship-ready Phase 1 claim: production redeploy/runtime confirmation after Vercel TLS env removal, product/security sign-off for the documented public API route exceptions, and mobile simulator/device validation from `MOBILE_DEVICE_VALIDATION_BLOCKER_REPORT.md`. Continue only from `/private/tmp/RestoreAssist-phase1-main` and do not stage `.github/PULL_REQUEST_TEMPLATE.md`.

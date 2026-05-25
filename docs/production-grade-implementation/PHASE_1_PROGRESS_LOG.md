@@ -34,7 +34,7 @@ Live Supabase RLS revalidation was later available through the authenticated Sup
 
 Added and applied `supabase/migrations/20260525061000_enable_rls_xero_sync_status.sql`, enabling RLS on `public."XeroSyncStatus"` with default-deny browser behaviour. `supabase db push --linked --dry-run` could not be used because remote Supabase migration history contains historical versions absent from this branch's local `supabase/migrations` directory, so the exact committed migration SQL was applied via `supabase db query --linked --file`.
 
-Post-fix disabled-table query returned no rows for `schemaname='public' AND rowsecurity=false`. Aggregate count and security advisor rechecks were attempted, but the Supabase CLI pooler temporary login began returning `ECIRCUITBREAKER` after repeated auth failures. Remaining RLS action: rerun the aggregate query and security advisor after the pooler circuit breaker clears; expected count is now `rls_off=0`, `rls_on=198`, `anon_select_policies=12`.
+Post-fix disabled-table query returned no rows for `schemaname='public' AND rowsecurity=false`. Final aggregate recheck returned `rls_off=0`, `rls_on=198`, `anon_select_policies=12`. `supabase db advisors --linked --type security --level error --fail-on none` returned `No issues found`.
 
 ### INF-005: Vercel TLS Env Verification
 
@@ -308,16 +308,6 @@ Follow-up hardening pass:
 
 ## Failing Or Blocked Checks
 
-### Supabase RLS advisor revalidation
-
-Error: security advisor ERROR-level recheck was not completed after the `XeroSyncStatus` drift repair.
-
-Cause: Supabase CLI temporary pooler login began failing with `ECIRCUITBREAKER` after advisor/query auth retries.
-
-Fix: wait for the Supabase pooler auth circuit breaker to clear, then rerun the aggregate RLS count and security advisor checks.
-
-Next action: confirm `rls_off=0`, `rls_on=198`, `anon_select_policies=12`, and `0` ERROR-level security advisor findings with live Supabase access.
-
 ### Vercel production TLS runtime refresh
 
 Error: Vercel project env configuration no longer lists `NODE_TLS_REJECT_UNAUTHORIZED`, but the currently served production deployment may still have an older env snapshot until redeployed.
@@ -353,4 +343,4 @@ Next action: use `API_PUBLIC_ROUTE_EXCEPTION_REVIEW_REPORT.md` to decide whether
 
 ## Next Safe Action
 
-Resolve the external/manual blockers now preventing a ship-ready Phase 1 claim: production redeploy/runtime confirmation after Vercel TLS env removal, Supabase security advisor revalidation after the `XeroSyncStatus` RLS repair, and product/security sign-off for the documented public API route exceptions. Keep using `/private/tmp/RestoreAssist-phase1-main` only, and do not stage `.github/PULL_REQUEST_TEMPLATE.md`.
+Resolve the external/manual blockers now preventing a ship-ready Phase 1 claim: production redeploy/runtime confirmation after Vercel TLS env removal and product/security sign-off for the documented public API route exceptions. Keep using `/private/tmp/RestoreAssist-phase1-main` only, and do not stage `.github/PULL_REQUEST_TEMPLATE.md`.
