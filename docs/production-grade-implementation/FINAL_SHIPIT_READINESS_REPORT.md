@@ -23,6 +23,8 @@ This report does not start `/shipit`. It records the current blocked ship-readin
 - `docs/production-grade-implementation/VERCEL_TLS_ENV_VERIFICATION_REPORT.md`
 - `docs/production-grade-implementation/RA-4970_RLS_VALIDATION_REPORT.md`
 - `docs/production-grade-implementation/MOBILE_VALIDATION_PATH_REPORT.md`
+- `docs/production-grade-implementation/STAGE_2_EXTERNAL_BLOCKER_CLOSURE_PLAN.md`
+- `docs/production-grade-implementation/STAGE_2_BLOCKER_CLOSURE_REPORT.md`
 
 ## Root Validation Status
 
@@ -41,6 +43,21 @@ Required before ship:
 
 - rerun the full validation gate after public-route decisions and mobile device validation are complete.
 - treat any new validation failure as a `DO NOT SHIP` result until fixed or explicitly accepted by release ownership.
+
+## Stage 2 External Blocker Closure Status
+
+Status: some external blockers are now verified or assigned, but RestoreAssist is still not approved for ship.
+
+Stage 2 results:
+
+- Vercel TLS: current live env-name verification confirms `NODE_TLS_REJECT_UNAUTHORIZED` is absent from Production, Preview, and Development; `https://restoreassist.app` returned `HTTP/2 200`.
+- Supabase RLS: current live security advisor returned `No issues found`; current public-table aggregate returned `rls_off=0`, `rls_on=198`.
+- Supabase anon-policy listing: still assigned as release-day/manual revalidation because a follow-up live policy-list query hit a Supabase temp-role auth circuit breaker.
+- Public routes: all 14 warnings remain visible and assigned to product/security owner decisions; no warnings were hidden or suppressed.
+- Mobile offline: still assigned as manual simulator/device evidence because this shell lacks `simctl`, `emulator`, `adb`, `ANDROID_HOME`, and `ANDROID_SDK_ROOT`.
+- Protected PR template artifact: remains dirty and must still be handled outside this branch.
+
+Current decision impact: Stage 2 improves evidence and assignment clarity, but does not change the recommended current decision: **DO NOT SHIP**.
 
 ## Mobile Validation Status
 
@@ -94,7 +111,7 @@ Required before ship:
 
 ## Supabase RLS Status
 
-Status: currently green from latest live evidence; final release-day live revalidation is still required before ship.
+Status: currently green for live advisor and table-state evidence; final release-day live revalidation is still required before ship.
 
 Recorded live evidence:
 
@@ -103,6 +120,8 @@ Recorded live evidence:
 - `supabase/migrations/20260525061000_enable_rls_xero_sync_status.sql` was added and applied.
 - final aggregate recheck returned `rls_off=0`, `rls_on=198`, `anon_select_policies=12`.
 - Supabase security advisor recheck returned `No issues found`.
+- Stage 2 recheck returned `No issues found`.
+- Stage 2 public-table aggregate returned `rls_off=0`, `rls_on=198`.
 
 Remaining live revalidation requirement:
 
@@ -113,6 +132,7 @@ supabase db advisors --linked --workdir /private/tmp/ra-supabase-rls-check --typ
 ```
 
 - if credentialed DB query access is available, rerun the public-table RLS aggregate and require `rls_off=0`.
+- rerun anon-policy listing after the Supabase temp-role auth breaker clears or with approved `SUPABASE_DB_PASSWORD` handling, and confirm anon policies are still limited to the documented public-reference policy set.
 
 Current decision impact: Supabase RLS is not the active blocker, but ship approval still requires final live revalidation evidence.
 
@@ -132,6 +152,8 @@ Recorded evidence:
 - post-removal Vercel env listings showed `NODE_TLS_REJECT_UNAUTHORIZED` absent from Production, Preview, and Development.
 - production was redeployed after removal.
 - `https://restoreassist.app` returned `HTTP/2 200`.
+- Stage 2 env-name verification confirmed `NODE_TLS_REJECT_UNAUTHORIZED` absent from Production, Preview, and Development.
+- Stage 2 production HTTPS check returned `HTTP/2 200`.
 
 Required production env decision:
 
@@ -157,7 +179,7 @@ Rollback notes:
 
 ## Mobile Offline Simulator/Device Requirement
 
-Status: open blocker.
+Status: open blocker assigned to manual simulator/device validation.
 
 Local test coverage proves the queue and replay invariants in unit/integration scope, but it does not prove real mobile network behavior.
 
@@ -177,9 +199,15 @@ Required evidence:
 
 Current decision impact: full production ship is blocked until this evidence is attached or a business owner explicitly accepts shipping with this external blocker.
 
+Stage 2 tooling result:
+
+- `xcrun simctl list devices available` failed because `simctl` is unavailable.
+- `emulator` and `adb` are not on `PATH`.
+- `ANDROID_HOME` and `ANDROID_SDK_ROOT` are empty.
+
 ## Public Route Exception Sign-Off Requirement
 
-Status: open blocker.
+Status: open blocker assigned to product/security decisions.
 
 All 14 remaining API audit warnings are `public-token-route-review`. They are not audit errors, but they are unauthenticated/public surfaces that require owner decisions before a full ship claim.
 
@@ -192,6 +220,12 @@ Required evidence:
 - API audit is rerun after decisions and any code/config changes.
 
 Current decision impact: full production ship is blocked until this sign-off is complete.
+
+Stage 2 classification result:
+
+- 10 routes are classified as intentional public-route candidates pending owner approval.
+- 4 routes require explicit product/security or operations/security decision because their public exposure policy may need stronger auth, bearer-token monitoring auth, or tighter exception documentation.
+- no public-route behavior was changed in Stage 2 because the remaining warnings are acceptance decisions, not obvious code-only defects.
 
 ## Protected PR Template Artifact
 
@@ -258,4 +292,3 @@ Immediate next actions:
 3. Rerun Vercel TLS, Supabase RLS, and env audit release-day checks.
 4. Rerun the full validation gate from `PHASE_1_EXTERNAL_BLOCKER_HANDOFF.md`.
 5. Confirm `.github/PULL_REQUEST_TEMPLATE.md` remains unstaged.
-
