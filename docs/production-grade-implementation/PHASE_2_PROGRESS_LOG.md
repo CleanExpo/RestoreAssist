@@ -299,6 +299,7 @@ Added non-runtime AI guardrail audit gate:
 
 - command: `pnpm audit:ai`.
 - implementation: `tsx scripts/audit-ai-call-sites.ts --gate`.
+- CI wiring: `.github/workflows/pr-checks.yml` now runs `pnpm audit:ai` after lint and before unit tests.
 - gate fails when any detected AI/provider/RAG surface has `taskClass: "unknown"`.
 - gate reports policy-wrapped surface count.
 - gate reports sensitive external-provider surface count.
@@ -333,4 +334,4 @@ Preserved behavior:
 
 ## Next Safe Action
 
-Commit the audit gate after validation. After review, add `pnpm audit:ai` to CI or perform a fresh owner-reviewed candidate selection before wrapping any more AI surfaces.
+Commit the CI-wired audit gate after validation. Then perform a fresh owner-reviewed candidate selection before wrapping any more AI surfaces, or document that no further local low-risk wrapper remains.

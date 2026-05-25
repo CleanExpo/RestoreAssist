@@ -89,7 +89,7 @@ Fail:
 
 ## CI Recommendation
 
-Add `pnpm audit:ai` to PR validation after the current Phase 2 branch is reviewed. Suggested order:
+`pnpm audit:ai` is now wired into `.github/workflows/pr-checks.yml` after lint and before unit tests. Suggested PR gate order:
 
 1. `pnpm type-check`
 2. `pnpm lint`
@@ -104,6 +104,7 @@ Do not make CI fail on policy-wrapped count yet. The current adoption target is 
 Revert only:
 
 - `package.json` script entry `audit:ai`.
+- `.github/workflows/pr-checks.yml` AI guardrail audit step.
 - guardrail summary and gate-mode additions in `scripts/audit-ai-call-sites.ts`.
 - added audit test cases in `scripts/__tests__/audit-ai-call-sites.test.ts`.
 - this report and Phase 2 documentation updates.
@@ -114,7 +115,7 @@ Rollback does not require data migration because the gate is static, non-runtime
 
 Use the gate as a PR review signal. The next safe Phase 2 slice should either:
 
-- add CI wiring for `pnpm audit:ai` after reviewer approval, or
-- perform a fresh owner-reviewed candidate selection before wrapping another low-risk AI helper.
+- perform a fresh owner-reviewed candidate selection before wrapping another low-risk AI helper, or
+- document that no further low-risk helper exists without product/security/architecture review.
 
 Do not proceed to DB-backed usage logging, model routing, OCR/image, RAG/IICRC, voice/realtime, final report generation, or customer-facing report generation until the relevant architecture and evidence gates are approved.

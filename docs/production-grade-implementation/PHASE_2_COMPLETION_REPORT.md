@@ -78,6 +78,7 @@ This report prevents accidental completion claims while Phase 2 AI/workflow upgr
   - no DB writes, new provider calls, public-route behavior changes, final report changes, customer-facing report changes, voice/realtime changes, OCR/image changes, RAG/IICRC changes, or broad runtime routing added.
 - Ninth safe implementation slice completed locally:
   - non-runtime AI guardrail audit gate added as `pnpm audit:ai`.
+  - PR workflow now runs `pnpm audit:ai` after lint and before unit tests.
   - gate fails on unknown AI task classes.
   - current baseline remains 88 AI surfaces, 0 unknown task classes, 5 policy-wrapped surfaces, and 66 sensitive external-provider surfaces.
   - audit report now includes guardrail summary, wrapped count, sensitive external-provider count, pass/fail status, and explicit false-positive exclusions.
@@ -114,4 +115,4 @@ RestoreAssist remains **DO NOT SHIP**. Phase 2 planning does not approve product
 
 ## Next Safe Action
 
-Validate and commit the AI guardrail audit gate. After review, add `pnpm audit:ai` to CI or perform a fresh owner-reviewed candidate selection before wrapping any more AI surfaces.
+Validate and commit the CI-wired AI guardrail audit gate. Then perform a fresh owner-reviewed candidate selection before wrapping any more AI surfaces, or document that no further local low-risk wrapper remains.
