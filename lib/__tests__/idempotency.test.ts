@@ -13,11 +13,28 @@ const idempotencyDb = vi.hoisted(() => {
     responseContentType: string | null;
     expiresAt: Date;
   };
+  type ClientMutationValue = {
+    workspaceId: string;
+    userId: string | null;
+    inspectionId: string | null;
+    mutationId: string;
+    mutationType: string;
+    method: string;
+    path: string;
+    requestHash: string;
+    status: string;
+    responseStatus: number | null;
+    responseBody: string | null;
+    errorCode: string | null;
+    completedAt: Date | null;
+  };
 
   const records = new Map<string, RecordValue>();
+  const clientMutations = new Map<string, ClientMutationValue>();
 
   return {
     records,
+    clientMutations,
     idempotencyRecord: {
       async create({ data }: { data: RecordValue }) {
         if (records.has(data.cacheKey)) {
@@ -80,18 +97,49 @@ const idempotencyDb = vi.hoisted(() => {
         return { count: 0 };
       },
     },
+    clientMutation: {
+      async create({ data }: { data: ClientMutationValue }) {
+        const key = `${data.workspaceId}:${data.mutationId}`;
+        if (clientMutations.has(key)) throw { code: "P2002" };
+        clientMutations.set(key, {
+          ...data,
+          userId: data.userId ?? null,
+          inspectionId: data.inspectionId ?? null,
+          responseStatus: data.responseStatus ?? null,
+          responseBody: data.responseBody ?? null,
+          errorCode: data.errorCode ?? null,
+          completedAt: data.completedAt ?? null,
+        });
+        return clientMutations.get(key);
+      },
+      async updateMany({
+        where,
+        data,
+      }: {
+        where: { workspaceId: string; mutationId: string };
+        data: Partial<ClientMutationValue>;
+      }) {
+        const key = `${where.workspaceId}:${where.mutationId}`;
+        const existing = clientMutations.get(key);
+        if (!existing) return { count: 0 };
+        clientMutations.set(key, { ...existing, ...data });
+        return { count: 1 };
+      },
+    },
   };
 });
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     idempotencyRecord: idempotencyDb.idempotencyRecord,
+    clientMutation: idempotencyDb.clientMutation,
   },
 }));
 
 import {
   withIdempotency,
   getIdempotencyKey,
+  getClientMutationId,
   __resetIdempotencyStore,
 } from "../idempotency";
 
@@ -142,8 +190,35 @@ describe("getIdempotencyKey", () => {
   });
 });
 
+describe("getClientMutationId", () => {
+  it("returns ok:true mutationId:null when header absent", () => {
+    const r = getClientMutationId(makeReq({ a: 1 }));
+    expect(r).toEqual({ ok: true, mutationId: null });
+  });
+
+  it("accepts a valid mobile mutation id", () => {
+    const r = getClientMutationId(
+      makeReq(
+        { a: 1 },
+        { "x-restoreassist-mutation-id": "ra-mobile-12345" },
+      ),
+    );
+    expect(r).toEqual({ ok: true, mutationId: "ra-mobile-12345" });
+  });
+
+  it("rejects mutation ids with whitespace", () => {
+    const r = getClientMutationId(
+      makeReq({ a: 1 }, { "x-restoreassist-mutation-id": "bad id 123" }),
+    );
+    expect(r.ok).toBe(false);
+  });
+});
+
 describe("withIdempotency", () => {
-  beforeEach(() => __resetIdempotencyStore());
+  beforeEach(() => {
+    idempotencyDb.clientMutations.clear();
+    return __resetIdempotencyStore();
+  });
 
   it("passes through when no key supplied", async () => {
     let calls = 0;
@@ -257,6 +332,41 @@ describe("withIdempotency", () => {
 
     release();
     expect((await first).status).toBe(200);
+  });
+
+  it("records ClientMutation ledger rows for mobile mutation ids", async () => {
+    const headers = {
+      "idempotency-key": "key-ledger1",
+      "x-restoreassist-mutation-id": "ra-ledger-1",
+    };
+
+    const response = await withIdempotency(
+      makeReq({ a: 1 }, headers, "/api/inspections/i_1/evidence"),
+      "u",
+      async () => NextResponse.json({ ok: true }, { status: 201 }),
+      {
+        clientMutation: {
+          workspaceId: "ws_1",
+          userId: "u",
+          inspectionId: "i_1",
+          mutationType: "evidence-item",
+        },
+      },
+    );
+
+    const mutation = idempotencyDb.clientMutations.get("ws_1:ra-ledger-1");
+    expect(response.status).toBe(201);
+    expect(mutation).toMatchObject({
+      workspaceId: "ws_1",
+      userId: "u",
+      inspectionId: "i_1",
+      mutationId: "ra-ledger-1",
+      mutationType: "evidence-item",
+      method: "POST",
+      path: "/api/inspections/i_1/evidence",
+      status: "COMPLETE",
+      responseStatus: 201,
+    });
   });
 
   it("rejects malformed keys with 400", async () => {

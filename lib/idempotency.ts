@@ -24,6 +24,7 @@ import { prisma } from "@/lib/prisma";
  */
 
 const KEY_HEADER = "idempotency-key";
+const MUTATION_ID_HEADER = "x-restoreassist-mutation-id";
 const TTL_MS = 24 * 60 * 60 * 1000; // 24h — matches Stripe
 const MAX_KEY_LEN = 255;
 const MIN_KEY_LEN = 8;
@@ -37,6 +38,15 @@ interface CachedResponse {
   contentType: string;
   fingerprint: string;
   expiresAt: number;
+}
+
+interface ClientMutationLedgerInput {
+  workspaceId: string;
+  userId?: string | null;
+  inspectionId?: string | null;
+  mutationId?: string | null;
+  mutationType: string;
+  clientCreatedAt?: Date | null;
 }
 
 /**
@@ -64,6 +74,28 @@ export function getIdempotencyKey(
     };
   }
   return { ok: true, key };
+}
+
+export function getClientMutationId(
+  req: NextRequest,
+): { ok: true; mutationId: string | null } | { ok: false; reason: string } {
+  const raw = req.headers.get(MUTATION_ID_HEADER);
+  if (raw === null) return { ok: true, mutationId: null };
+  const mutationId = raw.trim();
+  if (mutationId.length < MIN_KEY_LEN || mutationId.length > MAX_KEY_LEN) {
+    return {
+      ok: false,
+      reason: `X-RestoreAssist-Mutation-Id must be ${MIN_KEY_LEN}–${MAX_KEY_LEN} chars`,
+    };
+  }
+  if (!/^[\x21-\x7E]+$/.test(mutationId)) {
+    return {
+      ok: false,
+      reason:
+        "X-RestoreAssist-Mutation-Id must be printable ASCII with no spaces",
+    };
+  }
+  return { ok: true, mutationId };
 }
 
 function fingerprintBody(method: string, path: string, body: string): string {
@@ -108,6 +140,86 @@ function isCompleteRecord(record: {
 async function cleanupExpiredIdempotencyRecords(now: Date): Promise<void> {
   await prisma.idempotencyRecord.deleteMany({
     where: { expiresAt: { lt: now } },
+  });
+}
+
+async function createClientMutationLedger({
+  clientMutation,
+  method,
+  path,
+  requestHash,
+}: {
+  clientMutation?: ClientMutationLedgerInput;
+  method: string;
+  path: string;
+  requestHash: string;
+}): Promise<void> {
+  if (!clientMutation?.mutationId) return;
+
+  try {
+    await prisma.clientMutation.create({
+      data: {
+        workspaceId: clientMutation.workspaceId,
+        userId: clientMutation.userId ?? null,
+        inspectionId: clientMutation.inspectionId ?? null,
+        mutationId: clientMutation.mutationId,
+        mutationType: clientMutation.mutationType,
+        method,
+        path,
+        requestHash,
+        status: "PENDING",
+        clientCreatedAt: clientMutation.clientCreatedAt ?? null,
+      },
+    });
+  } catch (err) {
+    if (!isUniqueViolation(err)) throw err;
+  }
+}
+
+async function completeClientMutationLedger({
+  clientMutation,
+  responseStatus,
+  responseBody,
+}: {
+  clientMutation?: ClientMutationLedgerInput;
+  responseStatus: number;
+  responseBody?: string | null;
+}): Promise<void> {
+  if (!clientMutation?.mutationId) return;
+
+  await prisma.clientMutation.updateMany({
+    where: {
+      workspaceId: clientMutation.workspaceId,
+      mutationId: clientMutation.mutationId,
+    },
+    data: {
+      status: responseStatus >= 400 ? "REJECTED" : "COMPLETE",
+      responseStatus,
+      responseBody: responseBody ?? null,
+      completedAt: new Date(),
+    },
+  });
+}
+
+async function failClientMutationLedger({
+  clientMutation,
+  errorCode,
+}: {
+  clientMutation?: ClientMutationLedgerInput;
+  errorCode: string;
+}): Promise<void> {
+  if (!clientMutation?.mutationId) return;
+
+  await prisma.clientMutation.updateMany({
+    where: {
+      workspaceId: clientMutation.workspaceId,
+      mutationId: clientMutation.mutationId,
+    },
+    data: {
+      status: "FAILED",
+      errorCode,
+      completedAt: new Date(),
+    },
   });
 }
 
@@ -196,6 +308,7 @@ export async function withIdempotencyFingerprint({
   method,
   path,
   fingerprint,
+  clientMutation,
   handler,
 }: {
   scope: string;
@@ -203,6 +316,7 @@ export async function withIdempotencyFingerprint({
   method: string;
   path: string;
   fingerprint: string;
+  clientMutation?: ClientMutationLedgerInput;
   handler: () => Promise<NextResponse>;
 }): Promise<NextResponse> {
   if (!key) return handler();
@@ -245,22 +359,41 @@ export async function withIdempotencyFingerprint({
     return responseFromCache(reservation.response);
   }
 
+  await createClientMutationLedger({
+    clientMutation,
+    method,
+    path,
+    requestHash: requestFingerprint,
+  });
+
   let response: NextResponse;
   try {
     response = await handler();
   } catch (err) {
     await prisma.idempotencyRecord.deleteMany({ where: { cacheKey } });
+    await failClientMutationLedger({
+      clientMutation,
+      errorCode: "HANDLER_THROW",
+    });
     throw err;
   }
 
   if (response.status >= 500) {
     await prisma.idempotencyRecord.deleteMany({ where: { cacheKey } });
+    await failClientMutationLedger({
+      clientMutation,
+      errorCode: `HTTP_${response.status}`,
+    });
     return response;
   }
 
   const clonedBody = await response.clone().text();
   if (clonedBody.length > MAX_BODY_CACHE_BYTES) {
     await prisma.idempotencyRecord.deleteMany({ where: { cacheKey } });
+    await completeClientMutationLedger({
+      clientMutation,
+      responseStatus: response.status,
+    });
     return response;
   }
 
@@ -274,6 +407,12 @@ export async function withIdempotencyFingerprint({
         response.headers.get("content-type") || "application/json",
       expiresAt: new Date(now.getTime() + TTL_MS),
     },
+  });
+
+  await completeClientMutationLedger({
+    clientMutation,
+    responseStatus: response.status,
+    responseBody: clonedBody,
   });
 
   return response;
@@ -302,10 +441,18 @@ export async function withIdempotency(
   req: NextRequest,
   scope: string,
   handler: (parsedBody: string) => Promise<NextResponse>,
+  options: { clientMutation?: Omit<ClientMutationLedgerInput, "mutationId"> } = {},
 ): Promise<NextResponse> {
   const keyResult = getIdempotencyKey(req);
   if (!keyResult.ok) {
     return NextResponse.json({ error: keyResult.reason }, { status: 400 });
+  }
+  const mutationIdResult = getClientMutationId(req);
+  if (!mutationIdResult.ok) {
+    return NextResponse.json(
+      { error: mutationIdResult.reason },
+      { status: 400 },
+    );
   }
 
   const bodyText = await req.text();
@@ -326,6 +473,12 @@ export async function withIdempotency(
     method: req.method,
     path: req.nextUrl.pathname,
     fingerprint,
+    clientMutation: options.clientMutation
+      ? {
+          ...options.clientMutation,
+          mutationId: mutationIdResult.mutationId,
+        }
+      : undefined,
     handler: () => handler(bodyText),
   });
 }
