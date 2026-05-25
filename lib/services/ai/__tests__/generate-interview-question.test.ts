@@ -15,6 +15,21 @@ vi.mock("@/lib/anthropic/features/prompt-cache", () => ({
   }),
 }));
 
+vi.mock("@/lib/ai/usage-metadata", () => ({
+  buildAiUsageMetadata: vi.fn(() => ({
+    blocked: false,
+    taskClass: "fast_classification",
+    providerFamily: "anthropic-platform",
+    maxEstimatedCostUsd: 0.02,
+    tenantContextStatus: "present",
+    requiresUsageLogging: true,
+    requiresBudgetCheck: true,
+    allowsFallback: true,
+  })),
+}));
+
+import { requireAiTaskPolicy } from "@/lib/ai/task-policy";
+import { buildAiUsageMetadata } from "@/lib/ai/usage-metadata";
 import {
   generateInterviewQuestion,
   type ConversationMessage,
@@ -46,6 +61,7 @@ describe("generateInterviewQuestion", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(callAnthropicWithFallback).mockReset();
+    vi.mocked(buildAiUsageMetadata).mockClear();
   });
 
   it("returns ok with parsed question + isComplete when response is valid JSON", async () => {
@@ -143,6 +159,70 @@ describe("generateInterviewQuestion", () => {
         agentName: "QuestionGenerator",
         enableCacheMetrics: true,
       }),
+    );
+  });
+
+  it("uses fast classification policy metadata without changing the gateway request", async () => {
+    vi.mocked(callAnthropicWithFallback).mockResolvedValueOnce({
+      ok: true,
+      data: mockTextMessage('{"question":"X","isComplete":false}') as any,
+    });
+
+    const policy = requireAiTaskPolicy("fast_classification");
+
+    await generateInterviewQuestion({
+      apiKey: "sk-preserve",
+      conversation: SHORT_CONVERSATION,
+    });
+
+    expect(policy).toEqual(
+      expect.objectContaining({
+        taskClass: "fast_classification",
+        maxEstimatedCostUsd: 0.02,
+        requiresUsageLogging: true,
+        requiresBudgetCheck: true,
+        allowsFallback: true,
+      }),
+    );
+    expect(buildAiUsageMetadata).toHaveBeenCalledTimes(1);
+    expect(buildAiUsageMetadata).toHaveBeenCalledWith({
+      taskClass: "fast_classification",
+      providerFamily: "anthropic-platform",
+      tenantContext: { userId: "system" },
+      executionMode: "synchronous",
+    });
+    expect(callAnthropicWithFallback).toHaveBeenCalledTimes(1);
+    expect(callAnthropicWithFallback).toHaveBeenCalledWith({
+      userId: "system",
+      apiKey: "sk-preserve",
+      request: {
+        system: [
+          expect.objectContaining({
+            type: "text",
+            text: expect.stringContaining(
+              "You are a professional water damage restoration assistant",
+            ),
+          }),
+        ],
+        max_tokens: 500,
+        messages: [
+          { role: "assistant", content: "What rooms are affected?" },
+          { role: "user", content: "The kitchen and the laundry." },
+          {
+            role: "user",
+            content:
+              "Generate the next question or conclusion as a JSON object with 'question' and 'isComplete' fields. If enough information has been gathered, set isComplete to true and provide a conclusion message.",
+          },
+        ],
+      },
+      agentName: "QuestionGenerator",
+      enableCacheMetrics: true,
+    });
+  });
+
+  it("fails closed for unknown task policies", () => {
+    expect(() => requireAiTaskPolicy("unknown")).toThrow(
+      "Missing AI task policy for unknown",
     );
   });
 });

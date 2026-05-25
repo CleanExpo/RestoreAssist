@@ -18,7 +18,7 @@ pnpm exec tsx scripts/audit-ai-call-sites.ts --json
 
 - Total AI/provider/RAG surfaces reviewed: 88.
 - Unknown task classes: 0.
-- Surfaces already policy-wrapped: 2.
+- Surfaces already policy-wrapped: 3.
 - Surfaces missing local usage/cost logging evidence: 83.
 - Surfaces missing static tenant/account context evidence: 36.
 - Surfaces missing static max token/request guardrail evidence: 33.
@@ -28,8 +28,9 @@ pnpm exec tsx scripts/audit-ai-call-sites.ts --json
 
 - `lib/services/ai/analyse-support-ticket.ts`
 - `lib/services/ai/draft-support-ticket.ts`
+- `lib/services/ai/generate-interview-question.ts`
 
-Both wrappers preserve provider, model, prompt, request shape, max token value, and output shape.
+All wrappers preserve provider, model selection, prompt, request shape, max token value, and output shape. `generate-interview-question.ts` also attaches pure usage metadata without DB persistence.
 
 ## Missing Usage Logging
 
@@ -102,7 +103,6 @@ Do not migrate these first. They touch premium models, evidence media, report ge
 
 These remain better candidates for future policy wrapping because they are service-layer, classification/interview oriented, and have focused tests:
 
-- `lib/services/ai/generate-interview-question.ts`
 - `lib/services/ai/suggest-next-interview-question.ts`
 - `lib/services/ai/validate-interview-response.ts`
 
@@ -138,6 +138,7 @@ The helper:
 Focused tests:
 
 - `lib/ai/__tests__/usage-metadata.test.ts`
+- `lib/services/ai/__tests__/generate-interview-question.test.ts`
 
 ## Recommended Implementation Sequence
 
@@ -152,7 +153,6 @@ Focused tests:
 
 Policy-wrap one of:
 
-- `lib/services/ai/generate-interview-question.ts`
 - `lib/services/ai/suggest-next-interview-question.ts`
 - `lib/services/ai/validate-interview-response.ts`
 

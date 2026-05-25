@@ -161,6 +161,35 @@ Added non-invasive usage metadata foundation:
 
 The helper is pure. It performs no DB writes, no provider calls, no prompt changes, no model routing, and no runtime AI routing.
 
+## Interview Question Policy And Metadata Slice
+
+Selected candidate:
+
+- `lib/services/ai/generate-interview-question.ts`
+- task class: `fast_classification`
+- provider: existing Anthropic fallback gateway
+- model selection: unchanged, owned by existing fallback gateway/model helper
+- max output tokens: unchanged at `500`
+
+Added:
+
+- `PHASE_2_AI_POLICY_WRAP_CANDIDATE_3.md`
+- policy lookup via `fast_classification`
+- pure usage metadata build with `providerFamily: "anthropic-platform"` and `userId: "system"`
+- preservation tests in `lib/services/ai/__tests__/generate-interview-question.test.ts`
+
+Preserved behavior:
+
+- no provider selection change.
+- no model selection change.
+- no prompt change.
+- no user message shape change.
+- no output shape change.
+- no public route behavior change.
+- no DB writes.
+- no new provider calls.
+- no report, voice, OCR/image, or RAG workflow changed.
+
 ## Next Safe Action
 
-Run final slice validation, commit the cost-observability foundation, then policy-wrap the next low-risk interview/support service helper.
+Run final slice validation, commit the interview question policy/metadata wrapper, then consider `suggest-next-interview-question.ts` or `validate-interview-response.ts` as the next low-risk candidate.

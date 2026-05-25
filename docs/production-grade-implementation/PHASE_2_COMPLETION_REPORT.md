@@ -49,6 +49,12 @@ This report prevents accidental completion claims while Phase 2 AI/workflow upgr
   - pure usage metadata helper added in `lib/ai/usage-metadata.ts`.
   - helper tests added in `lib/ai/__tests__/usage-metadata.test.ts`.
   - no DB writes, provider calls, prompt changes, model changes, output-shape changes, or runtime routing changes added.
+- Fifth safe implementation slice completed locally:
+  - third low-risk candidate documented in `PHASE_2_AI_POLICY_WRAP_CANDIDATE_3.md`.
+  - `generateInterviewQuestion` wrapped with `fast_classification` policy guardrails.
+  - pure usage metadata attached without DB persistence.
+  - provider gateway, model selection, prompt, request shape, max token value, and output shape preserved.
+  - no DB writes, new provider calls, public-route behavior changes, or broad runtime routing added.
 
 ## Not Yet Complete
 
@@ -79,4 +85,4 @@ RestoreAssist remains **DO NOT SHIP**. Phase 2 planning does not approve product
 
 ## Next Safe Action
 
-Use the cost-observability gap map to migrate one additional low-risk AI task through policy and metadata guardrails without changing provider, prompt, output shape, public route behavior, or runtime routing.
+Use the cost-observability gap map to migrate one additional low-risk interview helper through policy and metadata guardrails without changing provider, prompt, output shape, public route behavior, DB writes, or runtime routing.
