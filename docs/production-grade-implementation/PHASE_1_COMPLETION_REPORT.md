@@ -54,6 +54,7 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - Portal token hardening completed for the current public-route review slice: portal JSON and PDF token endpoints now rate-limit public access, cap relation hydration with deterministic ordering, and use exact count/aggregate summaries so public token requests cannot force unbounded reads.
 - Invitation token hardening completed for the current public-route review slice: team invite preview/accept and portal invitation verify/accept endpoints now rate-limit public token requests while preserving existing expiry/status/CSRF/body validation.
 - Public directory/static endpoint hardening completed for the current public-route review slice: contractor directory pagination is clamped, and public checklist metadata plus property scraper health probes are now rate-limited.
+- OAuth callback hardening completed for the current public-route review slice: integration OAuth and Google Drive setup OAuth callbacks are now rate-limited, and generic integration callback failures no longer reflect provider exception text into redirect query parameters.
 
 ## Validation Evidence
 
@@ -98,6 +99,7 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - Portal token hardening slice: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 8 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 14 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 838 warnings, `git diff --check` PASS.
 - Invitation token hardening slice: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 8 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 14 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 838 warnings, `git diff --check` PASS.
 - Public directory/static endpoint hardening slice: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts app/api/properties/scrape/health/__tests__/route.test.ts` PASS with 2 files / 12 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 14 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 838 warnings, `git diff --check` PASS.
+- OAuth callback hardening slice: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 8 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 14 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 838 warnings, `git diff --check` PASS.
 
 ## Phase 1 Acceptance Criteria Still Open
 
@@ -135,7 +137,7 @@ Next action: run `vercel env rm NODE_TLS_REJECT_UNAUTHORIZED production --scope 
 
 Error: advisory API route scan reports 0 error-severity findings and 14 warnings.
 
-Cause: inherited warning-severity debt remains across public exception reviews that need route-specific product/security decisions before they can be treated as ship-safe. Portal token, invitation token, public directory, checklist, and scraper-health endpoints have been narrowed/rate-limited where applicable, but still require formal public-token exception sign-off.
+Cause: inherited warning-severity debt remains across public exception reviews that need route-specific product/security decisions before they can be treated as ship-safe. Portal token, invitation token, OAuth callback, public directory, checklist, and scraper-health endpoints have been narrowed/rate-limited where applicable, but still require formal public-token exception sign-off.
 
 Fix: remediate warning groups in small commits and run `pnpm exec tsx scripts/audit-api-routes.ts --json` after each group. Treat public exception warnings as a manual security review checklist before ship.
 

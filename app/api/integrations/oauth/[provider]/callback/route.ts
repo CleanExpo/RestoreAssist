@@ -15,12 +15,20 @@ import {
 import { createClientForIntegration } from "@/lib/integrations";
 import { isIntegrationDevMode } from "@/lib/integrations/dev-mode";
 import { track, isFirstTime } from "@/lib/analytics/track";
+import { applyRateLimit } from "@/lib/rate-limiter";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ provider: string }> },
 ) {
   try {
+    const rateLimited = await applyRateLimit(request, {
+      maxRequests: 30,
+      windowMs: 15 * 60 * 1000,
+      prefix: "integration-oauth-callback",
+    });
+    if (rateLimited) return rateLimited;
+
     const { provider: providerParam } = await params;
     const provider = providerParam.toUpperCase() as IntegrationProvider;
 
@@ -162,10 +170,7 @@ export async function GET(
   } catch (error) {
     console.error("OAuth callback error:", error);
     const { provider: providerParam } = await params;
-    return redirectWithError(
-      error instanceof Error ? error.message : "Token exchange failed",
-      providerParam,
-    );
+    return redirectWithError("Token exchange failed", providerParam);
   }
 }
 

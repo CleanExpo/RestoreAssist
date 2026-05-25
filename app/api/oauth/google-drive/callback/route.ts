@@ -11,10 +11,11 @@
  * render a friendly inline message.
  */
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { validateOAuthState } from "@/lib/integrations/oauth-handler";
 import { encrypt } from "@/lib/credential-vault";
+import { applyRateLimit } from "@/lib/rate-limiter";
 import {
   exchangeCodeForTokens,
   fetchGoogleUserEmail,
@@ -23,7 +24,14 @@ import {
 const SETUP_URL = (path: string) =>
   new URL(path, process.env.NEXTAUTH_URL ?? "http://localhost:3000");
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
+  const rateLimited = await applyRateLimit(request, {
+    maxRequests: 30,
+    windowMs: 15 * 60 * 1000,
+    prefix: "google-drive-oauth-callback",
+  });
+  if (rateLimited) return rateLimited;
+
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
