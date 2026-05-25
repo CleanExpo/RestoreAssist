@@ -3,13 +3,11 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
+  EXCLUDED_FROM_REVENUE,
   OUTSTANDING_STATUSES,
-  isDraft,
-  isOutstanding,
-  isExcludedFromRevenue,
 } from "@/lib/invoice-status";
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
@@ -28,21 +26,36 @@ export async function GET(request: NextRequest) {
     const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-    // Fetch all required data in parallel
-    const [allInvoices, paidThisMonth, overdueByDate] = await Promise.all([
-      // All invoices for total revenue, outstanding, and draft total
-      prisma.invoice.findMany({
-        where,
-        select: {
-          status: true,
-          totalIncGST: true,
-          amountDue: true,
-          amountPaid: true,
-          dueDate: true,
+    const [
+      totalRevenueResult,
+      outstandingResult,
+      draftTotalResult,
+      paidThisMonthResult,
+      overdueResult,
+      statusCountRows,
+    ] = await Promise.all([
+      prisma.invoice.aggregate({
+        where: {
+          ...where,
+          status: { notIn: [...EXCLUDED_FROM_REVENUE] },
         },
+        _sum: { totalIncGST: true },
       }),
-      // Invoices paid this month
-      prisma.invoice.findMany({
+      prisma.invoice.aggregate({
+        where: {
+          ...where,
+          status: { in: [...OUTSTANDING_STATUSES] },
+        },
+        _sum: { amountDue: true },
+      }),
+      prisma.invoice.aggregate({
+        where: {
+          ...where,
+          status: "DRAFT",
+        },
+        _sum: { totalIncGST: true },
+      }),
+      prisma.invoice.aggregate({
         where: {
           ...where,
           status: "PAID",
@@ -51,59 +64,31 @@ export async function GET(request: NextRequest) {
             lte: lastDayOfMonth,
           },
         },
-        select: {
-          totalIncGST: true,
-        },
+        _sum: { totalIncGST: true },
       }),
-      // Overdue: due date in the past, amount due > 0, outstanding status
-      prisma.invoice.findMany({
+      prisma.invoice.aggregate({
         where: {
           ...where,
           dueDate: { lt: startOfToday },
           amountDue: { gt: 0 },
           status: { in: [...OUTSTANDING_STATUSES] },
         },
-        select: {
-          amountDue: true,
-        },
+        _sum: { amountDue: true },
+      }),
+      prisma.invoice.groupBy({
+        by: ["status"],
+        where,
+        _count: { _all: true },
       }),
     ]);
 
-    // Calculate metrics from all invoices
-    let totalRevenue = 0;
-    let outstanding = 0;
-    let draftTotal = 0;
-
-    for (const invoice of allInvoices) {
-      // Total revenue: all issued/sent invoices (exclude DRAFT and CANCELLED)
-      if (!isExcludedFromRevenue(invoice.status)) {
-        totalRevenue += invoice.totalIncGST;
-      }
-
-      // Outstanding: sent/active invoices with amount due
-      if (isOutstanding(invoice.status)) {
-        outstanding += invoice.amountDue;
-      }
-
-      // Draft total: sum of draft invoice amounts (so stats reflect real data)
-      if (isDraft(invoice.status)) {
-        draftTotal += invoice.totalIncGST;
-      }
-    }
-
-    const overdue = overdueByDate.reduce((sum, inv) => sum + inv.amountDue, 0);
-    const paidThisMonthTotal = paidThisMonth.reduce(
-      (sum, inv) => sum + inv.totalIncGST,
-      0,
-    );
-
-    // Count invoices by status
-    const statusCounts = allInvoices.reduce(
-      (acc, inv) => {
-        acc[inv.status] = (acc[inv.status] || 0) + 1;
-        return acc;
-      },
-      {} as Record<string, number>,
+    const totalRevenue = totalRevenueResult._sum.totalIncGST ?? 0;
+    const outstanding = outstandingResult._sum.amountDue ?? 0;
+    const draftTotal = draftTotalResult._sum.totalIncGST ?? 0;
+    const paidThisMonthTotal = paidThisMonthResult._sum.totalIncGST ?? 0;
+    const overdue = overdueResult._sum.amountDue ?? 0;
+    const statusCounts = Object.fromEntries(
+      statusCountRows.map((row) => [row.status, row._count._all]),
     );
 
     // Calculate monthly revenue for the last 12 months
