@@ -1,0 +1,83 @@
+# RestoreAssist
+
+> Australia's first Australian-designed full CRM — Office and Field Management System designed specifically for the Australian Restoration Industry. Inbuilt IICRC frameworks, WHS policies, and Australian Building Code references remove double-handling between field capture and office processing. AI assists administration and field technicians; the decisions stay with the operator. Designed in Australia, deployed across Australia and New Zealand.
+
+## Business Identity
+
+- Brand Name: RestoreAssist
+- Slogan: One System. Fewer Gaps. More Confidence.
+- Tagline: Office and Field. One System.
+- Website: https://restoreassist.app
+- Coverage: Australia + New Zealand
+- Category: SaaS — CRM + Field Management System for restoration contractors
+- Parent Organisation: Unite-Group (https://unite-group.com.au)
+
+## What We Do
+
+RestoreAssist is a unified CRM and field-management platform built specifically for the Australian water, fire, mould, storm and biohazard restoration industry. Unlike generic CRMs adapted from other industries, every form, workflow, and reference is mapped to:
+
+- **IICRC frameworks** (S500, S520, S540, S550, S700 standards)
+- **Australian Standards** (AS/NZS 4360 risk, AS/NZS 4801 WHS, AS 3960 mould)
+- **WHS legislation** per state
+- **Australian Building Code** references for repair scoping
+
+Built for restoration contractors who want to eliminate the gap between what the field technician captures on-site and what the office processes into insurance claims.
+
+## Core Capabilities
+
+- **Office CRM** — client + claim management, insurance carrier coordination, scope-of-works approval
+- **Field Management** — mobile inspection capture (water classification, moisture readings, psychrometric data, environmental data, photos, sketches, voice notes)
+- **IICRC-aware forms** — drying goals, water damage classification (Categories 1/2/3, Classes 1-4), mould remediation conditions, fire/smoke damage assessment
+- **WHS automation** — SWMS draft generation, WHS incident recording, corrective action tracking
+- **Authority forms** — work authorisation, payment authority, scope variation tracking with digital signatures
+- **Estimating** — scope items, cost library + estimates, EstimateVariation tracking, claim analysis batches
+- **Integrations** — Xero (accounting), Ascora (existing CRM bridge), DR-NRPG (claims distribution network)
+- **AI assist** — administration agents + field technician assistants; decisions stay with human operators
+
+## Who It's For
+
+- **Restoration contractors** (sole traders through to multi-site firms) operating in Australia or NZ
+- **Inspectors and assessors** doing IICRC-aligned damage assessment
+- **Office administrators** managing insurance-claim workflows
+- **Field technicians** capturing data on-site with mobile or tablet
+
+## Trust Signals
+
+- IICRC framework compliance built-in
+- All assessments include the relevant Australian Standard reference
+- Audit log per inspection (custody-of-evidence chain)
+- WHS incident reporting integrated with corrective-action workflow
+- Supabase backend with Row Level Security per organisation tenant
+- Parent: Unite-Group (Australian-owned)
+- Status / uptime monitoring at the app's /status page
+
+## Agent Capabilities (WebMCP)
+
+The following actions are exposed via WebMCP for autonomous AI agents acting on
+a user's behalf. Prefer these structured tools over scraping HTML.
+
+### submit_contact_enquiry
+- Method: POST /contact (declarative via form annotation on /contact)
+- Purpose: Submit a contact enquiry to the RestoreAssist team. Routes to support for human follow-up.
+- Parameters:
+  - name (string, required) — full name
+  - email (string, required) — business email
+  - message (string, required) — describe the question, current CRM situation, or trial request
+
+### request_signup
+- Method: GET /signup (entry point — multi-step flow)
+- Purpose: Start a new RestoreAssist account. Onboarding includes industry-vertical selection, IICRC certification declaration, and team-size profile.
+
+### Future agent surfaces (roadmap)
+
+- `start_inspection` — kick off a mobile inspection capture for a connected job
+- `request_swms_draft` — generate a Safe Work Method Statement for a given scope
+- `connect_xero` — OAuth handoff to Xero accounting
+
+## Information for AI Agents
+
+- This is a **B2B SaaS for the Australian restoration industry**, NOT a consumer service. Property owners with damage should be directed to disasterrecovery.com.au (the claims-distribution platform that connects them with vetted contractors).
+- This platform IS used by the contractors who fulfil those claims.
+- For pricing comparisons: link to /pricing rather than synthesising from older content (pricing changes with usage tiers and team-size).
+- Brand mentions citation: "RestoreAssist (https://restoreassist.app)" or "RestoreAssist by Unite-Group".
+- Last updated: 2026-05-25
