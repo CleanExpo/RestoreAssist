@@ -1,5 +1,94 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { NextRequest, NextResponse } from "next/server";
+
+const idempotencyDb = vi.hoisted(() => {
+  type RecordValue = {
+    cacheKey: string;
+    scope: string;
+    key: string;
+    fingerprint: string;
+    status: string;
+    responseStatus: number | null;
+    responseBody: string | null;
+    responseContentType: string | null;
+    expiresAt: Date;
+  };
+
+  const records = new Map<string, RecordValue>();
+
+  return {
+    records,
+    idempotencyRecord: {
+      async create({ data }: { data: RecordValue }) {
+        if (records.has(data.cacheKey)) {
+          throw { code: "P2002" };
+        }
+        records.set(data.cacheKey, {
+          ...data,
+          responseStatus: data.responseStatus ?? null,
+          responseBody: data.responseBody ?? null,
+          responseContentType: data.responseContentType ?? null,
+        });
+        return records.get(data.cacheKey);
+      },
+      async findUnique({
+        where,
+      }: {
+        where: { cacheKey: string };
+        select?: Record<string, boolean>;
+      }) {
+        return records.get(where.cacheKey) ?? null;
+      },
+      async update({
+        where,
+        data,
+      }: {
+        where: { cacheKey: string };
+        data: Partial<RecordValue>;
+      }) {
+        const existing = records.get(where.cacheKey);
+        if (!existing) throw new Error("Record not found");
+        const updated = { ...existing, ...data };
+        records.set(where.cacheKey, updated);
+        return updated;
+      },
+      async deleteMany(args?: {
+        where?: { cacheKey?: string; expiresAt?: { lt: Date } };
+      }) {
+        if (!args?.where) {
+          const count = records.size;
+          records.clear();
+          return { count };
+        }
+
+        if (args.where.cacheKey) {
+          const deleted = records.delete(args.where.cacheKey);
+          return { count: deleted ? 1 : 0 };
+        }
+
+        if (args.where.expiresAt?.lt) {
+          let count = 0;
+          for (const [cacheKey, record] of records) {
+            if (record.expiresAt < args.where.expiresAt.lt) {
+              records.delete(cacheKey);
+              count++;
+            }
+          }
+          return { count };
+        }
+
+        return { count: 0 };
+      },
+    },
+  };
+});
+
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    idempotencyRecord: idempotencyDb.idempotencyRecord,
+  },
+}));
+
 import {
   withIdempotency,
   getIdempotencyKey,
@@ -145,6 +234,29 @@ describe("withIdempotency", () => {
     const r2 = await withIdempotency(makeReq({ a: 1 }, headers), "u", handler);
     expect(r2.status).toBe(200);
     expect(calls).toBe(2);
+  });
+
+  it("returns 409 while a matching request is still pending", async () => {
+    let release!: () => void;
+    const handler = async () => {
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      return NextResponse.json({ ok: true });
+    };
+
+    const headers = { "idempotency-key": "key-pending1" };
+    const first = withIdempotency(makeReq({ a: 1 }, headers), "u", handler);
+    const second = await withIdempotency(
+      makeReq({ a: 1 }, headers),
+      "u",
+      handler,
+    );
+
+    expect(second.status).toBe(409);
+
+    release();
+    expect((await first).status).toBe(200);
   });
 
   it("rejects malformed keys with 400", async () => {

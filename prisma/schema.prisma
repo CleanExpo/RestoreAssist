@@ -7030,3 +7030,25 @@ model SubscriptionEvent {
   @@index([userId, createdAt])
   @@index([eventType])
 }
+
+/// Durable API idempotency cache for mobile/offline retry replay and
+/// serverless multi-instance safety. `cacheKey` is a derived
+/// `scope + Idempotency-Key` value; raw request bodies are not stored.
+model IdempotencyRecord {
+  id                  String   @id @default(cuid())
+  cacheKey            String   @unique
+  scope               String
+  key                 String
+  fingerprint         String
+  status              String   @default("PENDING")
+  responseStatus      Int?
+  responseBody        String?  @db.Text
+  responseContentType String?
+  expiresAt           DateTime
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([scope, key])
+  @@index([status, expiresAt])
+  @@index([expiresAt])
+}

@@ -14,6 +14,7 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - Billing redirect salvage work preserved on the clean branch.
 - Mobile offline queue core preserved on the clean branch.
 - Mobile offline queue unit coverage added for persistence, duplicate mutation IDs, idempotency headers, successful replay, retry, and failed queue state.
+- Durable API idempotency added for JSON mutation replay: `withIdempotency` now persists pending/complete replay records in Prisma `IdempotencyRecord` instead of process-local memory.
 - Advisory API route production audit gate added for auth/RBAC/query/raw-SQL/error-leakage visibility.
 - First API error-leakage hardening pass completed for progress, assessment generation, bulk status, and scopes routes.
 - Flagged admin business metrics and impersonation routes now revalidate admin role from DB via `verifyAdminFromDb`.
@@ -60,6 +61,7 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - Client-error sink hardening completed for the current public-route review slice: public observability submissions now have a 32 KiB body-size guard, logged client fields are length-bounded, and arbitrary client payload fields are no longer spread into structured server logs.
 - Public route exception review completed for the current Priority 4 scope: all 14 remaining `public-token-route-review` warnings are documented in `API_PUBLIC_ROUTE_EXCEPTION_REVIEW_REPORT.md` with route purpose, safeguards, and the exact product/security decision still required. The scanner intentionally still reports the warnings until exceptions are formally approved or route auth policy changes are made.
 - Shared image upload validator completed for the current upload-hardening scope: canonical image upload and Vision sketch import now share `lib/media/validate-image-upload.ts` for magic-byte detection, declared MIME allowlist checks, and size caps while preserving route-specific media policies.
+- Durable idempotency completed for the current server replay scope: `IdempotencyRecord` stores pending and completed `withIdempotency` responses across serverless instances, preserving same-key replay, different-body conflict, concurrent pending rejection, and 5xx retry behavior.
 
 ## Validation Evidence
 
@@ -109,6 +111,7 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - Client-error sink hardening slice: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 8 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 14 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 838 warnings, `git diff --check` PASS.
 - Public route exception review slice: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 8 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 14 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 838 warnings, `git diff --check` PASS.
 - Shared image upload validator slice: `pnpm exec vitest run lib/media/__tests__/validate-image-upload.test.ts app/api/inspections/[id]/sketches/import-from-image/__tests__/route.test.ts` PASS with 2 files / 7 tests, `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 8 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 14 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 838 warnings, `git diff --check` PASS.
+- Durable idempotency slice: `pnpm prisma:generate` PASS, `pnpm exec vitest run lib/__tests__/idempotency.test.ts` PASS with 1 file / 15 tests, `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 8 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 14 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 838 warnings, `git diff --check` PASS, `pnpm exec vitest run` PASS with 209 files / 1829 tests passed and 16 files / 81 tests skipped, `pnpm build` PASS, `pnpm audit --audit-level=high --prod` PASS for high-severity gate with 3 moderate vulnerabilities reported.
 
 ## Phase 1 Acceptance Criteria Still Open
 
@@ -116,7 +119,7 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - Live Supabase RLS revalidation still needs an authenticated check against project `udooysjajglluvuxkijp`, but the RA-4970 migration and production apply evidence are present in this branch.
 - P0 query/raw SQL/error leakage routes have no current audit error findings; API audit currently reports 0 errors and 14 warnings, all public/token-route review warnings that are documented in `API_PUBLIC_ROUTE_EXCEPTION_REVIEW_REPORT.md` and pending product/security sign-off.
 - Shared route rate limiting still uses in-memory process state, including the sketch import route now that it uses `applyRateLimit`; a distributed backend is still required for multi-instance/serverless enforcement.
-- Offline mutation idempotency foundation is client-tested and mobile package type-check is now repeatable, but server replay is not yet backed by durable database idempotency.
+- Offline mutation idempotency foundation is client-tested and JSON mutation replay is now backed by durable database idempotency through `withIdempotency`, but multipart evidence-photo replay dedupe and domain-specific `ClientMutation`/`FieldCaptureEvent` models remain open.
 
 ## Current Blockers
 
