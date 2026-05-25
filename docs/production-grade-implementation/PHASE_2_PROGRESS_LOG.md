@@ -224,3 +224,37 @@ Preserved behavior:
 ## Next Safe Action
 
 Run final slice validation, commit the interview validation policy/metadata wrapper, then consider `suggest-next-interview-question.ts` as the next low-risk candidate.
+
+## AI Guardrail Consolidation Slice
+
+Created `PHASE_2_AI_GUARDRAIL_CONSOLIDATION_REPORT.md` before wrapping additional helpers.
+
+Re-ran the AI call-site audit:
+
+- total AI/provider/RAG surfaces: 88.
+- unknown task classes: 0.
+- policy-wrapped surfaces: 4.
+- unwrapped surfaces: 84.
+- unwrapped task classes: 41 OCR/image, 14 fast classification, 10 embeddings, 6 report drafting, 6 standards/RAG, 5 workflow automation, 2 voice/realtime.
+
+Consolidation decision:
+
+- chosen next safe slice: option C, documentation-only AI policy adoption standard.
+- `suggest-next-interview-question.ts` remains the safest next runtime candidate, but it was not wrapped in this slice.
+- the current pattern is ready to be documented as the required standard for new or modified low-risk service-layer AI helpers.
+- broad CI enforcement, DB-backed usage logging, model routing changes, OCR/RAG/report/voice migration, and shared provider infrastructure migration still require architecture review and additional tests.
+
+Preserved behavior:
+
+- no provider changes.
+- no model selection changes.
+- no prompt changes.
+- no output shape changes.
+- no public route behavior changes.
+- no DB writes.
+- no provider calls added.
+- no runtime routing changes.
+
+## Next Safe Action
+
+Validate and commit the consolidation documentation. After review accepts the documented standard, wrap `lib/services/ai/suggest-next-interview-question.ts` with `fast_classification` policy and pure usage metadata only.
