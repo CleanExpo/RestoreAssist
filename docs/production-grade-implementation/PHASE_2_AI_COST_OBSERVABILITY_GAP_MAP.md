@@ -18,7 +18,7 @@ pnpm exec tsx scripts/audit-ai-call-sites.ts --json
 
 - Total AI/provider/RAG surfaces reviewed: 88.
 - Unknown task classes: 0.
-- Surfaces already policy-wrapped: 4.
+- Surfaces already policy-wrapped: 5.
 - Surfaces missing local usage/cost logging evidence: 83.
 - Surfaces missing static tenant/account context evidence: 36.
 - Surfaces missing static max token/request guardrail evidence: 33.
@@ -29,9 +29,10 @@ pnpm exec tsx scripts/audit-ai-call-sites.ts --json
 - `lib/services/ai/analyse-support-ticket.ts`
 - `lib/services/ai/draft-support-ticket.ts`
 - `lib/services/ai/generate-interview-question.ts`
+- `lib/services/ai/suggest-next-interview-question.ts`
 - `lib/services/ai/validate-interview-response.ts`
 
-All wrappers preserve provider, model selection, prompt, request shape, max token value, and output shape. `generate-interview-question.ts` and `validate-interview-response.ts` also attach pure usage metadata without DB persistence.
+All wrappers preserve provider, model selection, prompt, request shape, max token value, and output shape. `generate-interview-question.ts`, `validate-interview-response.ts`, and `suggest-next-interview-question.ts` also attach pure usage metadata without DB persistence.
 
 ## Missing Usage Logging
 
@@ -102,9 +103,11 @@ Do not migrate these first. They touch premium models, evidence media, report ge
 
 ## Low-Risk Next Candidates
 
-These remain better candidates for future policy wrapping because they are service-layer, classification/interview oriented, and have focused tests:
+The previously recommended low-risk candidate has now been wrapped:
 
 - `lib/services/ai/suggest-next-interview-question.ts`
+
+No further service-layer helper should be selected automatically without a fresh inventory review. The next low-risk work should either tighten the non-runtime audit/test gate or document an owner-reviewed candidate before runtime changes.
 
 `lib/services/ai/anthropic-gateway.ts` is low-level infrastructure, not a first-choice migration target. It should be instrumented only after enough service-layer call sites produce consistent metadata.
 
@@ -139,6 +142,7 @@ Focused tests:
 
 - `lib/ai/__tests__/usage-metadata.test.ts`
 - `lib/services/ai/__tests__/generate-interview-question.test.ts`
+- `lib/services/ai/__tests__/suggest-next-interview-question.test.ts`
 - `lib/services/ai/__tests__/validate-interview-response.test.ts`
 
 ## Recommended Implementation Sequence
@@ -152,8 +156,4 @@ Focused tests:
 
 ## Next Safe Slice
 
-Policy-wrap one of:
-
-- `lib/services/ai/suggest-next-interview-question.ts`
-
-Do not add DB writes in that slice unless the service already has clear tenant/workspace context and existing logging semantics.
+Do not add DB writes yet. The next safe slice is a non-runtime audit/test gate or an owner-reviewed candidate selection pass. Shared gateways, provider routing, report generation, OCR/image, RAG/IICRC, and voice/realtime remain out of scope.

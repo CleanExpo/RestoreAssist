@@ -258,3 +258,37 @@ Preserved behavior:
 ## Next Safe Action
 
 Validate and commit the consolidation documentation. After review accepts the documented standard, wrap `lib/services/ai/suggest-next-interview-question.ts` with `fast_classification` policy and pure usage metadata only.
+
+## Suggest Next Interview Question Policy And Metadata Slice
+
+Selected candidate:
+
+- `lib/services/ai/suggest-next-interview-question.ts`
+- task class: `fast_classification`
+- provider: existing Anthropic fallback gateway
+- model selection: unchanged explicit Haiku 4.5 -> 3.5 fallback chain
+- max output tokens: unchanged at `250`
+
+Added:
+
+- `PHASE_2_AI_POLICY_WRAP_CANDIDATE_5.md`
+- policy lookup via `fast_classification`
+- pure usage metadata build with `providerFamily: "anthropic-platform"` and `userId: "system"`
+- preservation tests in `lib/services/ai/__tests__/suggest-next-interview-question.test.ts`
+
+Preserved behavior:
+
+- no provider selection change.
+- no model selection change.
+- no prompt change.
+- no user message shape change.
+- no output shape change.
+- no public route behavior change.
+- no DB writes.
+- no new provider calls.
+- no runtime routing change.
+- no final report, customer-facing report, voice, OCR/image, or RAG retrieval workflow changed.
+
+## Next Safe Action
+
+Validate and commit the suggest-next policy/metadata wrapper. After this slice, prefer a non-runtime audit/test gate or explicit owner-reviewed candidate selection before wrapping more AI surfaces.

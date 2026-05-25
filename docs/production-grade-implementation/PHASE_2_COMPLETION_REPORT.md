@@ -70,6 +70,12 @@ This report prevents accidental completion claims while Phase 2 AI/workflow upgr
   - `suggest-next-interview-question.ts` remains the recommended next low-risk wrapper after review accepts the standard.
   - no runtime AI behavior changed.
   - no provider, model, prompt, output shape, public-route behavior, DB write, provider call, or runtime routing change added.
+- Eighth safe implementation slice completed locally:
+  - fifth low-risk candidate documented in `PHASE_2_AI_POLICY_WRAP_CANDIDATE_5.md`.
+  - `suggestNextInterviewQuestion` wrapped with `fast_classification` policy guardrails.
+  - pure usage metadata attached without DB persistence.
+  - existing Haiku 4.5 -> 3.5 fallback chain, prompt, request shape, max token value, parse fallback behavior, and output shape preserved.
+  - no DB writes, new provider calls, public-route behavior changes, final report changes, customer-facing report changes, voice/realtime changes, OCR/image changes, RAG/IICRC changes, or broad runtime routing added.
 
 ## Not Yet Complete
 
@@ -100,4 +106,4 @@ RestoreAssist remains **DO NOT SHIP**. Phase 2 planning does not approve product
 
 ## Next Safe Action
 
-Validate and commit the AI guardrail consolidation documentation. After review accepts the documented standard, migrate `suggest-next-interview-question.ts` through policy and metadata guardrails without changing provider, prompt, output shape, public route behavior, DB writes, provider calls, or runtime routing.
+Validate and commit the `suggest-next-interview-question.ts` policy/metadata wrapper. After this slice, prefer a non-runtime audit/test gate or explicit owner-reviewed candidate selection before wrapping more AI surfaces.
