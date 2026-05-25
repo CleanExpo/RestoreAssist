@@ -149,7 +149,7 @@ export async function POST(
           ? { "Retry-After": String(Math.ceil(result.retryAfterMs / 1000)) }
           : {};
       return NextResponse.json(
-        { error: "Internal server error", detail: result.detail },
+        { error: "Internal server error" },
         { status, headers },
       );
     }
