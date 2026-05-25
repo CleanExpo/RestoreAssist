@@ -153,38 +153,55 @@ export default function ContactPage() {
               >
                 Send a Message
               </h2>
-              <form className="space-y-4">
+              {/* WebMCP annotations expose this form to in-browser AI agents per
+                  the GEO standard (Pi-CEO skills/geo-optimization/SKILL.md §5). */}
+              <form
+                className="space-y-4"
+                // @ts-expect-error WebMCP attributes are W3C-draft and not yet in React's type defs
+                toolname="submit_contact_enquiry"
+                tooldescription="Submit a contact enquiry to RestoreAssist (Australia's first Australian-designed CRM for the restoration industry). Routes to the team for human follow-up. For active disaster-recovery claims, use disasterrecovery.com.au instead."
+              >
                 <div>
                   <input
                     type="text"
+                    name="name"
                     placeholder="Your Name"
                     className={`w-full px-4 py-3 rounded-lg border ${darkMode ? "bg-[#1C2E47]/50 border-[#5A6A7B]/30 text-[#F4F5F6] placeholder-[#5A6A7B]" : "bg-[#F4F5F6]/50 border-[#5A6A7B]/20 text-[#1C2E47] placeholder-[#5A6A7B]"} focus:outline-none focus:border-[#8A6B4E] transition-colors`}
                     style={{
                       fontFamily:
                         '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                     }}
+                    // @ts-expect-error WebMCP attribute — W3C draft, not yet in React types
+                    toolparamdescription="Full name of the enquirer (first and last name preferred)"
                   />
                 </div>
                 <div>
                   <input
                     type="email"
+                    name="email"
                     placeholder="Your Email"
                     className={`w-full px-4 py-3 rounded-lg border ${darkMode ? "bg-[#1C2E47]/50 border-[#5A6A7B]/30 text-[#F4F5F6] placeholder-[#5A6A7B]" : "bg-[#F4F5F6]/50 border-[#5A6A7B]/20 text-[#1C2E47] placeholder-[#5A6A7B]"} focus:outline-none focus:border-[#8A6B4E] transition-colors`}
                     style={{
                       fontFamily:
                         '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                     }}
+                    // @ts-expect-error WebMCP attribute — W3C draft, not yet in React types
+                    toolparamdescription="Business email address where the RestoreAssist team should reply"
                   />
                 </div>
                 <div>
                   <textarea
+                    name="message"
                     placeholder="Your Message"
                     rows={5}
+                    maxLength={3000}
                     className={`w-full px-4 py-3 rounded-lg border ${darkMode ? "bg-[#1C2E47]/50 border-[#5A6A7B]/30 text-[#F4F5F6] placeholder-[#5A6A7B]" : "bg-[#F4F5F6]/50 border-[#5A6A7B]/20 text-[#1C2E47] placeholder-[#5A6A7B]"} focus:outline-none focus:border-[#8A6B4E] transition-colors resize-none`}
                     style={{
                       fontFamily:
                         '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                     }}
+                    // @ts-expect-error WebMCP attribute — W3C draft, not yet in React types
+                    toolparamdescription="Free-text description of the question, current CRM situation, or trial request (max 3000 chars). Mention business type (sole trader / multi-site firm), team size, and current systems if relevant."
                   />
                 </div>
                 <button
