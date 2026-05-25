@@ -114,7 +114,6 @@ export async function POST(request: NextRequest) {
               result.reason === "MODEL_OVERLOADED"
                 ? "AI service is temporarily unavailable. Please try again."
                 : "Failed to generate question. Please check your API key and try again.",
-            detail: result.detail,
           },
           { status, headers },
         );
