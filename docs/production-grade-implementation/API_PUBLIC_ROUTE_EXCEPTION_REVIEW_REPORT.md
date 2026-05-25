@@ -46,7 +46,7 @@ The scanner is intentionally still reporting these warnings. They are not suppre
 | `app/api/properties/scrape/health/route.ts` | Setup wizard probes scraper readiness before property-data configuration is complete. | Optional per-IP rate limit when called with a request, no upstream call, no secrets, returns only configured/degraded status. | Confirm unauthenticated setup probe remains required. |
 | `app/api/inspections/checklists/route.ts` | Public IICRC checklist metadata supports pre-auth/static setup screens. | Per-IP rate limit, static in-repo metadata only, returns checklist ID/name/category/description/item count. | Confirm checklist metadata is intentionally public. |
 | `app/api/contractors/route.ts` | Public contractor directory must be browsable without account login. | Per-IP rate limit, `isPubliclyVisible` filter, explicit select/include scope, page/limit clamp to 1..50, deterministic ranking. | Confirm directory search/filter fields and public profile fields are acceptable. |
-| `app/api/observability/client-error/route.ts` | Client error boundaries may fire before a user session exists. | Per-IP rate limit, 32 KiB content-length guard, invalid JSON rejection, logged client fields limited to expected keys and 2,000 characters each. | Confirm public log sink remains acceptable; consider byte-counting chunked bodies as future hardening. |
+| `app/api/observability/client-error/route.ts` | Client error boundaries may fire before a user session exists. | Per-IP rate limit, 32 KiB cap enforced by both content-length precheck and actual body byte count, invalid/non-object JSON rejection, logged client fields limited to expected keys and 2,000 characters each. | Confirm public log sink remains acceptable. |
 
 ## Why Warnings Remain
 
@@ -66,7 +66,7 @@ Error: remaining API audit warnings require product/security decisions.
 
 Cause: all remaining findings are public exception candidates. Treating them as green would require accepting the public exposure model for each route, not just changing code.
 
-Fix: run a formal public route exception review with product/security ownership, then either approve the exception registry or require route-specific auth/token policy changes. Local token-shape and CSRF hardening has been applied where it did not require a product decision.
+Fix: run a formal public route exception review with product/security ownership, then either approve the exception registry or require route-specific auth/token policy changes. Local token-shape, CSRF, and payload-byte hardening has been applied where it did not require a product decision.
 
 Next action: decide whether to keep these routes public, convert selected monitoring routes to bearer-token auth, or encode approved exceptions in `scripts/audit-api-routes.ts` with this report as evidence.
 

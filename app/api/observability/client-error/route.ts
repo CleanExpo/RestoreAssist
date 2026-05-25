@@ -24,6 +24,37 @@ function boundedString(value: unknown, fallback: string): string {
   return value.slice(0, MAX_LOG_FIELD_LENGTH);
 }
 
+async function readBoundedJsonBody(
+  request: NextRequest,
+): Promise<
+  | { ok: true; body: Record<string, unknown> }
+  | { ok: false; status: 400 | 413; error: string }
+> {
+  const rawContentLength = request.headers.get("content-length");
+  const contentLength = rawContentLength ? Number(rawContentLength) : 0;
+  if (
+    Number.isFinite(contentLength) &&
+    contentLength > MAX_CLIENT_ERROR_BODY_BYTES
+  ) {
+    return { ok: false, status: 413, error: "payload too large" };
+  }
+
+  const buffer = await request.arrayBuffer();
+  if (buffer.byteLength > MAX_CLIENT_ERROR_BODY_BYTES) {
+    return { ok: false, status: 413, error: "payload too large" };
+  }
+
+  try {
+    const parsed = JSON.parse(new TextDecoder().decode(buffer));
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return { ok: false, status: 400, error: "invalid JSON" };
+    }
+    return { ok: true, body: parsed as Record<string, unknown> };
+  } catch {
+    return { ok: false, status: 400, error: "invalid JSON" };
+  }
+}
+
 export async function POST(request: NextRequest) {
   const rateLimited = await applyRateLimit(request, {
     windowMs: 60 * 1000,
@@ -33,23 +64,14 @@ export async function POST(request: NextRequest) {
   });
   if (rateLimited) return rateLimited;
 
-  const contentLength = Number(request.headers.get("content-length") ?? "0");
-  if (contentLength > MAX_CLIENT_ERROR_BODY_BYTES) {
+  const parsed = await readBoundedJsonBody(request);
+  if (!parsed.ok) {
     return NextResponse.json(
-      { ok: false, error: "payload too large" },
-      { status: 413 },
+      { ok: false, error: parsed.error },
+      { status: parsed.status },
     );
   }
-
-  let body: Record<string, unknown>;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json(
-      { ok: false, error: "invalid JSON" },
-      { status: 400 },
-    );
-  }
+  const { body } = parsed;
 
   // Structured log — Vercel Observability indexes this
   console.error(
