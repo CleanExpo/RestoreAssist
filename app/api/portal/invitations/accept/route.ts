@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { applyRateLimit } from "@/lib/rate-limiter";
 
 // POST /api/portal/invitations/accept - Accept invitation and create ClientUser account
 export async function POST(request: NextRequest) {
   try {
+    const rateLimited = await applyRateLimit(request, {
+      maxRequests: 10,
+      windowMs: 15 * 60 * 1000,
+      prefix: "portal-invitation-accept",
+    });
+    if (rateLimited) return rateLimited;
+
     const body = await request.json();
     const { token, password, name, phone } = body;
 
