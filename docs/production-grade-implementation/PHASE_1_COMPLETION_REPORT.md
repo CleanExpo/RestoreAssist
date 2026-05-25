@@ -81,7 +81,7 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - Mobile queue mutation ledger coverage completed for the current offline/capture scope: environmental-data, moisture-reading, and affected-area inspection mutations now pass workspace/user/inspection metadata into `withIdempotency`, so mobile queue replays for those types create and complete `ClientMutation` rows when `X-RestoreAssist-Mutation-Id` is present.
 - Mobile conflict fail-fast completed for the current offline queue scope: non-retryable server rejections, including `409` conflicts, now move directly to failed queue state instead of being replayed until retry exhaustion.
 - Mobile network reachability completed for the current offline queue scope: the mobile root layout now updates the shared online/offline store from `/api/health` reachability without adding a native dependency, giving the queue drain guard and offline UI a real API reachability signal.
-- Mobile device validation blocker documented: `MOBILE_DEVICE_VALIDATION_BLOCKER_REPORT.md` records the remaining manual simulator/device checklist needed before MOB-001 can be called device-validated.
+- Mobile device validation blocker documented: `MOBILE_DEVICE_VALIDATION_BLOCKER_REPORT.md` records the remaining manual simulator/device checklist needed before MOB-001 can be called device-validated. Latest local tooling recheck confirms this shell lacks iOS `simctl`, Android `emulator` / `adb`, and Android SDK env paths.
 - Interview AI response-leak hardening completed for the current API response scope: interview validation and follow-up suggestion AI failures no longer echo provider/gateway `detail` strings to clients; raw diagnostics remain in server logs and focused route tests cover both failure paths.
 - Vision/classification AI response-leak hardening completed for the current API response scope: meter-reading extraction, inspection classification, and moisture-reading grouping AI failures no longer echo provider/gateway `detail` strings or platform env-var configuration detail to clients; focused route tests cover each path.
 - Photo/support AI response-leak hardening completed for the current API response scope: photo auto-classification and admin support-ticket draft AI failures no longer echo provider/gateway `detail` strings to clients, and missing photo-classifier platform key responses no longer expose the env var name.
@@ -191,7 +191,7 @@ Next action: use `API_PUBLIC_ROUTE_EXCEPTION_REVIEW_REPORT.md` to decide whether
 
 Error: mobile network-toggle/device validation has not been run.
 
-Cause: the current shell has no interactive iOS/Android simulator, Expo Go runtime, or physical device session to toggle network state and observe app UI plus queue replay behavior end-to-end.
+Cause: the current shell has no interactive iOS/Android simulator, Expo Go runtime, or physical device session to toggle network state and observe app UI plus queue replay behavior end-to-end. `xcrun simctl list devices available` fails because `simctl` is unavailable, `emulator` and `adb` are not on `PATH`, and no Android SDK path is visible through `ANDROID_HOME` / `ANDROID_SDK_ROOT`.
 
 Fix: follow `MOBILE_DEVICE_VALIDATION_BLOCKER_REPORT.md` on a simulator or physical device pointed at the intended API environment.
 

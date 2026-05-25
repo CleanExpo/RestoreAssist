@@ -31,6 +31,14 @@ Error: device/emulator network-toggle validation has not been run.
 
 Cause: this shell has no authenticated/interactive iOS or Android simulator session, Expo Go runtime, or physical device session to toggle network state and observe app UI plus queue replay behavior end-to-end.
 
+Latest local tooling recheck:
+
+- `xcrun simctl list devices available` failed with `xcrun: error: unable to find utility "simctl", not a developer tool or in PATH`.
+- `emulator` is not available on `PATH`.
+- `adb` is not available on `PATH`.
+- `ANDROID_HOME` / `ANDROID_SDK_ROOT` are not set to an SDK path visible from this shell.
+- `expo` and `eas` CLIs are not installed globally; the mobile package should still use package-local `pnpm --dir mobile ...` commands.
+
 Fix: run the manual device validation below on a simulator or physical device with the mobile app pointed at the intended API environment.
 
 Next action: execute the manual validation checklist and attach screenshots/logs before claiming MOB-001 fully device-validated.
