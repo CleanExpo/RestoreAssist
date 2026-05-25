@@ -134,12 +134,33 @@ Latest focused validation:
 - `pnpm exec tsx scripts/audit-ai-call-sites.ts --json`: PASS, 88 call-site surfaces found.
 - `pnpm exec vitest run lib/services/ai/__tests__/draft-support-ticket.test.ts`: PASS, 1 file / 6 tests.
 - `pnpm exec vitest run lib/services/ai/__tests__/analyse-support-ticket.test.ts`: PASS, 1 file / 6 tests.
+- `pnpm exec vitest run lib/ai/__tests__/usage-metadata.test.ts`: PASS, 1 file / 5 tests.
 - `pnpm type-check`: PASS.
 - `pnpm lint`: PASS with 0 errors and 838 existing warnings.
 - `git diff --check`: PASS.
 - `pnpm exec tsx scripts/audit-api-routes.ts --json`: PASS, 442 routes / 0 errors / 14 warnings.
 - `pnpm --dir mobile --ignore-workspace type-check`: PASS.
 
+## Cost Observability Gap Map Slice
+
+Reviewed current AI inventory for usage/cost telemetry gaps:
+
+- total AI/provider/RAG surfaces reviewed: 88.
+- policy-wrapped surfaces: 2.
+- missing local usage/cost logging evidence: 83.
+- missing static tenant/account context evidence: 36.
+- missing static max token/request guardrail evidence: 33.
+- sensitive external-provider surfaces: 66.
+
+Created `PHASE_2_AI_COST_OBSERVABILITY_GAP_MAP.md`.
+
+Added non-invasive usage metadata foundation:
+
+- `lib/ai/usage-metadata.ts`
+- `lib/ai/__tests__/usage-metadata.test.ts`
+
+The helper is pure. It performs no DB writes, no provider calls, no prompt changes, no model routing, and no runtime AI routing.
+
 ## Next Safe Action
 
-Run final slice validation, commit the narrow second policy-wrap slice, then review high-value cost-observability gaps before selecting the next low-risk task.
+Run final slice validation, commit the cost-observability foundation, then policy-wrap the next low-risk interview/support service helper.

@@ -43,6 +43,12 @@ This report prevents accidental completion claims while Phase 2 AI/workflow upgr
   - `analyseSupportTicket` wrapped with `support_ticket_analysis` policy guardrails.
   - provider, model, prompt, request shape, and output shape preserved.
   - missing/unknown policy fails closed.
+- Fourth safe implementation slice completed locally:
+  - AI cost-observability gap map created from the 88-surface inventory.
+  - missing usage logging, tenant/account context, token/request guardrails, high-cost risks, low-risk next candidates, and do-not-touch-yet areas documented.
+  - pure usage metadata helper added in `lib/ai/usage-metadata.ts`.
+  - helper tests added in `lib/ai/__tests__/usage-metadata.test.ts`.
+  - no DB writes, provider calls, prompt changes, model changes, output-shape changes, or runtime routing changes added.
 
 ## Not Yet Complete
 
@@ -50,6 +56,7 @@ This report prevents accidental completion claims while Phase 2 AI/workflow upgr
 - Broad central runtime routing.
 - Reviewed owner decisions for remaining high-risk call sites.
 - Runtime model routing tests for migrated calls.
+- DB-backed usage logging integration for selected migrated calls.
 - Cost guardrail tests for additional migrated calls.
 - RAG false-citation eval gate.
 - OCR/image pipeline improvements.
@@ -72,4 +79,4 @@ RestoreAssist remains **DO NOT SHIP**. Phase 2 planning does not approve product
 
 ## Next Safe Action
 
-Review remaining cost-observability gaps, then migrate one additional low-risk AI task through policy guardrails without changing provider, prompt, or public route behavior.
+Use the cost-observability gap map to migrate one additional low-risk AI task through policy and metadata guardrails without changing provider, prompt, output shape, public route behavior, or runtime routing.
