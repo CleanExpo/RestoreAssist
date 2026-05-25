@@ -6,7 +6,7 @@ Branch: `codex/phase-2-ai-workflow-upgrades`
 
 ## Scope
 
-This inventory is the first safe Phase 2 implementation slice. It adds static, non-runtime visibility into RestoreAssist AI/provider call sites without changing production AI behavior.
+This inventory started as the first safe Phase 2 implementation slice and was refined in the next slice. It adds static, non-runtime visibility into RestoreAssist AI/provider call sites without hiding real provider/RAG surfaces or changing production AI behavior.
 
 Runtime behavior changed: no.
 
@@ -21,6 +21,7 @@ External dependencies added: no.
 - `scripts/audit-ai-call-sites.ts`
 - `scripts/__tests__/audit-ai-call-sites.test.ts`
 - `lib/ai/task-policy.ts`
+- `docs/production-grade-implementation/PHASE_2_AI_POLICY_WRAP_CANDIDATE.md`
 
 ## Audit Result
 
@@ -33,7 +34,7 @@ pnpm exec tsx scripts/audit-ai-call-sites.ts --json
 Result:
 
 - source files scanned: 1,193
-- AI/provider/RAG surfaces found: 117
+- AI/provider/RAG surfaces found: 88
 
 Provider-family counts:
 
@@ -43,23 +44,37 @@ Provider-family counts:
 | OpenAI | 9 |
 | Gemini | 17 |
 | RestoreAssist AI / self-hosted | 14 |
-| BYOK | 50 |
+| BYOK | 14 |
 | RAG/vector | 18 |
 | Local/hash fallback | 7 |
-| Unknown provider surface | 2 |
+| Unknown provider surface | 3 |
 
 Task-class counts:
 
 | Task class | Count |
 | --- | ---: |
-| Fast classification | 7 |
+| Fast classification | 17 |
+| Support response draft | 1 |
 | OCR/image understanding | 41 |
-| Report drafting | 20 |
-| Standards/RAG lookup | 7 |
-| Voice/realtime | 22 |
+| Report drafting | 6 |
+| Standards/RAG lookup | 6 |
+| Voice/realtime | 2 |
 | Workflow automation | 4 |
 | Embeddings | 10 |
-| Unknown | 6 |
+| Unknown | 1 |
+
+## Refinement Pass
+
+The 117-call baseline included obvious false positives from non-AI BYOK/storage/provider-connection code. The refined audit now treats BYOK as an AI call site only when AI-specific dispatch/client/integration markers are present, rather than when generic storage/OAuth provider connection text appears.
+
+Classification was also tightened:
+
+- `draft-support-ticket.ts` is the only current `support_response_draft` task.
+- support ticket analysis is kept in `fast_classification`.
+- OCR/image/vision paths remain visible as evidence-media tasks.
+- voice/realtime is no longer inferred from incidental support/report wording alone.
+
+These changes reduce noise while keeping actual provider, model, RAG, BYOK dispatch, and local/hash fallback surfaces in the report.
 
 ## What The Audit Answers
 
@@ -91,6 +106,7 @@ Some model names remain dynamic because current code passes model values through
 The new `lib/ai/task-policy.ts` defines these initial task classes:
 
 - `fast_classification`
+- `support_response_draft`
 - `ocr_image_understanding`
 - `report_drafting`
 - `standards_rag_lookup`
@@ -139,7 +155,7 @@ The audit marks external sensitivity when source uses Anthropic, OpenAI, Gemini,
 - budget check requirements.
 - fallback policy.
 
-This policy is not wired into runtime behavior yet. It is a guardrail/test foundation for future migration.
+The first runtime use is intentionally narrow: `lib/services/ai/draft-support-ticket.ts` now requires the `support_response_draft` policy before calling the existing Anthropic gateway. Provider, model, prompt, user message shape, max token value, and output shape are unchanged.
 
 ## High-Risk Follow-Up Areas
 
@@ -164,8 +180,9 @@ Review these areas before any provider routing changes:
 
 Focused validation:
 
-- `pnpm exec vitest run scripts/__tests__/audit-ai-call-sites.test.ts`: PASS, 1 file / 6 tests.
-- `pnpm exec tsx scripts/audit-ai-call-sites.ts --json`: PASS, 117 call-site surfaces found.
+- `pnpm exec vitest run scripts/__tests__/audit-ai-call-sites.test.ts`: PASS, 1 file / 9 tests.
+- `pnpm exec vitest run lib/services/ai/__tests__/draft-support-ticket.test.ts`: PASS, 1 file / 6 tests.
+- `pnpm exec tsx scripts/audit-ai-call-sites.ts --json`: PASS, 88 call-site surfaces found.
 
 Visibility checks:
 
@@ -179,15 +196,15 @@ Do not reroute production calls yet.
 
 Next slice:
 
-1. Tighten the audit script with reviewed false-positive/false-negative cases from the 117-call inventory.
-2. Add task-policy tests for cost caps, fallback permission, and required tenant/usage/budget flags.
-3. Select one low-risk migrated task, likely support-ticket draft or interview question suggestion.
-4. Wrap that one task with policy, budget estimate, and usage logging while preserving existing provider/prompt behavior.
+1. Review the remaining 88-call refined inventory for the single unknown task and high-value cost-observability gaps.
+2. Add task-policy tests for cost caps, fallback permission, and required tenant/usage/budget flags where they are not already covered by the selected service tests.
+3. Select the next low-risk migrated task, likely interview question suggestion or support ticket analysis.
+4. Wrap that one task with policy guardrails while preserving existing provider/prompt behavior.
 5. Run targeted service tests plus root validation.
 
 Acceptance for the next slice:
 
-- one low-risk task uses policy guardrails.
+- one additional low-risk task uses policy guardrails.
 - provider and prompt remain unchanged.
 - no silent expensive fallback is introduced.
 - Phase 1 blockers and API warnings remain visible.

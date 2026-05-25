@@ -6,7 +6,7 @@ Branch: `codex/phase-2-ai-workflow-upgrades`
 
 ## Current Status
 
-Phase 2 has started from the Phase 1 review-ready baseline. No application code has been modified.
+Phase 2 has started from the Phase 1 review-ready baseline. The first runtime-touching slice is limited to one policy guardrail lookup in the support ticket draft service; provider, model, prompt, request shape, and output shape are unchanged.
 
 ## Baseline
 
@@ -35,6 +35,10 @@ Phase 2 has started from the Phase 1 review-ready baseline. No application code 
 - Added audit/task-policy guardrail tests: `scripts/__tests__/audit-ai-call-sites.test.ts`.
 - Added initial documented task policy map: `lib/ai/task-policy.ts`.
 - Created `PHASE_2_AI_CALLSITE_INVENTORY.md`.
+- Refined the AI inventory audit to remove non-AI BYOK/storage/provider-connection false positives.
+- Documented the first policy-wrap candidate in `PHASE_2_AI_POLICY_WRAP_CANDIDATE.md`.
+- Wrapped `lib/services/ai/draft-support-ticket.ts` with `support_response_draft` policy guardrails without changing the Anthropic request contract.
+- Added support draft preservation tests in `lib/services/ai/__tests__/draft-support-ticket.test.ts`.
 
 ## AI Baseline Notes
 
@@ -63,30 +67,49 @@ Audit command:
 pnpm exec tsx scripts/audit-ai-call-sites.ts --json
 ```
 
-Current static inventory:
+Refined static inventory:
 
 - source files scanned: 1,193
-- AI/provider/RAG surfaces found: 117
-- provider families: Anthropic 41, OpenAI 9, Gemini 17, RestoreAssist AI 14, BYOK 50, RAG/vector 18, local/hash fallback 7, unknown 2
-- task classes: fast classification 7, OCR/image understanding 41, report drafting 20, standards/RAG lookup 7, voice/realtime 22, workflow automation 4, embeddings 10, unknown 6
+- AI/provider/RAG surfaces found: 88
+- provider families: Anthropic 41, OpenAI 9, Gemini 17, RestoreAssist AI 14, BYOK 14, RAG/vector 18, local/hash fallback 7, unknown 3
+- task classes: fast classification 17, support response draft 1, OCR/image understanding 41, report drafting 6, standards/RAG lookup 6, voice/realtime 2, workflow automation 4, embeddings 10, unknown 1
 
-Runtime behavior changed: no.
+Runtime behavior changed: no provider/model/prompt/output-shape behavior changed. The support draft helper now fails closed if its task policy is missing.
 
 Prompts/provider selection changed: no.
+
+## Support Draft Policy Wrap Slice
+
+Selected candidate:
+
+- `lib/services/ai/draft-support-ticket.ts`
+- task class: `support_response_draft`
+- provider: existing Anthropic gateway
+- model: `claude-haiku-4-5-20251001`
+- max output tokens: unchanged at `1024`, now sourced from policy
+
+Preserved behavior:
+
+- no provider selection change.
+- no prompt change.
+- no user message shape change.
+- no output shape change.
+- no public route behavior change.
+- no report, voice, OCR/image, or RAG workflow changed.
 
 ## Validation
 
 Latest focused validation:
 
-- `pnpm exec vitest run scripts/__tests__/audit-ai-call-sites.test.ts`: PASS, 1 file / 6 tests.
-- `pnpm exec tsx scripts/audit-ai-call-sites.ts --json`: PASS.
+- `pnpm exec vitest run scripts/__tests__/audit-ai-call-sites.test.ts`: PASS, 1 file / 9 tests.
+- `pnpm exec tsx scripts/audit-ai-call-sites.ts --json`: PASS, 88 call-site surfaces found.
+- `pnpm exec vitest run lib/services/ai/__tests__/draft-support-ticket.test.ts`: PASS, 1 file / 6 tests.
+- `pnpm type-check`: PASS.
+- `pnpm lint`: PASS with 0 errors and 838 existing warnings.
+- `git diff --check`: PASS.
 - `pnpm exec tsx scripts/audit-api-routes.ts --json`: PASS, 442 routes / 0 errors / 14 warnings.
 - `pnpm --dir mobile --ignore-workspace type-check`: PASS.
-- `cd mobile && pnpm exec vitest run --config vitest.config.ts`: PASS, 2 files / 7 tests.
-- `pnpm type-check`: PASS.
-- `pnpm lint`: PASS with 0 errors and 838 warnings.
-- `git diff --check`: PASS.
 
 ## Next Safe Action
 
-Run full slice validation, then select one low-risk task for policy wrapping without changing provider or prompt behavior.
+Run final slice validation, commit the narrow policy-wrap slice, then review the single remaining unknown inventory item before selecting the next low-risk task.

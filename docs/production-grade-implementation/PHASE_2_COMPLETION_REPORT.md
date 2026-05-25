@@ -8,7 +8,7 @@ Branch: `codex/phase-2-ai-workflow-upgrades`
 
 Phase 2 is not complete.
 
-This report is a placeholder to prevent accidental completion claims while Phase 2 AI/workflow upgrade work is still at the planning and inspection stage.
+This report prevents accidental completion claims while Phase 2 AI/workflow upgrade work is still in incremental guardrail rollout.
 
 ## Completed So Far
 
@@ -31,14 +31,20 @@ This report is a placeholder to prevent accidental completion claims while Phase
   - API audit remains 442 routes / 0 errors / 14 warnings.
   - mobile type-check passes.
   - whitespace check passes.
+- Second safe implementation slice completed locally:
+  - AI inventory refined from 117 to 88 static surfaces by removing non-AI BYOK/storage/provider-connection false positives.
+  - first low-risk candidate documented in `PHASE_2_AI_POLICY_WRAP_CANDIDATE.md`.
+  - `draftSupportTicketReply` wrapped with `support_response_draft` policy guardrails.
+  - provider, model, prompt, request shape, and output shape preserved.
+  - missing/unknown policy fails closed.
 
 ## Not Yet Complete
 
 - Provider-neutral gateway implementation.
-- Central task policy.
-- Reviewed false-positive/false-negative pass over the AI call-site inventory.
+- Broad central runtime routing.
+- Reviewed owner decisions for remaining high-risk call sites.
 - Runtime model routing tests for migrated calls.
-- Cost guardrail tests for migrated calls.
+- Cost guardrail tests for additional migrated calls.
 - RAG false-citation eval gate.
 - OCR/image pipeline improvements.
 - Voice workflow improvements.
@@ -60,4 +66,4 @@ RestoreAssist remains **DO NOT SHIP**. Phase 2 planning does not approve product
 
 ## Next Safe Action
 
-Review the inventory for false positives/negatives, then migrate one low-risk AI task through policy guardrails without changing provider, prompt, or public route behavior.
+Review the single remaining unknown inventory item and remaining cost-observability gaps, then migrate one additional low-risk AI task through policy guardrails without changing provider, prompt, or public route behavior.

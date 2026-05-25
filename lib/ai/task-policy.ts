@@ -1,5 +1,6 @@
 export type AiTaskClass =
   | "fast_classification"
+  | "support_response_draft"
   | "ocr_image_understanding"
   | "report_drafting"
   | "standards_rag_lookup"
@@ -36,6 +37,20 @@ export const AI_TASK_POLICIES: Record<
   Exclude<AiTaskClass, "unknown">,
   AiTaskPolicy
 > = {
+  support_response_draft: {
+    taskClass: "support_response_draft",
+    allowedProviderFamilies: ["anthropic-platform"],
+    defaultLatencyClass: "interactive",
+    dataClass: "customer_content",
+    maxInputTokens: 8_000,
+    maxOutputTokens: 1_024,
+    maxEstimatedCostUsd: 0.02,
+    requiresTenantContext: false,
+    requiresUsageLogging: true,
+    requiresBudgetCheck: false,
+    allowsFallback: false,
+    notes: "Admin/platform support reply drafting; provider, model, prompt, and output shape must remain stable during the first policy-wrap slice.",
+  },
   fast_classification: {
     taskClass: "fast_classification",
     allowedProviderFamilies: ["restoreassist-ai", "openai-mini", "gemini-flash", "byok"],
@@ -141,3 +156,17 @@ export function getAiTaskPolicy(taskClass: AiTaskClass): AiTaskPolicy | null {
   return AI_TASK_POLICIES[taskClass];
 }
 
+export class MissingAiTaskPolicyError extends Error {
+  constructor(taskClass: AiTaskClass) {
+    super(`Missing AI task policy for ${taskClass}`);
+    this.name = "MissingAiTaskPolicyError";
+  }
+}
+
+export function requireAiTaskPolicy(taskClass: AiTaskClass): AiTaskPolicy {
+  const policy = getAiTaskPolicy(taskClass);
+  if (!policy) {
+    throw new MissingAiTaskPolicyError(taskClass);
+  }
+  return policy;
+}

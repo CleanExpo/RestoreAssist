@@ -134,9 +134,10 @@ function detectProviderFamilies(content: string): AiProviderFamily[] {
   if (
     includesAny(content, [
       "byokDispatch(",
-      "BYOK",
+      "BYOK_ALLOWED_MODELS",
+      "byok-client",
+      "byok-vision-client",
       "getLatestAIIntegration(",
-      "ProviderConnection",
       "workspace-byok-dispatch",
     ])
   ) {
@@ -179,15 +180,22 @@ function extractModelHints(content: string): string[] {
 }
 
 export function classifyAiTask(file: string, content: string): AiTaskClass {
+  const normalizedFile = file.toLowerCase();
   const target = `${file}\n${content}`.toLowerCase();
   if (includesAny(target, ["embedding", "embeddings.create", "text-embedding"])) {
     return "embeddings";
   }
-  if (includesAny(target, ["voice", "transcribe", "transcription", "realtime", "audio"])) {
-    return "voice_realtime";
+  if (normalizedFile.includes("draft-support-ticket")) {
+    return "support_response_draft";
   }
   if (includesAny(target, ["vision", "image", "photo", "ocr", "reading", "sketch"])) {
     return "ocr_image_understanding";
+  }
+  if (includesAny(target, ["analyse-support", "support-ticket", "support ticket", "classif", "tag", "label", "interview", "question"])) {
+    return "fast_classification";
+  }
+  if (includesAny(target, ["voice", "transcribe", "transcription", "realtime", "audio"])) {
+    return "voice_realtime";
   }
   if (
     includesAny(target, [
@@ -203,9 +211,6 @@ export function classifyAiTask(file: string, content: string): AiTaskClass {
   }
   if (includesAny(target, ["report", "scope", "synopsis", "manifest", "summary", "draft"])) {
     return "report_drafting";
-  }
-  if (includesAny(target, ["classif", "tag", "label", "support-ticket", "interview", "question"])) {
-    return "fast_classification";
   }
   if (includesAny(target, ["workflow", "agent", "automation", "margot"])) {
     return "workflow_automation";
@@ -307,6 +312,7 @@ export function auditAiCallSites(rootDir = process.cwd()): AiCallSiteAuditReport
   const taskClassCounts = Object.fromEntries(
     ([
       "fast_classification",
+      "support_response_draft",
       "ocr_image_understanding",
       "report_drafting",
       "standards_rag_lookup",

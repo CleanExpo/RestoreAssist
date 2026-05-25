@@ -71,6 +71,22 @@ describe("auditAiCallSite", () => {
     );
     expect(finding?.sendsSensitiveDataExternally).toBe(true);
   });
+
+  it("does not treat non-AI BYOK storage providers as AI call sites", () => {
+    const finding = auditAiCallSite(
+      "lib/storage/google-drive-provider.ts",
+      `
+        export class GoogleDriveStorageProvider {
+          readonly mode = "BYOK";
+          async connect(providerConnectionId: string) {
+            return this.oauthClient.getToken(providerConnectionId);
+          }
+        }
+      `,
+    );
+
+    expect(finding).toBeNull();
+  });
 });
 
 describe("classifyAiTask", () => {
@@ -81,6 +97,24 @@ describe("classifyAiTask", () => {
         "new OpenAI().audio.transcriptions.create({ model: 'whisper-1' })",
       ),
     ).toBe("voice_realtime");
+  });
+
+  it("classifies support ticket analysis before incidental voice/report wording", () => {
+    expect(
+      classifyAiTask(
+        "lib/services/ai/analyse-support-ticket.ts",
+        "callAnthropic({ request: { model: 'claude-haiku-4-5', messages: supportTicketMessages } })",
+      ),
+    ).toBe("fast_classification");
+  });
+
+  it("classifies support reply drafting as the explicit policy-wrapped task", () => {
+    expect(
+      classifyAiTask(
+        "lib/services/ai/draft-support-ticket.ts",
+        "callAnthropic({ request: { model: 'claude-haiku-4-5', max_tokens: 1024 } })",
+      ),
+    ).toBe("support_response_draft");
   });
 });
 
@@ -105,4 +139,3 @@ describe("AI task policies", () => {
     }
   });
 });
-
