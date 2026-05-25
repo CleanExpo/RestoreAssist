@@ -51,6 +51,7 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - API audit Ascora imported-job lookup completed: Ascora sync now bounds the imported job foreign-key lookup to the imported job ID set size with deterministic ordering. Advisory audit warnings were reduced from 20 to 19.
 - API audit test-helper classification completed: test helper routes are no longer treated as public/token exception candidates when the source contains the hard `ALLOW_TEST_HELPERS !== "true"` guard; unguarded test helpers still require auth. Advisory audit warnings were reduced from 19 to 15.
 - API audit missing-elements bounds completed: claims missing-elements summary hydration is capped to 5,000 deterministic rows with narrowed selects, exact total count, exact billable totals, and truncation metadata. Advisory audit warnings were reduced from 15 to 14.
+- Portal token hardening completed for the current public-route review slice: portal JSON and PDF token endpoints now rate-limit public access, cap relation hydration with deterministic ordering, and use exact count/aggregate summaries so public token requests cannot force unbounded reads.
 
 ## Validation Evidence
 
@@ -92,6 +93,7 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - API audit Ascora imported-job lookup slice: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 19 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 838 warnings, `git diff --check` PASS.
 - API audit test-helper classification slice: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 8 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 15 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 838 warnings, `git diff --check` PASS.
 - API audit missing-elements bounds slice: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 8 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 14 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 838 warnings, `git diff --check` PASS.
+- Portal token hardening slice: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 8 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 14 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 838 warnings, `git diff --check` PASS.
 
 ## Phase 1 Acceptance Criteria Still Open
 
@@ -129,7 +131,7 @@ Next action: run `vercel env rm NODE_TLS_REJECT_UNAUTHORIZED production --scope 
 
 Error: advisory API route scan reports 0 error-severity findings and 14 warnings.
 
-Cause: inherited warning-severity debt remains across public exception reviews that need route-specific product/security decisions before they can be treated as ship-safe.
+Cause: inherited warning-severity debt remains across public exception reviews that need route-specific product/security decisions before they can be treated as ship-safe. Portal token endpoints have been narrowed and rate-limited, but still require formal public-token exception sign-off.
 
 Fix: remediate warning groups in small commits and run `pnpm exec tsx scripts/audit-api-routes.ts --json` after each group. Treat public exception warnings as a manual security review checklist before ship.
 
