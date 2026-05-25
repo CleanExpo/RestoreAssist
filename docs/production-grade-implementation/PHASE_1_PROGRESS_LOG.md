@@ -30,6 +30,12 @@ Validated the safe-branch RA-4970 artifacts for the production RLS P0:
 
 Created `docs/production-grade-implementation/RA-4970_RLS_VALIDATION_REPORT.md` to separate the completed local/code validation from the remaining live Supabase revalidation step.
 
+Live Supabase RLS revalidation was later available through the authenticated Supabase CLI from `/private/tmp/ra-supabase-rls-check`. The first live aggregate query found drift: `rls_off=1`, `rls_on=197`, `anon_select_policies=12`. The only disabled table was `XeroSyncStatus`, added after RA-4970 by Prisma migration `20260522225545_add_xero_sync_status`.
+
+Added and applied `supabase/migrations/20260525061000_enable_rls_xero_sync_status.sql`, enabling RLS on `public."XeroSyncStatus"` with default-deny browser behaviour. `supabase db push --linked --dry-run` could not be used because remote Supabase migration history contains historical versions absent from this branch's local `supabase/migrations` directory, so the exact committed migration SQL was applied via `supabase db query --linked --file`.
+
+Post-fix disabled-table query returned no rows for `schemaname='public' AND rowsecurity=false`. Aggregate count and security advisor rechecks were attempted, but the Supabase CLI pooler temporary login began returning `ECIRCUITBREAKER` after repeated auth failures. Remaining RLS action: rerun the aggregate query and security advisor after the pooler circuit breaker clears; expected count is now `rls_off=0`, `rls_on=198`, `anon_select_policies=12`.
+
 ### INF-005: Vercel TLS Env Verification
 
 Verified Vercel TLS bypass risk from the safe worktree without modifying production env values.
@@ -302,15 +308,15 @@ Follow-up hardening pass:
 
 ## Failing Or Blocked Checks
 
-### Live Supabase RLS revalidation
+### Supabase RLS advisor revalidation
 
-Error: live Supabase revalidation was not run in this turn.
+Error: security advisor ERROR-level recheck was not completed after the `XeroSyncStatus` drift repair.
 
-Cause: no Supabase MCP/project credential tool is available in the current toolset.
+Cause: Supabase CLI temporary pooler login began failing with `ECIRCUITBREAKER` after advisor/query auth retries.
 
-Fix: re-run the smoke queries in `.claude/aggregation/supabase/ra-4970-apply-log.md` against project `udooysjajglluvuxkijp`.
+Fix: wait for the Supabase pooler auth circuit breaker to clear, then rerun the aggregate RLS count and security advisor checks.
 
-Next action: confirm `rls_off=0`, `rls_on=197`, `anon_select_policies=12`, and `0` ERROR-level security advisor findings with live Supabase access.
+Next action: confirm `rls_off=0`, `rls_on=198`, `anon_select_policies=12`, and `0` ERROR-level security advisor findings with live Supabase access.
 
 ### Vercel production TLS runtime refresh
 
@@ -347,4 +353,4 @@ Next action: use `API_PUBLIC_ROUTE_EXCEPTION_REVIEW_REPORT.md` to decide whether
 
 ## Next Safe Action
 
-Resolve the external/manual blockers now preventing a ship-ready Phase 1 claim: production redeploy/runtime confirmation after Vercel TLS env removal, live Supabase RLS revalidation, and product/security sign-off for the documented public API route exceptions. Keep using `/private/tmp/RestoreAssist-phase1-main` only, and do not stage `.github/PULL_REQUEST_TEMPLATE.md`.
+Resolve the external/manual blockers now preventing a ship-ready Phase 1 claim: production redeploy/runtime confirmation after Vercel TLS env removal, Supabase security advisor revalidation after the `XeroSyncStatus` RLS repair, and product/security sign-off for the documented public API route exceptions. Keep using `/private/tmp/RestoreAssist-phase1-main` only, and do not stage `.github/PULL_REQUEST_TEMPLATE.md`.

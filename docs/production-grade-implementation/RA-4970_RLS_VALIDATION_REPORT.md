@@ -11,7 +11,7 @@ This pass used only the verified safe worktree:
 - pwd: `/private/tmp/RestoreAssist-phase1-main`
 - branch: `codex/phase-1-production-readiness-clean`
 
-No application code was modified.
+No application code was modified. A narrow Supabase migration was added to repair live RLS drift discovered during revalidation.
 
 ## Finding
 
@@ -22,7 +22,7 @@ The Supabase RLS P0 is no longer an unimplemented code change in this branch. Th
 - Categorisation: `.claude/aggregation/supabase/rls-categorisation.md`
 - Service-role audit: `.claude/aggregation/supabase/service-role-audit-2026-05-18.md`
 
-The apply log records production project `udooysjajglluvuxkijp` post-state after three successful RA-4970 apply/confirmation passes:
+The original apply log records production project `udooysjajglluvuxkijp` post-state after three successful RA-4970 apply/confirmation passes:
 
 - `rls_off=0`
 - `rls_on=197`
@@ -38,16 +38,66 @@ The migration is environment-tolerant and enables RLS on the 119 named public ta
 - The migration creates exactly the documented `anon_select` policy shape for public reference tables.
 - The service-role audit documents that browser Supabase usage is storage-only and server table access uses Prisma or `SUPABASE_SERVICE_ROLE_KEY`.
 
+## Live Revalidation And Drift Repair
+
+Authenticated Supabase CLI access was available from a temporary workdir outside the repo:
+
+- temp link path: `/private/tmp/ra-supabase-rls-check`
+- project: `udooysjajglluvuxkijp`
+
+Initial live smoke query result on 2026-05-25:
+
+```json
+{
+  "rls_off": 1,
+  "rls_on": 197,
+  "anon_select_policies": 12
+}
+```
+
+The single table with RLS disabled was `XeroSyncStatus`, which was added by Prisma migration `20260522225545_add_xero_sync_status` after the original RA-4970 RLS closeout.
+
+Fix added:
+
+- `supabase/migrations/20260525061000_enable_rls_xero_sync_status.sql`
+
+The migration enables RLS on `public."XeroSyncStatus"` only when the table exists. It does not add anon policies, so browser/client access remains default-deny.
+
+The Supabase CLI `db push --linked --dry-run` path could not be used because the remote Supabase migration history contains many historical versions that are not present in this branch's local `supabase/migrations` directory. The exact committed migration SQL was applied with:
+
+```bash
+supabase db query --linked \
+  --workdir /private/tmp/ra-supabase-rls-check \
+  --file /private/tmp/RestoreAssist-phase1-main/supabase/migrations/20260525061000_enable_rls_xero_sync_status.sql \
+  --output json
+```
+
+Post-fix verification query for disabled RLS tables returned an empty row set:
+
+```sql
+SELECT tablename
+FROM pg_tables
+WHERE schemaname='public' AND rowsecurity=false
+ORDER BY tablename;
+```
+
+The aggregate count recheck and security advisor recheck were attempted, but the Supabase pooler began rejecting temporary CLI login connections with `ECIRCUITBREAKER` after repeated advisor/query authentication failures. The strongest completed live evidence in this turn is therefore:
+
+- before fix: `rls_off=1`, `rls_on=197`, `anon_select_policies=12`
+- drift table identified: `XeroSyncStatus`
+- fix applied: `ALTER TABLE public."XeroSyncStatus" ENABLE ROW LEVEL SECURITY` through the committed migration file
+- after fix: `SELECT tablename ... rowsecurity=false` returned no rows
+
 ## Remaining Blocker
 
-Error: Live Supabase revalidation was not run in this turn.
+Error: Supabase security advisor ERROR-level recheck was not completed after the drift repair.
 
-Cause: No Supabase MCP/project credential tool is available in the current toolset, and the user explicitly asked not to continue unsafe checkout work.
+Cause: Supabase CLI temporary pooler login began failing with `ECIRCUITBREAKER` after advisor/query auth retries.
 
-Fix: Re-run the smoke queries in `.claude/aggregation/supabase/ra-4970-apply-log.md` against project `udooysjajglluvuxkijp` using the authenticated Supabase tool or dashboard SQL editor.
+Fix: wait for the Supabase pooler auth circuit breaker to clear, then rerun the aggregate RLS count and security advisor checks.
 
-Next action: Confirm `rls_off=0`, `rls_on=197`, `anon_select_policies=12`, and `0` ERROR-level security advisor findings with live Supabase access. Then proceed to Priority 2: Vercel production TLS env verification.
+Next action: confirm `rls_off=0`, `rls_on=198`, `anon_select_policies=12`, and `0` ERROR-level security advisor findings with live Supabase access.
 
 ## Decision
 
-Phase 1 can move past local RLS code/documentation implementation because the migration and production apply evidence are present. Live Supabase revalidation remains a credentials/tooling verification step, not an application-code blocker.
+Phase 1 RLS implementation now includes the original RA-4970 closeout plus the `XeroSyncStatus` drift repair. Live RLS disabled-table verification is green by row listing, but security advisor confirmation remains blocked by the temporary Supabase pooler auth circuit breaker.
