@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { applyRateLimit } from "@/lib/rate-limiter";
+import { applyRateLimit, getClientIp } from "@/lib/rate-limiter";
 import { apiError } from "@/lib/api-errors";
+
+const SIGNATURE_TOKEN_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const MAX_FORM_SIGNATURES_RETURNED = 25;
+
+function isValidSignatureToken(token: string): boolean {
+  return SIGNATURE_TOKEN_PATTERN.test(token);
+}
 
 /**
  * GET /api/authority-forms/sign/:token
@@ -22,11 +30,11 @@ export async function GET(
 
     const { token } = await params;
 
-    if (!token) {
+    if (!token || !isValidSignatureToken(token)) {
       return apiError(request, {
-        code: "VALIDATION",
-        message: "Token is required",
-        status: 400,
+        code: "NOT_FOUND",
+        message: "Invalid or expired signing link",
+        status: 404,
       });
     }
 
@@ -44,6 +52,7 @@ export async function GET(
                 signedAt: true,
               },
               orderBy: { createdAt: "asc" },
+              take: MAX_FORM_SIGNATURES_RETURNED,
             },
           },
         },
@@ -128,11 +137,11 @@ export async function POST(
     const body = await request.json();
     const { signatureData, signatoryName } = body;
 
-    if (!token) {
+    if (!token || !isValidSignatureToken(token)) {
       return apiError(request, {
-        code: "VALIDATION",
-        message: "Token is required",
-        status: 400,
+        code: "NOT_FOUND",
+        message: "Invalid or expired signing link",
+        status: 404,
       });
     }
 
@@ -147,6 +156,11 @@ export async function POST(
     // Look up the signature record to get the id and instanceId
     const signature = await prisma.authorityFormSignature.findUnique({
       where: { signatureRequestToken: token },
+      select: {
+        id: true,
+        instanceId: true,
+        signatoryName: true,
+      },
     });
 
     if (!signature) {
@@ -158,10 +172,7 @@ export async function POST(
     }
 
     // Capture verification data
-    const ipAddress =
-      request.headers.get("x-forwarded-for") ||
-      request.headers.get("x-real-ip") ||
-      "unknown";
+    const ipAddress = getClientIp(request);
     const userAgent = request.headers.get("user-agent") || "unknown";
 
     // Atomic check-and-sign: updateMany with WHERE signedAt IS NULL prevents the
