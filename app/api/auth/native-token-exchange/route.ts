@@ -60,6 +60,9 @@ const SESSION_COOKIE_NAME =
     ? "__Secure-next-auth.session-token"
     : "next-auth.session-token";
 const SESSION_MAX_AGE_SECONDS = 90 * 24 * 60 * 60;
+const TOKEN_VERIFICATION_FAILED_MESSAGE = "Token verification failed";
+const USER_CREATE_FAILED_MESSAGE = "User create failed";
+const SESSION_JWT_ENCODE_FAILED_MESSAGE = "Session JWT encode failed";
 
 type Provider = "apple" | "google";
 
@@ -232,11 +235,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     claims = await verifyAndNormaliseToken(provider, body.idToken, body.nonce);
   } catch (err) {
+    console.error("[native-token-exchange] token verification failed:", err);
     return jsonError(
       request,
       401,
       "TOKEN_VERIFICATION_FAILED",
-      err instanceof Error ? err.message : `${provider} token verification failed`,
+      TOKEN_VERIFICATION_FAILED_MESSAGE,
     );
   }
 
@@ -281,11 +285,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         } as any,
       });
     } catch (err) {
+      console.error("[native-token-exchange] user create failed:", err);
       return jsonError(
         request,
         500,
         "USER_CREATE_FAILED",
-        err instanceof Error ? err.message : "User create failed",
+        USER_CREATE_FAILED_MESSAGE,
         email,
       );
     }
@@ -340,11 +345,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       maxAge: SESSION_MAX_AGE_SECONDS,
     });
   } catch (err) {
+    console.error("[native-token-exchange] session JWT encode failed:", err);
     return jsonError(
       request,
       500,
       "JWT_ENCODE_FAILED",
-      err instanceof Error ? err.message : "Session JWT encode failed",
+      SESSION_JWT_ENCODE_FAILED_MESSAGE,
       email,
     );
   }
