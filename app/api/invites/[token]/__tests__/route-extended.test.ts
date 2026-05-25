@@ -10,6 +10,13 @@ const userUpdate = vi.fn();
 const inviteUpdate = vi.fn();
 const sendInviteEmail = vi.fn();
 const cloudinaryUploadDataUrl = vi.fn();
+const rateLimitHitDeleteMany = vi.fn();
+const rateLimitHitCreate = vi.fn();
+const rateLimitHitCount = vi.fn();
+const rateLimitHitDelete = vi.fn();
+const rateLimitHitFindFirst = vi.fn();
+
+const INVITE_TOKEN = "a".repeat(48);
 
 vi.mock("@/lib/csrf", () => ({
   validateCsrf: (...a: unknown[]) => validateCsrf(...a),
@@ -25,10 +32,23 @@ vi.mock("@/lib/prisma", () => ({
       create: (...a: unknown[]) => userCreate(...a),
       update: (...a: unknown[]) => userUpdate(...a),
     },
+    rateLimitHit: {
+      deleteMany: (...a: unknown[]) => rateLimitHitDeleteMany(...a),
+      create: (...a: unknown[]) => rateLimitHitCreate(...a),
+      count: (...a: unknown[]) => rateLimitHitCount(...a),
+      delete: (...a: unknown[]) => rateLimitHitDelete(...a),
+      findFirst: (...a: unknown[]) => rateLimitHitFindFirst(...a),
+    },
     // Existing route wraps user.create + invite.update in $transaction.
     // Pass-through so the unit mocks above still capture the calls.
     $transaction: async (fn: (tx: unknown) => unknown) =>
       fn({
+        rateLimitHit: {
+          create: (...a: unknown[]) => rateLimitHitCreate(...a),
+          count: (...a: unknown[]) => rateLimitHitCount(...a),
+          delete: (...a: unknown[]) => rateLimitHitDelete(...a),
+          findFirst: (...a: unknown[]) => rateLimitHitFindFirst(...a),
+        },
         userInvite: {
           findUnique: (...a: unknown[]) => inviteFindUnique(...a),
           update: (...a: unknown[]) => inviteUpdate(...a),
@@ -61,6 +81,11 @@ beforeEach(() => {
   inviteUpdate.mockReset();
   sendInviteEmail.mockReset();
   cloudinaryUploadDataUrl.mockReset();
+  rateLimitHitDeleteMany.mockReset().mockResolvedValue({ count: 0 });
+  rateLimitHitCreate.mockReset().mockResolvedValue({ id: "rate_hit_1" });
+  rateLimitHitCount.mockReset().mockResolvedValue(1);
+  rateLimitHitDelete.mockReset().mockResolvedValue({});
+  rateLimitHitFindFirst.mockReset().mockResolvedValue(null);
 });
 
 // Tiny but real-magic JPEG (FF D8 FF E0 … FF D9) — passes the SP-7 Seam F
@@ -80,7 +105,7 @@ const baseBody = {
 };
 
 function makeReq(body: unknown): NextRequest {
-  return new NextRequest("http://localhost/api/invites/abc123", {
+  return new NextRequest(`http://localhost/api/invites/${INVITE_TOKEN}`, {
     method: "POST",
     body: JSON.stringify(body),
     headers: { "content-type": "application/json" },
@@ -88,7 +113,7 @@ function makeReq(body: unknown): NextRequest {
 }
 
 async function ctx() {
-  return { params: Promise.resolve({ token: "abc123" }) };
+  return { params: Promise.resolve({ token: INVITE_TOKEN }) };
 }
 
 describe("POST /api/invites/[token] (extended)", () => {
@@ -127,7 +152,7 @@ describe("POST /api/invites/[token] (extended)", () => {
   it("creates User with phone + image when email-password happy path", async () => {
     inviteFindUnique.mockResolvedValueOnce({
       id: "inv_1",
-      token: "abc123",
+      token: INVITE_TOKEN,
       email: "jamie@example.com",
       role: "USER",
       organizationId: "org_1",
@@ -166,7 +191,7 @@ describe("POST /api/invites/[token] (extended)", () => {
   it("on provider:'google' path, skips password validation", async () => {
     inviteFindUnique.mockResolvedValueOnce({
       id: "inv_1",
-      token: "abc123",
+      token: INVITE_TOKEN,
       email: "jamie@example.com",
       role: "USER",
       organizationId: "org_1",
@@ -206,7 +231,7 @@ describe("POST /api/invites/[token] (extended)", () => {
   it("on provider:'google' path, returns 400 when no existing Google user found for this invite", async () => {
     inviteFindUnique.mockResolvedValueOnce({
       id: "inv_1",
-      token: "abc123",
+      token: INVITE_TOKEN,
       email: "jamie@example.com",
       role: "USER",
       organizationId: "org_1",
@@ -234,7 +259,7 @@ describe("POST /api/invites/[token] (extended)", () => {
   it("returns 400 when headshotDataUrl bytes are not a JPEG or PNG", async () => {
     inviteFindUnique.mockResolvedValueOnce({
       id: "inv_1",
-      token: "abc123",
+      token: INVITE_TOKEN,
       email: "jamie@example.com",
       role: "USER",
       organizationId: "org_1",
@@ -255,7 +280,7 @@ describe("POST /api/invites/[token] (extended)", () => {
   it("returns 400 when headshotDataUrl decoded size exceeds 6MB", async () => {
     inviteFindUnique.mockResolvedValueOnce({
       id: "inv_1",
-      token: "abc123",
+      token: INVITE_TOKEN,
       email: "jamie@example.com",
       role: "USER",
       organizationId: "org_1",
