@@ -220,6 +220,7 @@ Follow-up hardening pass:
 - Sketch import rate-limit consolidation slice: removed the route-local module `Map` limiter and moved Vision import throttling onto the shared `applyRateLimit` helper with the authenticated `session.user.id` key, 5 calls, and a 15-minute window. Regression coverage added for the shared 429 path before multipart parsing/Vision invocation. Final validation: `pnpm exec vitest run app/api/inspections/[id]/sketches/import-from-image/__tests__/route.test.ts` PASS with 1 file / 2 tests, `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 32 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 839 warnings, `git diff --check` PASS.
 - Auth/RBAC tenancy helper slice: `assertReportTenancy` and `assertInspectionTenancy` now revalidate admin bypass against the current DB user role instead of trusting a stale JWT `session.user.role`; demoted admins fall back to normal owner/workspace tenancy. Regression coverage added for stale admin JWT report and inspection access denial. Final validation: `pnpm exec vitest run lib/auth/__tests__/assert-tenancy.test.ts` PASS with 1 file / 17 tests, `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 32 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 839 warnings, `git diff --check` PASS.
 - API audit integration/pilot slice: added deterministic ordering, explicit `take` caps, and narrower selects to user-scoped integration metrics/health reads and pilot readiness/observation admin reads. Pilot readiness and observation listing now use `verifyAdminFromDb` instead of trusting stale JWT role claims. Advisory audit warnings reduced from 32 to 28. Final validation: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 28 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 839 warnings, `git diff --check` PASS.
+- API audit estimate line-item bounds slice: added a 500-line-item request cap to estimate create/update and bounded the existing estimate line-item diff query with deterministic ordering plus a fail-closed legacy over-cap check, preserving full diff semantics instead of truncating deletes/updates. Advisory audit warnings reduced from 28 to 27. Final validation: `pnpm exec vitest run scripts/__tests__/audit-api-routes.test.ts` PASS with 1 file / 7 tests, `pnpm exec tsx scripts/audit-api-routes.ts --json` PASS with 442 routes / 27 warnings / 0 errors, `pnpm type-check` PASS, `pnpm lint` PASS with 0 errors and 839 warnings, `git diff --check` PASS.
 
 ## Failing Or Blocked Checks
 
@@ -245,7 +246,7 @@ Next action: run `vercel env rm NODE_TLS_REJECT_UNAUTHORIZED production --scope 
 
 ### API route audit inherited findings
 
-Error: advisory API route scan reports 0 error-severity findings and 28 warning-severity findings.
+Error: advisory API route scan reports 0 error-severity findings and 27 warning-severity findings.
 
 Cause: error-severity auth/raw-SQL/500-leak findings have been remediated or classified as documented public exception candidates. Recent slices removed false positives and high-confidence unbounded list/import/detail/workflow/bulk support/export reads, but warning-severity inherited debt remains across public exception reviews and heavier Prisma `findMany` candidates that need route-specific product/security decisions.
 
@@ -270,4 +271,4 @@ Next action: review the remaining warning-severity public exceptions and heavier
 
 ## Next Safe Action
 
-Continue with Priority 7 upload/evidence-chain reliability, while leaving the remaining 32 API audit warnings documented for product/security review. Keep using `/private/tmp/RestoreAssist-phase1-main` only, and do not stage `.github/PULL_REQUEST_TEMPLATE.md`.
+Continue reducing Priority 4 API audit warnings where route semantics are clear. Keep using `/private/tmp/RestoreAssist-phase1-main` only, and do not stage `.github/PULL_REQUEST_TEMPLATE.md`.

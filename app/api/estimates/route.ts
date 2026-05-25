@@ -7,6 +7,8 @@ import { applyRateLimit } from "@/lib/rate-limiter";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 
+const MAX_ESTIMATE_LINE_ITEMS = 500;
+
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
@@ -133,6 +135,23 @@ export async function POST(request: NextRequest) {
       };
 
       let estimate;
+      const incomingLineItems = Array.isArray(lineItems) ? lineItems : [];
+
+      if (lineItems !== undefined && !Array.isArray(lineItems)) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "lineItems must be an array",
+          status: 400,
+        });
+      }
+
+      if (incomingLineItems.length > MAX_ESTIMATE_LINE_ITEMS) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: `lineItems cannot exceed ${MAX_ESTIMATE_LINE_ITEMS} items`,
+          status: 400,
+        });
+      }
 
       if (existingEstimate) {
         // RA-1359 — diff-and-sync instead of deleteMany+create. The old
@@ -146,7 +165,7 @@ export async function POST(request: NextRequest) {
         // CREATED. DB items whose id isn't in the incoming set are
         // DELETED. All three happen inside a single transaction so the
         // estimate + its line-item diff land atomically.
-        const incoming = (lineItems || []) as any[];
+        const incoming = incomingLineItems as any[];
         const incomingIds = new Set(
           incoming.map((item) => item.id).filter((id): id is string => !!id),
         );
@@ -154,7 +173,17 @@ export async function POST(request: NextRequest) {
         const existingLineItems = await prisma.estimateLineItem.findMany({
           where: { estimateId: existingEstimate.id },
           select: { id: true },
+          orderBy: { displayOrder: "asc" },
+          take: MAX_ESTIMATE_LINE_ITEMS + 1,
         });
+
+        if (existingLineItems.length > MAX_ESTIMATE_LINE_ITEMS) {
+          return apiError(request, {
+            code: "VALIDATION",
+            message: `Estimate cannot exceed ${MAX_ESTIMATE_LINE_ITEMS} line items`,
+            status: 409,
+          });
+        }
 
         const toDeleteIds = existingLineItems
           .map((li) => li.id)
@@ -240,7 +269,7 @@ export async function POST(request: NextRequest) {
             createdBy: userId,
             userId: userId,
             lineItems: {
-              create: (lineItems || []).map((item: any) => ({
+              create: incomingLineItems.map((item: any) => ({
                 code: item.code || null,
                 category: item.category,
                 description: item.description,
