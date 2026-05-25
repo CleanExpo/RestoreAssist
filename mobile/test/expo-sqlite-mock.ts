@@ -103,6 +103,16 @@ export async function openDatabaseAsync(dbName: string) {
           row.lastError = params[3] as string;
         }
       }
+
+      if (sql.includes("SET status = 'failed', retryCount = ?")) {
+        const row = rows.get(params[3] as string);
+        if (row) {
+          row.status = "failed";
+          row.retryCount = params[0] as number;
+          row.lastAttemptAt = params[1] as string;
+          row.lastError = params[2] as string;
+        }
+      }
     },
 
     async getFirstAsync<T>(sql: string, ...params: unknown[]): Promise<T | null> {

@@ -137,4 +137,39 @@ describe("mobile offline sync engine", () => {
     expect(useAppStore.getState().queuedMutationCount).toBe(0);
     expect(useAppStore.getState().failedMutationCount).toBe(1);
   });
+
+  it("fails non-retryable server rejections without repeated replay attempts", async () => {
+    const {
+      getQueuedMutation,
+      queueJsonMutation,
+      replayQueuedMutations,
+      useAppStore,
+    } = await loadEngine();
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(jsonResponse(409, { error: "Mutation conflict" }));
+
+    await queueJsonMutation({
+      mutationId: "ra-test-conflict",
+      type: "moisture-reading",
+      endpoint: "/api/inspections/insp_4/moisture",
+      method: "POST",
+      body: JSON.stringify({ location: "Kitchen", moistureLevel: 22 }),
+      inspectionId: "insp_4",
+    });
+
+    await replayQueuedMutations("https://example.test");
+
+    await expect(getQueuedMutation("ra-test-conflict")).resolves.toMatchObject({
+      status: "failed",
+      retryCount: 1,
+      lastError: "Mutation conflict",
+    });
+    expect(useAppStore.getState().queuedMutationCount).toBe(0);
+    expect(useAppStore.getState().failedMutationCount).toBe(1);
+
+    await replayQueuedMutations("https://example.test");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });

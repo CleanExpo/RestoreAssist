@@ -237,6 +237,25 @@ async function markRetry(
   );
 }
 
+async function markFailed(
+  entry: QueuedMutation,
+  message: string,
+): Promise<void> {
+  const db = await getDb();
+  const nextRetryCount = Math.min(entry.retryCount + 1, MAX_RETRY_COUNT);
+  await db.runAsync(
+    `
+      UPDATE offline_mutations
+      SET status = 'failed', retryCount = ?, lastAttemptAt = ?, lastError = ?
+      WHERE id = ?
+    `,
+    nextRetryCount,
+    new Date().toISOString(),
+    message.slice(0, 500),
+    entry.id,
+  );
+}
+
 export async function replayQueuedMutations(
   apiBase = API_BASE,
 ): Promise<number> {
@@ -267,7 +286,7 @@ export async function replayQueuedMutations(
         await markRetry(entry, `Server returned ${response.status}`);
       } else {
         const body = await response.json().catch(() => ({}));
-        await markRetry(
+        await markFailed(
           entry,
           (body as { error?: string }).error ??
             `Mutation rejected with ${response.status}`,
