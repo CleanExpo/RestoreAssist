@@ -26,7 +26,7 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - Codex Stop hook repaired and trusted with `bash .codex/hooks/stop-verifier.sh`.
 - Supabase RLS P0 local/code validation completed from safe-branch RA-4970 artifacts: migration present, production apply log records `rls_off=0`, and post-apply security advisor evidence records 0 ERROR-level findings.
 - Checkout correction report committed from the verified safe worktree.
-- Vercel TLS env verification completed as a read-only inspection: repo does not execute or document the bypass directly, but Vercel Production contains `NODE_TLS_REJECT_UNAUTHORIZED`; Preview and Development do not list it. `VERCEL_TLS_ENV_VERIFICATION_REPORT.md` documents the manual removal path.
+- Vercel TLS env verification and correction completed for project env configuration: repo does not execute or document the bypass directly, and authenticated Vercel CLI removal means Production, Preview, and Development no longer list `NODE_TLS_REJECT_UNAUTHORIZED`. `VERCEL_TLS_ENV_VERIFICATION_REPORT.md` documents the evidence and remaining runtime redeploy note.
 - SEC-002 local forbidden-env audit gate added: `scripts/audit-env.ts` fails on executable/deploy-config `NODE_TLS_REJECT_UNAUTHORIZED=0`, missing required `.env.example` entries, and public service-role env names. Current local repo audit has 0 errors and 0 warnings after replacing unsafe Ascora TLS-bypass guidance with scoped-trust guidance.
 - Mobile validation path completed as a separate Expo package flow: `pnpm --dir mobile install --ignore-workspace`, `pnpm --dir mobile --ignore-workspace type-check`, and `cd mobile && pnpm exec vitest run --config vitest.config.ts`.
 - API audit warning-reduction slice completed: warnings reduced from 76 to 61 by fixing false positives in the audit scanner and bounding high-confidence authenticated list reads.
@@ -168,7 +168,7 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 
 ## Phase 1 Acceptance Criteria Still Open
 
-- Production forbidden-env audit is not yet green: local repo audit now has 0 error findings, but the latest read-only Vercel recheck still lists `NODE_TLS_REJECT_UNAUTHORIZED` in Production.
+- Production forbidden-env config is green at the Vercel project env listing layer: local repo audit has 0 error findings, and Vercel Production/Preview/Development no longer list `NODE_TLS_REJECT_UNAUTHORIZED`. Runtime confirmation still requires a new production deployment after the env removal.
 - Live Supabase RLS revalidation still needs an authenticated check against project `udooysjajglluvuxkijp`, but the RA-4970 migration and production apply evidence are present in this branch.
 - P0 query/raw SQL/error leakage routes have no current audit error findings; API audit currently reports 0 errors and 14 warnings, all public/token-route review warnings that are documented in `API_PUBLIC_ROUTE_EXCEPTION_REVIEW_REPORT.md` and pending product/security sign-off.
 - Shared route rate limiting now uses Prisma-backed `RateLimitHit` records through `applyRateLimit`; only the low-level synchronous compatibility helper and DB-unavailable fallback path remain process-local.
@@ -186,15 +186,15 @@ Fix: re-run the smoke queries in `.claude/aggregation/supabase/ra-4970-apply-log
 
 Next action: confirm `rls_off=0`, `rls_on=197`, `anon_select_policies=12`, and `0` ERROR-level security advisor findings with live Supabase access.
 
-### Vercel production TLS bypass
+### Vercel production TLS runtime refresh
 
-Error: `NODE_TLS_REJECT_UNAUTHORIZED` exists in the Vercel Production environment.
+Error: Vercel project env configuration no longer lists `NODE_TLS_REJECT_UNAUTHORIZED`, but the currently served production deployment may still have an older env snapshot until redeployed.
 
-Cause: historical Ascora self-signed/non-standard certificate workaround was documented as a production env option and appears to have been applied.
+Cause: Vercel environment changes apply to new deployments; existing deployments are not proven refreshed by env-list removal alone.
 
-Fix: remove `NODE_TLS_REJECT_UNAUTHORIZED` from Vercel Production unless an owner provides audited proof that the encrypted value is not `0` and harmless. Prefer a scoped Ascora TLS trust strategy over process-wide certificate verification bypass. Keep `pnpm exec tsx scripts/audit-env.ts --json` green for local repo/config checks.
+Fix: run a production deployment after the env removal and verify runtime behavior. Prefer a scoped Ascora TLS trust strategy over process-wide certificate verification bypass if Ascora integration fails. Keep `pnpm exec tsx scripts/audit-env.ts --json` green for local repo/config checks.
 
-Next action: run `vercel env rm NODE_TLS_REJECT_UNAUTHORIZED production --scope unite-group` from the linked temp directory or Vercel dashboard, then confirm `vercel env ls production --scope unite-group` no longer lists it.
+Next action: create or promote a production deployment without the deleted variable in its env snapshot, then confirm the live runtime no longer has `NODE_TLS_REJECT_UNAUTHORIZED`.
 
 ### API route hardening debt
 
@@ -222,4 +222,4 @@ RestoreAssist is not ship-ready.
 
 ## Next Safe Action
 
-Resolve the external/manual blockers now preventing a ship-ready Phase 1 claim: Vercel Production `NODE_TLS_REJECT_UNAUTHORIZED`, live Supabase RLS revalidation, product/security sign-off for the documented public API route exceptions, and mobile simulator/device validation from `MOBILE_DEVICE_VALIDATION_BLOCKER_REPORT.md`. Continue only from `/private/tmp/RestoreAssist-phase1-main` and do not stage `.github/PULL_REQUEST_TEMPLATE.md`.
+Resolve the external/manual blockers now preventing a ship-ready Phase 1 claim: production redeploy/runtime confirmation after Vercel TLS env removal, live Supabase RLS revalidation, product/security sign-off for the documented public API route exceptions, and mobile simulator/device validation from `MOBILE_DEVICE_VALIDATION_BLOCKER_REPORT.md`. Continue only from `/private/tmp/RestoreAssist-phase1-main` and do not stage `.github/PULL_REQUEST_TEMPLATE.md`.
