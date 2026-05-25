@@ -188,8 +188,7 @@ export async function drainEvidenceQueue(): Promise<number> {
           method: "POST",
           body: form,
           // Endpoint accepts cookies for next-auth session; no explicit header needed.
-          // Idempotency-Key is advisory — the endpoint does not yet dedupe on it,
-          // but sending it future-proofs retries (rule #24, #27).
+          // Idempotency-Key is enforced server-side for multipart photo replay.
           headers: { "Idempotency-Key": entry.id },
           credentials: "same-origin",
         },

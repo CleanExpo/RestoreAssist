@@ -10,6 +10,56 @@ const photoCreate = vi.fn();
 const auditLogCreate = vi.fn();
 const storageUpload = vi.fn();
 const rateLimit = vi.fn();
+const idempotencyRecords = new Map<string, any>();
+const idempotencyRecordCreate = vi.fn(async ({ data }: { data: any }) => {
+  if (idempotencyRecords.has(data.cacheKey)) throw { code: "P2002" };
+  const record = {
+    ...data,
+    responseStatus: data.responseStatus ?? null,
+    responseBody: data.responseBody ?? null,
+    responseContentType: data.responseContentType ?? null,
+  };
+  idempotencyRecords.set(data.cacheKey, record);
+  return record;
+});
+const idempotencyRecordFindUnique = vi.fn(
+  async ({ where }: { where: { cacheKey: string } }) =>
+    idempotencyRecords.get(where.cacheKey) ?? null,
+);
+const idempotencyRecordUpdate = vi.fn(
+  async ({ where, data }: { where: { cacheKey: string }; data: any }) => {
+    const existing = idempotencyRecords.get(where.cacheKey);
+    if (!existing) throw new Error("Record not found");
+    const updated = { ...existing, ...data };
+    idempotencyRecords.set(where.cacheKey, updated);
+    return updated;
+  },
+);
+const idempotencyRecordDeleteMany = vi.fn(async (args?: any) => {
+  if (!args?.where) {
+    const count = idempotencyRecords.size;
+    idempotencyRecords.clear();
+    return { count };
+  }
+
+  if (args.where.cacheKey) {
+    const deleted = idempotencyRecords.delete(args.where.cacheKey);
+    return { count: deleted ? 1 : 0 };
+  }
+
+  if (args.where.expiresAt?.lt) {
+    let count = 0;
+    for (const [cacheKey, record] of idempotencyRecords) {
+      if (record.expiresAt < args.where.expiresAt.lt) {
+        idempotencyRecords.delete(cacheKey);
+        count++;
+      }
+    }
+    return { count };
+  }
+
+  return { count: 0 };
+});
 
 vi.mock("next-auth", () => ({
   getServerSession: (...a: unknown[]) => getServerSession(...a),
@@ -21,6 +71,12 @@ vi.mock("@/lib/prisma", () => ({
     inspectionPhoto: { create: (...a: unknown[]) => photoCreate(...a) },
     user: { findUnique: (...a: unknown[]) => userFindUnique(...a) },
     auditLog: { create: (...a: unknown[]) => auditLogCreate(...a) },
+    idempotencyRecord: {
+      create: (...a: unknown[]) => idempotencyRecordCreate(...a),
+      findUnique: (...a: unknown[]) => idempotencyRecordFindUnique(...a),
+      update: (...a: unknown[]) => idempotencyRecordUpdate(...a),
+      deleteMany: (...a: unknown[]) => idempotencyRecordDeleteMany(...a),
+    },
   },
 }));
 vi.mock("@/lib/storage", () => ({
@@ -53,6 +109,7 @@ const BAD_MAGIC = new Uint8Array([
 function makeRequest(
   file: Uint8Array,
   fields: Record<string, string> = {},
+  headers: Record<string, string> = {},
 ): NextRequest {
   const form = new FormData();
   form.append("file", new Blob([file], { type: "image/jpeg" }), "test.jpg");
@@ -60,7 +117,7 @@ function makeRequest(
   return new NextRequest("http://localhost/api/inspections/i_1/photos", {
     method: "POST",
     body: form,
-    headers: { "user-agent": "vitest-runner/1.0" },
+    headers: { "user-agent": "vitest-runner/1.0", ...headers },
   });
 }
 
@@ -76,6 +133,11 @@ beforeEach(() => {
   auditLogCreate.mockReset();
   storageUpload.mockReset();
   rateLimit.mockReset().mockResolvedValue(null);
+  idempotencyRecords.clear();
+  idempotencyRecordCreate.mockClear();
+  idempotencyRecordFindUnique.mockClear();
+  idempotencyRecordUpdate.mockClear();
+  idempotencyRecordDeleteMany.mockClear();
   getServerSession.mockResolvedValue({
     user: { id: "u_1", image: "https://example.com/me.jpg" },
   });
@@ -165,5 +227,35 @@ describe("POST /api/inspections/[id]/photos (cocoa extension)", () => {
       ctx(),
     );
     expect(res.status).toBe(201);
+  });
+
+  it("replays duplicate multipart upload by Idempotency-Key without uploading twice", async () => {
+    const file = new Uint8Array(100);
+    file.set(JPEG_MAGIC, 0);
+    const sha = sha256Hex(file);
+    const headers = { "idempotency-key": "photo-upload-key-1" };
+
+    const first = await POST(
+      makeRequest(
+        file,
+        { cocoaSha256: sha, caption: "same photo" },
+        headers,
+      ),
+      ctx(),
+    );
+    const second = await POST(
+      makeRequest(
+        file,
+        { cocoaSha256: sha, caption: "same photo" },
+        headers,
+      ),
+      ctx(),
+    );
+
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(201);
+    expect(second.headers.get("idempotent-replayed")).toBe("true");
+    expect(storageUpload).toHaveBeenCalledTimes(1);
+    expect(photoCreate).toHaveBeenCalledTimes(1);
   });
 });

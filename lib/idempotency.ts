@@ -190,6 +190,95 @@ async function reserveIdempotencySlot({
   return { kind: "pending" };
 }
 
+export async function withIdempotencyFingerprint({
+  scope,
+  key,
+  method,
+  path,
+  fingerprint,
+  handler,
+}: {
+  scope: string;
+  key: string | null;
+  method: string;
+  path: string;
+  fingerprint: string;
+  handler: () => Promise<NextResponse>;
+}): Promise<NextResponse> {
+  if (!key) return handler();
+
+  const cacheKey = buildCacheKey(scope, key);
+  const requestFingerprint = fingerprintBody(method, path, fingerprint);
+  const now = new Date();
+
+  await cleanupExpiredIdempotencyRecords(now);
+
+  const reservation = await reserveIdempotencySlot({
+    cacheKey,
+    scope,
+    key,
+    fingerprint: requestFingerprint,
+    now,
+  });
+
+  if (reservation.kind === "conflict") {
+    return NextResponse.json(
+      {
+        error:
+          "Idempotency-Key reused with a different request body. Use a new key for new requests.",
+      },
+      { status: 409 },
+    );
+  }
+
+  if (reservation.kind === "pending") {
+    return NextResponse.json(
+      {
+        error:
+          "A request with this Idempotency-Key is already in progress. Retry shortly.",
+      },
+      { status: 409 },
+    );
+  }
+
+  if (reservation.kind === "replay") {
+    return responseFromCache(reservation.response);
+  }
+
+  let response: NextResponse;
+  try {
+    response = await handler();
+  } catch (err) {
+    await prisma.idempotencyRecord.deleteMany({ where: { cacheKey } });
+    throw err;
+  }
+
+  if (response.status >= 500) {
+    await prisma.idempotencyRecord.deleteMany({ where: { cacheKey } });
+    return response;
+  }
+
+  const clonedBody = await response.clone().text();
+  if (clonedBody.length > MAX_BODY_CACHE_BYTES) {
+    await prisma.idempotencyRecord.deleteMany({ where: { cacheKey } });
+    return response;
+  }
+
+  await prisma.idempotencyRecord.update({
+    where: { cacheKey },
+    data: {
+      status: "COMPLETE" satisfies IdempotencyStatus,
+      responseStatus: response.status,
+      responseBody: clonedBody,
+      responseContentType:
+        response.headers.get("content-type") || "application/json",
+      expiresAt: new Date(now.getTime() + TTL_MS),
+    },
+  });
+
+  return response;
+}
+
 /**
  * Wrap a POST/PATCH handler with idempotency.
  *
@@ -226,82 +315,19 @@ export async function withIdempotency(
     return handler(bodyText);
   }
 
-  const cacheKey = buildCacheKey(scope, keyResult.key);
   const fingerprint = fingerprintBody(
     req.method,
     req.nextUrl.pathname,
     bodyText,
   );
-  const now = new Date();
-
-  await cleanupExpiredIdempotencyRecords(now);
-
-  const reservation = await reserveIdempotencySlot({
-    cacheKey,
+  return withIdempotencyFingerprint({
     scope,
     key: keyResult.key,
+    method: req.method,
+    path: req.nextUrl.pathname,
     fingerprint,
-    now,
+    handler: () => handler(bodyText),
   });
-
-  if (reservation.kind === "conflict") {
-    return NextResponse.json(
-      {
-        error:
-          "Idempotency-Key reused with a different request body. Use a new key for new requests.",
-      },
-      { status: 409 },
-    );
-  }
-
-  if (reservation.kind === "pending") {
-    return NextResponse.json(
-      {
-        error:
-          "A request with this Idempotency-Key is already in progress. Retry shortly.",
-      },
-      { status: 409 },
-    );
-  }
-
-  if (reservation.kind === "replay") {
-    return responseFromCache(reservation.response);
-  }
-
-  let response: NextResponse;
-  try {
-    response = await handler(bodyText);
-  } catch (err) {
-    await prisma.idempotencyRecord.deleteMany({ where: { cacheKey } });
-    throw err;
-  }
-
-  // Only cache successful/client-error responses (not 5xx — caller should
-  // retry after a server error to recover). And only cache small bodies.
-  if (response.status >= 500) {
-    await prisma.idempotencyRecord.deleteMany({ where: { cacheKey } });
-    return response;
-  }
-
-  const clonedBody = await response.clone().text();
-  if (clonedBody.length > MAX_BODY_CACHE_BYTES) {
-    await prisma.idempotencyRecord.deleteMany({ where: { cacheKey } });
-    return response;
-  }
-
-  await prisma.idempotencyRecord.update({
-    where: { cacheKey },
-    data: {
-      status: "COMPLETE" satisfies IdempotencyStatus,
-      responseStatus: response.status,
-      responseBody: clonedBody,
-      responseContentType:
-        response.headers.get("content-type") || "application/json",
-      expiresAt: new Date(now.getTime() + TTL_MS),
-    },
-  });
-
-  return response;
 }
 
 /** Test-only: clear the durable idempotency store between tests. */
