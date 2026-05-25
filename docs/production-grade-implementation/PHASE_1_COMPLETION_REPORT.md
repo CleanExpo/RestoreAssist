@@ -132,7 +132,7 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 
 ## Phase 1 Acceptance Criteria Still Open
 
-- Production forbidden-env audit is not yet green: local repo audit now has 0 error findings, but Vercel Production still lists `NODE_TLS_REJECT_UNAUTHORIZED`.
+- Production forbidden-env audit is not yet green: local repo audit now has 0 error findings, but the latest read-only Vercel recheck still lists `NODE_TLS_REJECT_UNAUTHORIZED` in Production.
 - Live Supabase RLS revalidation still needs an authenticated check against project `udooysjajglluvuxkijp`, but the RA-4970 migration and production apply evidence are present in this branch.
 - P0 query/raw SQL/error leakage routes have no current audit error findings; API audit currently reports 0 errors and 14 warnings, all public/token-route review warnings that are documented in `API_PUBLIC_ROUTE_EXCEPTION_REVIEW_REPORT.md` and pending product/security sign-off.
 - Shared route rate limiting now uses Prisma-backed `RateLimitHit` records through `applyRateLimit`; only the low-level synchronous compatibility helper and DB-unavailable fallback path remain process-local.

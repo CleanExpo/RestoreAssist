@@ -68,9 +68,11 @@ Result:
 
 | Environment | `NODE_TLS_REJECT_UNAUTHORIZED` status |
 |---|---|
-| Production | Present, encrypted value, created 56d ago |
+| Production | Present, encrypted value, created 57d ago on the latest read-only recheck |
 | Preview | Not present in Vercel env listing |
 | Development | Not present in Vercel env listing |
+
+Latest read-only recheck: `vercel env ls production --scope unite-group` still listed the variable in Production. No env values were pulled or modified.
 
 Vercel env values are encrypted in `vercel env ls`. I did not run `vercel env pull` because it would write secrets to disk. Therefore the exact value was not read, but the variable's presence in Production is enough to keep this as an unsafe TLS bypass blocker. If it is set to `0`, Node disables TLS certificate verification process-wide for server runtime code.
 

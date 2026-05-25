@@ -34,15 +34,17 @@ Created `docs/production-grade-implementation/RA-4970_RLS_VALIDATION_REPORT.md` 
 
 Verified Vercel TLS bypass risk from the safe worktree without modifying production env values.
 
-Repo inspection found no executable assignment of `NODE_TLS_REJECT_UNAUTHORIZED`, and no setting in `vercel.json`, `.env.example`, `scripts/build.sh`, or GitHub workflows. Two Ascora route comments still document the workaround as a dev/prod option.
+Repo inspection found no executable assignment of `NODE_TLS_REJECT_UNAUTHORIZED`, and no setting in `vercel.json`, `.env.example`, `scripts/build.sh`, or GitHub workflows. The Ascora route comments now use scoped-trust guidance instead of naming the process-wide TLS bypass.
 
 Live Vercel env names/scopes were inspected read-only from a temporary directory outside the repo (`/private/tmp/ra-vercel-env-check`) linked to `unite-group/restoreassist`. Result:
 
-- Production: `NODE_TLS_REJECT_UNAUTHORIZED` is present as an encrypted env var, created 56d ago.
+- Production: `NODE_TLS_REJECT_UNAUTHORIZED` is present as an encrypted env var, created 57d ago on the latest read-only recheck.
 - Preview: not present.
 - Development: not present.
 
 Created `docs/production-grade-implementation/VERCEL_TLS_ENV_VERIFICATION_REPORT.md`. Priority 2 is now documented as a live production env blocker: remove the production variable or provide audited proof its value is not `0` and harmless. No secrets were pulled or printed into repo docs.
+
+Latest read-only Vercel recheck still lists the Production variable. No values were pulled and no env values were modified.
 
 Added the SEC-002 local forbidden-env audit gate:
 
