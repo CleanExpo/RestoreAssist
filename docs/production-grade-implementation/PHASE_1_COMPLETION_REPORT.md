@@ -69,6 +69,7 @@ This report exists to prevent an ambiguous completion claim while Phase 1 produc
 - Mobile queue mutation ledger coverage completed for the current offline/capture scope: environmental-data, moisture-reading, and affected-area inspection mutations now pass workspace/user/inspection metadata into `withIdempotency`, so mobile queue replays for those types create and complete `ClientMutation` rows when `X-RestoreAssist-Mutation-Id` is present.
 - Mobile conflict fail-fast completed for the current offline queue scope: non-retryable server rejections, including `409` conflicts, now move directly to failed queue state instead of being replayed until retry exhaustion.
 - Mobile network reachability completed for the current offline queue scope: the mobile root layout now updates the shared online/offline store from `/api/health` reachability without adding a native dependency, giving the queue drain guard and offline UI a real API reachability signal.
+- Mobile device validation blocker documented: `MOBILE_DEVICE_VALIDATION_BLOCKER_REPORT.md` records the remaining manual simulator/device checklist needed before MOB-001 can be called device-validated.
 
 ## Validation Evidence
 
@@ -167,10 +168,20 @@ Fix: remediate warning groups in small commits and run `pnpm exec tsx scripts/au
 
 Next action: use `API_PUBLIC_ROUTE_EXCEPTION_REVIEW_REPORT.md` to decide whether each remaining public route is approved as-is, needs bearer-token/session auth, or should be encoded in an approved exception registry.
 
+### Mobile device/emulator validation
+
+Error: mobile network-toggle/device validation has not been run.
+
+Cause: the current shell has no interactive iOS/Android simulator, Expo Go runtime, or physical device session to toggle network state and observe app UI plus queue replay behavior end-to-end.
+
+Fix: follow `MOBILE_DEVICE_VALIDATION_BLOCKER_REPORT.md` on a simulator or physical device pointed at the intended API environment.
+
+Next action: run the documented manual checklist and attach screenshots/logs showing offline banner/status changes, queued mutation persistence, replay after reconnect, and conflict fail-fast behavior.
+
 ## Ship Readiness
 
 RestoreAssist is not ship-ready.
 
 ## Next Safe Action
 
-Resolve the external/manual blockers now preventing a ship-ready Phase 1 claim: Vercel Production `NODE_TLS_REJECT_UNAUTHORIZED`, live Supabase RLS revalidation, and product/security sign-off for the documented public API route exceptions. Continue only from `/private/tmp/RestoreAssist-phase1-main` and do not stage `.github/PULL_REQUEST_TEMPLATE.md`.
+Resolve the external/manual blockers now preventing a ship-ready Phase 1 claim: Vercel Production `NODE_TLS_REJECT_UNAUTHORIZED`, live Supabase RLS revalidation, product/security sign-off for the documented public API route exceptions, and mobile simulator/device validation from `MOBILE_DEVICE_VALIDATION_BLOCKER_REPORT.md`. Continue only from `/private/tmp/RestoreAssist-phase1-main` and do not stage `.github/PULL_REQUEST_TEMPLATE.md`.
