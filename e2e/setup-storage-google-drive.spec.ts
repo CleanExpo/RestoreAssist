@@ -15,6 +15,11 @@ import { test, expect } from "@playwright/test";
 import { generateValidAbn } from "./helpers/abn";
 
 test.describe("@smoke onboarding hotfix — Google Drive storage card", () => {
+  test.skip(
+    process.env.PLAYWRIGHT_BASE_URL === "https://restoreassist.app",
+    "Google Drive setup smoke uses sandbox-only test helpers; production smoke covers public/auth/API surfaces.",
+  );
+
   // RA-4989 — slow sandbox DB (2-4s health latency) makes the full signup +
   // wizard hydrate + OAuth round-trip routinely exceed the Playwright default
   // 30s per-test timeout. Bumping to 90s absorbs slow-network/cold-pool
