@@ -6,7 +6,7 @@
  *
  * HARD GUARD — returns 404 unless ALLOW_TEST_HELPERS === "true".
  *
- * Body: { role: "USER" | "ADMIN" | "MANAGER" }
+ * Body: { role: "USER" | "ADMIN" | "MANAGER", email?, setupCompletedAt? }
  * Returns: 200 with set-cookie for the NextAuth session token.
  */
 import { NextRequest, NextResponse } from "next/server";
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let body: { role?: string };
+  let body: { role?: string; email?: string; setupCompletedAt?: unknown };
   try {
     body = (await req.json()) as { role?: string };
   } catch {
@@ -51,7 +51,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const email = TEST_USER_EMAIL[role];
+  const email =
+    typeof body.email === "string" && body.email.includes("@")
+      ? body.email
+      : TEST_USER_EMAIL[role];
+  const setupCompletedAt =
+    body.setupCompletedAt === null || body.setupCompletedAt === false
+      ? null
+      : new Date();
 
   let user = await prisma.user.findUnique({
     where: { email },
@@ -87,7 +94,7 @@ export async function POST(req: NextRequest) {
       data: {
         name: `Test Org for ${role}`,
         ownerId: user.id,
-        setupCompletedAt: new Date(),
+        setupCompletedAt,
       },
       select: { id: true },
     });
@@ -101,7 +108,7 @@ export async function POST(req: NextRequest) {
     userId: user.id,
     email: user.email,
     role,
-    setupCompletedAt: new Date(),
+    setupCompletedAt,
   });
 
   const res = NextResponse.json({ ok: true, userId: user.id });

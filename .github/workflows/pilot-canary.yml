@@ -30,15 +30,16 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: "20"
-      - name: Install pilot-tester deps
-        working-directory: pilot-tester
-        run: npm install --no-audit --no-fund
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+      - name: Install workspace deps
+        run: pnpm install --frozen-lockfile --ignore-scripts
+        env:
+          HUSKY: "0"
       - name: Vitest
-        working-directory: pilot-tester
-        run: npx vitest run
+        run: pnpm --filter @restoreassist/pilot-tester test
       - name: Dry-run
-        working-directory: pilot-tester
-        run: npm run dryrun
+        run: pnpm --filter @restoreassist/pilot-tester dryrun
 
   swarm:
     # Only on schedule + manual dispatch — never on PRs (would
@@ -57,7 +58,7 @@ jobs:
         uses: pnpm/action-setup@v6
         # version is read from package.json#packageManager (pnpm@9.15.9) — single SSOT
       - name: Install root deps (for prisma client + lib types)
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --ignore-scripts
         env:
           HUSKY: "0"
 

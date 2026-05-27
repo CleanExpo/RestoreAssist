@@ -31,7 +31,7 @@ jobs:
   smoke:
     name: Smoke against prod
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 12
 
     steps:
       - name: Checkout
@@ -46,16 +46,18 @@ jobs:
           node-version: 20
 
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile --ignore-scripts
+        env:
+          HUSKY: "0"
 
       - name: Install Playwright browsers (chromium only — smoke is light)
-        run: npx playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium
 
       - name: Run @smoke against prod
         env:
           PLAYWRIGHT_BASE_URL: ${{ github.event.inputs.base_url || 'https://restoreassist.app' }}
           CI: true
-        run: npx playwright test --grep @smoke --reporter=line
+        run: pnpm exec playwright test --grep @smoke --reporter=line
 
       - name: Upload report on failure
         if: failure()

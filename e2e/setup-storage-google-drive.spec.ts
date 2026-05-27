@@ -74,19 +74,14 @@ test.describe("@smoke onboarding hotfix — Google Drive storage card", () => {
         }),
     );
 
-    // 4. Sign up a fresh tradie.
+    // 4. Create a fresh signed-in admin via the sandbox-only test helper.
+    //    Public signup is protected by BotID in sandbox/prod, so an automated
+    //    browser cannot reliably use it as a setup-wizard fixture.
     const email = `e2e-storage-${Date.now()}@test.com`;
-    const password = "test-password-12345!";
-    await page.goto("/signup");
-    await page.getByLabel(/full name/i).fill("E2E Storage");
-    await page.getByLabel(/email/i).fill(email);
-    await page.getByLabel(/^password$/i).fill(password);
-    // Anchor the regex so the "Show confirm password" visibility-toggle
-    // button — which also matches /confirm password/i — doesn't conflict
-    // with the textbox under Playwright's strict mode (RA-4953).
-    await page.getByLabel(/^confirm password$/i).fill(password);
-    await page.getByRole("checkbox", { name: /i agree/i }).check();
-    await page.getByRole("button", { name: /create account/i }).click();
+    const signIn = await page.request.post("/api/test/sign-in-as", {
+      data: { role: "USER", email, setupCompletedAt: null },
+    });
+    expect(signIn.ok()).toBe(true);
 
     // 5. Land on /setup. waitUntil="domcontentloaded" rather than the default
     //    "load" because /setup mounts FeatureHealthCard which polls /api/setup/
@@ -94,12 +89,7 @@ test.describe("@smoke onboarding hotfix — Google Drive storage card", () => {
     //    and can take >30s under slow conditions, making the default flaky.
     //    Per RA-4989 bug-chain unwind, the assertion we need here is "browser
     //    arrived at the wizard URL", not "all subresources finished".
-    await page.waitForURL(/\/(dashboard|setup)/, {
-      waitUntil: "domcontentloaded",
-    });
-    if (!page.url().includes("/setup")) {
-      await page.goto("/setup");
-    }
+    await page.goto("/setup", { waitUntil: "domcontentloaded" });
 
     // 6. Submit a valid ABN so the wizard advances past Business Details.
     //    RA-4989 — generate a fresh valid ABN each run so the Organization.abn
