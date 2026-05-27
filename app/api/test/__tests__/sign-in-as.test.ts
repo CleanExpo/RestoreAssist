@@ -79,6 +79,43 @@ describe("POST /api/test/sign-in-as", () => {
     vi.unstubAllEnvs();
   });
 
+  it("accepts a custom email and incomplete setup state for setup smoke tests", async () => {
+    vi.stubEnv("ALLOW_TEST_HELPERS", "true");
+    userFindUnique.mockResolvedValueOnce(null);
+    userCreate.mockResolvedValueOnce({
+      id: "u_setup_smoke",
+      email: "setup-smoke@test.local",
+      organizationId: null,
+    });
+    orgCreate.mockResolvedValueOnce({ id: "org_setup_smoke" });
+    userUpdate.mockResolvedValueOnce({ id: "u_setup_smoke" });
+
+    vi.resetModules();
+    const { POST } = await import("../sign-in-as/route");
+    const res = await POST(
+      makeReq({
+        role: "USER",
+        email: "setup-smoke@test.local",
+        setupCompletedAt: null,
+      }),
+    );
+    expect(res.status).toBe(200);
+
+    expect(userFindUnique).toHaveBeenCalledWith({
+      where: { email: "setup-smoke@test.local" },
+      select: { id: true, email: true, organizationId: true },
+    });
+    expect(orgCreate).toHaveBeenCalledWith({
+      data: {
+        name: "Test Org for USER",
+        ownerId: "u_setup_smoke",
+        setupCompletedAt: null,
+      },
+      select: { id: true },
+    });
+    vi.unstubAllEnvs();
+  });
+
   it("reuses existing user (no create) and sets cookie", async () => {
     vi.stubEnv("ALLOW_TEST_HELPERS", "true");
     userFindUnique.mockResolvedValueOnce({
