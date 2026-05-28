@@ -62,6 +62,46 @@ jobs:
         env:
           HUSKY: "0"
 
+      - name: Validate pilot canary secrets
+        env:
+          POOL_JSON: ${{ secrets.PILOT_TESTER_USER_POOL_JSON }}
+          DATABASE_URL: ${{ secrets.PILOT_TESTER_DATABASE_URL }}
+        run: |
+          if [ -z "${POOL_JSON:-}" ]; then
+            echo "::error title=Missing PILOT_TESTER_USER_POOL_JSON::Provision sandbox pilot users before running the swarm job."
+            exit 2
+          fi
+
+          if [ -z "${DATABASE_URL:-}" ]; then
+            echo "::error title=Missing PILOT_TESTER_DATABASE_URL::Provision a sandbox-only database URL before running the swarm job."
+            exit 2
+          fi
+
+          node <<'NODE'
+          const raw = process.env.POOL_JSON ?? "";
+          let pool;
+          try {
+            pool = JSON.parse(raw);
+          } catch {
+            console.error("::error title=Invalid PILOT_TESTER_USER_POOL_JSON::Secret must be valid JSON matching pilot-tester/user-pool.example.json.");
+            process.exit(2);
+          }
+
+          if (!Array.isArray(pool) || pool.length === 0) {
+            console.error("::error title=Invalid PILOT_TESTER_USER_POOL_JSON::Secret must be a non-empty array of sandbox pilot users.");
+            process.exit(2);
+          }
+
+          const required = ["email", "password", "workspaceName", "companyKey"];
+          for (const [index, entry] of pool.entries()) {
+            const missing = required.filter((key) => typeof entry?.[key] !== "string" || entry[key].length === 0);
+            if (missing.length > 0) {
+              console.error(`::error title=Invalid PILOT_TESTER_USER_POOL_JSON::Entry ${index} is missing: ${missing.join(", ")}.`);
+              process.exit(2);
+            }
+          }
+          NODE
+
       - name: Write user-pool from secret
         env:
           POOL_JSON: ${{ secrets.PILOT_TESTER_USER_POOL_JSON }}
