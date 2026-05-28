@@ -1,9 +1,9 @@
 /**
  * POST /api/inspections/[id]/reopen
  *
- * Admin-only un-archive route. Reverts a terminally-closed inspection
- * (status = COMPLETED or REJECTED) back to ESTIMATED so finance, audit,
- * or customer-dispute corrections can be processed without a manual DB
+ * Admin-only un-archive route. Reverts a closed/archived inspection
+ * back to IN_BILLING so finance, audit, or customer-dispute corrections
+ * can be processed without a manual DB
  * write.
  *
  * Verified P0 #2 (punch-list 2026-05-15) — without this endpoint admins
@@ -13,15 +13,15 @@
  *   - 401 when no session.
  *   - 403 when caller is not ADMIN (verified against DB per CLAUDE.md
  *     rule #3 — JWT role can be stale up to 30 days).
- *   - 400 when `reason` is missing or shorter than 10 characters.
+ *   - 422 when `reason` is missing or shorter than 10 characters.
  *   - 404 when the inspection does not exist.
  *   - 409 when the inspection is not in a terminal state.
  *   - 200 + `{ data: { previousStatus, newStatus } }` on success
  *     (RA-1548 envelope).
  *
- * Every successful reopen writes an AuditLog row with the action
- * `JOB_REOPENED`, the previous + new status, and the free-text reason
- * — forensic record for the compliance trail.
+ * Every successful reopen writes a ProgressTransition and an AuditLog row
+ * with the action `INSPECTION_REOPENED`, the previous + new status, and
+ * the free-text reason — forensic record for the compliance trail.
  *
  * Stripe invoice reversal is out of scope for this route; see TODO
  * below for the `voidInvoice` knob.
@@ -29,27 +29,36 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import { ClaimState, InspectionStatus, Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
 import { prisma } from "@/lib/prisma";
+import { canTransition } from "@/lib/lifecycle/inspection-state-machine";
+import { writeLifecycleTransition } from "@/lib/audit/lifecycle-event";
 
-// Terminal states that can be reopened. Mirrors the InspectionStatus
-// enum in prisma/schema.prisma — COMPLETED is the success terminus, and
-// REJECTED is the rejection terminus. DRAFT / SUBMITTED / PROCESSING /
+// Terminal states that can be reopened. DRAFT / SUBMITTED / PROCESSING /
 // CLASSIFIED / SCOPED / ESTIMATED are intermediate, so reopening them
 // makes no sense (they have nowhere to "go back to").
-const TERMINAL_STATUSES = ["COMPLETED", "REJECTED"] as const;
+const TERMINAL_STATUSES = [
+  InspectionStatus.CLOSED,
+  InspectionStatus.ARCHIVED,
+] as const;
+type TerminalInspectionStatus = (typeof TERMINAL_STATUSES)[number];
 
-// State we reopen TO. Per the prompt + spec section 12.2: ESTIMATED is
-// the latest pre-COMPLETED stage, so the admin lands the inspection back
-// in the place where they can edit costs / regenerate scope / re-submit.
-const REOPENED_STATUS = "ESTIMATED" as const;
+// State we reopen TO so billing, dispute, and finance corrections can resume.
+const REOPENED_STATUS = InspectionStatus.IN_BILLING;
 
 const MIN_REASON_LENGTH = 10;
 
 interface ReopenBody {
   reason?: unknown;
   voidInvoice?: unknown;
+}
+
+function isTerminalStatus(
+  status: InspectionStatus,
+): status is TerminalInspectionStatus {
+  return TERMINAL_STATUSES.some((terminalStatus) => terminalStatus === status);
 }
 
 export async function POST(
@@ -69,10 +78,7 @@ export async function POST(
   try {
     body = (await request.json()) as ReopenBody;
   } catch {
-    return NextResponse.json(
-      { error: "Invalid JSON body" },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
   const reason =
@@ -82,7 +88,7 @@ export async function POST(
       {
         error: `Field 'reason' is required and must be at least ${MIN_REASON_LENGTH} characters — this is logged for compliance.`,
       },
-      { status: 400 },
+      { status: 422 },
     );
   }
 
@@ -99,7 +105,8 @@ export async function POST(
     );
   }
 
-  if (!TERMINAL_STATUSES.includes(inspection.status as (typeof TERMINAL_STATUSES)[number])) {
+  const currentStatus = inspection.status as InspectionStatus;
+  if (!isTerminalStatus(currentStatus)) {
     return NextResponse.json(
       {
         error: `Cannot reopen inspection in status '${inspection.status}'. Only ${TERMINAL_STATUSES.join(" / ")} inspections may be reopened.`,
@@ -108,33 +115,76 @@ export async function POST(
     );
   }
 
-  const previousStatus = inspection.status;
-
-  // Flip the status. We don't null out a `completedAt` field because
-  // Inspection has no such column (other models do; the inspection itself
-  // tracks lifecycle exclusively through `status` and `submittedAt` /
-  // `processedAt`).
-  await prisma.inspection.update({
-    where: { id },
-    data: { status: REOPENED_STATUS },
+  const gate = canTransition(currentStatus, REOPENED_STATUS, {
+    invoiceStatus: null,
+    reportStatus: null,
+    handoverCompletedAt: null,
   });
+  if (!gate.ok) {
+    return NextResponse.json(
+      { error: "Invalid reopen transition", missing: gate.missing },
+      { status: 409 },
+    );
+  }
 
-  // Append-only audit row. The AuditLog model is inspection-scoped, so
-  // the reason / prev-status / new-status are stamped into the structured
-  // fields and the action is the canonical `JOB_REOPENED` token used by
-  // SP-A audit tooling (see docs/superpowers/specs/2026-05-14-signin-jobclose-audit-design.md §12).
-  await prisma.auditLog.create({
-    data: {
+  const previousStatus = currentStatus;
+
+  const result = await prisma.$transaction(async (tx) => {
+    const cas = await tx.inspection.updateMany({
+      where: { id, status: previousStatus },
+      data: { status: REOPENED_STATUS },
+    });
+    if (cas.count === 0) {
+      return {
+        code: 409 as const,
+        error: "Inspection status drifted",
+        missing: ["status_drift"],
+      };
+    }
+
+    const transition = await writeLifecycleTransition({
       inspectionId: id,
-      action: "JOB_REOPENED",
-      entityType: "Inspection",
-      entityId: id,
-      userId: adminUserId,
-      previousValue: previousStatus,
-      newValue: REOPENED_STATUS,
-      changes: JSON.stringify({ reason }),
-    },
+      fromState: ClaimState.CLOSED,
+      toState: ClaimState.INVOICE_ISSUED,
+      transitionKey: "reopen_job",
+      actorUserId: adminUserId,
+      actorRole: auth.user!.role ?? "ADMIN",
+      actorName: session?.user?.name ?? "Admin",
+      guardSnapshot: {
+        reason,
+        previousInspectionStatus: previousStatus,
+        newInspectionStatus: REOPENED_STATUS,
+      } as Prisma.InputJsonValue,
+      auditAction: "INSPECTION_REOPENED",
+      auditChanges: {
+        reason,
+        previousInspectionStatus: previousStatus,
+        newInspectionStatus: REOPENED_STATUS,
+      },
+      prismaTx: tx,
+    });
+
+    await tx.claimProgress.updateMany({
+      where: { inspectionId: id },
+      data: {
+        previousState: ClaimState.CLOSED,
+        currentState: ClaimState.INVOICE_ISSUED,
+        closedAt: null,
+      },
+    });
+
+    return {
+      code: 200 as const,
+      transitionId: transition.id,
+    };
   });
+
+  if (result.code !== 200) {
+    return NextResponse.json(
+      { error: result.error, missing: result.missing },
+      { status: result.code },
+    );
+  }
 
   // TODO(RA-XXXX): If body.voidInvoice === true, reverse the linked
   // Stripe invoice via lib/integrations/stripe. Out of scope for this
@@ -146,6 +196,7 @@ export async function POST(
       data: {
         previousStatus,
         newStatus: REOPENED_STATUS,
+        transitionId: result.transitionId,
         invoiceVoided: false,
         warning:
           "voidInvoice=true was passed but Stripe reversal is not yet implemented (tracked separately).",
@@ -157,6 +208,7 @@ export async function POST(
     data: {
       previousStatus,
       newStatus: REOPENED_STATUS,
+      transitionId: result.transitionId,
     },
   });
 }
