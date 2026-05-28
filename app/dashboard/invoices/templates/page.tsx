@@ -67,7 +67,7 @@ const defaultFormData: TemplateFormData = {
 };
 
 export default function InvoiceTemplatesPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
 
   const [templates, setTemplates] = useState<InvoiceTemplate[]>([]);
@@ -100,7 +100,7 @@ export default function InvoiceTemplatesPage() {
 
   useEffect(() => {
     if (status === "unauthenticated") {
-      router.push("/auth/signin");
+      router.push("/login");
     }
   }, [status, router]);
 

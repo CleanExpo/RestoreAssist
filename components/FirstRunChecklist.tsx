@@ -159,7 +159,7 @@ export default function FirstRunChecklist({
 
       {/* Demo tour CTA */}
       <button
-        onClick={() => router.push("/dashboard/demo")}
+        onClick={() => router.push("/dashboard/onboarding")}
         className={cn(
           "w-full flex items-center justify-center gap-1.5 rounded-lg px-2 py-1.5",
           "text-[10px] font-medium transition-all duration-150",
@@ -170,7 +170,7 @@ export default function FirstRunChecklist({
         )}
       >
         <PlayCircle size={11} className="flex-shrink-0" />
-        Take a tour with demo data
+        Review onboarding
       </button>
     </div>
   );
