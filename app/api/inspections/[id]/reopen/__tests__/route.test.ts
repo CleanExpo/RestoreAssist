@@ -8,6 +8,7 @@
  *   - 404 when the inspection does not exist.
  *   - 409 when the inspection is not CLOSED/ARCHIVED.
  *   - 200 on happy path: status flips CLOSED/ARCHIVED -> IN_BILLING,
+ *     completedAt is cleared so the UI no longer renders the locked terminal card,
  *     ProgressTransition + AuditLog are written with reason and previous/new status.
  */
 
@@ -219,7 +220,7 @@ describe("POST /api/inspections/[id]/reopen", () => {
 
     expect(prismaTx.inspection.updateMany).toHaveBeenCalledWith({
       where: { id: "i1", status: "CLOSED" },
-      data: { status: "IN_BILLING" },
+      data: { status: "IN_BILLING", completedAt: null },
     });
     expect(mockWriteLifecycleTransition).toHaveBeenCalledWith(
       expect.objectContaining({

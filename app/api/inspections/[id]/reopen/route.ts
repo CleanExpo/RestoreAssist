@@ -132,7 +132,7 @@ export async function POST(
   const result = await prisma.$transaction(async (tx) => {
     const cas = await tx.inspection.updateMany({
       where: { id, status: previousStatus },
-      data: { status: REOPENED_STATUS },
+      data: { status: REOPENED_STATUS, completedAt: null },
     });
     if (cas.count === 0) {
       return {
