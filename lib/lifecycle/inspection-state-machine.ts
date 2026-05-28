@@ -118,6 +118,13 @@ export const TRANSITION_REQUIREMENTS = {
     required: ["handover_not_yet_done"] as const,
     soft: [] as const,
   },
+  // SP-C: CLOSED/ARCHIVED -> IN_BILLING — admin reopen after billing
+  // reversal, dispute, or audit finding. Reason capture and admin-only
+  // permission are enforced at the route boundary.
+  reopen_job: {
+    required: [] as const,
+    soft: [] as const,
+  },
 } as const satisfies Record<string, RequirementSpec>;
 
 /**
@@ -150,6 +157,16 @@ const LEGAL_EDGES: Array<{
     from: InspectionStatus.CLOSED,
     to: InspectionStatus.CLOSED,
     transitionKey: "complete_handover",
+  },
+  {
+    from: InspectionStatus.CLOSED,
+    to: InspectionStatus.IN_BILLING,
+    transitionKey: "reopen_job",
+  },
+  {
+    from: InspectionStatus.ARCHIVED,
+    to: InspectionStatus.IN_BILLING,
+    transitionKey: "reopen_job",
   },
 ];
 
@@ -269,5 +286,7 @@ function labelFor(key: keyof typeof TRANSITION_REQUIREMENTS): string {
       return "Archive this job";
     case "complete_handover":
       return "Hand over to client";
+    case "reopen_job":
+      return "Reopen this job";
   }
 }

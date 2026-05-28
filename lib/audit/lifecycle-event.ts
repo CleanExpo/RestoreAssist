@@ -33,6 +33,8 @@ export interface LifecycleTransitionArgs {
   guardSnapshot: Prisma.InputJsonValue;
   /** Companion AuditLog action string, e.g. "JOB_CLOSED". */
   auditAction: string;
+  /** Optional structured details to merge into AuditLog.changes. */
+  auditChanges?: Record<string, unknown>;
   /**
    * Optional transaction client. SHOULD be passed by callers that need
    * atomicity with surrounding writes (e.g. the close route updates
@@ -101,6 +103,7 @@ export async function writeLifecycleTransition(
         transitionKey: args.transitionKey,
         fromState: args.fromState,
         toState: args.toState,
+        ...(args.auditChanges ?? {}),
       }),
     },
     select: { id: true },

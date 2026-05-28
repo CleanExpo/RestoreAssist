@@ -37,6 +37,7 @@ const nextConfig = {
     // 308 keeps method + body intact (matters for password-manager POSTs).
     return [
       { source: "/signin", destination: "/login", permanent: true },
+      { source: "/auth/signin", destination: "/login", permanent: true },
       { source: "/register", destination: "/signup", permanent: true },
       { source: "/onboarding", destination: "/setup", permanent: true },
       { source: "/faq", destination: "/help", permanent: true },
