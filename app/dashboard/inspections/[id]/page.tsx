@@ -53,6 +53,10 @@ const CloseJobPrompt = dynamic(
   () => import("@/components/inspection/CloseJobPrompt"),
   { ssr: false },
 );
+const ReopenInspectionPrompt = dynamic(
+  () => import("@/components/inspection/ReopenInspectionPrompt"),
+  { ssr: false },
+);
 import {
   ArrowLeft,
   Loader2,
@@ -86,6 +90,7 @@ import {
   Building2,
   ExternalLink,
   Mic,
+  RotateCcw,
 } from "lucide-react";
 import {
   Dialog,
@@ -214,6 +219,9 @@ const STATUS_STEPS = [
   "CLASSIFIED",
   "SCOPED",
   "ESTIMATED",
+  "IN_BILLING",
+  "CLOSED",
+  "ARCHIVED",
   "COMPLETED",
 ];
 
@@ -800,6 +808,7 @@ export default function InspectionDetailPage({
     (sum, c) => sum + c.total,
     0,
   );
+  const isAdmin = session?.user?.role === "ADMIN";
 
   const TABS: {
     key: Tab;
@@ -1044,6 +1053,19 @@ export default function InspectionDetailPage({
           onClosed={() => fetchInspection()}
         />
       )}
+
+      <ReopenInspectionPrompt
+        inspectionId={inspection.id}
+        inspectionNumber={inspection.inspectionNumber}
+        status={inspection.status}
+        isAdmin={isAdmin}
+        errorIcon={<AlertTriangle className="h-4 w-4" aria-hidden="true" />}
+        loadingIcon={
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+        }
+        reopenIcon={<RotateCcw className="h-4 w-4" aria-hidden="true" />}
+        onReopened={() => fetchInspection()}
+      />
 
       {/* Tabs */}
       <div
