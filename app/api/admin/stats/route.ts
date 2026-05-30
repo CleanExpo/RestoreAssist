@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { verifyAdminFromDb } from "@/lib/admin-auth";
@@ -62,7 +63,7 @@ export async function GET() {
       }),
 
       // Database health check
-      prisma.$queryRaw`SELECT 1 as health`
+      prisma.$queryRaw(Prisma.sql`SELECT 1 as health`)
         .then(() => "healthy" as const)
         .catch(() => "down" as const),
     ]);

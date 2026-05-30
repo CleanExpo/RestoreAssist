@@ -24,12 +24,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { verifyAdminFromDb } from "@/lib/admin-auth";
 import {
   validateObservation,
   type NewPilotObservation,
   type ObservationType,
   type PilotGroup,
 } from "@/lib/nir-pilot-measurement";
+
+const MAX_PILOT_OBSERVATIONS = 1_000;
 
 // ─── POST — record a new observation ─────────────────────────────────────────
 
@@ -120,17 +123,8 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // Only ADMIN role can see all observations
-    if ((session.user as { role?: string }).role !== "ADMIN") {
-      return NextResponse.json(
-        { error: "Forbidden — admin access required" },
-        { status: 403 },
-      );
-    }
+    const auth = await verifyAdminFromDb(session);
+    if (auth.response) return auth.response;
 
     const { searchParams } = new URL(request.url);
     const claimId = searchParams.get("claimId");
@@ -143,6 +137,7 @@ export async function GET(request: NextRequest) {
     const observations = await prisma.pilotObservation.findMany({
       where,
       orderBy: { createdAt: "desc" },
+      take: MAX_PILOT_OBSERVATIONS,
     });
 
     // Group by claim for convenience

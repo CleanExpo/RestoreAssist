@@ -1,8 +1,145 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { NextRequest, NextResponse } from "next/server";
+
+const idempotencyDb = vi.hoisted(() => {
+  type RecordValue = {
+    cacheKey: string;
+    scope: string;
+    key: string;
+    fingerprint: string;
+    status: string;
+    responseStatus: number | null;
+    responseBody: string | null;
+    responseContentType: string | null;
+    expiresAt: Date;
+  };
+  type ClientMutationValue = {
+    workspaceId: string;
+    userId: string | null;
+    inspectionId: string | null;
+    mutationId: string;
+    mutationType: string;
+    method: string;
+    path: string;
+    requestHash: string;
+    status: string;
+    responseStatus: number | null;
+    responseBody: string | null;
+    errorCode: string | null;
+    completedAt: Date | null;
+  };
+
+  const records = new Map<string, RecordValue>();
+  const clientMutations = new Map<string, ClientMutationValue>();
+
+  return {
+    records,
+    clientMutations,
+    idempotencyRecord: {
+      async create({ data }: { data: RecordValue }) {
+        if (records.has(data.cacheKey)) {
+          throw { code: "P2002" };
+        }
+        records.set(data.cacheKey, {
+          ...data,
+          responseStatus: data.responseStatus ?? null,
+          responseBody: data.responseBody ?? null,
+          responseContentType: data.responseContentType ?? null,
+        });
+        return records.get(data.cacheKey);
+      },
+      async findUnique({
+        where,
+      }: {
+        where: { cacheKey: string };
+        select?: Record<string, boolean>;
+      }) {
+        return records.get(where.cacheKey) ?? null;
+      },
+      async update({
+        where,
+        data,
+      }: {
+        where: { cacheKey: string };
+        data: Partial<RecordValue>;
+      }) {
+        const existing = records.get(where.cacheKey);
+        if (!existing) throw new Error("Record not found");
+        const updated = { ...existing, ...data };
+        records.set(where.cacheKey, updated);
+        return updated;
+      },
+      async deleteMany(args?: {
+        where?: { cacheKey?: string; expiresAt?: { lt: Date } };
+      }) {
+        if (!args?.where) {
+          const count = records.size;
+          records.clear();
+          return { count };
+        }
+
+        if (args.where.cacheKey) {
+          const deleted = records.delete(args.where.cacheKey);
+          return { count: deleted ? 1 : 0 };
+        }
+
+        if (args.where.expiresAt?.lt) {
+          let count = 0;
+          for (const [cacheKey, record] of records) {
+            if (record.expiresAt < args.where.expiresAt.lt) {
+              records.delete(cacheKey);
+              count++;
+            }
+          }
+          return { count };
+        }
+
+        return { count: 0 };
+      },
+    },
+    clientMutation: {
+      async create({ data }: { data: ClientMutationValue }) {
+        const key = `${data.workspaceId}:${data.mutationId}`;
+        if (clientMutations.has(key)) throw { code: "P2002" };
+        clientMutations.set(key, {
+          ...data,
+          userId: data.userId ?? null,
+          inspectionId: data.inspectionId ?? null,
+          responseStatus: data.responseStatus ?? null,
+          responseBody: data.responseBody ?? null,
+          errorCode: data.errorCode ?? null,
+          completedAt: data.completedAt ?? null,
+        });
+        return clientMutations.get(key);
+      },
+      async updateMany({
+        where,
+        data,
+      }: {
+        where: { workspaceId: string; mutationId: string };
+        data: Partial<ClientMutationValue>;
+      }) {
+        const key = `${where.workspaceId}:${where.mutationId}`;
+        const existing = clientMutations.get(key);
+        if (!existing) return { count: 0 };
+        clientMutations.set(key, { ...existing, ...data });
+        return { count: 1 };
+      },
+    },
+  };
+});
+
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    idempotencyRecord: idempotencyDb.idempotencyRecord,
+    clientMutation: idempotencyDb.clientMutation,
+  },
+}));
+
 import {
   withIdempotency,
   getIdempotencyKey,
+  getClientMutationId,
   __resetIdempotencyStore,
 } from "../idempotency";
 
@@ -53,8 +190,35 @@ describe("getIdempotencyKey", () => {
   });
 });
 
+describe("getClientMutationId", () => {
+  it("returns ok:true mutationId:null when header absent", () => {
+    const r = getClientMutationId(makeReq({ a: 1 }));
+    expect(r).toEqual({ ok: true, mutationId: null });
+  });
+
+  it("accepts a valid mobile mutation id", () => {
+    const r = getClientMutationId(
+      makeReq(
+        { a: 1 },
+        { "x-restoreassist-mutation-id": "ra-mobile-12345" },
+      ),
+    );
+    expect(r).toEqual({ ok: true, mutationId: "ra-mobile-12345" });
+  });
+
+  it("rejects mutation ids with whitespace", () => {
+    const r = getClientMutationId(
+      makeReq({ a: 1 }, { "x-restoreassist-mutation-id": "bad id 123" }),
+    );
+    expect(r.ok).toBe(false);
+  });
+});
+
 describe("withIdempotency", () => {
-  beforeEach(() => __resetIdempotencyStore());
+  beforeEach(() => {
+    idempotencyDb.clientMutations.clear();
+    return __resetIdempotencyStore();
+  });
 
   it("passes through when no key supplied", async () => {
     let calls = 0;
@@ -145,6 +309,64 @@ describe("withIdempotency", () => {
     const r2 = await withIdempotency(makeReq({ a: 1 }, headers), "u", handler);
     expect(r2.status).toBe(200);
     expect(calls).toBe(2);
+  });
+
+  it("returns 409 while a matching request is still pending", async () => {
+    let release!: () => void;
+    const handler = async () => {
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      return NextResponse.json({ ok: true });
+    };
+
+    const headers = { "idempotency-key": "key-pending1" };
+    const first = withIdempotency(makeReq({ a: 1 }, headers), "u", handler);
+    const second = await withIdempotency(
+      makeReq({ a: 1 }, headers),
+      "u",
+      handler,
+    );
+
+    expect(second.status).toBe(409);
+
+    release();
+    expect((await first).status).toBe(200);
+  });
+
+  it("records ClientMutation ledger rows for mobile mutation ids", async () => {
+    const headers = {
+      "idempotency-key": "key-ledger1",
+      "x-restoreassist-mutation-id": "ra-ledger-1",
+    };
+
+    const response = await withIdempotency(
+      makeReq({ a: 1 }, headers, "/api/inspections/i_1/evidence"),
+      "u",
+      async () => NextResponse.json({ ok: true }, { status: 201 }),
+      {
+        clientMutation: {
+          workspaceId: "ws_1",
+          userId: "u",
+          inspectionId: "i_1",
+          mutationType: "evidence-item",
+        },
+      },
+    );
+
+    const mutation = idempotencyDb.clientMutations.get("ws_1:ra-ledger-1");
+    expect(response.status).toBe(201);
+    expect(mutation).toMatchObject({
+      workspaceId: "ws_1",
+      userId: "u",
+      inspectionId: "i_1",
+      mutationId: "ra-ledger-1",
+      mutationType: "evidence-item",
+      method: "POST",
+      path: "/api/inspections/i_1/evidence",
+      status: "COMPLETE",
+      responseStatus: 201,
+    });
   });
 
   it("rejects malformed keys with 400", async () => {

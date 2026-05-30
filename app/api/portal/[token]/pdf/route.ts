@@ -2,15 +2,27 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyPortalToken } from "@/lib/portal-token";
 import { prisma } from "@/lib/prisma";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import { applyRateLimit } from "@/lib/rate-limiter";
+
+const MAX_PORTAL_PDF_MOISTURE_READINGS = 500;
+const MAX_PORTAL_PDF_AFFECTED_AREAS = 100;
+const MAX_PORTAL_PDF_SCOPE_ITEMS = 200;
 
 // GET /api/portal/[token]/pdf
 // Token-authenticated PDF download — no client account required.
 // Generates a client-facing S500:2025-compliant summary for a completed inspection.
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ token: string }> },
 ) {
   try {
+    const rateLimited = await applyRateLimit(request, {
+      maxRequests: 30,
+      windowMs: 15 * 60 * 1000,
+      prefix: "portal-token-pdf",
+    });
+    if (rateLimited) return rateLimited;
+
     const { token } = await params;
     const verified = verifyPortalToken(token);
 
@@ -23,18 +35,50 @@ export async function GET(
 
     const { inspectionId } = verified;
 
-    const inspection = await prisma.inspection.findUnique({
-      where: { id: inspectionId },
-      include: {
-        moistureReadings: { orderBy: { recordedAt: "asc" } },
-        affectedAreas: true,
-        scopeItems: { where: { isSelected: true } },
-        // RA-1383 (M-7): EnvironmentalData is a time-series — use the most recent reading
-        environmentalData: { orderBy: { recordedAt: "desc" }, take: 1 },
-        classifications: { orderBy: { createdAt: "desc" }, take: 1 },
-        report: { select: { id: true, status: true } },
-      },
-    });
+    const [
+      inspection,
+      moistureCount,
+      moistureAverage,
+      affectedAreaCount,
+      affectedAreaTotal,
+      scopeItemCount,
+    ] = await Promise.all([
+      prisma.inspection.findUnique({
+        where: { id: inspectionId },
+        include: {
+          moistureReadings: {
+            orderBy: [{ recordedAt: "asc" }, { id: "asc" }],
+            take: MAX_PORTAL_PDF_MOISTURE_READINGS,
+          },
+          affectedAreas: {
+            orderBy: { createdAt: "asc" },
+            take: MAX_PORTAL_PDF_AFFECTED_AREAS,
+          },
+          scopeItems: {
+            where: { isSelected: true },
+            orderBy: { createdAt: "asc" },
+            take: MAX_PORTAL_PDF_SCOPE_ITEMS,
+          },
+          // RA-1383 (M-7): EnvironmentalData is a time-series — use the most recent reading
+          environmentalData: { orderBy: { recordedAt: "desc" }, take: 1 },
+          classifications: { orderBy: { createdAt: "desc" }, take: 1 },
+          report: { select: { id: true, status: true } },
+        },
+      }),
+      prisma.moistureReading.count({ where: { inspectionId } }),
+      prisma.moistureReading.aggregate({
+        where: { inspectionId },
+        _avg: { moistureLevel: true },
+      }),
+      prisma.affectedArea.count({ where: { inspectionId } }),
+      prisma.affectedArea.aggregate({
+        where: { inspectionId },
+        _sum: { affectedSquareFootage: true },
+      }),
+      prisma.scopeItem.count({
+        where: { inspectionId, isSelected: true },
+      }),
+    ]);
 
     if (!inspection) {
       return NextResponse.json(
@@ -285,15 +329,15 @@ export async function GET(
 
     // ── S500:2025 §12.3 — Moisture Readings ───────────────────────────────
     section(
-      `IICRC S500:2025 §12.3  —  Moisture Readings  (${inspection.moistureReadings.length} recorded)`,
+      `IICRC S500:2025 §12.3  —  Moisture Readings  (${moistureCount} recorded)`,
     );
-    if (inspection.moistureReadings.length > 0) {
-      const avg = Math.round(
-        inspection.moistureReadings.reduce((s, r) => s + r.moistureLevel, 0) /
-          inspection.moistureReadings.length,
-      );
+    if (moistureCount > 0) {
+      const avg =
+        moistureAverage._avg.moistureLevel !== null
+          ? Math.round(moistureAverage._avg.moistureLevel)
+          : 0;
       row("Average Moisture Level", `${avg}%`);
-      row("Readings Count", `${inspection.moistureReadings.length}`);
+      row("Readings Count", `${moistureCount}`);
       // Table header
       y -= 4;
       if (y < 100) newPage();
@@ -365,9 +409,9 @@ export async function GET(
         page.drawText(r.depth ?? "", { x: 380, y, size: 8, font, color: DARK });
         y -= 13;
       }
-      if (inspection.moistureReadings.length > 20) {
+      if (moistureCount > 20) {
         page.drawText(
-          `... and ${inspection.moistureReadings.length - 20} more readings`,
+          `... and ${moistureCount - 20} more readings`,
           { x: 48, y, size: 8, font, color: MUTED },
         );
         y -= 13;
@@ -379,13 +423,10 @@ export async function GET(
 
     // ── S500:2025 §12.2 — Affected Areas ──────────────────────────────────
     section(
-      `IICRC S500:2025 §12.2  —  Affected Areas  (${inspection.affectedAreas.length} zones)`,
+      `IICRC S500:2025 §12.2  —  Affected Areas  (${affectedAreaCount} zones)`,
     );
-    if (inspection.affectedAreas.length > 0) {
-      const totalArea = inspection.affectedAreas.reduce(
-        (s, a) => s + a.affectedSquareFootage,
-        0,
-      );
+    if (affectedAreaCount > 0) {
+      const totalArea = affectedAreaTotal._sum.affectedSquareFootage ?? 0;
       row("Total Affected Area", `${totalArea.toFixed(1)} m²`);
       for (const area of inspection.affectedAreas) {
         if (y < 80) newPage();
@@ -396,6 +437,12 @@ export async function GET(
           `${area.affectedSquareFootage} m²${catLabel}${clsLabel}`,
         );
       }
+      if (affectedAreaCount > inspection.affectedAreas.length) {
+        row(
+          "Additional Zones",
+          `${affectedAreaCount - inspection.affectedAreas.length} omitted from this PDF`,
+        );
+      }
     } else {
       row("Status", "No affected areas recorded");
     }
@@ -403,9 +450,9 @@ export async function GET(
 
     // ── S500:2025 §10.2 — Scope of Works ──────────────────────────────────
     section(
-      `IICRC S500:2025 §10.2  —  Scope of Works  (${inspection.scopeItems.length} items)`,
+      `IICRC S500:2025 §10.2  —  Scope of Works  (${scopeItemCount} items)`,
     );
-    if (inspection.scopeItems.length > 0) {
+    if (scopeItemCount > 0) {
       for (let i = 0; i < inspection.scopeItems.length; i++) {
         const item = inspection.scopeItems[i];
         if (y < 80) newPage();
@@ -413,6 +460,12 @@ export async function GET(
         page.drawText(prefix, { x: 48, y, size: 9, font: bold, color: CYAN });
         textBlock(`${prefix}${item.description}`);
         y -= 2;
+      }
+      if (scopeItemCount > inspection.scopeItems.length) {
+        row(
+          "Additional Items",
+          `${scopeItemCount - inspection.scopeItems.length} omitted from this PDF`,
+        );
       }
     } else {
       row("Status", "Scope of works not yet generated");

@@ -14,6 +14,8 @@
  * @see .claude/skills/service-layer-architecture/SKILL.md
  */
 
+import { requireAiTaskPolicy } from "@/lib/ai/task-policy";
+import { buildAiUsageMetadata } from "@/lib/ai/usage-metadata";
 import { ok, type ServiceResult } from "@/lib/services/_shared/result";
 import {
   callAnthropicWithFallback,
@@ -82,6 +84,15 @@ export async function suggestNextInterviewQuestion(args: {
   answered: AnsweredQuestion[];
   remaining: RemainingQuestion[];
 }): Promise<ServiceResult<SuggestNextResult, SuggestNextReason>> {
+  const policy = requireAiTaskPolicy("fast_classification");
+  const usageMetadata = buildAiUsageMetadata({
+    taskClass: policy.taskClass,
+    providerFamily: "anthropic-platform",
+    tenantContext: { userId: "system" },
+    executionMode: "synchronous",
+  });
+  void usageMetadata;
+
   const answeredCapped = args.answered.slice(-MAX_INPUT_ANSWERS);
   const remainingCapped = args.remaining.slice(0, MAX_INPUT_REMAINING);
 

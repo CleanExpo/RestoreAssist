@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { getEnvStatus } from "@/lib/env-check";
@@ -31,7 +32,7 @@ async function getDatabaseCheck(): Promise<CheckResult> {
   let result: CheckResult;
   try {
     const dbStart = Date.now();
-    await prisma.$queryRaw`SELECT 1`;
+    await prisma.$queryRaw(Prisma.sql`SELECT 1`);
     result = { status: "ok", latencyMs: Date.now() - dbStart };
   } catch {
     result = { status: "error" };

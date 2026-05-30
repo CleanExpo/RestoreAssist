@@ -348,19 +348,21 @@ export async function POST(request: NextRequest) {
         if (firstError?.code === "P2002") {
           // Sync sequence in case it was behind (e.g. existing invoices from import)
           const prefix = "RA";
-          const existing = await prisma.invoice.findMany({
+          const latestInvoice = await prisma.invoice.findFirst({
             where: {
               userId,
               invoiceNumber: { startsWith: `${prefix}-${year}-` },
             },
             select: { invoiceNumber: true },
+            orderBy: { invoiceNumber: "desc" },
           });
-          const numbers = existing
-            .map((inv) =>
-              parseInt(inv.invoiceNumber.replace(`${prefix}-${year}-`, ""), 10),
-            )
-            .filter((n) => !Number.isNaN(n));
-          const maxNum = numbers.length ? Math.max(...numbers) : 0;
+          const latestNumber = latestInvoice
+            ? parseInt(
+                latestInvoice.invoiceNumber.replace(`${prefix}-${year}-`, ""),
+                10,
+              )
+            : 0;
+          const maxNum = Number.isNaN(latestNumber) ? 0 : latestNumber;
           await prisma.invoiceSequence.upsert({
             where: {
               userId_year: { userId, year },

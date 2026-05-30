@@ -34,6 +34,7 @@ import {
   linearListIssues,
 } from "@/lib/margot-linear";
 import { generateAndStoreImage } from "@/lib/margot-image-gen";
+import { formatDeepResearchFailure } from "@/lib/margot-tool-errors";
 import {
   formatNexusContextForPrompt,
   loadNexusContextBundle,
@@ -144,14 +145,8 @@ const deepResearchTool = tool({
         corpus_used: Boolean(use_corpus && store),
       };
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      // Crude retryability heuristic — rate limits / 5xx / network blips.
-      const retryable =
-        /rate|quota|timeout|network|ECONN|5\d\d|unavailable/i.test(msg);
-      return {
-        error: `deep_research failed: ${msg}`,
-        retryable,
-      };
+      console.error("[margot/deep_research]", err);
+      return formatDeepResearchFailure(err);
     }
   },
 });

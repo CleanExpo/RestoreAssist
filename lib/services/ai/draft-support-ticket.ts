@@ -10,6 +10,7 @@
 
 import { callAnthropic } from "./anthropic-gateway";
 import type { AnthropicReason } from "./anthropic-gateway";
+import { requireAiTaskPolicy } from "@/lib/ai/task-policy";
 import { ok, fail, type ServiceResult } from "@/lib/services/_shared/result";
 
 const SYSTEM_PROMPT = `You are a customer support specialist for RestoreAssist — Australian water damage restoration software.
@@ -38,12 +39,14 @@ export async function draftSupportTicketReply(args: {
   apiKey: string;
   ticket: SupportTicketContext;
 }): Promise<ServiceResult<string, DraftReason>> {
+  const policy = requireAiTaskPolicy("support_response_draft");
+
   const gatewayResult = await callAnthropic({
     userId: "system",
     apiKey: args.apiKey,
     request: {
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 1024,
+      max_tokens: policy.maxOutputTokens ?? 1024,
       system: SYSTEM_PROMPT,
       messages: [
         {

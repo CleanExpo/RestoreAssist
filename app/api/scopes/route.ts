@@ -176,8 +176,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: "Failed to save scope",
-          details:
-            process.env.NODE_ENV === "development" ? error?.message : undefined,
+          details: "An error occurred while saving the scope.",
         },
         { status: 500 },
       );
@@ -306,8 +305,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         error: "Failed to fetch scopes",
-        details:
-          process.env.NODE_ENV === "development" ? error?.message : undefined,
+        details: "An error occurred while fetching scopes.",
       },
       { status: 500 },
     );

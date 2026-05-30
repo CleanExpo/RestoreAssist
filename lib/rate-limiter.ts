@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 /**
- * In-memory rate limiter — sliding window per key.
- * Resets on serverless cold starts (acceptable at current scale).
- * No external dependencies required.
+ * In-memory fallback rate limiter — sliding window per key.
+ * Route handlers should use applyRateLimit, which persists hits in Prisma.
  */
 
 const store = new Map<string, number[]>();
@@ -93,6 +93,55 @@ export interface RateLimitResult {
   retryAfterMs?: number;
 }
 
+async function rateLimitDurable(
+  key: string,
+  opts: { windowMs: number; maxRequests: number },
+): Promise<RateLimitResult> {
+  const now = new Date();
+  const windowStart = new Date(now.getTime() - opts.windowMs);
+  const expiresAt = new Date(now.getTime() + opts.windowMs);
+
+  await prisma.rateLimitHit.deleteMany({
+    where: { expiresAt: { lt: now } },
+  });
+
+  return prisma.$transaction(async (tx) => {
+    const hit = await tx.rateLimitHit.create({
+      data: { key, expiresAt },
+      select: { id: true },
+    });
+
+    const count = await tx.rateLimitHit.count({
+      where: {
+        key,
+        createdAt: { gte: windowStart },
+      },
+    });
+
+    if (count <= opts.maxRequests) {
+      return { success: true, remaining: opts.maxRequests - count };
+    }
+
+    await tx.rateLimitHit.delete({ where: { id: hit.id } });
+    const oldestInWindow = await tx.rateLimitHit.findFirst({
+      where: {
+        key,
+        createdAt: { gte: windowStart },
+      },
+      orderBy: { createdAt: "asc" },
+      select: { createdAt: true },
+    });
+    const retryAfterMs = oldestInWindow
+      ? Math.max(
+          0,
+          opts.windowMs - (now.getTime() - oldestInWindow.createdAt.getTime()),
+        )
+      : opts.windowMs;
+
+    return { success: false, remaining: 0, retryAfterMs };
+  });
+}
+
 /** Low-level rate limit check. Use applyRateLimit for route handlers. */
 export function rateLimit(
   key: string,
@@ -112,7 +161,7 @@ export async function applyRateLimit(
     maxRequests?: number;
     prefix?: string;
     key?: string;
-    /** Kept for API compatibility — has no effect (no external rate limiter). */
+    /** When true, limiter store failures return 429 instead of falling back. */
     failClosedOnUpstashError?: boolean;
   } = {},
 ): Promise<NextResponse | null> {
@@ -121,17 +170,34 @@ export async function applyRateLimit(
     maxRequests = 5,
     prefix = "api",
     key: customKey,
+    failClosedOnUpstashError = false,
   } = opts;
 
   const rateLimitKey = customKey
     ? `${prefix}:${customKey}`
     : `${prefix}:${getClientIp(req)}`;
 
-  const result = rateLimitInMemory(rateLimitKey, { windowMs, maxRequests });
+  let result: RateLimitResult;
+  try {
+    result = await rateLimitDurable(rateLimitKey, { windowMs, maxRequests });
+  } catch (error) {
+    console.error("[rate-limit] durable limiter unavailable", error);
+    if (failClosedOnUpstashError) {
+      return build429(maxRequests, Math.ceil(windowMs / 1000));
+    }
+    result = rateLimitInMemory(rateLimitKey, { windowMs, maxRequests });
+  }
+
   if (!result.success) {
     const retryAfterSec = Math.ceil((result.retryAfterMs || 0) / 1000);
     return build429(maxRequests, retryAfterSec);
   }
 
   return null;
+}
+
+/** Test-only: clear durable and fallback rate-limit state. */
+export async function __resetRateLimitStore(): Promise<void> {
+  store.clear();
+  await prisma.rateLimitHit.deleteMany();
 }

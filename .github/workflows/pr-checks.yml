@@ -122,6 +122,12 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      # Phase 2 AI guardrail gate. Static only: no provider calls, no DB
+      # writes, and no runtime routing changes. Fails if a new AI/provider/RAG
+      # surface cannot be classified into a known task class.
+      - name: AI guardrail audit
+        run: pnpm audit:ai
+
       - name: Unit tests
         run: pnpm exec vitest run
 

@@ -15,11 +15,22 @@ import { prisma } from "@/lib/prisma";
 import { EvidenceClass } from "@prisma/client";
 import { getStorageProvider } from "@/lib/storage";
 import { classifyByMimeType } from "@/lib/storage/compression";
-import type { UploadInput } from "@/lib/storage";
+import type { UploadInput, UploadOutput } from "@/lib/storage";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 
 const MAX_FILES = 20;
 const CONCURRENCY = 3;
+
+interface PendingEvidenceUpload {
+  file: File;
+  evidenceClassOverride: string | null;
+  input: UploadInput;
+}
+
+interface SuccessfulEvidenceUpload {
+  item: PendingEvidenceUpload;
+  uploaded: UploadOutput;
+}
 
 /**
  * Auto-classify evidence from MIME type and filename heuristics.
@@ -130,8 +141,8 @@ export async function POST(
   // Build upload inputs — includes magic-byte validation per file.
   // Reading each file into a Buffer once so the same buffer is reused for
   // validation and upload (avoids a second arrayBuffer() call).
-  const uploadInputs: UploadInput[] = [];
-  for (const file of files) {
+  const pendingUploads: PendingEvidenceUpload[] = [];
+  for (const [idx, file] of files.entries()) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
@@ -173,30 +184,60 @@ export async function POST(
       );
     }
 
-    uploadInputs.push({
-      buffer,
-      filename: file.name,
-      mimeType: file.type || "application/octet-stream",
-      folder: "evidence",
-      orgId: user?.organizationId ?? "no-org",
-      inspectionId,
+    pendingUploads.push({
+      file,
+      evidenceClassOverride: evidenceClassOverrides[idx] || null,
+      input: {
+        buffer,
+        filename: file.name,
+        mimeType: file.type || "application/octet-stream",
+        folder: "evidence",
+        orgId: user?.organizationId ?? "no-org",
+        inspectionId,
+      },
     });
   }
 
-  // Batch upload with concurrency limit
-  const batchResult = await storageProvider.uploadBatch(
-    uploadInputs,
-    CONCURRENCY,
-  );
+  // Batch upload with concurrency limit while preserving each source file's
+  // metadata association. StorageProvider.uploadBatch returns only filenames,
+  // so partial failures can otherwise shift MIME/class data onto the wrong
+  // EvidenceItem.
+  const uploadedItems: SuccessfulEvidenceUpload[] = [];
+  const uploadFailures: Array<{ filename: string; error: string }> = [];
+  for (let i = 0; i < pendingUploads.length; i += CONCURRENCY) {
+    const chunk = pendingUploads.slice(i, i + CONCURRENCY);
+    const results = await Promise.allSettled(
+      chunk.map(async (item) => ({
+        item,
+        uploaded: await storageProvider.upload(item.input),
+      })),
+    );
+
+    results.forEach((result, idx) => {
+      const item = chunk[idx];
+      if (result.status === "fulfilled") {
+        uploadedItems.push(result.value);
+      } else {
+        console.error("[evidence batch upload]", {
+          filename: item.input.filename,
+          error: result.reason,
+        });
+        uploadFailures.push({
+          filename: item.input.filename,
+          error: "Upload failed",
+        });
+      }
+    });
+  }
 
   // Create EvidenceItem records for each successful upload
   const createdItems = await Promise.allSettled(
-    batchResult.succeeded.map(async (uploaded, idx) => {
-      const file = files[idx];
+    uploadedItems.map(async ({ item, uploaded }) => {
+      const file = item.file;
       const evidenceClass = classifyEvidence(
-        uploaded.filename,
+        item.input.filename,
         file.type,
-        evidenceClassOverrides[idx] || null,
+        item.evidenceClassOverride,
       );
 
       return prisma.evidenceItem.create({
@@ -204,7 +245,7 @@ export async function POST(
           inspectionId,
           workflowStepId: workflowStepId || null,
           evidenceClass,
-          title: uploaded.filename,
+          title: item.input.filename,
           capturedById: session.user.id,
           capturedByName: session.user.name || "Unknown",
           capturedAt: new Date(),
@@ -232,16 +273,16 @@ export async function POST(
 
   const dbFailures = createdItems
     .filter((r) => r.status === "rejected")
-    .map((r, idx) => ({
-      filename: batchResult.succeeded[idx]?.filename ?? "unknown",
-      error: `DB record creation failed: ${(r as PromiseRejectedResult).reason?.message ?? "unknown"}`,
+    .map((_, idx) => ({
+      filename: uploadedItems[idx]?.item.input.filename ?? "unknown",
+      error: "DB record creation failed",
     }));
 
   return NextResponse.json(
     {
       data: {
         succeeded: succeededItems,
-        failed: [...batchResult.failed, ...dbFailures],
+        failed: [...uploadFailures, ...dbFailures],
       },
     },
     { status: 207 }, // 207 Multi-Status: partial success

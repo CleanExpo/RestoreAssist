@@ -113,9 +113,9 @@ export async function POST(
           throw new Error("scopeItems exceeds 500 item limit");
         scopeItems = parsed;
       }
-    } catch (parseErr) {
+    } catch {
       return NextResponse.json(
-        { error: (parseErr as Error).message ?? "Invalid JSON in form data" },
+        { error: "Invalid JSON in form data" },
         { status: 400 },
       );
     }

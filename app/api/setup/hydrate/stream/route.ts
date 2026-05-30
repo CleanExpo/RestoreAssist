@@ -34,6 +34,8 @@ export async function GET() {
           const jobs = await prisma.hydrationJob.findMany({
             where: { organizationId: orgId },
             select: { kind: true, status: true, payload: true, errorMessage: true },
+            orderBy: { kind: 'asc' },
+            take: 3,
           });
           const snapshot = JSON.stringify(jobs);
           if (snapshot !== lastSnapshot) {

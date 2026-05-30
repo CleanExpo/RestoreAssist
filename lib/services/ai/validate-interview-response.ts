@@ -18,6 +18,8 @@
  * @see .claude/skills/service-layer-architecture/SKILL.md
  */
 
+import { requireAiTaskPolicy } from "@/lib/ai/task-policy";
+import { buildAiUsageMetadata } from "@/lib/ai/usage-metadata";
 import { ok, type ServiceResult } from "@/lib/services/_shared/result";
 import {
   callAnthropicWithFallback,
@@ -94,6 +96,15 @@ export async function validateInterviewResponse(args: {
 }): Promise<
   ServiceResult<{ findings: ValidationFinding[] }, ValidateInterviewReason>
 > {
+  const policy = requireAiTaskPolicy("fast_classification");
+  const usageMetadata = buildAiUsageMetadata({
+    taskClass: policy.taskClass,
+    providerFamily: "anthropic-platform",
+    tenantContext: { userId: "system" },
+    executionMode: "synchronous",
+  });
+  void usageMetadata;
+
   const answeredBlock = args.answered
     .map((qa, i) => {
       const qid =

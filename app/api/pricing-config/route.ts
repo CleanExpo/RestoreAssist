@@ -23,15 +23,16 @@ export async function GET(request: NextRequest) {
     }
 
     // Check if user has a connected API key
-    const integrations = await prisma.integration.findMany({
+    const integration = await prisma.integration.findFirst({
       where: {
         userId: user.id,
         status: "CONNECTED",
         apiKey: { not: null },
       },
+      select: { id: true },
     });
 
-    const hasApiKey = integrations.length > 0;
+    const hasApiKey = Boolean(integration);
 
     // Parse custom fields if they exist
     let customFields = null;

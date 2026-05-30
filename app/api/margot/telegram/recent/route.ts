@@ -31,7 +31,7 @@ export async function GET() {
         reason:
           error.code === "42P01"
             ? "margot_telegram_log table not yet created"
-            : error.message,
+            : "Telegram log unavailable",
       });
     }
 

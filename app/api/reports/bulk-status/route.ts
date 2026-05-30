@@ -181,10 +181,7 @@ export async function PATCH(request: NextRequest) {
           updated: 0,
           failed: ids.length,
           error: "Status update failed",
-          message:
-            updateError instanceof Error
-              ? updateError.message
-              : "Unknown error",
+          message: "Unable to update report statuses",
           details:
             "An error occurred while updating report statuses. Please try again.",
         },
@@ -233,6 +230,7 @@ async function notifyAdminOfCompletedReports(
   const reports = await prisma.report.findMany({
     where: { id: { in: reportIds } },
     select: { id: true, jobNumber: true, hazardType: true },
+    take: reportIds.length,
   });
 
   for (const report of reports) {

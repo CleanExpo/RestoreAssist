@@ -22,6 +22,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (ids.length > 100) {
+      return NextResponse.json(
+        {
+          error: "Batch size exceeded",
+          message: "Maximum 100 reports allowed for export-excel.",
+        },
+        { status: 400 },
+      );
+    }
+
     // Fetch all selected reports to check which ones have Excel files
     const allReports = await prisma.report.findMany({
       where: {
@@ -36,6 +46,7 @@ export async function POST(request: NextRequest) {
         propertyAddress: true,
         excelReportUrl: true,
       },
+      take: ids.length,
     });
 
     // Separate reports with and without Excel files

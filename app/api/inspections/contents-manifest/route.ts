@@ -15,6 +15,9 @@ import type {
 import type { RouterConfig } from "@/lib/ai/model-router";
 import { BYOK_ALLOWED_MODELS } from "@/lib/ai/byok-client";
 
+const CONTENTS_MANIFEST_FAILURE_ERROR =
+  "Contents manifest generation failed";
+
 /**
  * [RA-405] Contents Manifest API
  * POST — Generate AI contents manifest from inspection photos
@@ -165,12 +168,11 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (err) {
-    const message =
-      err instanceof Error
-        ? err.message
-        : "Contents manifest generation failed";
-    console.error("[RA-405] Contents manifest error:", message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[RA-405] Contents manifest error:", err);
+    return NextResponse.json(
+      { error: CONTENTS_MANIFEST_FAILURE_ERROR },
+      { status: 500 },
+    );
   }
 }
 

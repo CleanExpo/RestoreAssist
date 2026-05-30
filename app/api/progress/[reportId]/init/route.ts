@@ -71,7 +71,10 @@ export async function POST(
               : result.code === "ALREADY_EXISTS"
                 ? 409
                 : 500;
-        return NextResponse.json({ error: result.message }, { status });
+        return NextResponse.json(
+          { error: status === 500 ? "Internal server error" : result.message },
+          { status },
+        );
       }
       return NextResponse.json({ data: result.data }, { status: 201 });
     } catch (error) {

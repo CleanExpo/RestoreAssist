@@ -1,12 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyPortalToken } from "@/lib/portal-token";
 import { prisma } from "@/lib/prisma";
+import { applyRateLimit } from "@/lib/rate-limiter";
+
+const MAX_PORTAL_AFFECTED_AREAS = 100;
+const MAX_PORTAL_SCOPE_ITEMS = 200;
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ token: string }> },
 ) {
   try {
+    const rateLimited = await applyRateLimit(request, {
+      maxRequests: 60,
+      windowMs: 15 * 60 * 1000,
+      prefix: "portal-token",
+    });
+    if (rateLimited) return rateLimited;
+
     const { token } = await params;
     const verified = verifyPortalToken(token);
 
@@ -16,40 +27,57 @@ export async function GET(
 
     const { inspectionId } = verified;
 
-    const inspection = await prisma.inspection.findUnique({
-      where: { id: inspectionId },
-      include: {
-        moistureReadings: true,
-        affectedAreas: true,
-        scopeItems: {
-          where: { isSelected: true },
+    const [
+      inspection,
+      moistureCount,
+      moistureAverage,
+      latestMoisture,
+      affectedAreaCount,
+      scopeItemCount,
+    ] = await Promise.all([
+      prisma.inspection.findUnique({
+        where: { id: inspectionId },
+        include: {
+          affectedAreas: {
+            orderBy: { createdAt: "asc" },
+            take: MAX_PORTAL_AFFECTED_AREAS,
+          },
+          scopeItems: {
+            where: { isSelected: true },
+            orderBy: { createdAt: "asc" },
+            take: MAX_PORTAL_SCOPE_ITEMS,
+          },
+          report: {
+            select: { status: true, id: true },
+          },
         },
-        report: {
-          select: { status: true, id: true },
-        },
-      },
-    });
+      }),
+      prisma.moistureReading.count({ where: { inspectionId } }),
+      prisma.moistureReading.aggregate({
+        where: { inspectionId },
+        _avg: { moistureLevel: true },
+      }),
+      prisma.moistureReading.findFirst({
+        where: { inspectionId },
+        orderBy: { recordedAt: "desc" },
+        select: { recordedAt: true },
+      }),
+      prisma.affectedArea.count({ where: { inspectionId } }),
+      prisma.scopeItem.count({
+        where: { inspectionId, isSelected: true },
+      }),
+    ]);
 
     if (!inspection) {
       return NextResponse.json({ error: "expired" }, { status: 401 });
     }
 
-    // Build safe moisture summary
-    const readings = inspection.moistureReadings;
     const avgMoisture =
-      readings.length > 0
-        ? Math.round(
-            readings.reduce((sum, r) => sum + r.moistureLevel, 0) /
-              readings.length,
-          )
+      moistureAverage._avg.moistureLevel !== null
+        ? Math.round(moistureAverage._avg.moistureLevel)
         : null;
 
-    const latestDate =
-      readings.length > 0
-        ? readings
-            .map((r) => r.recordedAt)
-            .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0]
-        : null;
+    const latestDate = latestMoisture?.recordedAt ?? null;
 
     // Public-safe payload — strip pricing, internal fields, notes
     const publicData = {
@@ -70,10 +98,19 @@ export async function GET(
         description: s.description,
         itemType: s.itemType,
       })),
+      limits: {
+        affectedAreasReturned: inspection.affectedAreas.length,
+        affectedAreasTotal: affectedAreaCount,
+        affectedAreasTruncated:
+          affectedAreaCount > MAX_PORTAL_AFFECTED_AREAS,
+        scopeItemsReturned: inspection.scopeItems.length,
+        scopeItemsTotal: scopeItemCount,
+        scopeItemsTruncated: scopeItemCount > MAX_PORTAL_SCOPE_ITEMS,
+      },
       moistureSummary: {
         avgMoisture,
         latestDate,
-        readingCount: readings.length,
+        readingCount: moistureCount,
       },
       reportReady: inspection.report?.status === "COMPLETED",
     };

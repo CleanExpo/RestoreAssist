@@ -10,6 +10,8 @@
  */
 
 import { createCachedSystemPrompt } from "@/lib/anthropic/features/prompt-cache";
+import { requireAiTaskPolicy } from "@/lib/ai/task-policy";
+import { buildAiUsageMetadata } from "@/lib/ai/usage-metadata";
 import { ok, fail, type ServiceResult } from "@/lib/services/_shared/result";
 import {
   callAnthropicWithFallback,
@@ -69,6 +71,15 @@ export async function generateInterviewQuestion(args: {
   apiKey: string;
   conversation: ConversationMessage[];
 }): Promise<ServiceResult<GenerateQuestionResult, GenerateQuestionReason>> {
+  const policy = requireAiTaskPolicy("fast_classification");
+  const usageMetadata = buildAiUsageMetadata({
+    taskClass: policy.taskClass,
+    providerFamily: "anthropic-platform",
+    tenantContext: { userId: "system" },
+    executionMode: "synchronous",
+  });
+  void usageMetadata;
+
   const conversationLength = args.conversation.length;
 
   const gatewayResult = await callAnthropicWithFallback({

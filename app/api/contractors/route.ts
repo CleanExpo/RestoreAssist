@@ -22,8 +22,14 @@ export async function GET(request: NextRequest) {
     const certification = searchParams.get("certification");
     const minRating = searchParams.get("minRating");
     const specialization = searchParams.get("specialization");
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 50);
+    const requestedPage = parseInt(searchParams.get("page") || "1", 10);
+    const requestedLimit = parseInt(searchParams.get("limit") || "20", 10);
+    const page = Number.isFinite(requestedPage)
+      ? Math.max(1, requestedPage)
+      : 1;
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.min(Math.max(1, requestedLimit), 50)
+      : 20;
 
     // Build where clause
     const where: any = {

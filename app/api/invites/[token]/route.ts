@@ -19,6 +19,8 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { sanitizeString } from "@/lib/sanitize";
 import { validateCsrf } from "@/lib/csrf";
+import { applyRateLimit } from "@/lib/rate-limiter";
+import { isUserInviteToken } from "@/lib/public-token-shape";
 
 interface RouteContext {
   params: Promise<{ token: string }>;
@@ -32,10 +34,21 @@ function roleLabel(role: string) {
 
 // ─── GET — preview the invite ──────────────────────────────────────────────
 
-export async function GET(_req: NextRequest, { params }: RouteContext) {
+export async function GET(req: NextRequest, { params }: RouteContext) {
+  const rateLimited = await applyRateLimit(req, {
+    maxRequests: 30,
+    windowMs: 15 * 60 * 1000,
+    prefix: "invite-preview",
+  });
+  if (rateLimited) return rateLimited;
+
   const { token } = await params;
   if (!token) {
     return NextResponse.json({ error: "Token required" }, { status: 400 });
+  }
+
+  if (!isUserInviteToken(token)) {
+    return NextResponse.json({ error: "Invite not found" }, { status: 404 });
   }
 
   const invite = await prisma.userInvite.findUnique({
@@ -82,12 +95,23 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
 // ─── POST — accept the invite ──────────────────────────────────────────────
 
 export async function POST(req: NextRequest, { params }: RouteContext) {
+  const rateLimited = await applyRateLimit(req, {
+    maxRequests: 10,
+    windowMs: 15 * 60 * 1000,
+    prefix: "invite-accept",
+  });
+  if (rateLimited) return rateLimited;
+
   const csrfError = validateCsrf(req);
   if (csrfError) return csrfError;
 
   const { token } = await params;
   if (!token) {
     return NextResponse.json({ error: "Token required" }, { status: 400 });
+  }
+
+  if (!isUserInviteToken(token)) {
+    return NextResponse.json({ error: "Invite not found" }, { status: 404 });
   }
 
   let body: {

@@ -86,6 +86,7 @@ export async function GET(
   const items = await prisma.contentsPackOutItem.findMany({
     where: { inspectionId: id },
     orderBy: { createdAt: "asc" },
+    take: 500,
   });
 
   const totalReplacementValueAud = items.reduce(

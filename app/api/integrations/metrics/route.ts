@@ -7,6 +7,9 @@ import { getSyncQueueStats } from "@/lib/integrations/sync-queue";
 import { circuitBreakerManager } from "@/lib/integrations/circuit-breaker";
 import { rateLimiterManager } from "@/lib/integrations/rate-limiter";
 
+const MAX_INTEGRATIONS_FOR_METRICS = 100;
+const MAX_SYNC_LOGS_FOR_METRICS = 1_000;
+
 /**
  * GET /api/integrations/metrics - Get integration metrics and health statistics
  *
@@ -37,6 +40,8 @@ export async function GET(request: NextRequest) {
         status: true,
         lastSyncAt: true,
       },
+      orderBy: { updatedAt: "desc" },
+      take: MAX_INTEGRATIONS_FOR_METRICS,
     });
 
     // Sync metrics (last N hours)
@@ -66,6 +71,7 @@ export async function GET(request: NextRequest) {
       orderBy: {
         startedAt: "desc",
       },
+      take: MAX_SYNC_LOGS_FOR_METRICS,
     });
 
     // Calculate sync stats

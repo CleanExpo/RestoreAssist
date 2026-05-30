@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import { requireAiTaskPolicy } from "@/lib/ai/task-policy";
 
 vi.mock("@/lib/services/ai/anthropic-gateway", () => ({
   callAnthropic: vi.fn(),
@@ -71,6 +72,61 @@ describe("analyseSupportTicket", () => {
       expect(r.data.category).toBe("general");
       expect(r.data.priority).toBe("normal");
     }
+  });
+
+  it("uses the support analysis policy without changing the Anthropic request", async () => {
+    vi.mocked(callAnthropic).mockResolvedValueOnce({
+      ok: true,
+      data: {
+        id: "msg_policy",
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              category: "billing",
+              priority: "high",
+              responseDraft: "Draft response.",
+            }),
+          },
+        ],
+      } as never,
+    });
+
+    const policy = requireAiTaskPolicy("support_ticket_analysis");
+
+    await analyseSupportTicket(sampleArgs);
+
+    expect(policy).toEqual(
+      expect.objectContaining({
+        taskClass: "support_ticket_analysis",
+        allowedProviderFamilies: ["anthropic-platform"],
+        maxOutputTokens: 1024,
+        maxEstimatedCostUsd: 0.02,
+        requiresUsageLogging: true,
+        allowsFallback: false,
+      }),
+    );
+    expect(vi.mocked(callAnthropic)).toHaveBeenCalledWith({
+      userId: "system",
+      apiKey: "sk-platform",
+      request: {
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 1024,
+        system: expect.stringContaining("Given a support ticket, respond with JSON only"),
+        messages: [
+          {
+            role: "user",
+            content: "Subject: Cannot upgrade my plan\n\nI'm trying to upgrade to the Pro plan but the checkout times out at the Stripe step.",
+          },
+        ],
+      },
+    });
+  });
+
+  it("fails closed for unknown task policies", () => {
+    expect(() => requireAiTaskPolicy("unknown")).toThrow(
+      "Missing AI task policy for unknown",
+    );
   });
 
   it("propagates gateway RATE_LIMITED reason", async () => {

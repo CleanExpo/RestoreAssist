@@ -114,10 +114,7 @@ export async function POST(request: NextRequest) {
           reason: "KEY_MISSING",
           detail: "ANTHROPIC_API_KEY not configured",
         });
-        return NextResponse.json(
-          { error: "KEY_MISSING", detail: "ANTHROPIC_API_KEY not configured" },
-          { status: 402 },
-        );
+        return NextResponse.json({ error: "KEY_MISSING" }, { status: 402 });
       }
 
       const result = await extractMeterReading({
@@ -149,7 +146,7 @@ export async function POST(request: NextRequest) {
             ? { "Retry-After": String(Math.ceil(result.retryAfterMs / 1000)) }
             : {};
         return NextResponse.json(
-          { error: result.reason, detail: result.detail },
+          { error: result.reason },
           { status, headers },
         );
       }

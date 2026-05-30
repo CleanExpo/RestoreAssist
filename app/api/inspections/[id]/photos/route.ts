@@ -18,6 +18,10 @@ import { MirrorJobKind } from "@prisma/client";
 import { extractAndSaveMediaAsset } from "@/lib/media/exif-extract";
 import { scheduleCatalog } from "@/lib/media/catalog";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import {
+  getIdempotencyKey,
+  withIdempotencyFingerprint,
+} from "@/lib/idempotency";
 
 // GET - List photos for inspection
 export async function GET(
@@ -57,6 +61,7 @@ export async function GET(
         fileSize: true,
         mimeType: true,
       },
+      take: 500,
     });
 
     return NextResponse.json({ photos });
@@ -79,6 +84,11 @@ export async function POST(
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const idempotencyKey = getIdempotencyKey(request);
+    if (!idempotencyKey.ok) {
+      return NextResponse.json({ error: idempotencyKey.reason }, { status: 400 });
     }
 
     // Rate limit: 20 photo uploads per minute per user
@@ -173,6 +183,7 @@ export async function POST(
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+    const fileSha256 = crypto.createHash("sha256").update(buffer).digest("hex");
 
     // Magic-byte validation — prevents Content-Type spoofing
     const isJpeg =
@@ -211,11 +222,7 @@ export async function POST(
     let cocoaDeviceHint: string | null = null;
 
     if (typeof clientSha256 === "string" && clientSha256.length > 0) {
-      const serverSha256 = crypto
-        .createHash("sha256")
-        .update(buffer)
-        .digest("hex");
-      if (serverSha256.toLowerCase() !== clientSha256.toLowerCase()) {
+      if (fileSha256.toLowerCase() !== clientSha256.toLowerCase()) {
         return NextResponse.json(
           {
             error:
@@ -256,99 +263,130 @@ export async function POST(
     const captionDescription =
       typeof caption === "string" && caption.length > 0 ? caption : null;
 
-    const storageProvider = await getStorageProvider(user?.organizationId);
+    const fingerprintFields = Array.from(formData.entries())
+      .filter(([name]) => name !== "file")
+      .map(([name, value]) => [
+        name,
+        typeof value === "string" ? value : "[file]",
+      ])
+      .sort(([left], [right]) => left.localeCompare(right));
 
-    const uploadResult = await storageProvider.upload({
-      buffer,
-      filename: file.name,
-      mimeType: file.type || "image/jpeg",
-      folder: `inspections/${id}`,
-      orgId: user?.organizationId ?? "no-org",
-      inspectionId: id,
-    });
-
-    // Create photo record — store compressed URL for dashboard viewing
-    // originalUrl (signed) is stored in structuredData for download-original flows
-    // RA-447: label fields are spread in if provided at upload time
-    const photo = await prisma.inspectionPhoto.create({
-      data: {
-        inspectionId: id,
-        url: uploadResult.compressedUrl,
-        thumbnailUrl: uploadResult.thumbnailUrl ?? null,
-        location: location || null,
-        fileSize: file.size,
-        mimeType: file.type,
-        timestamp: new Date(),
-        ...labelData,
-        // Cocoa chain-of-custody
-        cocoaSha256,
-        cocoaCapturedAtUtc,
-        cocoaUserHash,
-        cocoaDeviceHint,
-        // FAB-supplied geo (only when present and valid)
-        ...(gpsLatitude !== null && !Number.isNaN(gpsLatitude)
-          ? { gpsLatitude }
-          : {}),
-        ...(gpsLongitude !== null && !Number.isNaN(gpsLongitude)
-          ? { gpsLongitude }
-          : {}),
-        // FAB-supplied caption → description (only when present & no labelData.description)
-        ...(captionDescription && !("description" in labelData)
-          ? { description: captionDescription }
-          : {}),
-      },
-    });
-
-    // Create audit log
-    await prisma.auditLog.create({
-      data: {
-        inspectionId: id,
-        action: "Photo uploaded",
-        entityType: "InspectionPhoto",
-        entityId: photo.id,
-        userId: session.user.id,
-        changes: JSON.stringify({
-          location: photo.location,
-          url: photo.url,
-          storagePath: uploadResult.storagePath,
-          sha256: uploadResult.sha256,
+    const multipartFingerprint = crypto
+      .createHash("sha256")
+      .update(
+        JSON.stringify({
+          inspectionId: id,
+          filename: file.name,
+          mimeType: file.type,
+          size: file.size,
+          fileSha256,
+          fields: fingerprintFields,
         }),
+      )
+      .digest("hex");
+
+    return withIdempotencyFingerprint({
+      scope: session.user.id,
+      key: idempotencyKey.key,
+      method: request.method,
+      path: request.nextUrl.pathname,
+      fingerprint: multipartFingerprint,
+      handler: async () => {
+        const storageProvider = await getStorageProvider(user?.organizationId);
+
+        const uploadResult = await storageProvider.upload({
+          buffer,
+          filename: file.name,
+          mimeType: file.type || "image/jpeg",
+          folder: `inspections/${id}`,
+          orgId: user?.organizationId ?? "no-org",
+          inspectionId: id,
+        });
+
+        // Create photo record — store compressed URL for dashboard viewing
+        // originalUrl (signed) is stored in structuredData for download-original flows
+        // RA-447: label fields are spread in if provided at upload time
+        const photo = await prisma.inspectionPhoto.create({
+          data: {
+            inspectionId: id,
+            url: uploadResult.compressedUrl,
+            thumbnailUrl: uploadResult.thumbnailUrl ?? null,
+            location: location || null,
+            fileSize: file.size,
+            mimeType: file.type,
+            timestamp: new Date(),
+            ...labelData,
+            // Cocoa chain-of-custody
+            cocoaSha256,
+            cocoaCapturedAtUtc,
+            cocoaUserHash,
+            cocoaDeviceHint,
+            // FAB-supplied geo (only when present and valid)
+            ...(gpsLatitude !== null && !Number.isNaN(gpsLatitude)
+              ? { gpsLatitude }
+              : {}),
+            ...(gpsLongitude !== null && !Number.isNaN(gpsLongitude)
+              ? { gpsLongitude }
+              : {}),
+            // FAB-supplied caption → description (only when present & no labelData.description)
+            ...(captionDescription && !("description" in labelData)
+              ? { description: captionDescription }
+              : {}),
+          },
+        });
+
+        // Create audit log
+        await prisma.auditLog.create({
+          data: {
+            inspectionId: id,
+            action: "Photo uploaded",
+            entityType: "InspectionPhoto",
+            entityId: photo.id,
+            userId: session.user.id,
+            changes: JSON.stringify({
+              location: photo.location,
+              url: photo.url,
+              storagePath: uploadResult.storagePath,
+              sha256: uploadResult.sha256,
+            }),
+          },
+        });
+
+        // SP-E: dual-write hook — enqueue a background mirror to the org's
+        // BYOK storage (Google Drive) if connected. Wrapped in try/catch so a
+        // mirror failure never breaks the user-facing 201 response.
+        try {
+          await enqueueMirror({
+            kind: MirrorJobKind.PHOTO,
+            orgId: user?.organizationId,
+            storagePath: uploadResult.storagePath,
+            filename: file.name,
+            mimeType: file.type || "image/jpeg",
+            photoId: photo.id,
+          });
+        } catch (mirrorErr) {
+          console.error(
+            `[Storage Mirror] enqueue failed for photo ${photo.id}:`,
+            mirrorErr,
+          );
+        }
+
+        // RA-416: Extract EXIF metadata — fire-and-forget, never blocks upload response
+        if (inspection.workspaceId) {
+          extractAndSaveMediaAsset({
+            buffer,
+            originalFilename: file.name,
+            mimeType: file.type || "image/jpeg",
+            fileSize: file.size,
+            storagePath: uploadResult.storagePath,
+            inspectionId: id,
+            workspaceId: inspection.workspaceId,
+          });
+        }
+
+        return NextResponse.json({ photo }, { status: 201 });
       },
     });
-
-    // SP-E: dual-write hook — enqueue a background mirror to the org's
-    // BYOK storage (Google Drive) if connected. Wrapped in try/catch so a
-    // mirror failure never breaks the user-facing 201 response.
-    try {
-      await enqueueMirror({
-        kind: MirrorJobKind.PHOTO,
-        orgId: user?.organizationId,
-        storagePath: uploadResult.storagePath,
-        filename: file.name,
-        mimeType: file.type || "image/jpeg",
-        photoId: photo.id,
-      });
-    } catch (mirrorErr) {
-      console.error(
-        `[Storage Mirror] enqueue failed for photo ${photo.id}:`,
-        mirrorErr,
-      );
-    }
-
-    // RA-416: Extract EXIF metadata — fire-and-forget, never blocks upload response
-    if (inspection.workspaceId) {
-      extractAndSaveMediaAsset({
-        buffer,
-        originalFilename: file.name,
-        mimeType: file.type || "image/jpeg",
-        fileSize: file.size,
-        storagePath: uploadResult.storagePath,
-        inspectionId: id,
-        workspaceId: inspection.workspaceId,
-      });
-    }
-
-    return NextResponse.json({ photo }, { status: 201 });
   } catch (error) {
     console.error("Error uploading photo:", error);
     return NextResponse.json(

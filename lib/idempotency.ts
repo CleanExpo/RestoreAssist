@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "crypto";
+import { Prisma } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 
 /**
  * Idempotency-Key middleware — Stripe-style request replay protection.
@@ -13,19 +15,22 @@ import { createHash } from "crypto";
  * returns the cached response — a different body under the same key
  * returns 409.
  *
- * Storage: in-memory only for now (per-instance). Adequate for the
- * retry window (seconds, same warm instance); Database-backed store can
- * slot in later via the same pluggable pattern as rate-limiter.ts.
+ * Storage: durable Prisma-backed cache. This is intentionally database-backed
+ * because mobile/offline replay and serverless multi-instance retries cannot
+ * depend on process-local memory.
  *
  * Scope is intentionally user-level — two users using "the same" key
  * don't collide. Key format: 8–255 chars, printable ASCII.
  */
 
 const KEY_HEADER = "idempotency-key";
+const MUTATION_ID_HEADER = "x-restoreassist-mutation-id";
 const TTL_MS = 24 * 60 * 60 * 1000; // 24h — matches Stripe
 const MAX_KEY_LEN = 255;
 const MIN_KEY_LEN = 8;
 const MAX_BODY_CACHE_BYTES = 1_000_000; // 1MB — skip caching larger responses
+
+type IdempotencyStatus = "PENDING" | "COMPLETE";
 
 interface CachedResponse {
   status: number;
@@ -35,30 +40,13 @@ interface CachedResponse {
   expiresAt: number;
 }
 
-type StoreEntry =
-  | { kind: "pending"; fingerprint: string; expiresAt: number }
-  | { kind: "complete"; response: CachedResponse };
-
-const store = new Map<string, StoreEntry>();
-
-let cleanupTimer: ReturnType<typeof setInterval> | null = null;
-function ensureCleanup() {
-  if (cleanupTimer) return;
-  cleanupTimer = setInterval(() => {
-    const now = Date.now();
-    for (const [key, entry] of store) {
-      const expiresAt =
-        entry.kind === "complete" ? entry.response.expiresAt : entry.expiresAt;
-      if (expiresAt < now) store.delete(key);
-    }
-  }, 60_000);
-  if (
-    typeof cleanupTimer === "object" &&
-    cleanupTimer &&
-    "unref" in cleanupTimer
-  ) {
-    cleanupTimer.unref();
-  }
+interface ClientMutationLedgerInput {
+  workspaceId: string;
+  userId?: string | null;
+  inspectionId?: string | null;
+  mutationId?: string | null;
+  mutationType: string;
+  clientCreatedAt?: Date | null;
 }
 
 /**
@@ -88,6 +76,28 @@ export function getIdempotencyKey(
   return { ok: true, key };
 }
 
+export function getClientMutationId(
+  req: NextRequest,
+): { ok: true; mutationId: string | null } | { ok: false; reason: string } {
+  const raw = req.headers.get(MUTATION_ID_HEADER);
+  if (raw === null) return { ok: true, mutationId: null };
+  const mutationId = raw.trim();
+  if (mutationId.length < MIN_KEY_LEN || mutationId.length > MAX_KEY_LEN) {
+    return {
+      ok: false,
+      reason: `X-RestoreAssist-Mutation-Id must be ${MIN_KEY_LEN}–${MAX_KEY_LEN} chars`,
+    };
+  }
+  if (!/^[\x21-\x7E]+$/.test(mutationId)) {
+    return {
+      ok: false,
+      reason:
+        "X-RestoreAssist-Mutation-Id must be printable ASCII with no spaces",
+    };
+  }
+  return { ok: true, mutationId };
+}
+
 function fingerprintBody(method: string, path: string, body: string): string {
   return createHash("sha256")
     .update(`${method}\n${path}\n${body}`)
@@ -106,6 +116,306 @@ function responseFromCache(cached: CachedResponse): NextResponse {
       "Idempotent-Replayed": "true",
     },
   });
+}
+
+function isUniqueViolation(err: unknown): boolean {
+  return (
+    err instanceof Prisma.PrismaClientKnownRequestError ||
+    (typeof err === "object" && err !== null && "code" in err)
+  ) && (err as { code?: string }).code === "P2002";
+}
+
+function isCompleteRecord(record: {
+  responseStatus: number | null;
+  responseBody: string | null;
+  responseContentType: string | null;
+}): record is {
+  responseStatus: number;
+  responseBody: string;
+  responseContentType: string | null;
+} {
+  return record.responseStatus !== null && record.responseBody !== null;
+}
+
+async function cleanupExpiredIdempotencyRecords(now: Date): Promise<void> {
+  await prisma.idempotencyRecord.deleteMany({
+    where: { expiresAt: { lt: now } },
+  });
+}
+
+async function createClientMutationLedger({
+  clientMutation,
+  method,
+  path,
+  requestHash,
+}: {
+  clientMutation?: ClientMutationLedgerInput;
+  method: string;
+  path: string;
+  requestHash: string;
+}): Promise<void> {
+  if (!clientMutation?.mutationId) return;
+
+  try {
+    await prisma.clientMutation.create({
+      data: {
+        workspaceId: clientMutation.workspaceId,
+        userId: clientMutation.userId ?? null,
+        inspectionId: clientMutation.inspectionId ?? null,
+        mutationId: clientMutation.mutationId,
+        mutationType: clientMutation.mutationType,
+        method,
+        path,
+        requestHash,
+        status: "PENDING",
+        clientCreatedAt: clientMutation.clientCreatedAt ?? null,
+      },
+    });
+  } catch (err) {
+    if (!isUniqueViolation(err)) throw err;
+  }
+}
+
+async function completeClientMutationLedger({
+  clientMutation,
+  responseStatus,
+  responseBody,
+}: {
+  clientMutation?: ClientMutationLedgerInput;
+  responseStatus: number;
+  responseBody?: string | null;
+}): Promise<void> {
+  if (!clientMutation?.mutationId) return;
+
+  await prisma.clientMutation.updateMany({
+    where: {
+      workspaceId: clientMutation.workspaceId,
+      mutationId: clientMutation.mutationId,
+    },
+    data: {
+      status: responseStatus >= 400 ? "REJECTED" : "COMPLETE",
+      responseStatus,
+      responseBody: responseBody ?? null,
+      completedAt: new Date(),
+    },
+  });
+}
+
+async function failClientMutationLedger({
+  clientMutation,
+  errorCode,
+}: {
+  clientMutation?: ClientMutationLedgerInput;
+  errorCode: string;
+}): Promise<void> {
+  if (!clientMutation?.mutationId) return;
+
+  await prisma.clientMutation.updateMany({
+    where: {
+      workspaceId: clientMutation.workspaceId,
+      mutationId: clientMutation.mutationId,
+    },
+    data: {
+      status: "FAILED",
+      errorCode,
+      completedAt: new Date(),
+    },
+  });
+}
+
+async function reserveIdempotencySlot({
+  cacheKey,
+  scope,
+  key,
+  fingerprint,
+  now,
+}: {
+  cacheKey: string;
+  scope: string;
+  key: string;
+  fingerprint: string;
+  now: Date;
+}): Promise<
+  | { kind: "reserved" }
+  | { kind: "replay"; response: CachedResponse }
+  | { kind: "conflict" }
+  | { kind: "pending" }
+> {
+  try {
+    await prisma.idempotencyRecord.create({
+      data: {
+        cacheKey,
+        scope,
+        key,
+        fingerprint,
+        status: "PENDING" satisfies IdempotencyStatus,
+        expiresAt: new Date(now.getTime() + 60_000),
+      },
+    });
+    return { kind: "reserved" };
+  } catch (err) {
+    if (!isUniqueViolation(err)) throw err;
+  }
+
+  const existing = await prisma.idempotencyRecord.findUnique({
+    where: { cacheKey },
+    select: {
+      fingerprint: true,
+      status: true,
+      responseStatus: true,
+      responseBody: true,
+      responseContentType: true,
+      expiresAt: true,
+    },
+  });
+
+  if (!existing) {
+    return reserveIdempotencySlot({ cacheKey, scope, key, fingerprint, now });
+  }
+
+  if (existing.expiresAt < now) {
+    await prisma.idempotencyRecord.deleteMany({ where: { cacheKey } });
+    return reserveIdempotencySlot({ cacheKey, scope, key, fingerprint, now });
+  }
+
+  if (existing.fingerprint !== fingerprint) {
+    return { kind: "conflict" };
+  }
+
+  if (existing.status === ("COMPLETE" satisfies IdempotencyStatus)) {
+    if (!isCompleteRecord(existing)) {
+      return { kind: "pending" };
+    }
+
+    return {
+      kind: "replay",
+      response: {
+        status: existing.responseStatus,
+        body: existing.responseBody,
+        contentType: existing.responseContentType || "application/json",
+        fingerprint,
+        expiresAt: existing.expiresAt.getTime(),
+      },
+    };
+  }
+
+  return { kind: "pending" };
+}
+
+export async function withIdempotencyFingerprint({
+  scope,
+  key,
+  method,
+  path,
+  fingerprint,
+  clientMutation,
+  handler,
+}: {
+  scope: string;
+  key: string | null;
+  method: string;
+  path: string;
+  fingerprint: string;
+  clientMutation?: ClientMutationLedgerInput;
+  handler: () => Promise<NextResponse>;
+}): Promise<NextResponse> {
+  if (!key) return handler();
+
+  const cacheKey = buildCacheKey(scope, key);
+  const requestFingerprint = fingerprintBody(method, path, fingerprint);
+  const now = new Date();
+
+  await cleanupExpiredIdempotencyRecords(now);
+
+  const reservation = await reserveIdempotencySlot({
+    cacheKey,
+    scope,
+    key,
+    fingerprint: requestFingerprint,
+    now,
+  });
+
+  if (reservation.kind === "conflict") {
+    return NextResponse.json(
+      {
+        error:
+          "Idempotency-Key reused with a different request body. Use a new key for new requests.",
+      },
+      { status: 409 },
+    );
+  }
+
+  if (reservation.kind === "pending") {
+    return NextResponse.json(
+      {
+        error:
+          "A request with this Idempotency-Key is already in progress. Retry shortly.",
+      },
+      { status: 409 },
+    );
+  }
+
+  if (reservation.kind === "replay") {
+    return responseFromCache(reservation.response);
+  }
+
+  await createClientMutationLedger({
+    clientMutation,
+    method,
+    path,
+    requestHash: requestFingerprint,
+  });
+
+  let response: NextResponse;
+  try {
+    response = await handler();
+  } catch (err) {
+    await prisma.idempotencyRecord.deleteMany({ where: { cacheKey } });
+    await failClientMutationLedger({
+      clientMutation,
+      errorCode: "HANDLER_THROW",
+    });
+    throw err;
+  }
+
+  if (response.status >= 500) {
+    await prisma.idempotencyRecord.deleteMany({ where: { cacheKey } });
+    await failClientMutationLedger({
+      clientMutation,
+      errorCode: `HTTP_${response.status}`,
+    });
+    return response;
+  }
+
+  const clonedBody = await response.clone().text();
+  if (clonedBody.length > MAX_BODY_CACHE_BYTES) {
+    await prisma.idempotencyRecord.deleteMany({ where: { cacheKey } });
+    await completeClientMutationLedger({
+      clientMutation,
+      responseStatus: response.status,
+    });
+    return response;
+  }
+
+  await prisma.idempotencyRecord.update({
+    where: { cacheKey },
+    data: {
+      status: "COMPLETE" satisfies IdempotencyStatus,
+      responseStatus: response.status,
+      responseBody: clonedBody,
+      responseContentType:
+        response.headers.get("content-type") || "application/json",
+      expiresAt: new Date(now.getTime() + TTL_MS),
+    },
+  });
+
+  await completeClientMutationLedger({
+    clientMutation,
+    responseStatus: response.status,
+    responseBody: clonedBody,
+  });
+
+  return response;
 }
 
 /**
@@ -131,10 +441,18 @@ export async function withIdempotency(
   req: NextRequest,
   scope: string,
   handler: (parsedBody: string) => Promise<NextResponse>,
+  options: { clientMutation?: Omit<ClientMutationLedgerInput, "mutationId"> } = {},
 ): Promise<NextResponse> {
   const keyResult = getIdempotencyKey(req);
   if (!keyResult.ok) {
     return NextResponse.json({ error: keyResult.reason }, { status: 400 });
+  }
+  const mutationIdResult = getClientMutationId(req);
+  if (!mutationIdResult.ok) {
+    return NextResponse.json(
+      { error: mutationIdResult.reason },
+      { status: 400 },
+    );
   }
 
   const bodyText = await req.text();
@@ -144,98 +462,28 @@ export async function withIdempotency(
     return handler(bodyText);
   }
 
-  ensureCleanup();
-  const cacheKey = buildCacheKey(scope, keyResult.key);
   const fingerprint = fingerprintBody(
     req.method,
     req.nextUrl.pathname,
     bodyText,
   );
-  const now = Date.now();
-  const existing = store.get(cacheKey);
-
-  if (existing) {
-    if (existing.kind === "complete") {
-      if (existing.response.expiresAt < now) {
-        store.delete(cacheKey);
-      } else if (existing.response.fingerprint !== fingerprint) {
-        return NextResponse.json(
-          {
-            error:
-              "Idempotency-Key reused with a different request body. Use a new key for new requests.",
-          },
-          { status: 409 },
-        );
-      } else {
-        return responseFromCache(existing.response);
-      }
-    } else {
-      // Pending — concurrent request with same key.
-      if (existing.expiresAt < now) {
-        store.delete(cacheKey);
-      } else if (existing.fingerprint !== fingerprint) {
-        return NextResponse.json(
-          {
-            error:
-              "Idempotency-Key reused with a different request body. Use a new key for new requests.",
-          },
-          { status: 409 },
-        );
-      } else {
-        return NextResponse.json(
-          {
-            error:
-              "A request with this Idempotency-Key is already in progress. Retry shortly.",
-          },
-          { status: 409 },
-        );
-      }
-    }
-  }
-
-  // Mark pending — 60s pending window (generous for slow AI/Stripe calls).
-  store.set(cacheKey, {
-    kind: "pending",
+  return withIdempotencyFingerprint({
+    scope,
+    key: keyResult.key,
+    method: req.method,
+    path: req.nextUrl.pathname,
     fingerprint,
-    expiresAt: now + 60_000,
+    clientMutation: options.clientMutation
+      ? {
+          ...options.clientMutation,
+          mutationId: mutationIdResult.mutationId,
+        }
+      : undefined,
+    handler: () => handler(bodyText),
   });
-
-  let response: NextResponse;
-  try {
-    response = await handler(bodyText);
-  } catch (err) {
-    store.delete(cacheKey);
-    throw err;
-  }
-
-  // Only cache successful/client-error responses (not 5xx — caller should
-  // retry after a server error to recover). And only cache small bodies.
-  if (response.status >= 500) {
-    store.delete(cacheKey);
-    return response;
-  }
-
-  const clonedBody = await response.clone().text();
-  if (clonedBody.length > MAX_BODY_CACHE_BYTES) {
-    store.delete(cacheKey);
-    return response;
-  }
-
-  store.set(cacheKey, {
-    kind: "complete",
-    response: {
-      status: response.status,
-      body: clonedBody,
-      contentType: response.headers.get("content-type") || "application/json",
-      fingerprint,
-      expiresAt: now + TTL_MS,
-    },
-  });
-
-  return response;
 }
 
-/** Test-only: clear the in-memory store between tests. */
-export function __resetIdempotencyStore(): void {
-  store.clear();
+/** Test-only: clear the durable idempotency store between tests. */
+export async function __resetIdempotencyStore(): Promise<void> {
+  await prisma.idempotencyRecord.deleteMany();
 }

@@ -29,12 +29,21 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    if (ids.length > 100) {
+      return NextResponse.json(
+        { error: "Maximum 100 reports can be deleted at once" },
+        { status: 400 },
+      );
+    }
+
     // Verify all reports belong to the user
     const reports = await prisma.report.findMany({
       where: {
         id: { in: ids },
         userId: session.user.id,
       },
+      select: { id: true },
+      take: ids.length,
     });
 
     if (reports.length !== ids.length) {

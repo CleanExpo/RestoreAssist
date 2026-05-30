@@ -97,6 +97,9 @@ model User {
   managedBy   User?   @relation("UserManager", fields: [managedById], references: [id], onDelete: SetNull)
   manages     User[]  @relation("UserManager")
 
+  clientMutations    ClientMutation[]
+  fieldCaptureEvents FieldCaptureEvent[]
+
   // Subscription fields (temporarily optional for migration)
   subscriptionStatus SubscriptionStatus?
   subscriptionPlan   String?
@@ -249,6 +252,9 @@ model User {
 
   // RA-1842 — APNS/FCM device tokens for push notifications
   deviceTokens DeviceToken[]
+
+  // RA-VOI-001 — durable voice copilot sessions
+  voiceCopilotSessions VoiceCopilotSession[] @relation("UserVoiceCopilotSessions")
 
   // RA-2073 — short-lived handoff tokens for SFVC→WKWebView session ferrying
   oauthHandoffTokens OAuthHandoffToken[]
@@ -1938,6 +1944,8 @@ model Inspection {
   auditLogs         AuditLog[]
   photos            InspectionPhoto[]
   usageEvents       UsageEvent[]        @relation("usageEvents")
+  clientMutations   ClientMutation[]
+  fieldCaptureEvents FieldCaptureEvent[]
 
   // RA-1717 — Unified assessment-generation artefacts.
   assessmentGenerations AssessmentGeneration[] @relation("InspectionAssessmentGenerations")
@@ -1950,6 +1958,7 @@ model Inspection {
 
   // AI Assistant Tier (Phase 4 - Voice AI)
   voiceNotes VoiceNote[]
+  voiceCopilotSessions VoiceCopilotSession[] @relation("InspectionVoiceCopilotSessions")
 
   // AI Assistant Tier (Phase 5 - Property Data Integration)
   propertyYearBuilt        Int? // Exact year built
@@ -3991,6 +4000,47 @@ model VoiceTranscript {
   @@index([voiceNoteId])
 }
 
+// RA-VOI-001: Durable lifecycle for realtime field voice copilot sessions.
+model VoiceCopilotSession {
+  id           String     @id
+  inspectionId String
+  inspection   Inspection @relation("InspectionVoiceCopilotSessions", fields: [inspectionId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User       @relation("UserVoiceCopilotSessions", fields: [userId], references: [id], onDelete: Cascade)
+
+  mode         String
+  state        String     @default("idle")
+  missingItems Json?
+  startedAt    DateTime   @default(now())
+  endedAt      DateTime?
+  expiresAt    DateTime
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  observations VoiceCopilotObservation[]
+
+  @@index([inspectionId, startedAt])
+  @@index([userId, startedAt])
+  @@index([state, expiresAt])
+}
+
+model VoiceCopilotObservation {
+  id                String              @id
+  sessionId         String
+  session           VoiceCopilotSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  type              String
+  rawTranscript     String              @db.Text
+  parsed            Json
+  confidence        String
+  needsConfirmation Boolean
+  confirmedAt       DateTime?
+  storedAt          DateTime?
+  createdAt         DateTime            @default(now())
+
+  @@index([sessionId, createdAt])
+  @@index([type])
+}
+
 // AI Assistant Tier - Phase 5: Property Data Integration (CoreLogic)
 model PropertyLookup {
   id String @id @default(cuid())
@@ -5492,6 +5542,9 @@ model Workspace {
   // RA-417: media asset tags
   mediaAssetTags MediaAssetTag[] @relation("WorkspaceMediaAssetTags")
 
+  clientMutations    ClientMutation[]
+  fieldCaptureEvents FieldCaptureEvent[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -6984,4 +7037,104 @@ model SubscriptionEvent {
 
   @@index([userId, createdAt])
   @@index([eventType])
+}
+
+/// Durable API idempotency cache for mobile/offline retry replay and
+/// serverless multi-instance safety. `cacheKey` is a derived
+/// `scope + Idempotency-Key` value; raw request bodies are not stored.
+model IdempotencyRecord {
+  id                  String   @id @default(cuid())
+  cacheKey            String   @unique
+  scope               String
+  key                 String
+  fingerprint         String
+  status              String   @default("PENDING")
+  responseStatus      Int?
+  responseBody        String?  @db.Text
+  responseContentType String?
+  expiresAt           DateTime
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([scope, key])
+  @@index([status, expiresAt])
+  @@index([expiresAt])
+}
+
+/// Durable shared route rate-limit hits. Each call to `applyRateLimit`
+/// records a window-scoped hit so limits survive serverless cold starts and
+/// multi-instance execution without introducing another infrastructure
+/// dependency.
+model RateLimitHit {
+  id        String   @id @default(cuid())
+  key       String
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([key, createdAt])
+  @@index([expiresAt])
+}
+
+/// Durable mobile/offline mutation ledger. `mutationId` is generated on the
+/// client and deduped per workspace so mobile replay, retry, and conflict
+/// handling have a server-side audit spine independent of response replay
+/// caching.
+model ClientMutation {
+  id              String    @id @default(cuid())
+  workspaceId     String
+  userId          String?
+  inspectionId    String?
+  mutationId      String
+  mutationType    String
+  method          String
+  path            String
+  requestHash     String
+  status          String    @default("PENDING")
+  responseStatus  Int?
+  responseBody    String?   @db.Text
+  errorCode       String?
+  clientCreatedAt DateTime?
+  receivedAt      DateTime  @default(now())
+  completedAt     DateTime?
+  updatedAt       DateTime  @updatedAt
+
+  workspace  Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user       User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  inspection Inspection?         @relation(fields: [inspectionId], references: [id], onDelete: SetNull)
+  events     FieldCaptureEvent[]
+
+  @@unique([workspaceId, mutationId])
+  @@index([workspaceId, status, receivedAt])
+  @@index([userId, receivedAt])
+  @@index([inspectionId, receivedAt])
+}
+
+/// Append-only field-capture event ledger for offline/mobile evidence capture.
+/// Application code should insert rows only; no update path is required for the
+/// Phase 1 audit spine.
+model FieldCaptureEvent {
+  id               String   @id @default(cuid())
+  workspaceId      String
+  userId           String?
+  inspectionId     String?
+  clientMutationId String?
+  eventId          String?
+  eventType        String
+  entityType       String?
+  entityId         String?
+  fieldPath        String?
+  value            Json?
+  metadata         Json?
+  capturedAt       DateTime
+  receivedAt       DateTime @default(now())
+
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user           User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  inspection     Inspection?     @relation(fields: [inspectionId], references: [id], onDelete: SetNull)
+  clientMutation ClientMutation? @relation(fields: [clientMutationId], references: [id], onDelete: SetNull)
+
+  @@unique([workspaceId, eventId])
+  @@index([workspaceId, eventType, receivedAt])
+  @@index([inspectionId, capturedAt])
+  @@index([clientMutationId])
 }

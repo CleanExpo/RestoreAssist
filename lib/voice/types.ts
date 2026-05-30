@@ -12,7 +12,8 @@ export type VoiceSessionState =
   | "idle"
   | "listening"
   | "processing"
-  | "responding";
+  | "responding"
+  | "ended";
 
 export interface VoiceSession {
   sessionId: string;
@@ -21,6 +22,7 @@ export interface VoiceSession {
   mode: VoiceCopilotMode;
   state: VoiceSessionState;
   startedAt: string; // ISO
+  endedAt?: string; // ISO
   observations: VoiceObservation[];
   missingItems: S500CompletionItem[];
 }

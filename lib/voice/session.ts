@@ -1,11 +1,12 @@
 /**
- * RA-396: VoiceSession state machine and in-memory store.
+ * RA-VOI-001: VoiceSession durable state machine.
  *
- * Phase 2: Sessions are in-memory per server instance (no DB persistence).
- * Phase 3: Cross-instance session sharing via database if needed.
+ * Voice copilot sessions and observations are persisted so reconnects and
+ * serverless instance changes do not lose active field capture state.
  */
 
 import { randomUUID } from "crypto";
+import { prisma } from "@/lib/prisma";
 import type {
   VoiceSession,
   VoiceCopilotMode,
@@ -15,129 +16,270 @@ import type {
   S500CompletionItem,
 } from "./types";
 
-// ─── In-memory session store ──────────────────────────────────────────────────
-// Keyed by sessionId. Sessions expire after 4 hours (max inspection duration).
-
 const SESSION_TTL_MS = 4 * 60 * 60 * 1000;
 
-interface StoredSession {
-  session: VoiceSession;
-  expiresAt: number;
+type StoredVoiceSession = {
+  id: string;
+  inspectionId: string;
+  userId: string;
+  mode: string;
+  state: string;
+  missingItems: unknown;
+  startedAt: Date;
+  endedAt: Date | null;
+  observations: StoredVoiceObservation[];
+};
+
+type StoredVoiceObservation = {
+  id: string;
+  sessionId: string;
+  rawTranscript: string;
+  type: string;
+  parsed: unknown;
+  confidence: string;
+  needsConfirmation: boolean;
+  confirmedAt: Date | null;
+  storedAt: Date | null;
+  createdAt: Date;
+};
+
+function expiresAtFrom(now: Date): Date {
+  return new Date(now.getTime() + SESSION_TTL_MS);
 }
 
-const sessions = new Map<string, StoredSession>();
+function asIso(value: Date | string | null | undefined): string | undefined {
+  if (!value) return undefined;
+  return value instanceof Date ? value.toISOString() : value;
+}
 
-// Cleanup expired sessions every 30 minutes
-setInterval(
-  () => {
-    const now = Date.now();
-    const expiredIds: string[] = [];
-    sessions.forEach((stored, id) => {
-      if (stored.expiresAt < now) expiredIds.push(id);
-    });
-    expiredIds.forEach((id) => sessions.delete(id));
-  },
-  30 * 60 * 1000,
-);
+function mapObservation(record: StoredVoiceObservation): VoiceObservation {
+  return {
+    id: record.id,
+    sessionId: record.sessionId,
+    rawTranscript: record.rawTranscript,
+    type: record.type as ObservationType,
+    parsed: record.parsed as ParsedObservation,
+    confidence: record.confidence as "high" | "medium" | "low",
+    needsConfirmation: record.needsConfirmation,
+    confirmedAt: asIso(record.confirmedAt),
+    storedAt: asIso(record.storedAt),
+    createdAt: record.createdAt.toISOString(),
+  };
+}
 
-// ─── Session lifecycle ────────────────────────────────────────────────────────
+function mapSession(record: StoredVoiceSession): VoiceSession {
+  return {
+    sessionId: record.id,
+    inspectionId: record.inspectionId,
+    userId: record.userId,
+    mode: record.mode as VoiceCopilotMode,
+    state: record.state as VoiceSession["state"],
+    startedAt: record.startedAt.toISOString(),
+    endedAt: asIso(record.endedAt),
+    observations: record.observations.map(mapObservation),
+    missingItems: Array.isArray(record.missingItems)
+      ? (record.missingItems as S500CompletionItem[])
+      : [],
+  };
+}
 
-export function createSession(
+async function findActiveSession(sessionId: string): Promise<VoiceSession | null> {
+  const now = new Date();
+  const record = (await (prisma as any).voiceCopilotSession.findFirst({
+    where: {
+      id: sessionId,
+      endedAt: null,
+      expiresAt: { gt: now },
+    },
+    include: {
+      observations: { orderBy: { createdAt: "asc" } },
+    },
+  })) as StoredVoiceSession | null;
+
+  return record ? mapSession(record) : null;
+}
+
+export async function createSession(
   inspectionId: string,
   userId: string,
   mode: VoiceCopilotMode = "assisted",
-): VoiceSession {
-  const session: VoiceSession = {
-    sessionId: randomUUID(),
-    inspectionId,
-    userId,
-    mode,
-    state: "idle",
-    startedAt: new Date().toISOString(),
-    observations: [],
-    missingItems: [],
-  };
+): Promise<VoiceSession> {
+  const now = new Date();
+  const record = (await (prisma as any).voiceCopilotSession.create({
+    data: {
+      id: randomUUID(),
+      inspectionId,
+      userId,
+      mode,
+      state: "idle",
+      missingItems: [],
+      startedAt: now,
+      expiresAt: expiresAtFrom(now),
+    },
+    include: {
+      observations: { orderBy: { createdAt: "asc" } },
+    },
+  })) as StoredVoiceSession;
 
-  sessions.set(session.sessionId, {
-    session,
-    expiresAt: Date.now() + SESSION_TTL_MS,
-  });
-
-  return session;
+  return mapSession(record);
 }
 
-export function getSession(sessionId: string): VoiceSession | null {
-  const stored = sessions.get(sessionId);
-  if (!stored) return null;
-  if (stored.expiresAt < Date.now()) {
-    sessions.delete(sessionId);
-    return null;
-  }
-  return stored.session;
+export async function getSession(sessionId: string): Promise<VoiceSession | null> {
+  return findActiveSession(sessionId);
 }
 
-export function updateSessionState(
+export async function updateSessionState(
   sessionId: string,
   state: VoiceSession["state"],
-): void {
-  const stored = sessions.get(sessionId);
-  if (stored) {
-    stored.session.state = state;
-    stored.expiresAt = Date.now() + SESSION_TTL_MS; // Reset TTL on activity
-  }
+): Promise<void> {
+  const now = new Date();
+  await (prisma as any).voiceCopilotSession.updateMany({
+    where: {
+      id: sessionId,
+      endedAt: null,
+      expiresAt: { gt: now },
+    },
+    data: {
+      state,
+      expiresAt: expiresAtFrom(now),
+    },
+  });
 }
 
-export function addObservation(
+export async function addObservation(
   sessionId: string,
   type: ObservationType,
   rawTranscript: string,
   parsed: ParsedObservation,
   confidence: "high" | "medium" | "low",
   needsConfirmation: boolean,
-): VoiceObservation | null {
-  const stored = sessions.get(sessionId);
-  if (!stored) return null;
+): Promise<VoiceObservation | null> {
+  const now = new Date();
+  const observationId = randomUUID();
 
-  const observation: VoiceObservation = {
-    id: randomUUID(),
-    sessionId,
-    rawTranscript,
-    type,
-    parsed,
-    confidence,
-    needsConfirmation,
-    createdAt: new Date().toISOString(),
-  };
+  const observation = await prisma.$transaction(async (tx) => {
+    const updateResult = await (tx as any).voiceCopilotSession.updateMany({
+      where: {
+        id: sessionId,
+        endedAt: null,
+        expiresAt: { gt: now },
+      },
+      data: {
+        expiresAt: expiresAtFrom(now),
+      },
+    });
 
-  stored.session.observations.push(observation);
-  return observation;
+    if (updateResult.count === 0) return null;
+
+    return (await (tx as any).voiceCopilotObservation.create({
+      data: {
+        id: observationId,
+        sessionId,
+        type,
+        rawTranscript,
+        parsed,
+        confidence,
+        needsConfirmation,
+        createdAt: now,
+      },
+    })) as StoredVoiceObservation;
+  });
+
+  return observation ? mapObservation(observation) : null;
 }
 
-export function confirmObservation(
+export async function confirmObservation(
   sessionId: string,
   observationId: string,
-): VoiceObservation | null {
-  const stored = sessions.get(sessionId);
-  if (!stored) return null;
+): Promise<VoiceObservation | null> {
+  const now = new Date();
+  const observation = (await (prisma as any).voiceCopilotObservation.updateMany({
+    where: {
+      id: observationId,
+      sessionId,
+      session: {
+        endedAt: null,
+        expiresAt: { gt: now },
+      },
+    },
+    data: {
+      confirmedAt: now,
+      storedAt: now,
+    },
+  })) as { count: number };
 
-  const obs = stored.session.observations.find((o) => o.id === observationId);
-  if (!obs) return null;
+  if (observation.count === 0) return null;
 
-  obs.confirmedAt = new Date().toISOString();
-  obs.storedAt = new Date().toISOString();
-  return obs;
+  const record = (await (prisma as any).voiceCopilotObservation.findUnique({
+    where: { id: observationId },
+  })) as StoredVoiceObservation | null;
+
+  return record ? mapObservation(record) : null;
 }
 
-export function updateMissingItems(
+export async function markObservationStored(
+  sessionId: string,
+  observationId: string,
+): Promise<VoiceObservation | null> {
+  const now = new Date();
+  const observation = (await (prisma as any).voiceCopilotObservation.updateMany({
+    where: {
+      id: observationId,
+      sessionId,
+      session: {
+        endedAt: null,
+        expiresAt: { gt: now },
+      },
+    },
+    data: { storedAt: now },
+  })) as { count: number };
+
+  if (observation.count === 0) return null;
+
+  const record = (await (prisma as any).voiceCopilotObservation.findUnique({
+    where: { id: observationId },
+  })) as StoredVoiceObservation | null;
+
+  return record ? mapObservation(record) : null;
+}
+
+export async function updateMissingItems(
   sessionId: string,
   items: S500CompletionItem[],
-): void {
-  const stored = sessions.get(sessionId);
-  if (stored) {
-    stored.session.missingItems = items;
-  }
+): Promise<void> {
+  const now = new Date();
+  await (prisma as any).voiceCopilotSession.updateMany({
+    where: {
+      id: sessionId,
+      endedAt: null,
+      expiresAt: { gt: now },
+    },
+    data: {
+      missingItems: items,
+      expiresAt: expiresAtFrom(now),
+    },
+  });
 }
 
-export function endSession(sessionId: string): void {
-  sessions.delete(sessionId);
+export async function endSession(
+  sessionId: string,
+  userId?: string,
+  inspectionId?: string,
+): Promise<boolean> {
+  const now = new Date();
+  const result = (await (prisma as any).voiceCopilotSession.updateMany({
+    where: {
+      id: sessionId,
+      ...(userId ? { userId } : {}),
+      ...(inspectionId ? { inspectionId } : {}),
+      endedAt: null,
+    },
+    data: {
+      state: "ended",
+      endedAt: now,
+      expiresAt: now,
+    },
+  })) as { count: number };
+
+  return result.count > 0;
 }

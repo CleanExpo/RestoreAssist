@@ -7,6 +7,10 @@ import { syncInvoiceToXero } from "@/lib/integrations/xero";
 import { syncInvoiceToQuickBooks } from "@/lib/integrations/quickbooks";
 import { syncInvoiceToMYOB } from "@/lib/integrations/myob";
 import { withIdempotency } from "@/lib/idempotency";
+import {
+  getSyncErrorMessage,
+  INVOICE_SYNC_FAILURE_MESSAGE,
+} from "@/lib/integrations/sync-error";
 
 export async function POST(
   request: NextRequest,
@@ -34,10 +38,19 @@ export async function POST(
         );
       }
       const { provider } = body;
+      const normalizedProvider =
+        typeof provider === "string" ? provider.toLowerCase() : "";
 
-      if (!provider) {
+      if (!normalizedProvider) {
         return NextResponse.json(
           { error: "Provider is required (xero, quickbooks, or myob)" },
+          { status: 400 },
+        );
+      }
+
+      if (!["xero", "quickbooks", "myob"].includes(normalizedProvider)) {
+        return NextResponse.json(
+          { error: "Unsupported provider" },
           { status: 400 },
         );
       }
@@ -152,7 +165,7 @@ export async function POST(
       });
 
       // Sync to accounting software based on provider
-      let externalInvoiceId: string;
+      let externalInvoiceId = "";
       let syncResult: any;
 
       try {
@@ -171,9 +184,10 @@ export async function POST(
             syncResult = await syncInvoiceToMYOB(invoice, integration);
             externalInvoiceId = syncResult.invoiceId;
             break;
+        }
 
-          default:
-            throw new Error(`Unsupported provider: ${provider}`);
+        if (!externalInvoiceId) {
+          throw new Error("Provider did not return an invoice ID");
         }
 
         // Update invoice with external reference and success status
@@ -229,7 +243,8 @@ export async function POST(
           externalInvoiceId,
           syncResult,
         });
-      } catch (syncError: any) {
+      } catch (syncError: unknown) {
+        const syncErrorMessage = getSyncErrorMessage(syncError);
         console.error(`Error syncing to ${provider}:`, syncError);
 
         // Update invoice with error status
@@ -237,7 +252,7 @@ export async function POST(
           where: { id },
           data: {
             externalSyncStatus: "FAILED",
-            externalSyncError: syncError.message || "Unknown error",
+            externalSyncError: INVOICE_SYNC_FAILURE_MESSAGE,
           },
         });
 
@@ -245,7 +260,7 @@ export async function POST(
         await prisma.integration.update({
           where: { id: integration.id },
           data: {
-            syncError: syncError.message || "Sync failed",
+            syncError: INVOICE_SYNC_FAILURE_MESSAGE,
           },
         });
 
@@ -255,10 +270,10 @@ export async function POST(
             invoiceId: id,
             userId: userId,
             action: "sync_failed",
-            description: `Failed to sync to ${provider}: ${syncError.message}`,
+            description: `Failed to sync to ${provider}`,
             metadata: {
               provider,
-              error: syncError.message,
+              error: syncErrorMessage,
             },
           },
         });
@@ -271,16 +286,13 @@ export async function POST(
             status: "FAILED",
             recordsProcessed: 0,
             recordsFailed: 1,
-            errorMessage: syncError.message || "Unknown error",
+            errorMessage: INVOICE_SYNC_FAILURE_MESSAGE,
             completedAt: new Date(),
           },
         });
 
         return NextResponse.json(
-          {
-            error: `Failed to sync to ${provider}: ${syncError.message}`,
-            details: syncError.response?.data || syncError.message,
-          },
+          { error: INVOICE_SYNC_FAILURE_MESSAGE },
           { status: 500 },
         );
       }

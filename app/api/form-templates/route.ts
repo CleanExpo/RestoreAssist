@@ -71,6 +71,7 @@ export async function GET(request: NextRequest) {
           description: true,
         },
         orderBy: [{ isSystemTemplate: "desc" }, { name: "asc" }],
+        take: 200,
       });
     }
 

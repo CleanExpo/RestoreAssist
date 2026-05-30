@@ -18,6 +18,7 @@ import {
   checkIntegrationAccess,
   createSubscriptionRequiredResponse,
 } from "@/lib/integrations/subscription-guard";
+import { INTEGRATION_IMPORT_FAILURE_MESSAGE } from "@/lib/integrations/sync-error";
 
 export async function GET(
   request: NextRequest,
@@ -67,7 +68,7 @@ export async function GET(
     // Get synced clients
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "50");
+    const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 100);
     const search = searchParams.get("search") || "";
 
     const where = {
@@ -165,12 +166,20 @@ export async function POST(
       );
     }
 
+    if (clientIds.length > 100) {
+      return NextResponse.json(
+        { error: "clientIds is limited to 100 entries per request" },
+        { status: 400 },
+      );
+    }
+
     // Get external clients
     const externalClients = await prisma.externalClient.findMany({
       where: {
         integrationId: integration.id,
         externalId: { in: clientIds },
       },
+      take: clientIds.length,
     });
 
     // Import to contacts
@@ -198,9 +207,10 @@ export async function POST(
 
         imported.push(externalClient.externalId);
       } catch (err) {
+        console.error("External client import error:", err);
         errors.push({
           id: externalClient.externalId,
-          error: err instanceof Error ? err.message : String(err),
+          error: INTEGRATION_IMPORT_FAILURE_MESSAGE,
         });
       }
     }

@@ -33,6 +33,10 @@ const VALID_CLAIM_TYPES = [
   "contents",
 ] as const;
 
+const PROMPT_OPTIMIZER_CONFIGURATION_ERROR =
+  "Prompt optimizer is not configured";
+const PROMPT_OPTIMIZER_FAILURE_ERROR = "Prompt optimization failed";
+
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   const auth = await verifyAdminFromDb(session);
@@ -145,11 +149,18 @@ export async function POST(request: NextRequest) {
 
       // Distinguish missing API key from other errors
       if (message.includes("ANTHROPIC_API_KEY")) {
-        return NextResponse.json({ error: message }, { status: 503 });
+        console.error("[optimize-prompts] Configuration error:", error);
+        return NextResponse.json(
+          { error: PROMPT_OPTIMIZER_CONFIGURATION_ERROR },
+          { status: 503 },
+        );
       }
 
-      console.error("[optimize-prompts] Error:", message);
-      return NextResponse.json({ error: message }, { status: 500 });
+      console.error("[optimize-prompts] Error:", error);
+      return NextResponse.json(
+        { error: PROMPT_OPTIMIZER_FAILURE_ERROR },
+        { status: 500 },
+      );
     }
   });
 }

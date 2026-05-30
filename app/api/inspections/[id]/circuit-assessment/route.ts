@@ -121,6 +121,7 @@ export async function GET(
   const circuits = await prisma.circuitAssessment.findMany({
     where: { inspectionId: id },
     orderBy: { createdAt: "asc" },
+    take: 100,
   });
 
   const allSafe = circuits.every((c) => c.circuitLoadSafe !== false);

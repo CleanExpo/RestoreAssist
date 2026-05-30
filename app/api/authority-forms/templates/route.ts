@@ -26,6 +26,7 @@ export async function GET(_req: NextRequest) {
         isActive: true,
       },
       orderBy: { name: "asc" },
+      take: 100,
     });
 
     return NextResponse.json({ templates });

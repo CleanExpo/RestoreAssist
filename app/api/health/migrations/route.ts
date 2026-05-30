@@ -22,6 +22,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 
@@ -44,19 +45,20 @@ export async function GET(request: NextRequest) {
 
   let rows: MigrationRow[];
   try {
-    rows = await prisma.$queryRaw<MigrationRow[]>`
+    rows = await prisma.$queryRaw<MigrationRow[]>(Prisma.sql`
       SELECT migration_name, finished_at, rolled_back_at, applied_steps_count
       FROM "_prisma_migrations"
-    `;
+    `);
   } catch (err) {
     // Most common cause: the `_prisma_migrations` table doesn't exist yet
     // (fresh DB before any migration ever ran). Surface as drift so the
     // operator notices, rather than silently passing.
+    console.error("[health.migrations] drift check failed", err);
     return NextResponse.json(
       {
         status: "drift",
         error: "Could not read _prisma_migrations table",
-        detail: err instanceof Error ? err.message.slice(0, 200) : "unknown",
+        detail: "Migration health check failed",
       },
       { status: 503 },
     );

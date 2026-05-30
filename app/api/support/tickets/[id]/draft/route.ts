@@ -84,7 +84,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
             ? { "Retry-After": String(Math.ceil(result.retryAfterMs / 1000)) }
             : {};
         return NextResponse.json(
-          { error: result.reason, detail: result.detail },
+          { error: result.reason },
           { status, headers },
         );
       }

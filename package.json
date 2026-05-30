@@ -45,6 +45,7 @@
     "start": "next start",
     "lint": "eslint .",
     "type-check": "NODE_OPTIONS=\"--max-old-space-size=8192\" tsc --noEmit",
+    "audit:ai": "tsx scripts/audit-ai-call-sites.ts --gate",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
     "db:studio": "prisma studio",

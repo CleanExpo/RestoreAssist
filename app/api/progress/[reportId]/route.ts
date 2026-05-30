@@ -42,7 +42,10 @@ export async function GET(
           : result.code === "FORBIDDEN"
             ? 403
             : 500;
-      return NextResponse.json({ error: result.message }, { status });
+      return NextResponse.json(
+        { error: status === 500 ? "Internal server error" : result.message },
+        { status },
+      );
     }
     return NextResponse.json({ data: result.data });
   } catch (error) {

@@ -19,6 +19,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { verifyAdminFromDb } from "@/lib/admin-auth";
 import {
   generatePilotReport,
   deriveCycleTimeObservations,
@@ -27,24 +28,20 @@ import {
   type PilotGroup,
 } from "@/lib/nir-pilot-measurement";
 
+const MAX_PILOT_OBSERVATIONS = 1_000;
+const MAX_COMPLETED_INSPECTIONS_FOR_CYCLE_TIME = 1_000;
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    if ((session.user as { role?: string }).role !== "ADMIN") {
-      return NextResponse.json(
-        { error: "Forbidden — admin access required" },
-        { status: 403 },
-      );
-    }
+    const auth = await verifyAdminFromDb(session);
+    if (auth.response) return auth.response;
 
     // ── 1. Load all recorded observations from the database ─────────────────
 
     const rawObs = await prisma.pilotObservation.findMany({
       orderBy: { createdAt: "asc" },
+      take: MAX_PILOT_OBSERVATIONS,
     });
 
     const dbObservations: PilotObservation[] = rawObs.map((r) => ({
@@ -77,6 +74,8 @@ export async function GET(request: NextRequest) {
           select: { organizationId: true },
         },
       },
+      orderBy: { completedAt: "desc" },
+      take: MAX_COMPLETED_INSPECTIONS_FOR_CYCLE_TIME,
     });
 
     // Group by organization, derive cycle time observations

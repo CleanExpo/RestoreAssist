@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
     const templates = await (prisma as any).scopeTemplate.findMany({
       where: { userId: session.user.id },
       orderBy: { createdAt: "desc" },
+      take: 100,
     });
 
     return NextResponse.json(

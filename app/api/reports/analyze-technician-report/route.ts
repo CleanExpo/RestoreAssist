@@ -133,7 +133,6 @@ export async function POST(request: NextRequest) {
               result.reason === "MODEL_OVERLOADED"
                 ? "AI service temporarily unavailable. Please try again."
                 : "Failed to analyze technician report",
-            detail: result.detail,
           },
           { status, headers },
         );

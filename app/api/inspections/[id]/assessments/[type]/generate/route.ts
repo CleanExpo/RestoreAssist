@@ -108,7 +108,11 @@ export async function POST(
 
   if (!result.ok) {
     return NextResponse.json(
-      { error: result.message, code: result.code },
+      {
+        error:
+          result.status >= 500 ? "Internal server error" : result.message,
+        code: result.code,
+      },
       { status: result.status },
     );
   }

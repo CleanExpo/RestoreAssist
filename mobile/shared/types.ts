@@ -83,6 +83,16 @@ export interface ScopeItem {
   updatedAt: string;
 }
 
+export type OfflineMutationType =
+  | "environmental-data"
+  | "moisture-reading"
+  | "affected-area";
+
+export interface QueuedApiResult {
+  queued: true;
+  mutationId: string;
+}
+
 export interface Inspection {
   id: string;
   reportId: string | null;

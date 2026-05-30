@@ -62,6 +62,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       prisma.auditLog.findMany({
         where,
         orderBy: { timestamp: "desc" },
+        take: 100,
       }),
       prisma.auditLog.count({ where }),
     ]);

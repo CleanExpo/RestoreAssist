@@ -22,6 +22,10 @@ import {
   type EvaluationOptions,
 } from "@/lib/ai/evaluation-harness";
 
+const EVALUATION_CONFIGURATION_ERROR =
+  "Evaluation service is not configured";
+const EVALUATION_FAILURE_ERROR = "Evaluation failed";
+
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   const auth = await verifyAdminFromDb(session);
@@ -59,9 +63,15 @@ export async function POST(request: NextRequest) {
       message.includes("ANTHROPIC_API_KEY") ||
       message.includes("Anthropic SDK")
     ) {
-      return NextResponse.json({ error: message }, { status: 503 });
+      return NextResponse.json(
+        { error: EVALUATION_CONFIGURATION_ERROR },
+        { status: 503 },
+      );
     }
 
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      { error: EVALUATION_FAILURE_ERROR },
+      { status: 500 },
+    );
   }
 }

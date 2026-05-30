@@ -36,6 +36,7 @@ export async function GET(
     const evidenceItems = await prisma.evidenceItem.findMany({
       where: { inspectionId },
       orderBy: { capturedAt: "desc" },
+      take: 500,
     });
 
     return NextResponse.json({ evidenceItems });
@@ -59,79 +60,93 @@ export async function POST(
   const userId = session.user.id;
   const { id: inspectionId } = await params;
 
+  // RA-1711 batch 4 — adopt shared tenancy helper.
+  const tenancy = await assertInspectionTenancy(session, inspectionId);
+  if (!tenancy.ok) {
+    return NextResponse.json(
+      { error: tenancy.reason },
+      { status: tenancy.status },
+    );
+  }
+
   // RA-1266: evidence items are append-only with chain-of-custody —
   // retry creates duplicate C2PA-manifest records, which breaks the
   // one-reading-per-capture invariant (Board M-10).
-  return withIdempotency(request, userId, async (rawBody) => {
-    try {
-      let body: any;
+  return withIdempotency(
+    request,
+    userId,
+    async (rawBody) => {
       try {
-        body = rawBody ? JSON.parse(rawBody) : {};
-      } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
-      }
+        let body: any;
+        try {
+          body = rawBody ? JSON.parse(rawBody) : {};
+        } catch {
+          return NextResponse.json(
+            { error: "Invalid JSON body" },
+            { status: 400 },
+          );
+        }
 
-      // RA-1711 batch 4 — adopt shared tenancy helper.
-      const tenancy = await assertInspectionTenancy(session, inspectionId);
-      if (!tenancy.ok) {
-        return NextResponse.json(
-          { error: tenancy.reason },
-          { status: tenancy.status },
-        );
-      }
-
-      const {
-        workflowStepId,
-        evidenceClass,
-        fileUrl,
-        fileMimeType,
-        fileSizeBytes,
-        thumbnailUrl,
-        structuredData,
-        notes,
-        capturedLat,
-        capturedLng,
-        deviceId,
-        deviceType,
-      } = body;
-
-      const evidenceItem = await prisma.evidenceItem.create({
-        data: {
-          inspectionId,
-          workflowStepId: workflowStepId || null,
+        const {
+          workflowStepId,
           evidenceClass,
-          capturedById: userId,
-          capturedByName: session.user.name || "Unknown",
-          capturedAt: new Date(),
-          capturedLat: capturedLat || null,
-          capturedLng: capturedLng || null,
-          deviceId: deviceId || null,
-          deviceType: deviceType || "WEB_BROWSER",
-          fileUrl: fileUrl || null,
-          fileMimeType: fileMimeType || null,
-          fileSizeBytes: fileSizeBytes || null,
-          thumbnailUrl: thumbnailUrl || null,
-          structuredData: structuredData
-            ? JSON.stringify(structuredData)
-            : null,
-          ...(notes !== undefined &&
-            notes !== null &&
-            ({ notes: notes || null } as any)),
-        },
-      });
+          fileUrl,
+          fileMimeType,
+          fileSizeBytes,
+          thumbnailUrl,
+          structuredData,
+          notes,
+          capturedLat,
+          capturedLng,
+          deviceId,
+          deviceType,
+        } = body;
 
-      return NextResponse.json({ evidenceItem }, { status: 201 });
-    } catch (error) {
-      console.error("[evidence POST]", error);
-      return NextResponse.json(
-        { error: "Internal server error" },
-        { status: 500 },
-      );
-    }
-  });
+        const evidenceItem = await prisma.evidenceItem.create({
+          data: {
+            inspectionId,
+            workflowStepId: workflowStepId || null,
+            evidenceClass,
+            capturedById: userId,
+            capturedByName: session.user.name || "Unknown",
+            capturedAt: new Date(),
+            capturedLat: capturedLat || null,
+            capturedLng: capturedLng || null,
+            deviceId: deviceId || null,
+            deviceType: deviceType || "WEB_BROWSER",
+            fileUrl: fileUrl || null,
+            fileMimeType: fileMimeType || null,
+            fileSizeBytes: fileSizeBytes || null,
+            thumbnailUrl: thumbnailUrl || null,
+            structuredData: structuredData
+              ? JSON.stringify(structuredData)
+              : null,
+            ...(notes !== undefined &&
+              notes !== null &&
+              ({ notes: notes || null } as any)),
+          },
+        });
+
+        return NextResponse.json({ evidenceItem }, { status: 201 });
+      } catch (error) {
+        console.error("[evidence POST]", error);
+        return NextResponse.json(
+          { error: "Internal server error" },
+          { status: 500 },
+        );
+      }
+    },
+    (tenancy.data.workspaceId
+      ? {
+          clientMutation: {
+            workspaceId: tenancy.data.workspaceId,
+            userId,
+            inspectionId,
+            mutationType: "evidence-item",
+          },
+        }
+      : undefined),
+  );
 }
 
 export async function DELETE(
