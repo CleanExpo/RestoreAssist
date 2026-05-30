@@ -32,8 +32,13 @@ export type VideoExplainerSlug =
 export interface RegistryEntry {
   youtubeId?: string;
   /**
+   * Cloudinary-hosted video URL (for app-embedded, offline-capable playback).
+   * Set EITHER this OR `youtubeId` OR `localPath`.
+   */
+  cloudinaryUrl?: string;
+  /**
    * Path beneath `/public` (with leading slash) to a repo-hosted MP4.
-   * Set EITHER this OR `youtubeId`, not both.
+   * Set EITHER this OR `youtubeId` OR `cloudinaryUrl`, not both.
    */
   localPath?: string;
   title: string;

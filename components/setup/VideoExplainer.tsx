@@ -39,7 +39,7 @@ export function VideoExplainer({ slug, className }: VideoExplainerProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   if (!entry) return null;
-  const { youtubeId, localPath, title, durationSec } = entry;
+  const { youtubeId, localPath, cloudinaryUrl, title, durationSec } = entry;
 
   const wrapperClass =
     className ??
@@ -52,6 +52,26 @@ export function VideoExplainer({ slug, className }: VideoExplainerProps) {
       <div className={wrapperClass}>
         <video
           src={localPath}
+          title={title}
+          controls
+          preload="metadata"
+          playsInline
+          className="h-full w-full bg-black"
+          aria-label={title}
+        />
+        <div className="pointer-events-none absolute bottom-3 right-3 rounded bg-black/70 px-2 py-1 text-xs text-white">
+          {formatDuration(durationSec)}
+        </div>
+      </div>
+    );
+  }
+
+  // Cloudinary-hosted MP4 — CDN delivery, signed URLs supported
+  if (cloudinaryUrl) {
+    return (
+      <div className={wrapperClass}>
+        <video
+          src={cloudinaryUrl}
           title={title}
           controls
           preload="metadata"
