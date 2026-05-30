@@ -185,6 +185,96 @@ export default function CompletenessChecker({
         </div>
       )}
 
+      {/* RA-5038 — Senior PM Quality Review (rendered when the API returns qualityScore) */}
+      {completeness.qualityScore && (
+        <div className="p-4 rounded-lg border-2 border-cyan-500/40 bg-cyan-500/5">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="font-semibold text-cyan-300 flex items-center gap-2">
+              <Info className="w-5 h-5 text-cyan-400" />
+              Senior PM Quality Review
+            </h4>
+            <div
+              className={`px-3 py-1 rounded-full text-sm font-bold ${getScoreColor(completeness.qualityScore.composite)} ${getScoreBgColor(completeness.qualityScore.composite)}`}
+            >
+              {completeness.qualityScore.composite}% ·{" "}
+              {completeness.qualityScore.grade}
+            </div>
+          </div>
+
+          {/* Dimension breakdown */}
+          <div className="grid sm:grid-cols-2 gap-x-4 gap-y-2 mb-3">
+            {(completeness.qualityScore.dimensions || []).map(
+              (d: { key: string; label: string; score: number }) => (
+                <div key={d.key} className="text-xs">
+                  <div className="flex justify-between text-slate-300 mb-1">
+                    <span>{d.label}</span>
+                    <span className={getScoreColor(d.score)}>{d.score}%</span>
+                  </div>
+                  <div className="w-full bg-slate-700 rounded-full h-1">
+                    <div
+                      className={`h-1 rounded-full ${
+                        d.score >= 80
+                          ? "bg-green-500"
+                          : d.score >= 50
+                            ? "bg-yellow-500"
+                            : "bg-red-500"
+                      }`}
+                      style={{ width: `${d.score}%` }}
+                    />
+                  </div>
+                </div>
+              ),
+            )}
+          </div>
+
+          {/* Actionable review items */}
+          {completeness.qualityScore.missingEvidence?.length > 0 && (
+            <div className="mt-2">
+              <p className="text-xs font-medium text-slate-400 mb-1">
+                Review actions
+              </p>
+              <ul className="space-y-1">
+                {completeness.qualityScore.missingEvidence.map(
+                  (item: string, idx: number) => (
+                    <li
+                      key={idx}
+                      className="text-sm text-slate-300 flex items-start gap-2"
+                    >
+                      <span className="text-cyan-400 mt-0.5">→</span>
+                      {item}
+                    </li>
+                  ),
+                )}
+              </ul>
+            </div>
+          )}
+
+          {/* Language / standards flags — review assistance, never auto-applied */}
+          {(completeness.qualityScore.flags?.neutralLanguage?.length > 0 ||
+            completeness.qualityScore.flags?.iicrcReadiness?.length > 0) && (
+            <div className="mt-3 pt-3 border-t border-slate-700/50">
+              <p className="text-xs font-medium text-amber-400 mb-1">
+                Language / standards flags (for review — not auto-applied)
+              </p>
+              <ul className="space-y-1">
+                {[
+                  ...(completeness.qualityScore.flags.neutralLanguage || []),
+                  ...(completeness.qualityScore.flags.iicrcReadiness || []),
+                ].map((f: string, idx: number) => (
+                  <li
+                    key={idx}
+                    className="text-xs text-slate-400 flex items-start gap-2"
+                  >
+                    <AlertCircle className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Action Buttons */}
       <div className="flex gap-2">
         <button
