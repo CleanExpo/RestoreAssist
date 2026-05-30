@@ -25,7 +25,7 @@ export type VideoExplainerSlug =
   | "setup-wizard-dashboard"
   | "setup-wizard-integrations"
   | "setup-wizard-health"
-  // Branded tutorial videos (generated MP4s)
+  // Branded tutorial videos (generated MP4s in /public/videos/tutorials/)
   | "tutorial-login"
   | "tutorial-signup"
   | "tutorial-setup-wizard"
@@ -35,7 +35,7 @@ export type VideoExplainerSlug =
   | "tutorial-billing"
   | "tutorial-team"
   | "tutorial-compliance"
-  // Help videos (existing MP4s)
+  // Help videos (existing MP4s in /public/videos/help/)
   | "help-inspections"
   | "help-reports"
   | "help-clients-and-portal"
@@ -94,47 +94,47 @@ export const VIDEO_REGISTRY: Record<VideoExplainerSlug, RegistryEntry> = {
 
   // ── Branded Tutorial Videos (generated MP4s) ──────────────────────────
   "tutorial-login": {
-    localPath: "/videos/restoreassist-login-v1.mp4",
+    localPath: "/videos/tutorials/restoreassist-login-v1.mp4",
     title: "Signing in to RestoreAssist",
     durationSec: 30,
   },
   "tutorial-signup": {
-    localPath: "/videos/restoreassist-signup-v1.mp4",
+    localPath: "/videos/tutorials/restoreassist-signup-v1.mp4",
     title: "Creating Your RestoreAssist Account",
     durationSec: 38,
   },
   "tutorial-setup-wizard": {
-    localPath: "/videos/restoreassist-setup-wizard-v1.mp4",
+    localPath: "/videos/tutorials/restoreassist-setup-wizard-v1.mp4",
     title: "The RestoreAssist Setup Wizard",
     durationSec: 39,
   },
   "tutorial-dashboard": {
-    localPath: "/videos/restoreassist-dashboard-v1.mp4",
+    localPath: "/videos/tutorials/restoreassist-dashboard-v1.mp4",
     title: "Your RestoreAssist Dashboard",
     durationSec: 29,
   },
   "tutorial-inspections": {
-    localPath: "/videos/restoreassist-inspections-v1.mp4",
+    localPath: "/videos/tutorials/restoreassist-inspections-v1.mp4",
     title: "Inspections with RestoreAssist",
     durationSec: 31,
   },
   "tutorial-reports": {
-    localPath: "/videos/restoreassist-reports-v1.mp4",
+    localPath: "/videos/tutorials/restoreassist-reports-v1.mp4",
     title: "AI-Assisted Reports",
     durationSec: 31,
   },
   "tutorial-billing": {
-    localPath: "/videos/restoreassist-billing-v1.mp4",
+    localPath: "/videos/tutorials/restoreassist-billing-v1.mp4",
     title: "Billing & Subscriptions",
     durationSec: 29,
   },
   "tutorial-team": {
-    localPath: "/videos/restoreassist-team-v1.mp4",
+    localPath: "/videos/tutorials/restoreassist-team-v1.mp4",
     title: "Managing Your Team",
     durationSec: 29,
   },
   "tutorial-compliance": {
-    localPath: "/videos/restoreassist-compliance-v1.mp4",
+    localPath: "/videos/tutorials/restoreassist-compliance-v1.mp4",
     title: "IICRC Compliance",
     durationSec: 30,
   },
