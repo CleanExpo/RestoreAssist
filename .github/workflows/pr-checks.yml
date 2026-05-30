@@ -199,11 +199,15 @@ jobs:
       # vitest.config.js pins maxWorkers=1 — they must ONLY ever run against this
       # throwaway CI DB, never a shared/sandbox one.
       #
-      # continue-on-error until a first green CI run confirms the full suite
-      # passes here, then flip to enforcing (same ratchet as tsc / audit above).
+      # ENFORCING as of 2026-05-30 — PR #1208's CI run confirmed the full suite
+      # (1,754 tests incl. the Prisma-backed billing/Stripe/capture/progress
+      # integration suites) passes green against the ephemeral DB. Flipped from
+      # continue-on-error to blocking, same ratchet as the tsc / audit gates.
+      # If a DB-integration test proves flaky in CI, quarantine that test (or
+      # re-add continue-on-error here with a tracking issue) rather than letting
+      # a red gate block every PR.
       - name: Unit + integration tests (vitest)
         run: npx vitest run --reporter=dot
-        continue-on-error: true
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
           DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
