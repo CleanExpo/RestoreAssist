@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { scoreReportQuality } from "@/lib/reports/report-quality-score";
 
 interface Section {
   name: string;
@@ -154,11 +155,47 @@ export async function POST(request: NextRequest) {
       sections.reduce((sum, s) => sum + s.score, 0) / sections.length,
     );
 
+    // RA-5038 — Senior PM report-quality score (deterministic, read-only).
+    // Additive: the existing `sections`/`overallScore` shape is unchanged;
+    // `qualityScore` adds neutral-language / IICRC-readiness / client-usability
+    // dimensions + a de-duplicated actionable missing-evidence list.
+    const qualityScore = scoreReportQuality({
+      report: {
+        clientName: report.clientName,
+        propertyAddress: report.propertyAddress,
+        propertyPostcode: report.propertyPostcode,
+        hazardType: report.hazardType,
+        incidentDate: report.incidentDate,
+        technicianAttendanceDate: report.technicianAttendanceDate,
+        jobNumber: report.jobNumber,
+        claimReferenceNumber: report.claimReferenceNumber,
+        description: report.description,
+        technicianFieldReport: report.technicianFieldReport,
+        reportInstructions: report.reportInstructions,
+        clientSummaryCache: report.clientSummaryCache,
+      },
+      client: report.client,
+      inspection: insp
+        ? {
+            moistureReadings: insp.moistureReadings.length,
+            affectedAreas: insp.affectedAreas.length,
+            classifications: insp.classifications.length,
+            scopeItems: insp.scopeItems.length,
+            costEstimates: insp.costEstimates.length,
+            photos: insp.photos.length,
+            environmentalData: Boolean(
+              (insp as { environmentalData?: unknown }).environmentalData,
+            ),
+          }
+        : null,
+    });
+
     return NextResponse.json({
       reportId,
       reportTitle: report.reportNumber ?? reportId,
       overallScore,
       sections,
+      qualityScore,
     });
   } catch (error) {
     console.error("[Completeness Check] Error:", error);
