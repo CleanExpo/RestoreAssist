@@ -188,3 +188,23 @@ jobs:
           # Postgres has no pooler, so point both at the same connection.
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
           DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+
+      # RA-4951 — wire the vitest suite into CI. Most of lib/**, app/api/**,
+      # and component tests are pure unit tests, but the billing / Stripe-webhook
+      # / capture / progress suites use a REAL Prisma client and create their own
+      # fixtures. They were failing everywhere only because no DATABASE_URL was
+      # provisioned — so the integration half ran nowhere with a DB. The
+      # ephemeral pgvector Postgres above (schema applied by `migrate deploy`)
+      # is their correct home. NOTE: some suites do `deleteMany` backfills and
+      # vitest.config.js pins maxWorkers=1 — they must ONLY ever run against this
+      # throwaway CI DB, never a shared/sandbox one.
+      #
+      # continue-on-error until a first green CI run confirms the full suite
+      # passes here, then flip to enforcing (same ratchet as tsc / audit above).
+      - name: Unit + integration tests (vitest)
+        run: npx vitest run --reporter=dot
+        continue-on-error: true
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+          DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+          NODE_OPTIONS: --max-old-space-size=8192
