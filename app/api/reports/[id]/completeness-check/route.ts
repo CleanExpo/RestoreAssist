@@ -6,6 +6,7 @@ import {
   calculateCompletenessScore,
   checkCompletenessBeforeGeneration,
 } from "@/lib/validation";
+import { scoreReportQuality } from "@/lib/reports/report-quality-score";
 
 // GET - Check report completeness
 export async function GET(
@@ -31,6 +32,21 @@ export async function GET(
 
     const report = await prisma.report.findUnique({
       where: { id, userId: user.id },
+      include: {
+        client: { select: { name: true, email: true, phone: true } },
+        inspection: {
+          include: {
+            // Only `.length` is read per relation — selecting `id` keeps the
+            // payload minimal while preserving array length for the evidence score.
+            moistureReadings: { select: { id: true } },
+            affectedAreas: { select: { id: true } },
+            classifications: { select: { id: true } },
+            scopeItems: { select: { id: true } },
+            costEstimates: { select: { id: true } },
+            photos: { select: { id: true } },
+          },
+        },
+      },
     });
 
     if (!report) {
@@ -79,6 +95,42 @@ export async function GET(
       },
     };
 
+    // RA-5038 — Senior PM report-quality score (deterministic, read-only).
+    // Additive: existing fields are unchanged; `qualityScore` adds the
+    // metadata / evidence / neutral-language / IICRC-readiness / client-usability
+    // breakdown + a de-duplicated actionable missing-evidence list for the reviewer.
+    const insp = report.inspection;
+    const qualityScore = scoreReportQuality({
+      report: {
+        clientName: report.clientName,
+        propertyAddress: report.propertyAddress,
+        propertyPostcode: report.propertyPostcode,
+        hazardType: report.hazardType,
+        incidentDate: report.incidentDate,
+        technicianAttendanceDate: report.technicianAttendanceDate,
+        jobNumber: report.jobNumber,
+        claimReferenceNumber: report.claimReferenceNumber,
+        description: report.description,
+        technicianFieldReport: report.technicianFieldReport,
+        reportInstructions: report.reportInstructions,
+        clientSummaryCache: report.clientSummaryCache,
+      },
+      client: report.client,
+      inspection: insp
+        ? {
+            moistureReadings: insp.moistureReadings.length,
+            affectedAreas: insp.affectedAreas.length,
+            classifications: insp.classifications.length,
+            scopeItems: insp.scopeItems.length,
+            costEstimates: insp.costEstimates.length,
+            photos: insp.photos.length,
+            environmentalData: Boolean(
+              (insp as { environmentalData?: unknown }).environmentalData,
+            ),
+          }
+        : null,
+    });
+
     return NextResponse.json({
       completenessScore,
       canGenerate: completenessCheck.canGenerate,
@@ -86,6 +138,7 @@ export async function GET(
       warnings: completenessCheck.warnings,
       sections,
       overallPercentage: completenessScore,
+      qualityScore,
     });
   } catch (error) {
     console.error("Error checking completeness:", error);
