@@ -563,8 +563,8 @@ const flows: Record<string, FlowDefinition> = {
 
 // ── Canvas rendering ────────────────────────────────────────────────────
 
-const WIDTH = 1280;
-const HEIGHT = 720;
+const WIDTH = 1920;
+const HEIGHT = 1080;
 const FPS = 30;
 
 async function loadCanvasModule() {
@@ -954,7 +954,7 @@ async function generateMp4(
   try {
     execSync(
       `"${FFMPEG_PATH}" -y -framerate ${FPS} -i "${tmpDir}/frame-%05d.png" ` +
-        `-c:v libx264 -preset fast -crf 23 -pix_fmt yuv420p ` +
+        `-c:v libx264 -preset fast -crf 20 -pix_fmt yuv420p ` +
         `-movflags +faststart "${outputPath}"`,
       { stdio: "inherit" },
     );
