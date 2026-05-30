@@ -24,6 +24,11 @@ import path from "path";
 import os from "os";
 import { chromium } from "playwright";
 
+// Use ffmpeg-static if available, fallback to system ffmpeg
+const FFMPEG_PATH =
+  process.env.FFMPEG_PATH ||
+  path.join(process.cwd(), "node_modules", "ffmpeg-static", "ffmpeg");
+
 // ── Flow definitions ────────────────────────────────────────────────────
 
 interface FlowStep {
@@ -339,7 +344,7 @@ async function generateMp4(
 
   try {
     execSync(
-      `ffmpeg -y -f concat -safe 0 -i "${listPath}" ` +
+      `"${FFMPEG_PATH}" -y -f concat -safe 0 -i "${listPath}" ` +
         `-vf "fps=30,format=yuv420p,scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2" ` +
         `-c:v libx264 -preset medium -crf 23 ` +
         `-movflags +faststart "${outputPath}"`,
