@@ -13,15 +13,29 @@
  *   - Repo-hosted (set `localPath`) — served from /public/videos/... and
  *     rendered with a native <video> element. Used when YouTube upload
  *     is pending; replace with `youtubeId` after the unlisted upload lands.
+ *   - Cloudinary-hosted (set `cloudinaryUrl`) — CDN delivery for app-embedded
+ *     playback. Preferred for onboarding flows that need offline support.
  */
 
 export type VideoExplainerSlug =
+  // Setup / Onboarding (YouTube)
   | "setup-wizard-signin"
   | "setup-wizard-signup"
   | "setup-wizard-setup"
   | "setup-wizard-dashboard"
   | "setup-wizard-integrations"
   | "setup-wizard-health"
+  // Branded tutorial videos (generated MP4s in /public/videos/tutorials/)
+  | "tutorial-login"
+  | "tutorial-signup"
+  | "tutorial-setup-wizard"
+  | "tutorial-dashboard"
+  | "tutorial-inspections"
+  | "tutorial-reports"
+  | "tutorial-billing"
+  | "tutorial-team"
+  | "tutorial-compliance"
+  // Help videos (existing MP4s in /public/videos/help/)
   | "help-inspections"
   | "help-reports"
   | "help-clients-and-portal"
@@ -32,8 +46,13 @@ export type VideoExplainerSlug =
 export interface RegistryEntry {
   youtubeId?: string;
   /**
+   * Cloudinary-hosted video URL (for app-embedded, offline-capable playback).
+   * Set EITHER this OR `youtubeId` OR `localPath`.
+   */
+  cloudinaryUrl?: string;
+  /**
    * Path beneath `/public` (with leading slash) to a repo-hosted MP4.
-   * Set EITHER this OR `youtubeId`, not both.
+   * Set EITHER this OR `youtubeId` OR `cloudinaryUrl`, not both.
    */
   localPath?: string;
   title: string;
@@ -41,6 +60,7 @@ export interface RegistryEntry {
 }
 
 export const VIDEO_REGISTRY: Record<VideoExplainerSlug, RegistryEntry> = {
+  // ── Setup / Onboarding (YouTube) ──────────────────────────────────────
   "setup-wizard-signin": {
     youtubeId: "tsmZpgLrn5Y",
     title: "Signing in to RestoreAssist",
@@ -71,6 +91,55 @@ export const VIDEO_REGISTRY: Record<VideoExplainerSlug, RegistryEntry> = {
     title: "Your RestoreAssist Workspace Health page",
     durationSec: 60,
   },
+
+  // ── Branded Tutorial Videos (generated MP4s) ──────────────────────────
+  "tutorial-login": {
+    localPath: "/videos/tutorials/restoreassist-login-v1.mp4",
+    title: "Signing in to RestoreAssist",
+    durationSec: 30,
+  },
+  "tutorial-signup": {
+    localPath: "/videos/tutorials/restoreassist-signup-v1.mp4",
+    title: "Creating Your RestoreAssist Account",
+    durationSec: 38,
+  },
+  "tutorial-setup-wizard": {
+    localPath: "/videos/tutorials/restoreassist-setup-wizard-v1.mp4",
+    title: "The RestoreAssist Setup Wizard",
+    durationSec: 39,
+  },
+  "tutorial-dashboard": {
+    localPath: "/videos/tutorials/restoreassist-dashboard-v1.mp4",
+    title: "Your RestoreAssist Dashboard",
+    durationSec: 29,
+  },
+  "tutorial-inspections": {
+    localPath: "/videos/tutorials/restoreassist-inspections-v1.mp4",
+    title: "Inspections with RestoreAssist",
+    durationSec: 31,
+  },
+  "tutorial-reports": {
+    localPath: "/videos/tutorials/restoreassist-reports-v1.mp4",
+    title: "AI-Assisted Reports",
+    durationSec: 31,
+  },
+  "tutorial-billing": {
+    localPath: "/videos/tutorials/restoreassist-billing-v1.mp4",
+    title: "Billing & Subscriptions",
+    durationSec: 29,
+  },
+  "tutorial-team": {
+    localPath: "/videos/tutorials/restoreassist-team-v1.mp4",
+    title: "Managing Your Team",
+    durationSec: 29,
+  },
+  "tutorial-compliance": {
+    localPath: "/videos/tutorials/restoreassist-compliance-v1.mp4",
+    title: "IICRC Compliance",
+    durationSec: 30,
+  },
+
+  // ── Help Videos (existing MP4s) ───────────────────────────────────────
   "help-inspections": {
     localPath: "/videos/help/help-inspections.mp4",
     title: "Inspections — chain-of-custody capture",

@@ -108,3 +108,6 @@ release-gate-report.json
 # RA-4985 — .codex/config.toml ships a real Composio API key when committed.
 # Per `feedback_never_leak_secrets`, personal toolchain config must stay local.
 .codex/
+# Generated videos (do not commit to git — upload to Cloudinary instead)
+videos/*.mp4
+!videos/.gitkeep
