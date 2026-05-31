@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { BRAND } from "@/lib/brand";
 import { Menu, X } from "lucide-react";
 import MobileWorkflowCarousel from "@/components/landing/MobileWorkflowCarousel";
+import { AvatarOrb } from "@/components/avatar";
 
 export default function Home() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -286,6 +287,15 @@ export default function Home() {
             </Link>
           </div>
         </div>
+
+        {/* Founder Avatar — bottom-left, floating orb */}
+        <AvatarOrb
+          className="hidden md:flex absolute bottom-8 left-8"
+          size={72}
+          avatarImageUrl="/avatars/phill-mcgurk-orb.svg"
+          greetingVideoUrl="/videos/heygen/phill-greeting.mp4"
+          greetingText="G'day — I'm Phill. Click to learn about RestoreAssist."
+        />
       </section>
 
       {/* Section - Inspection. Scoping. Estimating. Connected. */}
