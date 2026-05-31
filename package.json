@@ -126,7 +126,7 @@
     "@types/canvas-confetti": "^1.9.0",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/nodemailer": "^8.0.0",
-    "@types/puppeteer": "^5.4.7",
+    "@types/puppeteer": "^7.0.4",
     "@vercel/analytics": "2.0.1",
     "@xyflow/react": "^12.10.2",
     "ai": "^6.0.184",
