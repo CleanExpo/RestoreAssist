@@ -2,7 +2,8 @@
  * API Route: /api/elevenlabs/sfx
  *
  * Server-side proxy for ElevenLabs Sound Effects (FX).
- * Returns MP3 audio bytes.
+ * NOTE: Synthex does not currently proxy SFX — this route requires
+ * a direct ELEVENLABS_API_KEY in RestoreAssist env, or disable SFX.
  *
  * POST body:
  *   {
@@ -39,7 +40,10 @@ export async function POST(request: NextRequest) {
       prompt_influence: prompt_influence ?? 0.3,
     });
 
-    return new NextResponse(buf, {
+    // Convert Node Buffer to Uint8Array for web-standard response
+    const bytes = Uint8Array.from(buf);
+
+    return new NextResponse(bytes, {
       status: 200,
       headers: {
         "Content-Type": "audio/mpeg",
