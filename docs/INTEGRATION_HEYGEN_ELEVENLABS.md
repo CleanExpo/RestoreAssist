@@ -1,108 +1,159 @@
 # HeyGen + ElevenLabs Integration Guide
 
-Status: IN PROGRESS — Waiting for production API keys and custom avatar upload.
+Status: ACTIVE — Synthex proxy architecture implemented. Waiting for service token exchange.
 
-## 1. What was built
+## Architecture
+
+RestoreAssist does **not** hold HeyGen or ElevenLabs API keys directly. Instead, it proxies all avatar/voice requests to **Synthex** (`https://synthex.social`), which holds the canonical credentials and CEO voice clone (`aGkVQvWUZi16EH8aZJvT`).
+
+```
+RestoreAssist  →  Synthex  →  HeyGen / ElevenLabs
+     │                │
+     │  X-Service-Token │  HEYGEN_API_KEY
+     │  X-Source-App    │  ELEVENLABS_API_KEY
+     └──────────────────┘  CEO_VOICE_ID
+```
+
+## Files
 
 | Component | Path | Purpose |
 |-----------|------|---------|
+| Synthex service client | `lib/synthex/client.ts` | Cross-product proxy client |
 | AvatarOrb (React) | `components/avatar/AvatarOrb.tsx` | Circular floating avatar on landing page |
-| HeyGen API client | `lib/heygen/client.ts` | Video generation, streaming token, avatar listing |
-| ElevenLabs API client | `lib/elevenlabs/client.ts` | TTS, SFX, voice isolation |
-| HeyGen video proxy | `app/api/heygen/route.ts` | POST/GET server-side HeyGen proxy |
-| ElevenLabs voice proxy | `app/api/elevenlabs/voice/route.ts` | TTS streaming proxy |
-| ElevenLabs SFX proxy | `app/api/elevenlabs/sfx/route.ts` | Sound effects proxy |
+| HeyGen video proxy | `app/api/heygen/route.ts` | POST/GET → Synthex `/api/media/generate/video` |
+| ElevenLabs voice proxy | `app/api/elevenlabs/voice/route.ts` | TTS → Synthex `/api/media/generate/voice` |
+| ElevenLabs SFX proxy | `app/api/elevenlabs/sfx/route.ts` | Direct ElevenLabs (Synthex does not proxy SFX) |
 | Placeholder avatar SVG | `public/avatars/phill-mcgurk-orb.svg` | Branded static orb image |
-| .env.example | Root | Updated with production-ready comments |
 | Landing page integration | `app/page.tsx` | AvatarOrb embedded in hero bottom-left |
 
-## 2. Next steps to go live
+## Environment Variables
 
-### Step A — Get credentials
+Add to `.env.local`:
 
-1. Create HeyGen account: https://www.heygen.com
-   - Subscribe to **Starter plan** ($24/mo) for custom avatars
-   - Generate API key: Dashboard → API Access → Create API Key
+```bash
+# Synthex Service Proxy
+SYNTHEX_BASE_URL="https://synthex.social"
+SYNTHEX_SERVICE_TOKEN="your-shared-secret-here"
 
-2. Create ElevenLabs account: https://elevenlabs.io
-   - Subscribe to **Creator plan** ($11/mo) for commercial rights
-   - Generate API key: Profile → API Keys
+# Direct ElevenLabs (only needed for SFX — Synthex does not proxy sound effects)
+ELEVENLABS_API_KEY=""
+```
 
-### Step B — Create your custom avatar
+## Service Token Setup
 
-1. Film 2 minutes of yourself (Phill McGurk) against a neutral background:
-   - Facing the camera, head-and-shoulders visible
-   - No greenscreen needed — HeyGen handles extraction
-   - Speak naturally, maintain eye contact
-
-2. Upload in HeyGen dashboard:
-   - Avatars → Create Avatar → Upload video
-   - Wait ~1 hour for processing (instant for stock avatars, custom takes longer)
-
-3. Copy the `avatar_id` from the HeyGen dashboard → put it in `.env.local`:
-   ```
-   HEYGEN_API_KEY="hg_..."
-   HEYGEN_AVATAR_ID="abc123..."
+1. Generate a shared secret:
+   ```bash
+   openssl rand -hex 32
    ```
 
-### Step C — Test video generation
+2. Add it to **RestoreAssist** `.env.local` as `SYNTHEX_SERVICE_TOKEN`
+
+3. Add the same value to **Synthex** Vercel env (or `.env.local`):
+   ```bash
+   # In Synthex project
+   npx vercel env add SYNTHEX_SERVICE_TOKEN production
+   # Value: same secret as above
+   ```
+
+4. Synthex must validate `X-Service-Token` on incoming requests from RestoreAssist.
+   (This requires a small middleware update in Synthex — see "Synthex Side" below.)
+
+## API Usage
+
+### Generate avatar video
 
 ```bash
-# 1. Set your .env.local credentials
-# 2. Generate a first greeting video
-
-npx tsx scripts/heygen-generate.ts \
-  --avatar-id "$HEYGEN_AVATAR_ID" \
-  --script "G'day, I'm Phill McGurk, founder of RestoreAssist. Our CRM was built right here in Australia for restoration contractors. One system for office and field, fewer gaps, more confidence. Let's get started." \
-  --output ./public/videos/heygen/phill-greeting.mp4
+curl -X POST https://restoreassist.app/api/heygen \
+  -H "Content-Type: application/json" \
+  -d '{
+    "script": "G'day, I'm Phill McGurk...",
+    "aspect_ratio": "16:9"
+  }'
 ```
 
-### Step D — Test voice generation (ElevenLabs)
+Response:
+```json
+{
+  "video_id": "vid_abc123",
+  "status": "pending",
+  "poll_url": "/api/heygen?video_id=vid_abc123&provider=synthesia",
+  "poll_interval": 5000
+}
+```
+
+### Poll for video status
 
 ```bash
-# Generate a sample narration variant
-npx tsx scripts/elevenlabs-generate.ts \
-  --text "Welcome to RestoreAssist. Australia's purpose-built CRM for restoration contractors." \
-  --output ./public/audio/narration-sample.mp3
+curl "https://restoreassist.app/api/heygen?video_id=vid_abc123&provider=synthesia"
 ```
 
-### Step E — Deploy
+### Generate voice (TTS)
 
 ```bash
-# Add production vars to Vercel
-npx vercel env add HEYGEN_API_KEY production
-npx vercel env add HEYGEN_AVATAR_ID production
-npx vercel env add ELEVENLABS_API_KEY production
-
-# Deploy
-git push origin main
+curl -X POST https://restoreassist.app/api/elevenlabs/voice \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Welcome to RestoreAssist."}' \
+  --output narration.mp3
 ```
 
-## 3. Brand voice settings
+### Stream voice (real-time)
 
-Luca (primary) — ElevenLabs voice ID: `onwK4e9ZLuTAKqWW03F9`
+```bash
+curl -X POST https://restoreassist.app/api/elevenlabs/voice \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Hello", "stream": true}' \
+  --output stream.mp3
+```
+
+### List voices
+
+```bash
+curl "https://restoreassist.app/api/elevenlabs/voice?type=all"
+```
+
+## Brand Voice Settings
+
+CEO Clone (primary) — ElevenLabs voice ID: `aGkVQvWUZi16EH8aZJvT`
 
 | Parameter | Default | Rationale |
 |-----------|---------|-----------|
 | Model | eleven_multilingual_v2 | Best English + warmth |
 | Stability | 0.55 | Natural cadence, minimal drift |
-| Similarity boost | 0.80 | Lip-sync fidelity for HeyGen |
+| Similarity boost | 0.80 | Lip-sync fidelity for avatar video |
 | Style | 0.25 | Controlled expressiveness |
 | Background | #1C2E47 | RestoreAssist navy |
 
-## 4. Pricing estimate (monthly)
+## Synthex Side (Required)
+
+Synthex must accept cross-product requests. Add middleware to validate `X-Service-Token`:
+
+```typescript
+// In Synthex: middleware or route guard
+const SERVICE_TOKENS = new Set([
+  process.env.SYNTHEX_SERVICE_TOKEN, // shared with RestoreAssist
+]);
+
+function validateServiceToken(req: NextRequest): boolean {
+  const token = req.headers.get("x-service-token");
+  return token ? SERVICE_TOKENS.has(token) : false;
+}
+```
+
+If token is invalid, return `401 Unauthorized`.
+
+## Pricing
+
+RestoreAssist pays **nothing directly** to HeyGen/ElevenLabs. Costs are consolidated under Synthex:
 
 | Service | Plan | Monthly |
 |---------|------|---------|
 | HeyGen Starter | Custom avatar + 15 min video/mo | ~$24 |
 | ElevenLabs Creator | 100 char credits/second | ~$11 |
-| **Total** | | **~$35/mo** |
+| **Total via Synthex** | | **~$35/mo** |
 
-Scale: as you add more videos, upgrade HeyGen to Growth ($69/mo for 60 min).
+## Content Pipeline for Persona Videos
 
-## 5. Content pipeline for persona videos
-
-Using the AvatarOrb + HeyGen combo, you can generate:
+Using the AvatarOrb + Synthex proxy, generate:
 
 | Market | Video | Script source |
 |--------|-------|---------------|
@@ -110,8 +161,15 @@ Using the AvatarOrb + HeyGen combo, you can generate:
 | Service Company | "Win more insurance-assessed work" | ROI explainer |
 | Broker | "Audit-ready documentation" | Compliance pitch |
 
-All scripts should be under 5000 characters (HeyGen limit). Multi-part videos are generated separately and stitched with ffmpeg.
+All scripts should be under 5000 characters. Multi-part videos are generated separately and stitched with ffmpeg.
+
+## Security Notes
+
+- `SYNTHEX_SERVICE_TOKEN` must be rotated quarterly
+- Token is shared only between RestoreAssist and Synthex
+- Never log the token or expose it client-side
+- Synthex should rate-limit by `X-Source-App` to prevent abuse
 
 ---
-Last updated: 2026-05-31
+Last updated: 2026-06-01
 Owner: Senior Project Manager (RestoreAssist)

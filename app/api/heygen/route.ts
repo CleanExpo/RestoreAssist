@@ -1,38 +1,44 @@
 /**
  * API Route: /api/heygen
  *
- * Server-side proxy for HeyGen video generation.
- * Receives a script from the frontend, triggers HeyGen avatar video,
- * and returns the video_id for polling.
+ * Proxies avatar video generation to Synthex (which holds canonical
+ * HeyGen + ElevenLabs credentials and the CEO voice clone).
  *
  * POST body:
  *   {
- *     avatar_id: string,
- *     voice_id?: string,
+ *     avatar_id: string,       // optional — Synthex has its own avatar config
+ *     voice_id?: string,       // optional — defaults to CEO clone
  *     script: string,          // text to speak
- *     background_color?: string,
+ *     aspect_ratio?: "16:9" | "9:16" | "1:1",
  *   }
  *
  * Response:
- *   { video_id: string, status: "pending" }
+ *   { video_id: string, status: "pending", poll_url: string }
+ *
+ * GET /api/heygen?video_id=xxx&provider=synthesia
+ *   Poll for video status + URL.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { generateVideo, withBrandDefaults } from "@/lib/heygen/client";
+import {
+  generateAvatarVideo,
+  getVideoStatus,
+  withBrandVoice,
+} from "@/lib/synthex/client";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { avatar_id, voice_id, script, background_color } = body;
+    const { avatar_id, voice_id, script, aspect_ratio } = body;
 
-    if (!avatar_id || !script) {
+    if (!script || typeof script !== "string") {
       return NextResponse.json(
-        { error: "avatar_id and script are required" },
+        { error: "script is required" },
         { status: 400 },
       );
     }
 
-    // Enforce max script length (HeyGen limits vary by plan)
+    // Enforce max script length
     if (script.length > 5000) {
       return NextResponse.json(
         { error: "Script exceeds 5000 character limit" },
@@ -40,19 +46,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await generateVideo(
-      withBrandDefaults({
-        avatar_id,
-        voice_id,
-        input_text: script,
-        background_color: background_color ?? "#1C2E47",
-      }),
-    );
+    const result = await generateAvatarVideo({
+      script,
+      avatarId: avatar_id,
+      voiceId: voice_id ?? withBrandVoice({}).voiceId,
+      aspectRatio: aspect_ratio ?? "16:9",
+    });
+
+    if (!result.success) {
+      return NextResponse.json(
+        { error: result.error || "Video generation failed" },
+        { status: 500 },
+      );
+    }
 
     return NextResponse.json(
       {
-        video_id: result.data.video_id,
-        status: result.data.status,
+        video_id: result.videoId,
+        status: result.status,
+        poll_url: result.pollUrl,
+        poll_interval: result.pollInterval,
       },
       { status: 202 },
     );
@@ -63,14 +76,11 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/**
- * GET /api/heygen?video_id=xxx
- * Poll for video status + URL.
- */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const videoId = searchParams.get("video_id");
+    const provider = searchParams.get("provider") ?? "synthesia";
 
     if (!videoId) {
       return NextResponse.json(
@@ -79,11 +89,18 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Lazy import to avoid top-level API key checks at build time
-    const { getVideoStatus } = await import("@/lib/heygen/client");
-    const result = await getVideoStatus(videoId);
+    const result = await getVideoStatus(videoId, provider);
 
-    return NextResponse.json(result.data);
+    return NextResponse.json({
+      video_id: result.videoId,
+      status: result.status,
+      video_url: result.videoUrl,
+      error: result.error,
+      ...(result.status === "processing" && {
+        poll_url: result.pollUrl,
+        poll_interval: result.pollInterval,
+      }),
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("[api/heygen] GET error:", message);
