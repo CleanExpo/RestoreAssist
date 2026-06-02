@@ -53,6 +53,7 @@ export interface SynthexVideoResponse {
   provider?: string;
   videoId?: string;
   videoUrl?: string;
+  thumbnailUrl?: string;
   status?: "pending" | "processing" | "completed" | "failed";
   error?: string;
   pollUrl?: string;

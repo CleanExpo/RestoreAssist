@@ -96,7 +96,8 @@ export async function textToSpeechFile(
   req: TTSRequest & { outputPath: string },
 ): Promise<string> {
   const buf = await textToSpeech(req);
-  await Bun.write(req.outputPath, buf);
+  const fs = await import("fs");
+  fs.writeFileSync(req.outputPath, buf);
   return req.outputPath;
 }
 
@@ -139,7 +140,8 @@ export async function generateSFX(req: SFXRequest): Promise<Buffer> {
  */
 export async function isolateVoice(audioBuffer: Buffer): Promise<Buffer> {
   const form = new FormData();
-  const blob = new Blob([audioBuffer], { type: "audio/mpeg" });
+  const array = new Uint8Array(audioBuffer);
+  const blob = new Blob([array], { type: "audio/mpeg" });
   form.append("audio", blob, "input.mp3");
 
   const res = await fetch(`${ELEVENLABS_BASE_URL}/audio-isolation`, {
