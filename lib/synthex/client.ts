@@ -3,15 +3,15 @@
  *
  * Proxies avatar/voice/media requests to the Synthex platform API.
  * Synthex holds the canonical HeyGen + ElevenLabs credentials and
- * CEO voice clone (aGkVQvWUZi16EH8aZJvT).
+ * CEO voice clone (jSuBIjxMKhqIfb0wCK1F — Phill McGurk).
  *
  * Auth: X-Service-Token header (shared secret, rotate quarterly).
  *
  * Endpoints consumed:
  *   POST /api/media/generate/voice?action=generate  → TTS MP3
  *   POST /api/media/generate/voice?action=stream    → TTS stream
- *   POST /api/media/generate/video?action=script    → avatar video
- *   GET  /api/media/generate/video?videoId=&provider= → status poll
+ *   POST /api/heygen/video                          → avatar video (ElevenLabs audio + HeyGen lip-sync)
+ *   GET  /api/heygen/video?videoId=                 → status poll
  *   GET  /api/media/generate/voice?type=all          → voice list
  *
  * Ref: Synthex .env.local → NEXT_PUBLIC_APP_URL="https://synthex.social"
@@ -24,7 +24,7 @@ const SYNTHEX_SERVICE_TOKEN = process.env.SYNTHEX_SERVICE_TOKEN;
 
 export interface SynthexVoiceRequest {
   text: string;
-  voiceId?: string;        // default: CEO clone aGkVQvWUZi16EH8aZJvT
+  voiceId?: string;        // default: CEO clone jSuBIjxMKhqIfb0wCK1F
   modelId?: string;        // eleven_multilingual_v2
   stability?: number;
   similarityBoost?: number;
@@ -124,14 +124,14 @@ export async function generateVoice(
 ): Promise<SynthexVoiceResponse> {
   return post<SynthexVoiceResponse>("/api/media/generate/voice?action=generate", {
     text: req.text,
-    voiceId: req.voiceId ?? "aGkVQvWUZi16EH8aZJvT", // CEO clone
+    voiceId: req.voiceId ?? "jSuBIjxMKhqIfb0wCK1F", // CEO clone
     modelId: req.modelId ?? "eleven_multilingual_v2",
     stability: req.stability ?? 0.55,
     similarityBoost: req.similarityBoost ?? 0.8,
     style: req.style ?? 0.25,
     outputFormat: req.outputFormat ?? "mp3_44100_128",
     saveToLibrary: false, // don't pollute Synthex media library
-  });
+    });
 }
 
 /**
@@ -151,7 +151,7 @@ export async function streamVoice(
       headers: getHeaders(),
       body: JSON.stringify({
         text: req.text,
-        voiceId: req.voiceId ?? "aGkVQvWUZi16EH8aZJvT",
+        voiceId: req.voiceId ?? "jSuBIjxMKhqIfb0wCK1F",
         modelId: req.modelId ?? "eleven_multilingual_v2",
         stability: req.stability ?? 0.55,
         similarityBoost: req.similarityBoost ?? 0.8,
