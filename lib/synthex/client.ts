@@ -170,7 +170,7 @@ export async function streamVoice(
 }
 
 /**
- * Generate avatar video via Synthex → HeyGen (or Synthesia/D-ID fallback).
+ * Generate avatar video via Synthex → HeyGen.
  * Returns videoId for polling.
  */
 export async function generateAvatarVideo(
@@ -179,7 +179,6 @@ export async function generateAvatarVideo(
   return post<SynthexVideoResponse>("/api/media/generate/video?action=script", {
     script: req.script,
     avatarId: req.avatarId,
-    voiceId: req.voiceId ?? "aGkVQvWUZi16EH8aZJvT",
     aspectRatio: req.aspectRatio ?? "16:9",
     saveToLibrary: false,
   });
@@ -213,7 +212,7 @@ export async function listVoices(): Promise<SynthexVoiceListResponse> {
 
 // ─── Brand Defaults ───────────────────────────────────────────────────
 
-export const CEO_VOICE_ID = "aGkVQvWUZi16EH8aZJvT";
+export const CEO_VOICE_ID = "jSuBIjxMKhqIfb0wCK1F";
 
 export const BRAND_VOICE_SETTINGS = {
   voice_id: CEO_VOICE_ID,
