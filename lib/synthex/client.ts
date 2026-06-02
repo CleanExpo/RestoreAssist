@@ -179,7 +179,7 @@ export async function generateAvatarVideo(
   return post<SynthexVideoResponse>("/api/heygen/video", {
     script: req.script,
     avatarId: req.avatarId,
-    voiceId: req.voiceId ?? CEO_VOICE_ID,
+    ...(req.voiceId ? { voiceId: req.voiceId } : {}),
   });
 }
 
