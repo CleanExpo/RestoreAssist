@@ -45,22 +45,22 @@ export const CreateInspection = ({title, stepDurations}) => {
                 {/* Step 2b — Client Selection */}
                 {frame >= s2 && frame < s3 && (
                   <div style={{maxWidth: 640, margin: '0 auto'}}>
-                    <h2 style={{fontSize: 24, fontWeight: 700, color: '#1e293b', margin: '0 0 8px', fontFamily: 'system-ui'}}>New Inspection</h2>
-                    <p style={{fontSize: 14, color: '#64748b', margin: '0 0 24px', fontFamily: 'system-ui'}}>Select a client to begin...</p>
+                    <h2 style={{fontSize: 24, fontWeight: 700, color: '#1C2E47', margin: '0 0 8px', fontFamily: 'Inter'}}>New Inspection</h2>
+                    <p style={{fontSize: 14, color: '#8A6B4E', margin: '0 0 24px', fontFamily: 'Inter'}}>Select a client to begin...</p>
 
                     <div style={{display: 'flex', flexDirection: 'column', gap: 8}}>
                       {clients.map((c, i) => (
                         <div key={c.name} style={{
                           padding: 16,
                           borderRadius: 12,
-                          border: '1px solid #e2e8f0',
+                          border: '1px solid #2A3A55',
                           backgroundColor: '#ffffff',
                           display: 'flex',
                           flexDirection: 'column',
                           gap: 4,
                         }}>
-                          <div style={{fontSize: 15, fontWeight: 600, color: '#334155', fontFamily: 'system-ui'}}>{c.name}</div>
-                          <div style={{fontSize: 13, color: '#94a3b8', fontFamily: 'system-ui'}}>{c.address}</div>
+                          <div style={{fontSize: 15, fontWeight: 600, color: '#1C2E47', fontFamily: 'Inter'}}>{c.name}</div>
+                          <div style={{fontSize: 13, color: '#D4A574', fontFamily: 'Inter'}}>{c.address}</div>
                         </div>
                       ))}
                     </div>
@@ -70,8 +70,8 @@ export const CreateInspection = ({title, stepDurations}) => {
                 {/* Step 3 — Form */}
                 {frame >= s3 && frame < s6 && (
                   <div style={{maxWidth: 720, margin: '0 auto'}}>
-                    <h2 style={{fontSize: 24, fontWeight: 700, color: '#1e293b', margin: '0 0 24px', fontFamily: 'system-ui'}}>
-                      New Inspection: <span style={{color: '#dc2626'}}>Mrs Jane Smith</span>
+                    <h2 style={{fontSize: 24, fontWeight: 700, color: '#1C2E47', margin: '0 0 24px', fontFamily: 'Inter'}}>
+                      New Inspection: <span style={{color: '#8A6B4E'}}>Mrs Jane Smith</span>
                     </h2>
 
                     <FormField label="Property Address" value="42 Example Street, Sydney NSW 2000" frame={frame - s3} delay={0} />
@@ -88,23 +88,23 @@ export const CreateInspection = ({title, stepDurations}) => {
                       <button style={{
                         padding: '12px 24px',
                         borderRadius: 8,
-                        border: '1px solid #e2e8f0',
+                        border: '1px solid #2A3A55',
                         backgroundColor: '#ffffff',
-                        color: '#64748b',
+                        color: '#8A6B4E',
                         fontSize: 14,
                         fontWeight: 600,
-                        fontFamily: 'system-ui',
+                        fontFamily: 'Inter',
                         cursor: 'pointer',
                       }}>Cancel</button>
                       <button style={{
                         padding: '12px 24px',
                         borderRadius: 8,
                         border: 'none',
-                        backgroundColor: '#dc2626',
+                        backgroundColor: '#8A6B4E',
                         color: '#ffffff',
                         fontSize: 14,
                         fontWeight: 600,
-                        fontFamily: 'system-ui',
+                        fontFamily: 'Inter',
                         cursor: 'pointer',
                       }}>Create Inspection</button>
                     </div>
@@ -121,8 +121,8 @@ export const CreateInspection = ({title, stepDurations}) => {
                       marginBottom: 24,
                     }}>
                       <div>
-                        <div style={{fontSize: 13, color: '#94a3b8', fontFamily: 'system-ui', marginBottom: 4}}>INS-2026-0089</div>
-                        <h1 style={{fontSize: 28, fontWeight: 700, color: '#1e293b', margin: 0, fontFamily: 'system-ui'}}>Water Damage — Kitchen</h1>
+                        <div style={{fontSize: 13, color: '#D4A574', fontFamily: 'Inter', marginBottom: 4}}>INS-2026-0089</div>
+                        <h1 style={{fontSize: 28, fontWeight: 700, color: '#1C2E47', margin: 0, fontFamily: 'Inter'}}>Water Damage — Kitchen</h1>
                       </div>
                       <span style={{
                         padding: '6px 16px',
@@ -131,7 +131,7 @@ export const CreateInspection = ({title, stepDurations}) => {
                         color: '#d97706',
                         fontSize: 13,
                         fontWeight: 600,
-                        fontFamily: 'system-ui',
+                        fontFamily: 'Inter',
                       }}>In Progress</span>
                     </div>
 
@@ -148,11 +148,11 @@ export const CreateInspection = ({title, stepDurations}) => {
                           padding: '10px 20px',
                           borderRadius: 8,
                           border: 'none',
-                          backgroundColor: i === 0 ? '#dc2626' : '#f1f5f9',
-                          color: i === 0 ? '#ffffff' : '#64748b',
+                          backgroundColor: i === 0 ? '#8A6B4E' : '#f1f5f9',
+                          color: i === 0 ? '#ffffff' : '#8A6B4E',
                           fontSize: 14,
                           fontWeight: 600,
-                          fontFamily: 'system-ui',
+                          fontFamily: 'Inter',
                           cursor: 'pointer',
                         }}>{tab}</button>
                       ))}
@@ -219,19 +219,19 @@ const FormField = ({label, value, options, selected, multiline, frame, delay}) =
 
   return (
     <div style={{marginBottom: 20, opacity: fadeIn}}>
-      <label style={{display: 'block', fontSize: 14, fontWeight: 600, color: '#334155', marginBottom: 8, fontFamily: 'system-ui'}}>{label}</label>
+      <label style={{display: 'block', fontSize: 14, fontWeight: 600, color: '#1C2E47', marginBottom: 8, fontFamily: 'Inter'}}>{label}</label>
       {options ? (
         <div style={{display: 'flex', gap: 8, flexWrap: 'wrap'}}>
           {options.map((opt) => (
             <span key={opt} style={{
               padding: '8px 16px',
               borderRadius: 8,
-              border: '1px solid ' + (opt === selected ? '#dc2626' : '#e2e8f0'),
+              border: '1px solid ' + (opt === selected ? '#8A6B4E' : '#2A3A55'),
               backgroundColor: opt === selected ? '#fef2f2' : '#ffffff',
-              color: opt === selected ? '#dc2626' : '#475569',
+              color: opt === selected ? '#8A6B4E' : '#1C2E47',
               fontSize: 14,
               fontWeight: 500,
-              fontFamily: 'system-ui',
+              fontFamily: 'Inter',
             }}>{opt}</span>
           ))}
         </div>
@@ -239,11 +239,11 @@ const FormField = ({label, value, options, selected, multiline, frame, delay}) =
         <div style={{
           padding: '12px 16px',
           borderRadius: 8,
-          border: '1px solid #e2e8f0',
+          border: '1px solid #2A3A55',
           backgroundColor: '#ffffff',
           fontSize: 14,
-          color: '#334155',
-          fontFamily: 'system-ui',
+          color: '#1C2E47',
+          fontFamily: 'Inter',
           minHeight: multiline ? 80 : 'auto',
         }}>{value}</div>
       )}
@@ -255,13 +255,13 @@ const InfoCard = ({label, value, icon}) => (
   <div style={{
     padding: 16,
     borderRadius: 12,
-    backgroundColor: '#f8fafc',
-    border: '1px solid #e2e8f0',
+    backgroundColor: '#0A0A0A',
+    border: '1px solid #2A3A55',
   }}>
-    <div style={{fontSize: 12, color: '#94a3b8', marginBottom: 4, fontFamily: 'system-ui', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em'}}>{label}</div>
+    <div style={{fontSize: 12, color: '#D4A574', marginBottom: 4, fontFamily: 'Inter', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em'}}>{label}</div>
     <div style={{display: 'flex', alignItems: 'center', gap: 8}}>
       <span style={{fontSize: 18}}>{icon}</span>
-      <span style={{fontSize: 15, fontWeight: 600, color: '#334155', fontFamily: 'system-ui'}}>{value}</span>
+      <span style={{fontSize: 15, fontWeight: 600, color: '#1C2E47', fontFamily: 'Inter'}}>{value}</span>
     </div>
   </div>
 );

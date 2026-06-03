@@ -8,7 +8,7 @@ export const TopBar: React.FC = () => {
     <div style={{
       height: 56,
       backgroundColor: '#ffffff',
-      borderBottom: '1px solid #e2e8f0',
+      borderBottom: '1px solid #2A3A55',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
@@ -25,7 +25,7 @@ export const TopBar: React.FC = () => {
           padding: '0 12px',
           gap: 8,
         }}>
-          <span style={{color: '#94a3b8', fontSize: 14}}></span>
+          <span style={{color: '#D4A574', fontSize: 14}}></span>
           <input
             type="text"
             placeholder="Search inspections, clients, reports..."
@@ -34,9 +34,9 @@ export const TopBar: React.FC = () => {
               background: 'none',
               outline: 'none',
               fontSize: 13,
-              color: '#475569',
+              color: '#1C2E47',
               width: '100%',
-              fontFamily: 'system-ui, sans-serif',
+              fontFamily: 'Inter, sans-serif',
             }}
           />
         </div>
@@ -54,7 +54,7 @@ export const TopBar: React.FC = () => {
           cursor: 'pointer',
           position: 'relative',
         }}>
-          <span style={{fontSize: 16, color: '#64748b'}}></span>
+          <span style={{fontSize: 16, color: '#8A6B4E'}}></span>
           <span style={{
             position: 'absolute',
             top: 6,
@@ -62,7 +62,7 @@ export const TopBar: React.FC = () => {
             width: 10,
             height: 10,
             borderRadius: '50%',
-            backgroundColor: '#dc2626',
+            backgroundColor: '#8A6B4E',
             border: '2px solid #ffffff',
           }} />
         </div>
@@ -80,16 +80,16 @@ export const TopBar: React.FC = () => {
             width: 32,
             height: 32,
             borderRadius: '50%',
-            backgroundColor: '#dc2626',
+            backgroundColor: '#8A6B4E',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             fontSize: 13,
             fontWeight: 700,
             color: '#ffffff',
-            fontFamily: 'system-ui, sans-serif',
+            fontFamily: 'Inter, sans-serif',
           }}>PM</div>
-          <div style={{fontSize: 13, fontWeight: 600, color: '#334155', fontFamily: 'system-ui, sans-serif'}}>Admin</div>
+          <div style={{fontSize: 13, fontWeight: 600, color: '#1C2E47', fontFamily: 'Inter, sans-serif'}}>Admin</div>
         </div>
       </div>
     </div>

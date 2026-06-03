@@ -16,12 +16,12 @@ export const RecentTable = () => {
   const statusColors = {
     'In Progress': '#f59e0b',
     'Report Ready': '#059669',
-    'Completed': '#64748b',
+    'Completed': '#8A6B4E',
   };
 
   return (
     <div>
-      <table style={{width: '100%', borderCollapse: 'collapse', fontFamily: 'system-ui, sans-serif'}}>
+      <table style={{width: '100%', borderCollapse: 'collapse', fontFamily: 'Inter, sans-serif'}}>
         <thead>
           <tr>
             {['ID','Client','Property','Hazard Type','Date','Status'].map((h, i) => (
@@ -30,10 +30,10 @@ export const RecentTable = () => {
                 padding: '10px 12px',
                 fontSize: 12,
                 fontWeight: 600,
-                color: '#64748b',
+                color: '#8A6B4E',
                 textTransform: 'uppercase',
                 letterSpacing: '0.05em',
-                borderBottom: '1px solid #e2e8f0',
+                borderBottom: '1px solid #2A3A55',
               }}>{h}</th>
             ))}
           </tr>
@@ -43,11 +43,11 @@ export const RecentTable = () => {
             <tr key={row.id} style={{
               opacity: interpolate(frame - ri * 12, [0, 20], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}),
             }}>
-              <td style={{padding: '12px', fontSize: 13, fontWeight: 600, color: '#334155', borderBottom: '1px solid #f1f5f9'}}>{row.id}</td>
-              <td style={{padding: '12px', fontSize: 13, color: '#475569', borderBottom: '1px solid #f1f5f9'}}>{row.client}</td>
-              <td style={{padding: '12px', fontSize: 13, color: '#475569', borderBottom: '1px solid #f1f5f9'}}>{row.property}</td>
-              <td style={{padding: '12px', fontSize: 13, color: '#475569', borderBottom: '1px solid #f1f5f9'}}>{row.type}</td>
-              <td style={{padding: '12px', fontSize: 13, color: '#64748b', borderBottom: '1px solid #f1f5f9'}}>{row.date}</td>
+              <td style={{padding: '12px', fontSize: 13, fontWeight: 600, color: '#1C2E47', borderBottom: '1px solid #f1f5f9'}}>{row.id}</td>
+              <td style={{padding: '12px', fontSize: 13, color: '#1C2E47', borderBottom: '1px solid #f1f5f9'}}>{row.client}</td>
+              <td style={{padding: '12px', fontSize: 13, color: '#1C2E47', borderBottom: '1px solid #f1f5f9'}}>{row.property}</td>
+              <td style={{padding: '12px', fontSize: 13, color: '#1C2E47', borderBottom: '1px solid #f1f5f9'}}>{row.type}</td>
+              <td style={{padding: '12px', fontSize: 13, color: '#8A6B4E', borderBottom: '1px solid #f1f5f9'}}>{row.date}</td>
               <td style={{padding: '12px', borderBottom: '1px solid #f1f5f9'}}>
                 <span style={{
                   fontSize: 12,

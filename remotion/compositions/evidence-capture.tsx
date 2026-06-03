@@ -26,43 +26,43 @@ export const EvidenceCapture = ({title, stepDurations}) => {
       <div style={{position:'absolute', inset:0, opacity:introOpacity, zIndex:introOpacity>0?100:0}}><IntroSlide title={title} /></div>
       <div style={{position:'absolute', inset:0, opacity:mainOpacity, zIndex:10}}>
         <ScreenContainer>
-          <div style={{padding:40, backgroundColor:'#f8fafc', width:'100%', height:'100%'}}>
+          <div style={{padding:40, backgroundColor:'#0A0A0A', width:'100%', height:'100%'}}>
             {/* Mobile phone frame */}
             <div style={{display:'flex', justifyContent:'center', alignItems:'center', height:'100%'}}>
               <div style={{
-                width:380, height:760, borderRadius:48, backgroundColor:'#1e293b', padding:16,
+                width:380, height:760, borderRadius:48, backgroundColor:'#1C2E47', padding:16,
                 boxShadow:'0 25px 80px rgba(0,0,0,0.3)', display:'flex', flexDirection:'column'
               }}>
                 <div style={{height:24, display:'flex', justifyContent:'center', alignItems:'center', marginBottom:8}}>
-                  <div style={{width:120, height:24, borderRadius:12, backgroundColor:'#0f172a'}}></div>
+                  <div style={{width:120, height:24, borderRadius:12, backgroundColor:'#1C2E47'}}></div>
                 </div>
                 <div style={{flex:1, borderRadius:32, backgroundColor:'#ffffff', overflow:'hidden', display:'flex', flexDirection:'column'}}>
                   {frame>=s1 && frame<s3 && (
-                    <div style={{flex:1, backgroundColor:'#0f172a', display:'flex', alignItems:'center', justifyContent:'center', position:'relative'}}>
+                    <div style={{flex:1, backgroundColor:'#1C2E47', display:'flex', alignItems:'center', justifyContent:'center', position:'relative'}}>
                       <div style={{textAlign:'center'}}>
                         <div style={{fontSize:64, marginBottom:16}}>📸</div>
-                        <div style={{fontSize:16, color:'#94a3b8', fontFamily:'system-ui'}}>Tap to capture evidence</div>
+                        <div style={{fontSize:16, color:'#D4A574', fontFamily:'Inter'}}>Tap to capture evidence</div>
                       </div>
                       <div style={{position:'absolute', bottom:40, left:'50%', transform:'translateX(-50%)', display:'flex', gap:20}}>
                         <div style={{width:56, height:56, borderRadius:'50%', border:'3px solid #ffffff', display:'flex', alignItems:'center', justifyContent:'center'}}>
-                          <div style={{width:44, height:44, borderRadius:'50%', backgroundColor:'#dc2626'}}></div>
+                          <div style={{width:44, height:44, borderRadius:'50%', backgroundColor:'#8A6B4E'}}></div>
                         </div>
                       </div>
                     </div>
                   )}
                   {frame>=s3 && frame<s5 && (
                     <div style={{flex:1, padding:20, overflow:'auto'}}>
-                      <h3 style={{fontSize:16, fontWeight:700, color:'#1e293b', marginBottom:16, fontFamily:'system-ui'}}>Evidence Photos</h3>
+                      <h3 style={{fontSize:16, fontWeight:700, color:'#1C2E47', marginBottom:16, fontFamily:'Inter'}}>Evidence Photos</h3>
                       <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12}}>
                         {photos.map((p,i) => (
                           <div key={p.name} style={{
-                            borderRadius:12, overflow:'hidden', border:'1px solid #e2e8f0',
+                            borderRadius:12, overflow:'hidden', border:'1px solid #2A3A55',
                             opacity:interpolate(frame-s3-i*15,[0,20],[0,1],{extrapolateLeft:'clamp'})
                           }}>
-                            <div style={{height:100, backgroundColor:'#e2e8f0', display:'flex', alignItems:'center', justifyContent:'center', fontSize:32}}>🖼</div>
+                            <div style={{height:100, backgroundColor:'#2A3A55', display:'flex', alignItems:'center', justifyContent:'center', fontSize:32}}>🖼</div>
                             <div style={{padding:8}}>
-                              <div style={{fontSize:11, fontWeight:600, color:'#334155'}}>{p.tag}</div>
-                              <div style={{fontSize:10, color:'#94a3b8'}}>{p.room}</div>
+                              <div style={{fontSize:11, fontWeight:600, color:'#1C2E47'}}>{p.tag}</div>
+                              <div style={{fontSize:10, color:'#D4A574'}}>{p.room}</div>
                             </div>
                           </div>
                         ))}

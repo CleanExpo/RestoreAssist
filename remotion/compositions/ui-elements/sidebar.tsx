@@ -29,7 +29,7 @@ export const Sidebar: React.FC<Props> = ({activeItem, startFrame, endFrame}) => 
     <div style={{
       width: 240,
       backgroundColor: '#ffffff',
-      borderRight: '1px solid #e2e8f0',
+      borderRight: '1px solid #2A3A55',
       display: 'flex',
       flexDirection: 'column',
       padding: '16px 12px',
@@ -37,7 +37,7 @@ export const Sidebar: React.FC<Props> = ({activeItem, startFrame, endFrame}) => 
     }}>
       <div style={{
         padding: '0 12px 16px',
-        borderBottom: '1px solid #e2e8f0',
+        borderBottom: '1px solid #2A3A55',
         marginBottom: 12,
         display: 'flex',
         alignItems: 'center',
@@ -47,15 +47,15 @@ export const Sidebar: React.FC<Props> = ({activeItem, startFrame, endFrame}) => 
           width: 36,
           height: 36,
           borderRadius: 10,
-          backgroundColor: '#dc2626',
+          backgroundColor: '#8A6B4E',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           fontSize: 20,
-        }}>🏗</div>
+        }}><img src='/logo.png' style={{width: 24, height: 'auto', objectFit: 'contain'}} /></div>
         <div>
-          <div style={{fontSize: 15, fontWeight: 700, color: '#1e293b', fontFamily: 'system-ui, sans-serif'}}>RestoreAssist</div>
-          <div style={{fontSize: 11, color: '#94a3b8', marginTop: -2, fontFamily: 'system-ui, sans-serif'}}>Restoration Toolkit</div>
+          <div style={{fontSize: 15, fontWeight: 700, color: '#1C2E47', fontFamily: 'Inter, sans-serif'}}>RestoreAssist</div>
+          <div style={{fontSize: 11, color: '#D4A574', marginTop: -2, fontFamily: 'Inter, sans-serif'}}>Restoration Toolkit</div>
         </div>
       </div>
 
@@ -68,10 +68,10 @@ export const Sidebar: React.FC<Props> = ({activeItem, startFrame, endFrame}) => 
           borderRadius: 8,
           marginBottom: 4,
           backgroundColor: activeItem === item.id ? '#fef2f2' : 'transparent',
-          color: activeItem === item.id ? '#dc2626' : '#64748b',
+          color: activeItem === item.id ? '#8A6B4E' : '#8A6B4E',
           fontSize: 14,
           fontWeight: activeItem === item.id ? 600 : 500,
-          fontFamily: 'system-ui, -apple-system, sans-serif',
+          fontFamily: 'Inter, -apple-system, sans-serif',
           cursor: 'pointer',
           transition: 'all 0.2s',
         }}>
@@ -80,12 +80,12 @@ export const Sidebar: React.FC<Props> = ({activeItem, startFrame, endFrame}) => 
         </div>
       ))}
 
-      <div style={{marginTop: 'auto', padding: '8px 12px', borderTop: '1px solid #e2e8f0'}}>
+      <div style={{marginTop: 'auto', padding: '8px 12px', borderTop: '1px solid #2A3A55'}}>
         <div style={{
           fontSize: 12,
-          color: '#94a3b8',
-          fontFamily: 'system-ui, sans-serif',
-        }}>© CleanExpo</div>
+          color: '#D4A574',
+          fontFamily: 'Inter, sans-serif',
+        }}>© RestoreAssist</div>
       </div>
     </div>
   );

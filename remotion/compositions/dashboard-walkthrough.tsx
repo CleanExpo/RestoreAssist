@@ -56,15 +56,15 @@ export const DashboardWalkthrough: React.FC<Props> = ({title, stepDurations}) =>
                   <h1 style={{
                     fontSize: 28,
                     fontWeight: 700,
-                    color: '#1e293b',
+                    color: '#1C2E47',
                     margin: 0,
-                    fontFamily: 'system-ui, -apple-system, sans-serif',
+                    fontFamily: 'Inter, -apple-system, sans-serif',
                   }}>Dashboard</h1>
                   <p style={{
                     fontSize: 14,
-                    color: '#64748b',
+                    color: '#8A6B4E',
                     marginTop: 4,
-                    fontFamily: 'system-ui, -apple-system, sans-serif',
+                    fontFamily: 'Inter, -apple-system, sans-serif',
                   }}>Welcome back — here's what's happening in your restoration business.</p>
                 </div>
 
@@ -121,7 +121,7 @@ export const DashboardWalkthrough: React.FC<Props> = ({title, stepDurations}) =>
                     width: 280,
                     backgroundColor: '#ffffff',
                     borderRadius: 12,
-                    border: '1px solid #e2e8f0',
+                    border: '1px solid #2A3A55',
                     padding: 20,
                     opacity: frame > s5 ? 1 : 0,
                     transition: 'opacity 0.5s',
@@ -129,11 +129,11 @@ export const DashboardWalkthrough: React.FC<Props> = ({title, stepDurations}) =>
                     <h3 style={{
                       fontSize: 15,
                       fontWeight: 600,
-                      color: '#334155',
+                      color: '#1C2E47',
                       margin: '0 0 16px 0',
-                      fontFamily: 'system-ui, -apple-system, sans-serif',
+                      fontFamily: 'Inter, -apple-system, sans-serif',
                     }}>Quick Actions</h3>
-                    <QuickActionButton label="New Inspection" icon="📋" color="#dc2626" id="action-inspection" />
+                    <QuickActionButton label="New Inspection" icon="📋" color="#8A6B4E" id="action-inspection" />
                     <QuickActionButton label="New Report" icon="📄" color="#2563eb" id="action-report" />
                     <QuickActionButton label="New Client" icon="👤" color="#059669" id="action-client" />
                     <QuickActionButton label="Generate Invoice" icon="💵" color="#d97706" id="action-invoice" />
@@ -144,7 +144,7 @@ export const DashboardWalkthrough: React.FC<Props> = ({title, stepDurations}) =>
                     flex: 1,
                     backgroundColor: '#ffffff',
                     borderRadius: 12,
-                    border: '1px solid #e2e8f0',
+                    border: '1px solid #2A3A55',
                     padding: 20,
                     opacity: frame > s4 ? 1 : 0,
                     transition: 'opacity 0.5s',
@@ -152,9 +152,9 @@ export const DashboardWalkthrough: React.FC<Props> = ({title, stepDurations}) =>
                     <h3 style={{
                       fontSize: 15,
                       fontWeight: 600,
-                      color: '#334155',
+                      color: '#1C2E47',
                       margin: '0 0 16px 0',
-                      fontFamily: 'system-ui, -apple-system, sans-serif',
+                      fontFamily: 'Inter, -apple-system, sans-serif',
                     }}>Recent Inspections</h3>
                     <RecentTable />
                   </div>
@@ -213,13 +213,13 @@ const QuickActionButton: React.FC<{label: string; icon: string; color: string; i
       gap: 12,
       padding: '12px 16px',
       borderRadius: 8,
-      backgroundColor: '#f8fafc',
+      backgroundColor: '#0A0A0A',
       marginBottom: 8,
       cursor: 'pointer',
       fontSize: 14,
       fontWeight: 500,
-      color: '#334155',
-      fontFamily: 'system-ui, -apple-system, sans-serif',
+      color: '#1C2E47',
+      fontFamily: 'Inter, -apple-system, sans-serif',
     }}>
       <span style={{fontSize: 18}}>{icon}</span>
       {label}

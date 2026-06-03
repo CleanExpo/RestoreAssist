@@ -7,12 +7,12 @@ export const OutroSlide = ({title, subtitle}) => {
 
   return (
     <AbsoluteFill style={{
-      backgroundColor: '#0f172a',
+      backgroundColor: '#1C2E47',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      fontFamily: 'system-ui, sans-serif',
+      fontFamily: 'Inter, sans-serif',
     }}>
       <div style={{
         display: 'flex',
@@ -21,7 +21,7 @@ export const OutroSlide = ({title, subtitle}) => {
         marginBottom: 48,
         opacity: Math.min(1, frame / 20),
       }}>
-        <div style={{width: 56, height: 56, borderRadius: 14, backgroundColor: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28}}>🏗</div>
+        <div style={{width: 56, height: 56, borderRadius: 14, backgroundColor: '#8A6B4E', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28}}><img src='/logo.png' style={{width: 40, height: 'auto', objectFit: 'contain'}} /></div>
         <div style={{fontSize: 28, fontWeight: 700, color: '#ffffff'}}>{subtitle}</div>
       </div>
 
@@ -46,11 +46,11 @@ export const OutroSlide = ({title, subtitle}) => {
           <span key={tag} style={{
             padding: '8px 20px',
             borderRadius: 20,
-            backgroundColor: '#1e293b',
-            color: '#94a3b8',
+            backgroundColor: '#1C2E47',
+            color: '#D4A574',
             fontSize: 14,
             fontWeight: 500,
-            border: '1px solid #334155',
+            border: '1px solid #1C2E47',
             opacity: interpolate(frame - 15 - i * 8, [0, 15], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}),
           }}>{tag}</span>
         ))}
@@ -59,7 +59,7 @@ export const OutroSlide = ({title, subtitle}) => {
       <div style={{
         marginTop: 60,
         fontSize: 16,
-        color: '#64748b',
+        color: '#8A6B4E',
         opacity: Math.min(1, (frame - 30) / 25),
       }}>
         restoreassist.app

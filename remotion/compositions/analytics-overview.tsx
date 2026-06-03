@@ -30,43 +30,43 @@ export const AnalyticsOverview = ({title, stepDurations}) => {
             <div style={{flex:1, display:'flex', flexDirection:'column', overflow:'hidden'}}>
               <TopBar />
               <div style={{padding:32, flex:1, overflow:'auto'}}>
-                <h1 style={{fontSize:26, fontWeight:700, color:'#1e293b', margin:'0 0 24px', fontFamily:'system-ui'}}>Business Analytics</h1>
+                <h1 style={{fontSize:26, fontWeight:700, color:'#1C2E47', margin:'0 0 24px', fontFamily:'Inter'}}>Business Analytics</h1>
                 <div style={{display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:16, marginBottom:24}}>
-                  {[{l:'Revenue YTD',v:'$217,400',c:'#1e293b'},{l:'Avg Deal',v:'$4,850',c:'#059669'},{l:'Win Rate',v:'78%',c:'#2563eb'},{l:'Active Jobs',v:'24',c:'#dc2626'}].map((stat,i) => (
+                  {[{l:'Revenue YTD',v:'$217,400',c:'#1C2E47'},{l:'Avg Deal',v:'$4,850',c:'#059669'},{l:'Win Rate',v:'78%',c:'#2563eb'},{l:'Active Jobs',v:'24',c:'#8A6B4E'}].map((stat,i) => (
                     <div key={stat.l} style={{
-                      padding:20, borderRadius:12, backgroundColor:'#ffffff', border:'1px solid #e2e8f0',
+                      padding:20, borderRadius:12, backgroundColor:'#ffffff', border:'1px solid #2A3A55',
                       opacity:interpolate(frame-s1-i*10,[0,15],[0,1],{extrapolateLeft:'clamp'})
                     }}>
-                      <div style={{fontSize:12, color:'#94a3b8', marginBottom:4, fontWeight:600, textTransform:'uppercase'}}>{stat.l}</div>
+                      <div style={{fontSize:12, color:'#D4A574', marginBottom:4, fontWeight:600, textTransform:'uppercase'}}>{stat.l}</div>
                       <div style={{fontSize:28, fontWeight:800, color:stat.c}}>{stat.v}</div>
                     </div>
                   ))}
                 </div>
                 <div style={{display:'flex', gap:20}}>
-                  <div style={{flex:1, padding:24, borderRadius:12, backgroundColor:'#ffffff', border:'1px solid #e2e8f0'}}>
-                    <h3 style={{fontSize:15, fontWeight:700, color:'#334155', marginBottom:16}}>Revenue Trend</h3>
+                  <div style={{flex:1, padding:24, borderRadius:12, backgroundColor:'#ffffff', border:'1px solid #2A3A55'}}>
+                    <h3 style={{fontSize:15, fontWeight:700, color:'#1C2E47', marginBottom:16}}>Revenue Trend</h3>
                     <div style={{display:'flex', alignItems:'flex-end', gap:8, height:200, paddingBottom:30, position:'relative'}}>
                       {revenue.map((r,i) => (
                         <div key={months[i]} style={{flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:8}}>
                           <div style={{
-                            width:'100%', height:Math.round((r/50000)*170), backgroundColor:'#dc2626', borderRadius:'4px 4px 0 0',
+                            width:'100%', height:Math.round((r/50000)*170), backgroundColor:'#8A6B4E', borderRadius:'4px 4px 0 0',
                             opacity:interpolate(frame-s1-i*12,[0,15],[0,1],{extrapolateLeft:'clamp'})
                           }}></div>
-                          <span style={{fontSize:11, color:'#64748b'}}>{months[i]}</span>
+                          <span style={{fontSize:11, color:'#8A6B4E'}}>{months[i]}</span>
                         </div>
                       ))}
                     </div>
                   </div>
-                  <div style={{flex:1, padding:24, borderRadius:12, backgroundColor:'#ffffff', border:'1px solid #e2e8f0'}}>
-                    <h3 style={{fontSize:15, fontWeight:700, color:'#334155', marginBottom:16}}>Inspections by Type</h3>
-                    {[{l:'Water Damage',v:12,c:'#dc2626'},{l:'Fire & Smoke',v:6,c:'#f59e0b'},{l:'Mould',v:4,c:'#8b5cf6'},{l:'Storm',v:2,c:'#06b6d4'}].map((t,i) => (
+                  <div style={{flex:1, padding:24, borderRadius:12, backgroundColor:'#ffffff', border:'1px solid #2A3A55'}}>
+                    <h3 style={{fontSize:15, fontWeight:700, color:'#1C2E47', marginBottom:16}}>Inspections by Type</h3>
+                    {[{l:'Water Damage',v:12,c:'#8A6B4E'},{l:'Fire & Smoke',v:6,c:'#f59e0b'},{l:'Mould',v:4,c:'#8b5cf6'},{l:'Storm',v:2,c:'#06b6d4'}].map((t,i) => (
                       <div key={t.l} style={{
                         display:'flex', alignItems:'center', gap:12, marginBottom:12,
                         opacity:interpolate(frame-s1-i*10,[0,15],[0,1],{extrapolateLeft:'clamp'})
                       }}>
                         <div style={{width:12, height:12, borderRadius:'50%', backgroundColor:t.c}}></div>
-                        <span style={{flex:1, fontSize:14, color:'#475569'}}>{t.l}</span>
-                        <span style={{fontSize:14, fontWeight:700, color:'#334155'}}>{t.v}</span>
+                        <span style={{flex:1, fontSize:14, color:'#1C2E47'}}>{t.l}</span>
+                        <span style={{fontSize:14, fontWeight:700, color:'#1C2E47'}}>{t.v}</span>
                         <div style={{width:120, height:8, borderRadius:4, backgroundColor:'#f1f5f9'}}>
                           <div style={{width:(t.v/12)*120, height:'100%', borderRadius:4, backgroundColor:t.c}}></div>
                         </div>

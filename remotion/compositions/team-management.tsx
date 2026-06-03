@@ -17,7 +17,7 @@ export const TeamManagement = ({title, stepDurations}) => {
   const mainOpacity = interpolate(frame, [s1-10,s1], [0,1]);
 
   const team = [
-    {name:'Phill McGurk', role:'Lead Technician', status:'On-Site', jobs:8, avatar:'PM', color:'#dc2626'},
+    {name:'Phill McGurk', role:'Lead Technician', status:'On-Site', jobs:8, avatar:'PM', color:'#8A6B4E'},
     {name:'Sarah Chen', role:'Project Manager', status:'Office', jobs:12, avatar:'SC', color:'#2563eb'},
     {name:'Mike Torres', role:'Field Technician', status:'On-Site', jobs:6, avatar:'MT', color:'#059669'},
     {name:'Emma Wilson', role:'Admin & Billing', status:'Office', jobs:15, avatar:'EW', color:'#8b5cf6'},
@@ -35,15 +35,15 @@ export const TeamManagement = ({title, stepDurations}) => {
               <div style={{padding:32, flex:1, overflow:'auto'}}>
                 <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:24}}>
                   <div>
-                    <h1 style={{fontSize:26, fontWeight:700, color:'#1e293b', margin:0, fontFamily:'system-ui'}}>Team</h1>
-                    <p style={{fontSize:14, color:'#64748b', marginTop:4}}>4 members · 3 on-site · 1 in office</p>
+                    <h1 style={{fontSize:26, fontWeight:700, color:'#1C2E47', margin:0, fontFamily:'Inter'}}>Team</h1>
+                    <p style={{fontSize:14, color:'#8A6B4E', marginTop:4}}>4 members · 3 on-site · 1 in office</p>
                   </div>
-                  <button style={{padding:'10px 20px', borderRadius:8, border:'none', backgroundColor:'#dc2626', color:'#fff', fontSize:14, fontWeight:600}}>+ Invite Member</button>
+                  <button style={{padding:'10px 20px', borderRadius:8, border:'none', backgroundColor:'#8A6B4E', color:'#fff', fontSize:14, fontWeight:600}}>+ Invite Member</button>
                 </div>
                 <div style={{display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:16}}>
                   {team.map((member,i) => (
                     <div key={member.name} style={{
-                      padding:24, borderRadius:12, backgroundColor:'#ffffff', border:'1px solid #e2e8f0',
+                      padding:24, borderRadius:12, backgroundColor:'#ffffff', border:'1px solid #2A3A55',
                       opacity:interpolate(frame-s1-i*12,[0,15],[0,1],{extrapolateLeft:'clamp'})
                     }}>
                       <div style={{display:'flex', alignItems:'center', gap:16, marginBottom:16}}>
@@ -53,23 +53,23 @@ export const TeamManagement = ({title, stepDurations}) => {
                           fontSize:16, fontWeight:700, color:'#fff'
                         }}>{member.avatar}</div>
                         <div>
-                          <div style={{fontSize:16, fontWeight:700, color:'#334155', fontFamily:'system-ui'}}>{member.name}</div>
-                          <div style={{fontSize:13, color:'#64748b'}}>{member.role}</div>
+                          <div style={{fontSize:16, fontWeight:700, color:'#1C2E47', fontFamily:'Inter'}}>{member.name}</div>
+                          <div style={{fontSize:13, color:'#8A6B4E'}}>{member.role}</div>
                         </div>
                         <span style={{
                           marginLeft:'auto', padding:'4px 12px', borderRadius:12,
                           backgroundColor:member.status==='On-Site'?'#dcfce7':'#f1f5f9',
-                          color:member.status==='On-Site'?'#166534':'#64748b', fontSize:12, fontWeight:600
+                          color:member.status==='On-Site'?'#166534':'#8A6B4E', fontSize:12, fontWeight:600
                         }}>{member.status}</span>
                       </div>
                       <div style={{display:'flex', gap:24}}>
                         <div>
-                          <div style={{fontSize:12, color:'#94a3b8', marginBottom:2}}>Active Jobs</div>
+                          <div style={{fontSize:12, color:'#D4A574', marginBottom:2}}>Active Jobs</div>
                           <div style={{fontSize:20, fontWeight:800, color:member.color}}>{member.jobs}</div>
                         </div>
                         <div>
-                          <div style={{fontSize:12, color:'#94a3b8', marginBottom:2}}>Completion</div>
-                          <div style={{fontSize:20, fontWeight:800, color:'#334155'}}>{Math.round(member.jobs*10)}%</div>
+                          <div style={{fontSize:12, color:'#D4A574', marginBottom:2}}>Completion</div>
+                          <div style={{fontSize:20, fontWeight:800, color:'#1C2E47'}}>{Math.round(member.jobs*10)}%</div>
                         </div>
                       </div>
                     </div>

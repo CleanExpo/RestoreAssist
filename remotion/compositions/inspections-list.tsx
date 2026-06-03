@@ -19,9 +19,9 @@ export const InspectionsList = ({title, stepDurations}) => {
   const inspections = [
     {id:'INS-2026-0089', client:'Mrs Jane Smith', property:'42 Example St, Sydney', status:'In Progress', statusColor:'#f59e0b', date:'2 Jun 2026', team:'Phill McGurk'},
     {id:'INS-2026-0088', client:'Mr John Davis', property:'15 Ocean Rd, Bondi', status:'Report Ready', statusColor:'#059669', date:'1 Jun 2026', team:'Sarah Chen'},
-    {id:'INS-2026-0087', client:'Supreme Cleaning', property:'200 King St, Melbourne', status:'Completed', statusColor:'#64748b', date:'30 May 2026', team:'Mike Torres'},
+    {id:'INS-2026-0087', client:'Supreme Cleaning', property:'200 King St, Melbourne', status:'Completed', statusColor:'#8A6B4E', date:'30 May 2026', team:'Mike Torres'},
     {id:'INS-2026-0086', client:'Restoration Pro', property:'88 Bridge St, Brisbane', status:'In Progress', statusColor:'#f59e0b', date:'28 May 2026', team:'Phill McGurk'},
-    {id:'INS-2026-0085', client:'Elite Services', property:'5 Park Ave, Perth', status:'Completed', statusColor:'#64748b', date:'25 May 2026', team:'Sarah Chen'},
+    {id:'INS-2026-0085', client:'Elite Services', property:'5 Park Ave, Perth', status:'Completed', statusColor:'#8A6B4E', date:'25 May 2026', team:'Sarah Chen'},
   ];
 
   return (
@@ -36,37 +36,37 @@ export const InspectionsList = ({title, stepDurations}) => {
               <div style={{padding:32, flex:1, overflow:'auto'}}>
                 <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:24}}>
                   <div>
-                    <h1 style={{fontSize:28, fontWeight:700, color:'#1e293b', margin:0, fontFamily:'system-ui'}}>Inspections</h1>
-                    <p style={{fontSize:14, color:'#64748b', marginTop:4, fontFamily:'system-ui'}}>24 total · 8 in progress · 6 report ready · 10 completed</p>
+                    <h1 style={{fontSize:28, fontWeight:700, color:'#1C2E47', margin:0, fontFamily:'Inter'}}>Inspections</h1>
+                    <p style={{fontSize:14, color:'#8A6B4E', marginTop:4, fontFamily:'Inter'}}>24 total · 8 in progress · 6 report ready · 10 completed</p>
                   </div>
                   <div style={{display:'flex', gap:12}}>
-                    <button style={{padding:'10px 20px', borderRadius:8, border:'1px solid #e2e8f0', backgroundColor:'#fff', color:'#334155', fontSize:14, fontWeight:600}}>Export</button>
-                    <button style={{padding:'10px 20px', borderRadius:8, border:'none', backgroundColor:'#dc2626', color:'#fff', fontSize:14, fontWeight:600}}>+ New Inspection</button>
+                    <button style={{padding:'10px 20px', borderRadius:8, border:'1px solid #2A3A55', backgroundColor:'#fff', color:'#1C2E47', fontSize:14, fontWeight:600}}>Export</button>
+                    <button style={{padding:'10px 20px', borderRadius:8, border:'none', backgroundColor:'#8A6B4E', color:'#fff', fontSize:14, fontWeight:600}}>+ New Inspection</button>
                   </div>
                 </div>
                 <div style={{display:'flex', gap:12, marginBottom:20}}>
                   {['All','In Progress','Report Ready','Completed'].map((f,i) => (
-                    <span key={f} style={{padding:'8px 16px', borderRadius:8, backgroundColor:i===0?'#dc2626':'#f1f5f9', color:i===0?'#fff':'#64748b', fontSize:13, fontWeight:600, cursor:'pointer'}}>{f}</span>
+                    <span key={f} style={{padding:'8px 16px', borderRadius:8, backgroundColor:i===0?'#8A6B4E':'#f1f5f9', color:i===0?'#fff':'#8A6B4E', fontSize:13, fontWeight:600, cursor:'pointer'}}>{f}</span>
                   ))}
                 </div>
-                <table style={{width:'100%', borderCollapse:'collapse', fontFamily:'system-ui'}}>
+                <table style={{width:'100%', borderCollapse:'collapse', fontFamily:'Inter'}}>
                   <thead>
-                    <tr style={{borderBottom:'1px solid #e2e8f0'}}>
+                    <tr style={{borderBottom:'1px solid #2A3A55'}}>
                       {['ID','Client','Property','Status','Date','Assigned','Actions'].map(h => (
-                        <th key={h} style={{textAlign:'left', padding:'12px', fontSize:12, fontWeight:600, color:'#64748b', textTransform:'uppercase'}}>{h}</th>
+                        <th key={h} style={{textAlign:'left', padding:'12px', fontSize:12, fontWeight:600, color:'#8A6B4E', textTransform:'uppercase'}}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {inspections.map((row,i) => (
                       <tr key={row.id} style={{borderBottom:'1px solid #f1f5f9', opacity:interpolate(frame-s1-i*10,[0,15],[0,1],{extrapolateLeft:'clamp'})}}>
-                        <td style={{padding:14, fontSize:13, fontWeight:600, color:'#334155'}}>{row.id}</td>
-                        <td style={{padding:14, fontSize:13, color:'#475569'}}>{row.client}</td>
-                        <td style={{padding:14, fontSize:13, color:'#475569'}}>{row.property}</td>
+                        <td style={{padding:14, fontSize:13, fontWeight:600, color:'#1C2E47'}}>{row.id}</td>
+                        <td style={{padding:14, fontSize:13, color:'#1C2E47'}}>{row.client}</td>
+                        <td style={{padding:14, fontSize:13, color:'#1C2E47'}}>{row.property}</td>
                         <td style={{padding:14}}><span style={{padding:'4px 12px', borderRadius:12, backgroundColor:row.statusColor+'20', color:row.statusColor, fontSize:12, fontWeight:600}}>{row.status}</span></td>
-                        <td style={{padding:14, fontSize:13, color:'#64748b'}}>{row.date}</td>
-                        <td style={{padding:14, fontSize:13, color:'#475569'}}>{row.team}</td>
-                        <td style={{padding:14}}><span style={{cursor:'pointer', color:'#dc2626', fontWeight:600, fontSize:13}}>Open →</span></td>
+                        <td style={{padding:14, fontSize:13, color:'#8A6B4E'}}>{row.date}</td>
+                        <td style={{padding:14, fontSize:13, color:'#1C2E47'}}>{row.team}</td>
+                        <td style={{padding:14}}><span style={{cursor:'pointer', color:'#8A6B4E', fontWeight:600, fontSize:13}}>Open →</span></td>
                       </tr>
                     ))}
                   </tbody>

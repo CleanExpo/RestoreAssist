@@ -27,38 +27,38 @@ export const MoistureMapping = ({title, stepDurations}) => {
       <div style={{position:'absolute', inset:0, opacity:introOpacity, zIndex:introOpacity>0?100:0}}><IntroSlide title={title} /></div>
       <div style={{position:'absolute', inset:0, opacity:mainOpacity, zIndex:10}}>
         <ScreenContainer>
-          <div style={{padding:40, width:'100%', height:'100%', backgroundColor:'#f8fafc', display:'flex', gap:24}}>
+          <div style={{padding:40, width:'100%', height:'100%', backgroundColor:'#0A0A0A', display:'flex', gap:24}}>
             {/* Floor plan */}
             <div style={{
-              width:500, height:600, backgroundColor:'#ffffff', borderRadius:16, border:'1px solid #e2e8f0', padding:24,
+              width:500, height:600, backgroundColor:'#ffffff', borderRadius:16, border:'1px solid #2A3A55', padding:24,
               position:'relative'
             }}>
-              <h3 style={{fontSize:15, fontWeight:700, color:'#334155', marginBottom:16, fontFamily:'system-ui'}}>Moisture Map — Property Plan</h3>
+              <h3 style={{fontSize:15, fontWeight:700, color:'#1C2E47', marginBottom:16, fontFamily:'Inter'}}>Moisture Map — Property Plan</h3>
               {/* Room shapes */}
-              <div style={{position:'absolute', left:40, top:80, width:200, height:180, border:'2px solid #e2e8f0', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center'}}>
-                <span style={{fontSize:14, color:'#94a3b8', fontFamily:'system-ui'}}>Kitchen</span>
-                <div style={{position:'absolute', top:20, right:20, width:24, height:24, borderRadius:'50%', backgroundColor:'#dc2626', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, color:'#fff', fontWeight:700}}>85</div>
+              <div style={{position:'absolute', left:40, top:80, width:200, height:180, border:'2px solid #2A3A55', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center'}}>
+                <span style={{fontSize:14, color:'#D4A574', fontFamily:'Inter'}}>Kitchen</span>
+                <div style={{position:'absolute', top:20, right:20, width:24, height:24, borderRadius:'50%', backgroundColor:'#8A6B4E', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, color:'#fff', fontWeight:700}}>85</div>
               </div>
-              <div style={{position:'absolute', left:260, top:80, width:180, height:180, border:'2px solid #e2e8f0', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center'}}>
-                <span style={{fontSize:14, color:'#94a3b8', fontFamily:'system-ui'}}>Dining</span>
+              <div style={{position:'absolute', left:260, top:80, width:180, height:180, border:'2px solid #2A3A55', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center'}}>
+                <span style={{fontSize:14, color:'#D4A574', fontFamily:'Inter'}}>Dining</span>
                 <div style={{position:'absolute', top:30, left:30, width:24, height:24, borderRadius:'50%', backgroundColor:'#f59e0b', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, color:'#fff', fontWeight:700}}>45</div>
               </div>
-              <div style={{position:'absolute', left:40, top:280, width:400, height:100, border:'2px solid #e2e8f0', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center'}}>
-                <span style={{fontSize:14, color:'#94a3b8', fontFamily:'system-ui'}}>Hallway</span>
+              <div style={{position:'absolute', left:40, top:280, width:400, height:100, border:'2px solid #2A3A55', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center'}}>
+                <span style={{fontSize:14, color:'#D4A574', fontFamily:'Inter'}}>Hallway</span>
                 <div style={{position:'absolute', top:30, right:100, width:24, height:24, borderRadius:'50%', backgroundColor:'#059669', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, color:'#fff', fontWeight:700}}>12</div>
               </div>
               <div style={{position:'absolute', bottom:20, left:24, display:'flex', gap:16}}>
-                {[{c:'#dc2626',l:'Elevated >50%'},{c:'#f59e0b',l:'Borderline 16-50%'},{c:'#059669',l:'Dry <16%'}].map(item => (
+                {[{c:'#8A6B4E',l:'Elevated >50%'},{c:'#f59e0b',l:'Borderline 16-50%'},{c:'#059669',l:'Dry <16%'}].map(item => (
                   <div key={item.l} style={{display:'flex', alignItems:'center', gap:6}}>
                     <div style={{width:12, height:12, borderRadius:'50%', backgroundColor:item.c}}></div>
-                    <span style={{fontSize:12, color:'#64748b'}}>{item.l}</span>
+                    <span style={{fontSize:12, color:'#8A6B4E'}}>{item.l}</span>
                   </div>
                 ))}
               </div>
             </div>
             {/* Readings list */}
-            <div style={{flex:1, backgroundColor:'#ffffff', borderRadius:16, border:'1px solid #e2e8f0', padding:24}}>
-              <h3 style={{fontSize:15, fontWeight:700, color:'#334155', marginBottom:16, fontFamily:'system-ui'}}>Moisture Readings</h3>
+            <div style={{flex:1, backgroundColor:'#ffffff', borderRadius:16, border:'1px solid #2A3A55', padding:24}}>
+              <h3 style={{fontSize:15, fontWeight:700, color:'#1C2E47', marginBottom:16, fontFamily:'Inter'}}>Moisture Readings</h3>
               {readings.map((r,i) => (
                 <div key={r.location} style={{
                   display:'flex', justifyContent:'space-between', alignItems:'center', padding:'14px 0',
@@ -66,13 +66,13 @@ export const MoistureMapping = ({title, stepDurations}) => {
                   opacity:interpolate(frame-s1-i*15,[0,20],[0,1],{extrapolateLeft:'clamp'})
                 }}>
                   <div>
-                    <div style={{fontSize:14, fontWeight:600, color:'#334155'}}>{r.location}</div>
-                    <div style={{fontSize:12, color:'#94a3b8', marginTop:2}}>Target: {r.target}</div>
+                    <div style={{fontSize:14, fontWeight:600, color:'#1C2E47'}}>{r.location}</div>
+                    <div style={{fontSize:12, color:'#D4A574', marginTop:2}}>Target: {r.target}</div>
                   </div>
                   <div style={{
                     padding:'6px 16px', borderRadius:20,
                     backgroundColor: r.status==='elevated'? '#fef2f2' : r.status==='dry'? '#f0fdf4' : '#fef3c7',
-                    color: r.status==='elevated'? '#dc2626' : r.status==='dry'? '#059669' : '#d97706',
+                    color: r.status==='elevated'? '#8A6B4E' : r.status==='dry'? '#059669' : '#d97706',
                     fontSize:14, fontWeight:700
                   }}>{r.reading}</div>
                 </div>

@@ -31,53 +31,53 @@ export const QuoteBuilder = ({title, stepDurations}) => {
       <div style={{position:'absolute', inset:0, opacity:introOpacity, zIndex:introOpacity>0?100:0}}><IntroSlide title={title} /></div>
       <div style={{position:'absolute', inset:0, opacity:mainOpacity, zIndex:10}}>
         <ScreenContainer>
-          <div style={{padding:40, width:'100%', height:'100%', backgroundColor:'#f8fafc', overflow:'auto'}}>
-            <div style={{maxWidth:800, margin:'0 auto', backgroundColor:'#ffffff', borderRadius:16, border:'1px solid #e2e8f0', padding:40}}>
+          <div style={{padding:40, width:'100%', height:'100%', backgroundColor:'#0A0A0A', overflow:'auto'}}>
+            <div style={{maxWidth:800, margin:'0 auto', backgroundColor:'#ffffff', borderRadius:16, border:'1px solid #2A3A55', padding:40}}>
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:24}}>
                 <div>
-                  <h1 style={{fontSize:24, fontWeight:700, color:'#1e293b', margin:0}}>Quote</h1>
-                  <p style={{fontSize:13, color:'#94a3b8', marginTop:4}}>QTE-2026-0042 · 2 Jun 2026</p>
+                  <h1 style={{fontSize:24, fontWeight:700, color:'#1C2E47', margin:0}}>Quote</h1>
+                  <p style={{fontSize:13, color:'#D4A574', marginTop:4}}>QTE-2026-0042 · 2 Jun 2026</p>
                 </div>
                 <div style={{textAlign:'right'}}>
-                  <div style={{fontSize:15, fontWeight:700, color:'#1e293b'}}>CleanExpo Restoration</div>
-                  <div style={{fontSize:13, color:'#64748b'}}>ABN 12 345 678 901</div>
+                  <div style={{fontSize:15, fontWeight:700, color:'#1C2E47'}}>CleanExpo Restoration</div>
+                  <div style={{fontSize:13, color:'#8A6B4E'}}>ABN 12 345 678 901</div>
                 </div>
               </div>
-              <div style={{padding:16, borderRadius:8, backgroundColor:'#f8fafc', marginBottom:24}}>
-                <div style={{fontSize:14, fontWeight:600, color:'#334155', marginBottom:4}}>Prepared For</div>
-                <div style={{fontSize:14, color:'#475569'}}>Mrs Jane Smith</div>
-                <div style={{fontSize:13, color:'#94a3b8'}}>42 Example Street, Sydney NSW 2000</div>
+              <div style={{padding:16, borderRadius:8, backgroundColor:'#0A0A0A', marginBottom:24}}>
+                <div style={{fontSize:14, fontWeight:600, color:'#1C2E47', marginBottom:4}}>Prepared For</div>
+                <div style={{fontSize:14, color:'#1C2E47'}}>Mrs Jane Smith</div>
+                <div style={{fontSize:13, color:'#D4A574'}}>42 Example Street, Sydney NSW 2000</div>
               </div>
               <table style={{width:'100%', borderCollapse:'collapse', marginBottom:24}}>
                 <thead>
-                  <tr style={{borderBottom:'1px solid #e2e8f0'}}>
+                  <tr style={{borderBottom:'1px solid #2A3A55'}}>
                     {['Description','Qty','Unit','Rate','Total'].map(h => (
-                      <th key={h} style={{textAlign:h==='Description'?'left':'right', padding:'10px', fontSize:12, fontWeight:600, color:'#64748b', textTransform:'uppercase'}}>{h}</th>
+                      <th key={h} style={{textAlign:h==='Description'?'left':'right', padding:'10px', fontSize:12, fontWeight:600, color:'#8A6B4E', textTransform:'uppercase'}}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {lineItems.map((item,i) => (
                     <tr key={item.desc} style={{borderBottom:'1px solid #f1f5f9', opacity:interpolate(frame-s1-i*12,[0,20],[0,1],{extrapolateLeft:'clamp'})}}>
-                      <td style={{padding:'12px 10px', fontSize:14, color:'#334155'}}>{item.desc}</td>
-                      <td style={{padding:'12px 10px', fontSize:14, color:'#475569', textAlign:'right'}}>{item.qty}</td>
-                      <td style={{padding:'12px 10px', fontSize:14, color:'#475569', textAlign:'right'}}>{item.unit}</td>
-                      <td style={{padding:'12px 10px', fontSize:14, color:'#475569', textAlign:'right'}}>${item.rate}</td>
-                      <td style={{padding:'12px 10px', fontSize:14, fontWeight:600, color:'#334155', textAlign:'right'}}>${item.total}</td>
+                      <td style={{padding:'12px 10px', fontSize:14, color:'#1C2E47'}}>{item.desc}</td>
+                      <td style={{padding:'12px 10px', fontSize:14, color:'#1C2E47', textAlign:'right'}}>{item.qty}</td>
+                      <td style={{padding:'12px 10px', fontSize:14, color:'#1C2E47', textAlign:'right'}}>{item.unit}</td>
+                      <td style={{padding:'12px 10px', fontSize:14, color:'#1C2E47', textAlign:'right'}}>${item.rate}</td>
+                      <td style={{padding:'12px 10px', fontSize:14, fontWeight:600, color:'#1C2E47', textAlign:'right'}}>${item.total}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              <div style={{borderTop:'2px solid #e2e8f0', paddingTop:16, display:'flex', flexDirection:'column', alignItems:'flex-end', gap:8}}>
-                <div style={{display:'flex', justifyContent:'space-between', width:200, fontSize:14, color:'#475569'}}><span>Subtotal</span><span>${subtotal}</span></div>
-                <div style={{display:'flex', justifyContent:'space-between', width:200, fontSize:14, color:'#475569'}}><span>GST (10%)</span><span>${gst.toFixed(2)}</span></div>
-                <div style={{display:'flex', justifyContent:'space-between', width:200, fontSize:18, fontWeight:800, color:'#1e293b', borderTop:'1px solid #e2e8f0', paddingTop:8, marginTop:4}}>
+              <div style={{borderTop:'2px solid #2A3A55', paddingTop:16, display:'flex', flexDirection:'column', alignItems:'flex-end', gap:8}}>
+                <div style={{display:'flex', justifyContent:'space-between', width:200, fontSize:14, color:'#1C2E47'}}><span>Subtotal</span><span>${subtotal}</span></div>
+                <div style={{display:'flex', justifyContent:'space-between', width:200, fontSize:14, color:'#1C2E47'}}><span>GST (10%)</span><span>${gst.toFixed(2)}</span></div>
+                <div style={{display:'flex', justifyContent:'space-between', width:200, fontSize:18, fontWeight:800, color:'#1C2E47', borderTop:'1px solid #2A3A55', paddingTop:8, marginTop:4}}>
                   <span>Total</span><span>${grandTotal.toFixed(2)}</span>
                 </div>
               </div>
               <div style={{display:'flex', gap:12, marginTop:24, justifyContent:'flex-end'}}>
-                <button style={{padding:'12px 24px', borderRadius:8, border:'1px solid #e2e8f0', backgroundColor:'#fff', color:'#334155', fontSize:14, fontWeight:600}}>Save Draft</button>
-                <button style={{padding:'12px 24px', borderRadius:8, border:'none', backgroundColor:'#dc2626', color:'#fff', fontSize:14, fontWeight:600}}>Send to Client</button>
+                <button style={{padding:'12px 24px', borderRadius:8, border:'1px solid #2A3A55', backgroundColor:'#fff', color:'#1C2E47', fontSize:14, fontWeight:600}}>Save Draft</button>
+                <button style={{padding:'12px 24px', borderRadius:8, border:'none', backgroundColor:'#8A6B4E', color:'#fff', fontSize:14, fontWeight:600}}>Send to Client</button>
               </div>
             </div>
           </div>

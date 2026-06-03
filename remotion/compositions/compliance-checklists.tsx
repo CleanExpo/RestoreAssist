@@ -45,18 +45,18 @@ export const ComplianceChecklists = ({title, stepDurations}) => {
               <div style={{padding:32, flex:1, overflow:'auto'}}>
                 <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:24}}>
                   <div>
-                    <h1 style={{fontSize:26, fontWeight:700, color:'#1e293b', margin:0, fontFamily:'system-ui'}}>Safety Compliance Checklist</h1>
-                    <p style={{fontSize:14, color:'#64748b', marginTop:4}}>INS-2026-0089 · Water Damage · Category 1</p>
+                    <h1 style={{fontSize:26, fontWeight:700, color:'#1C2E47', margin:0, fontFamily:'Inter'}}>Safety Compliance Checklist</h1>
+                    <p style={{fontSize:14, color:'#8A6B4E', marginTop:4}}>INS-2026-0089 · Water Damage · Category 1</p>
                   </div>
                   <div style={{
                     padding:'12px 24px', borderRadius:12, backgroundColor:'#fef2f2', border:'1px solid #fecaca',
                     display:'flex', alignItems:'center', gap:12
                   }}>
-                    <div style={{fontSize:28, fontWeight:800, color:'#dc2626'}}>{percent}%</div>
-                    <div style={{fontSize:13, color:'#7f1d1d', fontFamily:'system-ui'}}>{progress}/{total} completed</div>
+                    <div style={{fontSize:28, fontWeight:800, color:'#8A6B4E'}}>{percent}%</div>
+                    <div style={{fontSize:13, color:'#7f1d1d', fontFamily:'Inter'}}>{progress}/{total} completed</div>
                   </div>
                 </div>
-                <div style={{backgroundColor:'#ffffff', borderRadius:12, border:'1px solid #e2e8f0', overflow:'hidden'}}>
+                <div style={{backgroundColor:'#ffffff', borderRadius:12, border:'1px solid #2A3A55', overflow:'hidden'}}>
                   {items.map((item,i) => (
                     <div key={item.id} style={{
                       display:'flex', alignItems:'center', padding:'14px 20px',
@@ -64,14 +64,14 @@ export const ComplianceChecklists = ({title, stepDurations}) => {
                       opacity:interpolate(frame-s1-i*8,[0,15],[0,1],{extrapolateLeft:'clamp'})
                     }}>
                       <div style={{
-                        width:24, height:24, borderRadius:'50%', border:'2px solid ' + (item.completed?'#059669':'#e2e8f0'),
+                        width:24, height:24, borderRadius:'50%', border:'2px solid ' + (item.completed?'#059669':'#2A3A55'),
                         backgroundColor:item.completed?'#059669':'transparent',
                         display:'flex', alignItems:'center', justifyContent:'center',
                         marginRight:14, fontSize:12, color:'#fff'
                       }}>{item.completed && '✓'}</div>
-                      <div style={{flex:1, fontSize:14, color:item.completed?'#64748b':'#334155', fontFamily:'system-ui', textDecoration:item.completed?'line-through':'none'}}>{item.task}</div>
-                      {item.required && <span style={{padding:'2px 8px', borderRadius:4, backgroundColor:'#fef2f2', color:'#dc2626', fontSize:10, fontWeight:700, marginRight:12}}>REQUIRED</span>}
-                      {!item.completed && <button style={{padding:'6px 14px', borderRadius:6, border:'1px solid #e2e8f0', backgroundColor:'#fff', color:'#334155', fontSize:12, fontWeight:600, cursor:'pointer'}}>Mark Done</button>}
+                      <div style={{flex:1, fontSize:14, color:item.completed?'#8A6B4E':'#1C2E47', fontFamily:'Inter', textDecoration:item.completed?'line-through':'none'}}>{item.task}</div>
+                      {item.required && <span style={{padding:'2px 8px', borderRadius:4, backgroundColor:'#fef2f2', color:'#8A6B4E', fontSize:10, fontWeight:700, marginRight:12}}>REQUIRED</span>}
+                      {!item.completed && <button style={{padding:'6px 14px', borderRadius:6, border:'1px solid #2A3A55', backgroundColor:'#fff', color:'#1C2E47', fontSize:12, fontWeight:600, cursor:'pointer'}}>Mark Done</button>}
                     </div>
                   ))}
                 </div>

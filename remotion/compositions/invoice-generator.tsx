@@ -19,7 +19,7 @@ export const InvoiceGenerator = ({title, stepDurations}) => {
   const invoices = [
     {id:'INV-2026-0124', client:'Mrs Jane Smith', amount:'$4,850.00', status:'Paid', date:'2 Jun 2026', color:'#059669'},
     {id:'INV-2026-0123', client:'Mr John Davis', amount:'$8,200.00', status:'Pending', date:'1 Jun 2026', color:'#f59e0b'},
-    {id:'INV-2026-0122', client:'Supreme Cleaning', amount:'$2,400.00', status:'Overdue', date:'15 May 2026', color:'#dc2626'},
+    {id:'INV-2026-0122', client:'Supreme Cleaning', amount:'$2,400.00', status:'Overdue', date:'15 May 2026', color:'#8A6B4E'},
   ];
 
   return (
@@ -34,20 +34,20 @@ export const InvoiceGenerator = ({title, stepDurations}) => {
               <div style={{padding:32, flex:1, overflow:'auto'}}>
                 <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:24}}>
                   <div>
-                    <h1 style={{fontSize:28, fontWeight:700, color:'#1e293b', margin:0, fontFamily:'system-ui'}}>Invoices</h1>
-                    <p style={{fontSize:14, color:'#64748b', marginTop:4}}>$15,450 total · $8,200 outstanding</p>
+                    <h1 style={{fontSize:28, fontWeight:700, color:'#1C2E47', margin:0, fontFamily:'Inter'}}>Invoices</h1>
+                    <p style={{fontSize:14, color:'#8A6B4E', marginTop:4}}>$15,450 total · $8,200 outstanding</p>
                   </div>
-                  <button style={{padding:'10px 20px', borderRadius:8, border:'none', backgroundColor:'#dc2626', color:'#fff', fontSize:14, fontWeight:600}}>+ New Invoice</button>
+                  <button style={{padding:'10px 20px', borderRadius:8, border:'none', backgroundColor:'#8A6B4E', color:'#fff', fontSize:14, fontWeight:600}}>+ New Invoice</button>
                 </div>
                 <div style={{display:'flex', gap:16, marginBottom:24}}>
-                  {[{l:'Total Revenue', v:'$15,450', c:'#1e293b'},{l:'Paid', v:'$4,850', c:'#059669'},{l:'Outstanding', v:'$8,200', c:'#f59e0b'},{l:'Overdue', v:'$2,400', c:'#dc2626'}].map((stat,i) => (
-                    <div key={stat.l} style={{flex:1, padding:20, borderRadius:12, backgroundColor:'#ffffff', border:'1px solid #e2e8f0', opacity:interpolate(frame-s1-i*10,[0,15],[0,1],{extrapolateLeft:'clamp'})}}>
-                      <div style={{fontSize:12, color:'#94a3b8', textTransform:'uppercase', fontWeight:600, marginBottom:4}}>{stat.l}</div>
+                  {[{l:'Total Revenue', v:'$15,450', c:'#1C2E47'},{l:'Paid', v:'$4,850', c:'#059669'},{l:'Outstanding', v:'$8,200', c:'#f59e0b'},{l:'Overdue', v:'$2,400', c:'#8A6B4E'}].map((stat,i) => (
+                    <div key={stat.l} style={{flex:1, padding:20, borderRadius:12, backgroundColor:'#ffffff', border:'1px solid #2A3A55', opacity:interpolate(frame-s1-i*10,[0,15],[0,1],{extrapolateLeft:'clamp'})}}>
+                      <div style={{fontSize:12, color:'#D4A574', textTransform:'uppercase', fontWeight:600, marginBottom:4}}>{stat.l}</div>
                       <div style={{fontSize:28, fontWeight:800, color:stat.c}}>{stat.v}</div>
                     </div>
                   ))}
                 </div>
-                <div style={{backgroundColor:'#ffffff', borderRadius:12, border:'1px solid #e2e8f0', overflow:'hidden'}}>
+                <div style={{backgroundColor:'#ffffff', borderRadius:12, border:'1px solid #2A3A55', overflow:'hidden'}}>
                   {invoices.map((inv,i) => (
                     <div key={inv.id} style={{
                       display:'flex', justifyContent:'space-between', alignItems:'center', padding:'18px 24px',
@@ -55,13 +55,13 @@ export const InvoiceGenerator = ({title, stepDurations}) => {
                       opacity:interpolate(frame-s1-i*15,[0,15],[0,1],{extrapolateLeft:'clamp'})
                     }}>
                       <div>
-                        <div style={{fontSize:14, fontWeight:600, color:'#334155', fontFamily:'system-ui'}}>{inv.id}</div>
-                        <div style={{fontSize:13, color:'#64748b', marginTop:2}}>{inv.client}</div>
+                        <div style={{fontSize:14, fontWeight:600, color:'#1C2E47', fontFamily:'Inter'}}>{inv.id}</div>
+                        <div style={{fontSize:13, color:'#8A6B4E', marginTop:2}}>{inv.client}</div>
                       </div>
                       <div style={{display:'flex', alignItems:'center', gap:16}}>
-                        <div style={{fontSize:15, fontWeight:700, color:'#1e293b', fontFamily:'system-ui'}}>{inv.amount}</div>
+                        <div style={{fontSize:15, fontWeight:700, color:'#1C2E47', fontFamily:'Inter'}}>{inv.amount}</div>
                         <span style={{padding:'4px 12px', borderRadius:12, backgroundColor:inv.color+'20', color:inv.color, fontSize:12, fontWeight:600}}>{inv.status}</span>
-                        <button style={{padding:'8px 16px', borderRadius:6, border:'1px solid #e2e8f0', backgroundColor:'#fff', color:'#334155', fontSize:12, fontWeight:600, cursor:'pointer'}}>View</button>
+                        <button style={{padding:'8px 16px', borderRadius:6, border:'1px solid #2A3A55', backgroundColor:'#fff', color:'#1C2E47', fontSize:12, fontWeight:600, cursor:'pointer'}}>View</button>
                       </div>
                     </div>
                   ))}

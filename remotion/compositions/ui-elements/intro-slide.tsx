@@ -9,7 +9,7 @@ export const IntroSlide = ({title}) => {
   const logoY = interpolate(frame, [0, 20], [30, 0], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
 
   return (
-    <AbsoluteFill style={{backgroundColor: '#0f172a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'system-ui, sans-serif'}}>
+    <AbsoluteFill style={{backgroundColor: '#1C2E47', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter, sans-serif'}}>
       <div style={{
         display: 'flex',
         alignItems: 'center',
@@ -18,10 +18,10 @@ export const IntroSlide = ({title}) => {
         opacity: Math.min(1, frame / 15),
         transform: `translateY(${logoY}px)`,
       }}>
-        <div style={{width: 64, height: 64, borderRadius: 16, backgroundColor: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32}}>🏗</div>
+        <div style={{width: 64, height: 64, borderRadius: 16, backgroundColor: '#8A6B4E', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32}}><img src='/logo.png' style={{width: 40, height: 'auto', objectFit: 'contain'}} /></div>
         <div>
           <div style={{fontSize: 36, fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em'}}>RestoreAssist</div>
-          <div style={{fontSize: 16, color: '#94a3b8', marginTop: 4}}>Restoration Management Platform</div>
+          <div style={{fontSize: 16, color: '#D4A574', marginTop: 4}}>Restoration Management Platform</div>
         </div>
       </div>
 
@@ -39,7 +39,7 @@ export const IntroSlide = ({title}) => {
 
       <div style={{
         fontSize: 20,
-        color: '#64748b',
+        color: '#8A6B4E',
         marginTop: 24,
         opacity: Math.min(1, (frame - 20) / 20),
         display: 'flex',

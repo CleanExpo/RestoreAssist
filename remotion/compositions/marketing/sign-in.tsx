@@ -29,57 +29,57 @@ export const SignIn = ({title, stepDurations}) => {
             justifyContent: 'center',
             width: '100%',
             height: '100%',
-            backgroundColor: '#f8fafc',
+            backgroundColor: '#0A0A0A',
           }}>
             <div style={{
               width: 480,
               backgroundColor: '#ffffff',
               borderRadius: 16,
-              border: '1px solid #e2e8f0',
+              border: '1px solid #2A3A55',
               padding: 40,
               boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
             }}>
               <div style={{textAlign: 'center', marginBottom: 32}}>
                 <div style={{
-                  width: 56, height: 56, borderRadius: 14, backgroundColor: '#dc2626',
+                  width: 56, height: 56, borderRadius: 14, backgroundColor: '#8A6B4E',
                   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 28, marginBottom: 16,
-                }}>🏗</div>
-                <h2 style={{fontSize: 22, fontWeight: 700, color: '#1e293b', margin: 0, fontFamily: 'system-ui'}}>Welcome Back</h2>
-                <p style={{fontSize: 14, color: '#64748b', marginTop: 8, fontFamily: 'system-ui'}}>Sign in to your RestoreAssist account.</p>
+                }}><img src='/logo.png' style={{width: 40, height: 'auto', objectFit: 'contain'}} /></div>
+                <h2 style={{fontSize: 22, fontWeight: 700, color: '#1C2E47', margin: 0, fontFamily: 'Inter'}}>Welcome Back</h2>
+                <p style={{fontSize: 14, color: '#8A6B4E', marginTop: 8, fontFamily: 'Inter'}}>Sign in to your RestoreAssist account.</p>
               </div>
 
               <div style={{display: 'flex', flexDirection: 'column', gap: 16}}>
                 <div>
-                  <label style={{display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6, fontFamily: 'system-ui'}}>Email Address</label>
+                  <label style={{display: 'block', fontSize: 13, fontWeight: 600, color: '#1C2E47', marginBottom: 6, fontFamily: 'Inter'}}>Email Address</label>
                   <div style={{
-                    padding: '12px 16px', borderRadius: 8, border: '1px solid #e2e8f0',
-                    backgroundColor: '#ffffff', fontSize: 14, color: '#334155', fontFamily: 'system-ui',
+                    padding: '12px 16px', borderRadius: 8, border: '1px solid #2A3A55',
+                    backgroundColor: '#ffffff', fontSize: 14, color: '#1C2E47', fontFamily: 'Inter',
                   }}>contact@cleanexpo.com</div>
                 </div>
                 <div>
-                  <label style={{display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6, fontFamily: 'system-ui'}}>Password</label>
+                  <label style={{display: 'block', fontSize: 13, fontWeight: 600, color: '#1C2E47', marginBottom: 6, fontFamily: 'Inter'}}>Password</label>
                   <div style={{
-                    padding: '12px 16px', borderRadius: 8, border: '1px solid #e2e8f0',
-                    backgroundColor: '#ffffff', fontSize: 14, color: '#334155', fontFamily: 'system-ui',
+                    padding: '12px 16px', borderRadius: 8, border: '1px solid #2A3A55',
+                    backgroundColor: '#ffffff', fontSize: 14, color: '#1C2E47', fontFamily: 'Inter',
                   }}>••••••••••••</div>
                 </div>
                 <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                  <label style={{display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#475569', fontFamily: 'system-ui', cursor: 'pointer'}}>
-                    <input type="checkbox" checked style={{accentColor: '#dc2626'}} />
+                  <label style={{display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#1C2E47', fontFamily: 'Inter', cursor: 'pointer'}}>
+                    <input type="checkbox" checked style={{accentColor: '#8A6B4E'}} />
                     Remember me
                   </label>
-                  <span style={{fontSize: 13, color: '#dc2626', fontWeight: 600, cursor: 'pointer', fontFamily: 'system-ui'}}>Forgot password?</span>
+                  <span style={{fontSize: 13, color: '#8A6B4E', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter'}}>Forgot password?</span>
                 </div>
                 <button style={{
                   width: '100%', padding: '14px', borderRadius: 8, border: 'none',
-                  backgroundColor: '#dc2626', color: '#ffffff', fontSize: 16,
-                  fontWeight: 700, fontFamily: 'system-ui', cursor: 'pointer', marginTop: 8,
+                  backgroundColor: '#8A6B4E', color: '#ffffff', fontSize: 16,
+                  fontWeight: 700, fontFamily: 'Inter', cursor: 'pointer', marginTop: 8,
                 }}>Sign In</button>
                 <div style={{
-                  padding: '14px', borderRadius: 8, border: '1px solid #e2e8f0',
-                  backgroundColor: '#ffffff', color: '#334155', fontSize: 16,
-                  fontWeight: 600, fontFamily: 'system-ui', textAlign: 'center',
+                  padding: '14px', borderRadius: 8, border: '1px solid #2A3A55',
+                  backgroundColor: '#ffffff', color: '#1C2E47', fontSize: 16,
+                  fontWeight: 600, fontFamily: 'Inter', textAlign: 'center',
                   cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
                 }}>
                   <span style={{fontSize: 20}}>🔐</span>
@@ -87,8 +87,8 @@ export const SignIn = ({title, stepDurations}) => {
                 </div>
               </div>
 
-              <div style={{marginTop: 20, fontSize: 13, color: '#94a3b8', textAlign: 'center', fontFamily: 'system-ui'}}>
-                Need an account? <span style={{color: '#dc2626', fontWeight: 600, cursor: 'pointer'}}>Sign Up</span>
+              <div style={{marginTop: 20, fontSize: 13, color: '#D4A574', textAlign: 'center', fontFamily: 'Inter'}}>
+                Need an account? <span style={{color: '#8A6B4E', fontWeight: 600, cursor: 'pointer'}}>Sign Up</span>
               </div>
             </div>
           </div>
@@ -113,7 +113,7 @@ export const SignIn = ({title, stepDurations}) => {
       </div>
 
       <div style={{position: 'absolute', inset: 0, opacity: outroOpacity, zIndex: outroOpacity > 0 ? 100 : 0}}>
-        <OutroSlide title="Welcome back to RestoreAssist." subtitle="CleanExpo" />
+        <OutroSlide title="Welcome back to RestoreAssist." subtitle="RestoreAssist" />
       </div>
     </AbsoluteFill>
   );

@@ -37,28 +37,28 @@ export const ReportBuilder = ({title, stepDurations}) => {
                   <div>
                     <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24}}>
                       <div>
-                        <div style={{fontSize: 13, color: '#94a3b8', fontFamily: 'system-ui'}}>INS-2026-0089</div>
-                        <h1 style={{fontSize: 26, fontWeight: 700, color: '#1e293b', margin: 0, fontFamily: 'system-ui'}}>Critical Report Builder</h1>
+                        <div style={{fontSize: 13, color: '#D4A574', fontFamily: 'Inter'}}>INS-2026-0089</div>
+                        <h1 style={{fontSize: 26, fontWeight: 700, color: '#1C2E47', margin: 0, fontFamily: 'Inter'}}>Critical Report Builder</h1>
                       </div>
                       <div style={{display: 'flex', gap: 12}}>
-                        <button style={{padding: '10px 20px', borderRadius: 8, border: '1px solid #e2e8f0', backgroundColor: '#fff', color: '#334155', fontSize: 14, fontWeight: 600, fontFamily: 'system-ui'}}>Preview</button>
-                        <button style={{padding: '10px 20px', borderRadius: 8, border: 'none', backgroundColor: '#dc2626', color: '#fff', fontSize: 14, fontWeight: 600, fontFamily: 'system-ui'}}>Publish</button>
+                        <button style={{padding: '10px 20px', borderRadius: 8, border: '1px solid #2A3A55', backgroundColor: '#fff', color: '#1C2E47', fontSize: 14, fontWeight: 600, fontFamily: 'Inter'}}>Preview</button>
+                        <button style={{padding: '10px 20px', borderRadius: 8, border: 'none', backgroundColor: '#8A6B4E', color: '#fff', fontSize: 14, fontWeight: 600, fontFamily: 'Inter'}}>Publish</button>
                       </div>
                     </div>
 
                     <div style={{display: 'grid', gridTemplateColumns: '280px 1fr', gap: 24}}>
                       <div>
-                        <h3 style={{fontSize: 13, fontWeight: 600, color: '#64748b', margin: '0 0 12px', fontFamily: 'system-ui', textTransform: 'uppercase', letterSpacing: '0.05em'}}>Sections</h3>
+                        <h3 style={{fontSize: 13, fontWeight: 600, color: '#8A6B4E', margin: '0 0 12px', fontFamily: 'Inter', textTransform: 'uppercase', letterSpacing: '0.05em'}}>Sections</h3>
                         <div style={{display: 'flex', flexDirection: 'column', gap: 4}}>
                           {sections.map((sec, i) => (
                             <div key={sec} style={{
                               padding: '10px 14px',
                               borderRadius: 8,
                               backgroundColor: i === 0 ? '#fef2f2' : 'transparent',
-                              color: i === 0 ? '#dc2626' : '#475569',
+                              color: i === 0 ? '#8A6B4E' : '#1C2E47',
                               fontSize: 14,
                               fontWeight: i === 0 ? 600 : 500,
-                              fontFamily: 'system-ui',
+                              fontFamily: 'Inter',
                               cursor: 'pointer',
                             }}>{sec}</div>
                           ))}
@@ -116,10 +116,10 @@ const EditorCard = ({title, content}) => (
     padding: 20,
     borderRadius: 12,
     backgroundColor: '#ffffff',
-    border: '1px solid #e2e8f0',
+    border: '1px solid #2A3A55',
     marginBottom: 16,
   }}>
-    <h4 style={{fontSize: 15, fontWeight: 600, color: '#334155', margin: '0 0 8px', fontFamily: 'system-ui'}}>{title}</h4>
-    <p style={{fontSize: 14, color: '#475569', lineHeight: 1.6, margin: 0, fontFamily: 'system-ui'}}>{content}</p>
+    <h4 style={{fontSize: 15, fontWeight: 600, color: '#1C2E47', margin: '0 0 8px', fontFamily: 'Inter'}}>{title}</h4>
+    <p style={{fontSize: 14, color: '#1C2E47', lineHeight: 1.6, margin: 0, fontFamily: 'Inter'}}>{content}</p>
   </div>
 );

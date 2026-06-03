@@ -31,7 +31,7 @@ export const ClientPortal = ({title, stepDurations}) => {
               {/* Step 1: Report list */}
               {frame >= s1 && frame < s2 && (
                 <div style={{padding: 32, maxWidth: 900, margin: '0 auto'}}>
-                  <h1 style={{fontSize: 26, fontWeight: 700, color: '#1e293b', margin: '0 0 24px', fontFamily: 'system-ui'}}>Reports Ready for Sharing</h1>
+                  <h1 style={{fontSize: 26, fontWeight: 700, color: '#1C2E47', margin: '0 0 24px', fontFamily: 'Inter'}}>Reports Ready for Sharing</h1>
                   <div style={{display: 'flex', flexDirection: 'column', gap: 16}}>
                     {[
                       {id: 'RPT-2026-0189', title: 'Water Damage — Kitchen', client: 'Mrs Jane Smith', status: 'Ready', date: '2 Jun 2026'},
@@ -43,13 +43,13 @@ export const ClientPortal = ({title, stepDurations}) => {
                         alignItems: 'center',
                         padding: 20,
                         borderRadius: 12,
-                        backgroundColor: i === 0 ? '#ffffff' : '#f8fafc',
-                        border: '1px solid ' + (i === 0 ? '#e2e8f0' : '#f1f5f9'),
+                        backgroundColor: i === 0 ? '#ffffff' : '#0A0A0A',
+                        border: '1px solid ' + (i === 0 ? '#2A3A55' : '#f1f5f9'),
                       }}>
                         <div>
-                          <div style={{fontSize: 12, color: '#94a3b8', fontFamily: 'system-ui'}}>{r.id}</div>
-                          <div style={{fontSize: 16, fontWeight: 600, color: '#334155', fontFamily: 'system-ui', marginTop: 4}}>{r.title}</div>
-                          <div style={{fontSize: 13, color: '#64748b', fontFamily: 'system-ui', marginTop: 4}}>{r.client} · {r.date}</div>
+                          <div style={{fontSize: 12, color: '#D4A574', fontFamily: 'Inter'}}>{r.id}</div>
+                          <div style={{fontSize: 16, fontWeight: 600, color: '#1C2E47', fontFamily: 'Inter', marginTop: 4}}>{r.title}</div>
+                          <div style={{fontSize: 13, color: '#8A6B4E', fontFamily: 'Inter', marginTop: 4}}>{r.client} · {r.date}</div>
                         </div>
                         <div style={{display: 'flex', gap: 12, alignItems: 'center'}}>
                           <span style={{
@@ -59,17 +59,17 @@ export const ClientPortal = ({title, stepDurations}) => {
                             color: i === 0 ? '#166534' : '#92400e',
                             fontSize: 12,
                             fontWeight: 600,
-                            fontFamily: 'system-ui',
+                            fontFamily: 'Inter',
                           }}>{r.status}</span>
                           <button style={{
                             padding: '10px 20px',
                             borderRadius: 8,
                             border: 'none',
-                            backgroundColor: '#dc2626',
+                            backgroundColor: '#8A6B4E',
                             color: '#ffffff',
                             fontSize: 14,
                             fontWeight: 600,
-                            fontFamily: 'system-ui',
+                            fontFamily: 'Inter',
                             cursor: 'pointer',
                           }}>{i === 0 ? 'Share' : 'Generate'}</button>
                         </div>
@@ -89,8 +89,8 @@ export const ClientPortal = ({title, stepDurations}) => {
                     padding: 32,
                     boxShadow: '0 25px 80px rgba(0,0,0,0.3)',
                   }}>
-                    <h2 style={{fontSize: 22, fontWeight: 700, color: '#1e293b', margin: '0 0 8px', fontFamily: 'system-ui'}}>Share with Client</h2>
-                    <p style={{fontSize: 14, color: '#64748b', margin: '0 0 24px', fontFamily: 'system-ui'}}>Mrs Jane Smith will receive a secure link to view this report.</p>
+                    <h2 style={{fontSize: 22, fontWeight: 700, color: '#1C2E47', margin: '0 0 8px', fontFamily: 'Inter'}}>Share with Client</h2>
+                    <p style={{fontSize: 14, color: '#8A6B4E', margin: '0 0 24px', fontFamily: 'Inter'}}>Mrs Jane Smith will receive a secure link to view this report.</p>
                     <div style={{
                       padding: 16,
                       borderRadius: 8,
@@ -100,12 +100,12 @@ export const ClientPortal = ({title, stepDurations}) => {
                       justifyContent: 'space-between',
                       marginBottom: 24,
                     }}>
-                      <code style={{fontSize: 13, color: '#334155', fontFamily: 'monospace'}}>https://restoreassist.app/portal/r/reSkx9...</code>
+                      <code style={{fontSize: 13, color: '#1C2E47', fontFamily: 'monospace'}}>https://restoreassist.app/portal/r/reSkx9...</code>
                       <span style={{fontSize: 13, color: '#059669', fontWeight: 600}}>Copied</span>
                     </div>
                     <div style={{display: 'flex', justifyContent: 'flex-end', gap: 12}}>
-                      <button style={{padding: '10px 20px', borderRadius: 8, border: '1px solid #e2e8f0', backgroundColor: '#fff', color: '#334155', fontSize: 14, fontWeight: 600, fontFamily: 'system-ui'}}>Close</button>
-                      <button style={{padding: '10px 20px', borderRadius: 8, border: 'none', backgroundColor: '#dc2626', color: '#fff', fontSize: 14, fontWeight: 600, fontFamily: 'system-ui'}}>Send via Email</button>
+                      <button style={{padding: '10px 20px', borderRadius: 8, border: '1px solid #2A3A55', backgroundColor: '#fff', color: '#1C2E47', fontSize: 14, fontWeight: 600, fontFamily: 'Inter'}}>Close</button>
+                      <button style={{padding: '10px 20px', borderRadius: 8, border: 'none', backgroundColor: '#8A6B4E', color: '#fff', fontSize: 14, fontWeight: 600, fontFamily: 'Inter'}}>Send via Email</button>
                     </div>
                   </div>
                 </div>
@@ -113,25 +113,25 @@ export const ClientPortal = ({title, stepDurations}) => {
 
               {/* Step 3: Client portal view */}
               {frame >= s3 && frame < s5 && (
-                <div style={{padding: 32, maxWidth: 800, margin: '0 auto', fontFamily: 'system-ui'}}>
+                <div style={{padding: 32, maxWidth: 800, margin: '0 auto', fontFamily: 'Inter'}}>
                   <div style={{textAlign: 'center', marginBottom: 32}}>
-                    <div style={{width:64, height:64, borderRadius: 16, backgroundColor: '#dc2626', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, marginBottom: 16}}>🏗</div>
-                    <h1 style={{fontSize: 24, fontWeight: 700, color: '#1e293b', margin: 0}}>RestoreAssist Client Portal</h1>
-                    <p style={{fontSize: 14, color: '#64748b', marginTop: 8}}>Secure report access for Mrs Jane Smith</p>
+                    <div style={{width:64, height:64, borderRadius: 16, backgroundColor: '#8A6B4E', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, marginBottom: 16}}><img src='/logo.png' style={{width: 40, height: 'auto', objectFit: 'contain'}} /></div>
+                    <h1 style={{fontSize: 24, fontWeight: 700, color: '#1C2E47', margin: 0}}>RestoreAssist Client Portal</h1>
+                    <p style={{fontSize: 14, color: '#8A6B4E', marginTop: 8}}>Secure report access for Mrs Jane Smith</p>
                   </div>
 
                   <div style={{
                     borderRadius: 16,
-                    border: '1px solid #e2e8f0',
+                    border: '1px solid #2A3A55',
                     backgroundColor: '#ffffff',
                     overflow: 'hidden',
                   }}>
-                    <div style={{padding: 24, borderBottom: '1px solid #e2e8f0'}}>
+                    <div style={{padding: 24, borderBottom: '1px solid #2A3A55'}}>
                       <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
                         <div>
-                          <div style={{fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em'}}>Report ID: RPT-2026-0189</div>
-                          <h2 style={{fontSize: 20, fontWeight: 700, color: '#1e293b', margin: '4px 0 0'}}>Water Damage — Kitchen</h2>
-                          <p style={{fontSize: 14, color: '#64748b', margin: '4px 0 0'}}>42 Example Street, Sydney NSW 2000</p>
+                          <div style={{fontSize: 12, color: '#D4A574', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em'}}>Report ID: RPT-2026-0189</div>
+                          <h2 style={{fontSize: 20, fontWeight: 700, color: '#1C2E47', margin: '4px 0 0'}}>Water Damage — Kitchen</h2>
+                          <p style={{fontSize: 14, color: '#8A6B4E', margin: '4px 0 0'}}>42 Example Street, Sydney NSW 2000</p>
                         </div>
                         <span style={{
                           padding: '6px 16px',
@@ -145,8 +145,8 @@ export const ClientPortal = ({title, stepDurations}) => {
                     </div>
 
                     <div style={{padding: 24}}>
-                      <h3 style={{fontSize: 15, fontWeight: 600, color: '#334155', margin: '0 0 12px'}}>Executive Summary</h3>
-                      <p style={{fontSize: 14, color: '#475569', lineHeight: 1.7, margin: 0}}>
+                      <h3 style={{fontSize: 15, fontWeight: 600, color: '#1C2E47', margin: '0 0 12px'}}>Executive Summary</h3>
+                      <p style={{fontSize: 14, color: '#1C2E47', lineHeight: 1.7, margin: 0}}>
                         Water damage event at residential property. Category 1 water loss affecting kitchen and adjacent dining area.
                         Initial moisture readings indicate saturation in flooring and lower wall sections. Drying equipment deployed same day.
                         Estimated restoration cost: $4,850.
@@ -155,20 +155,20 @@ export const ClientPortal = ({title, stepDurations}) => {
 
                     <div style={{
                       padding: '16px 24px',
-                      backgroundColor: '#f8fafc',
-                      borderTop: '1px solid #e2e8f0',
+                      backgroundColor: '#0A0A0A',
+                      borderTop: '1px solid #2A3A55',
                       display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'center',
                     }}>
-                      <span style={{fontSize: 13, color: '#64748b'}}>Prepared by CleanExpo Restoration</span>
+                      <span style={{fontSize: 13, color: '#8A6B4E'}}>Prepared by RestoreAssist Restoration</span>
                       <div style={{display: 'flex', gap: 12}}>
                         <button style={{
                           padding: '10px 20px',
                           borderRadius: 8,
-                          border: '1px solid #e2e8f0',
+                          border: '1px solid #2A3A55',
                           backgroundColor: '#fff',
-                          color: '#334155',
+                          color: '#1C2E47',
                           fontSize: 14,
                           fontWeight: 600,
                           cursor: 'pointer',

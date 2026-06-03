@@ -20,7 +20,7 @@ export const StatCard: React.FC<Props> = ({title, value, change, changePositive,
     <div style={{
       backgroundColor: '#ffffff',
       borderRadius: 12,
-      border: highlight ? '2px solid #E11D48' : '1px solid #e2e8f0',
+      border: highlight ? '2px solid #8A6B4E' : '1px solid #2A3A55',
       padding: 24,
       opacity: fadeIn,
       transform: `scale(${scale})`,
@@ -28,16 +28,16 @@ export const StatCard: React.FC<Props> = ({title, value, change, changePositive,
       transition: 'box-shadow 0.3s',
     }}>
       <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12}}>
-        <div style={{fontSize: 13, color: '#64748b', fontFamily: 'system-ui, sans-serif', fontWeight: 500}}>{title}</div>
+        <div style={{fontSize: 13, color: '#8A6B4E', fontFamily: 'Inter, sans-serif', fontWeight: 500}}>{title}</div>
         <div style={{fontSize: 20}}>{icon}</div>
       </div>
-      <div style={{fontSize: 32, fontWeight: 700, color: '#1e293b', fontFamily: 'system-ui, sans-serif', lineHeight: 1}}>{value}</div>
+      <div style={{fontSize: 32, fontWeight: 700, color: '#1C2E47', fontFamily: 'Inter, sans-serif', lineHeight: 1}}>{value}</div>
       <div style={{
         fontSize: 13,
-        color: changePositive ? '#059669' : '#dc2626',
+        color: changePositive ? '#059669' : '#8A6B4E',
         marginTop: 8,
         fontWeight: 500,
-        fontFamily: 'system-ui, sans-serif',
+        fontFamily: 'Inter, sans-serif',
       }}>{change}</div>
     </div>
   );

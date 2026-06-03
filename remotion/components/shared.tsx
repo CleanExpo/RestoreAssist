@@ -56,7 +56,7 @@ export const AnimatedMouse: React.FC<AnimatedMouseProps> = ({
         <path
           d="M8 4L8 24L13 19L17 27L20 26L16 18L23 18L8 4Z"
           fill="white"
-          stroke="#E11D48"
+          stroke="#8A6B4E"
           strokeWidth="1.5"
           strokeLinejoin="round"
         />
@@ -114,7 +114,7 @@ export const HighlightBox: React.FC<HighlightBoxProps> = ({x, y, width, height, 
       top: y,
       width,
       height,
-      border: '3px solid #E11D48',
+      border: '3px solid #8A6B4E',
       borderRadius: 8,
       backgroundColor: `rgba(225, 29, 72, 0.08)`,
       opacity,
@@ -134,7 +134,7 @@ export const ScreenContainer: React.FC<ScreenContainerProps> = ({children}) => {
     <div style={{
       width: '100%',
       height: '100%',
-      backgroundColor: '#0f172a',
+      backgroundColor: '#1C2E47',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -143,7 +143,7 @@ export const ScreenContainer: React.FC<ScreenContainerProps> = ({children}) => {
       <div style={{
         width: '100%',
         height: '100%',
-        backgroundColor: '#f8fafc',
+        backgroundColor: '#0A0A0A',
         borderRadius: 20,
         boxShadow: '0 25px 80px rgba(0,0,0,0.4)',
         overflow: 'hidden',
@@ -155,7 +155,7 @@ export const ScreenContainer: React.FC<ScreenContainerProps> = ({children}) => {
           left: 0,
           right: 0,
           height: 40,
-          backgroundColor: '#1e293b',
+          backgroundColor: '#1C2E47',
           display: 'flex',
           alignItems: 'center',
           paddingLeft: 16,
@@ -165,7 +165,7 @@ export const ScreenContainer: React.FC<ScreenContainerProps> = ({children}) => {
           <div style={{width: 12, height: 12, borderRadius: '50%', backgroundColor: '#ef4444'}} />
           <div style={{width: 12, height: 12, borderRadius: '50%', backgroundColor: '#f59e0b'}} />
           <div style={{width: 12, height: 12, borderRadius: '50%', backgroundColor: '#22c55e'}} />
-          <span style={{color: '#94a3b8', fontSize: 12, marginLeft: 12, fontFamily: 'system-ui'}}>restoreassist.app</span>
+          <span style={{color: '#D4A574', fontSize: 12, marginLeft: 12, fontFamily: 'Inter'}}>restoreassist.com.au</span>
         </div>
         <div style={{width: '100%', height: '100%', paddingTop: 40, position: 'relative'}}>
           {children}
@@ -206,12 +206,12 @@ export const Annotation: React.FC<AnnotationProps> = ({text, x, y, startFrame, e
       position: 'absolute',
       left: x,
       top: y,
-      backgroundColor: '#1e293b',
-      color: '#f8fafc',
+      backgroundColor: '#1C2E47',
+      color: '#0A0A0A',
       padding: '12px 20px',
       borderRadius: 12,
       fontSize: 18,
-      fontFamily: 'system-ui, -apple-system, sans-serif',
+      fontFamily: 'Inter, -apple-system, sans-serif',
       fontWeight: 500,
       maxWidth: 400,
       lineHeight: 1.5,

@@ -29,13 +29,13 @@ export const SignUp = ({title, stepDurations}) => {
             justifyContent: 'center',
             width: '100%',
             height: '100%',
-            backgroundColor: '#f8fafc',
+            backgroundColor: '#0A0A0A',
           }}>
             <div style={{
               width: 480,
               backgroundColor: '#ffffff',
               borderRadius: 16,
-              border: '1px solid #e2e8f0',
+              border: '1px solid #2A3A55',
               padding: 40,
               boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
             }}>
@@ -44,52 +44,52 @@ export const SignUp = ({title, stepDurations}) => {
                   width: 56,
                   height: 56,
                   borderRadius: 14,
-                  backgroundColor: '#dc2626',
+                  backgroundColor: '#8A6B4E',
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   fontSize: 28,
                   marginBottom: 16,
-                }}>🏗</div>
-                <h2 style={{fontSize: 22, fontWeight: 700, color: '#1e293b', margin: 0, fontFamily: 'system-ui'}}>Create Your Account</h2>
-                <p style={{fontSize: 14, color: '#64748b', marginTop: 8, fontFamily: 'system-ui'}}>Start your free trial — no credit card required.</p>
+                }}><img src='/logo.png' style={{width: 40, height: 'auto', objectFit: 'contain'}} /></div>
+                <h2 style={{fontSize: 22, fontWeight: 700, color: '#1C2E47', margin: 0, fontFamily: 'Inter'}}>Create Your Account</h2>
+                <p style={{fontSize: 14, color: '#8A6B4E', marginTop: 8, fontFamily: 'Inter'}}>Start your free trial — no credit card required.</p>
               </div>
 
               <div style={{display: 'flex', flexDirection: 'column', gap: 16}}>
                 <div>
-                  <label style={{display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6, fontFamily: 'system-ui'}}>Company Name</label>
+                  <label style={{display: 'block', fontSize: 13, fontWeight: 600, color: '#1C2E47', marginBottom: 6, fontFamily: 'Inter'}}>Company Name</label>
                   <div style={{
                     padding: '12px 16px',
                     borderRadius: 8,
-                    border: '1px solid #e2e8f0',
+                    border: '1px solid #2A3A55',
                     backgroundColor: '#ffffff',
                     fontSize: 14,
-                    color: '#334155',
-                    fontFamily: 'system-ui',
-                  }}>CleanExpo Restoration</div>
+                    color: '#1C2E47',
+                    fontFamily: 'Inter',
+                  }}>RestoreAssist Restoration</div>
                 </div>
                 <div>
-                  <label style={{display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6, fontFamily: 'system-ui'}}>Email Address</label>
+                  <label style={{display: 'block', fontSize: 13, fontWeight: 600, color: '#1C2E47', marginBottom: 6, fontFamily: 'Inter'}}>Email Address</label>
                   <div style={{
                     padding: '12px 16px',
                     borderRadius: 8,
-                    border: '1px solid #e2e8f0',
+                    border: '1px solid #2A3A55',
                     backgroundColor: '#ffffff',
                     fontSize: 14,
-                    color: '#334155',
-                    fontFamily: 'system-ui',
+                    color: '#1C2E47',
+                    fontFamily: 'Inter',
                   }}>contact@cleanexpo.com</div>
                 </div>
                 <div>
-                  <label style={{display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6, fontFamily: 'system-ui'}}>Password</label>
+                  <label style={{display: 'block', fontSize: 13, fontWeight: 600, color: '#1C2E47', marginBottom: 6, fontFamily: 'Inter'}}>Password</label>
                   <div style={{
                     padding: '12px 16px',
                     borderRadius: 8,
-                    border: '1px solid #e2e8f0',
+                    border: '1px solid #2A3A55',
                     backgroundColor: '#ffffff',
                     fontSize: 14,
-                    color: '#334155',
-                    fontFamily: 'system-ui',
+                    color: '#1C2E47',
+                    fontFamily: 'Inter',
                   }}>••••••••••••</div>
                 </div>
                 <div style={{
@@ -102,18 +102,18 @@ export const SignUp = ({title, stepDurations}) => {
                   gap: 10,
                 }}>
                   <span style={{fontSize: 18}}>✅</span>
-                  <span style={{fontSize: 13, color: '#166534', fontFamily: 'system-ui'}}>Password strength: Strong</span>
+                  <span style={{fontSize: 13, color: '#166534', fontFamily: 'Inter'}}>Password strength: Strong</span>
                 </div>
                 <button style={{
                   width: '100%',
                   padding: '14px',
                   borderRadius: 8,
                   border: 'none',
-                  backgroundColor: '#dc2626',
+                  backgroundColor: '#8A6B4E',
                   color: '#ffffff',
                   fontSize: 16,
                   fontWeight: 700,
-                  fontFamily: 'system-ui',
+                  fontFamily: 'Inter',
                   cursor: 'pointer',
                   marginTop: 8,
                 }}>Create Account & Start Free Trial</button>
@@ -122,10 +122,10 @@ export const SignUp = ({title, stepDurations}) => {
               <div style={{
                 marginTop: 20,
                 fontSize: 13,
-                color: '#94a3b8',
+                color: '#D4A574',
                 textAlign: 'center',
-                fontFamily: 'system-ui',
-              }}>Already have an account? <span style={{color: '#dc2626', fontWeight: 600, cursor: 'pointer'}}>Sign In</span></div>
+                fontFamily: 'Inter',
+              }}>Already have an account? <span style={{color: '#8A6B4E', fontWeight: 600, cursor: 'pointer'}}>Sign In</span></div>
             </div>
           </div>
         </ScreenContainer>

@@ -20,24 +20,24 @@ export const BYOKExplainer = () => {
   ];
 
   return (
-    <AbsoluteFill style={{fontFamily: 'system-ui, sans-serif'}}>
+    <AbsoluteFill style={{fontFamily: 'Inter, sans-serif'}}>
       {/* Hero */}
       <div style={{position: 'absolute', inset: 0, opacity: heroOpacity}}>
-        <AbsoluteFill style={{backgroundColor: '#0f172a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'}}>
+        <AbsoluteFill style={{backgroundColor: '#1C2E47', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'}}>
           <div style={{
             padding: '20px 40px',
             borderRadius: 12,
-            backgroundColor: '#1e293b',
-            border: '2px solid #dc2626',
+            backgroundColor: '#1C2E47',
+            border: '2px solid #8A6B4E',
             marginBottom: 32,
             opacity: Math.min(1, frame / 20),
           }}>
-            <span style={{fontSize: 16, fontWeight: 700, color: '#dc2626', letterSpacing: '0.1em'}}>BYOK</span>
+            <span style={{fontSize: 16, fontWeight: 700, color: '#8A6B4E', letterSpacing: '0.1em'}}>BYOK</span>
           </div>
           <h1 style={{fontSize: 56, fontWeight: 800, color: '#ffffff', textAlign: 'center', margin: 0}}>
             Bring Your Own<br />Knowledge & Equipment
           </h1>
-          <p style={{fontSize: 20, color: '#64748b', marginTop: 24, textAlign: 'center', maxWidth: 600}}>
+          <p style={{fontSize: 20, color: '#8A6B4E', marginTop: 24, textAlign: 'center', maxWidth: 600}}>
             No vendor lock-in. No forced hardware. RestoreAssist works with the tools you already own.
           </p>
         </AbsoluteFill>
@@ -45,9 +45,9 @@ export const BYOKExplainer = () => {
 
       {/* What is BYOK */}
       <div style={{position: 'absolute', inset: 0, opacity: whatOpacity}}>
-        <AbsoluteFill style={{backgroundColor: '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 60}}>
-          <h2 style={{fontSize: 36, fontWeight: 700, color: '#1e293b', marginBottom: 16}}>What does BYOK mean?</h2>
-          <p style={{fontSize: 18, color: '#64748b', marginBottom: 48, textAlign: 'center', maxWidth: 700}}>
+        <AbsoluteFill style={{backgroundColor: '#0A0A0A', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 60}}>
+          <h2 style={{fontSize: 36, fontWeight: 700, color: '#1C2E47', marginBottom: 16}}>What does BYOK mean?</h2>
+          <p style={{fontSize: 18, color: '#8A6B4E', marginBottom: 48, textAlign: 'center', maxWidth: 700}}>
             BYOK (Bring Your Own Knowledge) means RestoreAssit integrates with your existing equipment, data formats, and workflows — no proprietary hardware required.
           </p>
           <div style={{display: 'flex', gap: 32}}>
@@ -61,13 +61,13 @@ export const BYOKExplainer = () => {
                 padding: 32,
                 borderRadius: 16,
                 backgroundColor: '#ffffff',
-                border: '1px solid #e2e8f0',
+                border: '1px solid #2A3A55',
                 textAlign: 'center',
                 opacity: interpolate(frame - 150 - i * 15, [0, 20], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}),
               }}>
                 <div style={{fontSize: 36, marginBottom: 16}}>{item.icon}</div>
-                <h3 style={{fontSize: 18, fontWeight: 700, color: '#1e293b', marginBottom: 8}}>{item.title}</h3>
-                <p style={{fontSize: 14, color: '#64748b', lineHeight: 1.5}}>{item.desc}</p>
+                <h3 style={{fontSize: 18, fontWeight: 700, color: '#1C2E47', marginBottom: 8}}>{item.title}</h3>
+                <p style={{fontSize: 14, color: '#8A6B4E', lineHeight: 1.5}}>{item.desc}</p>
               </div>
             ))}
           </div>
@@ -76,7 +76,7 @@ export const BYOKExplainer = () => {
 
       {/* Compatible Equipment */}
       <div style={{position: 'absolute', inset: 0, opacity: inputsOpacity}}>
-        <AbsoluteFill style={{backgroundColor: '#0f172a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 60}}>
+        <AbsoluteFill style={{backgroundColor: '#1C2E47', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 60}}>
           <h2 style={{fontSize: 32, fontWeight: 700, color: '#ffffff', marginBottom: 48}}>Compatible Equipment</h2>
           <div style={{
             display: 'grid',
@@ -88,11 +88,11 @@ export const BYOKExplainer = () => {
               <div key={cat.category} style={{
                 padding: 24,
                 borderRadius: 12,
-                backgroundColor: '#1e293b',
-                border: '1px solid #334155',
+                backgroundColor: '#1C2E47',
+                border: '1px solid #1C2E47',
                 opacity: interpolate(frame - 310 - i * 12, [0, 20], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}),
               }}>
-                <h3 style={{fontSize: 16, fontWeight: 700, color: '#dc2626', margin: '0 0 12px'}}>{cat.category}</h3>
+                <h3 style={{fontSize: 16, fontWeight: 700, color: '#8A6B4E', margin: '0 0 12px'}}>{cat.category}</h3>
                 {cat.items.map((item) => (
                   <div key={item} style={{
                     display: 'flex',
@@ -100,7 +100,7 @@ export const BYOKExplainer = () => {
                     gap: 8,
                     padding: '6px 0',
                     fontSize: 14,
-                    color: '#94a3b8',
+                    color: '#D4A574',
                   }}>
                     <span>✓</span> {item}
                   </div>
@@ -113,8 +113,8 @@ export const BYOKExplainer = () => {
 
       {/* Workflow */}
       <div style={{position: 'absolute', inset: 0, opacity: workflowOpacity}}>
-        <AbsoluteFill style={{backgroundColor: '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 60}}>
-          <h2 style={{fontSize: 32, fontWeight: 700, color: '#1e293b', marginBottom: 48}}>How It Works</h2>
+        <AbsoluteFill style={{backgroundColor: '#0A0A0A', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 60}}>
+          <h2 style={{fontSize: 32, fontWeight: 700, color: '#1C2E47', marginBottom: 48}}>How It Works</h2>
           <div style={{display: 'flex', alignItems: 'center', gap: 0, maxWidth: 1000}}>
             {[
               {step: '1', label: 'Take Reading', icon: '📊'},
@@ -128,15 +128,15 @@ export const BYOKExplainer = () => {
                   padding: 28,
                   borderRadius: 16,
                   backgroundColor: '#ffffff',
-                  border: '2px solid #dc2626',
+                  border: '2px solid #8A6B4E',
                   textAlign: 'center',
                   opacity: interpolate(frame - 540 - i * 25, [0, 20], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}),
                 }}>
                   <div style={{fontSize: 32, marginBottom: 8}}>{item.icon}</div>
-                  <div style={{fontSize: 13, color: '#dc2626', fontWeight: 700, marginBottom: 4}}>Step {item.step}</div>
-                  <div style={{fontSize: 15, fontWeight: 600, color: '#1e293b'}}>{item.label}</div>
+                  <div style={{fontSize: 13, color: '#8A6B4E', fontWeight: 700, marginBottom: 4}}>Step {item.step}</div>
+                  <div style={{fontSize: 15, fontWeight: 600, color: '#1C2E47'}}>{item.label}</div>
                 </div>
-                {i < 3 && <div style={{width: 30, textAlign: 'center', color: '#94a3b8', fontSize: 24}}>→</div>}
+                {i < 3 && <div style={{width: 30, textAlign: 'center', color: '#D4A574', fontSize: 24}}>→</div>}
               </div>
             ))}
           </div>
@@ -145,7 +145,7 @@ export const BYOKExplainer = () => {
 
       {/* Benefits */}
       <div style={{position: 'absolute', inset: 0, opacity: benefitOpacity}}>
-        <AbsoluteFill style={{backgroundColor: '#0f172a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 60}}>
+        <AbsoluteFill style={{backgroundColor: '#1C2E47', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 60}}>
           <h2 style={{fontSize: 32, fontWeight: 700, color: '#ffffff', marginBottom: 40}}>Why This Matters</h2>
           <div style={{display: 'flex', gap: 40}}>
             {[
@@ -157,14 +157,14 @@ export const BYOKExplainer = () => {
                 width: 260,
                 padding: 32,
                 borderRadius: 16,
-                backgroundColor: '#1e293b',
-                border: '1px solid #334155',
+                backgroundColor: '#1C2E47',
+                border: '1px solid #1C2E47',
                 textAlign: 'center',
                 opacity: interpolate(frame - 760 - i * 15, [0, 20], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}),
               }}>
-                <div style={{fontSize: 48, fontWeight: 800, color: '#dc2626'}}>{stat.value}</div>
+                <div style={{fontSize: 48, fontWeight: 800, color: '#8A6B4E'}}>{stat.value}</div>
                 <div style={{fontSize: 16, fontWeight: 700, color: '#ffffff', marginTop: 8}}>{stat.label}</div>
-                <div style={{fontSize: 14, color: '#64748b', marginTop: 4}}>{stat.sub}</div>
+                <div style={{fontSize: 14, color: '#8A6B4E', marginTop: 4}}>{stat.sub}</div>
               </div>
             ))}
           </div>
@@ -173,7 +173,7 @@ export const BYOKExplainer = () => {
 
       {/* CTA */}
       <div style={{position: 'absolute', inset: 0, opacity: ctaOpacity}}>
-        <AbsoluteFill style={{backgroundColor: '#dc2626', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 60}}>
+        <AbsoluteFill style={{backgroundColor: '#8A6B4E', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 60}}>
           <h1 style={{fontSize: 48, fontWeight: 800, color: '#ffffff', textAlign: 'center', margin: 0}}>Your Tools. Your Data.<br />Your Way.</h1>
           <p style={{fontSize: 20, color: '#fecaca', marginTop: 24, marginBottom: 40}}>RestoreAssist adapts to you — not the other way around.</p>
           <button style={{
@@ -181,7 +181,7 @@ export const BYOKExplainer = () => {
             borderRadius: 12,
             border: 'none',
             backgroundColor: '#ffffff',
-            color: '#dc2626',
+            color: '#8A6B4E',
             fontSize: 20,
             fontWeight: 700,
             cursor: 'pointer',
