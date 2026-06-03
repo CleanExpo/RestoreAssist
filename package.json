@@ -55,7 +55,10 @@
     "test:smoke": "playwright test --grep @smoke",
     "test:smoke:ci": "playwright test --grep @smoke --reporter=line",
     "test:smoke:prod": "CI=true PLAYWRIGHT_BASE_URL=https://restoreassist.app playwright test --grep @smoke --reporter=line",
-    "test:smoke:sandbox": "CI=true PLAYWRIGHT_BASE_URL=https://restoreassist-sandbox.vercel.app playwright test --grep @smoke --reporter=line"
+    "test:smoke:sandbox": "CI=true PLAYWRIGHT_BASE_URL=https://restoreassist-sandbox.vercel.app playwright test --grep @smoke --reporter=line",
+    "render:tutorials": "tsx remotion/render-all.ts",
+    "studio": "npx remotion studio",
+    "preview:tutorials": "npx remotion preview"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.78",
@@ -112,7 +115,13 @@
     "@radix-ui/react-toggle-group": "1.1.11",
     "@radix-ui/react-tooltip": "1.2.8",
     "@radix-ui/react-use-controllable-state": "^1.2.2",
+    "@remotion/animation-utils": "^4.0.471",
+    "@remotion/bundler": "^4.0.471",
+    "@remotion/cli": "^4.0.471",
     "@remotion/lambda": "^4.0.462",
+    "@remotion/player": "^4.0.471",
+    "@remotion/renderer": "^4.0.471",
+    "@remotion/transitions": "^4.0.471",
     "@rive-app/react-webgl2": "^4.28.5",
     "@sentry/nextjs": "^10.53.1",
     "@streamdown/cjk": "^1.0.3",
@@ -189,6 +198,7 @@
     "react-markdown": "^10.1.0",
     "react-resizable-panels": "^2.1.7",
     "recharts": "^3.8.1",
+    "remotion": "^4.0.471",
     "resend": "^6.12.3",
     "sharp": "^0.34.5",
     "shiki": "^4.0.2",
