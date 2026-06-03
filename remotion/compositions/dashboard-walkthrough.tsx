@@ -15,7 +15,7 @@ interface Props {
 
 export const DashboardWalkthrough: React.FC<Props> = ({title, stepDurations}) => {
   const frame = useCurrentFrame();
-  const [d0, d1, d2, d3, d4, d5, d6] = stepDurations;
+  const [d0, d1, d2, d3, d4, d5] = stepDurations;
 
   const s0 = 0;
   const s1 = s0 + d0;

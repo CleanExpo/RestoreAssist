@@ -9,7 +9,7 @@ import {OutroSlide} from './ui-elements/outro-slide';
 
 export const CreateInspection = ({title, stepDurations}) => {
   const frame = useCurrentFrame();
-  const [d0, d1, d2, d3, d4, d5, d6, d7, d8] = stepDurations;
+  const [d0, d1, d2, d3, d4, d5, d6, d7] = stepDurations;
 
   const s0 = 0;
   const s1 = s0 + d0;

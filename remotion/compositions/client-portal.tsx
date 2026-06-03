@@ -10,10 +10,10 @@ import {OutroSlide} from './ui-elements/outro-slide';
 export const ClientPortal = ({title, stepDurations}) => {
   const frame = useCurrentFrame();
   const [d0, d1, d2, d3, d4, d5] = stepDurations;
-  const s0 = 0, s1 = s0 + d0, s2 = s1 + d1, s3 = s2 + d2, s4 = s3 + d3, s5 = s4 + d4, s6 = s5 + d5;
+  const s0 = 0, s1 = s0 + d0, s2 = s1 + d1, s3 = s2 + d2, s4 = s3 + d3, s5 = s4 + d4, s5 = s5 + d5;
 
   const introOpacity = interpolate(frame, [s0, s0 + 20, s1 - 20, s1], [1, 1, 1, 0]);
-  const outroOpacity = interpolate(frame, [s5, s5 + 15, s6 - 15, s6], [0, 1, 1, 1]);
+  const outroOpacity = interpolate(frame, [s5, s5 + 15, s5 - 15, s5], [0, 1, 1, 1]);
   const mainOpacity = interpolate(frame, [s1 - 10, s1], [0, 1]);
 
   return (
@@ -112,7 +112,7 @@ export const ClientPortal = ({title, stepDurations}) => {
               )}
 
               {/* Step 3: Client portal view */}
-              {frame >= s3 && frame < s6 && (
+              {frame >= s3 && frame < s5 && (
                 <div style={{padding: 32, maxWidth: 800, margin: '0 auto', fontFamily: 'system-ui'}}>
                   <div style={{textAlign: 'center', marginBottom: 32}}>
                     <div style={{width:64, height:64, borderRadius: 16, backgroundColor: '#dc2626', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, marginBottom: 16}}>🏗</div>
