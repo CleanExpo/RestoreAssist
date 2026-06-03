@@ -19,9 +19,13 @@ case "$VERCEL_ENV" in
   *)
     if [ -z "$DATABASE_URL" ]; then
       echo "[build] DATABASE_URL unset — skipping prisma migrate deploy (probably a local 'next build' without env)"
-    elif [ "$SKIP_MIGRATE_DEPLOY" = "1" ]; then
-      echo "[build] SKIP_MIGRATE_DEPLOY=1 — skipping prisma migrate deploy (temporarily bypassing failed migration P3009)"
     else
+      # 2026-06-03: Resolve previously-failed migration P3009 so deploy can proceed.
+      # The migration 20260524231500_add_voice_copilot_sessions failed on 2026-06-02
+      # and blocked all subsequent deploys. Marking it rolled-back allows re-application.
+      echo "[build] Checking for failed migration 20260524231500_add_voice_copilot_sessions..."
+      pnpm exec prisma migrate resolve --rolled-back "20260524231500_add_voice_copilot_sessions" || true
+
       pnpm exec prisma migrate deploy
       # Schema drift smoke test — guards against the failure mode where
       # `prisma migrate deploy` reports success but the DDL silently no-ops.
