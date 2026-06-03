@@ -484,14 +484,14 @@ git commit -m "feat(video): export SplitScene from cinematic index"
 
 - Modify: `packages/videos/src/scripts/generate-voiceover.ts`
 
-Replace the `CINEMATIC_LANDING_V2_SEGMENTS` array (lines 94–135) with the new 10-segment v3 array. Change `VOICE_ID` default from `"onwK4e9ZLuTAKqWW03F9"` to `"aGkVQvWUZi16EH8aZJvT"`.
+Replace the `CINEMATIC_LANDING_V2_SEGMENTS` array (lines 94–135) with the new 10-segment v3 array. Change `VOICE_ID` default from `"onwK4e9ZLuTAKqWW03F9"` to `"jSuBIjxMKhqIfb0wCK1F"`.
 
 - [ ] **Step 1: Replace CINEMATIC_LANDING_V2_SEGMENTS and update VOICE_ID**
 
 Replace the entire `CINEMATIC_LANDING_V2_SEGMENTS` constant with:
 
 ```typescript
-const VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "aGkVQvWUZi16EH8aZJvT";
+const VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "jSuBIjxMKhqIfb0wCK1F";
 ```
 
 ```typescript

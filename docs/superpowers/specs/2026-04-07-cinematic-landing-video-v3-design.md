@@ -193,7 +193,7 @@ The script uses `NEXTAUTH_URL`, `CAPTURE_EMAIL`, `CAPTURE_PASSWORD`, and `DATABA
 
 ## Voiceover Scripts (Australian English)
 
-10 scripts for `generate-voiceover.ts`, voice `aGkVQvWUZi16EH8aZJvT`, `eleven_multilingual_v2`:
+10 scripts for `generate-voiceover.ts`, voice `jSuBIjxMKhqIfb0wCK1F`, `eleven_multilingual_v2`:
 
 | ID              | Script                                                                                                                                                                                                                                 | ~Duration |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |

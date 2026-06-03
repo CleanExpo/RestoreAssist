@@ -39,11 +39,31 @@ export function VideoExplainer({ slug, className }: VideoExplainerProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   if (!entry) return null;
-  const { youtubeId, localPath, title, durationSec } = entry;
+  const { youtubeId, cloudinaryUrl, localPath, title, durationSec } = entry;
 
   const wrapperClass =
     className ??
     "relative aspect-video w-full overflow-hidden rounded-xl border-2 border-[#8A6B4E]/30 shadow-2xl bg-[#050505]";
+
+  // Cloudinary CDN — fastest global delivery
+  if (cloudinaryUrl) {
+    return (
+      <div className={wrapperClass}>
+        <video
+          src={cloudinaryUrl}
+          title={title}
+          controls
+          preload="metadata"
+          playsInline
+          className="h-full w-full bg-black"
+          aria-label={title}
+        />
+        <div className="pointer-events-none absolute bottom-3 right-3 rounded bg-black/70 px-2 py-1 text-xs text-white">
+          {formatDuration(durationSec)}
+        </div>
+      </div>
+    );
+  }
 
   // Repo-hosted MP4 — render a native <video> element. Used for slugs
   // pending YouTube unlisted upload; replace with youtubeId once uploaded.

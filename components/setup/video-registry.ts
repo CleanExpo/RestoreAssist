@@ -27,13 +27,37 @@ export type VideoExplainerSlug =
   | "help-clients-and-portal"
   | "help-billing"
   | "help-team"
-  | "help-compliance";
+  | "help-compliance"
+  // Remotion rendered videos (brand-correct, audio, production-ready)
+  | "remotion-sign-in"
+  | "remotion-sign-up"
+  | "remotion-dashboard"
+  | "remotion-create-inspection"
+  | "remotion-report-builder"
+  | "remotion-client-portal"
+  | "remotion-why-restoreassist"
+  | "remotion-byok"
+  | "remotion-inspections-list"
+  | "remotion-evidence-capture"
+  | "remotion-moisture-mapping"
+  | "remotion-quote-builder"
+  | "remotion-invoice-generator"
+  | "remotion-compliance-checklists"
+  | "remotion-analytics-overview"
+  | "remotion-team-management"
+  | "remotion-mobile-workflow"
+  | "remotion-pricing-overview";
 
 export interface RegistryEntry {
   youtubeId?: string;
   /**
+   * Cloudinary CDN URL for fast global delivery.
+   * Set this OR youtubeId OR localPath, not multiple.
+   */
+  cloudinaryUrl?: string;
+  /**
    * Path beneath `/public` (with leading slash) to a repo-hosted MP4.
-   * Set EITHER this OR `youtubeId`, not both.
+   * Set EITHER this OR `youtubeId` OR `cloudinaryUrl`, not multiple.
    */
   localPath?: string;
   title: string;
@@ -100,5 +124,97 @@ export const VIDEO_REGISTRY: Record<VideoExplainerSlug, RegistryEntry> = {
     localPath: "/videos/help/help-compliance.mp4",
     title: "IICRC citation format and edition discipline",
     durationSec: 75,
+  },
+
+  // ── Remotion rendered videos (brand-correct, audio, production-ready) ──
+  "remotion-sign-in": {
+    localPath: "/videos/remotion/sign-in.mp4",
+    title: "Signing in to RestoreAssist",
+    durationSec: 45,
+  },
+  "remotion-sign-up": {
+    localPath: "/videos/remotion/sign-up.mp4",
+    title: "Creating your RestoreAssist account",
+    durationSec: 60,
+  },
+  "remotion-dashboard": {
+    localPath: "/videos/remotion/dashboard-walkthrough.mp4",
+    title: "Your RestoreAssist dashboard",
+    durationSec: 32,
+  },
+  "remotion-create-inspection": {
+    localPath: "/videos/remotion/create-inspection.mp4",
+    title: "Creating a new inspection",
+    durationSec: 42,
+  },
+  "remotion-report-builder": {
+    localPath: "/videos/remotion/report-builder.mp4",
+    title: "Building professional reports",
+    durationSec: 36,
+  },
+  "remotion-client-portal": {
+    localPath: "/videos/remotion/client-portal.mp4",
+    title: "Sharing reports via the client portal",
+    durationSec: 32,
+  },
+  "remotion-why-restoreassist": {
+    localPath: "/videos/remotion/why-restoreassist.mp4",
+    title: "Why restoration teams choose RestoreAssist",
+    durationSec: 36,
+  },
+  "remotion-byok": {
+    localPath: "/videos/remotion/byok-explainer.mp4",
+    title: "Bring Your Own Knowledge and Equipment",
+    durationSec: 42,
+  },
+  "remotion-inspections-list": {
+    localPath: "/videos/remotion/inspections-list.mp4",
+    title: "Managing your inspections list",
+    durationSec: 34,
+  },
+  "remotion-evidence-capture": {
+    localPath: "/videos/remotion/evidence-capture.mp4",
+    title: "Capturing court-admissible evidence",
+    durationSec: 32,
+  },
+  "remotion-moisture-mapping": {
+    localPath: "/videos/remotion/moisture-mapping.mp4",
+    title: "Moisture mapping and dry goals",
+    durationSec: 30,
+  },
+  "remotion-quote-builder": {
+    localPath: "/videos/remotion/quote-builder.mp4",
+    title: "Building professional quotes",
+    durationSec: 32,
+  },
+  "remotion-invoice-generator": {
+    localPath: "/videos/remotion/invoice-generator.mp4",
+    title: "Generating GST-compliant invoices",
+    durationSec: 28,
+  },
+  "remotion-compliance-checklists": {
+    localPath: "/videos/remotion/compliance-checklists.mp4",
+    title: "IICRC S500 compliance checklists",
+    durationSec: 32,
+  },
+  "remotion-analytics-overview": {
+    localPath: "/videos/remotion/analytics-overview.mp4",
+    title: "Business analytics overview",
+    durationSec: 45,
+  },
+  "remotion-team-management": {
+    localPath: "/videos/remotion/team-management.mp4",
+    title: "Managing your restoration crew",
+    durationSec: 50,
+  },
+  "remotion-mobile-workflow": {
+    localPath: "/videos/remotion/mobile-workflow.mp4",
+    title: "Mobile workflow for field teams",
+    durationSec: 30,
+  },
+  "remotion-pricing-overview": {
+    localPath: "/videos/remotion/pricing-overview.mp4",
+    title: "RestoreAssist pricing and plans",
+    durationSec: 60,
   },
 };

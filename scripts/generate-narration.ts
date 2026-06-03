@@ -3,9 +3,10 @@
  * Generate ElevenLabs narration audio for each Remotion composition.
  *
  * Usage:
- *   ELEVENLABS_API_KEY=xxx ELEVENLABS_VOICE_ID=aGkVQvWUZi16EH8aZJvT pnpm exec tsx scripts/generate-narration.ts
+ *   ELEVENLABS_API_KEY=*** ELEVENLABS_VOICE_ID=jSuBIjxMKhqIfb0wCK1F pnpm exec tsx scripts/generate-narration.ts
  *
  * Outputs MP3 files to remotion/assets/narration/ for embedding in videos.
+ * Voice ID: jSuBIjxMKhqIfb0wCK1F (CEO clone, canonical for all UGN projects)
  */
 
 import fs from 'fs/promises';
@@ -14,7 +15,7 @@ import path from 'path';
 /* ── Config ─────────────────────────────────────────────────────────── */
 
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
-const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || 'aGkVQvWUZi16EH8aZJvT';
+const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || 'jSuBIjxMKhqIfb0wCK1F';
 const OUTPUT_DIR = path.join(process.cwd(), 'remotion', 'assets', 'narration');
 
 interface NarrationScript {

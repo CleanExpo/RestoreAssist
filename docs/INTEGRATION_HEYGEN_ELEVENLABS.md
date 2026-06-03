@@ -4,7 +4,7 @@ Status: ACTIVE — Synthex proxy architecture implemented. Waiting for service t
 
 ## Architecture
 
-RestoreAssist does **not** hold HeyGen or ElevenLabs API keys directly. Instead, it proxies all avatar/voice requests to **Synthex** (`https://synthex.social`), which holds the canonical credentials and CEO voice clone (`aGkVQvWUZi16EH8aZJvT`).
+RestoreAssist does **not** hold HeyGen or ElevenLabs API keys directly. Instead, it proxies all avatar/voice requests to **Synthex** (`https://synthex.social`), which holds the canonical credentials and CEO voice clone (`jSuBIjxMKhqIfb0wCK1F`).
 
 ```
 RestoreAssist  →  Synthex  →  HeyGen / ElevenLabs
@@ -113,7 +113,7 @@ curl "https://restoreassist.app/api/elevenlabs/voice?type=all"
 
 ## Brand Voice Settings
 
-CEO Clone (primary) — ElevenLabs voice ID: `aGkVQvWUZi16EH8aZJvT`
+CEO Clone (primary) — ElevenLabs voice ID: `jSuBIjxMKhqIfb0wCK1F`
 
 | Parameter | Default | Rationale |
 |-----------|---------|-----------|

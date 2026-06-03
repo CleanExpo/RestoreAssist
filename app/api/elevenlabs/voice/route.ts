@@ -2,7 +2,7 @@
  * API Route: /api/elevenlabs/voice
  *
  * Proxies TTS requests to Synthex (which holds canonical ElevenLabs
- * credentials and the CEO voice clone aGkVQvWUZi16EH8aZJvT).
+ * credentials and the CEO voice clone jSuBIjxMKhqIfb0wCK1F).
  *
  * POST body: { text: string, voice_id?: string }
  * Response: audio/mpeg stream or JSON with base64 audio
