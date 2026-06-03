@@ -38,6 +38,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!avatar_id || typeof avatar_id !== "string") {
+      return NextResponse.json(
+        { error: "avatar_id is required" },
+        { status: 400 },
+      );
+    }
+
     // Enforce max script length
     if (script.length > 5000) {
       return NextResponse.json(
