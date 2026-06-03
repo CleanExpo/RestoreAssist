@@ -13,7 +13,7 @@ export const InspectionsList = ({title, stepDurations}) => {
   const s0=0,s1=s0+d0,s2=s1+d1,s3=s2+d2,s4=s3+d3,s5=s4+d4;
 
   const introOpacity = interpolate(frame, [s0, s0+20, s1-20, s1], [1,1,1,0]);
-  const outroOpacity = interpolate(frame, [s5, s5+15, s5-15, s5], [0,1,1,1]);
+  const outroOpacity = interpolate(frame, [s5, s5 + 10, s5 + 70, s5 + 100], [0,1,1,1]);
   const mainOpacity = interpolate(frame, [s1-10, s1], [0,1]);
 
   const inspections = [

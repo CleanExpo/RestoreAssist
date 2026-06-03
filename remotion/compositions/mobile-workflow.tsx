@@ -9,7 +9,7 @@ export const MobileWorkflow = ({title, stepDurations}) => {
   const s0=0,s1=s0+d0,s2=s1+d1,s3=s2+d2,s4=s3+d3,s5=s4+d4;
 
   const introOpacity = interpolate(frame, [s0,s0+20,s1-20,s1], [1,1,1,0]);
-  const outroOpacity = interpolate(frame, [s4,s4+15,s4-15,s4], [0,1,1,1]);
+  const outroOpacity = interpolate(frame, [s4, s4 + 10, s4 + 70, s4 + 100], [0,1,1,1]);
 
   const screens = [
     {icon:'📋', label:'Sync Jobs', desc:'Today\'s inspections auto-sync to your device'},

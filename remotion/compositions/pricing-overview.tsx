@@ -6,9 +6,9 @@ export const PricingOverview = () => {
   const frame = useCurrentFrame();
 
   const heroOpacity = interpolate(frame, [0,25,110,140], [0,1,1,0]);
-  const plansOpacity = interpolate(frame, [120,150,450,480], [0,1,1,0]);
-  const featuresOpacity = interpolate(frame, [430,460,620,650], [0,1,1,0]);
-  const ctaOpacity = interpolate(frame, [600,630,780,810], [0,1,1,0]);
+  const plansOpacity = interpolate(frame, [110,140,400,430], [0,1,1,0]);
+  const featuresOpacity = interpolate(frame, [380,410,540,570], [0,1,1,0]);
+  const ctaOpacity = interpolate(frame, [520,550,680,710], [0,1,1,0]);
 
   const plans = [
     {name:'Starter', price:'$49', period:'/mo', jobs:'5 jobs/month', features:['Inspections','Basic Reports','Client Portal','Email Support'], cta:'Start Free Trial', color:'#334155'},
