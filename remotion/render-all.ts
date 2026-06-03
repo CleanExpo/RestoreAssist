@@ -2,16 +2,33 @@ import {renderMedia, getCompositions} from '@remotion/renderer';
 import path from 'path';
 
 const compositionsToRender = [
-  {id: 'DashboardWalkthrough', durationInFrames: 900, fileName: 'dashboard-walkthrough.mp4'},
-  {id: 'CreateInspection', durationInFrames: 1200, fileName: 'create-inspection.mp4'},
-  {id: 'ReportBuilder', durationInFrames: 1050, fileName: 'report-builder.mp4'},
-  {id: 'ClientPortal', durationInFrames: 900, fileName: 'client-portal.mp4'},
+  // Original 4 tutorials
+  {id: 'DashboardWalkthrough', fileName: 'dashboard-walkthrough.mp4'},
+  {id: 'CreateInspection', fileName: 'create-inspection.mp4'},
+  {id: 'ReportBuilder', fileName: 'report-builder.mp4'},
+  {id: 'ClientPortal', fileName: 'client-portal.mp4'},
+  // Auth
+  {id: 'SignUp', fileName: 'sign-up.mp4'},
+  {id: 'SignIn', fileName: 'sign-in.mp4'},
+  // Marketing
+  {id: 'WhyRestoreAssist', fileName: 'why-restoreassist.mp4'},
+  {id: 'BYOKExplainer', fileName: 'byok-explainer.mp4'},
+  // Features
+  {id: 'InspectionsList', fileName: 'inspections-list.mp4'},
+  {id: 'EvidenceCapture', fileName: 'evidence-capture.mp4'},
+  {id: 'MoistureMapping', fileName: 'moisture-mapping.mp4'},
+  {id: 'QuoteBuilder', fileName: 'quote-builder.mp4'},
+  {id: 'InvoiceGenerator', fileName: 'invoice-generator.mp4'},
+  {id: 'ComplianceChecklists', fileName: 'compliance-checklists.mp4'},
+  {id: 'AnalyticsOverview', fileName: 'analytics-overview.mp4'},
+  {id: 'TeamManagement', fileName: 'team-management.mp4'},
+  // Cross-platform
+  {id: 'MobileWorkflow', fileName: 'mobile-workflow.mp4'},
+  {id: 'PricingOverview', fileName: 'pricing-overview.mp4'},
 ];
 
 async function renderAll() {
   const entry = path.join(process.cwd(), 'remotion', 'index.tsx');
-  const bundled = `@remotion/bundler`;
-  const bundleLocation = path.join(process.cwd(), 'remotion-bundle');
 
   console.log('[render] bundling Remotion project...');
   const {bundle} = await import('@remotion/bundler');
@@ -32,7 +49,7 @@ async function renderAll() {
       continue;
     }
 
-    const outputPath = path.join(process.cwd(), 'public', 'videos', 'help', compInfo.fileName);
+    const outputPath = path.join(process.cwd(), 'remotion', 'output', compInfo.fileName);
     console.log(`[render] rendering ${compInfo.id} → ${outputPath}`);
 
     await renderMedia({
