@@ -97,7 +97,10 @@ interface HighlightBoxProps {
 export const HighlightBox: React.FC<HighlightBoxProps> = ({x, y, width, height, startFrame, endFrame}) => {
   const frame = useCurrentFrame();
 
-  const opacity = interpolate(frame, [startFrame, startFrame + 15, endFrame - 15, endFrame], [0, 1, 1, 0], {
+  const fadeInEnd = Math.min(startFrame + 15, endFrame - 5);
+  const fadeOutStart = Math.max(fadeInEnd, endFrame - 15);
+
+  const opacity = interpolate(frame, [startFrame, fadeInEnd, fadeOutStart, endFrame], [0, 1, 1, 0], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
   });
@@ -181,7 +184,10 @@ interface AnnotationProps {
 export const Annotation: React.FC<AnnotationProps> = ({text, x, y, startFrame, endFrame}) => {
   const frame = useCurrentFrame();
 
-  const opacity = interpolate(frame, [startFrame, startFrame + 10, endFrame - 10, endFrame], [0, 1, 1, 0], {
+  const fadeInEnd = Math.min(startFrame + 10, endFrame - 3);
+  const fadeOutStart = Math.max(fadeInEnd, endFrame - 10);
+
+  const opacity = interpolate(frame, [startFrame, fadeInEnd, fadeOutStart, endFrame], [0, 1, 1, 0], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
   });

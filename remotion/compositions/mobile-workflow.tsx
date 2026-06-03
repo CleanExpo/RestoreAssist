@@ -5,8 +5,8 @@ import {IntroSlide, OutroSlide} from './ui-elements/intro-slide';
 
 export const MobileWorkflow = ({title, stepDurations}) => {
   const frame = useCurrentFrame();
-  const [d0,d1,d2,d3] = stepDurations;
-  const s0=0,s1=s0+d0,s2=s1+d1,s3=s2+d2,s4=s3+d3;
+  const [d0,d1,d2,d3,d4] = stepDurations;
+  const s0=0,s1=s0+d0,s2=s1+d1,s3=s2+d2,s4=s3+d3,s5=s4+d4;
 
   const introOpacity = interpolate(frame, [s0,s0+20,s1-20,s1], [1,1,1,0]);
   const outroOpacity = interpolate(frame, [s4,s4+15,s4-15,s4], [0,1,1,1]);

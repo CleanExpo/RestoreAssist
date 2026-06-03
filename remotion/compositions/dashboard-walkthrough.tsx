@@ -17,21 +17,14 @@ export const DashboardWalkthrough: React.FC<Props> = ({title, stepDurations}) =>
   const frame = useCurrentFrame();
   const [d0, d1, d2, d3, d4, d5] = stepDurations;
 
-  const s0 = 0;
-  const s1 = s0 + d0;
-  const s2 = s1 + d1;
-  const s3 = s2 + d2;
-  const s4 = s3 + d3;
-  const s5 = s4 + d4;
-  const s6 = s5 + d5;
-  const s7 = s6 + d6;
+  const s0 = 0, s1 = s0 + d0, s2 = s1 + d1, s3 = s2 + d2, s4 = s3 + d3, s5 = s4 + d4, s6 = s5 + d5;
 
   const introOpacity = interpolate(frame, [s0, s0 + 20, s1 - 20, s1], [1, 1, 1, 0], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
   });
 
-  const outroOpacity = interpolate(frame, [s6, s6 + 15, s7 - 15, s7], [0, 1, 1, 1], {
+  const outroOpacity = interpolate(frame, [s5, s5 + 15, s6 - 15, s6], [0, 1, 1, 1], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
   });

@@ -11,19 +11,10 @@ export const CreateInspection = ({title, stepDurations}) => {
   const frame = useCurrentFrame();
   const [d0, d1, d2, d3, d4, d5, d6, d7] = stepDurations;
 
-  const s0 = 0;
-  const s1 = s0 + d0;
-  const s2 = s1 + d1;
-  const s3 = s2 + d2;
-  const s4 = s3 + d3;
-  const s5 = s4 + d4;
-  const s6 = s5 + d5;
-  const s7 = s6 + d6;
-  const s8 = s7 + d7;
-  const s9 = s8 + d8;
+  const s0 = 0, s1 = s0 + d0, s2 = s1 + d1, s3 = s2 + d2, s4 = s3 + d3, s5 = s4 + d4, s6 = s5 + d5, s7 = s6 + d6, s8 = s7 + d7;
 
   const introOpacity = interpolate(frame, [s0, s0 + 20, s1 - 20, s1], [1, 1, 1, 0]);
-  const outroOpacity = interpolate(frame, [s8, s8 + 15, s9 - 15, s9], [0, 1, 1, 1]);
+  const outroOpacity = interpolate(frame, [s7, s7 + 10, s7 + 25, s7 + 40], [0, 1, 1, 1]);
   const mainOpacity = interpolate(frame, [s1 - 10, s1], [0, 1]);
 
   const clients = [

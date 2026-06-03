@@ -10,10 +10,10 @@ import {OutroSlide} from './ui-elements/outro-slide';
 export const ReportBuilder = ({title, stepDurations}) => {
   const frame = useCurrentFrame();
   const [d0, d1, d2, d3, d4, d5] = stepDurations;
-  const s0 = 0, s1 = s0 + d0, s2 = s1 + d1, s3 = s2 + d2, s4 = s3 + d3, s5 = s4 + d4, s6 = s5 + d5, s6 = s6 + d6;
+  const s0 = 0, s1 = s0 + d0, s2 = s1 + d1, s3 = s2 + d2, s4 = s3 + d3, s5 = s4 + d4, s6 = s5 + d5;
 
   const introOpacity = interpolate(frame, [s0, s0 + 20, s1 - 20, s1], [1, 1, 1, 0]);
-  const outroOpacity = interpolate(frame, [s6, s6 + 15, s6 - 15, s6], [0, 1, 1, 1]);
+  const outroOpacity = interpolate(frame, [s6, s6 + 10, s6 + 25, s6 + 40], [0, 1, 1, 1]);
   const mainOpacity = interpolate(frame, [s1 - 10, s1], [0, 1]);
 
   const sections = ['Executive Summary', 'Scope of Works', 'Cost Estimation', 'Photo Evidence', 'Moisture Readings', 'Compliance Notes'];
