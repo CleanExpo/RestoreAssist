@@ -73,17 +73,17 @@ export const InvoiceGenerator = ({title, stepDurations}) => {
       </div>
       <div style={{position:'absolute', inset:0, zIndex:1000, opacity:frame>=s1&&frame<s2?1:0, pointerEvents:'none'}}>
         <AnimatedMouse startX={100} startY={400} endX={100} endY={400} startFrame={s1+20} endFrame={s1+40} clickFrame={s1+38} />
-        <HighlightBox x={20} y={380} width={220} height:44 startFrame={s1+35} endFrame={s1+55} />
+        <HighlightBox x={20} y={380} width={220} height={44} startFrame={s1+35} endFrame={s1+55} />
         <Annotation text="Track all invoices from one central dashboard." x={300} y={390} startFrame={s1+30} endFrame={s1+120} />
       </div>
       <div style={{position:'absolute', inset:0, zIndex:1000, opacity:frame>=s2&&frame<s3?1:0, pointerEvents:'none'}}>
         <AnimatedMouse startX={500} startY={300} endX={900} endY={300} startFrame={s2+15} endFrame={s2+45} clickFrame={s2+43} />
-        <HighlightBox x={700} y={270} width={180} height:44 startFrame={s2+40} endFrame={s2+70} />
+        <HighlightBox x={700} y={270} width={180} height={44} startFrame={s2+40} endFrame={s2+70} />
         <Annotation text="See paid, outstanding, and overdue at a glance." x={550} y={240} startFrame={s2+35} endFrame={s2+130} />
       </div>
       <div style={{position:'absolute', inset:0, zIndex:1000, opacity:frame>=s3&&frame<s4?1:0, pointerEvents:'none'}}>
         <AnimatedMouse startX={900} startY={300} endX={1000} endY={500} startFrame={s3+15} endFrame={s3+45} clickFrame={s3+43} />
-        <HighlightBox x={960} y={470} width:140, height:44 startFrame={s3+40} endFrame={s3+70} />
+        <HighlightBox x={960} y={470} width={140} height={44} startFrame={s3+40} endFrame={s3+70} />
         <Annotation text="Convert approved quotes to invoices in one click." x={750} y={450} startFrame={s3+35} endFrame={s3+150} />
       </div>
       <div style={{position:'absolute', inset:0, opacity:outroOpacity, zIndex:outroOpacity>0?100:0}}><OutroSlide title="Get paid faster." subtitle="RestoreAssist Invoicing" /></div>

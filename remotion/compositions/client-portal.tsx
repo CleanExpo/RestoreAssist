@@ -115,7 +115,7 @@ export const ClientPortal = ({title, stepDurations}) => {
               {frame >= s3 && frame < s6 && (
                 <div style={{padding: 32, maxWidth: 800, margin: '0 auto', fontFamily: 'system-ui'}}>
                   <div style={{textAlign: 'center', marginBottom: 32}}>
-                    <div style={{width:64, height: 64, borderRadius: 16, backgroundColor: '#dc2626', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, marginBottom: 16}}>🏗</div>
+                    <div style={{width:64, height:64, borderRadius: 16, backgroundColor: '#dc2626', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, marginBottom: 16}}>🏗</div>
                     <h1 style={{fontSize: 24, fontWeight: 700, color: '#1e293b', margin: 0}}>RestoreAssist Client Portal</h1>
                     <p style={{fontSize: 14, color: '#64748b', marginTop: 8}}>Secure report access for Mrs Jane Smith</p>
                   </div>

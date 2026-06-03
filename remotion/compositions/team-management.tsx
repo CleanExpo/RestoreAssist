@@ -85,12 +85,12 @@ export const TeamManagement = ({title, stepDurations}) => {
       </div>
       <div style={{position:'absolute', inset:0, zIndex:1000, opacity:frame>=s2&&frame<s3?1:0, pointerEvents:'none'}}>
         <AnimatedMouse startX={600} startY={400} endX={900} endY={300} startFrame={s2+15} endFrame={s2+45} />
-        <HighlightBox x={850} y={270} width:140, height:40 startFrame={s2+40} endFrame={s2+70} />
+        <HighlightBox x={850} y={270} width={140} height={40} startFrame={s2+40} endFrame={s2+70} />
         <Annotation text="On-site vs office status updated in real time." x={650} y={250} startFrame={s2+35} endFrame={s2+130} />
       </div>
       <div style={{position:'absolute', inset:0, zIndex:1000, opacity:frame>=s3&&frame<s4?1:0, pointerEvents:'none'}}>
         <AnimatedMouse startX={900} startY={300} endX={1100} endY={600} startFrame={s3+15} endFrame={s3+45} clickFrame={s3+43} />
-        <HighlightBox x={1080} y={580} width:140, height:40 startFrame={s3+40} endFrame={s3+70} />
+        <HighlightBox x={1080} y={580} width={140} height={40} startFrame={s3+40} endFrame={s3+70} />
         <Annotation text="Invite new team members and set permissions in seconds." x={850} y={560} startFrame={s3+35} endFrame={s3+150} />
       </div>
       <div style={{position:'absolute', inset:0, opacity:outroOpacity, zIndex:outroOpacity>0?100:0}}><OutroSlide title="Your team. coordinated." subtitle="RestoreAssist Team" /></div>

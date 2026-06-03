@@ -26,7 +26,7 @@ export const WhyRestoreAssist = () => {
       {/* Hero */}
       <div style={{position: 'absolute', inset: 0, opacity: heroOpacity}}>
         <AbsoluteFill style={{backgroundColor: '#0f172a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'}}>
-          <div style={{width:80, height: 80, borderRadius: 20, backgroundColor: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40, marginBottom: 32}}>🏗</div>
+          <div style={{width:80, height:80, borderRadius: 20, backgroundColor: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40, marginBottom: 32}}>🏗</div>
           <h1 style={{fontSize: 64, fontWeight: 800, color: '#ffffff', textAlign: 'center', margin: 0, lineHeight: 1.1}}>Why Restoration Teams<br />Choose RestoreAssist</h1>
           <p style={{fontSize: 22, color: '#64748b', marginTop: 24, textAlign: 'center', maxWidth: 700}}>The all-in-one platform built for Australian restoration professionals.</p>
         </AbsoluteFill>

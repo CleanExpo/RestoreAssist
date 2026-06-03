@@ -1,9 +1,9 @@
 // @ts-nocheck
 import React from 'react';
 import {AbsoluteFill, interpolate, useCurrentFrame} from 'remotion';
-import {AnimatedMouse, HighlightBox, ScreenContainer, Annotation} from '../components/shared';
-import {IntroSlide} from '../compositions/ui-elements/intro-slide';
-import {OutroSlide} from '../compositions/ui-elements/outro-slide';
+import {AnimatedMouse, HighlightBox, ScreenContainer, Annotation} from '../../components/shared';
+import {IntroSlide} from '../ui-elements/intro-slide';
+import {OutroSlide} from '../ui-elements/outro-slide';
 
 export const SignIn = ({title, stepDurations}) => {
   const frame = useCurrentFrame();

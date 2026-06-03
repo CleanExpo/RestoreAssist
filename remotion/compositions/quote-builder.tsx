@@ -88,12 +88,12 @@ export const QuoteBuilder = ({title, stepDurations}) => {
       </div>
       <div style={{position:'absolute', inset:0, zIndex:1000, opacity:frame>=s2&&frame<s3?1:0, pointerEvents:'none'}}>
         <AnimatedMouse startX={800} startY={500} endX={900} endY={300} startFrame={s2+15} endFrame={s2+45} clickFrame={s2+43} />
-        <HighlightBox x={700} y={270} width={120} height:40 startFrame={s2+40} endFrame={s2+70} />
+        <HighlightBox x={700} y={270} width={120} height={40} startFrame={s2+40} endFrame={s2+70} />
         <Annotation text="Line items auto-fill from your inspection checklist." x={550} y={240} startFrame={s2+35} endFrame={s2+130} />
       </div>
       <div style={{position:'absolute', inset:0, zIndex:1000, opacity:frame>=s3&&frame<s4?1:0, pointerEvents:'none'}}>
         <AnimatedMouse startX={900} startY={300} endX={1000} endY={600} startFrame={s3+15} endFrame={s3+45} clickFrame={s3+43} />
-        <HighlightBox x={960} y={570} width={140} height:44 startFrame={s3+40} endFrame={s3+70} />
+        <HighlightBox x={960} y={570} width={140} height={44} startFrame={s3+40} endFrame={s3+70} />
         <Annotation text="Send the quote to your client for approval — tracked in one click." x={750} y={550} startFrame={s3+35} endFrame={s3+150} />
       </div>
       <div style={{position:'absolute', inset:0, opacity:outroOpacity, zIndex:outroOpacity>0?100:0}}><OutroSlide title="Quotes that win jobs." subtitle="RestoreAssist" /></div>

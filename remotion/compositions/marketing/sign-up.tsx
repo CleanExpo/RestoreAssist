@@ -1,9 +1,9 @@
 // @ts-nocheck
 import React from 'react';
 import {AbsoluteFill, interpolate, useCurrentFrame} from 'remotion';
-import {AnimatedMouse, HighlightBox, ScreenContainer, Annotation} from '../components/shared';
-import {IntroSlide} from './ui-elements/intro-slide';
-import {OutroSlide} from './ui-elements/outro-slide';
+import {AnimatedMouse, HighlightBox, ScreenContainer, Annotation} from '../../components/shared';
+import {IntroSlide} from '../ui-elements/intro-slide';
+import {OutroSlide} from '../ui-elements/outro-slide';
 
 export const SignUp = ({title, stepDurations}) => {
   const frame = useCurrentFrame();
@@ -151,7 +151,7 @@ export const SignUp = ({title, stepDurations}) => {
       <div style={{position: 'absolute', inset: 0, zIndex: 1000, opacity: frame >= s4 && frame < s5 ? 1 : 0, pointerEvents: 'none'}}>
         <AnimatedMouse startX={720} startY={490} endX={720} endY={600} startFrame={s4 + 20} endFrame={s4 + 50} clickFrame={s4 + 48} />
         <HighlightBox x={660} y={570} width={400} height={56} startFrame={s4 + 45} endFrame={s4 + 75} />
-        <Annotation text="None \"' + "'" + 's it. Your 14-day free trial starts now." x={550} y={540} startFrame={s4 + 35} endFrame={s4 + 150} />
+        <Annotation text="None of that. Your 14-day free trial starts now." x={550} y={540} startFrame={s4 + 35} endFrame={s4 + 150} />
       </div>
 
       <div style={{position: 'absolute', inset: 0, opacity: outroOpacity, zIndex: outroOpacity > 0 ? 100 : 0}}>

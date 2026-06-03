@@ -85,7 +85,7 @@ export const ComplianceChecklists = ({title, stepDurations}) => {
       </div>
       <div style={{position:'absolute', inset:0, zIndex:1000, opacity:frame>=s2&&frame<s3?1:0, pointerEvents:'none'}}>
         <AnimatedMouse startX={600} startY={500} endX={1050} endY={350} startFrame={s2+15} endFrame={s2+45} clickFrame={s2+43} />
-        <HighlightBox x={1020} y={320} width:100, height:36 startFrame={s2+40} endFrame={s2+70} />
+        <HighlightBox x={1020} y={320} width={100} height={36} startFrame={s2+40} endFrame={s2+70} />
         <Annotation text="Mark items complete as you work — real-time progress tracking." x={750} y={300} startFrame={s2+35} endFrame={s2+130} />
       </div>
       <div style={{position:'absolute', inset:0, zIndex:1000, opacity:frame>=s3&&frame<s4?1:0, pointerEvents:'none'}}>
