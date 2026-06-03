@@ -80,7 +80,6 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const videoId = searchParams.get("video_id");
-    const provider = searchParams.get("provider") ?? "synthesia";
 
     if (!videoId) {
       return NextResponse.json(
@@ -89,7 +88,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const result = await getVideoStatus(videoId, provider);
+    const result = await getVideoStatus(videoId);
 
     return NextResponse.json({
       video_id: result.videoId,
