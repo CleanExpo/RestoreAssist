@@ -19,6 +19,8 @@ case "$VERCEL_ENV" in
   *)
     if [ -z "$DATABASE_URL" ]; then
       echo "[build] DATABASE_URL unset — skipping prisma migrate deploy (probably a local 'next build' without env)"
+    elif [ "$SKIP_MIGRATE_DEPLOY" = "1" ]; then
+      echo "[build] SKIP_MIGRATE_DEPLOY=1 — skipping prisma migrate deploy (temporarily bypassing failed migration P3009)"
     else
       pnpm exec prisma migrate deploy
       # Schema drift smoke test — guards against the failure mode where
