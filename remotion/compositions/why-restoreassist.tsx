@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React from 'react';
 import {AbsoluteFill, interpolate, useCurrentFrame, spring} from 'remotion';
 import {IntroSlide, OutroSlide} from './ui-elements/intro-slide';
@@ -119,9 +118,9 @@ export const WhyRestoreAssist = () => {
         <AbsoluteFill style={{backgroundColor: '#1C2E47', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 60}}>
           <div style={{display: 'flex', gap: 64, marginBottom: 48}}>
             {[
-              {value: '45%', label: 'Faster Reports'},
-              {value: '3x', label: 'More Jobs Won'},
-              {value: '$12K', label: 'Avg Monthly Saving'},
+              {value: '2x', label: 'Faster Reports', sub: 'Compared to manual documentation'},
+              {value: 'Pro', label: 'Professional Output', sub: 'IICRC-compliant documentation'},
+              {value: '1', label: 'Unified Platform', sub: 'Inspection to invoice in one workflow'},
             ].map((stat, i) => (
               <div key={stat.label} style={{
                 textAlign: 'center',

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React from 'react';
 import {AbsoluteFill, interpolate, useCurrentFrame} from 'remotion';
 import {IntroSlide} from './ui-elements/intro-slide';

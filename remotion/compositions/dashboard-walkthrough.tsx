@@ -78,7 +78,7 @@ export const DashboardWalkthrough: React.FC<Props> = ({title, stepDurations}) =>
                   transition: 'opacity 0.5s',
                 }}>
                   <StatCard
-                    title="Total Inspections"
+                    title="Total Inspections (Example)"
                     value="24"
                     change="+12% this month"
                     changePositive={true}
@@ -86,7 +86,7 @@ export const DashboardWalkthrough: React.FC<Props> = ({title, stepDurations}) =>
                     highlight={frame >= s3 && frame < s4}
                   />
                   <StatCard
-                    title="Reports Generated"
+                    title="Reports Generated (Example)"
                     value="18"
                     change="+8% this month"
                     changePositive={true}
@@ -95,7 +95,7 @@ export const DashboardWalkthrough: React.FC<Props> = ({title, stepDurations}) =>
                     delay={30}
                   />
                   <StatCard
-                    title="Active Clients"
+                    title="Active Clients (Example)"
                     value="12"
                     change="+3 new this week"
                     changePositive={true}
@@ -104,7 +104,7 @@ export const DashboardWalkthrough: React.FC<Props> = ({title, stepDurations}) =>
                     delay={60}
                   />
                   <StatCard
-                    title="Revenue (MTD)"
+                    title="Revenue (MTD) (Example)"
                     value="$43,200"
                     change="+15% vs. last month"
                     changePositive={true}

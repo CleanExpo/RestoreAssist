@@ -76,20 +76,20 @@ export const RemotionRoot = () => (
     <Composition
       id="SignUp"
       component={SignUp}
-      durationInFrames={840}
+      durationInFrames={1800}
       fps={30}
       width={1920}
       height={1080}
-      defaultProps={{title: "Getting Started", stepDurations: [110, 160, 240, 200, 130]}}
+      defaultProps={{title: "Getting Started", stepDurations: [250, 360, 540, 450, 300]}}
     />
     <Composition
       id="SignIn"
       component={SignIn}
-      durationInFrames={600}
+      durationInFrames={1350}
       fps={30}
       width={1920}
       height={1080}
-      defaultProps={{title: "Welcome Back", stepDurations: [110, 180, 140, 170]}}
+      defaultProps={{title: "Welcome Back", stepDurations: [250, 405, 315, 380]}}
     />
 
     {/* Marketing */}
@@ -172,20 +172,20 @@ export const RemotionRoot = () => (
     <Composition
       id="AnalyticsOverview"
       component={AnalyticsOverview}
-      durationInFrames={780}
+      durationInFrames={1350}
       fps={30}
       width={1920}
       height={1080}
-      defaultProps={{title: "Business Analytics", stepDurations: [110, 200, 170, 160, 140]}}
+      defaultProps={{title: "Business Analytics", stepDurations: [180, 330, 280, 265, 235]}}
     />
     <Composition
       id="TeamManagement"
       component={TeamManagement}
-      durationInFrames={780}
+      durationInFrames={1500}
       fps={30}
       width={1920}
       height={1080}
-      defaultProps={{title: "Team Management", stepDurations: [110, 180, 200, 150, 140]}}
+      defaultProps={{title: "Team Management", stepDurations: [180, 290, 325, 240, 225]}}
     />
 
     {/* Cross-Platform */}
@@ -203,7 +203,7 @@ export const RemotionRoot = () => (
     <Composition
       id="PricingOverview"
       component={PricingOverview}
-      durationInFrames={720}
+      durationInFrames={1800}
       fps={30}
       width={1920}
       height={1080}
