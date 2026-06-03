@@ -1,0 +1,118 @@
+#!/bin/bash
+#
+# /Users/phillmcgurk/RestoreAssist/.bin/video-pre-flight
+#
+# MANDATORY pre-flight gate for ANY video work on RestoreAssist.
+# Run this before generating a single frame, audio track, or registry entry.
+# It exits non-zero (blocking all downstream work) if any check fails.
+#
+# Usage: Run before any video generation/render/audio/registry task.
+#
+set -euo pipefail
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+ERRORS=0
+
+echo "═══════════════════════════════════════════════"
+echo "RESTOREASSIST VIDEO PRE-FLIGHT GATE"
+echo "═══════════════════════════════════════════════"
+
+# ── 1. Branch Check ─────────────────────────────
+BRANCH=$(git branch --show-current 2>/dev/null || echo " detached")
+if [[ "$BRANCH" == "main" ]]; then
+    echo -e "${RED}[FAIL]${NC} On main branch. Create a feature branch first."
+    ERRORS=$((ERRORS+1))
+else
+    echo -e "${GREEN}[PASS]${NC} Branch: $BRANCH"
+fi
+
+# ── 2. Voice ID Canonical Check ──────────────────
+VOICE=$(grep -o 'ELEVENLABS_VOICE_ID=.*' .env.local 2>/dev/null | tail -1 | sed 's/.*=//; s/"//g' || echo "")
+if [[ "$VOICE" == "aGkVQvWUZi16EH8aZJvT" ]]; then
+    echo -e "${RED}[FAIL]${NC} ELEVENLABS_VOICE_ID is DEPRECATED (aGkVQvWUZi16EH8aZJvT)"
+    echo "         MUST use canonical CEO clone: jSuBIjxMKhqIfb0wCK1F"
+    ERRORS=$((ERRORS+1))
+elif [[ "$VOICE" == "jSuBIjxMKhqIfb0wCK1F" ]]; then
+    echo -e "${GREEN}[PASS]${NC} Voice ID canonical (CEO clone)"
+else
+    echo -e "${YELLOW}[WARN]${NC} ELEVENLABS_VOICE_ID not found or not set"
+fi
+
+# ── 3. ffmpeg Architecture Check ─────────────────
+FFMPEG_PATH=$(python3 -c "import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())" 2>/dev/null || echo "")
+if [[ -x "$FFMPEG_PATH" ]]; then
+    ARCH=$(file "$FFMPEG_PATH" 2>/dev/null | grep -o "arm64\|aarch64\|x86_64" || echo "")
+    if [[ "$ARCH" == "arm64" || "$ARCH" == "aarch64" ]]; then
+        echo -e "${GREEN}[PASS]${NC} ffmpeg ARM64 available ($FFMPEG_PATH)"
+    else
+        echo -e "${YELLOW}[WARN]${NC} ffmpeg available but not ARM64 ($ARCH). May fail on Apple Silicon."
+    fi
+else
+    echo -e "${YELLOW}[WARN]${NC} imageio-ffmpeg not installed. Run: python3 -m pip install imageio-ffmpeg"
+fi
+
+# ── 4. Type-Check Clean ──────────────────────────
+echo "Running pnpm type-check (~60s)..."
+if pnpm type-check > /tmp/.video-preflight-tsc.log 2>&1; then
+    echo -e "${GREEN}[PASS]${NC} TypeScript type-check clean"
+else
+    echo -e "${RED}[FAIL]${NC} TypeScript errors present. See /tmp/.video-preflight-tsc.log"
+    ERRORS=$((ERRORS+1))
+fi
+
+# ── 5. Registry Current Check ────────────────────
+REMO_COUNT=$(grep -c 'remotion-' components/setup/video-registry.ts 2>/dev/null || echo 0)
+if [[ "$REMO_COUNT" -ge 18 ]]; then
+    echo -e "${GREEN}[PASS]${NC} Registry has $REMO_COUNT Remotion entries (≥18)"
+else
+    echo -e "${RED}[FAIL]${NC} Registry has $REMO_COUNT Remotion entries (expected 18)."
+    echo "         Did you forget to add rendered videos to video-registry.ts?"
+    ERRORS=$((ERRORS+1))
+fi
+
+# ── 6. Brand Constants Exist ─────────────────────
+if [[ -f "remotion/lib/brand.ts" ]]; then
+    echo -e "${GREEN}[PASS]${NC} Brand constants file exists"
+else
+    echo -e "${RED}[FAIL]${NC} remotion/lib/brand.ts missing. Brand colours will drift."
+    ERRORS=$((ERRORS+1))
+fi
+
+# ── 7. Rendered Videos in Public ─────────────────
+echo "Checking rendered videos in public/videos/remotion/..."
+PUB_COUNT=$(ls public/videos/remotion/*.mp4 2>/dev/null | wc -l | tr -d ' ')
+OUT_COUNT=$(ls remotion/output/*.mp4 2>/dev/null | wc -l | tr -d ' ')
+if [[ "$PUB_COUNT" -ge "18" ]]; then
+    echo -e "${GREEN}[PASS]${NC} $PUB_COUNT rendered videos in public/videos/remotion/"
+else
+    echo -e "${YELLOW}[WARN]${NC} Only $PUB_COUNT videos in public/videos/remotion/ (output has $OUT_COUNT)"
+    echo "         Run: cp remotion/output/*.mp4 public/videos/remotion/"
+fi
+
+# ── 8. Uncommitted Changes ───────────────────────
+UNCOMMITTED=$(git status --short 2>/dev/null | wc -l | tr -d ' ')
+if [[ "$UNCOMMITTED" -gt 0 ]]; then
+    echo -e "${YELLOW}[WARN]${NC} $UNCOMMITTED uncommitted changes. Consider committing before render."
+else
+    echo -e "${GREEN}[PASS]${NC} Working tree clean"
+fi
+
+# ── SUMMARY ──────────────────────────────────────
+echo ""
+echo "═══════════════════════════════════════════════"
+if [[ "$ERRORS" -eq 0 ]]; then
+    echo -e "${GREEN}ALL CHECKS PASSED — Video work may proceed${NC}"
+    echo "═══════════════════════════════════════════════"
+    exit 0
+else
+    echo -e "${RED}$ERRORS CHECK(S) FAILED — Video work BLOCKED${NC}"
+    echo "═══════════════════════════════════════════════"
+    echo ""
+    echo "Fix the failures above, then re-run this script."
+    echo "DO NOT proceed with video generation/render/audio until all checks pass."
+    exit 1
+fi
