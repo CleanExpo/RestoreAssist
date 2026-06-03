@@ -20,13 +20,6 @@ case "$VERCEL_ENV" in
     if [ -z "$DATABASE_URL" ]; then
       echo "[build] DATABASE_URL unset — skipping prisma migrate deploy (probably a local 'next build' without env)"
     else
-      # 2026-06-03: Resolve previously-half-applied migration.
-      # The migration 20260524231500_add_voice_copilot_sessions partially applied (table exists)
-      # but the Prisma migrations tracker still shows it as failed/pending.
-      # Marking it as applied allows deploy to proceed.
-      echo "[build] Resolving half-applied migration 20260524231500_add_voice_copilot_sessions ($($(dirname $0)/get_version)...)"
-      pnpm exec prisma migrate resolve --applied "20260524231500_add_voice_copilot_sessions" || true
-
       pnpm exec prisma migrate deploy
       # Schema drift smoke test — guards against the failure mode where
       # `prisma migrate deploy` reports success but the DDL silently no-ops.
