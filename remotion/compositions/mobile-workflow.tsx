@@ -1,7 +1,8 @@
 // @ts-nocheck
 import React from 'react';
 import {AbsoluteFill, interpolate, useCurrentFrame} from 'remotion';
-import {IntroSlide, OutroSlide} from './ui-elements/intro-slide';
+import {IntroSlide} from './ui-elements/intro-slide';
+import {OutroSlide} from './ui-elements/outro-slide';
 
 export const MobileWorkflow = ({title, stepDurations}) => {
   const frame = useCurrentFrame();
