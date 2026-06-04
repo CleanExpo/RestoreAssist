@@ -1,0 +1,93 @@
+import {renderMedia, getCompositions} from '@remotion/renderer';
+import path from 'path';
+
+const compositionsToRender = [
+  // Original 4 tutorials
+  {id: 'DashboardWalkthrough', fileName: 'dashboard-walkthrough.mp4'},
+  {id: 'CreateInspection', fileName: 'create-inspection.mp4'},
+  {id: 'ReportBuilder', fileName: 'report-builder.mp4'},
+  {id: 'ClientPortal', fileName: 'client-portal.mp4'},
+  // Auth
+  {id: 'SignUp', fileName: 'sign-up.mp4'},
+  {id: 'SignIn', fileName: 'sign-in.mp4'},
+  // Marketing
+  {id: 'WhyRestoreAssist', fileName: 'why-restoreassist.mp4'},
+  {id: 'BYOKExplainer', fileName: 'byok-explainer.mp4'},
+  // Features
+  {id: 'InspectionsList', fileName: 'inspections-list.mp4'},
+  {id: 'EvidenceCapture', fileName: 'evidence-capture.mp4'},
+  {id: 'MoistureMapping', fileName: 'moisture-mapping.mp4'},
+  {id: 'QuoteBuilder', fileName: 'quote-builder.mp4'},
+  {id: 'InvoiceGenerator', fileName: 'invoice-generator.mp4'},
+  {id: 'ComplianceChecklists', fileName: 'compliance-checklists.mp4'},
+  {id: 'AnalyticsOverview', fileName: 'analytics-overview.mp4'},
+  {id: 'TeamManagement', fileName: 'team-management.mp4'},
+  // P0 Launch Blockers
+  {id: 'HeroProductOverview', fileName: 'hero-product-overview.mp4'},
+  {id: 'SetupWizardFull', fileName: 'setup-wizard-full.mp4'},
+  {id: 'SettingsConfig', fileName: 'settings-config.mp4'},
+  {id: 'IntegrationConnect', fileName: 'integration-connect.mp4'},
+  {id: 'ReportExportPDF', fileName: 'report-export-pdf.mp4'},
+
+  // P1 Marketing Videos
+  {id: 'ForContractors', fileName: 'for-contractors.mp4'},
+  {id: 'ForAssessors', fileName: 'for-assessors.mp4'},
+  {id: 'ForPropertyManagers', fileName: 'for-property-managers.mp4'},
+  {id: 'ROIExplainer', fileName: 'roi-explainer.mp4'},
+  {id: 'EvidenceChain', fileName: 'evidence-chain.mp4'},
+  {id: 'LinkedInShort1', fileName: 'linkedin-short-1.mp4'},
+  {id: 'LinkedInShort2', fileName: 'linkedin-short-2.mp4'},
+
+  // P3 Training Videos
+  {id: 'TrainingS500Standard', fileName: 'training-s500-standard.mp4'},
+  {id: 'TrainingWaterDamageCat', fileName: 'training-water-damage-cat.mp4'},
+  {id: 'TrainingMouldRemediation', fileName: 'training-mould-remediation.mp4'},
+  {id: 'TrainingFireSmoke', fileName: 'training-fire-smoke.mp4'},
+];
+
+async function renderAll() {
+  const entry = path.join(process.cwd(), 'remotion', 'index.tsx');
+
+  console.log('[render] bundling Remotion project...');
+  const {bundle} = await import('@remotion/bundler');
+  const bundleLocationResult = await bundle({
+    entryPoint: entry,
+    onProgress: (progress) => {
+      console.log(`[bundle] ${Math.round(progress * 100)}%`);
+    },
+  });
+
+  console.log('[render] getting compositions...');
+  const comps = await getCompositions(bundleLocationResult, {inputProps: {}});
+
+  for (const compInfo of compositionsToRender) {
+    const comp = comps.find((c) => c.id === compInfo.id);
+    if (!comp) {
+      console.error(`[render] composition ${compInfo.id} not found`);
+      continue;
+    }
+
+    const outputPath = path.join(process.cwd(), 'remotion', 'output', compInfo.fileName);
+    console.log(`[render] rendering ${compInfo.id} → ${outputPath}`);
+
+    await renderMedia({
+      composition: comp,
+      serveUrl: bundleLocationResult,
+      codec: 'h264',
+      outputLocation: outputPath,
+      onProgress: ({progress}) => {
+        console.log(`[${compInfo.id}] ${Math.round(progress * 100)}%`);
+      },
+      overwrite: true,
+    });
+
+    console.log(`[render] ✓ ${compInfo.id} complete`);
+  }
+
+  console.log('[render] all done');
+}
+
+renderAll().catch((err) => {
+  console.error('[render] fatal error:', err);
+  process.exit(1);
+});
