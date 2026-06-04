@@ -105,6 +105,7 @@ export interface RegistryEntry {
   localPath?: string;
   title: string;
   durationSec: number;
+  category?: string;
 }
 
 export const VIDEO_REGISTRY: Record<VideoExplainerSlug, RegistryEntry> = {
