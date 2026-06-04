@@ -22,9 +22,12 @@ const compositionsToRender = [
   {id: 'ComplianceChecklists', fileName: 'compliance-checklists.mp4'},
   {id: 'AnalyticsOverview', fileName: 'analytics-overview.mp4'},
   {id: 'TeamManagement', fileName: 'team-management.mp4'},
-  // Cross-platform
-  {id: 'MobileWorkflow', fileName: 'mobile-workflow.mp4'},
-  {id: 'PricingOverview', fileName: 'pricing-overview.mp4'},
+  // P0 Launch Blockers (new)
+  {id: 'HeroProductOverview', fileName: 'hero-product-overview.mp4'},
+  {id: 'SetupWizardFull', fileName: 'setup-wizard-full.mp4'},
+  {id: 'SettingsConfig', fileName: 'settings-config.mp4'},
+  {id: 'IntegrationConnect', fileName: 'integration-connect.mp4'},
+  {id: 'ReportExportPDF', fileName: 'report-export-pdf.mp4'},
 ];
 
 async function renderAll() {

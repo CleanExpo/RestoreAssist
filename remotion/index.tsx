@@ -19,6 +19,11 @@ import {AnalyticsOverview} from './compositions/analytics-overview';
 import {TeamManagement} from './compositions/team-management';
 import {MobileWorkflow} from './compositions/mobile-workflow';
 import {PricingOverview} from './compositions/pricing-overview';
+import {HeroProductOverview} from './compositions/hero-product-overview';
+import {SetupWizardFull} from './compositions/setup-wizard-full';
+import {SettingsConfig} from './compositions/settings-config';
+import {IntegrationConnect} from './compositions/integration-connect';
+import {ReportExportPDF} from './compositions/report-export-pdf';
 
 export const RemotionRoot = () => (
   <>
@@ -203,6 +208,53 @@ export const RemotionRoot = () => (
     <Composition
       id="PricingOverview"
       component={PricingOverview}
+      durationInFrames={1800}
+      fps={30}
+      width={1920}
+      height={1080}
+      defaultProps={{}}
+    />
+
+    {/* P0 Launch Blockers (new) */}
+    <Composition
+      id="HeroProductOverview"
+      component={HeroProductOverview}
+      durationInFrames={1800}
+      fps={30}
+      width={1920}
+      height={1080}
+      defaultProps={{}}
+    />
+    <Composition
+      id="SetupWizardFull"
+      component={SetupWizardFull}
+      durationInFrames={5400}
+      fps={30}
+      width={1920}
+      height={1080}
+      defaultProps={{}}
+    />
+    <Composition
+      id="SettingsConfig"
+      component={SettingsConfig}
+      durationInFrames={1800}
+      fps={30}
+      width={1920}
+      height={1080}
+      defaultProps={{}}
+    />
+    <Composition
+      id="IntegrationConnect"
+      component={IntegrationConnect}
+      durationInFrames={2250}
+      fps={30}
+      width={1920}
+      height={1080}
+      defaultProps={{}}
+    />
+    <Composition
+      id="ReportExportPDF"
+      component={ReportExportPDF}
       durationInFrames={1800}
       fps={30}
       width={1920}
