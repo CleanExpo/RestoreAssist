@@ -1,8 +1,8 @@
 import React from 'react';
 import {AbsoluteFill, interpolate, useCurrentFrame} from 'remotion';
-import {IntroSlide} from '../ui-elements/intro-slide';
-import {OutroSlide} from '../ui-elements/outro-slide';
-import {ScreenContainer} from '../../components/shared';
+import {IntroSlide} from './ui-elements/intro-slide';
+import {OutroSlide} from './ui-elements/outro-slide';
+import {ScreenContainer} from '../components/shared';
 
 export const ReportExportPDF = () => {
   const frame = useCurrentFrame();
