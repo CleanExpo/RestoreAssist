@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo } from "react";
 import { VideoExplainer } from "@/components/setup/VideoExplainer";
 import { VIDEO_REGISTRY, type VideoExplainerSlug } from "@/components/setup/video-registry";
 import { Input } from "@/components/ui/input";
-import { Search, CheckCircle, PlayCircle } from "lucide-react";
 
 const CATEGORIES = [
   { key: "all", label: "All" },
@@ -155,7 +154,7 @@ export function LearnPageClient() {
       </div>
 
       <div className="relative mb-4">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true">⌕</span>
         <Input
           placeholder="Search tutorials..."
           value={search}
@@ -197,9 +196,9 @@ export function LearnPageClient() {
                 <div className="flex items-center gap-2">
                   <h2 className="text-base font-semibold">{entry.title}</h2>
                   {isWatched ? (
-                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <span className="h-4 w-4 text-green-600" aria-hidden="true">✓</span>
                   ) : (
-                    <PlayCircle className="h-4 w-4 text-[#8A6B4E]" />
+                    <span className="h-4 w-4 text-[#8A6B4E]" aria-hidden="true">▶</span>
                   )}
                 </div>
                 <p className="text-sm text-muted-foreground">{subtitle}</p>

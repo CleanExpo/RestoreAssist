@@ -12,7 +12,6 @@ import { CATEGORY_VIDEOS } from "@/lib/help/category-videos";
 import { VIDEO_REGISTRY } from "@/components/setup/video-registry";
 import HelpArticleCard from "@/components/help/HelpArticleCard";
 import Link from "next/link";
-import { Play } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -64,7 +63,7 @@ export default async function HelpCategoryPage({
               >
                 <div className="flex items-start gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#1C2E47] group-hover:bg-[#8A6B4E]/20">
-                    <Play className="h-5 w-5 text-[#8A6B4E] group-hover:text-white" />
+                    <span className="h-5 w-5 text-[#8A6B4E] group-hover:text-white" aria-hidden="true">▶</span>
                   </div>
                   <div className="min-w-0">
                     <div className="font-medium text-white group-hover:text-[#D4A574]">

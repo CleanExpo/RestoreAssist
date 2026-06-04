@@ -3,18 +3,6 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import {
-  ChevronDown,
-  BookOpen,
-  Camera,
-  FileText,
-  Users,
-  CreditCard,
-  UserPlus,
-  Plug,
-  ShieldCheck,
-  Play,
-} from "lucide-react";
-import {
   HELP_CATEGORIES,
   HELP_CATEGORY_LABELS,
   type HelpCategory,
@@ -22,15 +10,20 @@ import {
 import { CATEGORY_VIDEOS } from "@/lib/help/category-videos";
 import { VIDEO_REGISTRY } from "@/components/setup/video-registry";
 
+type MarkProps = { className?: string };
+function Mark({ className = "h-5 w-5", children }: MarkProps & { children: React.ReactNode }) {
+  return <span className={className} aria-hidden="true">{children}</span>;
+}
+
 const CATEGORY_ICONS: Record<HelpCategory, React.ReactNode> = {
-  "getting-started": <BookOpen className="h-5 w-5" />,
-  inspections: <Camera className="h-5 w-5" />,
-  reports: <FileText className="h-5 w-5" />,
-  "clients-and-portal": <Users className="h-5 w-5" />,
-  billing: <CreditCard className="h-5 w-5" />,
-  team: <UserPlus className="h-5 w-5" />,
-  integrations: <Plug className="h-5 w-5" />,
-  compliance: <ShieldCheck className="h-5 w-5" />,
+  "getting-started": <Mark>▤</Mark>,
+  inspections: <Mark>▣</Mark>,
+  reports: <Mark>▥</Mark>,
+  "clients-and-portal": <Mark>◉</Mark>,
+  billing: <Mark>▭</Mark>,
+  team: <Mark>⊕</Mark>,
+  integrations: <Mark>◇</Mark>,
+  compliance: <Mark>⬟</Mark>,
 };
 
 const CATEGORY_DESCRIPTIONS: Record<HelpCategory, string> = {
@@ -82,7 +75,7 @@ export default function HowToDropdown() {
         aria-haspopup="menu"
       >
         How To
-        <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
+        <span className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true">⌄</span>
       </button>
 
       {open && (
@@ -130,7 +123,7 @@ export default function HowToDropdown() {
                       className="flex items-center gap-2 rounded-md p-2 hover:bg-white/5 group"
                     >
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-[#1C2E47] group-hover:bg-[#8A6B4E]/20">
-                        <Play className="h-3.5 w-3.5 text-[#8A6B4E] group-hover:text-white" />
+                        <span className="h-3.5 w-3.5 text-[#8A6B4E] group-hover:text-white" aria-hidden="true">▶</span>
                       </div>
                       <div className="min-w-0">
                         <div className="truncate text-xs font-medium text-white/90 group-hover:text-white">

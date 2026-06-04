@@ -1,7 +1,24 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { BarChart3, Play, CheckCircle, Pause, TrendingUp, TrendingDown, Users } from "lucide-react";
+
+type MarkProps = { className?: string };
+
+function Mark({ className = "h-5 w-5", children }: MarkProps & { children: React.ReactNode }) {
+  return (
+    <span className={className} aria-hidden="true">
+      {children}
+    </span>
+  );
+}
+
+const ChartMark = (props: MarkProps) => <Mark {...props}>▥</Mark>;
+const PlayMark = (props: MarkProps) => <Mark {...props}>▶</Mark>;
+const CheckMark = (props: MarkProps) => <Mark {...props}>✓</Mark>;
+const PauseMark = (props: MarkProps) => <Mark {...props}>Ⅱ</Mark>;
+const UpMark = (props: MarkProps) => <Mark {...props}>↗</Mark>;
+const DownMark = (props: MarkProps) => <Mark {...props}>↘</Mark>;
+const UsersMark = (props: MarkProps) => <Mark {...props}>◉</Mark>;
 
 interface VideoStat {
   videoSlug: string;
@@ -60,7 +77,7 @@ export default function VideoAnalyticsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
-            <BarChart3 className="h-7 w-7" />
+            <ChartMark className="h-7 w-7" />
             Video Analytics
           </h1>
           <p className="mt-1 text-muted-foreground">
@@ -88,7 +105,7 @@ export default function VideoAnalyticsPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="rounded-lg border bg-card p-4">
           <div className="flex items-center gap-3">
-            <Play className="h-5 w-5 text-blue-400" />
+            <PlayMark className="h-5 w-5 text-blue-400" />
             <div>
               <p className="text-sm text-muted-foreground">Total Plays</p>
               <p className="text-2xl font-bold">{totalPlays.toLocaleString()}</p>
@@ -97,7 +114,7 @@ export default function VideoAnalyticsPage() {
         </div>
         <div className="rounded-lg border bg-card p-4">
           <div className="flex items-center gap-3">
-            <CheckCircle className="h-5 w-5 text-green-400" />
+            <CheckMark className="h-5 w-5 text-green-400" />
             <div>
               <p className="text-sm text-muted-foreground">Avg Completion</p>
               <p className={`text-2xl font-bold ${colorForRate(avgCompletion)}`}>
@@ -108,7 +125,7 @@ export default function VideoAnalyticsPage() {
         </div>
         <div className="rounded-lg border bg-card p-4">
           <div className="flex items-center gap-3">
-            <Users className="h-5 w-5 text-[#8A6B4E]" />
+            <UsersMark className="h-5 w-5 text-[#8A6B4E]" />
             <div>
               <p className="text-sm text-muted-foreground">Videos Tracked</p>
               <p className="text-2xl font-bold">{data.length}</p>
