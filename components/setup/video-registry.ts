@@ -65,7 +65,20 @@ export type VideoExplainerSlug =
   | "remotion-training-s500-standard"
   | "remotion-training-water-damage-cat"
   | "remotion-training-mould-remediation"
-  | "remotion-training-fire-smoke";
+  | "remotion-training-fire-smoke"
+  // P2 Feature Deep-Dives (2026-06-04)
+  | "remotion-evidence-chain-deep-dive"
+  | "remotion-photo-annotation-deep-dive"
+  | "remotion-template-builder"
+  | "remotion-bulk-operations"
+  | "remotion-search-filter"
+  | "remotion-notifications-deep-dive"
+  | "remotion-data-import"
+  | "remotion-api-webhooks"
+  | "remotion-white-label"
+  | "remotion-backup-export"
+  | "remotion-moisture-deep-dive"
+  | "remotion-mobile-deep-dive";
 
 export interface RegistryEntry {
   youtubeId?: string;
@@ -355,5 +368,67 @@ export const VIDEO_REGISTRY: Record<VideoExplainerSlug, RegistryEntry> = {
     localPath: "/videos/remotion/training-fire-smoke.mp4",
     title: "Fire & Smoke Damage Types",
     durationSec: 44,
+  },
+
+  // P2 Feature Deep-Dives (2026-06-04)
+  "remotion-evidence-chain-deep-dive": {
+    localPath: "/videos/remotion/evidence-chain-deep-dive.mp4",
+    title: "Chain of Custody — Deep Dive",
+    durationSec: 77,
+  },
+  "remotion-photo-annotation-deep-dive": {
+    localPath: "/videos/remotion/photo-annotation-deep-dive.mp4",
+    title: "Photo Annotation Toolkit",
+    durationSec: 77,
+  },
+  "remotion-template-builder": {
+    localPath: "/videos/remotion/template-builder.mp4",
+    title: "Report Template Builder",
+    durationSec: 66,
+  },
+  "remotion-bulk-operations": {
+    localPath: "/videos/remotion/bulk-operations.mp4",
+    title: "Bulk Operations",
+    durationSec: 66,
+  },
+  "remotion-search-filter": {
+    localPath: "/videos/remotion/search-filter.mp4",
+    title: "Advanced Search & Filter",
+    durationSec: 66,
+  },
+  "remotion-notifications-deep-dive": {
+    localPath: "/videos/remotion/notifications-deep-dive.mp4",
+    title: "Notification System",
+    durationSec: 66,
+  },
+  "remotion-data-import": {
+    localPath: "/videos/remotion/data-import.mp4",
+    title: "Data Import",
+    durationSec: 66,
+  },
+  "remotion-api-webhooks": {
+    localPath: "/videos/remotion/api-webhooks.mp4",
+    title: "API & Webhooks",
+    durationSec: 72,
+  },
+  "remotion-white-label": {
+    localPath: "/videos/remotion/white-label.mp4",
+    title: "White Label",
+    durationSec: 66,
+  },
+  "remotion-backup-export": {
+    localPath: "/videos/remotion/backup-export.mp4",
+    title: "Backup & Export",
+    durationSec: 66,
+  },
+  "remotion-moisture-deep-dive": {
+    localPath: "/videos/remotion/moisture-deep-dive.mp4",
+    title: "Moisture Mapping — Deep Dive",
+    durationSec: 77,
+  },
+  "remotion-mobile-deep-dive": {
+    localPath: "/videos/remotion/mobile-deep-dive.mp4",
+    title: "Mobile Workflow — Deep Dive",
+    durationSec: 77,
   },
 };

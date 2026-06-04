@@ -43,6 +43,20 @@ const compositionsToRender = [
   {id: 'TrainingWaterDamageCat', fileName: 'training-water-damage-cat.mp4'},
   {id: 'TrainingMouldRemediation', fileName: 'training-mould-remediation.mp4'},
   {id: 'TrainingFireSmoke', fileName: 'training-fire-smoke.mp4'},
+
+  // P2 Feature Deep-Dives
+  {id: 'EvidenceChainDeepDive', fileName: 'evidence-chain-deep-dive.mp4'},
+  {id: 'PhotoAnnotationDeepDive', fileName: 'photo-annotation-deep-dive.mp4'},
+  {id: 'TemplateBuilder', fileName: 'template-builder.mp4'},
+  {id: 'BulkOperations', fileName: 'bulk-operations.mp4'},
+  {id: 'SearchFilter', fileName: 'search-filter.mp4'},
+  {id: 'NotificationsDeepDive', fileName: 'notifications-deep-dive.mp4'},
+  {id: 'DataImport', fileName: 'data-import.mp4'},
+  {id: 'APIWebhooks', fileName: 'api-webhooks.mp4'},
+  {id: 'WhiteLabel', fileName: 'white-label.mp4'},
+  {id: 'BackupExport', fileName: 'backup-export.mp4'},
+  {id: 'MoistureDeepDive', fileName: 'moisture-deep-dive.mp4'},
+  {id: 'MobileDeepDive', fileName: 'mobile-deep-dive.mp4'},
 ];
 
 async function renderAll() {
