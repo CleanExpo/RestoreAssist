@@ -35,6 +35,18 @@ import {TrainingS500Standard} from './compositions/training-s500-standard';
 import {TrainingWaterDamageCat} from './compositions/training-water-damage-cat';
 import {TrainingMouldRemediation} from './compositions/training-mould-remediation';
 import {TrainingFireSmoke} from './compositions/training-fire-smoke';
+import {EvidenceChainDeepDive} from './compositions/evidence-chain-deep-dive';
+import {PhotoAnnotationDeepDive} from './compositions/photo-annotation-deep-dive';
+import {TemplateBuilder} from './compositions/template-builder';
+import {BulkOperations} from './compositions/bulk-operations';
+import {SearchFilter} from './compositions/search-filter';
+import {NotificationsDeepDive} from './compositions/notifications-deep-dive';
+import {DataImport} from './compositions/data-import';
+import {APIWebhooks} from './compositions/api-webhooks';
+import {WhiteLabel} from './compositions/white-label';
+import {BackupExport} from './compositions/backup-export';
+import {MoistureDeepDive} from './compositions/moisture-deep-dive';
+import {MobileDeepDive} from './compositions/mobile-deep-dive';
 
 export const RemotionRoot = () => (
   <>
@@ -247,6 +259,20 @@ export const RemotionRoot = () => (
     <Composition id="TrainingWaterDamageCat" component={TrainingWaterDamageCat} durationInFrames={1320} fps={30} width={1920} height={1080} defaultProps={{}} />
     <Composition id="TrainingMouldRemediation" component={TrainingMouldRemediation} durationInFrames={1320} fps={30} width={1920} height={1080} defaultProps={{}} />
     <Composition id="TrainingFireSmoke" component={TrainingFireSmoke} durationInFrames={1320} fps={30} width={1920} height={1080} defaultProps={{}} />
+
+    {/* P2 Feature Deep-Dives (2026-06-04) */}
+    <Composition id="EvidenceChainDeepDive" component={EvidenceChainDeepDive} durationInFrames={2320} fps={30} width={1920} height={1080} defaultProps={{}} />
+    <Composition id="PhotoAnnotationDeepDive" component={PhotoAnnotationDeepDive} durationInFrames={2320} fps={30} width={1920} height={1080} defaultProps={{}} />
+    <Composition id="TemplateBuilder" component={TemplateBuilder} durationInFrames={1980} fps={30} width={1920} height={1080} defaultProps={{}} />
+    <Composition id="BulkOperations" component={BulkOperations} durationInFrames={1980} fps={30} width={1920} height={1080} defaultProps={{}} />
+    <Composition id="SearchFilter" component={SearchFilter} durationInFrames={1980} fps={30} width={1920} height={1080} defaultProps={{}} />
+    <Composition id="NotificationsDeepDive" component={NotificationsDeepDive} durationInFrames={1980} fps={30} width={1920} height={1080} defaultProps={{}} />
+    <Composition id="DataImport" component={DataImport} durationInFrames={1980} fps={30} width={1920} height={1080} defaultProps={{}} />
+    <Composition id="APIWebhooks" component={APIWebhooks} durationInFrames={2160} fps={30} width={1920} height={1080} defaultProps={{}} />
+    <Composition id="WhiteLabel" component={WhiteLabel} durationInFrames={1980} fps={30} width={1920} height={1080} defaultProps={{}} />
+    <Composition id="BackupExport" component={BackupExport} durationInFrames={1980} fps={30} width={1920} height={1080} defaultProps={{}} />
+    <Composition id="MoistureDeepDive" component={MoistureDeepDive} durationInFrames={2320} fps={30} width={1920} height={1080} defaultProps={{}} />
+    <Composition id="MobileDeepDive" component={MobileDeepDive} durationInFrames={2320} fps={30} width={1920} height={1080} defaultProps={{}} />
   </>
 );
 
