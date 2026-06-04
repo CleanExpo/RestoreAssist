@@ -78,7 +78,18 @@ export type VideoExplainerSlug =
   | "remotion-white-label"
   | "remotion-backup-export"
   | "remotion-moisture-deep-dive"
-  | "remotion-mobile-deep-dive";
+  | "remotion-mobile-deep-dive"
+  // Tutorial Videos (2026-06-04)
+  | "remotion-tutorial-login"
+  | "remotion-tutorial-signup"
+  | "remotion-tutorial-setup-wizard"
+  | "remotion-tutorial-dashboard"
+  | "remotion-tutorial-inspections"
+  | "remotion-tutorial-reports"
+  | "remotion-tutorial-billing"
+  | "remotion-tutorial-team"
+  | "remotion-tutorial-compliance"
+  | "remotion-tutorial-integrations";
 
 export interface RegistryEntry {
   youtubeId?: string;
@@ -94,36 +105,43 @@ export interface RegistryEntry {
   localPath?: string;
   title: string;
   durationSec: number;
+  category?: string;
 }
 
 export const VIDEO_REGISTRY: Record<VideoExplainerSlug, RegistryEntry> = {
   "setup-wizard-signin": {
-    youtubeId: "tsmZpgLrn5Y",
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780555742/restoreassist/videos/remotion/wizard-signin.mp4",
+    localPath: "/videos/remotion/wizard-signin.mp4",
     title: "Signing in to RestoreAssist",
     durationSec: 30,
   },
   "setup-wizard-signup": {
-    youtubeId: "wREGInp5yPQ",
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780555743/restoreassist/videos/remotion/wizard-signup.mp4",
+    localPath: "/videos/remotion/wizard-signup.mp4",
     title: "Creating your RestoreAssist account",
     durationSec: 60,
   },
   "setup-wizard-setup": {
-    youtubeId: "G2CIyp-gDKA",
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780555745/restoreassist/videos/remotion/wizard-setup.mp4",
+    localPath: "/videos/remotion/wizard-setup.mp4",
     title: "The RestoreAssist Setup Wizard — end-to-end",
     durationSec: 120,
   },
   "setup-wizard-dashboard": {
-    youtubeId: "sp3bMYSaZa8",
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780555746/restoreassist/videos/remotion/wizard-dashboard.mp4",
+    localPath: "/videos/remotion/wizard-dashboard.mp4",
     title: "Your RestoreAssist dashboard, post-activation",
     durationSec: 120,
   },
   "setup-wizard-integrations": {
-    youtubeId: "P6rVHLOVNsQ",
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780555747/restoreassist/videos/remotion/wizard-integrations.mp4",
+    localPath: "/videos/remotion/wizard-integrations.mp4",
     title: "Connect Xero, MYOB, QuickBooks, ServiceM8 or Ascora",
     durationSec: 90,
   },
   "setup-wizard-health": {
-    youtubeId: "UHUiqnhxGtw",
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780555749/restoreassist/videos/remotion/wizard-health.mp4",
+    localPath: "/videos/remotion/wizard-health.mp4",
     title: "Your RestoreAssist Workspace Health page",
     durationSec: 60,
   },
@@ -442,5 +460,77 @@ export const VIDEO_REGISTRY: Record<VideoExplainerSlug, RegistryEntry> = {
     localPath: "/videos/remotion/mobile-deep-dive.mp4",
     title: "Mobile Workflow — Deep Dive",
     durationSec: 77,
+  },
+
+  // Tutorial Videos (2026-06-04)
+  "remotion-tutorial-login": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780551944/restoreassist/videos/remotion/tutorial-login.mp4",
+    localPath: "/videos/remotion/tutorial-login.mp4",
+    title: "Signing in to RestoreAssist",
+    durationSec: 45,
+    category: "getting-started",
+  },
+  "remotion-tutorial-signup": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780551946/restoreassist/videos/remotion/tutorial-signup.mp4",
+    localPath: "/videos/remotion/tutorial-signup.mp4",
+    title: "Creating your Account",
+    durationSec: 90,
+    category: "getting-started",
+  },
+  "remotion-tutorial-setup-wizard": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780551948/restoreassist/videos/remotion/tutorial-setup-wizard.mp4",
+    localPath: "/videos/remotion/tutorial-setup-wizard.mp4",
+    title: "The Setup Wizard",
+    durationSec: 60,
+    category: "getting-started",
+  },
+  "remotion-tutorial-dashboard": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780551949/restoreassist/videos/remotion/tutorial-dashboard.mp4",
+    localPath: "/videos/remotion/tutorial-dashboard.mp4",
+    title: "Your Dashboard",
+    durationSec: 40,
+    category: "getting-started",
+  },
+  "remotion-tutorial-inspections": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780551951/restoreassist/videos/remotion/tutorial-inspections.mp4",
+    localPath: "/videos/remotion/tutorial-inspections.mp4",
+    title: "Inspections",
+    durationSec: 50,
+    category: "inspections",
+  },
+  "remotion-tutorial-reports": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780551953/restoreassist/videos/remotion/tutorial-reports.mp4",
+    localPath: "/videos/remotion/tutorial-reports.mp4",
+    title: "AI-Assisted Reports",
+    durationSec: 40,
+    category: "reports",
+  },
+  "remotion-tutorial-billing": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780551954/restoreassist/videos/remotion/tutorial-billing.mp4",
+    localPath: "/videos/remotion/tutorial-billing.mp4",
+    title: "Billing & Subscriptions",
+    durationSec: 40,
+    category: "billing",
+  },
+  "remotion-tutorial-team": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780551956/restoreassist/videos/remotion/tutorial-team.mp4",
+    localPath: "/videos/remotion/tutorial-team.mp4",
+    title: "Managing Your Team",
+    durationSec: 40,
+    category: "team",
+  },
+  "remotion-tutorial-compliance": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780551957/restoreassist/videos/remotion/tutorial-compliance.mp4",
+    localPath: "/videos/remotion/tutorial-compliance.mp4",
+    title: "IICRC Compliance",
+    durationSec: 40,
+    category: "compliance",
+  },
+  "remotion-tutorial-integrations": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780551959/restoreassist/videos/remotion/tutorial-integrations.mp4",
+    localPath: "/videos/remotion/tutorial-integrations.mp4",
+    title: "Integrations",
+    durationSec: 40,
+    category: "integrations",
   },
 };

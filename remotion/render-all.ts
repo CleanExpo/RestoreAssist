@@ -57,6 +57,25 @@ const compositionsToRender = [
   {id: 'BackupExport', fileName: 'backup-export.mp4'},
   {id: 'MoistureDeepDive', fileName: 'moisture-deep-dive.mp4'},
   {id: 'MobileDeepDive', fileName: 'mobile-deep-dive.mp4'},
+
+  // Tutorial Videos (2026-06-04)
+  {id: 'TutorialLogin', fileName: 'tutorial-login.mp4'},
+  {id: 'TutorialSignup', fileName: 'tutorial-signup.mp4'},
+  {id: 'TutorialSetupWizard', fileName: 'tutorial-setup-wizard.mp4'},
+  {id: 'TutorialDashboard', fileName: 'tutorial-dashboard.mp4'},
+  {id: 'TutorialInspections', fileName: 'tutorial-inspections.mp4'},
+  {id: 'TutorialReports', fileName: 'tutorial-reports.mp4'},
+  {id: 'TutorialBilling', fileName: 'tutorial-billing.mp4'},
+  {id: 'TutorialTeam', fileName: 'tutorial-team.mp4'},
+  {id: 'TutorialCompliance', fileName: 'tutorial-compliance.mp4'},
+  {id: 'TutorialIntegrations', fileName: 'tutorial-integrations.mp4'},
+  {id: 'WizardSignin', fileName: 'wizard-signin.mp4'},
+  {id: 'WizardSignup', fileName: 'wizard-signup.mp4'},
+  {id: 'WizardSetup', fileName: 'wizard-setup.mp4'},
+  {id: 'WizardDashboard', fileName: 'wizard-dashboard.mp4'},
+  {id: 'WizardIntegrations', fileName: 'wizard-integrations.mp4'},
+  {id: 'WizardHealth', fileName: 'wizard-health.mp4'},
+
 ];
 
 async function renderAll() {

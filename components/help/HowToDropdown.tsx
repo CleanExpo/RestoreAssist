@@ -3,31 +3,27 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import {
-  ChevronDown,
-  BookOpen,
-  Camera,
-  FileText,
-  Users,
-  CreditCard,
-  UserPlus,
-  Plug,
-  ShieldCheck,
-} from "lucide-react";
-import {
   HELP_CATEGORIES,
   HELP_CATEGORY_LABELS,
   type HelpCategory,
 } from "@/lib/help/types";
+import { CATEGORY_VIDEOS } from "@/lib/help/category-videos";
+import { VIDEO_REGISTRY } from "@/components/setup/video-registry";
+
+type MarkProps = { className?: string };
+function Mark({ className = "h-5 w-5", children }: MarkProps & { children: React.ReactNode }) {
+  return <span className={className} aria-hidden="true">{children}</span>;
+}
 
 const CATEGORY_ICONS: Record<HelpCategory, React.ReactNode> = {
-  "getting-started": <BookOpen className="h-5 w-5" />,
-  inspections: <Camera className="h-5 w-5" />,
-  reports: <FileText className="h-5 w-5" />,
-  "clients-and-portal": <Users className="h-5 w-5" />,
-  billing: <CreditCard className="h-5 w-5" />,
-  team: <UserPlus className="h-5 w-5" />,
-  integrations: <Plug className="h-5 w-5" />,
-  compliance: <ShieldCheck className="h-5 w-5" />,
+  "getting-started": <Mark>▤</Mark>,
+  inspections: <Mark>▣</Mark>,
+  reports: <Mark>▥</Mark>,
+  "clients-and-portal": <Mark>◉</Mark>,
+  billing: <Mark>▭</Mark>,
+  team: <Mark>⊕</Mark>,
+  integrations: <Mark>◇</Mark>,
+  compliance: <Mark>⬟</Mark>,
 };
 
 const CATEGORY_DESCRIPTIONS: Record<HelpCategory, string> = {
@@ -41,8 +37,15 @@ const CATEGORY_DESCRIPTIONS: Record<HelpCategory, string> = {
   compliance: "IICRC standards, WHS",
 };
 
+function formatDuration(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
 export default function HowToDropdown() {
   const [open, setOpen] = useState(false);
+  const [activeCategory, setActiveCategory] = useState<HelpCategory | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -55,6 +58,13 @@ export default function HowToDropdown() {
     }
   }, [open]);
 
+  // Get videos for active category (or first category as default)
+  const categoryToShow = activeCategory ?? HELP_CATEGORIES[0];
+  const categoryVideoSlugs = CATEGORY_VIDEOS[categoryToShow] ?? [];
+  const categoryVideos = categoryVideoSlugs
+    .map((slug) => ({ slug, ...VIDEO_REGISTRY[slug] }))
+    .filter((v) => v.title);
+
   return (
     <div ref={ref} className="relative">
       <button
@@ -65,30 +75,80 @@ export default function HowToDropdown() {
         aria-haspopup="menu"
       >
         How To
-        <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
+        <span className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true">⌄</span>
       </button>
 
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full mt-2 w-[520px] rounded-lg border border-white/10 bg-[#0E1320] p-4 shadow-xl shadow-black/50"
+          className="absolute right-0 top-full mt-2 w-[640px] rounded-lg border border-white/10 bg-[#0E1320] p-4 shadow-xl shadow-black/50"
         >
-          <div className="grid grid-cols-2 gap-2">
-            {HELP_CATEGORIES.map((cat) => (
-              <Link
-                key={cat}
-                href={`/dashboard/help/${cat}`}
-                onClick={() => setOpen(false)}
-                className="flex items-start gap-3 rounded-md p-3 hover:bg-white/5 min-h-[44px]"
-              >
-                <div className="text-white/70">{CATEGORY_ICONS[cat]}</div>
-                <div>
-                  <div className="text-sm font-medium text-white">{HELP_CATEGORY_LABELS[cat]}</div>
-                  <div className="text-xs text-white/60">{CATEGORY_DESCRIPTIONS[cat]}</div>
+          {/* Two-column layout: Categories + Videos */}
+          <div className="grid grid-cols-5 gap-4">
+            {/* Left: Categories (3 cols) */}
+            <div className="col-span-3 grid grid-cols-2 gap-2">
+              {HELP_CATEGORIES.map((cat) => (
+                <Link
+                  key={cat}
+                  href={`/dashboard/help/${cat}`}
+                  onClick={() => setOpen(false)}
+                  onMouseEnter={() => setActiveCategory(cat)}
+                  className={`flex items-start gap-3 rounded-md p-3 min-h-[44px] transition-colors ${
+                    activeCategory === cat ? "bg-white/10" : "hover:bg-white/5"
+                  }`}
+                >
+                  <div className="text-white/70">{CATEGORY_ICONS[cat]}</div>
+                  <div>
+                    <div className="text-sm font-medium text-white">{HELP_CATEGORY_LABELS[cat]}</div>
+                    <div className="text-xs text-white/60">{CATEGORY_DESCRIPTIONS[cat]}</div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+
+            {/* Right: Video walkthroughs (2 cols) */}
+            <div className="col-span-2 border-l border-white/10 pl-4">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[#8A6B4E]">
+                Video Walkthroughs
+              </div>
+              {categoryVideos.length === 0 ? (
+                <p className="text-xs text-white/40">No videos for this category yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {categoryVideos.slice(0, 4).map((video) => (
+                    <Link
+                      key={video.slug}
+                      href={`/dashboard/learn?video=${video.slug}`}
+                      onClick={() => setOpen(false)}
+                      className="flex items-center gap-2 rounded-md p-2 hover:bg-white/5 group"
+                    >
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-[#1C2E47] group-hover:bg-[#8A6B4E]/20">
+                        <span className="h-3.5 w-3.5 text-[#8A6B4E] group-hover:text-white" aria-hidden="true">▶</span>
+                      </div>
+                      <div className="min-w-0">
+                        <div className="truncate text-xs font-medium text-white/90 group-hover:text-white">
+                          {video.title}
+                        </div>
+                        <div className="text-[10px] text-white/50">
+                          {formatDuration(video.durationSec)}
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                  {categoryVideos.length > 4 && (
+                    <Link
+                      href={`/dashboard/help/${categoryToShow}`}
+                      onClick={() => setOpen(false)}
+                      className="block text-center text-xs text-[#D4A574] hover:text-[#E6BB8E] pt-1"
+                    >
+                      +{categoryVideos.length - 4} more videos →
+                    </Link>
+                  )}
                 </div>
-              </Link>
-            ))}
+              )}
+            </div>
           </div>
+
           <div className="mt-3 border-t border-white/10 pt-3 text-center">
             <Link
               href="/dashboard/help"

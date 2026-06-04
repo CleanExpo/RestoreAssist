@@ -1,0 +1,242 @@
+{
+  "tutorial-login": {
+    "duration": 30,
+    "cues": 8
+  },
+  "tutorial-signup": {
+    "duration": 60,
+    "cues": 11
+  },
+  "tutorial-setup-wizard": {
+    "duration": 60,
+    "cues": 13
+  },
+  "tutorial-dashboard": {
+    "duration": 40,
+    "cues": 6
+  },
+  "tutorial-inspections": {
+    "duration": 50,
+    "cues": 10
+  },
+  "tutorial-reports": {
+    "duration": 40,
+    "cues": 9
+  },
+  "tutorial-billing": {
+    "duration": 40,
+    "cues": 6
+  },
+  "tutorial-team": {
+    "duration": 40,
+    "cues": 7
+  },
+  "tutorial-compliance": {
+    "duration": 40,
+    "cues": 7
+  },
+  "tutorial-integrations": {
+    "duration": 40,
+    "cues": 10
+  },
+  "wizard-signin": {
+    "duration": 30,
+    "cues": 6
+  },
+  "wizard-signup": {
+    "duration": 60,
+    "cues": 8
+  },
+  "wizard-setup": {
+    "duration": 120,
+    "cues": 13
+  },
+  "wizard-dashboard": {
+    "duration": 120,
+    "cues": 5
+  },
+  "wizard-integrations": {
+    "duration": 90,
+    "cues": 7
+  },
+  "wizard-health": {
+    "duration": 60,
+    "cues": 4
+  },
+  "dashboard-walkthrough": {
+    "duration": 60,
+    "cues": 5
+  },
+  "create-inspection": {
+    "duration": 60,
+    "cues": 7
+  },
+  "report-builder": {
+    "duration": 60,
+    "cues": 5
+  },
+  "client-portal": {
+    "duration": 60,
+    "cues": 5
+  },
+  "hero-product-overview": {
+    "duration": 90,
+    "cues": 7
+  },
+  "setup-wizard-full": {
+    "duration": 120,
+    "cues": 6
+  },
+  "settings-config": {
+    "duration": 60,
+    "cues": 8
+  },
+  "integration-connect": {
+    "duration": 60,
+    "cues": 8
+  },
+  "report-export-pdf": {
+    "duration": 60,
+    "cues": 5
+  },
+  "why-restoreassist": {
+    "duration": 60,
+    "cues": 6
+  },
+  "byok-explainer": {
+    "duration": 60,
+    "cues": 5
+  },
+  "sign-up": {
+    "duration": 45,
+    "cues": 6
+  },
+  "sign-in": {
+    "duration": 30,
+    "cues": 4
+  },
+  "inspections-list": {
+    "duration": 30,
+    "cues": 4
+  },
+  "evidence-capture": {
+    "duration": 30,
+    "cues": 5
+  },
+  "moisture-mapping": {
+    "duration": 30,
+    "cues": 3
+  },
+  "quote-builder": {
+    "duration": 30,
+    "cues": 4
+  },
+  "invoice-generator": {
+    "duration": 30,
+    "cues": 4
+  },
+  "compliance-checklists": {
+    "duration": 30,
+    "cues": 3
+  },
+  "analytics-overview": {
+    "duration": 30,
+    "cues": 3
+  },
+  "team-management": {
+    "duration": 30,
+    "cues": 3
+  },
+  "pricing-overview": {
+    "duration": 30,
+    "cues": 3
+  },
+  "roi-explainer": {
+    "duration": 30,
+    "cues": 3
+  },
+  "moisture-deep-dive": {
+    "duration": 60,
+    "cues": 3
+  },
+  "evidence-chain-deep-dive": {
+    "duration": 60,
+    "cues": 4
+  },
+  "photo-annotation-deep-dive": {
+    "duration": 60,
+    "cues": 4
+  },
+  "template-builder": {
+    "duration": 60,
+    "cues": 4
+  },
+  "bulk-operations": {
+    "duration": 60,
+    "cues": 4
+  },
+  "search-filter": {
+    "duration": 60,
+    "cues": 4
+  },
+  "notifications-deep-dive": {
+    "duration": 60,
+    "cues": 4
+  },
+  "data-import": {
+    "duration": 60,
+    "cues": 4
+  },
+  "api-webhooks": {
+    "duration": 60,
+    "cues": 3
+  },
+  "white-label": {
+    "duration": 60,
+    "cues": 4
+  },
+  "backup-export": {
+    "duration": 60,
+    "cues": 4
+  },
+  "mobile-deep-dive": {
+    "duration": 60,
+    "cues": 3
+  },
+  "training-s500-standard": {
+    "duration": 180,
+    "cues": 5
+  },
+  "training-water-damage-cat": {
+    "duration": 180,
+    "cues": 6
+  },
+  "training-mould-remediation": {
+    "duration": 180,
+    "cues": 5
+  },
+  "training-fire-smoke": {
+    "duration": 180,
+    "cues": 5
+  },
+  "evidence-chain": {
+    "duration": 90,
+    "cues": 6
+  },
+  "for-contractors": {
+    "duration": 90,
+    "cues": 6
+  },
+  "for-assessors": {
+    "duration": 90,
+    "cues": 5
+  },
+  "for-property-managers": {
+    "duration": 90,
+    "cues": 5
+  },
+  "for-insurers": {
+    "duration": 90,
+    "cues": 6
+  }
+}

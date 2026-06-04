@@ -1,0 +1,32 @@
+[
+  {
+    "file": "wizard-signin.mp4",
+    "url": "https://res.cloudinary.com/dmaulkthb/video/upload/v1780555742/restoreassist/videos/remotion/wizard-signin.mp4",
+    "status": "ok"
+  },
+  {
+    "file": "wizard-signup.mp4",
+    "url": "https://res.cloudinary.com/dmaulkthb/video/upload/v1780555743/restoreassist/videos/remotion/wizard-signup.mp4",
+    "status": "ok"
+  },
+  {
+    "file": "wizard-setup.mp4",
+    "url": "https://res.cloudinary.com/dmaulkthb/video/upload/v1780555745/restoreassist/videos/remotion/wizard-setup.mp4",
+    "status": "ok"
+  },
+  {
+    "file": "wizard-dashboard.mp4",
+    "url": "https://res.cloudinary.com/dmaulkthb/video/upload/v1780555746/restoreassist/videos/remotion/wizard-dashboard.mp4",
+    "status": "ok"
+  },
+  {
+    "file": "wizard-integrations.mp4",
+    "url": "https://res.cloudinary.com/dmaulkthb/video/upload/v1780555747/restoreassist/videos/remotion/wizard-integrations.mp4",
+    "status": "ok"
+  },
+  {
+    "file": "wizard-health.mp4",
+    "url": "https://res.cloudinary.com/dmaulkthb/video/upload/v1780555749/restoreassist/videos/remotion/wizard-health.mp4",
+    "status": "ok"
+  }
+]

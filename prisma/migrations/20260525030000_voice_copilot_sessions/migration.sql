@@ -1,22 +1,13 @@
--- RA-VOI-001: Persist realtime voice copilot lifecycle and observations.
+-- RA-VOI-001: Normalize realtime voice copilot observations.
+--
+-- The prior migration (20260524231500_add_voice_copilot_sessions) created
+-- VoiceCopilotSession with embedded JSON observations. This migration evolves
+-- that shape to the current Prisma schema by keeping the existing session
+-- table and adding the child observation table.
 
-CREATE TABLE "VoiceCopilotSession" (
-    "id" TEXT NOT NULL,
-    "inspectionId" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
-    "mode" TEXT NOT NULL,
-    "state" TEXT NOT NULL DEFAULT 'idle',
-    "missingItems" JSONB,
-    "startedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "endedAt" TIMESTAMP(3),
-    "expiresAt" TIMESTAMP(3) NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
+ALTER TABLE "VoiceCopilotSession" DROP COLUMN IF EXISTS "observations";
 
-    CONSTRAINT "VoiceCopilotSession_pkey" PRIMARY KEY ("id")
-);
-
-CREATE TABLE "VoiceCopilotObservation" (
+CREATE TABLE IF NOT EXISTS "VoiceCopilotObservation" (
     "id" TEXT NOT NULL,
     "sessionId" TEXT NOT NULL,
     "type" TEXT NOT NULL,
@@ -31,20 +22,17 @@ CREATE TABLE "VoiceCopilotObservation" (
     CONSTRAINT "VoiceCopilotObservation_pkey" PRIMARY KEY ("id")
 );
 
-CREATE INDEX "VoiceCopilotSession_inspectionId_startedAt_idx" ON "VoiceCopilotSession"("inspectionId", "startedAt");
-CREATE INDEX "VoiceCopilotSession_userId_startedAt_idx" ON "VoiceCopilotSession"("userId", "startedAt");
-CREATE INDEX "VoiceCopilotSession_state_expiresAt_idx" ON "VoiceCopilotSession"("state", "expiresAt");
-CREATE INDEX "VoiceCopilotObservation_sessionId_createdAt_idx" ON "VoiceCopilotObservation"("sessionId", "createdAt");
-CREATE INDEX "VoiceCopilotObservation_type_idx" ON "VoiceCopilotObservation"("type");
+CREATE INDEX IF NOT EXISTS "VoiceCopilotSession_state_expiresAt_idx" ON "VoiceCopilotSession"("state", "expiresAt");
+CREATE INDEX IF NOT EXISTS "VoiceCopilotObservation_sessionId_createdAt_idx" ON "VoiceCopilotObservation"("sessionId", "createdAt");
+CREATE INDEX IF NOT EXISTS "VoiceCopilotObservation_type_idx" ON "VoiceCopilotObservation"("type");
 
-ALTER TABLE "VoiceCopilotSession"
-    ADD CONSTRAINT "VoiceCopilotSession_inspectionId_fkey"
-    FOREIGN KEY ("inspectionId") REFERENCES "Inspection"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "VoiceCopilotSession"
-    ADD CONSTRAINT "VoiceCopilotSession_userId_fkey"
-    FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "VoiceCopilotObservation"
-    ADD CONSTRAINT "VoiceCopilotObservation_sessionId_fkey"
-    FOREIGN KEY ("sessionId") REFERENCES "VoiceCopilotSession"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'VoiceCopilotObservation_sessionId_fkey'
+    ) THEN
+        ALTER TABLE "VoiceCopilotObservation"
+            ADD CONSTRAINT "VoiceCopilotObservation_sessionId_fkey"
+            FOREIGN KEY ("sessionId") REFERENCES "VoiceCopilotSession"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+END $$;
