@@ -52,7 +52,20 @@ export type VideoExplainerSlug =
   | "remotion-setup-wizard-full"
   | "remotion-settings-config"
   | "remotion-integration-connect"
-  | "remotion-report-export-pdf";
+  | "remotion-report-export-pdf"
+  // P1 Marketing Videos (2026-06-04)
+  | "remotion-for-contractors"
+  | "remotion-for-assessors"
+  | "remotion-for-property-managers"
+  | "remotion-roi-explainer"
+  | "remotion-evidence-chain"
+  | "remotion-linkedin-short-1"
+  | "remotion-linkedin-short-2"
+  // P3 Training Videos (2026-06-04)
+  | "remotion-training-s500-standard"
+  | "remotion-training-water-damage-cat"
+  | "remotion-training-mould-remediation"
+  | "remotion-training-fire-smoke";
 
 export interface RegistryEntry {
   youtubeId?: string;
@@ -249,5 +262,64 @@ export const VIDEO_REGISTRY: Record<VideoExplainerSlug, RegistryEntry> = {
     localPath: "/videos/remotion/report-export-pdf.mp4",
     title: "Exporting Professional PDF Reports",
     durationSec: 60,
+  },
+
+  // P1 Marketing Videos (2026-06-04)
+  "remotion-for-contractors": {
+    localPath: "/videos/remotion/for-contractors.mp4",
+    title: "Built for Restoration Contractors",
+    durationSec: 44,
+  },
+  "remotion-for-assessors": {
+    localPath: "/videos/remotion/for-assessors.mp4",
+    title: "Built for Building Assessors",
+    durationSec: 44,
+  },
+  "remotion-for-property-managers": {
+    localPath: "/videos/remotion/for-property-managers.mp4",
+    title: "Built for Property Managers",
+    durationSec: 44,
+  },
+  "remotion-roi-explainer": {
+    localPath: "/videos/remotion/roi-explainer.mp4",
+    title: "Your Time Is Worth More Than Admin",
+    durationSec: 44,
+  },
+  "remotion-evidence-chain": {
+    localPath: "/videos/remotion/evidence-chain.mp4",
+    title: "Chain of Custody",
+    durationSec: 44,
+  },
+  "remotion-linkedin-short-1": {
+    localPath: "/videos/remotion/linkedin-short-1.mp4",
+    title: "14 Hours of Admin Per Job",
+    durationSec: 60,
+  },
+  "remotion-linkedin-short-2": {
+    localPath: "/videos/remotion/linkedin-short-2.mp4",
+    title: "The Claim That Relied on Chain of Custody",
+    durationSec: 60,
+  },
+
+  // P3 Training Videos (2026-06-04)
+  "remotion-training-s500-standard": {
+    localPath: "/videos/remotion/training-s500-standard.mp4",
+    title: "IICRC S500 Water Categories",
+    durationSec: 44,
+  },
+  "remotion-training-water-damage-cat": {
+    localPath: "/videos/remotion/training-water-damage-cat.mp4",
+    title: "IICRC S500 Water Damage Classes",
+    durationSec: 44,
+  },
+  "remotion-training-mould-remediation": {
+    localPath: "/videos/remotion/training-mould-remediation.mp4",
+    title: "Mould Remediation Protocol",
+    durationSec: 44,
+  },
+  "remotion-training-fire-smoke": {
+    localPath: "/videos/remotion/training-fire-smoke.mp4",
+    title: "Fire & Smoke Damage Types",
+    durationSec: 44,
   },
 };
