@@ -1,7 +1,7 @@
 import React from 'react';
 import {AbsoluteFill, interpolate, useCurrentFrame} from 'remotion';
 
-export const IntroSlide = ({title}) => {
+export const IntroSlide = ({title, subtitle}) => {
   const frame = useCurrentFrame();
   const opacity = interpolate(frame, [0, 25, 60, 90], [0, 1, 1, 0], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
   const scale = interpolate(frame, [0, 25], [0.9, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
@@ -35,6 +35,17 @@ export const IntroSlide = ({title}) => {
         opacity: Math.min(1, (frame - 10) / 20),
         transform: `scale(${scale})`,
       }}>{title}</h1>
+
+      {subtitle && (
+        <div style={{
+          fontSize: 22,
+          color: '#D4A574',
+          marginTop: 16,
+          textAlign: 'center',
+          maxWidth: 700,
+          opacity: Math.min(1, (frame - 15) / 20),
+        }}>{subtitle}</div>
+      )}
 
       <div style={{
         fontSize: 20,

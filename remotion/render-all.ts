@@ -22,12 +22,27 @@ const compositionsToRender = [
   {id: 'ComplianceChecklists', fileName: 'compliance-checklists.mp4'},
   {id: 'AnalyticsOverview', fileName: 'analytics-overview.mp4'},
   {id: 'TeamManagement', fileName: 'team-management.mp4'},
-  // P0 Launch Blockers (new)
+  // P0 Launch Blockers
   {id: 'HeroProductOverview', fileName: 'hero-product-overview.mp4'},
   {id: 'SetupWizardFull', fileName: 'setup-wizard-full.mp4'},
   {id: 'SettingsConfig', fileName: 'settings-config.mp4'},
   {id: 'IntegrationConnect', fileName: 'integration-connect.mp4'},
   {id: 'ReportExportPDF', fileName: 'report-export-pdf.mp4'},
+
+  // P1 Marketing Videos
+  {id: 'ForContractors', fileName: 'for-contractors.mp4'},
+  {id: 'ForAssessors', fileName: 'for-assessors.mp4'},
+  {id: 'ForPropertyManagers', fileName: 'for-property-managers.mp4'},
+  {id: 'ROIExplainer', fileName: 'roi-explainer.mp4'},
+  {id: 'EvidenceChain', fileName: 'evidence-chain.mp4'},
+  {id: 'LinkedInShort1', fileName: 'linkedin-short-1.mp4'},
+  {id: 'LinkedInShort2', fileName: 'linkedin-short-2.mp4'},
+
+  // P3 Training Videos
+  {id: 'TrainingS500Standard', fileName: 'training-s500-standard.mp4'},
+  {id: 'TrainingWaterDamageCat', fileName: 'training-water-damage-cat.mp4'},
+  {id: 'TrainingMouldRemediation', fileName: 'training-mould-remediation.mp4'},
+  {id: 'TrainingFireSmoke', fileName: 'training-fire-smoke.mp4'},
 ];
 
 async function renderAll() {

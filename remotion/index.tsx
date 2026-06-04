@@ -24,6 +24,17 @@ import {SetupWizardFull} from './compositions/setup-wizard-full';
 import {SettingsConfig} from './compositions/settings-config';
 import {IntegrationConnect} from './compositions/integration-connect';
 import {ReportExportPDF} from './compositions/report-export-pdf';
+import {ForContractors} from './compositions/for-contractors';
+import {ForAssessors} from './compositions/for-assessors';
+import {ForPropertyManagers} from './compositions/for-property-managers';
+import {ROIExplainer} from './compositions/roi-explainer';
+import {EvidenceChain} from './compositions/evidence-chain';
+import {LinkedInShort1} from './compositions/linkedin-short-1';
+import {LinkedInShort2} from './compositions/linkedin-short-2';
+import {TrainingS500Standard} from './compositions/training-s500-standard';
+import {TrainingWaterDamageCat} from './compositions/training-water-damage-cat';
+import {TrainingMouldRemediation} from './compositions/training-mould-remediation';
+import {TrainingFireSmoke} from './compositions/training-fire-smoke';
 
 export const RemotionRoot = () => (
   <>
@@ -216,51 +227,26 @@ export const RemotionRoot = () => (
     />
 
     {/* P0 Launch Blockers (new) */}
-    <Composition
-      id="HeroProductOverview"
-      component={HeroProductOverview}
-      durationInFrames={1800}
-      fps={30}
-      width={1920}
-      height={1080}
-      defaultProps={{}}
-    />
-    <Composition
-      id="SetupWizardFull"
-      component={SetupWizardFull}
-      durationInFrames={5400}
-      fps={30}
-      width={1920}
-      height={1080}
-      defaultProps={{}}
-    />
-    <Composition
-      id="SettingsConfig"
-      component={SettingsConfig}
-      durationInFrames={1800}
-      fps={30}
-      width={1920}
-      height={1080}
-      defaultProps={{}}
-    />
-    <Composition
-      id="IntegrationConnect"
-      component={IntegrationConnect}
-      durationInFrames={2250}
-      fps={30}
-      width={1920}
-      height={1080}
-      defaultProps={{}}
-    />
-    <Composition
-      id="ReportExportPDF"
-      component={ReportExportPDF}
-      durationInFrames={1800}
-      fps={30}
-      width={1920}
-      height={1080}
-      defaultProps={{}}
-    />
+    <Composition id="HeroProductOverview" component={HeroProductOverview} durationInFrames={1800} fps={30} width={1920} height={1080} defaultProps={{}} />
+    <Composition id="SetupWizardFull" component={SetupWizardFull} durationInFrames={5400} fps={30} width={1920} height={1080} defaultProps={{}} />
+    <Composition id="SettingsConfig" component={SettingsConfig} durationInFrames={1800} fps={30} width={1920} height={1080} defaultProps={{}} />
+    <Composition id="IntegrationConnect" component={IntegrationConnect} durationInFrames={2250} fps={30} width={1920} height={1080} defaultProps={{}} />
+    <Composition id="ReportExportPDF" component={ReportExportPDF} durationInFrames={1800} fps={30} width={1920} height={1080} defaultProps={{}} />
+
+    {/* P1 Marketing Videos (2026-06-04) */}
+    <Composition id="ForContractors" component={ForContractors} durationInFrames={1320} fps={30} width={1920} height={1080} defaultProps={{}} />
+    <Composition id="ForAssessors" component={ForAssessors} durationInFrames={1320} fps={30} width={1920} height={1080} defaultProps={{}} />
+    <Composition id="ForPropertyManagers" component={ForPropertyManagers} durationInFrames={1320} fps={30} width={1920} height={1080} defaultProps={{}} />
+    <Composition id="ROIExplainer" component={ROIExplainer} durationInFrames={1320} fps={30} width={1920} height={1080} defaultProps={{}} />
+    <Composition id="EvidenceChain" component={EvidenceChain} durationInFrames={1320} fps={30} width={1920} height={1080} defaultProps={{}} />
+    <Composition id="LinkedInShort1" component={LinkedInShort1} durationInFrames={1800} fps={30} width={1080} height={1920} defaultProps={{}} />
+    <Composition id="LinkedInShort2" component={LinkedInShort2} durationInFrames={1800} fps={30} width={1080} height={1920} defaultProps={{}} />
+
+    {/* P3 Training Videos (2026-06-04) */}
+    <Composition id="TrainingS500Standard" component={TrainingS500Standard} durationInFrames={1320} fps={30} width={1920} height={1080} defaultProps={{}} />
+    <Composition id="TrainingWaterDamageCat" component={TrainingWaterDamageCat} durationInFrames={1320} fps={30} width={1920} height={1080} defaultProps={{}} />
+    <Composition id="TrainingMouldRemediation" component={TrainingMouldRemediation} durationInFrames={1320} fps={30} width={1920} height={1080} defaultProps={{}} />
+    <Composition id="TrainingFireSmoke" component={TrainingFireSmoke} durationInFrames={1320} fps={30} width={1920} height={1080} defaultProps={{}} />
   </>
 );
 
