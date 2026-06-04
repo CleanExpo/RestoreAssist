@@ -59,6 +59,12 @@ import {TutorialBilling} from './compositions/tutorial-billing';
 import {TutorialTeam} from './compositions/tutorial-team';
 import {TutorialCompliance} from './compositions/tutorial-compliance';
 import {TutorialIntegrations} from './compositions/tutorial-integrations';
+import {WizardSignin} from './compositions/wizard-signin';
+import {WizardSignup} from './compositions/wizard-signup';
+import {WizardSetup} from './compositions/wizard-setup';
+import {WizardDashboard} from './compositions/wizard-dashboard';
+import {WizardIntegrations} from './compositions/wizard-integrations';
+import {WizardHealth} from './compositions/wizard-health';
 
 export const RemotionRoot = () => (
   <>
@@ -297,6 +303,13 @@ export const RemotionRoot = () => (
     <Composition id="TutorialTeam" component={TutorialTeam} durationInFrames={1200} fps={30} width={1920} height={1080} defaultProps={{}} />
     <Composition id="TutorialCompliance" component={TutorialCompliance} durationInFrames={1200} fps={30} width={1920} height={1080} defaultProps={{}} />
     <Composition id="TutorialIntegrations" component={TutorialIntegrations} durationInFrames={1200} fps={30} width={1920} height={1080} defaultProps={{}} />
+    {/* Setup Wizard Videos (2026-06-04) */}
+    <Composition id="WizardSignin" component={WizardSignin} durationInFrames={900} fps={30} width={1920} height={1080} />
+    <Composition id="WizardSignup" component={WizardSignup} durationInFrames={1800} fps={30} width={1920} height={1080} />
+    <Composition id="WizardSetup" component={WizardSetup} durationInFrames={3600} fps={30} width={1920} height={1080} />
+    <Composition id="WizardDashboard" component={WizardDashboard} durationInFrames={3600} fps={30} width={1920} height={1080} />
+    <Composition id="WizardIntegrations" component={WizardIntegrations} durationInFrames={2700} fps={30} width={1920} height={1080} />
+    <Composition id="WizardHealth" component={WizardHealth} durationInFrames={1800} fps={30} width={1920} height={1080} />
   </>
 );
 

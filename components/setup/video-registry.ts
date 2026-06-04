@@ -98,32 +98,38 @@ export interface RegistryEntry {
 
 export const VIDEO_REGISTRY: Record<VideoExplainerSlug, RegistryEntry> = {
   "setup-wizard-signin": {
-    youtubeId: "tsmZpgLrn5Y",
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780555742/restoreassist/videos/remotion/wizard-signin.mp4",
+    localPath: "/videos/remotion/wizard-signin.mp4",
     title: "Signing in to RestoreAssist",
     durationSec: 30,
   },
   "setup-wizard-signup": {
-    youtubeId: "wREGInp5yPQ",
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780555743/restoreassist/videos/remotion/wizard-signup.mp4",
+    localPath: "/videos/remotion/wizard-signup.mp4",
     title: "Creating your RestoreAssist account",
     durationSec: 60,
   },
   "setup-wizard-setup": {
-    youtubeId: "G2CIyp-gDKA",
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780555745/restoreassist/videos/remotion/wizard-setup.mp4",
+    localPath: "/videos/remotion/wizard-setup.mp4",
     title: "The RestoreAssist Setup Wizard — end-to-end",
     durationSec: 120,
   },
   "setup-wizard-dashboard": {
-    youtubeId: "sp3bMYSaZa8",
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780555746/restoreassist/videos/remotion/wizard-dashboard.mp4",
+    localPath: "/videos/remotion/wizard-dashboard.mp4",
     title: "Your RestoreAssist dashboard, post-activation",
     durationSec: 120,
   },
   "setup-wizard-integrations": {
-    youtubeId: "P6rVHLOVNsQ",
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780555747/restoreassist/videos/remotion/wizard-integrations.mp4",
+    localPath: "/videos/remotion/wizard-integrations.mp4",
     title: "Connect Xero, MYOB, QuickBooks, ServiceM8 or Ascora",
     durationSec: 90,
   },
   "setup-wizard-health": {
-    youtubeId: "UHUiqnhxGtw",
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780555749/restoreassist/videos/remotion/wizard-health.mp4",
+    localPath: "/videos/remotion/wizard-health.mp4",
     title: "Your RestoreAssist Workspace Health page",
     durationSec: 60,
   },
