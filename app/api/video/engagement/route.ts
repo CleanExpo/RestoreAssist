@@ -14,7 +14,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@supabase/supabase-js";
+
+function getSupabaseClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || !key) {
+    throw new Error("Supabase public env is not configured");
+  }
+
+  return createClient(url, key);
+}
 
 // Simple UA parsing without external dependency
 function getDeviceType(ua: string): "desktop" | "mobile" | "tablet" {
@@ -44,6 +55,8 @@ export async function POST(req: NextRequest) {
     if (!session?.user?.id) {
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
+
+    const supabase = getSupabaseClient();
 
     const body = await req.json();
     const { videoSlug, eventType, watchDurationSec, totalDurationSec } = body;
