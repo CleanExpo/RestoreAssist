@@ -48,6 +48,18 @@ import {BackupExport} from './compositions/backup-export';
 import {MoistureDeepDive} from './compositions/moisture-deep-dive';
 import {MobileDeepDive} from './compositions/mobile-deep-dive';
 
+// Tutorial Videos (2026-06-04)
+import {TutorialLogin} from './compositions/tutorial-login';
+import {TutorialSignup} from './compositions/tutorial-signup';
+import {TutorialSetupWizard} from './compositions/tutorial-setup-wizard';
+import {TutorialDashboard} from './compositions/tutorial-dashboard';
+import {TutorialInspections} from './compositions/tutorial-inspections';
+import {TutorialReports} from './compositions/tutorial-reports';
+import {TutorialBilling} from './compositions/tutorial-billing';
+import {TutorialTeam} from './compositions/tutorial-team';
+import {TutorialCompliance} from './compositions/tutorial-compliance';
+import {TutorialIntegrations} from './compositions/tutorial-integrations';
+
 export const RemotionRoot = () => (
   <>
     {/* Original 4 Tutorials */}
@@ -273,6 +285,18 @@ export const RemotionRoot = () => (
     <Composition id="BackupExport" component={BackupExport} durationInFrames={1980} fps={30} width={1920} height={1080} defaultProps={{}} />
     <Composition id="MoistureDeepDive" component={MoistureDeepDive} durationInFrames={2320} fps={30} width={1920} height={1080} defaultProps={{}} />
     <Composition id="MobileDeepDive" component={MobileDeepDive} durationInFrames={2320} fps={30} width={1920} height={1080} defaultProps={{}} />
+
+    {/* Tutorial Videos (2026-06-04) */}
+    <Composition id="TutorialLogin" component={TutorialLogin} durationInFrames={1350} fps={30} width={1920} height={1080} defaultProps={{}} />
+    <Composition id="TutorialSignup" component={TutorialSignup} durationInFrames={2700} fps={30} width={1920} height={1080} defaultProps={{}} />
+    <Composition id="TutorialSetupWizard" component={TutorialSetupWizard} durationInFrames={1800} fps={30} width={1920} height={1080} defaultProps={{}} />
+    <Composition id="TutorialDashboard" component={TutorialDashboard} durationInFrames={1200} fps={30} width={1920} height={1080} defaultProps={{}} />
+    <Composition id="TutorialInspections" component={TutorialInspections} durationInFrames={1500} fps={30} width={1920} height={1080} defaultProps={{}} />
+    <Composition id="TutorialReports" component={TutorialReports} durationInFrames={1200} fps={30} width={1920} height={1080} defaultProps={{}} />
+    <Composition id="TutorialBilling" component={TutorialBilling} durationInFrames={1200} fps={30} width={1920} height={1080} defaultProps={{}} />
+    <Composition id="TutorialTeam" component={TutorialTeam} durationInFrames={1200} fps={30} width={1920} height={1080} defaultProps={{}} />
+    <Composition id="TutorialCompliance" component={TutorialCompliance} durationInFrames={1200} fps={30} width={1920} height={1080} defaultProps={{}} />
+    <Composition id="TutorialIntegrations" component={TutorialIntegrations} durationInFrames={1200} fps={30} width={1920} height={1080} defaultProps={{}} />
   </>
 );
 
