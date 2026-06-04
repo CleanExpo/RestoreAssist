@@ -1,19 +1,21 @@
 /**
  * API Route: /api/heygen
  *
- * Proxies HeyGen avatar video generation to Synthex.
+ * Proxies avatar video generation to Synthex (which holds canonical
+ * HeyGen + ElevenLabs credentials and the CEO voice clone).
  *
  * POST body:
  *   {
- *     avatar_id: string,       // required — HeyGen avatar ID
+ *     avatar_id: string,       // optional — Synthex has its own avatar config
  *     voice_id?: string,       // optional — defaults to CEO clone
- *     script: string,          // text to speak (max 5000 chars)
+ *     script: string,          // text to speak
+ *     aspect_ratio?: "16:9" | "9:16" | "1:1",
  *   }
  *
  * Response:
- *   { video_id: string, status: "pending" }
+ *   { video_id: string, status: "pending", poll_url: string }
  *
- * GET /api/heygen?video_id=xxx
+ * GET /api/heygen?video_id=xxx&provider=synthesia
  *   Poll for video status + URL.
  */
 
@@ -27,7 +29,7 @@ import {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { avatar_id, voice_id, script } = body;
+    const { avatar_id, voice_id, script, aspect_ratio } = body;
 
     if (!script || typeof script !== "string") {
       return NextResponse.json(
@@ -36,9 +38,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!avatar_id) {
+    if (!avatar_id || typeof avatar_id !== "string") {
       return NextResponse.json(
-        { error: "avatar_id is required (no default avatar configured for RestoreAssist yet)" },
+        { error: "avatar_id is required" },
         { status: 400 },
       );
     }
@@ -55,6 +57,7 @@ export async function POST(request: NextRequest) {
       script,
       avatarId: avatar_id,
       voiceId: voice_id ?? withBrandVoice({}).voiceId,
+      aspectRatio: aspect_ratio ?? "16:9",
     });
 
     if (!result.success) {
@@ -68,8 +71,8 @@ export async function POST(request: NextRequest) {
       {
         video_id: result.videoId,
         status: result.status,
-        video_url: result.videoUrl,
-        thumbnail_url: result.thumbnailUrl,
+        poll_url: result.pollUrl,
+        poll_interval: result.pollInterval,
       },
       { status: 202 },
     );
@@ -99,6 +102,10 @@ export async function GET(request: NextRequest) {
       status: result.status,
       video_url: result.videoUrl,
       error: result.error,
+      ...(result.status === "processing" && {
+        poll_url: result.pollUrl,
+        poll_interval: result.pollInterval,
+      }),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";

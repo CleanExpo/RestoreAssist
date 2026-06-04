@@ -170,8 +170,8 @@ export async function streamVoice(
 }
 
 /**
- * Generate avatar video via Synthex → HeyGen.
- * Returns videoId for polling. Requires avatarId.
+ * Generate avatar video via Synthex → HeyGen (ElevenLabs audio-first pipeline).
+ * Returns videoId for polling.
  */
 export async function generateAvatarVideo(
   req: SynthexVideoRequest,
@@ -179,12 +179,12 @@ export async function generateAvatarVideo(
   return post<SynthexVideoResponse>("/api/heygen/video", {
     script: req.script,
     avatarId: req.avatarId,
-    ...(req.voiceId ? { voiceId: req.voiceId } : {}),
+    aspectRatio: req.aspectRatio ?? "16:9",
   });
 }
 
 /**
- * Poll for avatar video status via Synthex.
+ * Poll for avatar video status.
  */
 export async function getVideoStatus(
   videoId: string,

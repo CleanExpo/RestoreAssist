@@ -31,7 +31,11 @@ import {
 import { cn } from "@/lib/utils";
 import { MobileNav } from "@/components/mobile/MobileNav";
 import { format, isToday, isYesterday, formatDistanceToNow } from "date-fns";
-import { cacheJobs, getCachedJobs, type CachedJob } from "@/lib/offline/job-cache";
+import {
+  cacheJobs,
+  getCachedJobs,
+  type CachedJob,
+} from "@/lib/offline/job-cache";
 import { isCapacitor } from "@/lib/capacitor";
 
 const STATUS_COLOR: Record<string, string> = {
@@ -69,19 +73,21 @@ export default function FieldDashboardPage() {
   useEffect(() => {
     if (!isCapacitor()) return;
     let cleanup: (() => void) | undefined;
-    import("@capacitor/network").then(({ Network }) => {
-      // Seed initial state
-      Network.getStatus().then(({ connected }) => setIsOffline(!connected));
-      // Listen for changes
-      Network.addListener("networkStatusChange", ({ connected }) => {
-        setIsOffline(!connected);
-        if (connected) loadInspections();
-      }).then((handle) => {
-        cleanup = () => handle.remove();
-      });
-    }).catch(() => {});
+    import("@capacitor/network")
+      .then(({ Network }) => {
+        // Seed initial state
+        Network.getStatus().then(({ connected }) => setIsOffline(!connected));
+        // Listen for changes
+        Network.addListener("networkStatusChange", ({ connected }) => {
+          setIsOffline(!connected);
+          if (connected) loadInspections();
+        }).then((handle) => {
+          cleanup = () => handle.remove();
+        });
+      })
+      .catch(() => {});
     return () => cleanup?.();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function loadInspections() {
@@ -161,7 +167,7 @@ export default function FieldDashboardPage() {
 
   useEffect(() => {
     loadInspections();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const activeJobs = inspections.filter((i) =>
@@ -169,6 +175,7 @@ export default function FieldDashboardPage() {
       i.status,
     ),
   );
+  const nextJob = activeJobs[0];
 
   return (
     <div className="min-h-screen bg-[#050505] text-white pb-24">
@@ -203,45 +210,45 @@ export default function FieldDashboardPage() {
         <p className="text-white/50 text-sm">{greeting}</p>
         <h1 className="text-2xl font-bold text-white">Field Dashboard</h1>
         <p className="text-white/40 text-sm mt-0.5">
-          {loading ? "Loading…" : `${activeJobs.length} active job${activeJobs.length !== 1 ? "s" : ""}`}
+          {loading
+            ? "Loading…"
+            : `${activeJobs.length} active job${activeJobs.length !== 1 ? "s" : ""}`}
         </p>
       </div>
 
       {/* Quick actions */}
       <div className="px-4 mb-6">
-        <div className="grid grid-cols-3 gap-3">
-          {[
-            {
-              label: "New Job",
-              icon: Plus,
-              href: "/dashboard/inspections/new",
-              color: "bg-[#1C2E47]",
-            },
-            {
-              label: "Voice",
-              icon: Mic,
-              href: "#active",
-              color: "bg-[#8A6B4E]/30",
-            },
-            {
-              label: "Camera",
-              icon: Camera,
-              href: "#active",
-              color: "bg-white/5",
-            },
-          ].map((action) => (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {nextJob ? (
             <Link
-              key={action.label}
-              href={action.href}
-              className={cn(
-                "flex flex-col items-center justify-center gap-2 py-4 rounded-2xl text-sm font-medium text-white transition-all active:scale-95",
-                action.color,
-              )}
+              href={`/dashboard/inspections/${nextJob.id}/field`}
+              className="flex items-center justify-between rounded-2xl bg-[#1C2E47] px-4 py-4 text-white transition-all active:scale-95"
             >
-              <action.icon className="h-6 w-6" />
-              {action.label}
+              <span>
+                <span className="block text-sm font-semibold">
+                  Continue next job
+                </span>
+                <span className="mt-0.5 block truncate text-xs text-white/60">
+                  {nextJob.propertyAddress}
+                </span>
+              </span>
+              <ChevronRight className="h-5 w-5 text-white/60" />
             </Link>
-          ))}
+          ) : (
+            <div className="rounded-2xl bg-white/5 px-4 py-4 text-sm text-white/50">
+              No active jobs ready yet.
+            </div>
+          )}
+          <Link
+            href="/dashboard/inspections/new"
+            className="flex items-center justify-between rounded-2xl bg-white/5 px-4 py-4 text-sm font-medium text-white transition-all active:scale-95"
+          >
+            <span className="flex items-center gap-2">
+              <Plus className="h-5 w-5" />
+              Start new job
+            </span>
+            <ChevronRight className="h-5 w-5 text-white/30" />
+          </Link>
         </div>
       </div>
 
@@ -262,7 +269,10 @@ export default function FieldDashboardPage() {
                 <RefreshCw className="h-3.5 w-3.5" />
               </button>
             )}
-            <Link href="/dashboard/inspections" className="text-xs text-[#D4A574]">
+            <Link
+              href="/dashboard/inspections"
+              className="text-xs text-[#D4A574]"
+            >
               All jobs
             </Link>
           </div>

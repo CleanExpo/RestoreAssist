@@ -24,8 +24,6 @@ No revert, reset, clean, stash, rebase, or merge was run.
 
 - total dirty tracked files before writing this report: 1
 - total untracked files before writing this report: 0
-- total dirty tracked files after writing this report: 1
-- total untracked files after writing this report: 1
 
 ## Dirty Files By Category
 
@@ -48,11 +46,11 @@ Expected Phase 1 work appears committed in this checkout at latest commit `7581d
 
 ### Untracked Reports
 
-- `docs/production-grade-implementation/CHECKOUT_STATE_REPORT.md`
+- None.
 
 ### Unsafe Unexpected Churn
 
-- None detected in the safe worktree.
+- None detected in the safe worktree before writing this report.
 
 ## Continuation Decision
 

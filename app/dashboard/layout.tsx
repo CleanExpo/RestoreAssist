@@ -71,7 +71,9 @@ export default function DashboardLayout({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   // RA-1842 — suppress billing nav items on iOS shell (Apple 3.1.1).
   const [hideBillingNav, setHideBillingNav] = useState(false);
-  useEffect(() => { setHideBillingNav(isCapacitorIOS()); }, []);
+  useEffect(() => {
+    setHideBillingNav(isCapacitorIOS());
+  }, []);
 
   // On mount, collapse sidebar by default for tablet-class viewports
   // (768px ≤ width < 1280px). Covers iPad portrait (1024px), iPad Pro 11"
@@ -167,10 +169,11 @@ export default function DashboardLayout({
   // Check if user is a Manager or Technician (they should be linked to an Admin)
   const isTeamMember =
     session?.user?.role === "MANAGER" || session?.user?.role === "USER";
+  const isTechnician = session?.user?.role === "USER";
   const isAdmin = (session?.user as { role?: string })?.role === "ADMIN";
 
   // Free trial users get full sidebar access; they must add their own API key in Integrations
-  const navItems = [
+  const fullNavItems = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
     {
       icon: Plus,
@@ -248,6 +251,26 @@ export default function DashboardLayout({
         ]
       : []),
   ];
+
+  const fieldTechNavItems = [
+    { icon: Smartphone, label: "Field Mode", href: "/dashboard/field" },
+    {
+      icon: ClipboardCheck,
+      label: "Active Jobs",
+      href: "/dashboard/inspections",
+    },
+    {
+      icon: Plus,
+      label: "New Job",
+      href: "/dashboard/inspections/new",
+      highlight: true,
+    },
+    { icon: Camera, label: "Media", href: "/dashboard/media" },
+    { icon: HelpCircle, label: "Help", href: "/dashboard/help" },
+    { icon: Settings, label: "Account", href: "/dashboard/settings" },
+  ];
+
+  const navItems = isTechnician ? fieldTechNavItems : fullNavItems;
 
   const upgradeItem = {
     icon: Crown,
@@ -334,7 +357,9 @@ export default function DashboardLayout({
                       "text-neutral-500 dark:text-slate-400",
                     )}
                   >
-                    One System. Fewer Gaps. More Confidence.
+                    {isTechnician
+                      ? "Field tools. Fewer taps."
+                      : "One System. Fewer Gaps. More Confidence."}
                   </span>
                 </div>
               </Link>
@@ -559,10 +584,20 @@ export default function DashboardLayout({
             </button>
 
             <div className="flex-1 max-w-xs sm:max-w-md">
-              <GlobalSearch />
+              {isTechnician ? (
+                <Link
+                  href="/dashboard/field"
+                  className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  <Smartphone className="h-4 w-4" />
+                  Field Mode
+                </Link>
+              ) : (
+                <GlobalSearch />
+              )}
             </div>
 
-            <div className="flex items-center gap-4 ml-6">
+            <div className="flex items-center gap-2 sm:gap-4 ml-3 sm:ml-6">
               {/* RA-1124 MVP — persistent sync-status pill. The offline
                   infrastructure (service worker + IndexedDB queue +
                   reconnect listeners) already ships via NirOfflineProvider,
@@ -572,10 +607,10 @@ export default function DashboardLayout({
               <NirSyncStatusBadge />
 
               {/* SP-8 T12 — How To dropdown (in-app Help Library entry point) */}
-              <HowToDropdown />
+              {!isTechnician && <HowToDropdown />}
 
               {/* Theme Toggle */}
-              <ThemeToggle />
+              {!isTechnician && <ThemeToggle />}
 
               {/* Notifications */}
               <NotificationBell />

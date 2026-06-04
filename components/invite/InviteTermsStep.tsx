@@ -61,11 +61,11 @@ export function InviteTermsStep({
         />
         <span>
           I agree to the{" "}
-          <Link href="/legal/terms" className="underline">
+          <Link href="/terms" className="underline">
             Terms of Service
           </Link>{" "}
           and{" "}
-          <Link href="/legal/privacy" className="underline">
+          <Link href="/privacy" className="underline">
             Privacy Policy
           </Link>
         </span>
