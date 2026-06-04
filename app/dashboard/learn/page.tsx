@@ -15,9 +15,57 @@ const LIBRARY: { slug: string; subtitle: string }[] = [
   { slug: "setup-wizard-dashboard", subtitle: "Your jobs, claims, and what to do on day one." },
   { slug: "setup-wizard-integrations", subtitle: "Connect Xero, MYOB, QuickBooks, ServiceM8, or Ascora." },
   { slug: "setup-wizard-health", subtitle: "Live status of every advertised capability." },
+  // Remotion videos (production-ready)
+  { slug: "remotion-hero-product-overview", subtitle: "Complete platform overview for new users." },
+  { slug: "remotion-dashboard", subtitle: "Navigate the dashboard and key metrics." },
+  { slug: "remotion-create-inspection", subtitle: "Start a new inspection from scratch." },
+  { slug: "remotion-report-builder", subtitle: "Build professional S500-compliant reports." },
+  { slug: "remotion-client-portal", subtitle: "Share reports and manage client access." },
+  { slug: "remotion-evidence-capture", subtitle: "Capture and annotate photo evidence." },
+  { slug: "remotion-moisture-mapping", subtitle: "Map moisture readings and dry goals." },
+  { slug: "remotion-team-management", subtitle: "Invite technicians and manage licences." },
+  { slug: "remotion-integration-connect", subtitle: "Connect accounting and service apps." },
+  { slug: "remotion-settings-config", subtitle: "Configure your company profile and preferences." },
+  { slug: "remotion-pricing-overview", subtitle: "Plans, features, and upgrade paths." },
+  { slug: "remotion-analytics-overview", subtitle: "Business intelligence and reporting." },
+  { slug: "remotion-compliance-checklists", subtitle: "IICRC and WHS compliance workflows." },
+  { slug: "remotion-invoice-generator", subtitle: "Generate and send invoices." },
+  { slug: "remotion-quote-builder", subtitle: "Build and send quotes to clients." },
+  { slug: "remotion-mobile-workflow", subtitle: "Field workflow on mobile devices." },
+  { slug: "remotion-inspections-list", subtitle: "Manage and filter your inspections." },
+  // P1 Marketing
+  { slug: "remotion-for-contractors", subtitle: "Built for restoration contractors." },
+  { slug: "remotion-for-assessors", subtitle: "Built for insurance assessors." },
+  { slug: "remotion-for-property-managers", subtitle: "Built for property managers." },
+  { slug: "remotion-roi-explainer", subtitle: "Return on investment breakdown." },
+  { slug: "remotion-evidence-chain", subtitle: "Chain of custody explained." },
+  // P3 Training
+  { slug: "remotion-training-s500-standard", subtitle: "IICRC S500 water categories." },
+  { slug: "remotion-training-water-damage-cat", subtitle: "IICRC S500 water damage classes." },
+  { slug: "remotion-training-mould-remediation", subtitle: "Mould remediation protocol." },
+  { slug: "remotion-training-fire-smoke", subtitle: "Fire and smoke damage types." },
+  // P2 Deep Dives
+  { slug: "remotion-evidence-chain-deep-dive", subtitle: "Deep dive into chain of custody." },
+  { slug: "remotion-photo-annotation-deep-dive", subtitle: "Photo annotation toolkit." },
+  { slug: "remotion-template-builder", subtitle: "Report template builder." },
+  { slug: "remotion-bulk-operations", subtitle: "Bulk operations and performance." },
+  { slug: "remotion-search-filter", subtitle: "Advanced search and filter." },
+  { slug: "remotion-notifications-deep-dive", subtitle: "Notification system deep dive." },
+  { slug: "remotion-data-import", subtitle: "Data import from external sources." },
+  { slug: "remotion-api-webhooks", subtitle: "API and webhooks for developers." },
+  { slug: "remotion-white-label", subtitle: "White label and brand customisation." },
+  { slug: "remotion-backup-export", subtitle: "Backup and export your data." },
+  { slug: "remotion-moisture-deep-dive", subtitle: "Moisture mapping deep dive." },
+  { slug: "remotion-mobile-deep-dive", subtitle: "Mobile workflow deep dive." },
 ];
 
-export default function LearnPage() {
+interface LearnPageProps {
+  searchParams: Promise<{ video?: string }>;
+}
+
+export default async function LearnPage({ searchParams }: LearnPageProps) {
+  const { video: highlightedSlug } = await searchParams;
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
       <header className="mb-8">
@@ -31,14 +79,21 @@ export default function LearnPage() {
         {LIBRARY.map(({ slug, subtitle }) => {
           const entry = VIDEO_REGISTRY[slug as VideoExplainerSlug];
           if (!entry) return null;
+          const isHighlighted = slug === highlightedSlug;
           return (
-            <article key={slug} className="space-y-3">
+            <article
+              key={slug}
+              id={slug}
+              className={`space-y-3 rounded-xl p-3 transition-colors ${
+                isHighlighted ? "bg-[#8A6B4E]/10 border-2 border-[#8A6B4E]" : ""
+              }`}
+            >
               <VideoExplainer slug={slug as VideoExplainerSlug} />
               <div>
                 <h2 className="text-base font-semibold">{entry.title}</h2>
                 <p className="text-sm text-muted-foreground">{subtitle}</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {`0:${String(entry.durationSec).padStart(2, "0")}`}
+                  {`${Math.floor(entry.durationSec / 60)}:${String(entry.durationSec % 60).padStart(2, "0")}`}
                 </p>
               </div>
             </article>
