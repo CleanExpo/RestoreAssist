@@ -1,16 +1,25 @@
 WEBVTT
 
-00:00:00.000 --> 00:00:05.000
-<v Narrator>Welcome to RestoreAssist. This guide shows you how to sign in to your account.
+00:00.000 --> 00:02.000
+Welcome to RestoreAssist.
 
-00:00:05.000 --> 00:00:12.000
-<v Narrator>Navigate to restoreassist dot app and click the Sign In button in the top right corner.
+00:02.000 --> 00:06.295
+In this tutorial, I'll show you how to sign in to your account.
 
-00:00:12.000 --> 00:00:18.000
-<v Narrator>Enter your email address and password, or use Google single sign-on for instant access.
+00:06.295 --> 00:10.318
+Step 1: Open your browser and navigate to restoreassist.au.
 
-00:00:18.000 --> 00:00:25.000
-<v Narrator>If you have two-factor authentication enabled, enter the code from your authenticator app.
+00:10.318 --> 00:12.636
+The site loads in under 2 seconds.
 
-00:00:25.000 --> 00:00:30.000
-<v Narrator>You are now signed in to your dashboard, ready to manage inspections and generate reports.
+00:12.636 --> 00:17.750
+Step 2: Enter your email address and password, then tap the Sign In button.
+
+00:17.750 --> 00:19.750
+Step 3: You're now signed in.
+
+00:19.750 --> 00:25.955
+Your dashboard displays active jobs, upcoming inspections, and your workspace health score.
+
+00:25.955 --> 00:30.000
+That's it — you're ready to start managing restoration projects.

@@ -5,7 +5,7 @@
  *
  * Advanced features:
  * - Analytics tracking (play, pause, progress, completion)
- * - Captions/transcript support via VTT
+ * - Captions/transcript support via VTT (60 caption files)
  * - Mobile-optimised (responsive, poster, touch controls)
  * - Lazy loading with IntersectionObserver
  */
@@ -15,6 +15,7 @@ import {
   type VideoExplainerSlug,
   type RegistryEntry,
 } from "./video-registry";
+import { getCaptionUrl } from "./caption-registry";
 
 // Re-export so existing consumers keep working.
 export { VIDEO_REGISTRY };
@@ -157,8 +158,11 @@ export function VideoExplainer({
 
   // ─── Video element with captions + mobile optimisation ───
   const renderVideo = (src: string) => {
-    const vttPath = src.replace(".mp4", ".vtt");
-    const posterPath = src.replace(".mp4", "-poster.jpg");
+    const captionUrl = getCaptionUrl(slug);
+    // Use CDN poster if available (first frame extracted by Cloudinary)
+    const posterUrl = cloudinaryUrl
+      ? cloudinaryUrl.replace("/upload/", "/upload/so_0,w_1280,h_720,c_fill/").replace(".mp4", ".jpg")
+      : undefined;
 
     return (
       <div className={wrapperClass} ref={containerRef}>
@@ -177,13 +181,13 @@ export function VideoExplainer({
             onPause={handlePause}
             onTimeUpdate={handleTimeUpdate}
             onEnded={handleEnded}
-            poster={isMobile ? posterPath : undefined}
+            poster={isMobile ? posterUrl : undefined}
             disablePictureInPicture={isMobile}
           >
-            {showCaptions && (
+            {showCaptions && captionUrl && (
               <track
                 kind="captions"
-                src={vttPath}
+                src={captionUrl}
                 srcLang="en"
                 label="English"
                 default
@@ -191,6 +195,7 @@ export function VideoExplainer({
             )}
             <p className="sr-only">
               Video: {title}. Duration: {formatDuration(durationSec)}.
+              {captionUrl ? " English captions available." : ""}
             </p>
           </video>
         )}

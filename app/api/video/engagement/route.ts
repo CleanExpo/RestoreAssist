@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
 
     const { error } = await supabase.from("video_engagement").insert({
       user_id: session.user.id,
-      org_id: session.user.orgId || null,
+      org_id: (session.user as any).organizationId || null,
       video_slug: videoSlug,
       event_type: eventType,
       watch_duration_sec: watchDurationSec || 0,

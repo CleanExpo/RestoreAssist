@@ -1,19 +1,31 @@
 WEBVTT
 
-00:00:00.000 --> 00:00:05.000
-<v Narrator>Welcome to RestoreAssist. Let's create your first inspection.
+00:00.000 --> 00:03.797
+Welcome to the Inspections tutorial.
 
-00:00:05.000 --> 00:00:12.000
-<v Narrator>Click New Inspection in the top right, then select the claim type — water damage, mould, fire, or general.
+00:03.797 --> 00:06.857
+Step 1: Create an Inspection.
 
-00:00:12.000 --> 00:00:18.000
-<v Narrator>Enter the property address. RestoreAssist will geocode it and create a digital twin.
+00:06.857 --> 00:11.498
+Enter job details, location, and claim type.
 
-00:00:18.000 --> 00:00:25.000
-<v Narrator>Add photos, moisture readings, and notes. Each entry is timestamped and tamper-evident.
+00:11.498 --> 00:14.135
+Step 2: Capture Evidence.
 
-00:00:25.000 --> 00:00:35.000
-<v Narrator>When you're done, click Submit. The AI will generate a professional S500-compliant report.
+00:14.135 --> 00:22.135
+Upload photos, add annotations, and record moisture readings directly in the app.
 
-00:00:35.000 --> 00:00:40.000
-<v Narrator>Your inspection is now part of the chain of custody, ready for insurer review.
+00:22.135 --> 00:24.135
+Step 3: Sign Off.
+
+00:24.135 --> 00:32.135
+Both the client and technician provide digital signatures with automatic timestamps.
+
+00:32.135 --> 00:34.135
+Step 4: Submit.
+
+00:34.135 --> 00:42.135
+The inspection auto-generates a report, exports to PDF, and publishes to the client portal.
+
+00:42.135 --> 00:47.620
+Your evidence chain is now complete and audit-ready.

@@ -78,7 +78,18 @@ export type VideoExplainerSlug =
   | "remotion-white-label"
   | "remotion-backup-export"
   | "remotion-moisture-deep-dive"
-  | "remotion-mobile-deep-dive";
+  | "remotion-mobile-deep-dive"
+  // Tutorial Videos (2026-06-04)
+  | "remotion-tutorial-login"
+  | "remotion-tutorial-signup"
+  | "remotion-tutorial-setup-wizard"
+  | "remotion-tutorial-dashboard"
+  | "remotion-tutorial-inspections"
+  | "remotion-tutorial-reports"
+  | "remotion-tutorial-billing"
+  | "remotion-tutorial-team"
+  | "remotion-tutorial-compliance"
+  | "remotion-tutorial-integrations";
 
 export interface RegistryEntry {
   youtubeId?: string;
