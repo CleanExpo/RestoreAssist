@@ -45,13 +45,12 @@ export function VideoExplainer({ slug, className }: VideoExplainerProps) {
     className ??
     "relative aspect-video w-full overflow-hidden rounded-xl border-2 border-[#8A6B4E]/30 shadow-2xl bg-[#050505]";
 
-  // Repo-hosted MP4 — render a native <video> element. Used for slugs
-  // pending YouTube unlisted upload; replace with youtubeId once uploaded.
-  if (localPath) {
+  // Cloudinary-hosted MP4 — CDN delivery (preferred)
+  if (cloudinaryUrl) {
     return (
       <div className={wrapperClass}>
         <video
-          src={localPath}
+          src={cloudinaryUrl}
           title={title}
           controls
           preload="metadata"
@@ -66,12 +65,12 @@ export function VideoExplainer({ slug, className }: VideoExplainerProps) {
     );
   }
 
-  // Cloudinary-hosted MP4 — CDN delivery, signed URLs supported
-  if (cloudinaryUrl) {
+  // Repo-hosted MP4 — fallback when Cloudinary unavailable
+  if (localPath) {
     return (
       <div className={wrapperClass}>
         <video
-          src={cloudinaryUrl}
+          src={localPath}
           title={title}
           controls
           preload="metadata"

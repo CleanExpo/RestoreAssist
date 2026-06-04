@@ -111,3 +111,5 @@ release-gate-report.json
 # Generated videos (do not commit to git — upload to Cloudinary instead)
 videos/*.mp4
 !videos/.gitkeep
+# Remotion rendered videos — hosted on Cloudinary CDN
+public/videos/remotion/*.mp4

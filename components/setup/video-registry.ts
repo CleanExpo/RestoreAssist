@@ -147,91 +147,109 @@ export const VIDEO_REGISTRY: Record<VideoExplainerSlug, RegistryEntry> = {
 
   // ── Remotion rendered videos (brand-correct, audio, production-ready) ──
   "remotion-sign-in": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780543346/restoreassist/videos/remotion/sign-in.mp4",
     localPath: "/videos/remotion/sign-in.mp4",
     title: "Signing in to RestoreAssist",
     durationSec: 45,
   },
   "remotion-sign-up": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780543347/restoreassist/videos/remotion/sign-up.mp4",
     localPath: "/videos/remotion/sign-up.mp4",
     title: "Creating your RestoreAssist account",
     durationSec: 60,
   },
   "remotion-dashboard": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780543299/restoreassist/videos/remotion/dashboard-walkthrough.mp4",
     localPath: "/videos/remotion/dashboard-walkthrough.mp4",
     title: "Your RestoreAssist dashboard",
     durationSec: 32,
   },
   "remotion-create-inspection": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780543297/restoreassist/videos/remotion/create-inspection.mp4",
     localPath: "/videos/remotion/create-inspection.mp4",
     title: "Creating a new inspection",
     durationSec: 42,
   },
   "remotion-report-builder": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780543331/restoreassist/videos/remotion/report-builder.mp4",
     localPath: "/videos/remotion/report-builder.mp4",
     title: "Building professional reports",
     durationSec: 36,
   },
   "remotion-client-portal": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780543294/restoreassist/videos/remotion/client-portal.mp4",
     localPath: "/videos/remotion/client-portal.mp4",
     title: "Sharing reports via the client portal",
     durationSec: 32,
   },
   "remotion-why-restoreassist": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780543357/restoreassist/videos/remotion/why-restoreassist.mp4",
     localPath: "/videos/remotion/why-restoreassist.mp4",
     title: "Why restoration teams choose RestoreAssist",
     durationSec: 36,
   },
   "remotion-byok": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780543293/restoreassist/videos/remotion/byok-explainer.mp4",
     localPath: "/videos/remotion/byok-explainer.mp4",
     title: "Bring Your Own Knowledge and Equipment",
     durationSec: 42,
   },
   "remotion-inspections-list": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780543309/restoreassist/videos/remotion/inspections-list.mp4",
     localPath: "/videos/remotion/inspections-list.mp4",
     title: "Managing your inspections list",
     durationSec: 34,
   },
   "remotion-evidence-capture": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780543300/restoreassist/videos/remotion/evidence-capture.mp4",
     localPath: "/videos/remotion/evidence-capture.mp4",
     title: "Capturing court-admissible evidence",
     durationSec: 32,
   },
   "remotion-moisture-mapping": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780543325/restoreassist/videos/remotion/moisture-mapping.mp4",
     localPath: "/videos/remotion/moisture-mapping.mp4",
     title: "Moisture mapping and dry goals",
     durationSec: 30,
   },
   "remotion-quote-builder": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780543329/restoreassist/videos/remotion/quote-builder.mp4",
     localPath: "/videos/remotion/quote-builder.mp4",
     title: "Building professional quotes",
     durationSec: 32,
   },
   "remotion-invoice-generator": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780543312/restoreassist/videos/remotion/invoice-generator.mp4",
     localPath: "/videos/remotion/invoice-generator.mp4",
     title: "Generating GST-compliant invoices",
     durationSec: 28,
   },
   "remotion-compliance-checklists": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780543296/restoreassist/videos/remotion/compliance-checklists.mp4",
     localPath: "/videos/remotion/compliance-checklists.mp4",
     title: "IICRC S500 compliance checklists",
     durationSec: 32,
   },
   "remotion-analytics-overview": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780543291/restoreassist/videos/remotion/analytics-overview.mp4",
     localPath: "/videos/remotion/analytics-overview.mp4",
     title: "Business analytics overview",
     durationSec: 45,
   },
   "remotion-team-management": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780543349/restoreassist/videos/remotion/team-management.mp4",
     localPath: "/videos/remotion/team-management.mp4",
     title: "Managing your restoration crew",
     durationSec: 50,
   },
   "remotion-mobile-workflow": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780543324/restoreassist/videos/remotion/mobile-workflow.mp4",
     localPath: "/videos/remotion/mobile-workflow.mp4",
     title: "Mobile workflow for field teams",
     durationSec: 30,
   },
   "remotion-pricing-overview": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780543327/restoreassist/videos/remotion/pricing-overview.mp4",
     localPath: "/videos/remotion/pricing-overview.mp4",
     title: "RestoreAssist pricing and plans",
     durationSec: 60,
@@ -239,26 +257,31 @@ export const VIDEO_REGISTRY: Record<VideoExplainerSlug, RegistryEntry> = {
 
   // P0 Launch Blockers (2026-06-04) — brand-correct, audio, production-ready
   "remotion-hero-product-overview": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780543308/restoreassist/videos/remotion/hero-product-overview.mp4",
     localPath: "/videos/remotion/hero-product-overview.mp4",
     title: "RestoreAssist in 60 Seconds",
     durationSec: 60,
   },
   "remotion-setup-wizard-full": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780543345/restoreassist/videos/remotion/setup-wizard-full.mp4",
     localPath: "/videos/remotion/setup-wizard-full.mp4",
     title: "Complete Setup Walkthrough",
     durationSec: 180,
   },
   "remotion-settings-config": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780543337/restoreassist/videos/remotion/settings-config.mp4",
     localPath: "/videos/remotion/settings-config.mp4",
     title: "Settings & Preferences",
     durationSec: 60,
   },
   "remotion-integration-connect": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780543311/restoreassist/videos/remotion/integration-connect.mp4",
     localPath: "/videos/remotion/integration-connect.mp4",
     title: "Connecting Your Tools",
     durationSec: 75,
   },
   "remotion-report-export-pdf": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780543332/restoreassist/videos/remotion/report-export-pdf.mp4",
     localPath: "/videos/remotion/report-export-pdf.mp4",
     title: "Exporting Professional PDF Reports",
     durationSec: 60,
@@ -266,36 +289,43 @@ export const VIDEO_REGISTRY: Record<VideoExplainerSlug, RegistryEntry> = {
 
   // P1 Marketing Videos (2026-06-04)
   "remotion-for-contractors": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780543305/restoreassist/videos/remotion/for-contractors.mp4",
     localPath: "/videos/remotion/for-contractors.mp4",
     title: "Built for Restoration Contractors",
     durationSec: 44,
   },
   "remotion-for-assessors": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780543303/restoreassist/videos/remotion/for-assessors.mp4",
     localPath: "/videos/remotion/for-assessors.mp4",
     title: "Built for Building Assessors",
     durationSec: 44,
   },
   "remotion-for-property-managers": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780543306/restoreassist/videos/remotion/for-property-managers.mp4",
     localPath: "/videos/remotion/for-property-managers.mp4",
     title: "Built for Property Managers",
     durationSec: 44,
   },
   "remotion-roi-explainer": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780543335/restoreassist/videos/remotion/roi-explainer.mp4",
     localPath: "/videos/remotion/roi-explainer.mp4",
     title: "Your Time Is Worth More Than Admin",
     durationSec: 44,
   },
   "remotion-evidence-chain": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780543301/restoreassist/videos/remotion/evidence-chain.mp4",
     localPath: "/videos/remotion/evidence-chain.mp4",
     title: "Chain of Custody",
     durationSec: 44,
   },
   "remotion-linkedin-short-1": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780543321/restoreassist/videos/remotion/linkedin-short-1.mp4",
     localPath: "/videos/remotion/linkedin-short-1.mp4",
     title: "14 Hours of Admin Per Job",
     durationSec: 60,
   },
   "remotion-linkedin-short-2": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780543323/restoreassist/videos/remotion/linkedin-short-2.mp4",
     localPath: "/videos/remotion/linkedin-short-2.mp4",
     title: "The Claim That Relied on Chain of Custody",
     durationSec: 60,
@@ -303,21 +333,25 @@ export const VIDEO_REGISTRY: Record<VideoExplainerSlug, RegistryEntry> = {
 
   // P3 Training Videos (2026-06-04)
   "remotion-training-s500-standard": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780543354/restoreassist/videos/remotion/training-s500-standard.mp4",
     localPath: "/videos/remotion/training-s500-standard.mp4",
     title: "IICRC S500 Water Categories",
     durationSec: 44,
   },
   "remotion-training-water-damage-cat": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780543355/restoreassist/videos/remotion/training-water-damage-cat.mp4",
     localPath: "/videos/remotion/training-water-damage-cat.mp4",
     title: "IICRC S500 Water Damage Classes",
     durationSec: 44,
   },
   "remotion-training-mould-remediation": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780543352/restoreassist/videos/remotion/training-mould-remediation.mp4",
     localPath: "/videos/remotion/training-mould-remediation.mp4",
     title: "Mould Remediation Protocol",
     durationSec: 44,
   },
   "remotion-training-fire-smoke": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780543351/restoreassist/videos/remotion/training-fire-smoke.mp4",
     localPath: "/videos/remotion/training-fire-smoke.mp4",
     title: "Fire & Smoke Damage Types",
     durationSec: 44,
