@@ -372,61 +372,73 @@ export const VIDEO_REGISTRY: Record<VideoExplainerSlug, RegistryEntry> = {
 
   // P2 Feature Deep-Dives (2026-06-04)
   "remotion-evidence-chain-deep-dive": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780546129/restoreassist/videos/remotion/evidence-chain-deep-dive.mp4",
     localPath: "/videos/remotion/evidence-chain-deep-dive.mp4",
     title: "Chain of Custody — Deep Dive",
     durationSec: 77,
   },
   "remotion-photo-annotation-deep-dive": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780546131/restoreassist/videos/remotion/photo-annotation-deep-dive.mp4",
     localPath: "/videos/remotion/photo-annotation-deep-dive.mp4",
     title: "Photo Annotation Toolkit",
     durationSec: 77,
   },
   "remotion-template-builder": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780546132/restoreassist/videos/remotion/template-builder.mp4",
     localPath: "/videos/remotion/template-builder.mp4",
     title: "Report Template Builder",
     durationSec: 66,
   },
   "remotion-bulk-operations": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780546135/restoreassist/videos/remotion/bulk-operations.mp4",
     localPath: "/videos/remotion/bulk-operations.mp4",
     title: "Bulk Operations",
     durationSec: 66,
   },
   "remotion-search-filter": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780546136/restoreassist/videos/remotion/search-filter.mp4",
     localPath: "/videos/remotion/search-filter.mp4",
     title: "Advanced Search & Filter",
     durationSec: 66,
   },
   "remotion-notifications-deep-dive": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780546138/restoreassist/videos/remotion/notifications-deep-dive.mp4",
     localPath: "/videos/remotion/notifications-deep-dive.mp4",
     title: "Notification System",
     durationSec: 66,
   },
   "remotion-data-import": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780546140/restoreassist/videos/remotion/data-import.mp4",
     localPath: "/videos/remotion/data-import.mp4",
     title: "Data Import",
     durationSec: 66,
   },
   "remotion-api-webhooks": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780546141/restoreassist/videos/remotion/api-webhooks.mp4",
     localPath: "/videos/remotion/api-webhooks.mp4",
     title: "API & Webhooks",
     durationSec: 72,
   },
   "remotion-white-label": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780546143/restoreassist/videos/remotion/white-label.mp4",
     localPath: "/videos/remotion/white-label.mp4",
     title: "White Label",
     durationSec: 66,
   },
   "remotion-backup-export": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780546145/restoreassist/videos/remotion/backup-export.mp4",
     localPath: "/videos/remotion/backup-export.mp4",
     title: "Backup & Export",
     durationSec: 66,
   },
   "remotion-moisture-deep-dive": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780546147/restoreassist/videos/remotion/moisture-deep-dive.mp4",
     localPath: "/videos/remotion/moisture-deep-dive.mp4",
     title: "Moisture Mapping — Deep Dive",
     durationSec: 77,
   },
   "remotion-mobile-deep-dive": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780546148/restoreassist/videos/remotion/mobile-deep-dive.mp4",
     localPath: "/videos/remotion/mobile-deep-dive.mp4",
     title: "Mobile Workflow — Deep Dive",
     durationSec: 77,
