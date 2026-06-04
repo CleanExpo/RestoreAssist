@@ -46,7 +46,13 @@ export type VideoExplainerSlug =
   | "remotion-analytics-overview"
   | "remotion-team-management"
   | "remotion-mobile-workflow"
-  | "remotion-pricing-overview";
+  | "remotion-pricing-overview"
+  // P0 Launch Blockers (2026-06-04)
+  | "remotion-hero-product-overview"
+  | "remotion-setup-wizard-full"
+  | "remotion-settings-config"
+  | "remotion-integration-connect"
+  | "remotion-report-export-pdf";
 
 export interface RegistryEntry {
   youtubeId?: string;
@@ -215,6 +221,33 @@ export const VIDEO_REGISTRY: Record<VideoExplainerSlug, RegistryEntry> = {
   "remotion-pricing-overview": {
     localPath: "/videos/remotion/pricing-overview.mp4",
     title: "RestoreAssist pricing and plans",
+    durationSec: 60,
+  },
+
+  // P0 Launch Blockers (2026-06-04) — brand-correct, audio, production-ready
+  "remotion-hero-product-overview": {
+    localPath: "/videos/remotion/hero-product-overview.mp4",
+    title: "RestoreAssist in 60 Seconds",
+    durationSec: 60,
+  },
+  "remotion-setup-wizard-full": {
+    localPath: "/videos/remotion/setup-wizard-full.mp4",
+    title: "Complete Setup Walkthrough",
+    durationSec: 180,
+  },
+  "remotion-settings-config": {
+    localPath: "/videos/remotion/settings-config.mp4",
+    title: "Settings & Preferences",
+    durationSec: 60,
+  },
+  "remotion-integration-connect": {
+    localPath: "/videos/remotion/integration-connect.mp4",
+    title: "Connecting Your Tools",
+    durationSec: 75,
+  },
+  "remotion-report-export-pdf": {
+    localPath: "/videos/remotion/report-export-pdf.mp4",
+    title: "Exporting Professional PDF Reports",
     durationSec: 60,
   },
 };
