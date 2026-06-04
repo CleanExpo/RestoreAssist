@@ -3,14 +3,10 @@ import {AbsoluteFill, interpolate, useCurrentFrame, Img, staticFile} from 'remot
 import {IntroSlide} from './ui-elements/intro-slide';
 import {OutroSlide} from './ui-elements/outro-slide';
 
-interface Props {
-  title: string;
-  stepDurations: number[];
-}
-
-export const IntegrationConnect: React.FC<Props> = ({title, stepDurations}) => {
+export const IntegrationConnect = () => {
+  const title = "Integration Connect";
   const frame = useCurrentFrame();
-  const [d0, d1, d2, d3, d4] = stepDurations;
+  const d0 = 120, d1 = 200, d2 = 300, d3 = 140, d4 = 210;
 
   const s0 = 0, s1 = s0 + d0, s2 = s1 + d1, s3 = s2 + d2, s4 = s3 + d3, s5 = s4 + d4;
 
