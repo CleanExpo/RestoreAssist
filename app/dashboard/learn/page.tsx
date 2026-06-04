@@ -15,6 +15,17 @@ const LIBRARY: { slug: string; subtitle: string }[] = [
   { slug: "setup-wizard-dashboard", subtitle: "Your jobs, claims, and what to do on day one." },
   { slug: "setup-wizard-integrations", subtitle: "Connect Xero, MYOB, QuickBooks, ServiceM8, or Ascora." },
   { slug: "setup-wizard-health", subtitle: "Live status of every advertised capability." },
+  // Tutorial Videos (2026-06-04)
+  { slug: "remotion-tutorial-login", subtitle: "How to sign in to your account." },
+  { slug: "remotion-tutorial-signup", subtitle: "Create your account from scratch." },
+  { slug: "remotion-tutorial-setup-wizard", subtitle: "The 5-step setup wizard walkthrough." },
+  { slug: "remotion-tutorial-dashboard", subtitle: "Navigate your dashboard and key metrics." },
+  { slug: "remotion-tutorial-inspections", subtitle: "Create, capture, and submit inspections." },
+  { slug: "remotion-tutorial-reports", subtitle: "Generate AI-assisted professional reports." },
+  { slug: "remotion-tutorial-billing", subtitle: "Plans, invoices, and upgrades." },
+  { slug: "remotion-tutorial-team", subtitle: "Invite members and manage roles." },
+  { slug: "remotion-tutorial-compliance", subtitle: "IICRC standards and digital compliance." },
+  { slug: "remotion-tutorial-integrations", subtitle: "Connect Xero, MYOB, QuickBooks, and more." },
   // Remotion videos (production-ready)
   { slug: "remotion-hero-product-overview", subtitle: "Complete platform overview for new users." },
   { slug: "remotion-dashboard", subtitle: "Navigate the dashboard and key metrics." },
