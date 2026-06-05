@@ -3,7 +3,8 @@
 Date: 2026-06-05
 Repo: CleanExpo/RestoreAssist
 Production domain: https://restoreassist.app
-Current main / PR #1226 merge commit: `1824bfc5850e00a1d5080c5f627a70b364ae57b9`
+PR #1226 merge commit: `1824bfc5850e00a1d5080c5f627a70b364ae57b9`
+Latest verified main commit after follow-up RLS/evidence PRs: `40bd479901732656b12980471e65082944012d5c`
 Status: GO for controlled internal pilot.
 
 ## 1. Current production evidence
@@ -191,36 +192,14 @@ Suggested result table:
 
 ## 7. Remaining broad-rollout gate
 
-Before broader external/customer rollout, capture the direct production table-state RLS snapshot from Supabase SQL Editor or an approved secure DB shell.
+Before broader external/customer rollout, the direct production table-state RLS snapshot has now passed. The final result is documented in `docs/handoff/2026-06-05-rls-and-pilot-gate-results.md`:
 
-Required SQL:
+- `total_public_tables`: 203
+- `rls_enabled`: 203
+- `rls_disabled`: 0
+- `disabled_tables`: `[]`
 
-```sql
-with user_tables as (
-  select n.nspname, c.relname, c.relrowsecurity
-  from pg_class c
-  join pg_namespace n on n.oid = c.relnamespace
-  where c.relkind='r'
-    and n.nspname='public'
-    and c.relname not like '_prisma_%'
-)
-select
-  count(*) as total_public_tables,
-  count(*) filter (where relrowsecurity) as rls_enabled,
-  count(*) filter (where not relrowsecurity) as rls_disabled,
-  coalesce(json_agg(relname order by relname) filter (where not relrowsecurity), '[]'::json) as disabled_tables
-from user_tables;
-```
-
-Acceptance:
-
-- `rls_disabled = 0`, or every disabled table is documented as intentionally safe and non-client-exposed.
-
-Current local blocker:
-
-- This environment has public Supabase URL/anon key only from production env pull.
-- It does not expose `DATABASE_URL`, `DIRECT_URL`, or `SUPABASE_SERVICE_ROLE_KEY` locally.
-- Docker is not installed/running, so `supabase db dump` is not available here.
+The remaining external-rollout gate is authenticated production smoke with approved standard-user and admin/operator credentials.
 
 ## 8. Rollback / containment plan
 
@@ -276,7 +255,7 @@ Move to broader external pilot only when all are true:
 - Standard user smoke passed.
 - Admin analytics smoke passed or analytics is explicitly disabled from external pilot scope.
 - Unauthorized boundary smoke passed.
-- Direct production RLS table-state snapshot passed or exceptions are documented.
+- Direct production RLS table-state snapshot passed; see `docs/handoff/2026-06-05-rls-and-pilot-gate-results.md`.
 - No production smoke/check failures on current `main`.
 - Any pilot friction is triaged as non-blocking or fixed.
 

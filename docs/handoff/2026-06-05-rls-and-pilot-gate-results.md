@@ -2,7 +2,8 @@
 
 Date: 2026-06-05
 Repo: CleanExpo/RestoreAssist
-Current main commit: `4580ecba5c5cfda45423d40227d3bb035c42fd60`
+Current main commit at time of RLS remediation: `4580ecba5c5cfda45423d40227d3bb035c42fd60`
+Latest verified main after this evidence packet merged: `40bd479901732656b12980471e65082944012d5c`
 Status: RLS broad-rollout gate passed; authenticated pilot smoke still needs approved credentials.
 
 ## Summary
