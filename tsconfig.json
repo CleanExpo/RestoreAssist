@@ -38,6 +38,7 @@
     "scripts/**",
     "pilot-tester/**",
     "remotion/**",
+    "remotion.config.ts",
     ".next/dev/**",
     "**/__tests__/**",
     "**/*.test.ts",
