@@ -41,6 +41,7 @@
   "scripts": {
     "postinstall": "prisma generate",
     "build": "NODE_OPTIONS=\"--max-old-space-size=8192\" sh scripts/build.sh",
+    "validate:next-build-no-db": "sh scripts/validate-next-build-no-db.sh",
     "dev": "next dev",
     "start": "next start",
     "lint": "eslint .",
