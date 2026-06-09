@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import { PRICING_CONFIG } from "@/lib/pricing";
 
 export default function SignupPage() {
   const [name, setName] = useState("");
@@ -179,9 +180,7 @@ export default function SignupPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center px-4">
       {/* Vercel BotID — invisible bot signal for /api/auth/register. RA-1286. */}
-      <BotIdClient
-        protect={[{ path: "/api/auth/register", method: "POST" }]}
-      />
+      <BotIdClient protect={[{ path: "/api/auth/register", method: "POST" }]} />
       <motion.div
         initial={{ opacity: 1, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -233,11 +232,14 @@ export default function SignupPage() {
             >
               <div>
                 <p className="font-semibold text-cyan-300 mb-1">
-                  1. Start Creating Reports (Free Tier Available)
+                  1. Start Creating Reports ({PRICING_CONFIG.free.trialDays}-Day
+                  Free Trial)
                 </p>
                 <p className="text-slate-400">
-                  Get started immediately with 30 free report credits. Create
-                  basic reports right away!
+                  Get started immediately with{" "}
+                  {PRICING_CONFIG.free.trialReportCredits} free report credits,
+                  valid for {PRICING_CONFIG.free.trialDays} days. Create basic
+                  reports right away!
                 </p>
               </div>
 

@@ -12,8 +12,17 @@ import { rejectIfBreached } from "@/lib/auth/password-breach";
 import { verifyBotId } from "@/lib/auth/botid";
 import { track } from "@/lib/analytics/track";
 import { apiError } from "@/lib/api-errors";
+import { PRICING_CONFIG } from "@/lib/pricing";
 
 const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.app";
+
+// Free-trial grant — sourced from PRICING_CONFIG so the marketing copy
+// (signup page, pricing page, welcome email) can never drift from what we
+// actually grant. See lib/__tests__/pricing-integrity.test.ts.
+const TRIAL_DAYS = PRICING_CONFIG.free.trialDays;
+const TRIAL_REPORT_CREDITS = PRICING_CONFIG.free.trialReportCredits;
+const TRIAL_QUICK_FILL_CREDITS = PRICING_CONFIG.free.trialQuickFillCredits;
+const TRIAL_DURATION_MS = TRIAL_DAYS * 24 * 60 * 60 * 1000;
 
 export async function POST(request: NextRequest) {
   try {
@@ -133,10 +142,10 @@ export async function POST(request: NextRequest) {
           password: hashedPassword,
           role: "ADMIN",
           subscriptionStatus: "TRIAL",
-          creditsRemaining: 30,
+          creditsRemaining: TRIAL_REPORT_CREDITS,
           totalCreditsUsed: 0,
-          trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-          quickFillCreditsRemaining: 30,
+          trialEndsAt: new Date(Date.now() + TRIAL_DURATION_MS),
+          quickFillCreditsRemaining: TRIAL_QUICK_FILL_CREDITS,
           totalQuickFillUsed: 0,
           // RA-1255: cast needed until Prisma client regenerates in Vercel build
           acceptedTermsAt: new Date() as any,
@@ -148,8 +157,8 @@ export async function POST(request: NextRequest) {
             recipientEmail: email,
             recipientName: name,
             loginUrl: `${APP_URL}/login`,
-            trialDays: 30,
-            trialCredits: 30,
+            trialDays: TRIAL_DAYS,
+            trialCredits: TRIAL_REPORT_CREDITS,
           }),
         { stage: "signup-welcome" },
       ).catch((err) => console.error("[Register] Welcome email failed:", err));
@@ -193,10 +202,10 @@ export async function POST(request: NextRequest) {
               password: hashedPassword,
               role: "ADMIN",
               subscriptionStatus: "TRIAL",
-              creditsRemaining: 30,
+              creditsRemaining: TRIAL_REPORT_CREDITS,
               totalCreditsUsed: 0,
-              trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-              quickFillCreditsRemaining: 30,
+              trialEndsAt: new Date(Date.now() + TRIAL_DURATION_MS),
+              quickFillCreditsRemaining: TRIAL_QUICK_FILL_CREDITS,
               totalQuickFillUsed: 0,
             },
           });
@@ -235,8 +244,8 @@ export async function POST(request: NextRequest) {
               recipientEmail: email,
               recipientName: name,
               loginUrl: `${APP_URL}/login`,
-              trialDays: 30,
-              trialCredits: 30,
+              trialDays: TRIAL_DAYS,
+              trialCredits: TRIAL_REPORT_CREDITS,
             }),
           { stage: "signup-welcome" },
         ).catch((err) =>

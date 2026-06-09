@@ -8,19 +8,44 @@
  * source of truth for those invariants.
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { PRICING_CONFIG } from "@/lib/pricing";
 
+const repoRoot = join(__dirname, "..", "..");
+const readSrc = (rel: string) => readFileSync(join(repoRoot, rel), "utf8");
+
 describe("RA-1585 pricing-config integrity", () => {
-  it("free tier copy matches reportLimit (no 30 vs 3 drift)", () => {
+  it("free tier is a 15-day trial whose copy matches the credit grant", () => {
     const { free } = PRICING_CONFIG;
-    expect(free.reportLimit).toBe(3);
+    // Decided model: a 15-day free trial that grants 30 report credits.
+    // These three values are the SSOT the register route + marketing copy read.
+    expect(free.trialDays).toBe(15);
+    expect(free.trialReportCredits).toBe(30);
+    // `reportLimit` is the deprecated alias the display cards still read; it
+    // must equal the real credit grant so the card never shows a stale number.
+    expect(free.reportLimit).toBe(free.trialReportCredits);
+    // No "Free Forever" / unlimited claim — this is time-limited.
+    expect(free.name).not.toMatch(/forever/i);
+    expect(free.description).not.toMatch(/forever|unlimited/i);
     for (const bullet of free.features) {
-      expect(bullet).not.toMatch(/30\s+free/i);
+      expect(bullet).not.toMatch(/forever|unlimited/i);
     }
-    const limitPhrase = `${free.reportLimit} inspection report`;
+    // The feature list must state the real trial length and credit count.
     expect(
-      free.features.some((f) => f.toLowerCase().includes(limitPhrase)),
+      free.features.some((f) =>
+        f.toLowerCase().includes(`${free.trialDays}-day free trial`),
+      ),
+      "free tier should advertise the trial length",
+    ).toBe(true);
+    expect(
+      free.features.some((f) =>
+        f
+          .toLowerCase()
+          .includes(`${free.trialReportCredits} inspection report`),
+      ),
+      "free tier should advertise the real report-credit count",
     ).toBe(true);
   });
 
@@ -71,5 +96,45 @@ describe("RA-1585 pricing-config integrity", () => {
         `tier ${key} feature count`,
       ).toBeGreaterThanOrEqual(3);
     }
+  });
+});
+
+describe("free-trial honesty — grant matches advertised copy", () => {
+  it("register route grants a ~15-day trialEndsAt sourced from PRICING_CONFIG", () => {
+    const src = readSrc("app/api/auth/register/route.ts");
+
+    // The route must derive its trial window from the SSOT, never hardcode it.
+    expect(src).toContain("const TRIAL_DAYS = PRICING_CONFIG.free.trialDays;");
+    expect(src).toContain(
+      "const TRIAL_REPORT_CREDITS = PRICING_CONFIG.free.trialReportCredits;",
+    );
+    // trialEndsAt is computed from the SSOT-derived duration, not a literal 30 days.
+    expect(src).toContain("new Date(Date.now() + TRIAL_DURATION_MS)");
+    expect(src).not.toMatch(/Date\.now\(\)\s*\+\s*30\s*\*\s*24/);
+    expect(src).not.toMatch(/creditsRemaining:\s*30\b/);
+
+    // Mirror the route's grant formula and assert it lands ~15 days out.
+    const trialDurationMs = PRICING_CONFIG.free.trialDays * 24 * 60 * 60 * 1000;
+    const trialEndsAt = new Date(Date.now() + trialDurationMs);
+    const daysOut =
+      (trialEndsAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000);
+    expect(daysOut).toBeGreaterThan(14.9);
+    expect(daysOut).toBeLessThan(15.1);
+  });
+
+  it("signup page copy is sourced from PRICING_CONFIG (no hardcoded credit/day numbers)", () => {
+    const src = readSrc("app/signup/page.tsx");
+    expect(src).toContain("PRICING_CONFIG.free.trialDays");
+    expect(src).toContain("PRICING_CONFIG.free.trialReportCredits");
+    // The old hardcoded "30 free report credits" line must be gone.
+    expect(src).not.toMatch(/30 free report credits/i);
+    expect(src).not.toMatch(/Free Tier Available/i);
+  });
+
+  it("public pricing page reads the trial from PRICING_CONFIG and drops 'Free Forever'", () => {
+    const src = readSrc("app/pricing/page.tsx");
+    expect(src).toContain("freeCfg.trialDays");
+    expect(src).toContain("freeCfg.trialReportCredits");
+    expect(src).not.toMatch(/Free Forever/i);
   });
 });
