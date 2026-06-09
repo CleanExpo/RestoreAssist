@@ -8,13 +8,14 @@
  * pdf-lib PDFDocument (RA-120 integration into report PDF).
  */
 
-import { PDFDocument, rgb, StandardFonts, type RGB } from "pdf-lib";
+import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import {
   buildComplianceAnnex,
   type ScopeMaterialInfo,
   type MoisturePinInput,
 } from "@/lib/sketch/pdf-scope";
 import type { DamageCause } from "@/lib/nz/nhcover";
+import { extractRooms } from "@/lib/sketch/extract-rooms";
 
 // ── Constants ─────────────────────────────────────────────
 
@@ -29,74 +30,14 @@ const CONTENT_Y_TOP = PAGE_H - MARGIN - HEADER_H;
 const CONTENT_H = PAGE_H - MARGIN * 2 - HEADER_H - FOOTER_H;
 const CONTENT_W = PAGE_W - MARGIN * 2;
 
-/** Scale: 100 canvas pixels = 1 metre */
-const PX_PER_METRE = 100;
-
 const BRAND_DARK = rgb(0.11, 0.18, 0.28); // #1C2E47
 const BRAND_CYAN = rgb(0.0, 0.73, 0.83); // #00BAD4 approx
 const TEXT_MAIN = rgb(0.1, 0.1, 0.1);
 const TEXT_MUTED = rgb(0.45, 0.45, 0.45);
 const DIVIDER = rgb(0.87, 0.87, 0.87);
 
-// ── Room area extraction from Fabric.js JSON ──────────────
-
-interface FabricObject {
-  type?: string;
-  points?: { x: number; y: number }[];
-  width?: number;
-  height?: number;
-  scaleX?: number;
-  scaleY?: number;
-  fill?: string;
-  stroke?: string;
-  data?: { label?: string; roomType?: string };
-}
-
-/** Shoelace formula — returns area of a polygon given its vertices. */
-function shoelaceArea(pts: { x: number; y: number }[]): number {
-  let area = 0;
-  const n = pts.length;
-  for (let i = 0; i < n; i++) {
-    const j = (i + 1) % n;
-    area += pts[i].x * pts[j].y - pts[j].x * pts[i].y;
-  }
-  return Math.abs(area) / 2;
-}
-
-interface RoomInfo {
-  label: string;
-  areaM2: number;
-  stroke: string;
-}
-
-function extractRooms(
-  fabricJson: Record<string, unknown> | null | undefined,
-): RoomInfo[] {
-  if (!fabricJson) return [];
-  const objects = (fabricJson.objects as FabricObject[] | undefined) ?? [];
-  const rooms: RoomInfo[] = [];
-
-  for (const obj of objects) {
-    if (obj.type?.toLowerCase() !== "polygon") continue;
-    if (!obj.points?.length) continue;
-
-    const scaleX = obj.scaleX ?? 1;
-    const scaleY = obj.scaleY ?? 1;
-    const scaledPts = obj.points.map((p) => ({
-      x: p.x * scaleX,
-      y: p.y * scaleY,
-    }));
-    const areaM2 = shoelaceArea(scaledPts) / (PX_PER_METRE * PX_PER_METRE);
-
-    rooms.push({
-      label: obj.data?.label ?? obj.data?.roomType ?? "Room",
-      areaM2,
-      stroke: obj.stroke ?? "#3b82f6",
-    });
-  }
-
-  return rooms;
-}
+// Room extraction is the shared util (lib/sketch/extract-rooms) so the PDF and
+// the structured scope export never drift.
 
 // ── Data URL → Uint8Array ─────────────────────────────────
 
