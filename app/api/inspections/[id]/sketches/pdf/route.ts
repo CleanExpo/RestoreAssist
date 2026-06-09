@@ -85,11 +85,17 @@ export async function POST(
     }
   }
 
+  // ANZ materials library for the compliance annex (spec §11).
+  const materials = await (prisma as any).material.findMany({
+    select: { slug: true, name: true, isPotentialAcm: true },
+  });
+
   try {
     const pdfBytes = await generateSketchPdf({
       floors: body.floors,
       propertyAddress: body.propertyAddress ?? inspection.propertyAddress ?? "",
       reportNumber: body.reportNumber ?? id.slice(-8).toUpperCase(),
+      materials,
     });
 
     const fileName = `floor-plan-${id.slice(-8)}.pdf`;

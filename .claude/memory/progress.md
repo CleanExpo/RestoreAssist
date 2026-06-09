@@ -112,9 +112,19 @@ Plan: `~/.claude/plans/restoreassist-mapping-specification-polished-mochi.md`
 - **Phill Check** (visual, on deploy) in PR #1242: select a room → material dropdown (ANZ names);
   pick Fibro → WHS asbestos block; record pathway → clears; Gyprock → no warning.
 
-### Next (toward all-green + merge to main)
+### Done — PDF compliance annex (PR #1244, open; branch feat/mapping-v2-drying-pdf)
 
-- S500 drying status on moisture pins (panel/moisture layer, using `lib/anz/dry-standard`).
-- Extend `lib/generate-sketch-pdf.ts` (materials / water category / drying log / WHS / NCC).
-- Pre-merge each batch: full `npx vitest run` + `tsc` + no-stub clean → PR to `main`.
-- Visual acceptance = Phill Check on the deployed app (verification protocol delegates it to Phill).
+- `lib/sketch/pdf-scope.ts` (pure, tested): materials-per-element + ACM flags + NCC references
+  (configured edition) from the Fabric blob + Material lib.
+- `generate-sketch-pdf.ts`: Compliance Annex page (materials / WHS-ACM / NCC); pdf route fetches
+  the Material lib. **Realizes the Phase-1 DoD capstone (spec §11).**
+- **Evidence:** 4 annex tests red→green; mapping suite **69 passing**; `tsc` clean; no-stub clean.
+
+### FINAL remaining Phase-1 item
+
+- S500 drying status on moisture pins: map the moisture layer's `MaterialTypeId` → ANZ dry
+  standard, surface dry/not-dry via `lib/anz/dry-standard` in `SketchMoistureLayer`/panel; add a
+  drying-log table to the PDF annex. Then **Phase 1 is feature-complete** → post full
+  vitest+tsc summary + consolidated Phill Checks.
+- Pre-merge: full `npx vitest run` + `tsc` + no-stub clean → PR to `main`.
+- Visual acceptance = Phill Check on the deployed app (protocol delegates it to Phill).
