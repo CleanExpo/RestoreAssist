@@ -156,14 +156,18 @@ export async function canCreateReport(
     return { allowed: false, reason: "User not found" };
   }
 
-  // Trial users: unlimited reports during 30-day trial (API key required when creating)
+  // Trial users: the 15-day trial is CAPPED at a fixed report-credit grant
+  // (PRICING_CONFIG.free.trialReportCredits). A report may be created only
+  // while BOTH conditions hold: still inside the trial window AND credits
+  // remain. When either fails, block with the matching reason. (API key
+  // required when actually creating the report.)
   if (effectiveSub.subscriptionStatus === "TRIAL") {
     const trialExpired = await checkAndUpdateTrialStatus(effectiveSub.id);
     if (trialExpired) {
       return {
         allowed: false,
         reason:
-          "Your 30-day free trial has expired. Please subscribe to continue using RestoreAssist.",
+          "Your 15-day free trial has expired. Please subscribe to continue using RestoreAssist.",
       };
     }
     if (
@@ -173,7 +177,17 @@ export async function canCreateReport(
       return {
         allowed: false,
         reason:
-          "Your 30-day free trial has expired. Please subscribe to continue using RestoreAssist.",
+          "Your 15-day free trial has expired. Please subscribe to continue using RestoreAssist.",
+      };
+    }
+    // Trial report cap — exhausted credits block further reports even while
+    // the trial window is still open, so the "30 report credits" promise is
+    // enforced rather than unlimited.
+    if ((effectiveSub.creditsRemaining ?? 0) <= 0) {
+      return {
+        allowed: false,
+        reason:
+          "Trial report limit reached. You've used all your free trial report credits. Please subscribe to create more reports.",
       };
     }
     return { allowed: true };
@@ -216,7 +230,8 @@ export async function canCreateBulkReports(
     return { allowed: false, reason: "User not found" };
   }
 
-  // Trial users: unlimited during 30-day trial
+  // Trial users: capped at the trial report-credit grant. Bulk creation must
+  // fit inside both the trial window AND the remaining credit balance.
   if (effectiveSub.subscriptionStatus === "TRIAL") {
     if (
       effectiveSub.trialEndsAt &&
@@ -225,7 +240,14 @@ export async function canCreateBulkReports(
       return {
         allowed: false,
         reason:
-          "Your 30-day free trial has expired. Please subscribe to continue.",
+          "Your 15-day free trial has expired. Please subscribe to continue.",
+      };
+    }
+    const trialCreditsRemaining = effectiveSub.creditsRemaining ?? 0;
+    if (trialCreditsRemaining < count) {
+      return {
+        allowed: false,
+        reason: `Insufficient trial report credits. You need ${count} reports but only have ${trialCreditsRemaining} trial credit${trialCreditsRemaining === 1 ? "" : "s"} remaining. Please subscribe to create more reports.`,
       };
     }
     return { allowed: true };

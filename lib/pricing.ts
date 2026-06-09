@@ -7,10 +7,16 @@ export const PRICING_CONFIG = {
    * numbers from here so the marketing copy can never drift from what the
    * registration endpoint actually grants.
    *
-   * The grant is implemented in app/api/auth/register/route.ts (and the OAuth
-   * signup routes): `creditsRemaining: trialReportCredits` and
+   * Every signup path sources its grant from here so a trial is identical
+   * regardless of how the user signs up:
+   *   - app/api/auth/register/route.ts            (email + password)
+   *   - app/api/auth/google-signin/route.ts       (Google OAuth, web)
+   *   - app/api/auth/native-token-exchange/route.ts (Apple/Google, native iOS)
+   *   - app/api/user/profile/route.ts             (profile auto-create fallback)
+   * Each grants `creditsRemaining: trialReportCredits`,
+   * `quickFillCreditsRemaining: trialQuickFillCredits`, and
    * `trialEndsAt = now + trialDays days`. Keep these values in lock-step with
-   * that grant (asserted by lib/__tests__/pricing-integrity.test.ts).
+   * those grants (asserted by lib/__tests__/pricing-integrity.test.ts).
    */
   free: {
     name: "Free Trial",

@@ -10,6 +10,15 @@ import {
   checkAndUpdateTrialStatus,
 } from "@/lib/trial-handling";
 import { sanitizeString, isValidABN } from "@/lib/sanitize";
+import { PRICING_CONFIG } from "@/lib/pricing";
+
+// Free-trial grant — sourced from PRICING_CONFIG (the SSOT) so the profile
+// auto-create path grants the same 15-day / 30-credit trial as email/register,
+// Google OAuth and native iOS. See lib/__tests__/pricing-integrity.test.ts.
+const TRIAL_REPORT_CREDITS = PRICING_CONFIG.free.trialReportCredits;
+const TRIAL_QUICK_FILL_CREDITS = PRICING_CONFIG.free.trialQuickFillCredits;
+const TRIAL_DAYS = PRICING_CONFIG.free.trialDays;
+const TRIAL_DURATION_MS = TRIAL_DAYS * 24 * 60 * 60 * 1000;
 
 export async function GET(request: NextRequest) {
   try {
@@ -84,10 +93,10 @@ export async function GET(request: NextRequest) {
           email: session.user.email!,
           image: session.user.image,
           subscriptionStatus: "TRIAL",
-          creditsRemaining: 30,
+          creditsRemaining: TRIAL_REPORT_CREDITS,
           totalCreditsUsed: 0,
-          trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30-day free trial
-          quickFillCreditsRemaining: 30,
+          trialEndsAt: new Date(Date.now() + TRIAL_DURATION_MS), // 15-day free trial
+          quickFillCreditsRemaining: TRIAL_QUICK_FILL_CREDITS,
           totalQuickFillUsed: 0,
           stripeCustomerId: stripeCustomerId,
         },
@@ -121,23 +130,25 @@ export async function GET(request: NextRequest) {
       const newTrialEndsAt = newUser.trialEndsAt
         ? new Date(newUser.trialEndsAt)
         : null;
-      const newIsUnlimited = !newTrialEndsAt || new Date() <= newTrialEndsAt;
+      // The trial is capped at the granted credit count — it is NOT unlimited.
+      // Surface the real remaining balance so the dashboard tells the truth.
+      const newTrialActive = !newTrialEndsAt || new Date() <= newTrialEndsAt;
       return NextResponse.json({
         profile: {
           ...newUser,
-          creditsRemaining: newIsUnlimited ? null : newUser.creditsRemaining,
+          creditsRemaining: newUser.creditsRemaining,
           createdAt: newUser.createdAt.toISOString(),
           trialEndsAt: newUser.trialEndsAt?.toISOString(),
           subscriptionEndsAt: newUser.subscriptionEndsAt?.toISOString(),
           lastBillingDate: newUser.lastBillingDate?.toISOString(),
           nextBillingDate: newUser.nextBillingDate?.toISOString(),
-          trialStatus: newIsUnlimited
+          trialStatus: newTrialActive
             ? {
                 isTrialActive: true,
-                daysRemaining: 30,
+                daysRemaining: TRIAL_DAYS,
                 hasTrialExpired: false,
-                creditsRemaining: null,
-                hasUnlimitedTrial: true,
+                creditsRemaining: newUser.creditsRemaining,
+                hasUnlimitedTrial: false,
               }
             : null,
         },
@@ -204,7 +215,6 @@ export async function GET(request: NextRequest) {
     const effCredits = effLifetime
       ? 999999
       : (effSource?.creditsRemaining ?? null);
-    const effTrialEndsAt = effSource?.trialEndsAt ?? null;
 
     // For Managers/Technicians, use Admin's business information; else own.
     const businessInfo =
@@ -228,14 +238,10 @@ export async function GET(request: NextRequest) {
 
     const subscriptionStatus = effStatus || user.subscriptionStatus;
     const subscriptionPlan = effPlan || user.subscriptionPlan;
-    const trialEndsAtRaw = effTrialEndsAt ?? user.trialEndsAt;
-    const trialEndsAt = trialEndsAtRaw ? new Date(trialEndsAtRaw) : null;
-    const isTrialUnlimited =
-      subscriptionStatus === "TRIAL" &&
-      (!trialEndsAt || new Date() <= trialEndsAt);
-    const creditsRemaining = isTrialUnlimited
-      ? null
-      : (effCredits ?? user.creditsRemaining);
+    // The 15-day trial is CAPPED at the granted credit count, not unlimited.
+    // Always surface the real remaining balance for trial users so the
+    // dashboard copy matches the enforced report cap.
+    const creditsRemaining = effCredits ?? user.creditsRemaining;
 
     // Get report limits for active subscribers (use owner's account for team members)
     let reportLimits = null;
@@ -293,10 +299,8 @@ export async function GET(request: NextRequest) {
                 isTrialActive: trialStatus.isTrialActive,
                 daysRemaining: trialStatus.daysRemaining,
                 hasTrialExpired: trialStatus.hasTrialExpired,
-                creditsRemaining: isTrialUnlimited
-                  ? null
-                  : trialStatus.creditsRemaining,
-                hasUnlimitedTrial: isTrialUnlimited,
+                creditsRemaining: trialStatus.creditsRemaining,
+                hasUnlimitedTrial: false,
               }
             : null,
       },
