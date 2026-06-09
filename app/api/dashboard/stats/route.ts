@@ -20,7 +20,9 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-export const revalidate = 60; // Cache for 60 seconds at the route segment level
+// This route reads the session (which depends on request headers/cookies via
+// getServerSession) so it cannot be statically prerendered at build time.
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {

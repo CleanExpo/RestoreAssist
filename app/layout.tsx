@@ -24,6 +24,27 @@ import { Analytics } from "@vercel/analytics/next";
 import "@/lib/env-check";
 import "./globals.css";
 
+// RA — /_not-found export was failing with "TypeError: Invalid URL" because
+// metadataBase received an empty or malformed NEXTAUTH_URL at build time
+// (the `||` fallback only catches empty/undefined, not a non-empty but invalid
+// value such as a bare host without a protocol). Resolve it safely here so the
+// URL constructor never receives a value it cannot parse.
+function resolveMetadataBase(): URL {
+  const candidate = process.env.NEXTAUTH_URL?.trim();
+  if (candidate) {
+    try {
+      return new URL(candidate);
+    } catch {
+      // fall through to the safe default below
+    }
+  }
+  try {
+    return new URL("https://restoreassist.app");
+  } catch {
+    return new URL("http://localhost:3000");
+  }
+}
+
 const inter = Inter({ subsets: ["latin"] });
 const geistSans = Geist({
   subsets: ["latin"],
@@ -74,9 +95,7 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
-  metadataBase: new URL(
-    process.env.NEXTAUTH_URL || "https://restoreassist.app",
-  ),
+  metadataBase: resolveMetadataBase(),
     verification: {
           google: 'M9EIUGX0MryheGqhUpcXK-rqZMre1-CZE6TIqUsK7ro',
     },
