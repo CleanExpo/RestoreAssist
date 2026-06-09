@@ -114,3 +114,6 @@ videos/*.mp4
 # Remotion rendered videos — hosted on Cloudinary CDN
 public/videos/remotion/*.mp4
 remotion/output/*.mp4
+
+# Local agent / tooling logs (never commit)
+logs/

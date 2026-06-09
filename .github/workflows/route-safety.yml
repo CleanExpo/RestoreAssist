@@ -1,0 +1,43 @@
+name: Route Safety Guard
+
+# Prevents the deep-audit's #1 regression class from reappearing silently:
+#   (a) an unauthenticated paid-AI proxy (HeyGen / ElevenLabs / Synthex client), and
+#   (b) a mutation route doing a Prisma write with no auth gate.
+# Deterministic static scan — no provider calls, no DB, no network. Fails only on
+# NEW findings not present in scripts/security/route-safety-baseline.json.
+
+on:
+  pull_request:
+    branches: [main, sandbox]
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: route-safety-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  route-safety:
+    name: Route Safety Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        # version is read from package.json#packageManager (pnpm@9.15.9) — must not duplicate here
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          PRISMA_SKIP_POSTINSTALL_GENERATE: "1"
+
+      - name: Route safety scan
+        run: pnpm run security:scan
