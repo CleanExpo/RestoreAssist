@@ -20,6 +20,9 @@ export type ToolMode =
   | "photo" // Photo marker placement
   | "pan"; // Pan/navigate
 
+import { fabricObjectToSelected } from "@/lib/sketch/selected-object";
+import type { SelectedObject } from "./SketchSelectionPanel";
+
 export interface SketchCanvasProps {
   width?: number;
   height?: number;
@@ -28,6 +31,7 @@ export interface SketchCanvasProps {
   backgroundImageOpacity?: number;
   onReady?: (canvas: FabricCanvasRef) => void;
   onModified?: () => void;
+  onSelect?: (obj: SelectedObject | null) => void;
   readonly?: boolean;
   className?: string;
 }
@@ -74,6 +78,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       width = 1200,
       height = 800,
       toolMode = "select",
+      onSelect,
       backgroundImageUrl,
       backgroundImageOpacity = 0.4,
       onReady,
@@ -309,6 +314,21 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
             onModified?.();
           }
         });
+
+        // ── Selection → SketchSelectionPanel ──
+        const emitSelection = () => {
+          const active = (
+            canvas as unknown as { getActiveObject: () => unknown }
+          ).getActiveObject();
+          onSelect?.(
+            fabricObjectToSelected(
+              active as Parameters<typeof fabricObjectToSelected>[0],
+            ),
+          );
+        };
+        canvas.on("selection:created", emitSelection);
+        canvas.on("selection:updated", emitSelection);
+        canvas.on("selection:cleared", () => onSelect?.(null));
 
         // ── Keyboard shortcuts ──
         const handleKeyDown = (e: KeyboardEvent) => {
