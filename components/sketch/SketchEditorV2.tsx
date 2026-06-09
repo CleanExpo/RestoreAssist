@@ -46,7 +46,7 @@ import { SketchDockToolbar } from "./SketchDockToolbar";
 import { SketchFloorTabs } from "./SketchFloorTabs";
 import type { SketchFloor } from "./SketchFloorTabs";
 import { SketchSelectionPanel } from "./SketchSelectionPanel";
-import type { SelectedObject } from "./SketchSelectionPanel";
+import type { SelectedObject, MaterialOption } from "./SketchSelectionPanel";
 import { SketchMoistureLayer } from "./SketchMoistureLayer";
 import type { MoisturePin } from "./SketchMoistureLayer";
 import { SketchScaleModal } from "./SketchScaleModal";
@@ -143,6 +143,7 @@ export function SketchEditorV2({
   // ── UI state ───────────────────────────────────────────
   const [toolMode, setToolMode] = useState<ToolMode>("select");
   const [selectedObj, setSelectedObj] = useState<SelectedObject | null>(null);
+  const [materials, setMaterials] = useState<MaterialOption[]>([]);
   const [showScaleModal, setShowScaleModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
@@ -223,6 +224,20 @@ export function SketchEditorV2({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inspectionId]);
+
+  // ── Load ANZ materials library for the picker (spec §5.1) ──
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/materials")
+      .then((r) => (r.ok ? r.json() : { materials: [] }))
+      .then((d) => {
+        if (!cancelled) setMaterials(d.materials ?? []);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const activeFloor = floorsData[activeIdx];
 
@@ -916,6 +931,7 @@ export function SketchEditorV2({
                 if (c)
                   setHistoryState({ canUndo: c.canUndo, canRedo: c.canRedo });
               }}
+              onSelect={setSelectedObj}
               className="w-full h-full"
             />
 
@@ -934,6 +950,55 @@ export function SketchEditorV2({
         {/* Selection panel */}
         <SketchSelectionPanel
           selected={selectedObj}
+          materials={materials}
+          onMaterialChange={(id, slug) => {
+            const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
+              getObjects: () => unknown[];
+              renderAll: () => void;
+            } | null;
+            if (!fc) return;
+            const obj = fc
+              .getObjects()
+              .find(
+                (o) =>
+                  (
+                    (o as Record<string, unknown>).data as
+                      | Record<string, unknown>
+                      | undefined
+                  )?.id === id,
+              ) as Record<string, unknown> | undefined;
+            if (obj?.data)
+              (obj.data as Record<string, unknown>).material = slug;
+            fc.renderAll();
+            setSelectedObj((prev) =>
+              prev && prev.id === id ? { ...prev, materialSlug: slug } : prev,
+            );
+            scheduleSave();
+          }}
+          onRecordWhsPathway={(id, note) => {
+            const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
+              getObjects: () => unknown[];
+              renderAll: () => void;
+            } | null;
+            if (!fc) return;
+            const obj = fc
+              .getObjects()
+              .find(
+                (o) =>
+                  (
+                    (o as Record<string, unknown>).data as
+                      | Record<string, unknown>
+                      | undefined
+                  )?.id === id,
+              ) as Record<string, unknown> | undefined;
+            if (obj?.data)
+              (obj.data as Record<string, unknown>).whsPathwayNote = note;
+            fc.renderAll();
+            setSelectedObj((prev) =>
+              prev && prev.id === id ? { ...prev, whsPathwayNote: note } : prev,
+            );
+            scheduleSave();
+          }}
           onDeselect={() => setSelectedObj(null)}
           onDelete={(id) => {
             // Remove object from Fabric canvas by matching custom data id
