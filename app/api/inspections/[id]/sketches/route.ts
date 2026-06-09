@@ -87,6 +87,7 @@ export async function POST(
       backgroundImageUrl,
       moisturePoints,
       equipmentPoints,
+      country,
     } = body;
 
     // If a sketch already exists for this floor, update it; otherwise create
@@ -133,6 +134,7 @@ export async function POST(
             backgroundImageUrl: backgroundImageUrl ?? undefined,
             moisturePoints: moisturePoints ?? undefined,
             equipmentPoints: equipmentPoints ?? undefined,
+            country: country ?? undefined,
           },
         })
       : await (prisma as any).claimSketch.create({
@@ -145,6 +147,7 @@ export async function POST(
             backgroundImageUrl: backgroundImageUrl ?? undefined,
             moisturePoints: moisturePoints ?? undefined,
             equipmentPoints: equipmentPoints ?? undefined,
+            country: country ?? undefined,
           },
         });
 

@@ -88,3 +88,39 @@ describe("buildDryingLog / annex drying log", () => {
     expect(buildComplianceAnnex(FABRIC, MATERIALS).dryingLog).toEqual([]);
   });
 });
+
+describe("NHCover (NZ) annex routing", () => {
+  it("AU is the default — NCC references present, no NHCover block", () => {
+    const annex = buildComplianceAnnex(FABRIC, MATERIALS);
+    expect(annex.country).toBe("AU");
+    expect(annex.nhcover).toBeNull();
+    expect(annex.nccReferences.length).toBeGreaterThan(0);
+  });
+
+  it("NZ swaps NCC references for an NHCover block with cap + flat excess", () => {
+    const annex = buildComplianceAnnex(FABRIC, MATERIALS, { country: "NZ" });
+    expect(annex.country).toBe("NZ");
+    expect(annex.nccReferences).toEqual([]);
+    expect(annex.nhcover?.buildingCapNzd).toBe(300_000);
+    expect(annex.nhcover?.flatExcessNzd).toBe(500);
+  });
+
+  it("routes a specific cause + estimate (earthquake over cap)", () => {
+    const annex = buildComplianceAnnex(FABRIC, MATERIALS, {
+      country: "NZ",
+      nhCause: "earthquake",
+      estimatedRepairNzd: 450_000,
+    });
+    expect(annex.nhcover?.routing?.building.covered).toBe(true);
+    expect(annex.nhcover?.claim?.cappedAtNhcLimit).toBe(true);
+  });
+
+  it("flags building flood as private insurer, land as NHCover", () => {
+    const annex = buildComplianceAnnex(FABRIC, MATERIALS, {
+      country: "NZ",
+      nhCause: "flood",
+    });
+    expect(annex.nhcover?.routing?.building.covered).toBe(false);
+    expect(annex.nhcover?.routing?.land.covered).toBe(true);
+  });
+});

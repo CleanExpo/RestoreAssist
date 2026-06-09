@@ -98,3 +98,58 @@ describe("SketchSelectionPanel — WHS asbestos gate", () => {
     expect(screen.queryByText(/asbestos/i)).not.toBeInTheDocument();
   });
 });
+
+describe("SketchSelectionPanel — NZ NHCover routing", () => {
+  it("hides the NZ cause selector under the AU jurisdiction (default)", () => {
+    render(<SketchSelectionPanel selected={room()} />);
+    expect(
+      screen.queryByText(/Damage cause \(NHCover\)/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("toggling to NZ reports the jurisdiction change", () => {
+    const onCountryChange = vi.fn();
+    render(
+      <SketchSelectionPanel
+        selected={room()}
+        onCountryChange={onCountryChange}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "NZ" }));
+    expect(onCountryChange).toHaveBeenCalledWith("NZ");
+  });
+
+  it("routes building flood to the private insurer, land to NHCover", () => {
+    render(
+      <SketchSelectionPanel selected={room({ cause: "flood" })} country="NZ" />,
+    );
+    expect(screen.getByText(/Private insurer/i)).toBeInTheDocument();
+    expect(screen.getByText("NHCover")).toBeInTheDocument();
+  });
+
+  it("routes earthquake building damage to NHCover", () => {
+    render(
+      <SketchSelectionPanel
+        selected={room({ cause: "earthquake" })}
+        country="NZ"
+      />,
+    );
+    expect(screen.getAllByText("NHCover").length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText(/Private insurer/i)).not.toBeInTheDocument();
+  });
+
+  it("reports a cause change", () => {
+    const onCauseChange = vi.fn();
+    render(
+      <SketchSelectionPanel
+        selected={room()}
+        country="NZ"
+        onCauseChange={onCauseChange}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText(/Damage cause/i), {
+      target: { value: "tsunami" },
+    });
+    expect(onCauseChange).toHaveBeenCalledWith("el1", "tsunami");
+  });
+});

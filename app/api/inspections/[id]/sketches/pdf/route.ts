@@ -17,6 +17,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateSketchPdf, type SketchFloor } from "@/lib/generate-sketch-pdf";
+import type { DamageCause } from "@/lib/nz/nhcover";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 
 export async function POST(
@@ -54,6 +55,8 @@ export async function POST(
     floors: SketchFloor[];
     propertyAddress?: string;
     reportNumber?: string;
+    nhCause?: DamageCause;
+    estimatedRepairNzd?: number;
   };
 
   try {
@@ -93,11 +96,17 @@ export async function POST(
   // Moisture pins across floors for the S500 drying log (spec §5.2).
   const sketchRows = await (prisma as any).claimSketch.findMany({
     where: { inspectionId: id },
-    select: { moisturePoints: true },
+    select: { moisturePoints: true, country: true },
   });
   const moisturePins = sketchRows.flatMap((s: { moisturePoints: unknown }) =>
     Array.isArray(s.moisturePoints) ? s.moisturePoints : [],
   ) as Array<{ wme: number; material: string; note?: string }>;
+  // NZ pathway if any floor's sketch is tagged NZ (spec §5.5).
+  const country: "AU" | "NZ" = sketchRows.some(
+    (s: { country?: string }) => s.country === "NZ",
+  )
+    ? "NZ"
+    : "AU";
 
   try {
     const pdfBytes = await generateSketchPdf({
@@ -106,6 +115,9 @@ export async function POST(
       reportNumber: body.reportNumber ?? id.slice(-8).toUpperCase(),
       materials,
       moisturePins,
+      country,
+      nhCause: body.nhCause,
+      estimatedRepairNzd: body.estimatedRepairNzd,
     });
 
     const fileName = `floor-plan-${id.slice(-8)}.pdf`;

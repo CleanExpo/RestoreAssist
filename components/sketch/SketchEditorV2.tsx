@@ -144,6 +144,7 @@ export function SketchEditorV2({
   const [toolMode, setToolMode] = useState<ToolMode>("select");
   const [selectedObj, setSelectedObj] = useState<SelectedObject | null>(null);
   const [materials, setMaterials] = useState<MaterialOption[]>([]);
+  const [country, setCountry] = useState<"AU" | "NZ">("AU");
   const [showScaleModal, setShowScaleModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
@@ -182,9 +183,12 @@ export function SketchEditorV2({
             sketchData: Record<string, unknown> | null;
             backgroundImageUrl?: string | null;
             moisturePoints?: unknown[] | null;
+            country?: "AU" | "NZ" | null;
           }>;
         };
         if (cancelled || !sketches?.length) return;
+
+        setCountry(sketches.some((s) => s.country === "NZ") ? "NZ" : "AU");
 
         const loaded: FloorData[] = sketches.map((s, i) => {
           const canvasRef = makeFabricCanvas();
@@ -273,6 +277,7 @@ export function SketchEditorV2({
           sketchData,
           moisturePoints: fd.moisturePins,
           backgroundImageUrl: fd.backgroundUrl,
+          country,
         };
 
         try {
@@ -332,7 +337,7 @@ export function SketchEditorV2({
       }
       setSaving(false);
     }, 1500);
-  }, [inspectionId, readonly, floorsData]);
+  }, [inspectionId, readonly, floorsData, country]);
 
   // RA-1762 / RA-1769 — keep the offline-pending count + failed-entry
   // list fresh. Pending changes when sibling tabs or the SW drain
@@ -951,6 +956,34 @@ export function SketchEditorV2({
         <SketchSelectionPanel
           selected={selectedObj}
           materials={materials}
+          country={country}
+          onCountryChange={(c) => {
+            setCountry(c);
+            scheduleSave();
+          }}
+          onCauseChange={(id, cause) => {
+            const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
+              getObjects: () => unknown[];
+              renderAll: () => void;
+            } | null;
+            if (!fc) return;
+            const obj = fc
+              .getObjects()
+              .find(
+                (o) =>
+                  (
+                    (o as Record<string, unknown>).data as
+                      | Record<string, unknown>
+                      | undefined
+                  )?.id === id,
+              ) as Record<string, unknown> | undefined;
+            if (obj?.data) (obj.data as Record<string, unknown>).cause = cause;
+            fc.renderAll();
+            setSelectedObj((prev) =>
+              prev && prev.id === id ? { ...prev, cause } : prev,
+            );
+            scheduleSave();
+          }}
           onMaterialChange={(id, slug) => {
             const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
               getObjects: () => unknown[];

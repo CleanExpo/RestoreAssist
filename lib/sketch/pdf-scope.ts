@@ -9,6 +9,15 @@ import { getNccReference, type NccReference } from "@/lib/anz/ncc";
 import { getNccEdition } from "@/lib/anz/ncc-edition";
 import { pinDryingStatus } from "./pin-drying";
 import { getMaterialType, type MaterialTypeId } from "./iicrc-utils";
+import {
+  classifyCover,
+  buildingClaim,
+  NHC_BUILDING_CAP_NZD,
+  NHC_FLAT_EXCESS_NZD,
+  type CoverResult,
+  type BuildingClaimCalc,
+  type DamageCause,
+} from "@/lib/nz/nhcover";
 
 export interface ScopeMaterialInfo {
   slug: string;
@@ -37,6 +46,13 @@ export interface DryingLogRow {
   note?: string;
 }
 
+export interface NhcoverBlock {
+  buildingCapNzd: number;
+  flatExcessNzd: number;
+  routing?: { cause: DamageCause; building: CoverResult; land: CoverResult };
+  claim?: BuildingClaimCalc;
+}
+
 export interface ComplianceAnnex {
   edition: string;
   rows: ScopeRow[];
@@ -44,6 +60,9 @@ export interface ComplianceAnnex {
   acmElements: string[];
   nccReferences: NccReference[];
   dryingLog: DryingLogRow[];
+  /** Jurisdiction: AU uses NCC references; NZ uses the NHCover block. */
+  country: "AU" | "NZ";
+  nhcover: NhcoverBlock | null;
 }
 
 /** S500 drying log from moisture pins (spec §5.2). */
@@ -79,7 +98,13 @@ const MATERIAL_TO_NCC_TOPIC: Record<string, string> = {
 export function buildComplianceAnnex(
   fabricJson: Record<string, unknown> | null | undefined,
   materials: ScopeMaterialInfo[],
-  opts: { edition?: string; pins?: MoisturePinInput[] } = {},
+  opts: {
+    edition?: string;
+    pins?: MoisturePinInput[];
+    country?: "AU" | "NZ";
+    nhCause?: DamageCause;
+    estimatedRepairNzd?: number;
+  } = {},
 ): ComplianceAnnex {
   const edition = opts.edition ?? getNccEdition();
   const bySlug = new Map(materials.map((m) => [m.slug, m]));
@@ -114,11 +139,36 @@ export function buildComplianceAnnex(
     .map((t) => getNccReference(t, edition))
     .filter((r): r is NccReference => r !== null);
 
+  const country = opts.country ?? "AU";
+  let nhcover: NhcoverBlock | null = null;
+  let refs = nccReferences;
+  if (country === "NZ") {
+    // NHCover replaces the NCC references for the NZ pathway (spec §5.5).
+    refs = [];
+    nhcover = {
+      buildingCapNzd: NHC_BUILDING_CAP_NZD,
+      flatExcessNzd: NHC_FLAT_EXCESS_NZD,
+      routing: opts.nhCause
+        ? {
+            cause: opts.nhCause,
+            building: classifyCover(opts.nhCause, "building"),
+            land: classifyCover(opts.nhCause, "land"),
+          }
+        : undefined,
+      claim:
+        opts.nhCause && typeof opts.estimatedRepairNzd === "number"
+          ? buildingClaim(opts.nhCause, opts.estimatedRepairNzd)
+          : undefined,
+    };
+  }
+
   return {
     edition,
     rows,
     acmElements,
-    nccReferences,
+    nccReferences: refs,
     dryingLog: buildDryingLog(opts.pins ?? []),
+    country,
+    nhcover,
   };
 }
