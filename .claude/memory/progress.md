@@ -132,6 +132,17 @@ DoD chain shipped via PRs #1238/#1239/#1241/#1242/#1244/#1245:
 draw → ANZ materials → S500 water category → WHS asbestos gate → S500 drying validation →
 PDF scope with NCC references. Schema live on prod; ~120 vitest tests; tsc clean throughout.
 
+### Done — NZ NHCover pathway (PR #1248, open; the one ungated Phase-2 item)
+
+- `lib/nz/nhcover.ts` (pure, tested, source-cited NHI Act 2023): cause→cover classifier
+  (natural hazards→NHCover building; storm/flood building→private; land→NHCover) + cap
+  (NZ$300k+GST) / flat excess ($500/home, max $5k >10 homes) calc.
+- Panel AU/NZ toggle + NZ cause→routing badge; editor persists ClaimSketch.country + cause.
+- PDF: NZ swaps NCC refs for an NHCover routing block. pdf route reads country.
+- **Evidence:** 24 tests red→green; full mapping-v2 suite **126 passing**; tsc + no-stub clean.
+- **Open Phill Check:** $500 excess / $300k cap are org-overridable constants — confirm vs
+  current NHC schedule before relying on payout figures.
+
 ### Phase 2 — GATED (do NOT start without Phill/Board)
 
 - Apify existing-plan import + $11/mo flag → blocked on **AU IP sign-off** (spec §8.1).

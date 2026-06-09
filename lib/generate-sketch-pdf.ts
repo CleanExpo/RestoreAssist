@@ -14,6 +14,7 @@ import {
   type ScopeMaterialInfo,
   type MoisturePinInput,
 } from "@/lib/sketch/pdf-scope";
+import type { DamageCause } from "@/lib/nz/nhcover";
 
 // ── Constants ─────────────────────────────────────────────
 
@@ -421,6 +422,48 @@ function addComplianceAnnexPage(
     y -= 14;
   }
 
+  // NHCover routing (NZ) — spec §5.5
+  if (annex.nhcover) {
+    const nh = annex.nhcover;
+    y -= 10;
+    page.drawText("NHCover routing (NZ — Natural Hazards Insurance Act 2023)", {
+      x: MARGIN,
+      y,
+      size: 12,
+      font: bold,
+      color: BRAND_DARK,
+    });
+    y -= 16;
+    page.drawText(
+      `Building cap: NZ$${nh.buildingCapNzd.toLocaleString("en-NZ")} + GST · Excess: NZ$${nh.flatExcessNzd} per insured home`,
+      { x: MARGIN, y, size: 10, font: helvetica, color: TEXT_MAIN },
+    );
+    y -= 14;
+    page.drawText(
+      "Natural hazards (earthquake, landslip, volcanic, hydrothermal, tsunami, fire) → NHCover building; storm/flood building → private insurer; land → NHCover.",
+      { x: MARGIN, y, size: 9, font: helvetica, color: TEXT_MUTED },
+    );
+    y -= 16;
+    if (nh.routing) {
+      page.drawText(
+        `Cause: ${nh.routing.cause} — building: ${nh.routing.building.covered ? "NHCover" : "PRIVATE insurer"} · land: ${nh.routing.land.covered ? "NHCover" : "private"}`,
+        { x: MARGIN, y, size: 10, font: helvetica, color: TEXT_MAIN },
+      );
+      y -= 14;
+    }
+    if (nh.claim) {
+      const topUp =
+        nh.claim.privateTopUp > 0
+          ? `, NZ$${nh.claim.privateTopUp.toLocaleString("en-NZ")} private top-up`
+          : "";
+      page.drawText(
+        `Estimate: NZ$${nh.claim.nhcCoveredAmount.toLocaleString("en-NZ")} via NHCover (excess NZ$${nh.claim.excess})${topUp}.`,
+        { x: MARGIN, y, size: 10, font: helvetica, color: TEXT_MAIN },
+      );
+      y -= 14;
+    }
+  }
+
   // S500 drying log
   if (annex.dryingLog.length > 0) {
     y -= 10;
@@ -473,6 +516,12 @@ export interface SketchPdfOptions {
   nccEdition?: string;
   /** Moisture pins across floors — drives the S500 drying log (spec §5.2). */
   moisturePins?: MoisturePinInput[];
+  /** Jurisdiction (default AU). NZ renders the NHCover routing block (spec §5.5). */
+  country?: "AU" | "NZ";
+  /** NZ damage cause for specific NHCover routing. */
+  nhCause?: DamageCause;
+  /** NZ estimated building repair (NZ$) for the NHCover claim calc. */
+  estimatedRepairNzd?: number;
 }
 
 /**
@@ -489,6 +538,9 @@ export async function generateSketchPdf(
     materials,
     nccEdition,
     moisturePins,
+    country,
+    nhCause,
+    estimatedRepairNzd,
   } = options;
 
   if (!floors.length) throw new Error("At least one floor is required");
@@ -521,6 +573,9 @@ export async function generateSketchPdf(
     const annex = buildComplianceAnnex({ objects: mergedObjects }, materials!, {
       edition: nccEdition,
       pins: moisturePins,
+      country,
+      nhCause,
+      estimatedRepairNzd,
     });
     shared.pageNum++;
     addComplianceAnnexPage(doc, annex, shared);
