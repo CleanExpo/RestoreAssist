@@ -7,6 +7,56 @@ import Footer from "@/components/landing/Footer";
 
 export default function ContactPage() {
   const [darkMode, setDarkMode] = useState(true);
+  const [form, setForm] = useState({ name: "", email: "", message: "" });
+  const [status, setStatus] = useState<
+    "idle" | "submitting" | "success" | "error"
+  >("idle");
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setStatus("submitting");
+    setErrorMsg("");
+    try {
+      const res = await fetch("/api/support/tickets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.name.trim(),
+          email: form.email.trim(),
+          subject: "Website contact enquiry",
+          body: form.message.trim(),
+          category: "general",
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const issue =
+          Array.isArray(data?.issues) && data.issues[0]?.message
+            ? (data.issues[0].message as string)
+            : null;
+        throw new Error(
+          issue || data?.error || "Something went wrong. Please try again.",
+        );
+      }
+      setStatus("success");
+      setForm({ name: "", email: "", message: "" });
+    } catch (err) {
+      setStatus("error");
+      setErrorMsg(
+        err instanceof Error
+          ? err.message
+          : "Something went wrong. Please try again.",
+      );
+    }
+  };
 
   useEffect(() => {
     if (!document.getElementById("google-fonts-preconnect")) {
@@ -157,6 +207,7 @@ export default function ContactPage() {
                   the GEO standard (Pi-CEO skills/geo-optimization/SKILL.md §5). */}
               <form
                 className="space-y-4"
+                onSubmit={handleSubmit}
                 // @ts-expect-error WebMCP attributes are W3C-draft and not yet in React's type defs
                 toolname="submit_contact_enquiry"
                 tooldescription="Submit a contact enquiry to RestoreAssist (Australia's first Australian-designed CRM for the restoration industry). Routes to the team for human follow-up. For active disaster-recovery claims, use disasterrecovery.com.au instead."
@@ -166,7 +217,11 @@ export default function ContactPage() {
                     type="text"
                     name="name"
                     placeholder="Your Name"
-                    className={`w-full px-4 py-3 rounded-lg border ${darkMode ? "bg-[#1C2E47]/50 border-[#5A6A7B]/30 text-[#F4F5F6] placeholder-[#5A6A7B]" : "bg-[#F4F5F6]/50 border-[#5A6A7B]/20 text-[#1C2E47] placeholder-[#5A6A7B]"} focus:outline-none focus:border-[#8A6B4E] transition-colors`}
+                    required
+                    value={form.name}
+                    onChange={handleChange}
+                    disabled={status === "submitting"}
+                    className={`w-full px-4 py-3 rounded-lg border ${darkMode ? "bg-[#1C2E47]/50 border-[#5A6A7B]/30 text-[#F4F5F6] placeholder-[#5A6A7B]" : "bg-[#F4F5F6]/50 border-[#5A6A7B]/20 text-[#1C2E47] placeholder-[#5A6A7B]"} focus:outline-none focus:border-[#8A6B4E] transition-colors disabled:opacity-60`}
                     style={{
                       fontFamily:
                         '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -180,7 +235,11 @@ export default function ContactPage() {
                     type="email"
                     name="email"
                     placeholder="Your Email"
-                    className={`w-full px-4 py-3 rounded-lg border ${darkMode ? "bg-[#1C2E47]/50 border-[#5A6A7B]/30 text-[#F4F5F6] placeholder-[#5A6A7B]" : "bg-[#F4F5F6]/50 border-[#5A6A7B]/20 text-[#1C2E47] placeholder-[#5A6A7B]"} focus:outline-none focus:border-[#8A6B4E] transition-colors`}
+                    required
+                    value={form.email}
+                    onChange={handleChange}
+                    disabled={status === "submitting"}
+                    className={`w-full px-4 py-3 rounded-lg border ${darkMode ? "bg-[#1C2E47]/50 border-[#5A6A7B]/30 text-[#F4F5F6] placeholder-[#5A6A7B]" : "bg-[#F4F5F6]/50 border-[#5A6A7B]/20 text-[#1C2E47] placeholder-[#5A6A7B]"} focus:outline-none focus:border-[#8A6B4E] transition-colors disabled:opacity-60`}
                     style={{
                       fontFamily:
                         '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -194,8 +253,13 @@ export default function ContactPage() {
                     name="message"
                     placeholder="Your Message"
                     rows={5}
+                    minLength={10}
                     maxLength={3000}
-                    className={`w-full px-4 py-3 rounded-lg border ${darkMode ? "bg-[#1C2E47]/50 border-[#5A6A7B]/30 text-[#F4F5F6] placeholder-[#5A6A7B]" : "bg-[#F4F5F6]/50 border-[#5A6A7B]/20 text-[#1C2E47] placeholder-[#5A6A7B]"} focus:outline-none focus:border-[#8A6B4E] transition-colors resize-none`}
+                    required
+                    value={form.message}
+                    onChange={handleChange}
+                    disabled={status === "submitting"}
+                    className={`w-full px-4 py-3 rounded-lg border ${darkMode ? "bg-[#1C2E47]/50 border-[#5A6A7B]/30 text-[#F4F5F6] placeholder-[#5A6A7B]" : "bg-[#F4F5F6]/50 border-[#5A6A7B]/20 text-[#1C2E47] placeholder-[#5A6A7B]"} focus:outline-none focus:border-[#8A6B4E] transition-colors resize-none disabled:opacity-60`}
                     style={{
                       fontFamily:
                         '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -206,14 +270,35 @@ export default function ContactPage() {
                 </div>
                 <button
                   type="submit"
-                  className={`w-full px-6 py-3 rounded-lg font-medium transition-colors bg-[#8A6B4E] text-[#F4F5F6] hover:bg-[#8A6B4E]/90`}
+                  disabled={status === "submitting"}
+                  className={`w-full px-6 py-3 rounded-lg font-medium transition-colors bg-[#8A6B4E] text-[#F4F5F6] hover:bg-[#8A6B4E]/90 disabled:opacity-60 disabled:cursor-not-allowed`}
                   style={{
                     fontFamily:
                       '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                   }}
                 >
-                  Send Message
+                  {status === "submitting" ? "Sending…" : "Send Message"}
                 </button>
+
+                {status === "success" && (
+                  <p
+                    role="status"
+                    aria-live="polite"
+                    className="text-sm font-medium text-emerald-400"
+                  >
+                    Thanks — your message has been received. We&apos;ll respond
+                    within 24 hours.
+                  </p>
+                )}
+                {status === "error" && (
+                  <p
+                    role="alert"
+                    aria-live="assertive"
+                    className="text-sm font-medium text-red-400"
+                  >
+                    {errorMsg}
+                  </p>
+                )}
               </form>
             </motion.div>
           </div>

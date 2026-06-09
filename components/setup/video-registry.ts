@@ -146,31 +146,37 @@ export const VIDEO_REGISTRY: Record<VideoExplainerSlug, RegistryEntry> = {
     durationSec: 60,
   },
   "help-inspections": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780978575/restoreassist/videos/help/help-inspections.mp4",
     localPath: "/videos/help/help-inspections.mp4",
     title: "Inspections — chain-of-custody capture",
     durationSec: 75,
   },
   "help-reports": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780978580/restoreassist/videos/help/help-reports.mp4",
     localPath: "/videos/help/help-reports.mp4",
     title: "AI-drafted S500 reports — review and sign off",
     durationSec: 75,
   },
   "help-clients-and-portal": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780978538/restoreassist/videos/help/help-clients-and-portal.mp4",
     localPath: "/videos/help/help-clients-and-portal.mp4",
     title: "Share reports via the client portal",
     durationSec: 75,
   },
   "help-billing": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780978485/restoreassist/videos/help/help-billing.mp4",
     localPath: "/videos/help/help-billing.mp4",
     title: "Trial, paid tiers, and Stripe Checkout",
     durationSec: 75,
   },
   "help-team": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780978626/restoreassist/videos/help/help-team.mp4",
     localPath: "/videos/help/help-team.mp4",
     title: "Invite a technician + verify their licence",
     durationSec: 75,
   },
   "help-compliance": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/v1780978552/restoreassist/videos/help/help-compliance.mp4",
     localPath: "/videos/help/help-compliance.mp4",
     title: "IICRC citation format and edition discipline",
     durationSec: 75,

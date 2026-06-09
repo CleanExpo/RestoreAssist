@@ -1,0 +1,38 @@
+[
+  {
+    "file": "help-billing.mp4",
+    "publicId": "restoreassist/videos/help/help-billing",
+    "url": "https://res.cloudinary.com/dmaulkthb/video/upload/v1780978485/restoreassist/videos/help/help-billing.mp4",
+    "bytes": 9174564
+  },
+  {
+    "file": "help-clients-and-portal.mp4",
+    "publicId": "restoreassist/videos/help/help-clients-and-portal",
+    "url": "https://res.cloudinary.com/dmaulkthb/video/upload/v1780978538/restoreassist/videos/help/help-clients-and-portal.mp4",
+    "bytes": 8176680
+  },
+  {
+    "file": "help-compliance.mp4",
+    "publicId": "restoreassist/videos/help/help-compliance",
+    "url": "https://res.cloudinary.com/dmaulkthb/video/upload/v1780978552/restoreassist/videos/help/help-compliance.mp4",
+    "bytes": 11108498
+  },
+  {
+    "file": "help-inspections.mp4",
+    "publicId": "restoreassist/videos/help/help-inspections",
+    "url": "https://res.cloudinary.com/dmaulkthb/video/upload/v1780978575/restoreassist/videos/help/help-inspections.mp4",
+    "bytes": 8568413
+  },
+  {
+    "file": "help-reports.mp4",
+    "publicId": "restoreassist/videos/help/help-reports",
+    "url": "https://res.cloudinary.com/dmaulkthb/video/upload/v1780978580/restoreassist/videos/help/help-reports.mp4",
+    "bytes": 8792360
+  },
+  {
+    "file": "help-team.mp4",
+    "publicId": "restoreassist/videos/help/help-team",
+    "url": "https://res.cloudinary.com/dmaulkthb/video/upload/v1780978626/restoreassist/videos/help/help-team.mp4",
+    "bytes": 9887456
+  }
+]
