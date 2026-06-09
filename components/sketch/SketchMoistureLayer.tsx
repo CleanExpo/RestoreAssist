@@ -22,6 +22,7 @@ import {
   MATERIAL_TYPES,
   type MaterialTypeId,
 } from "@/lib/sketch/iicrc-utils";
+import { pinDryingStatus } from "@/lib/sketch/pin-drying";
 
 export interface MoisturePin {
   id: string;
@@ -234,6 +235,26 @@ function PinMarker({
                 ))}
               </select>
             </div>
+
+            {/* S500 drying status (spec §5.2) */}
+            {(() => {
+              const dry = pinDryingStatus(pin);
+              return (
+                <div
+                  className={cn(
+                    "flex items-center justify-between px-2 py-1.5 rounded-lg text-xs font-medium",
+                    dry.dryStandardMet
+                      ? "bg-emerald-500/15 text-emerald-300"
+                      : "bg-rose-500/15 text-rose-300",
+                  )}
+                >
+                  <span>S500 dry standard ({dry.targetMc}% WME)</span>
+                  <span className="font-semibold">
+                    {dry.dryStandardMet ? "DRY" : "NOT YET DRY"}
+                  </span>
+                </div>
+              );
+            })()}
 
             {/* Note */}
             <div>

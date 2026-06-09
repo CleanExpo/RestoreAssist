@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildComplianceAnnex, type ScopeMaterialInfo } from "../pdf-scope";
+import {
+  buildComplianceAnnex,
+  buildDryingLog,
+  type ScopeMaterialInfo,
+} from "../pdf-scope";
 
 const MATERIALS: ScopeMaterialInfo[] = [
   {
@@ -58,5 +62,29 @@ describe("buildComplianceAnnex", () => {
     expect(annex.rows[0].materialName).toBeNull();
     expect(annex.rows[0].isPotentialAcm).toBe(false);
     expect(buildComplianceAnnex(null, MATERIALS).rows).toEqual([]);
+  });
+});
+
+describe("buildDryingLog / annex drying log", () => {
+  it("computes dry/not-dry per pin from the material dry target", () => {
+    const log = buildDryingLog([
+      { wme: 10, material: "timber_floor" },
+      { wme: 30, material: "timber_floor" },
+    ]);
+    expect(log[0].materialLabel).toBe("Timber Floor");
+    expect(log[0].dryStandardMet).toBe(true);
+    expect(log[1].dryStandardMet).toBe(false);
+  });
+
+  it("includes the drying log in the annex when pins are supplied", () => {
+    const annex = buildComplianceAnnex(FABRIC, MATERIALS, {
+      pins: [{ wme: 30, material: "plasterboard" }],
+    });
+    expect(annex.dryingLog).toHaveLength(1);
+    expect(annex.dryingLog[0].dryStandardMet).toBe(false);
+  });
+
+  it("defaults to an empty drying log when no pins", () => {
+    expect(buildComplianceAnnex(FABRIC, MATERIALS).dryingLog).toEqual([]);
   });
 });

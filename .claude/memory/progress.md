@@ -120,7 +120,26 @@ Plan: `~/.claude/plans/restoreassist-mapping-specification-polished-mochi.md`
   the Material lib. **Realizes the Phase-1 DoD capstone (spec §11).**
 - **Evidence:** 4 annex tests red→green; mapping suite **69 passing**; `tsc` clean; no-stub clean.
 
-### FINAL remaining Phase-1 item
+### Done — S500 drying status on pins + PDF drying log (PR #1245, open)
+
+- `lib/sketch/pin-drying.ts` (pure, tested) + live DRY/NOT-YET-DRY badge in SketchMoistureLayer;
+  S500 drying-log section in the PDF compliance annex (pins fetched in pdf route).
+- **Evidence:** 7 tests red→green; sketch+anz+components **81 passing**; tsc clean; no-stub clean.
+
+## PHASE 1 FEATURE-COMPLETE (pending #1245 merge)
+
+DoD chain shipped via PRs #1238/#1239/#1241/#1242/#1244/#1245:
+draw → ANZ materials → S500 water category → WHS asbestos gate → S500 drying validation →
+PDF scope with NCC references. Schema live on prod; ~120 vitest tests; tsc clean throughout.
+
+### Phase 2 — GATED (do NOT start without Phill/Board)
+
+- Apify existing-plan import + $11/mo flag → blocked on **AU IP sign-off** (spec §8.1).
+- Insurer export (ESX/Cotality) → **format unresolved** (spec §9 spike).
+- RoomPlan LiDAR (Adapter B) → blocked on **iOS/Swift resourcing**.
+- NZ pathway (NHCover) → can proceed (pure logic) but is post-RIA Phase 2.
+
+### Superseded note (was: FINAL remaining Phase-1 item)
 
 - S500 drying status on moisture pins: map the moisture layer's `MaterialTypeId` → ANZ dry
   standard, surface dry/not-dry via `lib/anz/dry-standard` in `SketchMoistureLayer`/panel; add a
