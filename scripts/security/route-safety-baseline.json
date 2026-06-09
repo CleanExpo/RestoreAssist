@@ -1,8 +1,8 @@
 {
   "description": "Route-safety baseline. Pre-existing heuristic candidates for the route-safety guard. Findings listed here are KNOWN and do NOT fail CI. Triage candidates live in docs/security/route-safety-backlog.md. Regenerate with: node scripts/security/route-safety-scan.mjs --baseline",
-  "generatedAt": "2026-06-09T03:14:04.676Z",
+  "generatedAt": "2026-06-09T03:17:51.608Z",
   "routeCount": 447,
-  "findingCount": 6,
+  "findingCount": 3,
   "findings": [
     {
       "file": "app/api/cron/sync-invoices/route.ts",
@@ -13,21 +13,6 @@
       "file": "app/api/cron/sync-xero-payments/route.ts",
       "class": "mutation-no-auth",
       "reason": "Route exports a mutating handler (POST/PUT/PATCH/DELETE) that performs a Prisma write but has no getServerSession/getToken/verifyAdminFromDb auth gate and is not a legit-exception (auth/webhook/[token]/test-helper) route."
-    },
-    {
-      "file": "app/api/elevenlabs/sfx/route.ts",
-      "class": "paid-ai-no-auth",
-      "reason": "Route proxies a paid/metered AI provider (HeyGen/ElevenLabs/Synthex client) but has no getServerSession/getToken/verifyAdminFromDb auth gate and is not a legit-exception (auth/webhook/[token]/test-helper) route."
-    },
-    {
-      "file": "app/api/elevenlabs/voice/route.ts",
-      "class": "paid-ai-no-auth",
-      "reason": "Route proxies a paid/metered AI provider (HeyGen/ElevenLabs/Synthex client) but has no getServerSession/getToken/verifyAdminFromDb auth gate and is not a legit-exception (auth/webhook/[token]/test-helper) route."
-    },
-    {
-      "file": "app/api/heygen/route.ts",
-      "class": "paid-ai-no-auth",
-      "reason": "Route proxies a paid/metered AI provider (HeyGen/ElevenLabs/Synthex client) but has no getServerSession/getToken/verifyAdminFromDb auth gate and is not a legit-exception (auth/webhook/[token]/test-helper) route."
     },
     {
       "file": "app/api/portal/invitations/accept/route.ts",
