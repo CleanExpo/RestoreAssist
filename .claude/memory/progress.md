@@ -94,10 +94,20 @@ Plan: `~/.claude/plans/restoreassist-mapping-specification-polished-mochi.md`
   `.../hazards` (validates type/status, records pathway). Commits on `feat/mapping-v2-ui-routes`.
 - **Evidence:** combined mapping-v2 suite (lib + all routes) **90 passing**; no-stub clean.
 
+- **#1239** merged: moisture-reading + WHS hazard API routes.
+
+### Done — SketchSelectionPanel ANZ controls (PR #1241, open; branch feat/mapping-v2-panel-ui)
+
+- Material picker (`materials` prop from /api/materials) + WHS asbestos gate (blocks strip-out
+  on pre-2004 ACM until pathway recorded; reuses `lib/anz/whs-gate`). Backward-compatible props.
+- **Evidence:** 5 jsdom/@testing-library component tests red→green; no-stub clean.
+
 ### Next (toward all-green + merge to main)
 
-- Wire `SketchSelectionPanel.tsx`: materials picker (/api/materials), drying status, WHS gate
-  blocking strip-out. **Visual preview gated on a working local `DATABASE_URL`** (dev server uses
-  Prisma, not MCP); else verify on deployed sandbox.
-- Extend `lib/generate-sketch-pdf.ts` (materials, water category, drying log, WHS, NCC).
+- Wire `SketchEditorV2` to fetch `/api/materials`, pass `materials`/`propertyYearBuilt` to the
+  panel, persist material (sketch save) + hazard (hazards route) selections. **Verify the live
+  flow on the PR's Vercel preview deployment** (working DB env) rather than waiting on a local
+  `DATABASE_URL`; drive via Chrome MCP against the preview URL.
+- Add S500 drying status to the moisture layer/panel; extend `lib/generate-sketch-pdf.ts`
+  (materials / water category / drying log / WHS / NCC).
 - Pre-merge each batch: full `npx vitest run` + `tsc` + no-stub clean → PR to `main`.

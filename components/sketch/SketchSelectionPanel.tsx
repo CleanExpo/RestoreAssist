@@ -7,9 +7,10 @@
  * Exposes room type, label, colour, opacity, and stroke controls.
  */
 
-import { useCallback } from "react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { Trash2, X } from "lucide-react";
+import { Trash2, X, AlertTriangle } from "lucide-react";
+import { evaluateWhsGate } from "@/lib/anz/whs-gate";
 
 const ROOM_COLORS = [
   {
@@ -35,13 +36,29 @@ export interface SelectedObject {
   fill?: string;
   stroke?: string;
   opacity?: number;
+  /** ANZ material slug assigned to this element (spec §5.1). */
+  materialSlug?: string;
+  /** Recorded WHS pathway note for this element, if any (spec §5.3). */
+  whsPathwayNote?: string;
+}
+
+export interface MaterialOption {
+  slug: string;
+  name: string;
+  isPotentialAcm: boolean;
 }
 
 export interface SketchSelectionPanelProps {
   selected: SelectedObject | null;
+  /** ANZ materials library (from /api/materials) for the picker. */
+  materials?: MaterialOption[];
+  /** Property build year — drives the WHS asbestos gate (pre-2004 = at risk). */
+  propertyYearBuilt?: number;
   onLabelChange?: (id: string, label: string) => void;
   onColorChange?: (id: string, fill: string, stroke: string) => void;
   onOpacityChange?: (id: string, opacity: number) => void;
+  onMaterialChange?: (id: string, slug: string) => void;
+  onRecordWhsPathway?: (id: string, note: string) => void;
   onDelete?: (id: string) => void;
   onDeselect?: () => void;
   className?: string;
@@ -49,18 +66,38 @@ export interface SketchSelectionPanelProps {
 
 export function SketchSelectionPanel({
   selected,
+  materials,
+  propertyYearBuilt,
   onLabelChange,
   onColorChange,
   onOpacityChange,
+  onMaterialChange,
+  onRecordWhsPathway,
   onDelete,
   onDeselect,
   className,
 }: SketchSelectionPanelProps) {
+  const [pathwayDraft, setPathwayDraft] = useState("");
+
   if (!selected) return null;
 
   const isRoom = selected.type === "room" || selected.type === "polygon";
   const isText = selected.type === "text_label" || selected.type === "i-text";
   const isLine = selected.type === "wall" || selected.type === "line";
+
+  const selectedMaterial = materials?.find(
+    (m) => m.slug === selected.materialSlug,
+  );
+  // WHS asbestos gate (spec §5.3): suspected ACM blocks strip-out scope until a
+  // pathway is recorded. Reuses the shared, tested gate logic.
+  const whs = selectedMaterial?.isPotentialAcm
+    ? evaluateWhsGate({
+        isPotentialAcm: true,
+        propertyYearBuilt,
+        action: "strip_out",
+        whsPathwayNote: selected.whsPathwayNote,
+      })
+    : null;
 
   return (
     <div
@@ -156,6 +193,69 @@ export function SketchSelectionPanel({
             }
             className="w-full accent-cyan-400"
           />
+        </div>
+      )}
+
+      {/* ANZ material picker (rooms + walls) */}
+      {(isRoom || isLine) && materials && materials.length > 0 && (
+        <div>
+          <label
+            htmlFor="sketch-material"
+            className="block text-xs text-white/50 mb-1"
+          >
+            Material
+          </label>
+          <select
+            id="sketch-material"
+            value={selected.materialSlug ?? ""}
+            onChange={(e) => onMaterialChange?.(selected.id, e.target.value)}
+            className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-cyan-400"
+          >
+            <option value="" className="text-black">
+              Select material…
+            </option>
+            {materials.map((m) => (
+              <option key={m.slug} value={m.slug} className="text-black">
+                {m.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* WHS asbestos gate */}
+      {whs?.blocked && (
+        <div
+          role="alert"
+          className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-2 space-y-2"
+        >
+          <div className="flex items-start gap-1.5 text-xs text-rose-200">
+            <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+            <span>
+              Suspected asbestos (ACM) — strip-out scope is blocked until a WHS
+              pathway is recorded.
+            </span>
+          </div>
+          <input
+            type="text"
+            value={pathwayDraft}
+            onChange={(e) => setPathwayDraft(e.target.value)}
+            placeholder="WHS pathway (friable/non-friable, licensed removal, sampling)…"
+            className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white placeholder:text-white/30 text-xs focus:outline-none focus:ring-1 focus:ring-rose-400"
+          />
+          <button
+            type="button"
+            onClick={() => onRecordWhsPathway?.(selected.id, pathwayDraft)}
+            className="w-full py-1.5 rounded-lg bg-rose-500/20 text-rose-100 border border-rose-500/30 hover:bg-rose-500/30 transition-colors text-xs font-medium"
+          >
+            Record WHS pathway
+          </button>
+        </div>
+      )}
+      {whs && !whs.blocked && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-200 flex items-start gap-1.5">
+          <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+          <span>ACM pathway recorded — strip-out permitted.</span>
         </div>
       )}
 
