@@ -47,6 +47,7 @@ import { SketchFloorTabs } from "./SketchFloorTabs";
 import type { SketchFloor } from "./SketchFloorTabs";
 import { SketchSelectionPanel } from "./SketchSelectionPanel";
 import type { SelectedObject, MaterialOption } from "./SketchSelectionPanel";
+import { ANZ_MATERIAL_OPTIONS } from "@/lib/anz/material-options";
 import { SketchMoistureLayer } from "./SketchMoistureLayer";
 import type { MoisturePin } from "./SketchMoistureLayer";
 import { SketchScaleModal } from "./SketchScaleModal";
@@ -143,7 +144,10 @@ export function SketchEditorV2({
   // ── UI state ───────────────────────────────────────────
   const [toolMode, setToolMode] = useState<ToolMode>("select");
   const [selectedObj, setSelectedObj] = useState<SelectedObject | null>(null);
-  const [materials, setMaterials] = useState<MaterialOption[]>([]);
+  // Seed with the offline-bundled ANZ materials so the picker + WHS gate work
+  // with no connectivity (spec §4.1); the API replaces this when reachable.
+  const [materials, setMaterials] =
+    useState<MaterialOption[]>(ANZ_MATERIAL_OPTIONS);
   const [country, setCountry] = useState<"AU" | "NZ">("AU");
   const [showScaleModal, setShowScaleModal] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -235,7 +239,14 @@ export function SketchEditorV2({
     fetch("/api/materials")
       .then((r) => (r.ok ? r.json() : { materials: [] }))
       .then((d) => {
-        if (!cancelled) setMaterials(d.materials ?? []);
+        // Only override the bundled fallback when the API actually returns data.
+        if (
+          !cancelled &&
+          Array.isArray(d.materials) &&
+          d.materials.length > 0
+        ) {
+          setMaterials(d.materials);
+        }
       })
       .catch(() => {});
     return () => {
