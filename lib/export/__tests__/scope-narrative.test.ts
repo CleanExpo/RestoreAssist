@@ -67,6 +67,12 @@ describe("buildScopeNarrative (AU)", () => {
     expect(md).toContain("NCC 2022");
   });
 
+  it("includes the S500 drying-equipment recommendation", () => {
+    expect(md).toContain("Drying equipment");
+    expect(md).toMatch(/Dehumidifiers: \d+/);
+    expect(md).toMatch(/Air movers: \d+/);
+  });
+
   it("does not reference any foreign estimating format", () => {
     expect(md.toLowerCase()).not.toMatch(/xactimate|symbility|cotality|esx/);
   });
