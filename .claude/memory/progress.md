@@ -143,6 +143,15 @@ PDF scope with NCC references. Schema live on prod; ~120 vitest tests; tsc clean
 - **Open Phill Check:** $500 excess / $300k cap are org-overridable constants — confirm vs
   current NHC schedule before relying on payout figures.
 
+### Done — versioned ANZ scope export contract v1 (PR #1249, open)
+
+- `lib/sketch/extract-rooms.ts` (shared by PDF + export → no drift); `lib/export/scope-contract.ts`
+  (pure, tested): `schemaVersion "1.0"` structured twin of the PDF, reusing buildComplianceAnnex.
+- `POST /api/inspections/[id]/sketches/scope-export` emits the JSON alongside the PDF.
+- OUR contract — no ESX/Xactimate/Cotality. Versioned for stable future carrier binding.
+- **Evidence:** 10 tests red→green; **full repo lib/route vitest 1663 passed / 30 skipped**;
+  tsc + eslint + no-stub clean.
+
 ### Phase 2 — GATED (do NOT start without Phill/Board)
 
 - Apify existing-plan import + $11/mo flag → blocked on **AU IP sign-off** (spec §8.1).
