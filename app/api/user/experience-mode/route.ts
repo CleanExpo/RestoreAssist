@@ -11,13 +11,13 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const user = await (prisma as any).user.findUnique({
+  const user = await prisma.user.findUnique({
     where: { id: session.user.id },
     select: { experienceMode: true },
   });
 
   return NextResponse.json({
-    experienceMode: user?.experienceMode ?? "EXPERIENCED",
+    experienceMode: user?.experienceMode ?? "APPRENTICE",
   });
 }
 
@@ -38,7 +38,7 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
-  await (prisma as any).user.update({
+  await prisma.user.update({
     where: { id: session.user.id },
     data: { experienceMode },
   });
