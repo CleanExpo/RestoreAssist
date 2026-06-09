@@ -5,7 +5,6 @@ import { validateCsrf } from "@/lib/csrf";
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
 import { getUserReportLimits } from "@/lib/report-limits";
-import { getEffectiveSubscription } from "@/lib/organization-credits";
 import {
   getTrialStatus,
   checkAndUpdateTrialStatus,
@@ -52,6 +51,11 @@ export async function GET(request: NextRequest) {
         // RA-1260 — surface 2FA state so /dashboard/security can render
         // the correct on/off panel without a second round-trip.
         twoFactorEnabled: true,
+        // perf — select role + org owner here so the effective-subscription
+        // and organization-owner logic can be inlined below without
+        // re-fetching this same user row multiple times.
+        role: true,
+        organization: { select: { ownerId: true } },
       },
     });
 
@@ -140,61 +144,98 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Get effective subscription (Admin's for Managers/Technicians, own for Admins)
-    const effectiveSub = await getEffectiveSubscription(user.id);
+    // perf — Inlined effective-subscription + organization-owner logic.
+    //
+    // The previous implementation made ~6 serial DB round trips per request:
+    // getEffectiveSubscription() called getOrganizationOwner() (1 query) then
+    // re-fetched the effective user row (1 query); getOrganizationOwner() was
+    // then called AGAIN separately (1 query); and a third findUnique fetched
+    // the owner's business info (1 query) — most of them re-reading the SAME
+    // user row already loaded above. That produced a 9.5–16s tail.
+    //
+    // We already select `role` and `organization.ownerId` on the main user
+    // row, so the owner id is derivable with zero extra queries. The single
+    // owner fetch below (only for team members) now covers BOTH the effective
+    // subscription source AND the business-info source. Net: ~6 → ~3 round
+    // trips with no behavior change.
 
-    // Get organization owner (Admin) for business information
-    const { getOrganizationOwner } = await import("@/lib/organization-credits");
-    const ownerId = await getOrganizationOwner(user.id);
+    // Mirror getOrganizationOwner() exactly: ADMIN owns themselves; otherwise
+    // the org owner if linked; otherwise null.
+    const ownerId =
+      user.role === "ADMIN"
+        ? user.id
+        : user.organizationId && user.organization?.ownerId
+          ? user.organization.ownerId
+          : null;
+    const isTeamMember = !!ownerId && ownerId !== user.id;
 
-    // For Managers/Technicians, get Admin's business information
-    let businessInfo = {
-      businessName: user.businessName,
-      businessAddress: user.businessAddress,
-      businessLogo: user.businessLogo,
-      businessABN: user.businessABN,
-      businessPhone: user.businessPhone,
-      businessEmail: user.businessEmail,
-    };
+    // Fetch the owner row ONCE, only for team members. This single row replaces
+    // both getEffectiveSubscription's internal owner fetch and the separate
+    // business-info fetch.
+    const owner = isTeamMember
+      ? await prisma.user.findUnique({
+          where: { id: ownerId! },
+          select: {
+            subscriptionStatus: true,
+            subscriptionPlan: true,
+            creditsRemaining: true,
+            trialEndsAt: true,
+            lifetimeAccess: true,
+            businessName: true,
+            businessAddress: true,
+            businessLogo: true,
+            businessABN: true,
+            businessPhone: true,
+            businessEmail: true,
+          },
+        })
+      : null;
 
-    if (ownerId && ownerId !== user.id) {
-      // User is a Manager/Technician - get Admin's business info
-      const owner = await prisma.user.findUnique({
-        where: { id: ownerId },
-        select: {
-          businessName: true,
-          businessAddress: true,
-          businessLogo: true,
-          businessABN: true,
-          businessPhone: true,
-          businessEmail: true,
-        },
-      });
+    // Effective source: owner row for team members, else the user's own row.
+    // Mirror getEffectiveSubscription's lifetimeAccess overrides exactly.
+    const effSource = isTeamMember ? owner : user;
+    const effLifetime = !!effSource?.lifetimeAccess;
+    const effStatus = effLifetime
+      ? "ACTIVE"
+      : (effSource?.subscriptionStatus ?? null);
+    const effPlan = effLifetime
+      ? "Lifetime"
+      : (effSource?.subscriptionPlan ?? null);
+    const effCredits = effLifetime
+      ? 999999
+      : (effSource?.creditsRemaining ?? null);
+    const effTrialEndsAt = effSource?.trialEndsAt ?? null;
 
-      if (owner) {
-        businessInfo = {
-          businessName: owner.businessName,
-          businessAddress: owner.businessAddress,
-          businessLogo: owner.businessLogo,
-          businessABN: owner.businessABN,
-          businessPhone: owner.businessPhone,
-          businessEmail: owner.businessEmail,
-        };
-      }
-    }
+    // For Managers/Technicians, use Admin's business information; else own.
+    const businessInfo =
+      isTeamMember && owner
+        ? {
+            businessName: owner.businessName,
+            businessAddress: owner.businessAddress,
+            businessLogo: owner.businessLogo,
+            businessABN: owner.businessABN,
+            businessPhone: owner.businessPhone,
+            businessEmail: owner.businessEmail,
+          }
+        : {
+            businessName: user.businessName,
+            businessAddress: user.businessAddress,
+            businessLogo: user.businessLogo,
+            businessABN: user.businessABN,
+            businessPhone: user.businessPhone,
+            businessEmail: user.businessEmail,
+          };
 
-    const subscriptionStatus =
-      effectiveSub?.subscriptionStatus || user.subscriptionStatus;
-    const subscriptionPlan =
-      effectiveSub?.subscriptionPlan || user.subscriptionPlan;
-    const trialEndsAtRaw = effectiveSub?.trialEndsAt ?? user.trialEndsAt;
+    const subscriptionStatus = effStatus || user.subscriptionStatus;
+    const subscriptionPlan = effPlan || user.subscriptionPlan;
+    const trialEndsAtRaw = effTrialEndsAt ?? user.trialEndsAt;
     const trialEndsAt = trialEndsAtRaw ? new Date(trialEndsAtRaw) : null;
     const isTrialUnlimited =
       subscriptionStatus === "TRIAL" &&
       (!trialEndsAt || new Date() <= trialEndsAt);
     const creditsRemaining = isTrialUnlimited
       ? null
-      : (effectiveSub?.creditsRemaining ?? user.creditsRemaining);
+      : (effCredits ?? user.creditsRemaining);
 
     // Get report limits for active subscribers (use owner's account for team members)
     let reportLimits = null;
