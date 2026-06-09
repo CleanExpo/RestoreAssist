@@ -4,6 +4,18 @@ Reporting cadence per `verification-and-evidence-protocol.md`: each session end 
 what was attempted, the evidence (test output + real-data run), and what's blocked.
 "Progress" without evidence is not logged as progress.
 
+## PATHWAY TO RIA (25–27 Aug 2026) — ungated roadmap, priority order
+
+1. ✅ Scope-of-works narrative generator (PR #1251) — v1 contract → S500 Markdown doc.
+2. ✅ Offline-first ANZ materials (PR #1253) — bundled picker fallback (spec §4.1).
+3. ⏭ Property metadata lookup UI — wire lib/property OnTheHouseProvider into an
+   address lookup (ungated; finishes Phase-1 C1).
+4. ⏭ RIA demo-readiness pass + scripted runbook (tablet viewport, deployed app).
+5. ⏭ Homeowner self-capture mode (guided subset).
+
+GATED (need Phill/Board): Apify underlay import (AU IP sign-off), RoomPlan LiDAR
+(iOS/Swift resourcing), cloud-AI capture (vendor + spend). Untouched.
+
 Plan: `~/.claude/plans/restoreassist-mapping-specification-polished-mochi.md`
 
 ---
