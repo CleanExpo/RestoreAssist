@@ -5902,7 +5902,15 @@ model ClaimSketch {
   backgroundImageUrl String?
   moisturePoints     Json?
   equipmentPoints    Json?
+  // RestoreAssist Mapping V2 (spec §12): canonical model + ANZ context
+  totalFloorAreaM2   Float?
+  country            String             @default("AU") // AU | NZ
+  captureAdapter     String             @default("manual") // manual | roomplan | cloud_ai | underlay_import
   annotations        SketchAnnotation[]
+  elements           SketchElement[]
+  hazards            Hazard[]
+  insuranceContext   InsuranceContext?
+  sketchMoistureReadings SketchMoistureReading[]
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 
@@ -5920,6 +5928,100 @@ model SketchAnnotation {
   updatedAt DateTime    @updatedAt
 
   @@index([sketchId])
+}
+
+// ─── V2: RestoreAssist Mapping canonical geometry + ANZ domain (spec §12) ─────
+
+// Normalized per-element geometry. The Fabric.js blob on ClaimSketch.sketchData
+// stays authoritative for rendering; these rows are derived on save for query,
+// compliance, and export. Only `provenance = operator_measured` rows may feed
+// S500 drying/scope calcs and exports (spec §6.4).
+model SketchElement {
+  id           String      @id @default(cuid())
+  sketchId     String
+  sketch       ClaimSketch @relation(fields: [sketchId], references: [id], onDelete: Cascade)
+  type         String // wall | opening | room | fixture
+  geometryJson Json
+  dimensionsM  Json? // { widthM, heightM, lengthM, areaM2 } in metres
+  materialId   String?
+  material     Material?   @relation(fields: [materialId], references: [id])
+  provenance   String      @default("operator_measured") // operator_measured | underlay_reference
+  hazards      Hazard[]
+  moistureReadings SketchMoistureReading[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([sketchId])
+  @@index([sketchId, provenance])
+  @@index([materialId])
+}
+
+// ANZ materials library (spec §5.1). Seeded from lib/anz/materials.ts; `slug`
+// matches the AnzMaterial id.
+model Material {
+  id             String   @id @default(cuid())
+  slug           String   @unique
+  name           String
+  region         String[] // AU | NZ
+  dryStandardMc  Float
+  isPotentialAcm Boolean  @default(false)
+  category       String
+  elements       SketchElement[]
+  moistureReadings SketchMoistureReading[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+// WHS hazard flags (spec §5.3). Suspected ACM blocks strip-out scope until a
+// pathway note is recorded.
+model Hazard {
+  id             String         @id @default(cuid())
+  sketchId       String
+  sketch         ClaimSketch    @relation(fields: [sketchId], references: [id], onDelete: Cascade)
+  elementId      String?
+  element        SketchElement? @relation(fields: [elementId], references: [id], onDelete: SetNull)
+  type           String // asbestos | lead | silica | electrical | structural
+  status         String         @default("suspected") // suspected | sampled | cleared | licensed_removal_required
+  whsPathwayNote String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([sketchId])
+  @@index([elementId])
+}
+
+// Insurance pathway routing (spec §5.5).
+model InsuranceContext {
+  id        String      @id @default(cuid())
+  sketchId  String      @unique
+  sketch    ClaimSketch @relation(fields: [sketchId], references: [id], onDelete: Cascade)
+  pathway   String // au_private | nz_nhcover | nz_private
+  notes     String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+}
+
+// S500 drying-validation log (spec §5.2, §12). Distinct from the evidence-class
+// `MoistureReading` model — this is the sketch/drying substrate.
+model SketchMoistureReading {
+  id              String         @id @default(cuid())
+  sketchId        String
+  sketch          ClaimSketch    @relation(fields: [sketchId], references: [id], onDelete: Cascade)
+  elementId       String?
+  element         SketchElement? @relation(fields: [elementId], references: [id], onDelete: SetNull)
+  materialId      String?
+  material        Material?      @relation(fields: [materialId], references: [id])
+  waterCategory   String? // cat1 | cat2 | cat3
+  targetMc        Float?
+  currentMc       Float
+  dryStandardMet  Boolean        @default(false)
+  readingDatetime DateTime       @default(now())
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([sketchId])
+  @@index([elementId])
+  @@index([materialId])
 }
 
 // ─── V2: Ascora Integration (RA-262) ─────────────────────────────────────────
