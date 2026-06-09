@@ -82,6 +82,10 @@ model User {
   /// beyond evidence capture. Defaults false so existing users are not
   /// regressed. Admin UI to flip this is tracked as a follow-up.
   isJuniorTechnician           Boolean   @default(false)
+  /// RA-400: experience-level adaptive UI. APPRENTICE => Simple nav,
+  /// EXPERIENCED => Advanced nav. Defaults APPRENTICE so new accounts
+  /// land in Simple mode (existing rows keep their stored value).
+  experienceMode               ExperienceMode @default(APPRENTICE)
   createdAt                    DateTime  @default(now())
   updatedAt                    DateTime  @updatedAt
 
@@ -847,6 +851,11 @@ enum Role {
   USER
   ADMIN
   MANAGER
+}
+
+enum ExperienceMode {
+  APPRENTICE
+  EXPERIENCED
 }
 
 enum TradingStatus {

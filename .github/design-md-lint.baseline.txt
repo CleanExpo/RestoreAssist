@@ -36,4 +36,11 @@
 # All three consistent with the rest of components/inspection/* +
 # components/dashboard/*. Migration to src/components/ui/marks.tsx is a
 # separate cleanup tracked outside this PR.
-icon_imports=362
+#
+# 2026-06-09 (Simple mode): bumped 362 -> 364. PR #1247 adds
+# app/dashboard/nav-config.ts, which imports { Plus, FileText, Users,
+# Receipt, CreditCard, HelpCircle } and the LucideIcon type from lucide-react
+# for the new Simple-mode sidebar items, consistent with the existing nav in
+# app/dashboard/layout.tsx. Migration to src/components/ui/marks.tsx remains
+# a separate cleanup tracked outside this PR.
+icon_imports=364
