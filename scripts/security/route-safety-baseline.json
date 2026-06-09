@@ -1,0 +1,23 @@
+{
+  "description": "Route-safety baseline. Pre-existing heuristic candidates for the route-safety guard. Findings listed here are KNOWN and do NOT fail CI. Triage candidates live in docs/security/route-safety-backlog.md. Regenerate with: node scripts/security/route-safety-scan.mjs --baseline",
+  "generatedAt": "2026-06-09T03:17:51.608Z",
+  "routeCount": 447,
+  "findingCount": 3,
+  "findings": [
+    {
+      "file": "app/api/cron/sync-invoices/route.ts",
+      "class": "mutation-no-auth",
+      "reason": "Route exports a mutating handler (POST/PUT/PATCH/DELETE) that performs a Prisma write but has no getServerSession/getToken/verifyAdminFromDb auth gate and is not a legit-exception (auth/webhook/[token]/test-helper) route."
+    },
+    {
+      "file": "app/api/cron/sync-xero-payments/route.ts",
+      "class": "mutation-no-auth",
+      "reason": "Route exports a mutating handler (POST/PUT/PATCH/DELETE) that performs a Prisma write but has no getServerSession/getToken/verifyAdminFromDb auth gate and is not a legit-exception (auth/webhook/[token]/test-helper) route."
+    },
+    {
+      "file": "app/api/portal/invitations/accept/route.ts",
+      "class": "mutation-no-auth",
+      "reason": "Route exports a mutating handler (POST/PUT/PATCH/DELETE) that performs a Prisma write but has no getServerSession/getToken/verifyAdminFromDb auth gate and is not a legit-exception (auth/webhook/[token]/test-helper) route."
+    }
+  ]
+}
