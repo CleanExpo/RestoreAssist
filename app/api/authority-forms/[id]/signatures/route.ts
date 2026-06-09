@@ -41,6 +41,33 @@ export async function POST(
         action,
       } = body;
 
+      // Verify form exists and user has access (guards EVERY branch below)
+      const form = await prisma.authorityFormInstance.findUnique({
+        where: { id: formId },
+        include: {
+          report: {
+            select: {
+              userId: true,
+              assignedManagerId: true,
+              assignedAdminId: true,
+            },
+          },
+        },
+      });
+
+      if (!form) {
+        return NextResponse.json({ error: "Form not found" }, { status: 404 });
+      }
+
+      // Check permissions
+      if (
+        form.report.userId !== userId &&
+        form.report.assignedManagerId !== userId &&
+        form.report.assignedAdminId !== userId
+      ) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+
       // Create new signatory slot
       if (action === "add_signatory") {
         if (!signatoryName || !signatoryRole) {
@@ -79,33 +106,6 @@ export async function POST(
           { error: "Signature ID and signature data are required" },
           { status: 400 },
         );
-      }
-
-      // Verify form exists and user has access
-      const form = await prisma.authorityFormInstance.findUnique({
-        where: { id: formId },
-        include: {
-          report: {
-            select: {
-              userId: true,
-              assignedManagerId: true,
-              assignedAdminId: true,
-            },
-          },
-        },
-      });
-
-      if (!form) {
-        return NextResponse.json({ error: "Form not found" }, { status: 404 });
-      }
-
-      // Check permissions
-      if (
-        form.report.userId !== userId &&
-        form.report.assignedManagerId !== userId &&
-        form.report.assignedAdminId !== userId
-      ) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
 
       // Get client IP and user agent for verification

@@ -1,0 +1,5 @@
+ WARN  using --force I sure hope you know what you are doing
+
+> restoreassist@1.0.0 type-check /Users/phillmcgurk/Unite-Nexus/workspace/RestoreAssist
+> NODE_OPTIONS="--max-old-space-size=8192" tsc --noEmit
+
