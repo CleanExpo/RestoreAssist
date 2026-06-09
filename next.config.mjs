@@ -2,6 +2,28 @@ import bundleAnalyzer from "@next/bundle-analyzer";
 import { withSentryConfig } from "@sentry/nextjs";
 import { withBotId } from "botid/next/config";
 
+// RA — /_not-found export was failing during `next build` with
+// "TypeError: Invalid URL { input: '' }". Root cause: next-auth/react builds
+// its base URL at *module-evaluation* time via
+// `parseUrl(NEXTAUTH_URL ?? VERCEL_URL)`. The `??` only falls through on
+// null/undefined — NOT on an empty string. When VERCEL_URL is present but
+// empty (as it is in some pulled preview envs), `parseUrl("")` runs
+// `new URL("")`, which throws and crashes the static export of /_not-found.
+// Normalising any blank URL env var to `undefined` here (this file is loaded
+// before the build/prerender workers fork) lets next-auth's `??` chain fall
+// through to its safe `http://localhost:3000` default. Touches no secrets.
+for (const key of [
+  "NEXTAUTH_URL",
+  "NEXTAUTH_URL_INTERNAL",
+  "VERCEL_URL",
+  "NEXT_PUBLIC_APP_URL",
+  "NEXT_PUBLIC_SITE_URL",
+]) {
+  if (typeof process.env[key] === "string" && process.env[key].trim() === "") {
+    delete process.env[key];
+  }
+}
+
 const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
 });
