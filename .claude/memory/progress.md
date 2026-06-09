@@ -4,17 +4,25 @@ Reporting cadence per `verification-and-evidence-protocol.md`: each session end 
 what was attempted, the evidence (test output + real-data run), and what's blocked.
 "Progress" without evidence is not logged as progress.
 
-## PATHWAY TO RIA (25–27 Aug 2026) — ungated roadmap, priority order
+## PATHWAY TO RIA (25–27 Aug 2026) — ungated roadmap
 
-1. ✅ Scope-of-works narrative generator (PR #1251) — v1 contract → S500 Markdown doc.
-2. ✅ Offline-first ANZ materials (PR #1253) — bundled picker fallback (spec §4.1).
-3. ⏭ Property metadata lookup UI — wire lib/property OnTheHouseProvider into an
-   address lookup (ungated; finishes Phase-1 C1).
-4. ⏭ RIA demo-readiness pass + scripted runbook (tablet viewport, deployed app).
-5. ⏭ Homeowner self-capture mode (guided subset).
+1. ✅ Scope-of-works narrative generator (PR #1251, merged).
+2. ✅ Offline-first ANZ materials (PR #1253, merged).
+3. ✅ Property metadata parse endpoint (PR #1257) — ungated; Apify auto-fetch deferred.
+4. ✅ RIA demo runbook (PR #1260) — `docs/mapping-v2/ria-demo-runbook.md`.
+5. ⏭ Homeowner self-capture mode (guided subset) — next ungated item.
+
+### Overnight batch 2026-06-09 (open PRs, no auto-merge — review in merge order)
+
+- **#1255** S500 drying-equipment recommendation (contract + narrative + PDF).
+- **#1257** property metadata parse endpoint (ungated; operator-supplied HTML).
+- **#1258** InsuranceContext persistence route (au_private | nz_nhcover | nz_private).
+- **#1260** consolidated scope-report endpoint + RIA demo runbook.
+- Independent branches off `main` (no progress.md churn on them → no conflicts).
+- **State:** full repo `vitest` 1912 passed / 75 skipped; `tsc` 0 errors.
 
 GATED (need Phill/Board): Apify underlay import (AU IP sign-off), RoomPlan LiDAR
-(iOS/Swift resourcing), cloud-AI capture (vendor + spend). Untouched.
+(iOS/Swift resourcing), cloud-AI capture (vendor + spend). Untouched overnight.
 
 Plan: `~/.claude/plans/restoreassist-mapping-specification-polished-mochi.md`
 
