@@ -77,6 +77,13 @@ export function buildScopeNarrative(scope: ScopeExport): string {
   }
   lines.push("");
 
+  // ── Drying equipment ──
+  lines.push("## Drying equipment (AS-IICRC S500:2025 §8.3 — indicative)");
+  lines.push(`- Dehumidifiers: ${scope.dryingEquipment.dehumidifier}`);
+  lines.push(`- Air movers: ${scope.dryingEquipment.airMover}`);
+  lines.push(`- Air scrubbers: ${scope.dryingEquipment.airScrubber}`);
+  lines.push("");
+
   // ── Reinstatement references ──
   lines.push("## Reinstatement references");
   if (scope.jurisdiction === "NZ" && scope.compliance.nhcover) {

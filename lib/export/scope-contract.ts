@@ -22,6 +22,7 @@ import {
   type MoisturePinInput,
 } from "@/lib/sketch/pdf-scope";
 import { extractRooms, type RoomInfo } from "@/lib/sketch/extract-rooms";
+import { recommendedEquipment } from "@/lib/sketch/iicrc-utils";
 import type { DamageCause } from "@/lib/nz/nhcover";
 
 export const SCOPE_SCHEMA_VERSION = "1.0";
@@ -40,6 +41,12 @@ export interface ScopeExport {
   property: { address: string; reportNumber: string };
   floors: ScopeExportFloor[];
   totalFloorAreaM2: number;
+  /** Indicative S500 §8.3 drying equipment from the total affected area. */
+  dryingEquipment: {
+    dehumidifier: number;
+    airMover: number;
+    airScrubber: number;
+  };
   /** Same annex object the PDF renders (materials, ACM, drying log, NCC|NHCover). */
   compliance: ComplianceAnnex;
 }
@@ -68,6 +75,8 @@ export function buildScopeExport(input: ScopeExportInput): ScopeExport {
     };
   });
 
+  const totalArea = floors.reduce((s, f) => s + f.totalFloorAreaM2, 0);
+
   const mergedObjects = input.floors.flatMap(
     (f) => (f.fabricJson?.objects as unknown[] | undefined) ?? [],
   );
@@ -91,9 +100,8 @@ export function buildScopeExport(input: ScopeExportInput): ScopeExport {
       reportNumber: input.reportNumber ?? "",
     },
     floors,
-    totalFloorAreaM2: round2(
-      floors.reduce((s, f) => s + f.totalFloorAreaM2, 0),
-    ),
+    totalFloorAreaM2: round2(totalArea),
+    dryingEquipment: recommendedEquipment(totalArea),
     compliance,
   };
 }

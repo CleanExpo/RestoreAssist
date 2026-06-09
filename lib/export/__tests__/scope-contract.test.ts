@@ -91,5 +91,14 @@ describe("buildScopeExport — versioned ANZ scope contract", () => {
     expect(out.property).toEqual({ address: "", reportNumber: "" });
     expect(out.floors).toEqual([]);
     expect(out.totalFloorAreaM2).toBe(0);
+    expect(out.dryingEquipment.dehumidifier).toBe(0);
+  });
+
+  it("recommends S500 §8.3 drying equipment from the affected area", () => {
+    const out = buildScopeExport({ floors: [FLOOR], materials: MATERIALS });
+    // 12 m²: 1 dehu (/40), 1 air mover (/15), 1 air scrubber (/100)
+    expect(out.dryingEquipment.dehumidifier).toBe(1);
+    expect(out.dryingEquipment.airMover).toBe(1);
+    expect(out.dryingEquipment.airScrubber).toBe(1);
   });
 });
