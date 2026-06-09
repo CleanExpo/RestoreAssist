@@ -36,6 +36,14 @@ import { jwtVerify, createRemoteJWKSet, type JWTPayload } from "jose";
 import { encode as encodeJwt } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
 import { logSecurityEvent, extractRequestContext } from "@/lib/security-audit";
+import { PRICING_CONFIG } from "@/lib/pricing";
+
+// Free-trial grant — sourced from PRICING_CONFIG (the SSOT) so the native iOS
+// signup path grants the identical 15-day / 30-credit trial as email/register
+// and Google OAuth. See lib/__tests__/pricing-integrity.test.ts.
+const TRIAL_REPORT_CREDITS = PRICING_CONFIG.free.trialReportCredits;
+const TRIAL_QUICK_FILL_CREDITS = PRICING_CONFIG.free.trialQuickFillCredits;
+const TRIAL_DURATION_MS = PRICING_CONFIG.free.trialDays * 24 * 60 * 60 * 1000;
 
 // Apple's public keys endpoint (JWKS). Verifying the signature against
 // these guarantees the token came from Apple's auth server.
@@ -173,10 +181,7 @@ async function verifyAndNormaliseToken(
       .createHash("sha256")
       .update(noncePlaintext)
       .digest("hex");
-    if (
-      payload.nonce !== noncePlaintext &&
-      payload.nonce !== sha256Hex
-    ) {
+    if (payload.nonce !== noncePlaintext && payload.nonce !== sha256Hex) {
       throw new Error(
         `Nonce mismatch (claim=${payload.nonce.slice(0, 12)}…, plaintext=${noncePlaintext.slice(0, 12)}…, sha256=${sha256Hex.slice(0, 12)}…)`,
       );
@@ -191,8 +196,7 @@ async function verifyAndNormaliseToken(
   const emailVerified =
     payload.email_verified === true || payload.email_verified === "true";
   const name = typeof payload.name === "string" ? payload.name : null;
-  const picture =
-    typeof payload.picture === "string" ? payload.picture : null;
+  const picture = typeof payload.picture === "string" ? payload.picture : null;
 
   if (provider === "apple") {
     return {
@@ -228,7 +232,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const provider: Provider = body.provider;
 
   if (typeof body.idToken !== "string" || body.idToken.length < 32) {
-    return jsonError(request, 400, "VALIDATION", "Missing or malformed idToken");
+    return jsonError(
+      request,
+      400,
+      "VALIDATION",
+      "Missing or malformed idToken",
+    );
   }
 
   let claims: VerifiedClaims;
@@ -276,10 +285,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           needsOnboarding: true,
           role: "ADMIN",
           subscriptionStatus: "TRIAL",
-          creditsRemaining: 30,
+          creditsRemaining: TRIAL_REPORT_CREDITS,
           totalCreditsUsed: 0,
-          trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-          quickFillCreditsRemaining: 30,
+          trialEndsAt: new Date(Date.now() + TRIAL_DURATION_MS),
+          quickFillCreditsRemaining: TRIAL_QUICK_FILL_CREDITS,
           totalQuickFillUsed: 0,
           emailVerified: claims.emailVerified ? new Date() : null,
         } as any,
@@ -309,8 +318,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       where: { id: user.id },
       select: { organization: { select: { setupCompletedAt: true } } },
     });
-    const value = (userWithOrg as { organization?: { setupCompletedAt: Date | null } } | null)
-      ?.organization?.setupCompletedAt;
+    const value = (
+      userWithOrg as { organization?: { setupCompletedAt: Date | null } } | null
+    )?.organization?.setupCompletedAt;
     setupCompletedAt = value ? (value as Date).toISOString() : null;
   } catch {
     // Fail-open — middleware will treat null the same as a real null

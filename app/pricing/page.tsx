@@ -261,11 +261,11 @@ function PricingPageContent() {
                 '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
             }}
           >
-            Start free with {freeCfg.reportLimit} one-time inspection reports and
-            basic features. Upgrade to unlock
-            unlimited Quick Fill, enhanced reports, PDF uploads, and more. All
-            paid plans include first month signup bonus of 10 additional
-            reports.
+            Start with a {freeCfg.trialDays}-day free trial —{" "}
+            {freeCfg.trialReportCredits} inspection report credits and basic
+            features, no credit card required. Upgrade to unlock unlimited Quick
+            Fill, enhanced reports, PDF uploads, and more. All paid plans
+            include first month signup bonus of 10 additional reports.
           </motion.p>
         </div>
       </section>
@@ -295,7 +295,7 @@ function PricingPageContent() {
                         '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                     }}
                   >
-                    Free Forever
+                    {freeCfg.trialDays}-Day Free Trial
                   </div>
                 )}
                 {plan.popular && !plan.isFree && (
@@ -391,7 +391,7 @@ function PricingPageContent() {
                         {plan.period === "/month"
                           ? " per month"
                           : plan.isFree
-                            ? " (one-time)"
+                            ? ` (${freeCfg.trialDays}-day trial)`
                             : ""}
                       </p>
                       {plan.signupBonus && !plan.isFree && (

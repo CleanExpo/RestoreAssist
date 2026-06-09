@@ -10,8 +10,17 @@ import { sendWelcomeEmail } from "@/lib/email";
 import { sendWithRetry } from "@/lib/email-retry";
 import { notifyWelcome } from "@/lib/notifications";
 import { seedDemoDataForNewUser } from "@/lib/demo-data";
+import { PRICING_CONFIG } from "@/lib/pricing";
 
 const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.app";
+
+// Free-trial grant — sourced from PRICING_CONFIG (the SSOT) so every signup
+// path (email/register, Google OAuth, native iOS, profile auto-create) grants
+// the same 15-day / 30-credit trial and the marketing copy can never drift.
+const TRIAL_DAYS = PRICING_CONFIG.free.trialDays;
+const TRIAL_REPORT_CREDITS = PRICING_CONFIG.free.trialReportCredits;
+const TRIAL_QUICK_FILL_CREDITS = PRICING_CONFIG.free.trialQuickFillCredits;
+const TRIAL_DURATION_MS = TRIAL_DAYS * 24 * 60 * 60 * 1000;
 
 /** Generate a time-limited HMAC token proving the user just authenticated via Google */
 function generateGoogleAuthToken(email: string): string {
@@ -153,10 +162,10 @@ export async function POST(request: NextRequest) {
         emailVerified: emailVerified ? new Date() : null,
         role: "ADMIN",
         subscriptionStatus: "TRIAL",
-        creditsRemaining: 30,
+        creditsRemaining: TRIAL_REPORT_CREDITS,
         totalCreditsUsed: 0,
-        trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30-day trial
-        quickFillCreditsRemaining: 30,
+        trialEndsAt: new Date(Date.now() + TRIAL_DURATION_MS), // 15-day trial
+        quickFillCreditsRemaining: TRIAL_QUICK_FILL_CREDITS,
         totalQuickFillUsed: 0,
       },
       select: {
@@ -186,8 +195,8 @@ export async function POST(request: NextRequest) {
           recipientEmail: userEmail,
           recipientName: name || userEmail.split("@")[0] || "there",
           loginUrl: `${APP_URL}/login`,
-          trialDays: 30,
-          trialCredits: 30,
+          trialDays: TRIAL_DAYS,
+          trialCredits: TRIAL_REPORT_CREDITS,
         }),
       { stage: "google-signin-welcome" },
     ).catch((err) =>

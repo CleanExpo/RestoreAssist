@@ -115,7 +115,9 @@ function CreditsPageContent() {
   const [error, setError] = useState<string | null>(null);
   // RA-1842 — suppress billing links on iOS shell (Apple 3.1.1)
   const [hideBillingEntry, setHideBillingEntry] = useState(false);
-  useEffect(() => { setHideBillingEntry(isCapacitorIOS()); }, []);
+  useEffect(() => {
+    setHideBillingEntry(isCapacitorIOS());
+  }, []);
 
   const fetchData = async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -605,9 +607,11 @@ function CreditsPageContent() {
                 >
                   {isExpiredOrCanceled
                     ? "Your plan has ended — reactivate to keep generating reports"
-                    : nearLimit
-                      ? "You're approaching your monthly report limit"
-                      : "Upgrade for unlimited reports"}
+                    : isTrial
+                      ? "Upgrade for more reports each month"
+                      : nearLimit
+                        ? "You're approaching your monthly report limit"
+                        : "Upgrade for more reports"}
                 </p>
                 <p
                   className={cn(
@@ -622,7 +626,7 @@ function CreditsPageContent() {
                   {isExpiredOrCanceled
                     ? "Reactivate your subscription to restore full access."
                     : isTrial
-                      ? "Your free trial includes unlimited reports. Upgrade to keep access when your trial ends."
+                      ? `Your 15-day free trial includes ${data?.creditsRemaining ?? 0} report credit${(data?.creditsRemaining ?? 0) === 1 ? "" : "s"} remaining. Upgrade for a monthly report allowance.`
                       : `You've used ${usagePct}% of your monthly limit. Upgrade or buy addon reports.`}
                 </p>
               </div>

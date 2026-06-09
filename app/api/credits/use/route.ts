@@ -66,23 +66,12 @@ export async function POST(request: NextRequest) {
       const ownerId = await getOrganizationOwner(userId);
       const targetUserId = ownerId || userId;
 
-      // Trial users: unlimited reports during 30-day trial - no deduction
-      const isTrialWithinPeriod =
-        effectiveSub.subscriptionStatus === "TRIAL" &&
-        (!effectiveSub.trialEndsAt ||
-          new Date() <= new Date(effectiveSub.trialEndsAt));
-      if (isTrialWithinPeriod) {
-        const owner = await prisma.user.findUnique({
-          where: { id: targetUserId },
-          select: { totalCreditsUsed: true },
-        });
-        return NextResponse.json({
-          success: true,
-          creditsRemaining: null,
-          totalCreditsUsed: owner?.totalCreditsUsed ?? 0,
-          subscriptionStatus: "TRIAL",
-        });
-      }
+      // Trial users: the 15-day trial is CAPPED at a fixed credit grant, so
+      // every report consumed deducts one credit (no "unlimited" bypass). The
+      // expired-trial case is handled by the ALLOWED_STATUSES gate upstream
+      // (trialEndsAt enforcement lives in canCreateReport/checkAndUpdateTrialStatus);
+      // here we simply spend from the remaining balance atomically, matching the
+      // paid-credit deduction below.
 
       let updatedUser: {
         creditsRemaining: number | null;
