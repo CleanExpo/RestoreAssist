@@ -283,6 +283,7 @@ function EmptyState() {
 export default function FormSubmissionsPage() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isMock, setIsMock] = useState(false);
 
   // Filters
   const [activeStatusChip, setActiveStatusChip] = useState<FormStatus | "ALL">(
@@ -315,9 +316,13 @@ export default function FormSubmissionsPage() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         setSubmissions(data.submissions ?? []);
-      } catch {
+        setIsMock(false);
+      } catch (err) {
+        // Ignore aborts from a superseded fetch — they aren't real failures.
+        if (err instanceof DOMException && err.name === "AbortError") return;
         // API unavailable — fall back to mock data
         setSubmissions(MOCK_SUBMISSIONS);
+        setIsMock(true);
       } finally {
         setLoading(false);
       }
@@ -448,6 +453,11 @@ export default function FormSubmissionsPage() {
         <h1 className="text-2xl font-semibold tracking-tight">
           Form Submissions
         </h1>
+        {isMock && (
+          <p className="text-xs text-amber-600">
+            Showing sample data — couldn&apos;t reach the API
+          </p>
+        )}
       </div>
 
       {/* Status chip strip */}
