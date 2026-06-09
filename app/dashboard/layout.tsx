@@ -56,6 +56,13 @@ import { AutoBreadcrumbs } from "@/components/AutoBreadcrumbs";
 import HowToDropdown from "@/components/help/HowToDropdown";
 import HelpSearchModal from "@/components/help/HelpSearchModal";
 import { cn } from "@/lib/utils";
+import {
+  simpleNavItems,
+  buildAdvancedNavGroups,
+  isAdvancedMode,
+  type ExperienceMode,
+  type NavItem,
+} from "./nav-config";
 
 export default function DashboardLayout({
   children,
@@ -90,6 +97,16 @@ export default function DashboardLayout({
   const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(
     null,
   );
+
+  // Experience mode drives Simple (default) vs Advanced sidebar nav.
+  // null while loading; APPRENTICE/null => Simple, EXPERIENCED => Advanced.
+  // New accounts default to Simple (see /api/user/experience-mode + the
+  // isAdvancedMode resolver). Optimistic: we flip local state immediately on
+  // toggle, then persist via PATCH and re-fetch reconciles on next mount.
+  const [experienceMode, setExperienceMode] = useState<ExperienceMode | null>(
+    null,
+  );
+  const [savingMode, setSavingMode] = useState(false);
   const { data: session, status } = useSession();
   const router = useRouter();
   const pathname = usePathname();
@@ -123,6 +140,29 @@ export default function DashboardLayout({
       return () => window.removeEventListener("focus", handleFocus);
     }
   }, [status, session]);
+
+  // Load the persisted experience mode once authenticated. Anything other than
+  // an explicit EXPERIENCED opt-in resolves to Simple mode (see nav-config),
+  // so a fetch failure safely degrades to the default Simple experience.
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/user/experience-mode");
+        if (!res.ok) return;
+        const data = (await res.json()) as { experienceMode?: ExperienceMode };
+        if (!cancelled && data.experienceMode) {
+          setExperienceMode(data.experienceMode);
+        }
+      } catch {
+        // Non-fatal: leave as null => Simple mode default.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [status]);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -270,7 +310,49 @@ export default function DashboardLayout({
     { icon: Settings, label: "Account", href: "/dashboard/settings" },
   ];
 
-  const navItems = isTechnician ? fieldTechNavItems : fullNavItems;
+  // Simple mode is the default for every non-technician user; Advanced mode is
+  // opt-in via the persisted experienceMode. Technicians keep their dedicated
+  // 6-item field nav regardless of mode.
+  const advanced = isAdvancedMode(experienceMode);
+
+  // The flat list used by the renderer. In Simple mode this is the short
+  // plain-language set; in Advanced mode it's the existing full nav (which
+  // already carries role/billing/admin gating). Technicians always get the
+  // field nav. `fullNavItems` items omit highlight/special, so we widen to
+  // NavItem for the shared grouping/rendering paths.
+  const navItems: NavItem[] = isTechnician
+    ? fieldTechNavItems
+    : advanced
+      ? fullNavItems
+      : simpleNavItems;
+
+  // Advanced mode renders the full nav grouped under section headers instead of
+  // one flat 24-item list. Only computed when relevant.
+  const advancedGroups =
+    advanced && !isTechnician ? buildAdvancedNavGroups(fullNavItems) : null;
+
+  // Toggle handler — flips Simple <-> Advanced, persists via the existing
+  // PATCH endpoint. Optimistic: update local state first, revert on failure.
+  const toggleExperienceMode = async () => {
+    if (savingMode) return;
+    const next: ExperienceMode = advanced ? "APPRENTICE" : "EXPERIENCED";
+    const previous = experienceMode;
+    setExperienceMode(next);
+    setSavingMode(true);
+    try {
+      const res = await fetch("/api/user/experience-mode", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ experienceMode: next }),
+      });
+      if (!res.ok) throw new Error("Failed to save preference");
+    } catch {
+      setExperienceMode(previous);
+      toast.error("Couldn't save your preference. Please try again.");
+    } finally {
+      setSavingMode(false);
+    }
+  };
 
   const upgradeItem = {
     icon: Crown,
@@ -281,6 +363,94 @@ export default function DashboardLayout({
   };
 
   const isDemoAccount = session?.user?.email === "demo@restoreassist.app";
+
+  // Render a single nav entry. Shared by the flat (Simple/field) list and the
+  // grouped (Advanced) sections so the styling stays identical across modes.
+  // "New Report" keeps its credit-check button behaviour.
+  const renderNavItem = (item: NavItem) => {
+    if (item.label === "New Report") {
+      return (
+        <button
+          key={item.href}
+          onClick={async () => {
+            try {
+              const response = await fetch("/api/reports/check-credits");
+              if (response.ok) {
+                const data = await response.json();
+                if (!data.hasApiKey) {
+                  toast.error("Please add your API key to create reports.");
+                  router.push("/dashboard/integrations");
+                  return;
+                }
+                if (!data.canCreate) {
+                  // RA-1842: iOS billing happens on web; do not auto-redirect.
+                  if (!isCapacitorIOS()) {
+                    router.push("/dashboard/pricing");
+                  } else {
+                    toast.error(
+                      "Contact your workspace admin to manage your subscription.",
+                    );
+                  }
+                  return;
+                }
+              }
+              router.push(item.href);
+            } catch (error) {
+              router.push(item.href);
+            }
+          }}
+          className={cn(
+            "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group w-full text-left",
+            item.highlight
+              ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-medium hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]"
+              : cn(
+                  "text-neutral-700 dark:text-slate-300",
+                  "hover:bg-neutral-100 dark:hover:bg-slate-800",
+                  "hover:scale-[1.02] hover:shadow-md",
+                ),
+          )}
+          title={!sidebarOpen ? item.label : ""}
+        >
+          <item.icon
+            size={20}
+            className={`flex-shrink-0 transition-transform duration-200 ${item.highlight ? "group-hover:scale-110 group-hover:rotate-3" : "group-hover:scale-110"}`}
+          />
+          {sidebarOpen && <span className="text-sm">{item.label}</span>}
+        </button>
+      );
+    }
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        className={cn(
+          "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group",
+          item.adminOnly
+            ? cn(
+                "text-neutral-500 dark:text-slate-500",
+                "hover:bg-cyan-50 dark:hover:bg-cyan-950/30 hover:text-cyan-700 dark:hover:text-cyan-400",
+                pathname === item.href &&
+                  "bg-cyan-50 dark:bg-cyan-950/30 text-cyan-700 dark:text-cyan-400",
+                "hover:scale-[1.02]",
+              )
+            : item.highlight
+              ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-medium hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]"
+              : cn(
+                  "text-neutral-700 dark:text-slate-300",
+                  "hover:bg-neutral-100 dark:hover:bg-slate-800",
+                  "hover:scale-[1.02] hover:shadow-md",
+                ),
+        )}
+        title={!sidebarOpen ? item.label : ""}
+      >
+        <item.icon
+          size={20}
+          className={`flex-shrink-0 transition-transform duration-200 ${item.highlight ? "group-hover:scale-110 group-hover:rotate-3" : "group-hover:scale-110"}`}
+        />
+        {sidebarOpen && <span className="text-sm">{item.label}</span>}
+      </Link>
+    );
+  };
 
   return (
     <>
@@ -383,122 +553,27 @@ export default function DashboardLayout({
 
           {/* Navigation */}
           <nav className="flex-1 overflow-y-auto py-4 px-2">
-            {navItems.map((item, index) => {
-              // Insert admin divider before the first adminOnly item
-              const prevItem = navItems[index - 1] as
-                | { adminOnly?: boolean }
-                | undefined;
-              const isFirstAdminItem =
-                (item as { adminOnly?: boolean }).adminOnly &&
-                !prevItem?.adminOnly;
-
-              const divider = isFirstAdminItem ? (
-                <div key={`divider-admin`} className="mt-2 mb-1 px-2">
-                  <div className="border-t border-neutral-200 dark:border-slate-700" />
-                  {sidebarOpen && (
-                    <p className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400 dark:text-slate-500 mt-2 mb-1 px-2">
-                      Admin
-                    </p>
-                  )}
-                </div>
-              ) : null;
-
-              // Special handling for "New Report" to check credits
-              if (item.label === "New Report") {
-                return (
-                  <Fragment key={item.href}>
-                    {divider}
-                    <button
-                      onClick={async () => {
-                        try {
-                          const response = await fetch(
-                            "/api/reports/check-credits",
-                          );
-                          if (response.ok) {
-                            const data = await response.json();
-                            if (!data.hasApiKey) {
-                              toast.error(
-                                "Please add your API key to create reports.",
-                              );
-                              router.push("/dashboard/integrations");
-                              return;
-                            }
-                            if (!data.canCreate) {
-                              // RA-1842: iOS billing happens on web; do not auto-redirect.
-                              if (!isCapacitorIOS()) {
-                                router.push("/dashboard/pricing");
-                              } else {
-                                toast.error(
-                                  "Contact your workspace admin to manage your subscription.",
-                                );
-                              }
-                              return;
-                            }
-                          }
-                          router.push(item.href);
-                        } catch (error) {
-                          router.push(item.href);
-                        }
-                      }}
-                      className={cn(
-                        "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group w-full text-left",
-                        item.highlight
-                          ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-medium hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]"
-                          : cn(
-                              "text-neutral-700 dark:text-slate-300",
-                              "hover:bg-neutral-100 dark:hover:bg-slate-800",
-                              "hover:scale-[1.02] hover:shadow-md",
-                            ),
-                      )}
-                      title={!sidebarOpen ? item.label : ""}
-                    >
-                      <item.icon
-                        size={20}
-                        className={`flex-shrink-0 transition-transform duration-200 ${item.highlight ? "group-hover:scale-110 group-hover:rotate-3" : "group-hover:scale-110"}`}
-                      />
-                      {sidebarOpen && (
-                        <span className="text-sm">{item.label}</span>
-                      )}
-                    </button>
-                  </Fragment>
-                );
-              }
-              return (
-                <Fragment key={item.href}>
-                  {divider}
-                  <Link
-                    href={item.href}
-                    className={cn(
-                      "flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group",
-                      (item as { adminOnly?: boolean }).adminOnly
-                        ? cn(
-                            "text-neutral-500 dark:text-slate-500",
-                            "hover:bg-cyan-50 dark:hover:bg-cyan-950/30 hover:text-cyan-700 dark:hover:text-cyan-400",
-                            pathname === item.href &&
-                              "bg-cyan-50 dark:bg-cyan-950/30 text-cyan-700 dark:text-cyan-400",
-                            "hover:scale-[1.02]",
-                          )
-                        : item.highlight
-                          ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-medium hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02]"
-                          : cn(
-                              "text-neutral-700 dark:text-slate-300",
-                              "hover:bg-neutral-100 dark:hover:bg-slate-800",
-                              "hover:scale-[1.02] hover:shadow-md",
-                            ),
-                    )}
-                    title={!sidebarOpen ? item.label : ""}
-                  >
-                    <item.icon
-                      size={20}
-                      className={`flex-shrink-0 transition-transform duration-200 ${item.highlight ? "group-hover:scale-110 group-hover:rotate-3" : "group-hover:scale-110"}`}
-                    />
+            {advancedGroups
+              ? // ADVANCED mode — full nav rendered under labelled section
+                // headers instead of one flat 24-item list. Every existing
+                // destination remains reachable, just grouped.
+                advancedGroups.map((group) => (
+                  <Fragment key={group.label}>
                     {sidebarOpen && (
-                      <span className="text-sm">{item.label}</span>
+                      <p className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400 dark:text-slate-500 mt-3 mb-1 px-2 first:mt-0">
+                        {group.label}
+                      </p>
                     )}
-                  </Link>
-                </Fragment>
-              );
-            })}
+                    {!sidebarOpen && (
+                      <div className="my-2 px-2">
+                        <div className="border-t border-neutral-200 dark:border-slate-700" />
+                      </div>
+                    )}
+                    {group.items.map((item) => renderNavItem(item))}
+                  </Fragment>
+                ))
+              : // SIMPLE mode (default) and the technician field nav — flat list.
+                navItems.map((item) => renderNavItem(item))}
 
             {/* Upgrade Package - Special styling - Hide for team members and iOS shell (Apple 3.1.1) */}
             {!isTeamMember && !hideBillingNav && (
@@ -530,10 +605,43 @@ export default function DashboardLayout({
           {/* User Section - Fixed at bottom */}
           <div
             className={cn(
-              "border-t p-4 flex-shrink-0",
+              "border-t p-4 flex-shrink-0 space-y-2",
               "border-neutral-200 dark:border-slate-800",
             )}
           >
+            {/* Simple/Advanced mode toggle. Hidden for technicians (they have a
+                dedicated field nav). Flips the persisted experienceMode via
+                /api/user/experience-mode. Reads "Switch to Advanced" in Simple
+                mode and "Switch to Simple" in Advanced mode. */}
+            {!isTechnician && (
+              <button
+                onClick={toggleExperienceMode}
+                disabled={savingMode}
+                aria-pressed={advanced}
+                className={cn(
+                  "w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md group disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100",
+                  "text-neutral-700 dark:text-slate-300",
+                  "hover:bg-neutral-100 dark:hover:bg-slate-800",
+                )}
+                title={
+                  !sidebarOpen
+                    ? advanced
+                      ? "Switch to Simple"
+                      : "Switch to Advanced"
+                    : ""
+                }
+              >
+                <Activity
+                  size={20}
+                  className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110"
+                />
+                {sidebarOpen && (
+                  <span className="text-sm">
+                    {advanced ? "Switch to Simple" : "Switch to Advanced"}
+                  </span>
+                )}
+              </button>
+            )}
             <button
               onClick={handleLogout}
               className={cn(
