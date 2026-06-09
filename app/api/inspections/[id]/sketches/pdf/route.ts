@@ -90,12 +90,22 @@ export async function POST(
     select: { slug: true, name: true, isPotentialAcm: true },
   });
 
+  // Moisture pins across floors for the S500 drying log (spec §5.2).
+  const sketchRows = await (prisma as any).claimSketch.findMany({
+    where: { inspectionId: id },
+    select: { moisturePoints: true },
+  });
+  const moisturePins = sketchRows.flatMap((s: { moisturePoints: unknown }) =>
+    Array.isArray(s.moisturePoints) ? s.moisturePoints : [],
+  ) as Array<{ wme: number; material: string; note?: string }>;
+
   try {
     const pdfBytes = await generateSketchPdf({
       floors: body.floors,
       propertyAddress: body.propertyAddress ?? inspection.propertyAddress ?? "",
       reportNumber: body.reportNumber ?? id.slice(-8).toUpperCase(),
       materials,
+      moisturePins,
     });
 
     const fileName = `floor-plan-${id.slice(-8)}.pdf`;
