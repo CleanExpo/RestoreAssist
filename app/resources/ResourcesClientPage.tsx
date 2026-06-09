@@ -33,7 +33,15 @@ export default function ResourcesClientPage() {
     }
   }, []);
 
-  const resourceCategories = [
+  const resourceCategories: {
+    category: string;
+    items: {
+      title: string;
+      description: string;
+      link?: string;
+      comingSoon?: boolean;
+    }[];
+  }[] = [
     {
       category: "Documentation",
       items: [
@@ -41,17 +49,16 @@ export default function ResourcesClientPage() {
           title: "Getting Started Guide",
           description: "Learn the basics of using RestoreAssist",
           link: "/help",
-          comingSoon: true,
         },
         {
           title: "API Documentation",
           description: "Integrate RestoreAssist with your systems",
-          link: "#",
+          comingSoon: true,
         },
         {
           title: "Compliance Library",
           description: "Access compliance standards and guidelines",
-          link: "#",
+          link: "/compliance-library",
         },
       ],
     },
@@ -66,7 +73,7 @@ export default function ResourcesClientPage() {
         {
           title: "Contact Support",
           description: "Get help from our support team",
-          link: "#",
+          link: "/contact",
         },
       ],
     },
@@ -76,17 +83,17 @@ export default function ResourcesClientPage() {
         {
           title: "Blog",
           description: "Read the latest updates and insights",
-          link: "#",
+          link: "/blog",
         },
         {
           title: "Case Studies",
           description: "See how others use RestoreAssist",
-          link: "#",
+          comingSoon: true,
         },
         {
           title: "Webinars",
           description: "Join live training sessions",
-          link: "#",
+          comingSoon: true,
         },
       ],
     },
@@ -264,33 +271,52 @@ export default function ResourcesClientPage() {
                   {category.category}
                 </h3>
                 <div className="space-y-4">
-                  {category.items.map((item, idx) => (
-                    <Link
-                      key={idx}
-                      href={item.link}
-                      className="block p-4 rounded-lg transition-colors hover:bg-[#1C2E47]/70"
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <h4
-                          className="text-lg font-semibold text-[#F4F5F6]"
-                          style={{
-                            fontFamily:
-                              '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                          }}
-                        >
-                          {item.title}
-                        </h4>
-                        {item.comingSoon && (
-                          <span className="px-2 py-1 text-xs font-semibold rounded-full bg-[#8A6B4E]/20 text-[#8A6B4E] border border-[#8A6B4E]/30">
-                            Coming Soon
-                          </span>
-                        )}
+                  {category.items.map((item, idx) => {
+                    const cardInner = (
+                      <>
+                        <div className="flex items-center gap-2 mb-2">
+                          <h4
+                            className="text-lg font-semibold text-[#F4F5F6]"
+                            style={{
+                              fontFamily:
+                                '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                            }}
+                          >
+                            {item.title}
+                          </h4>
+                          {item.comingSoon && (
+                            <span className="px-2 py-1 text-xs font-semibold rounded-full bg-[#8A6B4E]/20 text-[#8A6B4E] border border-[#8A6B4E]/30">
+                              Coming Soon
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-[#C4C8CA]">
+                          {item.description}
+                        </p>
+                      </>
+                    );
+
+                    // Render a real link only when there's a destination; an
+                    // item flagged "Coming Soon" has no route yet, so it renders
+                    // as a non-interactive card instead of a dead "#" link.
+                    return item.link ? (
+                      <Link
+                        key={idx}
+                        href={item.link}
+                        className="block p-4 rounded-lg transition-colors hover:bg-[#1C2E47]/70"
+                      >
+                        {cardInner}
+                      </Link>
+                    ) : (
+                      <div
+                        key={idx}
+                        aria-disabled="true"
+                        className="block p-4 rounded-lg opacity-70 cursor-default"
+                      >
+                        {cardInner}
                       </div>
-                      <p className="text-sm text-[#C4C8CA]">
-                        {item.description}
-                      </p>
-                    </Link>
-                  ))}
+                    );
+                  })}
                 </div>
               </motion.div>
             ))}

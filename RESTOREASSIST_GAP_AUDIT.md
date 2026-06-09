@@ -175,3 +175,22 @@ were found in `.planning/` video docs.
 > Verification note: findings #1 and #2 (contact form, greeting video) were re-checked directly
 > against disk/source by the auditor. The remainder carry `file:line` evidence from the sweeps and
 > should be confirmed at fix time.
+
+---
+
+## Remediation log
+
+- ✅ **Contact form (False Promises high #1)** — wired `app/contact/page.tsx` to the existing
+  public `POST /api/support/tickets`; controlled inputs, loading/success/error states. Added
+  backend test `app/api/support/tickets/__tests__/route.test.ts` (5/5). Verified: vitest, eslint,
+  tsc, live preview (submit fires the POST; error UI renders). Commit `8c56ff58`.
+- ✅ **Resources dead links (False Promises high #3)** — `app/resources/ResourcesClientPage.tsx`:
+  wired Compliance Library → `/compliance-library`, Blog → `/blog`, Contact Support → `/contact`;
+  marked the three destination-less cards (API Documentation, Case Studies, Webinars) as
+  non-clickable "Coming Soon". Removed the stale "Coming Soon" badge from Getting Started Guide
+  (it has a real `/help` link). Verified: eslint, tsc, live preview (all hrefs resolve to existing
+  routes, zero `#` links, click-through to `/compliance-library` works).
+- ⬜ Homepage greeting video (high) — needs graceful degradation or the asset; next.
+- ⬜ `.env.example` undocumented required vars (Stripe price IDs, `RESEND_FROM_EMAIL`, etc.) — next.
+- ⬜ Mock-data honesty banners (usage/forms dashboards) — pending.
+- ⬜ Stub integrations (OpenAI/Gemini, cloud-mirror, Drive, DOCX/email export) — de-advertise or finish.
