@@ -102,12 +102,19 @@ Plan: `~/.claude/plans/restoreassist-mapping-specification-polished-mochi.md`
   on pre-2004 ACM until pathway recorded; reuses `lib/anz/whs-gate`). Backward-compatible props.
 - **Evidence:** 5 jsdom/@testing-library component tests red→green; no-stub clean.
 
+### Done — SketchEditorV2 wiring (PR #1242, open; branch feat/mapping-v2-editor-wiring)
+
+- `SketchCanvas` now emits selection (new `onSelect` prop; selection:created/updated/cleared) via
+  pure tested `lib/sketch/selected-object.ts` — was unwired, so the panel never appeared before.
+- `SketchEditorV2` fetches `/api/materials`, passes `materials`+`onSelect`, persists
+  material/whsPathwayNote onto Fabric `data` via scheduleSave (→ SketchElement rows on save).
+- **Evidence:** mapper 3 tests red→green; sketch+anz suites **70 passing**; `tsc` clean.
+- **Phill Check** (visual, on deploy) in PR #1242: select a room → material dropdown (ANZ names);
+  pick Fibro → WHS asbestos block; record pathway → clears; Gyprock → no warning.
+
 ### Next (toward all-green + merge to main)
 
-- Wire `SketchEditorV2` to fetch `/api/materials`, pass `materials`/`propertyYearBuilt` to the
-  panel, persist material (sketch save) + hazard (hazards route) selections. **Verify the live
-  flow on the PR's Vercel preview deployment** (working DB env) rather than waiting on a local
-  `DATABASE_URL`; drive via Chrome MCP against the preview URL.
-- Add S500 drying status to the moisture layer/panel; extend `lib/generate-sketch-pdf.ts`
-  (materials / water category / drying log / WHS / NCC).
+- S500 drying status on moisture pins (panel/moisture layer, using `lib/anz/dry-standard`).
+- Extend `lib/generate-sketch-pdf.ts` (materials / water category / drying log / WHS / NCC).
 - Pre-merge each batch: full `npx vitest run` + `tsc` + no-stub clean → PR to `main`.
+- Visual acceptance = Phill Check on the deployed app (verification protocol delegates it to Phill).
