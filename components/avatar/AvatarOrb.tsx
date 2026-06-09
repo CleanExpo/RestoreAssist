@@ -73,15 +73,22 @@ export function AvatarOrb({
   useEffect(() => {
     if (autoPlay && greetingVideoUrl && videoRef.current) {
       videoRef.current.muted = true;
-      videoRef.current
-        .play()
-        .catch(() => {
-          /* ignore autoplay block */
-        });
+      videoRef.current.play().catch(() => {
+        /* ignore autoplay block */
+      });
     }
   }, [autoPlay, greetingVideoUrl]);
 
+  // Graceful fallback: if no greeting/explainer video asset is configured,
+  // don't open an empty/broken modal — surface the greeting text instead.
+  const hasVideo = Boolean(greetingVideoUrl || explainerVideoUrl);
+
   const handleOrbClick = () => {
+    if (!hasVideo) {
+      // Toggle the greeting tooltip rather than launching an empty player.
+      setTooltipVisible((v) => !v);
+      return;
+    }
     setIsOpen(true);
     setTooltipVisible(false);
   };
@@ -109,9 +116,8 @@ export function AvatarOrb({
   };
 
   // Determine active video based on state
-  const activeVideoUrl = isOpen && explainerVideoUrl
-    ? explainerVideoUrl
-    : greetingVideoUrl;
+  const activeVideoUrl =
+    isOpen && explainerVideoUrl ? explainerVideoUrl : greetingVideoUrl;
 
   return (
     <>
@@ -125,10 +131,14 @@ export function AvatarOrb({
           "shadow-[0_0_30px_rgba(138,107,78,0.4)] hover:shadow-[0_0_50px_rgba(212,165,116,0.5)]",
           "border-2 border-[#8A6B4E]/60 hover:border-[#D4A574]",
           entered ? "opacity-100 scale-100" : "opacity-0 scale-50",
-          className
+          className,
         )}
         style={{ width: size, height: size }}
-        aria-label="Open RestoreAssist video greeting"
+        aria-label={
+          hasVideo
+            ? "Open RestoreAssist video greeting"
+            : "Show RestoreAssist greeting from Phill"
+        }
       >
         {/* Pulsing ring animation */}
         <span className="absolute inset-0 rounded-full animate-ping bg-[#8A6B4E]/20" />
@@ -158,7 +168,9 @@ export function AvatarOrb({
         {/* Tooltip */}
         {tooltipVisible && (
           <div className="absolute bottom-full right-0 mb-3 w-48 p-3 bg-[#1C2E47] border border-[#8A6B4E]/40 rounded-lg shadow-xl animate-in fade-in slide-in-from-bottom-2">
-            <p className="text-xs text-white/90 leading-relaxed">{greetingText}</p>
+            <p className="text-xs text-white/90 leading-relaxed">
+              {greetingText}
+            </p>
             <div className="absolute bottom-[-6px] right-5 w-3 h-3 bg-[#1C2E47] border-r border-b border-[#8A6B4E]/40 rotate-45" />
           </div>
         )}
@@ -181,9 +193,7 @@ export function AvatarOrb({
             {/* Modal header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
               <div className="flex items-center gap-2">
-                <div
-                  className="w-8 h-8 rounded-full bg-gradient-to-br from-[#8A6B4E] to-[#D4A574] flex items-center justify-center text-white text-xs font-bold"
-                >
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#8A6B4E] to-[#D4A574] flex items-center justify-center text-white text-xs font-bold">
                   PM
                 </div>
                 <span className="text-sm font-medium text-white/90">
@@ -239,7 +249,8 @@ export function AvatarOrb({
             {/* CTA footer */}
             <div className="px-4 py-4 border-t border-white/10">
               <p className="text-sm text-white/70 mb-3">
-                RestoreAssist — Australia's purpose-built CRM for restoration contractors.
+                RestoreAssist — Australia's purpose-built CRM for restoration
+                contractors.
               </p>
               <a
                 href="/signup"

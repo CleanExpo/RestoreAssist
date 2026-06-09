@@ -288,12 +288,16 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Founder Avatar — bottom-left, floating orb */}
+        {/* Founder Avatar — bottom-left, floating orb.
+            greetingVideoUrl is intentionally omitted: the HeyGen greeting
+            asset (/videos/heygen/phill-greeting.mp4) isn't bundled yet, so the
+            orb degrades to its greeting tooltip instead of opening an empty
+            video modal. Restore the prop once the asset (or
+            HEYGEN_GREETING_VIDEO_URL) is wired up. */}
         <AvatarOrb
           className="hidden md:flex absolute bottom-8 left-8"
           size={72}
           avatarImageUrl="/avatars/phill-mcgurk-orb.svg"
-          greetingVideoUrl="/videos/heygen/phill-greeting.mp4"
           greetingText="G'day — I'm Phill. Click to learn about RestoreAssist."
         />
       </section>

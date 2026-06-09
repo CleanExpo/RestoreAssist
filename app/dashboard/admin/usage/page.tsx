@@ -398,6 +398,7 @@ export default function AiUsageDashboardPage() {
   // Data
   const [data, setData] = useState<UsageData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isMock, setIsMock] = useState(false);
 
   // Filters
   const [billingFilter, setBillingFilter] = useState<Set<BillingStatus>>(
@@ -418,9 +419,11 @@ export default function AiUsageDashboardPage() {
       if (!res.ok) throw new Error("API error");
       const json = await res.json();
       setData(json);
+      setIsMock(false);
     } catch {
       // Fall back to mock data
       setData(MOCK_USAGE);
+      setIsMock(true);
     } finally {
       setLoading(false);
     }
@@ -555,6 +558,11 @@ export default function AiUsageDashboardPage() {
           <p className="text-neutral-600 dark:text-neutral-400">
             Monitor AI feature consumption and billing status
           </p>
+          {isMock && (
+            <p className="text-xs text-amber-600 mt-0.5">
+              Showing sample data — couldn&apos;t reach the API
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-3">
           {/* Month selector */}
