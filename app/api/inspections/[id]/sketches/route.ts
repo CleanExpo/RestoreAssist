@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import { decomposeElements } from "@/lib/sketch/decompose-elements";
 
 // GET /api/inspections/[id]/sketches — list all sketches for an inspection
 export async function GET(
@@ -146,6 +147,54 @@ export async function POST(
             equipmentPoints: equipmentPoints ?? undefined,
           },
         });
+
+    // RA Mapping V2 (spec §6.4): derive normalized SketchElement rows from the
+    // authoritative Fabric blob. Non-fatal — the blob save is the source of truth,
+    // so a decomposition failure must never reject the sketch save.
+    try {
+      const decomposed =
+        sketchData && typeof sketchData === "object"
+          ? decomposeElements(sketchData as Record<string, unknown>)
+          : [];
+      const slugs = [
+        ...new Set(
+          decomposed
+            .map((d) => d.materialSlug)
+            .filter((s): s is string => Boolean(s)),
+        ),
+      ];
+      const materials = slugs.length
+        ? await (prisma as any).material.findMany({
+            where: { slug: { in: slugs } },
+            select: { id: true, slug: true },
+          })
+        : [];
+      const idBySlug = new Map(
+        materials.map((m: { id: string; slug: string }) => [m.slug, m.id]),
+      );
+      await (prisma as any).sketchElement.deleteMany({
+        where: { sketchId: sketch.id },
+      });
+      if (decomposed.length) {
+        await (prisma as any).sketchElement.createMany({
+          data: decomposed.map((d) => ({
+            sketchId: sketch.id,
+            type: d.type,
+            geometryJson: d.geometryJson as unknown,
+            dimensionsM: d.dimensionsM as unknown,
+            materialId: d.materialSlug
+              ? (idBySlug.get(d.materialSlug) ?? null)
+              : null,
+            provenance: d.provenance,
+          })),
+        });
+      }
+    } catch (e) {
+      console.error(
+        "[sketches] SketchElement decomposition failed (non-fatal):",
+        e,
+      );
+    }
 
     return NextResponse.json(sketch, { status: 201 });
   } catch (error) {
