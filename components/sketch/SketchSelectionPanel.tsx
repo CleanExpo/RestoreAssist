@@ -11,6 +11,19 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Trash2, X, AlertTriangle } from "lucide-react";
 import { evaluateWhsGate } from "@/lib/anz/whs-gate";
+import { classifyCover, type DamageCause } from "@/lib/nz/nhcover";
+
+const NZ_CAUSES: { id: DamageCause; label: string }[] = [
+  { id: "earthquake", label: "Earthquake" },
+  { id: "landslip", label: "Landslip" },
+  { id: "volcanic", label: "Volcanic" },
+  { id: "hydrothermal", label: "Hydrothermal" },
+  { id: "tsunami", label: "Tsunami" },
+  { id: "fire_natural", label: "Fire (from natural hazard)" },
+  { id: "storm", label: "Storm" },
+  { id: "flood", label: "Flood" },
+  { id: "other", label: "Other / accidental" },
+];
 
 const ROOM_COLORS = [
   {
@@ -40,6 +53,8 @@ export interface SelectedObject {
   materialSlug?: string;
   /** Recorded WHS pathway note for this element, if any (spec §5.3). */
   whsPathwayNote?: string;
+  /** NZ damage cause for NHCover routing (spec §5.5). */
+  cause?: DamageCause;
 }
 
 export interface MaterialOption {
@@ -54,11 +69,15 @@ export interface SketchSelectionPanelProps {
   materials?: MaterialOption[];
   /** Property build year — drives the WHS asbestos gate (pre-2004 = at risk). */
   propertyYearBuilt?: number;
+  /** Jurisdiction — AU (NCC) or NZ (NHCover). Default AU. */
+  country?: "AU" | "NZ";
   onLabelChange?: (id: string, label: string) => void;
   onColorChange?: (id: string, fill: string, stroke: string) => void;
   onOpacityChange?: (id: string, opacity: number) => void;
   onMaterialChange?: (id: string, slug: string) => void;
   onRecordWhsPathway?: (id: string, note: string) => void;
+  onCountryChange?: (country: "AU" | "NZ") => void;
+  onCauseChange?: (id: string, cause: DamageCause) => void;
   onDelete?: (id: string) => void;
   onDeselect?: () => void;
   className?: string;
@@ -68,11 +87,14 @@ export function SketchSelectionPanel({
   selected,
   materials,
   propertyYearBuilt,
+  country = "AU",
   onLabelChange,
   onColorChange,
   onOpacityChange,
   onMaterialChange,
   onRecordWhsPathway,
+  onCountryChange,
+  onCauseChange,
   onDelete,
   onDeselect,
   className,
@@ -258,6 +280,81 @@ export function SketchSelectionPanel({
           <span>ACM pathway recorded — strip-out permitted.</span>
         </div>
       )}
+
+      {/* Jurisdiction (AU/NZ) + NHCover routing (spec §5.5) */}
+      <div>
+        <div className="flex items-center gap-1.5 text-xs">
+          <span className="text-white/50">Jurisdiction</span>
+          {(["AU", "NZ"] as const).map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => onCountryChange?.(c)}
+              className={cn(
+                "px-2 py-0.5 rounded-md border text-xs",
+                country === c
+                  ? "bg-cyan-500/20 border-cyan-400 text-cyan-200"
+                  : "border-white/10 text-white/50 hover:text-white/80",
+              )}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+        {country === "NZ" && isRoom && (
+          <div className="mt-2 space-y-1.5">
+            <label htmlFor="nz-cause" className="block text-xs text-white/50">
+              Damage cause (NHCover)
+            </label>
+            <select
+              id="nz-cause"
+              value={selected.cause ?? ""}
+              onChange={(e) =>
+                onCauseChange?.(selected.id, e.target.value as DamageCause)
+              }
+              className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-cyan-400"
+            >
+              <option value="" className="text-black">
+                Select cause…
+              </option>
+              {NZ_CAUSES.map((c) => (
+                <option key={c.id} value={c.id} className="text-black">
+                  {c.label}
+                </option>
+              ))}
+            </select>
+            {selected.cause &&
+              (() => {
+                const b = classifyCover(selected.cause, "building");
+                const l = classifyCover(selected.cause, "land");
+                return (
+                  <div className="text-xs rounded-lg border border-white/10 bg-white/5 p-2 space-y-0.5">
+                    <div>
+                      Building:{" "}
+                      <span
+                        className={
+                          b.covered ? "text-emerald-300" : "text-amber-300"
+                        }
+                      >
+                        {b.covered ? "NHCover" : "Private insurer"}
+                      </span>
+                    </div>
+                    <div>
+                      Land:{" "}
+                      <span
+                        className={
+                          l.covered ? "text-emerald-300" : "text-white/50"
+                        }
+                      >
+                        {l.covered ? "NHCover" : "private"}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
+          </div>
+        )}
+      </div>
 
       {/* Delete */}
       <button
