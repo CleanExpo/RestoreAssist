@@ -7249,3 +7249,43 @@ model FieldCaptureEvent {
   @@index([inspectionId, capturedAt])
   @@index([clientMutationId])
 }
+
+// RA-406: Insurer profile templates — per-insurer evidence & reporting requirements.
+// Originally created by 20260403000003_add_insurer_profile, but that DDL silently
+// no-op'd in prod so the table went missing; declaring the model (#1243) then broke
+// every prod build via the drift-check, which #1250 reverted. This fixes it forward:
+// re-add the model AND ship the additive, idempotent migration
+// 20260609190042_insurer_profile_create_idempotent so `prisma migrate deploy`
+// materialises the table on deploy and the generated client can query it.
+enum InsurerReportFormat {
+  STANDARD
+  ENHANCED
+  FORENSIC
+  SCOPE_ONLY
+}
+
+model InsurerProfile {
+  id                       String              @id @default(cuid())
+  slug                     String              @unique
+  name                     String
+  aliases                  String[]            @default([])
+  requiredEvidenceClasses  String[]            @default([])
+  preferredEvidenceClasses String[]            @default([])
+  minPhotoCount            Int                 @default(5)
+  reportFormat             InsurerReportFormat @default(STANDARD)
+  requiresSignedScope      Boolean             @default(false)
+  requiresThirdPartyScope  Boolean             @default(false)
+  preferredInvoiceFormat   String?
+  gstRegistrationRequired  Boolean             @default(true)
+  claimsEmailDomain        String?
+  portalUrl                String?
+  specialInstructions      String?
+  iicrcComplianceNote      String?
+  isActive                 Boolean             @default(true)
+  isSystemProfile          Boolean             @default(false)
+  createdAt                DateTime            @default(now())
+  updatedAt                DateTime            @updatedAt
+
+  @@index([slug])
+  @@index([isActive])
+}

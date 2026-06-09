@@ -26,7 +26,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
 
     const { id } = await params;
 
-    const profile = await (prisma as any).insurerProfile.findUnique({
+    const profile = await prisma.insurerProfile.findUnique({
       where: { id },
     });
     if (!profile) {
@@ -88,7 +88,7 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
       if (key in body) updates[key] = body[key];
     }
 
-    const profile = await (prisma as any).insurerProfile.update({
+    const profile = await prisma.insurerProfile.update({
       where: { id },
       data: updates,
     });
@@ -125,7 +125,7 @@ export async function DELETE(request: NextRequest, { params }: RouteContext) {
 
     const { id } = await params;
 
-    const profile = await (prisma as any).insurerProfile.findUnique({
+    const profile = await prisma.insurerProfile.findUnique({
       where: { id },
     });
     if (!profile) {
@@ -142,7 +142,7 @@ export async function DELETE(request: NextRequest, { params }: RouteContext) {
       );
     }
 
-    await (prisma as any).insurerProfile.delete({ where: { id } });
+    await prisma.insurerProfile.delete({ where: { id } });
     return NextResponse.json({ data: { id } });
   } catch (error) {
     console.error("Error deleting insurer profile:", error);
