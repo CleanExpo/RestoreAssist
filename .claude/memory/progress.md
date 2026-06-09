@@ -68,12 +68,26 @@ Plan: `~/.claude/plans/restoreassist-mapping-specification-polished-mochi.md`
   - `lib/sketch/measured-elements.ts` (only operator_measured feeds calcs/exports).
 - **Evidence:** full lib suite **67 tests passing**; no-stub clean.
 
+### Done — API wiring (commit `83678daf`)
+
+- `app/api/materials/route.ts` GET (apiError envelope, ?region filter).
+- Sketches POST now decomposes the Fabric blob → `SketchElement` rows (slug→id, provenance),
+  non-fatal so the blob save stays authoritative.
+- **Evidence:** mapping-v2 suite (lib + routes) **81 tests passing** across 13 files; no-stub clean.
+
+### Verification constraint for UI work
+
+- The Next.js dev server / preview uses **Prisma directly (not the Supabase MCP)**, so it needs
+  a valid local `DATABASE_URL`. Local creds are stale (P1000) → `/api/materials` etc. 500 in
+  preview. **To visually verify the SketchSelectionPanel wiring**, need a working `DATABASE_URL`
+  in the worktree `.env.local` (DB ops themselves still go via MCP). Alternative: verify on the
+  deployed sandbox after PR. Code + unit tests proceed regardless.
+
 ### Next (toward all-green + merge to main)
 
-- Wire `decomposeElements` into `app/api/inspections/[id]/sketches/route.ts` POST (write
-  SketchElement rows on save) + materials/hazard/moisture API routes (apiError envelope);
-  unit-test with mocked prisma (repo convention).
-- Wire materials picker + drying status (S500) + WHS asbestos gate into
-  `SketchSelectionPanel.tsx`; verify in preview against prod.
+- moisture-reading + hazard POST routes (S500 dryStandardMet via dry-standard; WHS status via
+  whs-gate); mocked-prisma tests.
+- Wire `SketchSelectionPanel.tsx`: materials picker (/api/materials), drying status, WHS gate
+  blocking strip-out. Verify in preview once a local `DATABASE_URL` is available.
 - Extend `lib/generate-sketch-pdf.ts` (materials, water category, drying log, WHS, NCC).
 - Pre-merge: full `npx vitest run`, `tsc`, no-stub clean → PR to `main`.
