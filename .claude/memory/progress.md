@@ -83,11 +83,21 @@ Plan: `~/.claude/plans/restoreassist-mapping-specification-polished-mochi.md`
   in the worktree `.env.local` (DB ops themselves still go via MCP). Alternative: verify on the
   deployed sandbox after PR. Code + unit tests proceed regardless.
 
+### MERGED to main
+
+- **#1238** (squash `21f91622`): ANZ domain layer + canonical schema + dual-write + materials
+  API. Now on `main`. Work continues on branch `feat/mapping-v2-ui-routes` off the new main.
+
+### Done — moisture + hazard routes (PR #1239, open)
+
+- POST `.../sketches/[sketchId]/moisture-readings` (server computes S500 dryStandardMet) and
+  `.../hazards` (validates type/status, records pathway). Commits on `feat/mapping-v2-ui-routes`.
+- **Evidence:** combined mapping-v2 suite (lib + all routes) **90 passing**; no-stub clean.
+
 ### Next (toward all-green + merge to main)
 
-- moisture-reading + hazard POST routes (S500 dryStandardMet via dry-standard; WHS status via
-  whs-gate); mocked-prisma tests.
 - Wire `SketchSelectionPanel.tsx`: materials picker (/api/materials), drying status, WHS gate
-  blocking strip-out. Verify in preview once a local `DATABASE_URL` is available.
+  blocking strip-out. **Visual preview gated on a working local `DATABASE_URL`** (dev server uses
+  Prisma, not MCP); else verify on deployed sandbox.
 - Extend `lib/generate-sketch-pdf.ts` (materials, water category, drying log, WHS, NCC).
-- Pre-merge: full `npx vitest run`, `tsc`, no-stub clean → PR to `main`.
+- Pre-merge each batch: full `npx vitest run` + `tsc` + no-stub clean → PR to `main`.
