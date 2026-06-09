@@ -29,5 +29,7 @@ export function fabricObjectToSelected(
     opacity: obj?.opacity,
     materialSlug: data.material as string | undefined,
     whsPathwayNote: data.whsPathwayNote as string | undefined,
+    cause: data.cause as SelectedObject["cause"],
+    waterCategory: data.waterCategory as SelectedObject["waterCategory"],
   };
 }

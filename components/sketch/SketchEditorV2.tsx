@@ -995,6 +995,32 @@ export function SketchEditorV2({
             );
             scheduleSave();
           }}
+          onWaterCategoryChange={(id, category) => {
+            const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
+              getObjects: () => unknown[];
+              renderAll: () => void;
+            } | null;
+            if (!fc) return;
+            const obj = fc
+              .getObjects()
+              .find(
+                (o) =>
+                  (
+                    (o as Record<string, unknown>).data as
+                      | Record<string, unknown>
+                      | undefined
+                  )?.id === id,
+              ) as Record<string, unknown> | undefined;
+            if (obj?.data)
+              (obj.data as Record<string, unknown>).waterCategory = category;
+            fc.renderAll();
+            setSelectedObj((prev) =>
+              prev && prev.id === id
+                ? { ...prev, waterCategory: category }
+                : prev,
+            );
+            scheduleSave();
+          }}
           onMaterialChange={(id, slug) => {
             const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
               getObjects: () => unknown[];

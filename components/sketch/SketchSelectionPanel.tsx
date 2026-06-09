@@ -55,6 +55,8 @@ export interface SelectedObject {
   whsPathwayNote?: string;
   /** NZ damage cause for NHCover routing (spec §5.5). */
   cause?: DamageCause;
+  /** S500 water category assigned to the area (spec §5.2). */
+  waterCategory?: "cat1" | "cat2" | "cat3";
 }
 
 export interface MaterialOption {
@@ -78,6 +80,10 @@ export interface SketchSelectionPanelProps {
   onRecordWhsPathway?: (id: string, note: string) => void;
   onCountryChange?: (country: "AU" | "NZ") => void;
   onCauseChange?: (id: string, cause: DamageCause) => void;
+  onWaterCategoryChange?: (
+    id: string,
+    category: "cat1" | "cat2" | "cat3",
+  ) => void;
   onDelete?: (id: string) => void;
   onDeselect?: () => void;
   className?: string;
@@ -95,6 +101,7 @@ export function SketchSelectionPanel({
   onRecordWhsPathway,
   onCountryChange,
   onCauseChange,
+  onWaterCategoryChange,
   onDelete,
   onDeselect,
   className,
@@ -241,6 +248,42 @@ export function SketchSelectionPanel({
                 {m.name}
               </option>
             ))}
+          </select>
+        </div>
+      )}
+
+      {/* S500 water category (rooms) */}
+      {isRoom && (
+        <div>
+          <label
+            htmlFor="sketch-water-category"
+            className="block text-xs text-white/50 mb-1"
+          >
+            Water category (S500)
+          </label>
+          <select
+            id="sketch-water-category"
+            value={selected.waterCategory ?? ""}
+            onChange={(e) =>
+              onWaterCategoryChange?.(
+                selected.id,
+                e.target.value as "cat1" | "cat2" | "cat3",
+              )
+            }
+            className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-cyan-400"
+          >
+            <option value="" className="text-black">
+              Select category…
+            </option>
+            <option value="cat1" className="text-black">
+              Category 1 — Clean
+            </option>
+            <option value="cat2" className="text-black">
+              Category 2 — Grey
+            </option>
+            <option value="cat3" className="text-black">
+              Category 3 — Black
+            </option>
           </select>
         </div>
       )}

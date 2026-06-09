@@ -38,6 +38,20 @@ describe("SketchSelectionPanel — ANZ material picker", () => {
     fireEvent.change(select, { target: { value: "fibro" } });
     expect(onMaterialChange).toHaveBeenCalledWith("el1", "fibro");
   });
+
+  it("captures the S500 water category for a room", () => {
+    const onWaterCategoryChange = vi.fn();
+    render(
+      <SketchSelectionPanel
+        selected={room()}
+        onWaterCategoryChange={onWaterCategoryChange}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText(/water category/i), {
+      target: { value: "cat3" },
+    });
+    expect(onWaterCategoryChange).toHaveBeenCalledWith("el1", "cat3");
+  });
 });
 
 describe("SketchSelectionPanel — WHS asbestos gate", () => {

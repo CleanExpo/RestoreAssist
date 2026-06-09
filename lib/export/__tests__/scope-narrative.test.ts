@@ -23,7 +23,12 @@ const FLOOR = {
           { x: 300, y: 400 },
           { x: 0, y: 400 },
         ],
-        data: { type: "room", material: "fibro", label: "Bathroom" },
+        data: {
+          type: "room",
+          material: "fibro",
+          label: "Bathroom",
+          waterCategory: "cat3",
+        },
       },
     ],
   },
@@ -65,6 +70,13 @@ describe("buildScopeNarrative (AU)", () => {
 
   it("includes the AU NCC reinstatement references", () => {
     expect(md).toContain("NCC 2022");
+  });
+
+  it("includes the S500 water category + its required scope", () => {
+    expect(md).toContain("Water category");
+    expect(md).toContain("Category 3");
+    expect(md.toLowerCase()).toContain("respirator");
+    expect(md).toContain("Containment required: yes");
   });
 
   it("includes the S500 drying-equipment recommendation", () => {

@@ -333,6 +333,28 @@ function addComplianceAnnexPage(
     y -= 22;
   }
 
+  // Water category (S500 §5.2)
+  if (annex.waterCategories.length > 0) {
+    y -= 4;
+    page.drawText("S500 water category", {
+      x: MARGIN,
+      y,
+      size: 12,
+      font: bold,
+      color: BRAND_DARK,
+    });
+    y -= 16;
+    for (const c of annex.waterCategories) {
+      if (y < MARGIN + 40) break;
+      page.drawText(
+        `${c.label} — containment: ${c.containmentRequired ? "yes" : "no"} · contaminated disposal: ${c.disposalAsContaminated ? "yes" : "no"} · PPE: ${c.ppe.join(", ")}`,
+        { x: MARGIN, y, size: 9, font: helvetica, color: TEXT_MAIN },
+      );
+      y -= 14;
+    }
+    y -= 8;
+  }
+
   // NCC references
   page.drawText(`NCC references (${annex.edition})`, {
     x: MARGIN,
