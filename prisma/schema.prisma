@@ -1878,6 +1878,9 @@ model Inspection {
   reportId String? @unique // Link to existing Report if applicable
   report   Report? @relation(fields: [reportId], references: [id], onDelete: SetNull)
 
+  // Homeowner self-capture tokens scoped to this inspection's sketch (spec §2).
+  captureTokens CaptureToken[]
+
   // Inspection Metadata
   inspectionNumber String   @unique // NIR-YYYY-MM-XXXX format
   propertyAddress  String
@@ -5963,6 +5966,24 @@ model SketchElement {
   @@index([sketchId])
   @@index([sketchId, provenance])
   @@index([materialId])
+}
+
+// Homeowner self-capture token (spec §2; design: docs/mapping-v2/homeowner-capture-security-design.md).
+// Opaque, high-entropy, stored only as a SHA-256 hash; scoped to ONE inspection's
+// sketch; time-boxed (7-day default) + revocable. Distinct from the stateless HMAC
+// view-portal token — this one permits WRITES and must be revocable (design §0/D1).
+model CaptureToken {
+  id              String     @id @default(cuid())
+  inspectionId    String
+  inspection      Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  tokenHash       String     @unique // SHA-256 hex of the opaque token (never plaintext)
+  expiresAt       DateTime
+  revokedAt       DateTime?
+  submittedAt     DateTime? // set when the homeowner submits their capture
+  createdByUserId String? // staff member who issued the invite
+  createdAt       DateTime   @default(now())
+
+  @@index([inspectionId])
 }
 
 // ANZ materials library (spec §5.1). Seeded from lib/anz/materials.ts; `slug`
