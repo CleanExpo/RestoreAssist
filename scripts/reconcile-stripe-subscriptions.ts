@@ -72,7 +72,7 @@ if (!process.env.STRIPE_SECRET_KEY)
 if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required");
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2025-10-29.clover" as const,
+  apiVersion: "2026-05-27.dahlia",
 });
 const prisma = new PrismaClient();
 

@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     }
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-      apiVersion: "2024-12-18.acacia" as Stripe.LatestApiVersion,
+      apiVersion: "2026-05-27.dahlia",
     });
 
     let customerId = user.stripeCustomerId;
