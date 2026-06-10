@@ -74,7 +74,7 @@ export function SketchToolbar({
   return (
     <div
       className={cn(
-        "flex flex-col gap-1 p-1.5 bg-white dark:bg-slate-800 rounded-xl border border-neutral-200 dark:border-slate-700 shadow-sm w-11",
+        "flex flex-col gap-1 p-1.5 bg-white dark:bg-slate-800 rounded-xl border border-neutral-200 dark:border-slate-700 shadow-sm w-14",
         className,
       )}
     >
@@ -83,10 +83,11 @@ export function SketchToolbar({
         <button
           key={mode}
           title={`${label} (${shortcut})`}
+          aria-label={label}
           disabled={readonly && mode !== "select" && mode !== "pan"}
           onClick={() => onToolChange(mode)}
           className={cn(
-            "w-8 h-8 flex items-center justify-center rounded-lg transition-all",
+            "w-11 h-11 flex items-center justify-center rounded-lg transition-all",
             "disabled:opacity-30 disabled:cursor-not-allowed",
             toolMode === mode
               ? "bg-cyan-500 text-white shadow-md shadow-cyan-500/30"
@@ -103,17 +104,19 @@ export function SketchToolbar({
       {/* History */}
       <button
         title="Undo (Ctrl+Z)"
+        aria-label="Undo"
         disabled={!canUndo}
         onClick={onUndo}
-        className="w-8 h-8 flex items-center justify-center rounded-lg text-neutral-500 dark:text-slate-400 hover:bg-neutral-100 dark:hover:bg-slate-700 hover:text-neutral-800 dark:hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+        className="w-11 h-11 flex items-center justify-center rounded-lg text-neutral-500 dark:text-slate-400 hover:bg-neutral-100 dark:hover:bg-slate-700 hover:text-neutral-800 dark:hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all"
       >
         <Undo2 size={15} />
       </button>
       <button
         title="Redo (Ctrl+Shift+Z)"
+        aria-label="Redo"
         disabled={!canRedo}
         onClick={onRedo}
-        className="w-8 h-8 flex items-center justify-center rounded-lg text-neutral-500 dark:text-slate-400 hover:bg-neutral-100 dark:hover:bg-slate-700 hover:text-neutral-800 dark:hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+        className="w-11 h-11 flex items-center justify-center rounded-lg text-neutral-500 dark:text-slate-400 hover:bg-neutral-100 dark:hover:bg-slate-700 hover:text-neutral-800 dark:hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all"
       >
         <Redo2 size={15} />
       </button>
@@ -124,15 +127,17 @@ export function SketchToolbar({
       {/* Zoom */}
       <button
         title="Zoom in"
+        aria-label="Zoom in"
         onClick={onZoomIn}
-        className="w-8 h-8 flex items-center justify-center rounded-lg text-neutral-500 dark:text-slate-400 hover:bg-neutral-100 dark:hover:bg-slate-700 hover:text-neutral-800 dark:hover:text-white transition-all"
+        className="w-11 h-11 flex items-center justify-center rounded-lg text-neutral-500 dark:text-slate-400 hover:bg-neutral-100 dark:hover:bg-slate-700 hover:text-neutral-800 dark:hover:text-white transition-all"
       >
         <ZoomIn size={15} />
       </button>
       <button
         title="Zoom out"
+        aria-label="Zoom out"
         onClick={onZoomOut}
-        className="w-8 h-8 flex items-center justify-center rounded-lg text-neutral-500 dark:text-slate-400 hover:bg-neutral-100 dark:hover:bg-slate-700 hover:text-neutral-800 dark:hover:text-white transition-all"
+        className="w-11 h-11 flex items-center justify-center rounded-lg text-neutral-500 dark:text-slate-400 hover:bg-neutral-100 dark:hover:bg-slate-700 hover:text-neutral-800 dark:hover:text-white transition-all"
       >
         <ZoomOut size={15} />
       </button>
@@ -143,9 +148,10 @@ export function SketchToolbar({
       {/* Grid toggle */}
       <button
         title={showGrid ? "Hide grid" : "Show grid"}
+        aria-label={showGrid ? "Hide grid" : "Show grid"}
         onClick={onToggleGrid}
         className={cn(
-          "w-8 h-8 flex items-center justify-center rounded-lg transition-all",
+          "w-11 h-11 flex items-center justify-center rounded-lg transition-all",
           showGrid
             ? "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400"
             : "text-neutral-500 dark:text-slate-400 hover:bg-neutral-100 dark:hover:bg-slate-700 hover:text-neutral-800 dark:hover:text-white",
@@ -160,16 +166,18 @@ export function SketchToolbar({
       {/* Destructive / export */}
       <button
         title="Export PNG"
+        aria-label="Export PNG"
         onClick={onExport}
-        className="w-8 h-8 flex items-center justify-center rounded-lg text-neutral-500 dark:text-slate-400 hover:bg-neutral-100 dark:hover:bg-slate-700 hover:text-neutral-800 dark:hover:text-white transition-all"
+        className="w-11 h-11 flex items-center justify-center rounded-lg text-neutral-500 dark:text-slate-400 hover:bg-neutral-100 dark:hover:bg-slate-700 hover:text-neutral-800 dark:hover:text-white transition-all"
       >
         <Download size={15} />
       </button>
       {!readonly && (
         <button
           title="Clear canvas"
+          aria-label="Clear canvas"
           onClick={onClear}
-          className="w-8 h-8 flex items-center justify-center rounded-lg text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 hover:text-rose-600 transition-all"
+          className="w-11 h-11 flex items-center justify-center rounded-lg text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 hover:text-rose-600 transition-all"
         >
           <Trash2 size={15} />
         </button>
