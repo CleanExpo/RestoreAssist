@@ -146,7 +146,7 @@ export function SketchSelectionPanel({
         <button
           type="button"
           onClick={onDeselect}
-          className="text-white/30 hover:text-white/60 transition-colors"
+          className="flex items-center justify-center min-w-11 min-h-11 -mr-2 text-white/30 hover:text-white/60 transition-colors"
           aria-label="Deselect"
         >
           <X size={14} />
@@ -185,9 +185,10 @@ export function SketchSelectionPanel({
                 key={c.stroke}
                 type="button"
                 title={c.label}
+                aria-label={`Colour: ${c.label}`}
                 onClick={() => onColorChange?.(selected.id, c.fill, c.stroke)}
                 className={cn(
-                  "w-7 h-7 rounded-lg border-2 transition-all",
+                  "w-11 h-11 rounded-lg border-2 transition-all",
                   selected.stroke === c.stroke
                     ? "border-white scale-110"
                     : "border-transparent hover:scale-105",
@@ -311,7 +312,7 @@ export function SketchSelectionPanel({
           <button
             type="button"
             onClick={() => onRecordWhsPathway?.(selected.id, pathwayDraft)}
-            className="w-full py-1.5 rounded-lg bg-rose-500/20 text-rose-100 border border-rose-500/30 hover:bg-rose-500/30 transition-colors text-xs font-medium"
+            className="w-full min-h-11 py-1.5 rounded-lg bg-rose-500/20 text-rose-100 border border-rose-500/30 hover:bg-rose-500/30 transition-colors text-xs font-medium"
           >
             Record WHS pathway
           </button>
@@ -334,7 +335,7 @@ export function SketchSelectionPanel({
               type="button"
               onClick={() => onCountryChange?.(c)}
               className={cn(
-                "px-2 py-0.5 rounded-md border text-xs",
+                "inline-flex items-center justify-center min-w-11 min-h-11 px-2 rounded-md border text-xs",
                 country === c
                   ? "bg-cyan-500/20 border-cyan-400 text-cyan-200"
                   : "border-white/10 text-white/50 hover:text-white/80",
@@ -403,7 +404,7 @@ export function SketchSelectionPanel({
       <button
         type="button"
         onClick={() => onDelete?.(selected.id)}
-        className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-rose-400 border border-rose-500/20 hover:bg-rose-500/10 transition-colors text-xs font-medium"
+        className="w-full min-h-11 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-rose-400 border border-rose-500/20 hover:bg-rose-500/10 transition-colors text-xs font-medium"
       >
         <Trash2 size={12} />
         Delete

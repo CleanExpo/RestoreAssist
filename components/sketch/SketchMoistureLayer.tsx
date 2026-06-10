@@ -171,8 +171,9 @@ function PinMarker({
           onEdit();
         }}
         title={`${info.label} — ${pin.wme}% WME`}
+        aria-label={`Moisture reading: ${pin.wme}% WME (${info.label})`}
         className={cn(
-          "w-8 h-8 rounded-full border-2 border-white/80 shadow-lg",
+          "w-11 h-11 rounded-full border-2 border-white/80 shadow-lg",
           "flex items-center justify-center text-white text-xs font-bold",
           "hover:scale-110 transition-transform",
         )}
@@ -196,7 +197,8 @@ function PinMarker({
               <button
                 type="button"
                 onClick={onClose}
-                className="text-white/30 hover:text-white/70"
+                aria-label="Close moisture reading"
+                className="flex items-center justify-center min-w-11 min-h-11 -mr-1.5 text-white/30 hover:text-white/70"
               >
                 <X size={12} />
               </button>
@@ -286,7 +288,7 @@ function PinMarker({
             <button
               type="button"
               onClick={onRemove}
-              className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-rose-400 border border-rose-500/20 hover:bg-rose-500/10 transition-colors"
+              className="w-full min-h-11 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-rose-400 border border-rose-500/20 hover:bg-rose-500/10 transition-colors"
             >
               <X size={11} />
               Remove pin
