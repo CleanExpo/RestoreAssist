@@ -120,8 +120,24 @@ table + WHS hazard flags + NCC references + (NZ) NHCover routing block. All user
 the WinAnsi `safe()` sanitiser (#1264). _`lib/generate-sketch-pdf.ts`, `lib/sketch/pdf-scope.ts`,
 `app/api/inspections/[id]/sketches/pdf/route.ts`._
 
+## §12 Data model (Prisma)
+
+Canonical schema (T1.1). `ClaimSketch` holds the authoritative Fabric blob + `country`,
+`captureAdapter`, `totalFloorAreaM2`. Normalized rows derived on save:
+
+- **`SketchElement`** — `type (wall|opening|room|fixture)`, `geometryJson`, `dimensionsM`,
+  `materialId?`, `provenance` (§6.4/§8.1).
+- **`Material`** — ANZ catalogue, `region`, `dryStandardMc`, `isPotentialAcm` (§5.1).
+- **`SketchMoistureReading`** — `materialId`, `waterCategory (cat1|cat2|cat3)`, `targetMc`,
+  `currentMc`, `dryStandardMet`, `readingDatetime` (§5.2). Distinct from the evidence-class
+  `MoistureReading` model — naming collision is intentional and kept separate.
+- **`Hazard`** — `type`, `status`, `whsPathwayNote` (§5.3).
+- **`InsuranceContext`** — `pathway` per sketch (§5.5).
+
+_`prisma/schema.prisma`; cited by `lib/anz/materials.ts`, `lib/anz/water-category.ts`._
+
 ---
 
-_Sections not listed here (e.g. §3, §10, §12+) appear only in discovery/brainstorm
+_Sections not listed here (e.g. §3, §10) appear only in discovery/brainstorm
 artifacts under `docs/discovery/` and `docs/superpowers/`, not in shipped code, and are
 out of scope for this canonical reconstruction._
