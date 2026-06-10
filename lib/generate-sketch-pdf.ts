@@ -37,6 +37,29 @@ const TEXT_MAIN = rgb(0.1, 0.1, 0.1);
 const TEXT_MUTED = rgb(0.45, 0.45, 0.45);
 const DIVIDER = rgb(0.87, 0.87, 0.87);
 
+// The StandardFont (Helvetica) can only encode WinAnsi/CP-1252. User-supplied
+// text (room labels, address, notes) could carry emoji, arrows or other glyphs
+// that make pdf-lib throw at drawText — which would 500 the whole export. `safe()`
+// keeps WinAnsi-encodable code points, maps arrows to "->", and drops the rest so
+// PDF generation can never crash on user input.
+const WINANSI_PUNCT = new Set([
+  0x20ac, 0x201a, 0x0192, 0x201e, 0x2026, 0x2020, 0x2021, 0x02c6, 0x2030,
+  0x0160, 0x2039, 0x0152, 0x017d, 0x2018, 0x2019, 0x201c, 0x201d, 0x2022,
+  0x2013, 0x2014, 0x02dc, 0x2122, 0x0161, 0x203a, 0x0153, 0x017e, 0x0178,
+]);
+function safe(text: string): string {
+  return Array.from(text ?? "")
+    .map((ch) => {
+      const cp = ch.codePointAt(0) ?? 0;
+      if (cp >= 0x20 && cp <= 0x7e) return ch; // printable ASCII
+      if (cp >= 0xa0 && cp <= 0xff) return ch; // Latin-1 supplement
+      if (WINANSI_PUNCT.has(cp)) return ch; // CP-1252 punctuation
+      if (cp >= 0x2190 && cp <= 0x21ff) return "->"; // arrows
+      return ""; // emoji / other scripts / symbols
+    })
+    .join("");
+}
+
 // Room extraction is the shared util (lib/sketch/extract-rooms) so the PDF and
 // the structured scope export never drift.
 
@@ -98,8 +121,9 @@ async function addSketchPage(
 
   // Address (centred)
   if (shared.propertyAddress) {
-    const addrW = helvetica.widthOfTextAtSize(shared.propertyAddress, 10);
-    page.drawText(shared.propertyAddress, {
+    const addr = safe(shared.propertyAddress);
+    const addrW = helvetica.widthOfTextAtSize(addr, 10);
+    page.drawText(addr, {
       x: (PAGE_W - addrW) / 2,
       y: PAGE_H - MARGIN - 30,
       size: 10,
@@ -109,8 +133,9 @@ async function addSketchPage(
   }
 
   // Floor label (right)
-  const floorLabelX = PAGE_W - MARGIN - bold.widthOfTextAtSize(floor.label, 12);
-  page.drawText(floor.label, {
+  const floorLabel = safe(floor.label);
+  const floorLabelX = PAGE_W - MARGIN - bold.widthOfTextAtSize(floorLabel, 12);
+  page.drawText(floorLabel, {
     x: floorLabelX,
     y: PAGE_H - MARGIN - 26,
     size: 12,
@@ -172,8 +197,9 @@ async function addSketchPage(
         color: rgb(r, g, b),
       });
 
+      const safeLabel = safe(room.label);
       const label =
-        room.label.length > 14 ? room.label.slice(0, 13) + "…" : room.label;
+        safeLabel.length > 14 ? safeLabel.slice(0, 13) + "…" : safeLabel;
       page.drawText(label, {
         x: legendX + 20,
         y: ly + 2,
@@ -273,7 +299,7 @@ function addComplianceAnnexPage(
   });
   y -= 22;
   if (shared.propertyAddress) {
-    page.drawText(shared.propertyAddress, {
+    page.drawText(safe(shared.propertyAddress), {
       x: MARGIN,
       y,
       size: 10,
@@ -304,7 +330,7 @@ function addComplianceAnnexPage(
   }
   for (const r of annex.rows) {
     if (y < MARGIN + 80) break;
-    const line = `• ${r.roomLabel} (${r.elementType}) — ${r.materialName ?? "no material assigned"}${r.isPotentialAcm ? "   [SUSPECTED ACM]" : ""}`;
+    const line = `• ${safe(r.roomLabel)} (${r.elementType}) — ${r.materialName ? safe(r.materialName) : "no material assigned"}${r.isPotentialAcm ? "   [SUSPECTED ACM]" : ""}`;
     page.drawText(line, {
       x: MARGIN,
       y,
@@ -327,7 +353,7 @@ function addComplianceAnnexPage(
     });
     y -= 16;
     page.drawText(
-      `Strip-out / demolition blocked until a WHS pathway is recorded for: ${annex.acmElements.join(", ")}`,
+      `Strip-out / demolition blocked until a WHS pathway is recorded for: ${annex.acmElements.map(safe).join(", ")}`,
       { x: MARGIN, y, size: 10, font: helvetica, color: ACM_RED },
     );
     y -= 22;
@@ -405,7 +431,7 @@ function addComplianceAnnexPage(
     );
     y -= 14;
     page.drawText(
-      "Natural hazards (earthquake, landslip, volcanic, hydrothermal, tsunami, fire) → NHCover building; storm/flood building → private insurer; land → NHCover.",
+      "Natural hazards (earthquake, landslip, volcanic, hydrothermal, tsunami, fire) -> NHCover building; storm/flood building -> private insurer; land -> NHCover.",
       { x: MARGIN, y, size: 9, font: helvetica, color: TEXT_MUTED },
     );
     y -= 16;
@@ -442,7 +468,7 @@ function addComplianceAnnexPage(
     y -= 16;
     for (const d of annex.dryingLog) {
       if (y < MARGIN + 30) break;
-      const line = `• ${d.materialLabel}: ${d.wme}% WME (target ${d.targetMc}%) — ${d.dryStandardMet ? "DRY" : "NOT YET DRY"}${d.note ? ` · ${d.note}` : ""}`;
+      const line = `• ${safe(d.materialLabel)}: ${d.wme}% WME (target ${d.targetMc}%) — ${d.dryStandardMet ? "DRY" : "NOT YET DRY"}${d.note ? ` · ${safe(d.note)}` : ""}`;
       page.drawText(line, {
         x: MARGIN,
         y,
