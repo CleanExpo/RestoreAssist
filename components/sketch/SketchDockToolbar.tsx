@@ -50,8 +50,19 @@ export interface SketchDockToolbarProps {
   /** RA-1607: called with the chosen image File when the user picks a sketch to import. */
   onImportSketch?: (file: File) => Promise<void>;
   readonly?: boolean;
+  /** Guided (homeowner) mode — restrict to basic capture tools. */
+  guided?: boolean;
   className?: string;
 }
+
+/** Tools exposed in guided (homeowner) mode — basic capture only. */
+const GUIDED_TOOL_MODES: ReadonlySet<ToolMode> = new Set([
+  "select",
+  "room",
+  "text",
+  "photo",
+  "pan",
+]);
 
 const TOOLS: {
   mode: ToolMode;
@@ -90,8 +101,12 @@ export function SketchDockToolbar({
   onClear,
   onImportSketch,
   readonly = false,
+  guided = false,
   className,
 }: SketchDockToolbarProps) {
+  const tools = guided
+    ? TOOLS.filter((t) => GUIDED_TOOL_MODES.has(t.mode))
+    : TOOLS;
   const [dock, setDock] = useState<DockPosition>("bottom");
   const [isDragging, setIsDragging] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -208,7 +223,7 @@ export function SketchDockToolbar({
 
       {/* Tool buttons */}
       {!readonly &&
-        TOOLS.map(({ mode, Icon, label, shortcut }) => (
+        tools.map(({ mode, Icon, label, shortcut }) => (
           <ToolBtn
             key={mode}
             active={toolMode === mode}

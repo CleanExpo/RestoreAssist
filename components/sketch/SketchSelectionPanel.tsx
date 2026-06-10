@@ -73,6 +73,8 @@ export interface SketchSelectionPanelProps {
   propertyYearBuilt?: number;
   /** Jurisdiction — AU (NCC) or NZ (NHCover). Default AU. */
   country?: "AU" | "NZ";
+  /** Guided (homeowner) mode — hide technician-only compliance controls. */
+  guided?: boolean;
   onLabelChange?: (id: string, label: string) => void;
   onColorChange?: (id: string, fill: string, stroke: string) => void;
   onOpacityChange?: (id: string, opacity: number) => void;
@@ -94,6 +96,7 @@ export function SketchSelectionPanel({
   materials,
   propertyYearBuilt,
   country = "AU",
+  guided = false,
   onLabelChange,
   onColorChange,
   onOpacityChange,
@@ -227,7 +230,7 @@ export function SketchSelectionPanel({
       )}
 
       {/* ANZ material picker (rooms + walls) */}
-      {(isRoom || isLine) && materials && materials.length > 0 && (
+      {!guided && (isRoom || isLine) && materials && materials.length > 0 && (
         <div>
           <label
             htmlFor="sketch-material"
@@ -254,7 +257,7 @@ export function SketchSelectionPanel({
       )}
 
       {/* S500 water category (rooms) */}
-      {isRoom && (
+      {!guided && isRoom && (
         <div>
           <label
             htmlFor="sketch-water-category"
@@ -290,7 +293,7 @@ export function SketchSelectionPanel({
       )}
 
       {/* WHS asbestos gate */}
-      {whs?.blocked && (
+      {!guided && whs?.blocked && (
         <div
           role="alert"
           className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-2 space-y-2"
@@ -318,7 +321,7 @@ export function SketchSelectionPanel({
           </button>
         </div>
       )}
-      {whs && !whs.blocked && (
+      {!guided && whs && !whs.blocked && (
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-200 flex items-start gap-1.5">
           <AlertTriangle size={14} className="mt-0.5 shrink-0" />
           <span>ACM pathway recorded — strip-out permitted.</span>
@@ -326,79 +329,81 @@ export function SketchSelectionPanel({
       )}
 
       {/* Jurisdiction (AU/NZ) + NHCover routing (spec §5.5) */}
-      <div>
-        <div className="flex items-center gap-1.5 text-xs">
-          <span className="text-white/50">Jurisdiction</span>
-          {(["AU", "NZ"] as const).map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => onCountryChange?.(c)}
-              className={cn(
-                "inline-flex items-center justify-center min-w-11 min-h-11 px-2 rounded-md border text-xs",
-                country === c
-                  ? "bg-cyan-500/20 border-cyan-400 text-cyan-200"
-                  : "border-white/10 text-white/50 hover:text-white/80",
-              )}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
-        {country === "NZ" && isRoom && (
-          <div className="mt-2 space-y-1.5">
-            <label htmlFor="nz-cause" className="block text-xs text-white/50">
-              Damage cause (NHCover)
-            </label>
-            <select
-              id="nz-cause"
-              value={selected.cause ?? ""}
-              onChange={(e) =>
-                onCauseChange?.(selected.id, e.target.value as DamageCause)
-              }
-              className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-cyan-400"
-            >
-              <option value="" className="text-black">
-                Select cause…
-              </option>
-              {NZ_CAUSES.map((c) => (
-                <option key={c.id} value={c.id} className="text-black">
-                  {c.label}
-                </option>
-              ))}
-            </select>
-            {selected.cause &&
-              (() => {
-                const b = classifyCover(selected.cause, "building");
-                const l = classifyCover(selected.cause, "land");
-                return (
-                  <div className="text-xs rounded-lg border border-white/10 bg-white/5 p-2 space-y-0.5">
-                    <div>
-                      Building:{" "}
-                      <span
-                        className={
-                          b.covered ? "text-emerald-300" : "text-amber-300"
-                        }
-                      >
-                        {b.covered ? "NHCover" : "Private insurer"}
-                      </span>
-                    </div>
-                    <div>
-                      Land:{" "}
-                      <span
-                        className={
-                          l.covered ? "text-emerald-300" : "text-white/50"
-                        }
-                      >
-                        {l.covered ? "NHCover" : "private"}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })()}
+      {!guided && (
+        <div>
+          <div className="flex items-center gap-1.5 text-xs">
+            <span className="text-white/50">Jurisdiction</span>
+            {(["AU", "NZ"] as const).map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => onCountryChange?.(c)}
+                className={cn(
+                  "inline-flex items-center justify-center min-w-11 min-h-11 px-2 rounded-md border text-xs",
+                  country === c
+                    ? "bg-cyan-500/20 border-cyan-400 text-cyan-200"
+                    : "border-white/10 text-white/50 hover:text-white/80",
+                )}
+              >
+                {c}
+              </button>
+            ))}
           </div>
-        )}
-      </div>
+          {country === "NZ" && isRoom && (
+            <div className="mt-2 space-y-1.5">
+              <label htmlFor="nz-cause" className="block text-xs text-white/50">
+                Damage cause (NHCover)
+              </label>
+              <select
+                id="nz-cause"
+                value={selected.cause ?? ""}
+                onChange={(e) =>
+                  onCauseChange?.(selected.id, e.target.value as DamageCause)
+                }
+                className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-cyan-400"
+              >
+                <option value="" className="text-black">
+                  Select cause…
+                </option>
+                {NZ_CAUSES.map((c) => (
+                  <option key={c.id} value={c.id} className="text-black">
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+              {selected.cause &&
+                (() => {
+                  const b = classifyCover(selected.cause, "building");
+                  const l = classifyCover(selected.cause, "land");
+                  return (
+                    <div className="text-xs rounded-lg border border-white/10 bg-white/5 p-2 space-y-0.5">
+                      <div>
+                        Building:{" "}
+                        <span
+                          className={
+                            b.covered ? "text-emerald-300" : "text-amber-300"
+                          }
+                        >
+                          {b.covered ? "NHCover" : "Private insurer"}
+                        </span>
+                      </div>
+                      <div>
+                        Land:{" "}
+                        <span
+                          className={
+                            l.covered ? "text-emerald-300" : "text-white/50"
+                          }
+                        >
+                          {l.covered ? "NHCover" : "private"}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Delete */}
       <button
