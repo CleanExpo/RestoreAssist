@@ -12,7 +12,12 @@ vi.mock("@/lib/prisma", () => ({
 
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
+import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { POST } from "../route";
+
+const mockTenancy = assertInspectionTenancy as unknown as ReturnType<
+  typeof vi.fn
+>;
 
 const mockSession = getServerSession as unknown as ReturnType<typeof vi.fn>;
 const p = prisma as unknown as {
@@ -68,5 +73,15 @@ describe("POST insurance-context", () => {
     mockSession.mockResolvedValueOnce(null);
     const res = await POST(post({ pathway: "au_private" }), params);
     expect(res.status).toBe(401);
+  });
+
+  it("403 when the caller fails the inspection tenancy check", async () => {
+    mockTenancy.mockResolvedValueOnce({
+      ok: false,
+      status: 403,
+      reason: "forbidden",
+    });
+    const res = await POST(post({ pathway: "au_private" }), params);
+    expect(res.status).toBe(403);
   });
 });
