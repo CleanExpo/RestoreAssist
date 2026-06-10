@@ -99,6 +99,13 @@ export interface SketchEditorV2Props {
   propertyAddress?: string;
   propertyPostcode?: string;
   readonly?: boolean;
+  /**
+   * Editor mode. `"guided"` (homeowner self-capture) restricts the toolbar to
+   * basic capture tools, hides technician compliance controls (materials, S500
+   * water category, WHS gate, jurisdiction/NHCover) and hides export / scale /
+   * underlay. Default `"technician"`.
+   */
+  mode?: "technician" | "guided";
   className?: string;
   width?: number;
   height?: number;
@@ -121,11 +128,13 @@ export function SketchEditorV2({
   propertyAddress,
   propertyPostcode,
   readonly = false,
+  mode = "technician",
   className,
   width = 1200,
   height = 800,
   autoFetchFloorPlan = false,
 }: SketchEditorV2Props) {
+  const guided = mode === "guided";
   const uid = useId();
 
   // ── Floor state ────────────────────────────────────────
@@ -890,7 +899,7 @@ export function SketchEditorV2({
           )}
 
           {/* PDF export */}
-          {inspectionId && (
+          {!guided && inspectionId && (
             <button
               type="button"
               onClick={handleExportPdf}
@@ -966,6 +975,7 @@ export function SketchEditorV2({
         {/* Selection panel */}
         <SketchSelectionPanel
           selected={selectedObj}
+          guided={guided}
           materials={materials}
           country={country}
           onCountryChange={(c) => {
@@ -1143,6 +1153,7 @@ export function SketchEditorV2({
         {/* Floating dock toolbar */}
         <SketchDockToolbar
           toolMode={toolMode}
+          guided={guided}
           onToolChange={handleToolChange}
           canUndo={historyState.canUndo}
           canRedo={historyState.canRedo}
@@ -1163,7 +1174,7 @@ export function SketchEditorV2({
       </div>
 
       {/* ── Floor plan underlay panel ───────────────────────── */}
-      {!readonly && (
+      {!readonly && !guided && (
         <div className="px-4 pb-4 pt-2 border-t border-white/10 bg-[#0d1b2e]">
           <FloorPlanUnderlayLoader
             defaultAddress={propertyAddress}
