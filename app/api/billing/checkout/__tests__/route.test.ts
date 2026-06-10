@@ -4,21 +4,19 @@ import { POST } from "../route";
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("stripe", () => {
   const ctor = vi.fn().mockImplementation(function () {
-    return ({
-    checkout: {
-      sessions: {
-        create: vi
-          .fn()
-          .mockResolvedValue({
+    return {
+      checkout: {
+        sessions: {
+          create: vi.fn().mockResolvedValue({
             id: "cs_test_123",
             url: "https://stripe.test/cs_123",
           }),
+        },
       },
-    },
-    customers: {
-      create: vi.fn().mockResolvedValue({ id: "cus_test_123" }),
-    },
-  });
+      customers: {
+        create: vi.fn().mockResolvedValue({ id: "cus_test_123" }),
+      },
+    };
   });
   return { default: ctor };
 });
@@ -31,6 +29,18 @@ import { prisma } from "@/lib/prisma";
 
 describe("POST /api/billing/checkout", () => {
   beforeEach(() => vi.clearAllMocks());
+
+  it("returns 403 for the iOS Capacitor shell (Apple Rule 2 — before auth)", async () => {
+    const req = new Request("http://localhost/api/billing/checkout", {
+      method: "POST",
+      headers: { "x-capacitor-platform": "ios" },
+      body: JSON.stringify({ tier: "STANDARD" }),
+    });
+    const res = await POST(req as any);
+    expect(res.status).toBe(403);
+    // rejected before getServerSession is ever called
+    expect(getServerSession).not.toHaveBeenCalled();
+  });
 
   it("returns 401 with no session", async () => {
     vi.mocked(getServerSession).mockResolvedValue(null);

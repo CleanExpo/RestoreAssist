@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError, fromException } from "@/lib/api-errors";
+import { rejectIfIOSCapacitor } from "@/lib/ios-billing-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,10 @@ function tierToPriceId(tier: (typeof VALID_TIERS)[number]): string {
 }
 
 export async function POST(request: NextRequest) {
+  // Apple App Review (Rule 2 / 3.1.1): the iOS Capacitor shell must not reach
+  // external billing — reject before any work happens.
+  const iosBlocked = rejectIfIOSCapacitor(request);
+  if (iosBlocked) return iosBlocked;
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
@@ -57,7 +62,7 @@ export async function POST(request: NextRequest) {
     }
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-      apiVersion: "2024-12-18.acacia" as Stripe.LatestApiVersion,
+      apiVersion: "2026-05-27.dahlia",
     });
 
     let customerId = user.stripeCustomerId;
