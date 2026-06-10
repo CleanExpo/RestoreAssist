@@ -10,6 +10,12 @@ import { getNccEdition } from "@/lib/anz/ncc-edition";
 import { pinDryingStatus } from "./pin-drying";
 import { getMaterialType, type MaterialTypeId } from "./iicrc-utils";
 import {
+  categoryRequirements,
+  WATER_CATEGORIES,
+  type WaterCategory,
+  type CategoryRequirements,
+} from "@/lib/anz/water-category";
+import {
   classifyCover,
   buildingClaim,
   NHC_BUILDING_CAP_NZD,
@@ -30,6 +36,8 @@ export interface ScopeRow {
   elementType: string;
   materialName: string | null;
   isPotentialAcm: boolean;
+  /** S500 water category assigned to the area, if any (spec §5.2). */
+  waterCategory: WaterCategory | null;
 }
 
 export interface MoisturePinInput {
@@ -60,6 +68,8 @@ export interface ComplianceAnnex {
   acmElements: string[];
   nccReferences: NccReference[];
   dryingLog: DryingLogRow[];
+  /** Distinct S500 water categories present + their PPE/containment/disposal scope. */
+  waterCategories: CategoryRequirements[];
   /** Jurisdiction: AU uses NCC references; NZ uses the NHCover block. */
   country: "AU" | "NZ";
   nhcover: NhcoverBlock | null;
@@ -114,6 +124,7 @@ export function buildComplianceAnnex(
   const rows: ScopeRow[] = [];
   const acmElements: string[] = [];
   const topics = new Set<string>();
+  const waterCats = new Set<WaterCategory>();
 
   for (const obj of objects) {
     const data = obj?.data as Record<string, unknown> | undefined;
@@ -124,11 +135,19 @@ export function buildComplianceAnnex(
     const mat = slug ? bySlug.get(slug) : undefined;
     const label = (data?.label as string | undefined) ?? type;
 
+    const rawCat = data?.waterCategory as string | undefined;
+    const waterCategory =
+      rawCat && (WATER_CATEGORIES as string[]).includes(rawCat)
+        ? (rawCat as WaterCategory)
+        : null;
+    if (waterCategory) waterCats.add(waterCategory);
+
     rows.push({
       roomLabel: label,
       elementType: type,
       materialName: mat?.name ?? null,
       isPotentialAcm: mat?.isPotentialAcm ?? false,
+      waterCategory,
     });
     if (mat?.isPotentialAcm) acmElements.push(label);
     if (slug && MATERIAL_TO_NCC_TOPIC[slug])
@@ -138,6 +157,11 @@ export function buildComplianceAnnex(
   const nccReferences = [...topics]
     .map((t) => getNccReference(t, edition))
     .filter((r): r is NccReference => r !== null);
+
+  // Distinct categories present, ordered cat1→cat3, with their S500 requirements.
+  const waterCategories = WATER_CATEGORIES.filter((c) => waterCats.has(c)).map(
+    (c) => categoryRequirements(c),
+  );
 
   const country = opts.country ?? "AU";
   let nhcover: NhcoverBlock | null = null;
@@ -168,6 +192,7 @@ export function buildComplianceAnnex(
     acmElements,
     nccReferences: refs,
     dryingLog: buildDryingLog(opts.pins ?? []),
+    waterCategories,
     country,
     nhcover,
   };

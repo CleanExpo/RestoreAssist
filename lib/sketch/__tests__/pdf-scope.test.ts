@@ -23,6 +23,40 @@ const FABRIC = {
   ],
 };
 
+describe("buildComplianceAnnex — S500 water category", () => {
+  it("surfaces distinct categories present + their requirements", () => {
+    const fabric = {
+      objects: [
+        { data: { type: "room", label: "Bathroom", waterCategory: "cat3" } },
+        { data: { type: "room", label: "Lounge", waterCategory: "cat1" } },
+        { data: { type: "room", label: "Hall", waterCategory: "cat1" } },
+      ],
+    };
+    const annex = buildComplianceAnnex(fabric, MATERIALS);
+    // distinct, ordered cat1 → cat3
+    expect(annex.waterCategories.map((c) => c.category)).toEqual([
+      "cat1",
+      "cat3",
+    ]);
+    const cat3 = annex.waterCategories.find((c) => c.category === "cat3")!;
+    expect(cat3.containmentRequired).toBe(true);
+    expect(cat3.disposalAsContaminated).toBe(true);
+    expect(cat3.porousMaterialsSalvageable).toBe(false);
+    expect(
+      annex.rows.find((r) => r.roomLabel === "Bathroom")?.waterCategory,
+    ).toBe("cat3");
+  });
+
+  it("ignores invalid/absent categories", () => {
+    const annex = buildComplianceAnnex(
+      { objects: [{ data: { type: "room", waterCategory: "catX" } }] },
+      MATERIALS,
+    );
+    expect(annex.waterCategories).toEqual([]);
+    expect(annex.rows[0].waterCategory).toBeNull();
+  });
+});
+
 describe("buildComplianceAnnex", () => {
   it("lists materials per element and flags suspected ACM", () => {
     const annex = buildComplianceAnnex(FABRIC, MATERIALS);

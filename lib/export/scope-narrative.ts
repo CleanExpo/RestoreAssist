@@ -63,6 +63,27 @@ export function buildScopeNarrative(scope: ScopeExport): string {
   }
   lines.push("");
 
+  // ── Water category ──
+  lines.push("## Water category (AS-IICRC S500:2025)");
+  if (scope.compliance.waterCategories.length === 0) {
+    lines.push("No water category assigned.");
+  }
+  for (const c of scope.compliance.waterCategories) {
+    lines.push(`### ${c.label}`);
+    lines.push(c.description);
+    lines.push(`- Minimum PPE: ${c.ppe.join(", ")}`);
+    lines.push(
+      `- Containment required: ${c.containmentRequired ? "yes" : "no"}`,
+    );
+    lines.push(
+      `- Dispose affected materials as contaminated: ${c.disposalAsContaminated ? "yes" : "no"}`,
+    );
+    lines.push(
+      `- Porous materials salvageable: ${c.porousMaterialsSalvageable ? "yes" : "no"}`,
+    );
+  }
+  lines.push("");
+
   // ── Drying scope ──
   lines.push("## Drying scope (AS-IICRC S500:2025)");
   if (scope.compliance.dryingLog.length === 0) {
