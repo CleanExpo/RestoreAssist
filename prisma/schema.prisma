@@ -5914,6 +5914,11 @@ model ClaimSketch {
   backgroundImageUrl String?
   moisturePoints     Json?
   equipmentPoints    Json?
+  // Homeowner self-capture quarantine (D4): unauthenticated submissions land
+  // HERE, never in `sketchData`, so they can't feed compliance/scope/PDF until a
+  // technician promotes them (Phase 5). Shape: { sketchData, moisturePoints,
+  // country, submittedAt, captureTokenId }.
+  pendingHomeownerCapture Json?
   // RestoreAssist Mapping V2 (spec §12): canonical model + ANZ context
   totalFloorAreaM2   Float?
   country            String             @default("AU") // AU | NZ
