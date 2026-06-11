@@ -96,6 +96,7 @@ export function ClientPortalUpload({ token }: { token: string }) {
         onChange={(e) => setDescription(e.target.value)}
         placeholder="Describe the damage (optional)…"
         rows={3}
+        maxLength={2000}
         className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-400"
       />
 
