@@ -31,6 +31,13 @@ const SketchEditor = dynamic(
     })),
   { ssr: false },
 );
+const HomeownerCapturePanel = dynamic(
+  () =>
+    import("@/components/sketch/HomeownerCapturePanel").then((m) => ({
+      default: m.HomeownerCapturePanel,
+    })),
+  { ssr: false },
+);
 const ExportPdfButton = dynamic(
   () => import("@/components/inspection/ExportPdfButton"),
   { ssr: false },
@@ -1708,6 +1715,9 @@ export default function InspectionDetailPage({
               propertyPostcode={inspection.propertyPostcode ?? undefined}
               autoFetchFloorPlan={autoFetchFloorPlan}
             />
+            <div className="mt-3">
+              <HomeownerCapturePanel inspectionId={inspection.id} />
+            </div>
           </div>
         )}
 
