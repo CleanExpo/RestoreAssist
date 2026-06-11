@@ -24,6 +24,7 @@ export async function GET(
     key: token,
     windowMs: 10 * 60 * 1000,
     maxRequests: 60,
+    failClosedOnUpstashError: true, // sec M2 — unauthenticated surface
   });
   if (limited) return limited;
 

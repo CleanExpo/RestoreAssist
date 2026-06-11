@@ -23,6 +23,7 @@ export const dynamic = "force-dynamic";
 
 const MAX_SKETCH_BYTES = 512 * 1024; // D3
 const MAX_MOISTURE_POINTS = 200; // D3
+const MAX_MOISTURE_BYTES = 256 * 1024; // D3 — cap weight, not just count (sec M1)
 
 export async function POST(
   request: NextRequest,
@@ -31,11 +32,14 @@ export async function POST(
   const { token } = await params;
 
   // D3 — rate-limit keyed by token so one token/home-network can't spam.
+  // Fail CLOSED on limiter outage (sec M2): this is an unauthenticated write
+  // surface — never silently degrade to permissive per-instance limiting.
   const limited = await applyRateLimit(request, {
     prefix: "capture",
     key: token,
     windowMs: 10 * 60 * 1000,
     maxRequests: 10,
+    failClosedOnUpstashError: true,
   });
   if (limited) return limited;
 
@@ -76,6 +80,14 @@ export async function POST(
   if (moisturePoints.length > MAX_MOISTURE_POINTS) {
     return NextResponse.json(
       { error: "too_many_moisture_points" },
+      { status: 413 },
+    );
+  }
+  // sec M1 — cap moisturePoints by serialized WEIGHT, not just count, so heavy
+  // per-element payloads can't slip a multi-MB write past the count check.
+  if (JSON.stringify(moisturePoints).length > MAX_MOISTURE_BYTES) {
+    return NextResponse.json(
+      { error: "moisture_points_too_large" },
       { status: 413 },
     );
   }
