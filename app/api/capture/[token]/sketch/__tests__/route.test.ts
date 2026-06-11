@@ -90,6 +90,17 @@ describe("POST /api/capture/[token]/sketch", () => {
     expect(res.status).toBe(413);
   });
 
+  it("413 when moisture points are within count but too heavy (sec M1)", async () => {
+    // 50 points (< 200) each carrying a big blob → over the byte cap.
+    const heavy = new Array(50).fill({ note: "x".repeat(6 * 1024) });
+    const res = await POST(
+      post({ sketchData: {}, moisturePoints: heavy }),
+      params,
+    );
+    expect(res.status).toBe(413);
+    expect(p.claimSketch.create).not.toHaveBeenCalled();
+  });
+
   it("429 when rate-limited", async () => {
     mRate.mockResolvedValueOnce(
       new Response(null, { status: 429 }) as unknown as Response,
