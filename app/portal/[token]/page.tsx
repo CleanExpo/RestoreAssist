@@ -5,39 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { ClientPortalVideos } from "@/components/portal/ClientPortalVideos";
 import { ClientPortalUpload } from "@/components/portal/ClientPortalUpload";
 import { ClientPortalAuthorities } from "@/components/portal/ClientPortalAuthorities";
-
-// Statuses shown in the public timeline (subset of internal statuses)
-const PORTAL_STEPS = [
-  "DRAFT",
-  "SUBMITTED",
-  "CLASSIFIED",
-  "SCOPED",
-  "COMPLETED",
-] as const;
-type PortalStep = (typeof PORTAL_STEPS)[number];
-
-// Map internal statuses → nearest portal step
-function mapToPortalStep(status: string): PortalStep {
-  const map: Record<string, PortalStep> = {
-    DRAFT: "DRAFT",
-    SUBMITTED: "SUBMITTED",
-    PROCESSING: "SUBMITTED",
-    CLASSIFIED: "CLASSIFIED",
-    SCOPED: "SCOPED",
-    ESTIMATED: "SCOPED",
-    COMPLETED: "COMPLETED",
-    REJECTED: "SUBMITTED",
-  };
-  return map[status] ?? "DRAFT";
-}
-
-const STEP_LABELS: Record<PortalStep, string> = {
-  DRAFT: "Received",
-  SUBMITTED: "Submitted",
-  CLASSIFIED: "Classified",
-  SCOPED: "Scoped",
-  COMPLETED: "Completed",
-};
+import { ClientPortalStatus } from "@/components/portal/ClientPortalStatus";
 
 const CATEGORY_COLOURS: Record<string, string> = {
   "1": "bg-green-100 text-green-800",
@@ -138,8 +106,6 @@ export default async function ClientPortalPage({ params }: PageProps) {
       : null;
   const isDryingComplete = avgMoisture !== null && avgMoisture < 15;
 
-  const currentStep = mapToPortalStep(inspection.status);
-  const currentIndex = PORTAL_STEPS.indexOf(currentStep);
   const reportReady = inspection.report?.status === "COMPLETED";
 
   const inspectionDate = new Date(inspection.createdAt).toLocaleDateString(
@@ -211,77 +177,8 @@ export default async function ClientPortalPage({ params }: PageProps) {
           </div>
         </div>
 
-        {/* Status timeline */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <h2 className="text-sm font-semibold text-gray-700 mb-4">
-            Job Progress
-          </h2>
-          <div className="flex items-center gap-0">
-            {PORTAL_STEPS.map((step, i) => {
-              const isComplete = i < currentIndex;
-              const isActive = i === currentIndex;
-              const isLast = i === PORTAL_STEPS.length - 1;
-
-              return (
-                <div
-                  key={step}
-                  className="flex items-center flex-1 last:flex-none"
-                >
-                  <div className="flex flex-col items-center">
-                    <div
-                      className={[
-                        "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all",
-                        isComplete
-                          ? "bg-emerald-500 border-emerald-500 text-white"
-                          : isActive
-                            ? "bg-cyan-500 border-cyan-500 text-white"
-                            : "bg-white border-gray-200 text-gray-300",
-                      ].join(" ")}
-                    >
-                      {isComplete ? (
-                        <svg
-                          className="w-3.5 h-3.5"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={3}
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
-                      ) : (
-                        i + 1
-                      )}
-                    </div>
-                    <span
-                      className={[
-                        "text-xs mt-1 text-center leading-tight",
-                        isActive
-                          ? "text-cyan-600 font-semibold"
-                          : isComplete
-                            ? "text-emerald-600"
-                            : "text-gray-300",
-                      ].join(" ")}
-                    >
-                      {STEP_LABELS[step]}
-                    </span>
-                  </div>
-                  {!isLast && (
-                    <div
-                      className={[
-                        "flex-1 h-0.5 mb-5 mx-1",
-                        i < currentIndex ? "bg-emerald-400" : "bg-gray-200",
-                      ].join(" ")}
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        {/* Live claim status — polls the client-safe updates feed */}
+        <ClientPortalStatus token={token} />
 
         {/* Approvals the client still needs to sign (hides itself when none) */}
         <ClientPortalAuthorities token={token} />
