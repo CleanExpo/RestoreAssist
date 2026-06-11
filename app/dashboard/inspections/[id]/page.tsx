@@ -45,6 +45,13 @@ const ClientPortalLinkButton = dynamic(
     })),
   { ssr: false },
 );
+const ClientEvidenceReviewPanel = dynamic(
+  () =>
+    import("@/components/inspection/ClientEvidenceReviewPanel").then((m) => ({
+      default: m.ClientEvidenceReviewPanel,
+    })),
+  { ssr: false },
+);
 const ExportPdfButton = dynamic(
   () => import("@/components/inspection/ExportPdfButton"),
   { ssr: false },
@@ -1724,6 +1731,7 @@ export default function InspectionDetailPage({
             />
             <div className="mt-3 space-y-3">
               <ClientPortalLinkButton inspectionId={inspection.id} />
+              <ClientEvidenceReviewPanel inspectionId={inspection.id} />
               <HomeownerCapturePanel inspectionId={inspection.id} />
             </div>
           </div>
