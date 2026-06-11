@@ -1880,6 +1880,8 @@ model Inspection {
 
   // Homeowner self-capture tokens scoped to this inspection's sketch (spec §2).
   captureTokens CaptureToken[]
+  // Client-portal evidence submissions (quarantined until staff promote).
+  clientEvidenceSubmissions ClientEvidenceSubmission[]
 
   // Inspection Metadata
   inspectionNumber String   @unique // NIR-YYYY-MM-XXXX format
@@ -5987,6 +5989,27 @@ model CaptureToken {
   submittedAt     DateTime? // set when the homeowner submits their capture
   createdByUserId String? // staff member who issued the invite
   createdAt       DateTime   @default(now())
+
+  @@index([inspectionId])
+}
+
+// Client-portal evidence submission (client portal Phase 2).
+// Client-uploaded images + description land HERE (not EvidenceItem) so they are
+// structurally quarantined — reports/exports read EvidenceItem and never see
+// these until a technician promotes them (reviewedAt). Mirrors the homeowner D4
+// sidecar pattern: zero changes to any evidence reader.
+model ClientEvidenceSubmission {
+  id            String     @id @default(cuid())
+  inspectionId  String
+  inspection    Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  description   String?    @db.Text
+  fileUrl       String?
+  fileName      String?
+  fileMimeType  String?
+  fileSizeBytes Int?
+  submittedAt   DateTime   @default(now())
+  reviewedAt    DateTime? // set when a tech promotes this into EvidenceItem
+  reviewedById  String?
 
   @@index([inspectionId])
 }
