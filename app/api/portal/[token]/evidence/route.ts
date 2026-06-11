@@ -108,6 +108,7 @@ export async function POST(
         buffer: d.buffer,
         filename: fileName,
         mimeType: d.mime,
+        folder: "evidence",
         orgId,
         inspectionId: inspection.id,
       });
