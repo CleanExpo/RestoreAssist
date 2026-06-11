@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit, getClientIp } from "@/lib/rate-limiter";
 import { apiError } from "@/lib/api-errors";
+import { verifyBotId } from "@/lib/auth/botid";
+import { validateCsrf } from "@/lib/csrf";
 
 const SIGNATURE_TOKEN_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -132,6 +134,19 @@ export async function POST(
       prefix: "form-sign-submit",
     });
     if (rateLimited) return rateLimited;
+
+    // Public token-gated legal write: parity with other portal write routes —
+    // bot defence + same-origin CSRF before any DB work (#46).
+    const bot = await verifyBotId();
+    if (!bot.ok) {
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Request blocked",
+        status: 403,
+      });
+    }
+    const csrf = validateCsrf(request);
+    if (csrf) return csrf;
 
     const { token } = await params;
     const body = await request.json();
