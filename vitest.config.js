@@ -18,6 +18,7 @@ export default {
       "components/**/__tests__/**/*.test.ts",
       "components/**/__tests__/**/*.test.tsx",
       "app/billing/**/__tests__/**/*.test.tsx",
+      "app/capture/**/__tests__/**/*.test.tsx",
     ],
     exclude: [
       "e2e/**",
