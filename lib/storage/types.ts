@@ -13,6 +13,13 @@ export interface UploadInput {
   orgId: string;
   /** Optional inspection ID — used in path structure */
   inspectionId?: string;
+  /**
+   * When true, write ONLY the private original (no compressed/thumbnail copies
+   * to the public optimised bucket). Use for unreviewed/quarantined uploads
+   * (e.g. client-portal evidence) that must not be publicly fetchable before
+   * staff review. Returns empty optimised URLs/paths.
+   */
+  originalsOnly?: boolean;
 }
 
 export interface UploadOutput {
