@@ -422,6 +422,10 @@ model ClientPortalAccount {
   token          String    @unique
   tokenRotatedAt DateTime?
   revokedAt      DateTime?
+  // Expiry (security review must-fix): a portal link authorises signing, so it
+  // must not be an unbounded-lifetime bearer token. Null = legacy/no-expiry
+  // (grandfathered read-only links); set on issue/re-send.
+  expiresAt      DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   lastAccessedAt DateTime?

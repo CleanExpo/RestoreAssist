@@ -45,8 +45,34 @@ describe("lookupPortalAccount", () => {
         clientId: true,
         createdAt: true,
         tokenRotatedAt: true,
+        expiresAt: true,
       },
     });
+  });
+
+  it("returns null for an expired link (expiresAt in the past)", async () => {
+    findFirst.mockResolvedValueOnce({
+      id: "cpa_x",
+      clientId: "c_x",
+      createdAt: new Date(),
+      tokenRotatedAt: null,
+      expiresAt: new Date(Date.now() - 1000),
+    });
+    expect(await lookupPortalAccount("expired")).toBeNull();
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it("accepts a link whose expiresAt is in the future", async () => {
+    findFirst.mockResolvedValueOnce({
+      id: "cpa_y",
+      clientId: "c_y",
+      createdAt: new Date(),
+      tokenRotatedAt: null,
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+    const r = await lookupPortalAccount("fresh");
+    expect(r?.clientId).toBe("c_y");
+    expect(update).toHaveBeenCalledTimes(1);
   });
 
   it("returns the row and stamps lastAccessedAt on hit", async () => {
