@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { verifyPortalToken } from "@/lib/portal-token";
 import { lookupPortalAccount } from "@/lib/portal/lookup-portal-account";
 import { prisma } from "@/lib/prisma";
+import { ClientPortalVideos } from "@/components/portal/ClientPortalVideos";
 
 // Statuses shown in the public timeline (subset of internal statuses)
 const PORTAL_STEPS = [
@@ -419,6 +420,9 @@ export default async function ClientPortalPage({ params }: PageProps) {
             </p>
           </div>
         )}
+
+        {/* Understanding your claim — explainer videos */}
+        <ClientPortalVideos />
       </div>
 
       {/* Footer */}
