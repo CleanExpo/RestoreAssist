@@ -38,6 +38,13 @@ const HomeownerCapturePanel = dynamic(
     })),
   { ssr: false },
 );
+const ClientPortalLinkButton = dynamic(
+  () =>
+    import("@/components/inspection/ClientPortalLinkButton").then((m) => ({
+      default: m.ClientPortalLinkButton,
+    })),
+  { ssr: false },
+);
 const ExportPdfButton = dynamic(
   () => import("@/components/inspection/ExportPdfButton"),
   { ssr: false },
@@ -1715,7 +1722,8 @@ export default function InspectionDetailPage({
               propertyPostcode={inspection.propertyPostcode ?? undefined}
               autoFetchFloorPlan={autoFetchFloorPlan}
             />
-            <div className="mt-3">
+            <div className="mt-3 space-y-3">
+              <ClientPortalLinkButton inspectionId={inspection.id} />
               <HomeownerCapturePanel inspectionId={inspection.id} />
             </div>
           </div>
