@@ -64,19 +64,29 @@ export async function POST(
       });
     }
 
-    // Reuse the client's active portal token if present; else mint one.
+    // Reuse the client's active portal token if present; else mint one. Always
+    // (re)set a 30-day expiry on send — the link authorises signing, so it must
+    // not be an unbounded-lifetime bearer token (security review must-fix).
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     const existing = await prisma.clientPortalAccount.findFirst({
       where: { clientId: client.id, revokedAt: null },
-      select: { token: true },
+      select: { id: true, token: true },
     });
-    const token =
-      existing?.token ??
-      (
+    let token: string;
+    if (existing) {
+      await prisma.clientPortalAccount.update({
+        where: { id: existing.id },
+        data: { expiresAt },
+      });
+      token = existing.token;
+    } else {
+      token = (
         await prisma.clientPortalAccount.create({
-          data: { clientId: client.id, token: mintToken() },
+          data: { clientId: client.id, token: mintToken(), expiresAt },
           select: { token: true },
         })
       ).token;
+    }
 
     const origin = request.headers.get("origin") ?? "";
     const url = `${origin}/portal/${token}`;

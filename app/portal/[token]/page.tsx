@@ -4,6 +4,7 @@ import { lookupPortalAccount } from "@/lib/portal/lookup-portal-account";
 import { prisma } from "@/lib/prisma";
 import { ClientPortalVideos } from "@/components/portal/ClientPortalVideos";
 import { ClientPortalUpload } from "@/components/portal/ClientPortalUpload";
+import { ClientPortalAuthorities } from "@/components/portal/ClientPortalAuthorities";
 
 // Statuses shown in the public timeline (subset of internal statuses)
 const PORTAL_STEPS = [
@@ -281,6 +282,9 @@ export default async function ClientPortalPage({ params }: PageProps) {
             })}
           </div>
         </div>
+
+        {/* Approvals the client still needs to sign (hides itself when none) */}
+        <ClientPortalAuthorities token={token} />
 
         {/* Affected areas */}
         {inspection.affectedAreas.length > 0 && (

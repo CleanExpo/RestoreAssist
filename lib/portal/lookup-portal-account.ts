@@ -24,6 +24,7 @@ export interface PortalAccountLookupResult {
   clientId: string;
   createdAt: Date;
   tokenRotatedAt: Date | null;
+  expiresAt: Date | null;
 }
 
 export async function lookupPortalAccount(
@@ -42,10 +43,17 @@ export async function lookupPortalAccount(
       clientId: true,
       createdAt: true,
       tokenRotatedAt: true,
+      expiresAt: true,
     },
   });
 
   if (!account) return null;
+
+  // Security review must-fix: reject expired links. Null expiresAt = legacy
+  // read-only links, grandfathered (no expiry was ever set on them).
+  if (account.expiresAt && account.expiresAt.getTime() <= Date.now()) {
+    return null;
+  }
 
   // Best-effort access-time stamp. Failure must not block the user —
   // the portal page renders even if this write fails.

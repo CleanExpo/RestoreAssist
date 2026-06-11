@@ -10,7 +10,11 @@ vi.mock("@/lib/email-send", () => ({ sendEmail: vi.fn(async () => {}) }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     inspection: { findUnique: vi.fn() },
-    clientPortalAccount: { findFirst: vi.fn(), create: vi.fn() },
+    clientPortalAccount: {
+      findFirst: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+    },
   },
 }));
 
@@ -28,6 +32,7 @@ const p = prisma as unknown as {
   clientPortalAccount: {
     findFirst: ReturnType<typeof vi.fn>;
     create: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
   };
 };
 
@@ -40,6 +45,7 @@ beforeEach(() => {
   });
   p.clientPortalAccount.findFirst.mockResolvedValue(null);
   p.clientPortalAccount.create.mockResolvedValue({ token: "NEWTOK" });
+  p.clientPortalAccount.update.mockResolvedValue({});
 });
 
 const req = () =>
