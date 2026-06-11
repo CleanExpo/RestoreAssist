@@ -106,6 +106,13 @@ export interface SketchEditorV2Props {
    * underlay. Default `"technician"`.
    */
   mode?: "technician" | "guided";
+  /**
+   * Homeowner self-capture token. When set, the editor saves to the public
+   * capture route (POST /api/capture/[token]/sketch) instead of the authed
+   * inspection route, and skips the authed load/materials fetches. Pair with
+   * mode="guided". (Homeowner Phase 4.)
+   */
+  captureToken?: string;
   className?: string;
   width?: number;
   height?: number;
@@ -129,12 +136,15 @@ export function SketchEditorV2({
   propertyPostcode,
   readonly = false,
   mode = "technician",
+  captureToken,
   className,
   width = 1200,
   height = 800,
   autoFetchFloorPlan = false,
 }: SketchEditorV2Props) {
   const guided = mode === "guided";
+  // Homeowner capture mode: save to the public token route; skip authed fetches.
+  const captureMode = !!captureToken;
   const uid = useId();
 
   // ── Floor state ────────────────────────────────────────
@@ -182,7 +192,7 @@ export function SketchEditorV2({
 
   // ── Load sketch data from API ──────────────────────────
   useEffect(() => {
-    if (!inspectionId) return;
+    if (!inspectionId || captureMode) return; // capture mode starts fresh (no authed load)
     let cancelled = false;
     (async () => {
       try {
@@ -244,6 +254,7 @@ export function SketchEditorV2({
 
   // ── Load ANZ materials library for the picker (spec §5.1) ──
   useEffect(() => {
+    if (captureMode) return; // guided homeowner mode uses the bundled ANZ fallback
     let cancelled = false;
     fetch("/api/materials")
       .then((r) => (r.ok ? r.json() : { materials: [] }))
@@ -261,7 +272,7 @@ export function SketchEditorV2({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [captureMode]);
 
   const activeFloor = floorsData[activeIdx];
 
@@ -275,7 +286,8 @@ export function SketchEditorV2({
   // (inspectionId, floorNumber); clientUpdatedAt rides as a header
   // on each POST so the server can drop stale replays via 409.
   const scheduleSave = useCallback(() => {
-    if (!inspectionId || readonly) return;
+    if (readonly) return;
+    if (!inspectionId && !captureToken) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
       setSaving(true);
@@ -300,8 +312,11 @@ export function SketchEditorV2({
           country,
         };
 
+        const saveUrl = captureToken
+          ? `/api/capture/${captureToken}/sketch`
+          : `/api/inspections/${inspectionId}/sketches`;
         try {
-          const res = await fetch(`/api/inspections/${inspectionId}/sketches`, {
+          const res = await fetch(saveUrl, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -311,6 +326,11 @@ export function SketchEditorV2({
           });
           if (!res.ok) throw new Error(`save ${res.status}`);
         } catch {
+          // Capture mode has no offline queue (the queue is bound to the authed
+          // sketches route); a failed homeowner save just surfaces via savedAt.
+          if (captureMode || !inspectionId) {
+            return;
+          }
           // Network failure or non-2xx — queue locally, drain later.
           try {
             await enqueueSketchSave(inspectionId, {
@@ -357,7 +377,7 @@ export function SketchEditorV2({
       }
       setSaving(false);
     }, 1500);
-  }, [inspectionId, readonly, floorsData, country]);
+  }, [inspectionId, readonly, floorsData, country, captureMode, captureToken]);
 
   // RA-1762 / RA-1769 — keep the offline-pending count + failed-entry
   // list fresh. Pending changes when sibling tabs or the SW drain
