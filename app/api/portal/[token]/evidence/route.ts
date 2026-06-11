@@ -111,6 +111,9 @@ export async function POST(
         folder: "evidence",
         orgId,
         inspectionId: inspection.id,
+        // Quarantined client evidence: private original only — no public-CDN
+        // copies until a tech promotes it out of quarantine (#45).
+        originalsOnly: true,
       });
       await prisma.clientEvidenceSubmission.create({
         data: {

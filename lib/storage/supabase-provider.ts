@@ -49,6 +49,50 @@ export class SupabaseStorageProvider implements StorageProvider {
     const sha256 = computeSha256(input.buffer);
     const isImage = isImageMimeType(input.mimeType);
 
+    // Originals-only: private original write, nothing to the public CDN. Used
+    // for unreviewed/quarantined uploads (client-portal evidence) so they can't
+    // be path-guessed from the public bucket before staff review.
+    if (input.originalsOnly) {
+      const originalExtOnly = getFileExtension(input.filename);
+      const { originalPath } = buildPaths(
+        input.orgId,
+        input.inspectionId,
+        uuid,
+        originalExtOnly,
+        originalExtOnly,
+      );
+      const { error: origOnlyErr } = await supabase.storage
+        .from(BUCKET_ORIGINALS)
+        .upload(originalPath, input.buffer, {
+          contentType: input.mimeType,
+          upsert: false,
+        });
+      if (origOnlyErr)
+        throw new Error(
+          `[storage] Original upload failed: ${origOnlyErr.message}`,
+        );
+
+      const { data: signedOnly, error: signOnlyErr } = await supabase.storage
+        .from(BUCKET_ORIGINALS)
+        .createSignedUrl(originalPath, 3600);
+      if (signOnlyErr || !signedOnly?.signedUrl) {
+        throw new Error(
+          `[storage] Signed URL generation failed: ${signOnlyErr?.message}`,
+        );
+      }
+
+      return {
+        originalUrl: signedOnly.signedUrl,
+        compressedUrl: "",
+        thumbnailUrl: "",
+        storagePath: originalPath,
+        compressedPath: "",
+        thumbnailPath: "",
+        sizeBytes: input.buffer.byteLength,
+        sha256,
+      };
+    }
+
     let compressedBuffer: Buffer;
     let thumbnailBuffer: Buffer;
     let optimisedExt: string;
