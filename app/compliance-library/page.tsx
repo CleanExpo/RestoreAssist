@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import { motion } from "framer-motion";
 import Header from "@/components/landing/Header";
 import Footer from "@/components/landing/Footer";
@@ -192,16 +191,21 @@ export default function ComplianceLibraryPage() {
                       >
                         {item.description}
                       </p>
-                      <Link
-                        href="#"
-                        className={`text-sm font-medium ${darkMode ? "text-[#8A6B4E] hover:text-[#8A6B4E]/80" : "text-[#8A6B4E] hover:text-[#8A6B4E]/90"} transition-colors`}
+                      {/* RA funnel launch assets: compliance-library resources
+                          aren't published as individual pages yet, so there's no
+                          destination route. Render a non-interactive "Coming Soon"
+                          badge instead of a dead href="#" link. Swap to a real
+                          download/route link once each resource is published. */}
+                      <span
+                        aria-disabled="true"
+                        className={`text-sm font-medium ${darkMode ? "text-[#8A6B4E]/70" : "text-[#8A6B4E]/70"}`}
                         style={{
                           fontFamily:
                             '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                         }}
                       >
                         Coming Soon
-                      </Link>
+                      </span>
                     </div>
                   ))}
                 </div>
