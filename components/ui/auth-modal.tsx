@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { motion, AnimatePresence, type Variants } from "framer-motion"
 import { X, Mail, ArrowRight } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -211,13 +212,23 @@ function AuthModal({
                             <motion.div variants={item} className="mt-8 text-center">
                                 <p className="text-xs text-zinc-400">
                                     By clicking continue, you agree to our{" "}
-                                    <a href="#" className="underline hover:text-zinc-900 dark:hover:text-zinc-50">
+                                    <Link
+                                        href="/terms"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="underline hover:text-zinc-900 dark:hover:text-zinc-50"
+                                    >
                                         Terms of Service
-                                    </a>{" "}
+                                    </Link>{" "}
                                     and{" "}
-                                    <a href="#" className="underline hover:text-zinc-900 dark:hover:text-zinc-50">
+                                    <Link
+                                        href="/privacy"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="underline hover:text-zinc-900 dark:hover:text-zinc-50"
+                                    >
                                         Privacy Policy
-                                    </a>
+                                    </Link>
                                 </p>
                             </motion.div>
                         </motion.div>
