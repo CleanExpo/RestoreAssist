@@ -38,6 +38,15 @@
 
 BEGIN;
 
+-- RA-4956 fix: ensure `authenticated` role exists (no-op on Supabase; needed on plain PG).
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+    CREATE ROLE authenticated NOLOGIN;
+  END IF;
+END
+$$;
+
 -- ───────────────────────────────────────────────────────────────────────────
 -- Helpers. CREATE OR REPLACE so this is safe whether or not RA-413 ran first.
 -- (RA-413 created identical definitions; redefining is a no-op there.)

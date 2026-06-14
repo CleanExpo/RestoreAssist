@@ -38,6 +38,20 @@
 
 BEGIN;
 
+-- RA-4956 fix: ensure the Supabase-managed `authenticated` role exists before
+-- the policies below are emitted (FOR ... TO authenticated). On Supabase prod
+-- and sandbox this role already exists (IF NOT EXISTS => no-op, prod unchanged).
+-- On plain Postgres (CI / local) it does not, which previously aborted the whole
+-- migration with `role "authenticated" does not exist`. A bare NOLOGIN role is
+-- inert in prod and lets the migration apply uniformly everywhere.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+    CREATE ROLE authenticated NOLOGIN;
+  END IF;
+END
+$$;
+
 -- ───────────────────────────────────────────────────────────────────────────
 -- Helpers. CREATE OR REPLACE so this is safe whether or not RA-413 ran first.
 -- (RA-413 created identical definitions; redefining is a no-op there.)
