@@ -257,6 +257,19 @@ export async function POST(request: NextRequest) {
           });
 
           if (mapped) {
+            if (mapped.needsPostcodeReview) {
+              // Address had no extractable AU postcode — propertyPostcode fell
+              // back to the sentinel "0000", which detectJurisdiction reads as
+              // NSW. Flag for operator correction; do NOT guess the postcode.
+              console.warn(
+                "[dr-nrpg webhook] Inspection created with sentinel postcode (needs review):",
+                {
+                  jobId,
+                  inspectionNumber: mapped.inspectionNumber,
+                  propertyAddress: mapped.propertyAddress,
+                },
+              );
+            }
             const inspection = await prisma.inspection.create({
               data: {
                 userId: integration.userId,

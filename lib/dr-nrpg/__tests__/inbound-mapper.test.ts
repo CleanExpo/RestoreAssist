@@ -79,6 +79,7 @@ describe("mapPayloadToInspection", () => {
     expect(out).not.toBeNull();
     expect(out!.propertyAddress).toBe("42 Wallaby Way, Sydney NSW 2000");
     expect(out!.propertyPostcode).toBe("2000");
+    expect(out!.needsPostcodeReview).toBe(false);
     expect(out!.status).toBe("DRAFT");
     expect(out!.source).toBe("DR_NRPG");
     expect(out!.claimType).toBe("WATER");
@@ -94,7 +95,7 @@ describe("mapPayloadToInspection", () => {
     expect(out).toBeNull();
   });
 
-  it("falls back to postcode '0000' when address lacks a postcode", () => {
+  it("falls back to postcode '0000' AND flags needsPostcodeReview when address lacks a postcode", () => {
     const out = mapPayloadToInspection({
       payload: {
         ...basePayload,
@@ -102,7 +103,22 @@ describe("mapPayloadToInspection", () => {
       },
       randomHex: "abcd",
     });
+    // Sentinel postcode is still set so the job is not dropped...
     expect(out!.propertyPostcode).toBe("0000");
+    // ...but the review flag warns downstream the jurisdiction is unverified.
+    expect(out!.needsPostcodeReview).toBe(true);
+    // Rest of the payload still maps cleanly.
+    expect(out!.propertyAddress).toBe("Somewhere remote, no postcode");
+    expect(out!.claimType).toBe("WATER");
+    expect(out!.source).toBe("DR_NRPG");
+  });
+
+  it("does not flag needsPostcodeReview when a real postcode is present", () => {
+    const out = mapPayloadToInspection({
+      payload: basePayload,
+      randomHex: "abcd",
+    });
+    expect(out!.needsPostcodeReview).toBe(false);
   });
 
   it("leaves claimType null when lossType is unknown — no silent WATER default", () => {

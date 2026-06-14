@@ -10,7 +10,10 @@
  * Mapping rules:
  *  - propertyAddress: required — the webhook caller already gated on this
  *  - propertyPostcode: extract AU 4-digit postcode at end of address string;
- *                      fallback "0000" with a TODO for manual correction
+ *                      fallback "0000" AND set needsPostcodeReview: true so the
+ *                      sentinel-derived jurisdiction (detectJurisdiction treats
+ *                      "0000" as NSW) is never silently trusted. We do NOT guess
+ *                      the real postcode — that's an operator decision.
  *  - claimType: lossType → ClaimType enum (water→WATER, fire→FIRE, etc.);
  *               unknown / missing → null (NOT defaulted to WATER — caller
  *               can review). See [ASSUMPTION] in PR body.
@@ -76,6 +79,13 @@ export function extractAuPostcode(address: string): string | null {
 }
 
 /**
+ * Sentinel postcode used when an inbound address has no extractable AU
+ * postcode. Downstream `detectJurisdiction` parses this to NSW, so any output
+ * carrying this value MUST also carry `needsPostcodeReview: true`.
+ */
+export const POSTCODE_SENTINEL = "0000";
+
+/**
  * Generate an inspection-number that matches the existing
  * NIR-YYYY-MM-XXXXYYYY convention used elsewhere in the codebase.
  *
@@ -101,6 +111,14 @@ export interface MappedInspectionInput {
   inspectionNumber: string;
   propertyAddress: string;
   propertyPostcode: string;
+  /**
+   * True when the address had no extractable AU postcode and
+   * `propertyPostcode` was set to the `POSTCODE_SENTINEL` ("0000").
+   * The sentinel resolves to NSW in `detectJurisdiction`, so any
+   * jurisdiction/SafeWork logic derived from it is UNVERIFIED until an
+   * operator supplies the real postcode. We deliberately do not guess it.
+   */
+  needsPostcodeReview: boolean;
   inspectionDate: Date;
   status: "DRAFT";
   source: "DR_NRPG";
@@ -121,7 +139,8 @@ export function mapPayloadToInspection(opts: {
   if (!payload.propertyAddress?.trim()) return null;
 
   const inspectionDate = new Date(payload.timestamp);
-  const postcode = extractAuPostcode(payload.propertyAddress) ?? "0000";
+  const extractedPostcode = extractAuPostcode(payload.propertyAddress);
+  const postcode = extractedPostcode ?? POSTCODE_SENTINEL;
 
   return {
     inspectionNumber: buildInspectionNumber({
@@ -131,6 +150,7 @@ export function mapPayloadToInspection(opts: {
     }),
     propertyAddress: payload.propertyAddress,
     propertyPostcode: postcode,
+    needsPostcodeReview: extractedPostcode === null,
     inspectionDate,
     status: "DRAFT",
     source: "DR_NRPG",
