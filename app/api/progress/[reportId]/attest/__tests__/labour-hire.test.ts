@@ -60,6 +60,7 @@ vi.mock("@/lib/observability", () => ({
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    report: { findUnique: vi.fn() },
     claimProgress: { findUnique: vi.fn() },
     user: { findUnique: vi.fn() },
     progressTransition: { findUnique: vi.fn() },
@@ -95,6 +96,7 @@ import { POST } from "../route";
 
 const mockSession = getServerSession as unknown as ReturnType<typeof vi.fn>;
 const p = prisma as unknown as {
+  report: { findUnique: ReturnType<typeof vi.fn> };
   claimProgress: { findUnique: ReturnType<typeof vi.fn> };
   user: { findUnique: ReturnType<typeof vi.fn> };
   attestationConsentToken: {
@@ -130,6 +132,8 @@ function happyPathSetup(opts: { ctxConsumed?: boolean } = {}) {
   mockSession.mockResolvedValue({
     user: { id: "u_1", name: "Test User", email: "u@test.com", role: "USER" },
   });
+  // RA-1828 — ownership gate: report r1 belongs to the session user u_1.
+  p.report.findUnique.mockResolvedValue({ id: "r1", userId: "u_1" });
   p.claimProgress.findUnique.mockResolvedValue({
     id: "cp_1",
     currentState: "AWAITING_TECHNICIAN_SIGN_OFF",
@@ -278,6 +282,8 @@ describe("RA-1763 — labour-hire validator wired into attest route", () => {
     mockSession.mockResolvedValue({
       user: { id: "u_1", name: "Test", email: "u@test.com", role: "USER" },
     });
+    // RA-1828 — ownership gate: report r1 belongs to the session user u_1.
+    p.report.findUnique.mockResolvedValue({ id: "r1", userId: "u_1" });
     p.claimProgress.findUnique.mockResolvedValue({
       id: "cp_1",
       currentState: "AWAITING_TECHNICIAN_SIGN_OFF",

@@ -34,7 +34,7 @@ export async function GET(
       userRole: session.user.role ?? "USER",
     });
 
-    const result = await getState(reportId, role);
+    const result = await getState(reportId, session.user.id, role);
     if (!result.ok) {
       const status =
         result.code === "NOT_FOUND"
