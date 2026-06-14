@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -95,92 +95,167 @@ export default function ClientDetailPage({
   const [loading, setLoading] = useState(true);
   const [inspections, setInspections] = useState<LinkedInspection[]>([]);
   const [loadingInspections, setLoadingInspections] = useState(false);
+  const [inspectionsError, setInspectionsError] = useState<string | null>(null);
   const [invoices, setInvoices] = useState<RestorationDoc[]>([]);
   const [invoicesLoading, setInvoicesLoading] = useState(false);
+  const [invoicesError, setInvoicesError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchClient();
-    fetchInspections();
-  }, [params.id]);
-
-  const fetchInspections = async () => {
-    setLoadingInspections(true);
-    try {
-      const res = await fetch(
-        `/api/inspections?clientId=${params.id}&limit=50`,
-      );
-      if (res.ok) {
+  // Bug 3 (race guard): every fetch in the params.id effect runs against an
+  // AbortController scoped to that id. When the id changes (fast A->B nav) or
+  // the component unmounts, the controller is aborted so a slower batch for
+  // client A can never resolve and overwrite client B's state. `isAborted()`
+  // re-checks the signal before any setState in case a fetch already resolved.
+  const fetchInspections = useCallback(
+    async (clientId: string, signal: AbortSignal, isAborted: () => boolean) => {
+      setLoadingInspections(true);
+      setInspectionsError(null);
+      try {
+        const res = await fetch(
+          `/api/inspections?clientId=${clientId}&limit=50`,
+          { signal },
+        );
+        if (!res.ok) {
+          throw new Error(`Request failed (${res.status})`);
+        }
         const data = await res.json();
+        if (isAborted()) return;
         setInspections(data.inspections ?? data ?? []);
+      } catch (error) {
+        if (signal.aborted || (error as Error)?.name === "AbortError") return;
+        console.error("Error fetching inspections:", error);
+        if (isAborted()) return;
+        setInspectionsError("Couldn't load inspections.");
+      } finally {
+        if (!isAborted()) setLoadingInspections(false);
       }
-    } finally {
-      setLoadingInspections(false);
-    }
-  };
+    },
+    [],
+  );
 
-  const fetchClient = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`/api/clients/${params.id}`);
-      if (response.ok) {
-        const data = await response.json();
-        setClient(data);
-        fetchInvoices(data);
-      } else {
-        toast.error("Failed to fetch client details");
-      }
-    } catch (error) {
-      console.error("Error fetching client:", error);
-      toast.error("Failed to fetch client details");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchInvoices = async (clientData: Client) => {
-    setInvoicesLoading(true);
-    try {
-      const res = await fetch(
-        `/api/restoration-documents?clientId=${clientData.id}`,
-      );
-      if (res.ok) {
-        const data = await res.json();
-        const docs: RestorationDoc[] = data.documents ?? [];
-        if (docs.length > 0) {
-          setInvoices(docs);
+  const fetchInvoices = useCallback(
+    async (
+      clientData: Client,
+      signal: AbortSignal,
+      isAborted: () => boolean,
+    ) => {
+      setInvoicesLoading(true);
+      setInvoicesError(null);
+      try {
+        const res = await fetch(
+          `/api/restoration-documents?clientId=${clientData.id}`,
+          { signal },
+        );
+        if (res.ok) {
+          const data = await res.json();
+          if (isAborted()) return;
+          const docs: RestorationDoc[] = data.documents ?? [];
+          if (docs.length > 0) {
+            setInvoices(docs);
+            return;
+          }
+        } else {
+          throw new Error(`Request failed (${res.status})`);
+        }
+        const reportIds = (clientData.reports ?? [])
+          .slice(0, 5)
+          .map((r) => r.id);
+        if (reportIds.length === 0) {
+          if (!isAborted()) setInvoices([]);
           return;
         }
-      }
-      const reportIds = (clientData.reports ?? []).slice(0, 5).map((r) => r.id);
-      if (reportIds.length === 0) return;
-      const results = await Promise.all(
-        reportIds.map((rid) =>
-          fetch(`/api/restoration-documents?reportId=${rid}`)
-            .then((r) => (r.ok ? r.json() : { documents: [] }))
-            .then((d) => (d.documents ?? []) as RestorationDoc[])
-            .catch(() => [] as RestorationDoc[]),
-        ),
-      );
-      const seen = new Set<string>();
-      const merged: RestorationDoc[] = [];
-      for (const batch of results) {
-        for (const doc of batch) {
-          if (!seen.has(doc.id)) {
-            seen.add(doc.id);
-            merged.push(doc);
+        // Fallback fan-out. A per-report fetch that errors yields [] so one
+        // bad report doesn't blank the whole list, but an aborted signal
+        // rejects and bubbles to the catch below to be ignored.
+        const results = await Promise.all(
+          reportIds.map((rid) =>
+            fetch(`/api/restoration-documents?reportId=${rid}`, { signal })
+              .then((r) => (r.ok ? r.json() : { documents: [] }))
+              .then((d) => (d.documents ?? []) as RestorationDoc[])
+              .catch((e) => {
+                if (signal.aborted || e?.name === "AbortError") throw e;
+                return [] as RestorationDoc[];
+              }),
+          ),
+        );
+        if (isAborted()) return;
+        const seen = new Set<string>();
+        const merged: RestorationDoc[] = [];
+        for (const batch of results) {
+          for (const doc of batch) {
+            if (!seen.has(doc.id)) {
+              seen.add(doc.id);
+              merged.push(doc);
+            }
           }
         }
+        merged.sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        );
+        setInvoices(merged);
+      } catch (error) {
+        if (signal.aborted || (error as Error)?.name === "AbortError") return;
+        console.error("Error fetching invoices:", error);
+        if (isAborted()) return;
+        setInvoicesError("Couldn't load invoices.");
+      } finally {
+        if (!isAborted()) setInvoicesLoading(false);
       }
-      merged.sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      );
-      setInvoices(merged);
-    } catch (error) {
-      console.error("Error fetching invoices:", error);
-    } finally {
-      setInvoicesLoading(false);
-    }
+    },
+    [],
+  );
+
+  const fetchClient = useCallback(
+    async (clientId: string, signal: AbortSignal, isAborted: () => boolean) => {
+      try {
+        setLoading(true);
+        const response = await fetch(`/api/clients/${clientId}`, { signal });
+        if (response.ok) {
+          const data = await response.json();
+          if (isAborted()) return;
+          setClient(data);
+          void fetchInvoices(data, signal, isAborted);
+        } else {
+          if (isAborted()) return;
+          toast.error("Failed to fetch client details");
+        }
+      } catch (error) {
+        if (signal.aborted || (error as Error)?.name === "AbortError") return;
+        console.error("Error fetching client:", error);
+        if (isAborted()) return;
+        toast.error("Failed to fetch client details");
+      } finally {
+        if (!isAborted()) setLoading(false);
+      }
+    },
+    [fetchInvoices],
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const isAborted = () => controller.signal.aborted;
+    void fetchClient(params.id, controller.signal, isAborted);
+    void fetchInspections(params.id, controller.signal, isAborted);
+    return () => controller.abort();
+  }, [params.id, fetchClient, fetchInspections]);
+
+  const retryInspections = () => {
+    const controller = new AbortController();
+    void fetchInspections(
+      params.id,
+      controller.signal,
+      () => controller.signal.aborted,
+    );
+  };
+
+  const retryInvoices = () => {
+    if (!client) return;
+    const controller = new AbortController();
+    void fetchInvoices(
+      client,
+      controller.signal,
+      () => controller.signal.aborted,
+    );
   };
 
   const getInspectionStatusColor = (status: string) => {
@@ -399,7 +474,7 @@ export default function ClientDetailPage({
         <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
           <ClipboardList className="text-cyan-400" size={20} />
           Inspections
-          {!loadingInspections && (
+          {!loadingInspections && !inspectionsError && (
             <span className="text-slate-400 text-sm font-normal">
               ({inspections.length})
             </span>
@@ -413,6 +488,20 @@ export default function ClientDetailPage({
                 className="h-14 bg-slate-700/30 rounded-lg animate-pulse"
               />
             ))}
+          </div>
+        ) : inspectionsError ? (
+          <div className="flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-300">
+            <span className="text-sm flex items-center gap-2">
+              <AlertTriangle size={16} />
+              {inspectionsError}
+            </span>
+            <button
+              type="button"
+              onClick={retryInspections}
+              className="flex-shrink-0 rounded px-3 py-1 text-sm border border-red-500/40 hover:bg-red-500/20 transition-colors"
+            >
+              Retry
+            </button>
           </div>
         ) : inspections.length === 0 ? (
           <div className="text-center py-8">
@@ -548,7 +637,7 @@ export default function ClientDetailPage({
         <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
           <Receipt className="text-emerald-400" size={20} />
           Restoration Invoices
-          {!invoicesLoading && (
+          {!invoicesLoading && !invoicesError && (
             <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-600/60 text-slate-300">
               {invoices.length}
             </span>
@@ -563,6 +652,20 @@ export default function ClientDetailPage({
                 className="h-14 bg-slate-700/30 rounded-lg animate-pulse"
               />
             ))}
+          </div>
+        ) : invoicesError ? (
+          <div className="flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-300">
+            <span className="text-sm flex items-center gap-2">
+              <AlertTriangle size={16} />
+              {invoicesError}
+            </span>
+            <button
+              type="button"
+              onClick={retryInvoices}
+              className="flex-shrink-0 rounded px-3 py-1 text-sm border border-red-500/40 hover:bg-red-500/20 transition-colors"
+            >
+              Retry
+            </button>
           </div>
         ) : invoices.length === 0 ? (
           <div className="text-center py-8">
