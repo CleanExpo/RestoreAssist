@@ -27,6 +27,7 @@ import { validateCsrf } from "@/lib/csrf";
 import { withIdempotency } from "@/lib/idempotency";
 import { prisma } from "@/lib/prisma";
 import { canAttest, resolveProgressRole } from "@/lib/progress/permissions";
+import { assertReportOwnership } from "@/lib/progress/service";
 import {
   computeAttestationIntegrityHash,
   validateSignatureDataUrl,
@@ -173,6 +174,18 @@ export async function POST(
       userRole: session.user.role ?? "USER",
       isJuniorTechnician: userRow.isJuniorTechnician ?? false,
     });
+
+    // RA-1828 IDOR fix: bind the attestor to THIS report. Without it any
+    // authenticated user could write a signed attestation against another
+    // tenant's claim by supplying their reportId. 404 (not 403) to avoid
+    // leaking the existence of another tenant's report.
+    const access = await assertReportOwnership(reportId, userId, role);
+    if (!access.ok) {
+      return NextResponse.json(
+        { error: "Report not found" },
+        { status: 404 },
+      );
+    }
 
     if (!canAttest(role, cp.currentState)) {
       return NextResponse.json(

@@ -76,6 +76,44 @@ export interface TransitionArgs {
   expectedVersion?: number;
 }
 
+// ─── Ownership / tenancy ────────────────────────────────────────────────────
+
+/**
+ * Multi-tenant ownership gate (RA-1828 IDOR fix).
+ *
+ * The Progress routes authenticate the caller and resolve their *role*, but
+ * the role only governs WHAT a role may do — it never bound the caller to a
+ * *specific* report. Because `claimProgress.findUnique({ where: { reportId } })`
+ * is keyed purely on the URL-supplied `reportId`, any authenticated user could
+ * read or transition another tenant's claim by guessing/leaking a reportId.
+ *
+ * This function adds the missing WHICH-report dimension: the caller must own
+ * the Report behind `reportId` (Report.userId === actorUserId), with an ADMIN
+ * bypass that mirrors the rest of the Progress layer (init/documents routes).
+ *
+ * Denial returns NOT_FOUND (mapped to HTTP 404 by callers) rather than
+ * FORBIDDEN so we don't leak the existence of another tenant's report — this
+ * matches the canonical owner-scoped read in app/api/reports/[id]/route.ts.
+ *
+ * Returns the report's id on success so callers can avoid a second lookup.
+ */
+export async function assertReportOwnership(
+  reportId: string,
+  actorUserId: string,
+  actorRole: ProgressRole,
+): Promise<ServiceResult<{ reportId: string }>> {
+  const report = await prisma.report.findUnique({
+    where: { id: reportId },
+    select: { id: true, userId: true },
+  });
+  // Collapse "report does not exist" and "report belongs to another tenant"
+  // into the same NOT_FOUND result — no existence leak across tenants.
+  if (!report || (report.userId !== actorUserId && actorRole !== "ADMIN")) {
+    return { ok: false, code: "NOT_FOUND", message: "Report not found" };
+  }
+  return { ok: true, data: { reportId: report.id } };
+}
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 export async function init(
@@ -93,22 +131,13 @@ export async function init(
     };
   }
 
-  // Verify the report exists and the actor has access. The caller owns
-  // session-level auth; here we scope by userId to guarantee tenancy.
-  const report = await prisma.report.findUnique({
-    where: { id: args.reportId },
-    select: { id: true, userId: true },
-  });
-  if (!report) {
-    return { ok: false, code: "NOT_FOUND", message: "Report not found" };
-  }
-  if (report.userId !== args.actorUserId && args.actorRole !== "ADMIN") {
-    return {
-      ok: false,
-      code: "FORBIDDEN",
-      message: "Report not accessible to actor",
-    };
-  }
+  // Verify the report exists and the actor owns it (tenancy gate).
+  const access = await assertReportOwnership(
+    args.reportId,
+    args.actorUserId,
+    args.actorRole,
+  );
+  if (!access.ok) return access;
 
   try {
     const cp = await prisma.claimProgress.create({
@@ -145,6 +174,23 @@ export async function transition(
     userId: args.actorUserId,
     payload: { reportId: args.reportId, actorRole: args.actorRole },
   });
+
+  // RA-1828 IDOR fix: bind the caller to THIS report before any read or
+  // write. Without this, the role gate below would let any authenticated
+  // user transition another tenant's claim by supplying their reportId.
+  const access = await assertReportOwnership(
+    args.reportId,
+    args.actorUserId,
+    args.actorRole,
+  );
+  if (!access.ok) {
+    void recordTransitionBlocked({
+      transitionKey: args.key,
+      userId: args.actorUserId,
+      payload: { code: "NOT_FOUND" },
+    });
+    return access;
+  }
 
   const cp = await prisma.claimProgress.findUnique({
     where: { reportId: args.reportId },
@@ -382,6 +428,7 @@ export async function transition(
 
 export async function getState(
   reportId: string,
+  actorUserId: string,
   actorRole: ProgressRole,
 ): Promise<
   ServiceResult<{
@@ -389,6 +436,10 @@ export async function getState(
     recentTransitions: ProgressTransition[];
   }>
 > {
+  // RA-1828 IDOR fix: caller must own the report before any read.
+  const access = await assertReportOwnership(reportId, actorUserId, actorRole);
+  if (!access.ok) return access;
+
   const cp = await prisma.claimProgress.findUnique({
     where: { reportId },
   });
@@ -412,9 +463,14 @@ export async function getState(
 
 export async function getHistory(
   reportId: string,
+  actorUserId: string,
   actorRole: ProgressRole,
   take = 250,
 ): Promise<ServiceResult<ProgressTransition[]>> {
+  // RA-1828 IDOR fix: caller must own the report before any read.
+  const access = await assertReportOwnership(reportId, actorUserId, actorRole);
+  if (!access.ok) return access;
+
   const cp = await prisma.claimProgress.findUnique({
     where: { reportId },
     select: { id: true, currentState: true },

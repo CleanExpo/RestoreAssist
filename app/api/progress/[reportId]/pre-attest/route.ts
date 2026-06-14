@@ -29,6 +29,7 @@ import { applyRateLimit, getClientIp } from "@/lib/rate-limiter";
 import { validateCsrf } from "@/lib/csrf";
 import { prisma } from "@/lib/prisma";
 import { canAttest, resolveProgressRole } from "@/lib/progress/permissions";
+import { assertReportOwnership } from "@/lib/progress/service";
 import { computeContentHash } from "@/lib/progress/signature";
 
 const ALLOWED_TYPES = new Set([
@@ -129,6 +130,16 @@ export async function POST(
     userRole: session.user.role ?? "USER",
     isJuniorTechnician: userRow?.isJuniorTechnician ?? false,
   });
+
+  // RA-1828 IDOR fix: bind the caller to THIS report before issuing a
+  // consent token. Without it any authenticated user could mint a signing
+  // token against another tenant's claim. 404 (not 403) avoids leaking the
+  // existence of another tenant's report.
+  const access = await assertReportOwnership(reportId, userId, role);
+  if (!access.ok) {
+    return NextResponse.json({ error: "Report not found" }, { status: 404 });
+  }
+
   if (!canAttest(role, cp.currentState)) {
     return NextResponse.json(
       {
