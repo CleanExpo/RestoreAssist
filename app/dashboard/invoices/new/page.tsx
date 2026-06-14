@@ -11,6 +11,11 @@ import {
   FileText,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import {
+  calculateInvoiceTotals,
+  toLocalDateInputValue,
+  addDaysLocalDateInputValue,
+} from "@/lib/invoices/calc";
 
 interface Client {
   id: string;
@@ -50,15 +55,13 @@ export default function NewInvoicePage() {
   const [customerABN, setCustomerABN] = useState("");
 
   // Invoice details
-  const [invoiceDate, setInvoiceDate] = useState(
-    new Date().toISOString().slice(0, 10),
+  const [invoiceDate, setInvoiceDate] = useState(() =>
+    toLocalDateInputValue(),
   );
   const [dueInDays, setDueInDays] = useState(30);
-  const [dueDate, setDueDate] = useState(() => {
-    const date = new Date();
-    date.setDate(date.getDate() + 30);
-    return date.toISOString().slice(0, 10);
-  });
+  const [dueDate, setDueDate] = useState(() =>
+    addDaysLocalDateInputValue(new Date(), 30),
+  );
 
   // Line items
   const [lineItems, setLineItems] = useState<LineItem[]>([
@@ -92,10 +95,13 @@ export default function NewInvoicePage() {
   }, []);
 
   useEffect(() => {
-    // Auto-calculate due date when invoice date or due in days changes
-    const date = new Date(invoiceDate);
-    date.setDate(date.getDate() + parseInt(dueInDays.toString()));
-    setDueDate(date.toISOString().slice(0, 10));
+    // Auto-calculate due date when invoice date or due in days changes.
+    // Parse the YYYY-MM-DD input as a LOCAL calendar date (not UTC) so the
+    // derived due date stays on the user's local calendar.
+    const [y, m, d] = invoiceDate.split("-").map((n) => parseInt(n, 10));
+    if (!y || !m || !d) return;
+    const date = new Date(y, m - 1, d);
+    setDueDate(addDaysLocalDateInputValue(date, parseInt(dueInDays.toString(), 10)));
   }, [invoiceDate, dueInDays]);
 
   useEffect(() => {
@@ -157,32 +163,33 @@ export default function NewInvoicePage() {
   };
 
   const calculateFinancials = () => {
-    let subtotal = 0;
-
-    lineItems.forEach((item) => {
-      subtotal += item.quantity * item.unitPrice * 100;
+    // Mirror the server's persisted computation exactly (lib/invoices/calc),
+    // so the total previewed here equals the total that gets saved. Convert
+    // the form's dollar inputs to integer cents first, matching the payload
+    // sent to the API on submit.
+    const { subtotalExGST, gstAmount, totalIncGST } = calculateInvoiceTotals({
+      lineItems: lineItems.map((item) => ({
+        quantity: item.quantity,
+        unitPrice: Math.round(item.unitPrice * 100),
+        gstRate: item.gstRate,
+      })),
+      discountAmount:
+        discountType === "amount" && discountAmount
+          ? Math.round(parseFloat(discountAmount) * 100)
+          : undefined,
+      discountPercentage:
+        discountType === "percentage" && discountPercentage
+          ? parseFloat(discountPercentage)
+          : undefined,
+      shippingAmount: shippingAmount
+        ? Math.round(parseFloat(shippingAmount) * 100)
+        : undefined,
     });
 
-    // Apply discount
-    if (discountType === "amount" && discountAmount) {
-      subtotal -= parseFloat(discountAmount) * 100;
-    } else if (discountType === "percentage" && discountPercentage) {
-      const discount = subtotal * (parseFloat(discountPercentage) / 100);
-      subtotal -= discount;
-    }
-
-    // Add shipping
-    if (shippingAmount) {
-      subtotal += parseFloat(shippingAmount) * 100;
-    }
-
-    const gst = Math.round(subtotal * 0.1);
-    const total = subtotal + gst;
-
     return {
-      subtotal: Math.round(subtotal),
-      gst,
-      total,
+      subtotal: subtotalExGST,
+      gst: gstAmount,
+      total: totalIncGST,
     };
   };
 
