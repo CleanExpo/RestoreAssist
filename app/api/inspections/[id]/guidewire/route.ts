@@ -132,6 +132,9 @@ async function fetchInspectionForGuidewire(id: string) {
         select: {
           id: true,
           timestamp: true,
+          gpsLatitude: true,
+          gpsLongitude: true,
+          damageCategory: true,
         },
       },
       environmentalData: { select: { id: true } },
@@ -141,7 +144,7 @@ async function fetchInspectionForGuidewire(id: string) {
 
 // ─── NIR → GUIDEWIRE PAYLOAD BUILDER ─────────────────────────────────────────
 
-function buildNirReportOutput(
+export function buildNirReportOutput(
   inspection: Awaited<ReturnType<typeof fetchInspectionForGuidewire>>,
   technicianName: string,
   userId: string,
@@ -259,10 +262,10 @@ function buildNirReportOutput(
       capturedAt: p.timestamp
         ? new Date(p.timestamp).toISOString()
         : new Date().toISOString(),
-      latitude: 0, // TODO: add GPS EXIF extraction (Phase 3)
-      longitude: 0,
+      latitude: p.gpsLatitude ?? 0,
+      longitude: p.gpsLongitude ?? 0,
       sequenceNumber: idx + 1,
-      category: mapPhotoCategory((p as any).category),
+      category: mapPhotoCategory(p.damageCategory),
       standardRef: "IICRC S500 §12.2",
     })),
   };
