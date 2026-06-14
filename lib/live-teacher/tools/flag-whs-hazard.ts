@@ -37,7 +37,19 @@ export const flagWhsHazardSchema = z.object({
 
 export type FlagWhsHazardArgs = z.infer<typeof flagWhsHazardSchema>;
 
-export async function flagWhsHazard(args: FlagWhsHazardArgs) {
+// Owning-user context, threaded from the authenticated turn route so the
+// AI-flagged incident is attributed to the real user (not the "system"
+// placeholder, which polluted WHSIncident.@@index([userId, createdAt]) and
+// the per-user WHS dashboard). Optional + additive so the shared TOOL_HANDLERS
+// signature stays intact; falls back to "system" only when genuinely absent.
+export interface FlagWhsHazardContext {
+  userId?: string;
+}
+
+export async function flagWhsHazard(
+  args: FlagWhsHazardArgs,
+  context?: FlagWhsHazardContext,
+) {
   const {
     inspectionId,
     hazardType,
@@ -71,7 +83,7 @@ export async function flagWhsHazard(args: FlagWhsHazardArgs) {
       description: source
         ? `Flagged by: ${source}${controlsBullets}`
         : controlsBullets || null,
-      userId: "system", // TODO: get from session context
+      userId: context?.userId ?? "system",
     },
     select: {
       id: true,

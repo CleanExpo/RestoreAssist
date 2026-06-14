@@ -29,6 +29,7 @@ import { startLidarScan } from "../start-lidar-scan";
 import { fillScopeItem } from "../fill-scope-item";
 import { flagWhsHazard } from "../flag-whs-hazard";
 import { checkReportGaps } from "../check-report-gaps";
+import { TOOL_HANDLERS } from "../index";
 
 const mockPrisma = prisma as {
   moistureReading: { create: ReturnType<typeof vi.fn> };
@@ -225,6 +226,55 @@ describe("flagWhsHazard", () => {
     );
   });
 
+  it("attributes the incident to the real owning user when context.userId is provided", async () => {
+    mockPrisma.wHSIncident.create.mockResolvedValue({
+      id: "whs-4",
+      incidentType: "asbestos",
+      severity: "HIGH",
+      createdAt: new Date(),
+    });
+
+    await flagWhsHazard(
+      {
+        inspectionId: "insp-1",
+        hazardType: "asbestos",
+        severity: "HIGH",
+      },
+      { userId: "user-real-123" },
+    );
+
+    expect(mockPrisma.wHSIncident.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          userId: "user-real-123",
+        }),
+      }),
+    );
+  });
+
+  it('falls back to "system" only when no owning user is provided', async () => {
+    mockPrisma.wHSIncident.create.mockResolvedValue({
+      id: "whs-5",
+      incidentType: "electrical",
+      severity: "LOW",
+      createdAt: new Date(),
+    });
+
+    await flagWhsHazard({
+      inspectionId: "insp-1",
+      hazardType: "electrical",
+      severity: "LOW",
+    });
+
+    expect(mockPrisma.wHSIncident.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          userId: "system",
+        }),
+      }),
+    );
+  });
+
   it("rejects an invalid incidentTypeEnum value via zod", async () => {
     await expect(
       flagWhsHazard({
@@ -281,5 +331,60 @@ describe("checkReportGaps", () => {
 
     const result = await checkReportGaps({ inspectionId: "insp-2" });
     expect(result.gaps).toHaveLength(0);
+  });
+});
+
+// ─── 7. TOOL_HANDLERS dispatcher (owning-user context threading) ──────────────
+
+describe("TOOL_HANDLERS dispatcher", () => {
+  it("threads the owning userId through to flag_whs_hazard", async () => {
+    mockPrisma.wHSIncident.create.mockResolvedValue({
+      id: "whs-d1",
+      incidentType: "biohazard",
+      severity: "HIGH",
+      createdAt: new Date(),
+    });
+
+    await TOOL_HANDLERS.flag_whs_hazard(
+      {
+        inspectionId: "insp-1",
+        hazardType: "biohazard",
+        severity: "HIGH",
+      },
+      { userId: "user-dispatch-9" },
+    );
+
+    expect(mockPrisma.wHSIncident.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ userId: "user-dispatch-9" }),
+      }),
+    );
+  });
+
+  it("leaves other tools unaffected by the additive context parameter", async () => {
+    mockPrisma.scopeItem.create.mockResolvedValue({
+      id: "si-d1",
+      itemType: "remove_carpet",
+      description: "Remove carpet",
+      quantity: 10,
+      unit: "sqm",
+      clauseRef: "S500:2025 §7.1",
+    });
+
+    // Context is ignored by tools that don't consume it; call still succeeds.
+    const result = (await TOOL_HANDLERS.fill_scope_item(
+      {
+        inspectionId: "insp-1",
+        itemType: "remove_carpet",
+        description: "Remove carpet",
+        quantity: 10,
+        unit: "sqm",
+        clauseRef: "S500:2025 §7.1",
+      },
+      { userId: "user-dispatch-9" },
+    )) as { id: string };
+
+    expect(mockPrisma.scopeItem.create).toHaveBeenCalledOnce();
+    expect(result.id).toBe("si-d1");
   });
 });
