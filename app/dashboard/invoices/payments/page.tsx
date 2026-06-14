@@ -160,13 +160,23 @@ function methodColour(method: string): string {
   return METHOD_COLOURS[method] ?? "bg-gray-100 text-gray-800";
 }
 
-/** Normalise an amount from the API (cents) or mock (dollars) to dollars */
-function normaliseCents(amount: number, isMock: boolean): number {
-  // API stores amounts in cents (integers). Mock data uses dollars.
-  // A heuristic: if it looks like cents (> realistic dollar amount), divide.
-  // But since mock can't be distinguished by field alone, we use the flag.
-  if (!isMock && amount > 1000) return amount / 100;
-  return amount;
+/**
+ * Normalise a payment amount to dollars for display.
+ *
+ * The payments API (`/api/invoices/payments`) returns `InvoicePayment.amount`,
+ * which the Prisma schema defines as `Int // Amount in cents` — it is ALWAYS
+ * integer cents, with no mixed dollar rows. So API amounts must ALWAYS be
+ * divided by 100. The previous `> 1000` heuristic skipped that division for
+ * real payments under $10.00 (e.g. 950 cents rendered as "$950.00").
+ *
+ * The local MOCK_PAYMENTS fallback is authored in dollars, so it is passed
+ * through unchanged.
+ */
+export function paymentAmountToDollars(
+  amount: number,
+  isMock: boolean,
+): number {
+  return isMock ? amount : amount / 100;
 }
 
 const PAGE_SIZE = 25;
@@ -220,7 +230,7 @@ export default function PaymentRegisterPage() {
         clientName: p.invoice?.client?.name ?? "",
         paymentMethod: p.paymentMethod,
         reference: p.reference ?? null,
-        amount: normaliseCents(p.amount, false),
+        amount: paymentAmountToDollars(p.amount, false),
         reconciled: p.reconciled,
         reconciledAt: p.reconciledAt ? p.reconciledAt.substring(0, 10) : null,
         externalProvider: p.externalProvider ?? null,
