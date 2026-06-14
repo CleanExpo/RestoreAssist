@@ -748,12 +748,24 @@ export default function InvoiceDetailPage({
             {/* Financial Summary */}
             <div className="p-6 bg-slate-50 dark:bg-slate-700/30 border-t border-slate-200 dark:border-slate-700">
               <div className="max-w-sm ml-auto space-y-2">
+                {/*
+                  invoice.subtotalExGST already includes shippingAmount (see
+                  app/api/invoices/route.ts: `subtotalExGST += shippingAmount`).
+                  The separate Shipping line below would otherwise double-show
+                  shipping to the viewer. Subtract it here so the displayed
+                  breakdown (subtotal + shipping + GST) sums to the unchanged
+                  Total. Persisted figures are not touched.
+                */}
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-600 dark:text-slate-400">
                     Subtotal (Ex GST)
                   </span>
                   <span className="font-medium text-slate-900 dark:text-white">
-                    ${(invoice.subtotalExGST / 100).toFixed(2)}
+                    $
+                    {(
+                      (invoice.subtotalExGST - (invoice.shippingAmount ?? 0)) /
+                      100
+                    ).toFixed(2)}
                   </span>
                 </div>
                 {invoice.discountAmount && invoice.discountAmount > 0 && (
