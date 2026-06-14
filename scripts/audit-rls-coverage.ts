@@ -38,6 +38,16 @@ export const RA4970_MIGRATION = resolve(
   REPO,
   "supabase/migrations/20260518_enable_rls_phase_1_close_anon_exposure.sql",
 );
+/**
+ * RA-4956 follow-up: downgrades the NextAuth token tables Session/Account from
+ * userId-scoped to service-only by dropping their ra4956_* policies. Its drops
+ * are netted out of the RA-4956 emitted set so this gate reflects the real
+ * post-follow-up RLS posture (see parseServiceOnlyDowngrade).
+ */
+export const RA4956_FOLLOWUP_MIGRATION = resolve(
+  REPO,
+  "prisma/migrations/20260615000000_ra_4956_session_account_service_only/migration.sql",
+);
 
 /**
  * The 119 tables the Supabase advisor flagged as RLS-disabled (the audit set).
@@ -85,9 +95,16 @@ AustralianComplianceRecord StorageMirrorJob ClientPortalAccount SubscriptionEven
  *   until the column shape is verified. Documented in the migration footer.
  */
 export const PUBLIC_REF = new Set<string>([
-  "BuildingCode", "CostDatabase", "IicrcChunk", "RegulatoryDocument",
-  "RegulatorySection", "Citation", "InsurancePolicyRequirement",
-  "ScopePricingDatabase", "WaterDamageClassification", "AbnLookupCache",
+  "BuildingCode",
+  "CostDatabase",
+  "IicrcChunk",
+  "RegulatoryDocument",
+  "RegulatorySection",
+  "Citation",
+  "InsurancePolicyRequirement",
+  "ScopePricingDatabase",
+  "WaterDamageClassification",
+  "AbnLookupCache",
   "AuthorityFormTemplate",
   // Global release-notes table: no ownership column (id, version only); every
   // user reads the same rows. The per-user read-state join (UserReleaseSeen)
@@ -96,15 +113,46 @@ export const PUBLIC_REF = new Set<string>([
 ]);
 
 export const SERVICE_ONLY = new Set<string>([
-  "_prisma_migrations", "WebhookEvent", "StripeWebhookEvent", "CronJobRun",
-  "OAuthHandoffToken", "AttestationConsentToken", "OverrideGovernanceReport",
-  "SecurityEvent", "AuditLog", "ScheduledEmail", "PropertyLookup",
-  "StorageMirrorJob", "HydrationJob", "InvoiceAuditLog",
-  "AgentDefinition", "AgentWorkflow", "AgentTask", "AgentTaskLog",
-  "EvaluationRun", "PromptVariant", "AscoraIntegration", "DrNrpgIntegration",
-  "AscoraJob", "AscoraLineItem", "AscoraNote", "DrNrpgJobSync",
-  "DrNrpgWebhookLog", "ProgressTelemetryEvent", "ContentJob", "ContentPost",
-  "ContentAnalytics", "GateCheck", "PasswordResetToken", "VerificationToken",
+  "_prisma_migrations",
+  "WebhookEvent",
+  "StripeWebhookEvent",
+  "CronJobRun",
+  "OAuthHandoffToken",
+  "AttestationConsentToken",
+  "OverrideGovernanceReport",
+  "SecurityEvent",
+  "AuditLog",
+  "ScheduledEmail",
+  "PropertyLookup",
+  "StorageMirrorJob",
+  "HydrationJob",
+  "InvoiceAuditLog",
+  "AgentDefinition",
+  "AgentWorkflow",
+  "AgentTask",
+  "AgentTaskLog",
+  "EvaluationRun",
+  "PromptVariant",
+  "AscoraIntegration",
+  "DrNrpgIntegration",
+  "AscoraJob",
+  "AscoraLineItem",
+  "AscoraNote",
+  "DrNrpgJobSync",
+  "DrNrpgWebhookLog",
+  "ProgressTelemetryEvent",
+  "ContentJob",
+  "ContentPost",
+  "ContentAnalytics",
+  "GateCheck",
+  "PasswordResetToken",
+  "VerificationToken",
+  // NextAuth OAuth token tables — downgraded from userId-scoped to service-only
+  // by the RA-4956 follow-up migration (20260615000000). They hold refresh /
+  // access tokens; only server code (Postgres superuser + service role, both
+  // BYPASSRLS) may touch them, so default-deny for `authenticated` is correct.
+  "Account",
+  "Session",
 ]);
 
 /**
@@ -112,7 +160,10 @@ export const SERVICE_ONLY = new Set<string>([
  * (no tenant policy) until column shape is verified. From the migration footer.
  */
 export const INVESTIGATE_FIRST = new Set<string>([
-  "BusinessProfile", "EquipmentDeployment", "MoistureMeter", "Room",
+  "BusinessProfile",
+  "EquipmentDeployment",
+  "MoistureMeter",
+  "Room",
   "RoomAnnotation",
 ]);
 
@@ -156,7 +207,11 @@ function classifyAnchor(predicate: string): EmittedPolicy["anchor"] {
 export function parseEmittedPolicies(sql: string): Map<string, EmittedPolicy> {
   const out = new Map<string, EmittedPolicy>();
 
-  const upgrade = (table: string, anchor: EmittedPolicy["anchor"], source: string) => {
+  const upgrade = (
+    table: string,
+    anchor: EmittedPolicy["anchor"],
+    source: string,
+  ) => {
     const rank: Record<EmittedPolicy["anchor"], number> = {
       none: 0,
       "user-uid": 1,
@@ -197,7 +252,8 @@ export function parseEmittedPolicies(sql: string): Map<string, EmittedPolicy> {
 
   // (c) FOREACH t IN ARRAY ARRAY[...]  — loop emitters (Contractor* tables).
   //     Associate every array member with the predicate built in that DO block.
-  const foreachRe = /FOREACH\s+\w+\s+IN\s+ARRAY\s+ARRAY\[([^\]]+)\]([\s\S]*?)END\s+LOOP/gi;
+  const foreachRe =
+    /FOREACH\s+\w+\s+IN\s+ARRAY\s+ARRAY\[([^\]]+)\]([\s\S]*?)END\s+LOOP/gi;
   for (const m of sql.matchAll(foreachRe)) {
     const members = [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]);
     const body = m[2];
@@ -224,13 +280,28 @@ export function parseRlsEnabledTables(sql: string): Set<string> {
   return out;
 }
 
+/**
+ * Tables a ra4956 follow-up migration downgrades to service-only (drops all
+ * their ra4956_* policies). Parses table names out of the FOREACH array(s),
+ * ignoring the policy-name array (`ra4956_select` …). Returns empty for any SQL
+ * that is not a ra4956 policy-drop migration.
+ */
+export function parseServiceOnlyDowngrade(sql: string): Set<string> {
+  const out = new Set<string>();
+  if (!/DROP\s+POLICY/i.test(sql) || !/ra4956/.test(sql)) return out;
+  for (const arr of sql.matchAll(/ARRAY\[([^\]]+)\]/g)) {
+    for (const member of arr[1].matchAll(/'([^']+)'/g)) {
+      if (!/^ra4956_/.test(member[1])) out.add(member[1]);
+    }
+  }
+  return out;
+}
+
 /** Tables that should carry an authenticated tenant policy. */
 export function tenantScopedTables(): string[] {
   return AUDIT_TABLES.filter(
     (t) =>
-      !PUBLIC_REF.has(t) &&
-      !SERVICE_ONLY.has(t) &&
-      !INVESTIGATE_FIRST.has(t),
+      !PUBLIC_REF.has(t) && !SERVICE_ONLY.has(t) && !INVESTIGATE_FIRST.has(t),
   );
 }
 

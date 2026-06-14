@@ -17,9 +17,11 @@ import { describe, expect, it } from "vitest";
 import {
   RA4956_MIGRATION,
   RA4970_MIGRATION,
+  RA4956_FOLLOWUP_MIGRATION,
   readMigration,
   parseEmittedPolicies,
   parseRlsEnabledTables,
+  parseServiceOnlyDowngrade,
   tenantScopedTables,
   AUDIT_TABLES,
   SERVICE_ONLY,
@@ -29,8 +31,16 @@ import {
 
 const ra4956 = readMigration(RA4956_MIGRATION);
 const ra4970 = readMigration(RA4970_MIGRATION);
-const emitted = parseEmittedPolicies(ra4956);
 const rlsEnabled = parseRlsEnabledTables(ra4970);
+
+// RA-4956 emits policies for Session/Account; the follow-up migration drops
+// them (service-only). Net them out so the gate reflects the real posture.
+const downgraded = parseServiceOnlyDowngrade(
+  readMigration(RA4956_FOLLOWUP_MIGRATION),
+);
+const emitted = new Map(
+  [...parseEmittedPolicies(ra4956)].filter(([t]) => !downgraded.has(t)),
+);
 
 describe("RA-4956 static RLS coverage", () => {
   describe("audit set integrity", () => {
@@ -50,7 +60,10 @@ describe("RA-4956 static RLS coverage", () => {
           SERVICE_ONLY.has(t),
           INVESTIGATE_FIRST.has(t),
         ].filter(Boolean).length;
-        expect(dispositions, `table ${t} must have exactly one disposition`).toBe(1);
+        expect(
+          dispositions,
+          `table ${t} must have exactly one disposition`,
+        ).toBe(1);
       }
     });
   });
@@ -58,7 +71,10 @@ describe("RA-4956 static RLS coverage", () => {
   describe("RLS-enable invariant (RA-4970)", () => {
     it("enables RLS on all 119 audited tables (default-deny baseline)", () => {
       const notEnabled = AUDIT_TABLES.filter((t) => !rlsEnabled.has(t));
-      expect(notEnabled, "audited tables missing ENABLE ROW LEVEL SECURITY").toEqual([]);
+      expect(
+        notEnabled,
+        "audited tables missing ENABLE ROW LEVEL SECURITY",
+      ).toEqual([]);
     });
   });
 
@@ -72,15 +88,19 @@ describe("RA-4956 static RLS coverage", () => {
     it("emits no policy for a table outside the tenant-scoped set", () => {
       const expected = new Set(tenantScopedTables());
       const stray = [...emitted.keys()].filter((t) => !expected.has(t));
-      expect(stray, "ra4956 policy emitted for an unexpected table").toEqual([]);
+      expect(stray, "ra4956 policy emitted for an unexpected table").toEqual(
+        [],
+      );
     });
 
     it("covers 68 tenant-scoped tables (locks the expected count)", () => {
       // Guards against a future edit that drops a table from BOTH the policy
       // emission and the exempt sets at once (which the per-table checks above
       // would otherwise silently pass).
-      expect(tenantScopedTables().length).toBe(68);
-      expect(emitted.size).toBe(68);
+      // 66 = 68 RA-4956 tables minus the two (Session, Account) the follow-up
+      // migration downgrades to service-only.
+      expect(tenantScopedTables().length).toBe(66);
+      expect(emitted.size).toBe(66);
     });
   });
 
@@ -102,14 +122,24 @@ describe("RA-4956 static RLS coverage", () => {
   });
 
   describe("service-only tables stay default-deny", () => {
+    it("the RA-4956 follow-up downgrades exactly Session + Account", () => {
+      expect(downgraded).toEqual(new Set(["Account", "Session"]));
+    });
+
     it("emits no ra4956 policy for any service-only table", () => {
       const leaked = [...SERVICE_ONLY].filter((t) => emitted.has(t));
-      expect(leaked, "service-only tables that leaked an authenticated policy").toEqual([]);
+      expect(
+        leaked,
+        "service-only tables that leaked an authenticated policy",
+      ).toEqual([]);
     });
 
     it("emits no ra4956 policy for any investigate-first table", () => {
       const leaked = [...INVESTIGATE_FIRST].filter((t) => emitted.has(t));
-      expect(leaked, "investigate-first tables should stay default-deny").toEqual([]);
+      expect(
+        leaked,
+        "investigate-first tables should stay default-deny",
+      ).toEqual([]);
     });
   });
 
