@@ -23,6 +23,7 @@ import {
   flagWhsHazardDefinition,
   flagWhsHazardSchema,
 } from "./flag-whs-hazard";
+import type { FlagWhsHazardContext } from "./flag-whs-hazard";
 import {
   checkReportGaps,
   checkReportGapsDefinition,
@@ -48,14 +49,25 @@ export type ToolName = (typeof TOOL_DEFINITIONS)[number]["name"];
 // ─── Handler map ─────────────────────────────────────────────────────────────
 
 type AnySchema = z.ZodTypeAny;
-type Handler<S extends AnySchema> = (args: z.infer<S>) => Promise<unknown>;
+
+// Owning-user context threaded from the authenticated turn route. Additive +
+// optional so existing callers keep working unchanged; only flag_whs_hazard
+// consumes it today (to attribute AI-flagged incidents to the real user
+// instead of the "system" placeholder). Other handlers ignore the extra arg.
+export interface ToolDispatchContext extends FlagWhsHazardContext {}
+
+type Handler<S extends AnySchema> = (
+  args: z.infer<S>,
+  context?: ToolDispatchContext,
+) => Promise<unknown>;
 
 export const TOOL_HANDLERS: Record<ToolName, Handler<AnySchema>> = {
   take_reading: (args) => takeReading(takeReadingSchema.parse(args)),
   capture_photo: (args) => capturePhoto(capturePhotoSchema.parse(args)),
   start_lidar_scan: (args) => startLidarScan(startLidarScanSchema.parse(args)),
   fill_scope_item: (args) => fillScopeItem(fillScopeItemSchema.parse(args)),
-  flag_whs_hazard: (args) => flagWhsHazard(flagWhsHazardSchema.parse(args)),
+  flag_whs_hazard: (args, context) =>
+    flagWhsHazard(flagWhsHazardSchema.parse(args), context),
   check_report_gaps: (args) =>
     checkReportGaps(checkReportGapsSchema.parse(args)),
 };
