@@ -277,6 +277,43 @@ export async function PUT(
       let subtotalExGST = 0;
       let gstAmount = 0;
 
+      // Validate numeric line-item fields BEFORE computing totals. A
+      // non-numeric / missing value (e.g. quantity: "abc") would otherwise
+      // produce NaN via parseFloat/parseInt and silently corrupt subtotal,
+      // gstAmount, totalIncGST and amountDue when persisted. Mirrors the
+      // Number.isFinite guard already used elsewhere in this file.
+      for (let index = 0; index < lineItems.length; index++) {
+        const item = lineItems[index];
+        const quantity = parseFloat(item.quantity);
+        const unitPrice = parseInt(item.unitPrice);
+        const gstRate = item.gstRate ?? 10.0;
+
+        if (!Number.isFinite(quantity) || quantity < 0) {
+          return apiError(request, {
+            code: "VALIDATION",
+            message: `Line item ${index + 1} has an invalid quantity — must be a non-negative number`,
+            status: 400,
+            fields: { [`lineItems.${index}.quantity`]: "Must be a non-negative number" },
+          });
+        }
+        if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+          return apiError(request, {
+            code: "VALIDATION",
+            message: `Line item ${index + 1} has an invalid unit price — must be a non-negative number`,
+            status: 400,
+            fields: { [`lineItems.${index}.unitPrice`]: "Must be a non-negative number" },
+          });
+        }
+        if (!Number.isFinite(Number(gstRate)) || Number(gstRate) < 0) {
+          return apiError(request, {
+            code: "VALIDATION",
+            message: `Line item ${index + 1} has an invalid GST rate — must be a non-negative number`,
+            status: 400,
+            fields: { [`lineItems.${index}.gstRate`]: "Must be a non-negative number" },
+          });
+        }
+      }
+
       const processedLineItems = lineItems.map((item: any, index: number) => {
         const quantity = parseFloat(item.quantity);
         const unitPrice = parseInt(item.unitPrice);
