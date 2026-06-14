@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getStatusConfig } from "@/lib/invoice-status";
+import { getVariationAmountDisplay } from "@/lib/invoices/variation-amount";
 import toast from "react-hot-toast";
 import { useAsyncAction } from "@/lib/client/use-async-action";
 
@@ -83,29 +84,6 @@ function formatDate(iso: string): string {
     month: "short",
     year: "numeric",
   });
-}
-
-/** Derive a signed display delta from a variation's line items vs the original. */
-function getAmountDelta(variation: VariationInvoice): number {
-  // The variation total relative to the original is stored in totalIncGST.
-  // We surface it as-is (positive = addition, negative = reduction) based on
-  // the description prefix set when creating. For display we use totalIncGST
-  // signed: items created as REDUCTION have negative unitPrice.
-  const hasNegativeItem = variation.lineItems.some((li) => li.unitPrice < 0);
-  return hasNegativeItem
-    ? -Math.abs(variation.totalIncGST)
-    : variation.totalIncGST;
-}
-
-function getDeltaLabel(variation: VariationInvoice): {
-  value: string;
-  positive: boolean;
-} {
-  const delta = getAmountDelta(variation);
-  return {
-    value: (delta >= 0 ? "+" : "") + formatAUD(delta),
-    positive: delta >= 0,
-  };
 }
 
 // ─── Loading Skeleton ─────────────────────────────────────────────────────────
@@ -448,7 +426,7 @@ export default function InvoiceVariationsPage({
         <div className="space-y-3">
           {variations.map((v, index) => {
             const vStatusCfg = getStatusConfig(v.status);
-            const delta = getDeltaLabel(v);
+            const delta = getVariationAmountDisplay(v.totalIncGST);
             const firstLineItem = v.lineItems[0];
 
             return (
