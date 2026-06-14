@@ -15,10 +15,33 @@ import type { CronJobResult } from "./runner";
 
 const PROBE_TIMEOUT_MS = 10_000;
 const MAX_CONSECUTIVE_FAILURES_BEFORE_DEACTIVATE = 3;
+// Bounded batch per run — least-recently-probed first so the tail is never
+// starved. See scaling note below.
+const BATCH_SIZE = 100;
 
+/**
+ * Batching: a single run probes at most BATCH_SIZE active integrations,
+ * ordered by `lastSyncAt` ascending with NULLs first (never-probed and
+ * least-recently-probed go first). This bounds the per-invocation work so the
+ * Vercel function (maxDuration 60s) is never killed mid-loop — which
+ * previously meant later integrations were silently never probed, so a
+ * revoked key on a tail integration would go undetected. Repeated daily runs
+ * sweep the whole population least-recently-probed-first.
+ *
+ * Scaling assumption (TUNE if the integration population grows): the cron runs
+ * DAILY (`30 4 * * *`). BATCH_SIZE=100 covers 100 integrations/day. To keep
+ * every active integration probed at least weekly, the active population must
+ * stay under ~700. DrNrpgIntegration.userId is @unique, so the population is
+ * bounded by the number of users with an integration — small today. Raise
+ * BATCH_SIZE or frequency if active integrations approach that ceiling.
+ */
 export async function runDrNrpgLiveness(): Promise<CronJobResult> {
   const integrations = await (prisma as any).drNrpgIntegration.findMany({
     where: { isActive: true },
+    // Least-recently-probed first (never-probed = lastSyncAt NULL first) so
+    // the bounded batch always covers the most-overdue integrations.
+    orderBy: { lastSyncAt: { sort: "asc", nulls: "first" } },
+    take: BATCH_SIZE,
   });
 
   if (integrations.length === 0) {

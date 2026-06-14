@@ -16,12 +16,33 @@
  * Scope: only rows in `account` with provider='google' AND non-null
  * refresh_token. Skips providers other than google to keep blast radius
  * contained.
+ *
+ * Batching (RA-1271 follow-up): a single run processes at most BATCH_SIZE
+ * accounts, ordered by `expires_at` ascending with NULLs first. This bounds
+ * the per-invocation work so the Vercel function (maxDuration 120s) is never
+ * killed mid-loop — which previously left the *tail* of accounts silently
+ * un-exercised, i.e. exactly the dormant accounts most at risk of the
+ * 6-month inactivity death this job exists to prevent. Ordering by
+ * `expires_at asc, nulls first` puts the most-urgent accounts first
+ * (never-refreshed → NULL, then the longest-since-refreshed), so repeated
+ * weekly runs sweep the whole population most-urgent-first.
+ *
+ * Scaling assumption (TUNE if the Google-account population grows): the cron
+ * runs WEEKLY (`0 5 * * 0`). BATCH_SIZE=200 covers 200 accounts/week. The
+ * 6-month inactivity window means the whole population must be swept within
+ * ~24 weeks, so this comfortably covers up to ~4,800 Google accounts. If the
+ * count of `provider='google'` accounts approaches that, raise BATCH_SIZE or
+ * the cron frequency. `expires_at` is the only time-like column on Account
+ * (no last-refreshed/updated_at), so it is used as the urgency proxy.
  */
 import { prisma } from "@/lib/prisma";
 import type { CronJobResult } from "./runner";
 
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const REFRESH_TIMEOUT_MS = 10_000;
+// Bounded batch per run — see header note on the batch×frequency vs population
+// scaling assumption. Most-urgent rows first so the tail is never starved.
+const BATCH_SIZE = 200;
 
 export async function refreshGoogleTokens(): Promise<CronJobResult> {
   const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -46,6 +67,11 @@ export async function refreshGoogleTokens(): Promise<CronJobResult> {
       expires_at: true,
       scope: true,
     },
+    // Most-urgent first: never-refreshed (expires_at NULL) then
+    // longest-since-refreshed. Bounds work so the run isn't killed mid-loop
+    // and starves the tail. CLAUDE.md rule 3 (explicit take).
+    orderBy: { expires_at: { sort: "asc", nulls: "first" } },
+    take: BATCH_SIZE,
   });
 
   if (accounts.length === 0) {
