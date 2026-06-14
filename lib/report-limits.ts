@@ -448,3 +448,159 @@ export async function deductCreditsAndTrackUsage(
     });
   }
 }
+
+/**
+ * RA-1377 — Compensating refund for a charge that never produced a report.
+ *
+ * `deductCreditsAndTrackUsage` charges the user BEFORE the (slow, external) AI
+ * generation + the report row is persisted. Those steps are deliberately NOT
+ * wrapped in a DB transaction. So if anything between the deduct and a
+ * successful `report.create` throws, the user has been billed a TRIAL credit /
+ * monthly-usage slot but received no report — repeated transient failures
+ * silently burn a paying user's quota.
+ *
+ * This is the exact inverse of `deductCreditsAndTrackUsage`: it re-credits the
+ * admin's trial balance / decrements the admin's monthly usage and rolls back
+ * the same `totalCreditsUsed` increments. It is the caller's responsibility to
+ * invoke this EXACTLY ONCE per failed charge, and ONLY on a post-deduct,
+ * pre-create failure path (never on the happy path).
+ *
+ * Safety properties:
+ *  - Best-effort: a refund failure is logged and surfaced via the returned
+ *    flag, never thrown — a failed refund must not mask the original error nor
+ *    crash the request. Each leg is isolated so one failing leg doesn't abort
+ *    the others.
+ *  - Idempotent-friendly: counters are clamped at 0 so a stray double-refund
+ *    (or a refund of a charge that hit the trial floor) can't push
+ *    creditsRemaining above a sane state or drive monthlyReportsUsed /
+ *    totalCreditsUsed negative.
+ *
+ * @returns `{ refunded }` — true if every leg that was attempted succeeded.
+ */
+export async function refundCreditsAndTrackUsage(
+  creatorUserId: string,
+): Promise<{ refunded: boolean }> {
+  let allOk = true;
+
+  const safe = async (label: string, fn: () => Promise<unknown>) => {
+    try {
+      await fn();
+    } catch (err) {
+      allOk = false;
+      // Surface, don't swallow: a quota that fails to refund is a billing bug
+      // we need visibility on. The original request error is handled by the
+      // caller; this log is additive.
+      console.error(
+        `[refundCreditsAndTrackUsage] refund leg "${label}" failed for creator ${creatorUserId}:`,
+        err instanceof Error ? err.message : err,
+      );
+    }
+  };
+
+  // Mirror the deduct's owner/creator resolution so we refund the same rows.
+  const ownerId = await getOrganizationOwner(creatorUserId).catch(() => null);
+  const adminId = ownerId || creatorUserId;
+
+  const creator = await prisma.user
+    .findUnique({
+      where: { id: creatorUserId },
+      select: { role: true, managedById: true },
+    })
+    .catch(() => null);
+
+  const admin = await prisma.user
+    .findUnique({
+      where: { id: adminId },
+      select: {
+        subscriptionStatus: true,
+        creditsRemaining: true,
+        totalCreditsUsed: true,
+        monthlyReportsUsed: true,
+      },
+    })
+    .catch(() => null);
+
+  if (!admin) {
+    console.error(
+      `[refundCreditsAndTrackUsage] admin ${adminId} not found; cannot refund charge for creator ${creatorUserId}`,
+    );
+    return { refunded: false };
+  }
+
+  // --- Invert the admin-side charge ------------------------------------------
+  if (admin.subscriptionStatus === "TRIAL") {
+    // Inverse of: creditsRemaining -1, totalCreditsUsed +1.
+    // Clamp totalCreditsUsed at 0 so a double-refund can't go negative.
+    const restoredTotal = Math.max(0, (admin.totalCreditsUsed ?? 0) - 1);
+    await safe("trial-admin", () =>
+      prisma.user.update({
+        where: { id: adminId },
+        data: {
+          creditsRemaining: { increment: 1 },
+          totalCreditsUsed: restoredTotal,
+        },
+      }),
+    );
+  } else if (admin.subscriptionStatus === "ACTIVE") {
+    // Inverse of the monthly-usage increment. The deduct may have *reset* the
+    // counter to 1 (start of a new period) or incremented it; either way the
+    // single charge we're refunding is worth exactly one slot. Clamp at 0 —
+    // never decrement a freshly-reset 0 into the negatives.
+    const restoredMonthly = Math.max(0, (admin.monthlyReportsUsed ?? 0) - 1);
+    await safe("active-admin", () =>
+      prisma.user.update({
+        where: { id: adminId },
+        data: { monthlyReportsUsed: restoredMonthly },
+      }),
+    );
+  }
+
+  // --- Invert the manager-side usage tracking --------------------------------
+  if (creator && creator.role === "USER" && creator.managedById) {
+    const manager = await prisma.user
+      .findUnique({
+        where: { id: creator.managedById },
+        select: { totalCreditsUsed: true },
+      })
+      .catch(() => null);
+    if (manager) {
+      await safe("manager", () =>
+        prisma.user.update({
+          where: { id: creator.managedById as string },
+          data: {
+            totalCreditsUsed: Math.max(0, (manager.totalCreditsUsed ?? 0) - 1),
+          },
+        }),
+      );
+    } else {
+      allOk = false;
+    }
+  }
+
+  // --- Invert the creator-side usage tracking (only if creator != admin) -----
+  if (creatorUserId !== adminId) {
+    const creatorRow = await prisma.user
+      .findUnique({
+        where: { id: creatorUserId },
+        select: { totalCreditsUsed: true },
+      })
+      .catch(() => null);
+    if (creatorRow) {
+      await safe("creator", () =>
+        prisma.user.update({
+          where: { id: creatorUserId },
+          data: {
+            totalCreditsUsed: Math.max(
+              0,
+              (creatorRow.totalCreditsUsed ?? 0) - 1,
+            ),
+          },
+        }),
+      );
+    } else {
+      allOk = false;
+    }
+  }
+
+  return { refunded: allOk };
+}

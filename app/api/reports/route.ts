@@ -117,6 +117,18 @@ export async function POST(request: NextRequest) {
   // RA-1266: CRITICAL — this route deducts credits. Without the guard,
   // a retried POST would double-deduct AND create two reports.
   return withIdempotency(request, userId, async (rawBody) => {
+    // RA-1377 — hoisted to the callback scope so the create-stage catch can see
+    // them. `charged` flips true only after a successful credit/usage deduct;
+    // `reportPersisted` flips true only after report.create succeeds. The catch
+    // refunds at-most-once (charged && !reportPersisted) and never on the happy
+    // path. `refundCharge` is captured from the dynamic import so the catch can
+    // call the inverse of deductCreditsAndTrackUsage.
+    let charged = false;
+    let reportPersisted = false;
+    let refundCharge:
+      | ((creatorUserId: string) => Promise<{ refunded: boolean }>)
+      | null = null;
+
     try {
       let body: any;
       try {
@@ -193,8 +205,12 @@ export async function POST(request: NextRequest) {
         // analytics must never block the user flow
       }
 
-      const { canCreateReport, deductCreditsAndTrackUsage } =
-        await import("@/lib/report-limits");
+      const {
+        canCreateReport,
+        deductCreditsAndTrackUsage,
+        refundCreditsAndTrackUsage,
+      } = await import("@/lib/report-limits");
+      refundCharge = refundCreditsAndTrackUsage;
       const canCreate = await canCreateReport(userId);
       if (!canCreate.allowed) {
         return NextResponse.json(
@@ -208,8 +224,13 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // RA-1377 — the deduct happens here, BEFORE the slow/external AI call and
+      // before the report row is persisted, and is deliberately NOT in a
+      // transaction. Mark `charged` so a post-deduct, pre-create failure can be
+      // compensated with a refund in the create-stage catch.
       try {
         await deductCreditsAndTrackUsage(userId);
+        charged = true;
       } catch (creditError) {
         if (
           creditError instanceof Error &&
@@ -374,6 +395,10 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      // RA-1377 — report is durably persisted; the charge is now legitimate.
+      // Any failure beyond this point must NOT trigger a refund.
+      reportPersisted = true;
+
       // RA-1246 — first_report_saved (first-time only, AFTER persist)
       if (await isFirstTime(userId, "first_report_saved")) {
         track(userId, "first_report_saved", { reportId: report.id }).catch(
@@ -391,6 +416,30 @@ export async function POST(request: NextRequest) {
         { status: 201 },
       );
     } catch (error) {
+      // RA-1377 — compensating refund. If we charged the user's credit/usage
+      // slot but no report was durably persisted (AI gen, client lookup, or
+      // report.create threw), give the quota back so transient failures don't
+      // silently burn a paying user's allowance. Best-effort: a refund failure
+      // is logged inside refundCreditsAndTrackUsage and never masks the
+      // original error. `reportPersisted` guards against double-refund / a
+      // refund on a charge that did produce a report.
+      if (charged && !reportPersisted && refundCharge) {
+        try {
+          const { refunded } = await refundCharge(userId);
+          if (!refunded) {
+            console.error(
+              `[reports] credit/usage refund incomplete after failed report creation for user ${userId}`,
+            );
+          }
+        } catch (refundError) {
+          // refundCreditsAndTrackUsage is best-effort and shouldn't throw, but
+          // guard anyway so a refund bug can never swallow the real error.
+          console.error(
+            `[reports] unexpected error during credit/usage refund for user ${userId}:`,
+            refundError instanceof Error ? refundError.message : refundError,
+          );
+        }
+      }
       return fromException(request, error, { stage: "create" });
     }
   });
