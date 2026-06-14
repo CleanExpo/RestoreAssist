@@ -110,7 +110,19 @@ export async function checkBulkCreateCredits(
 }
 
 /**
- * Deduct bulk operation credits (atomic operation)
+ * Atomically reserve (deduct) `count` bulk operation credits from the
+ * organization owner's balance.
+ *
+ * TOCTOU hardening (mirrors the single-report path in
+ * `lib/report-limits.ts` → `deductCreditsAndTrackUsage`): the check-and-deduct
+ * is a single `updateMany` guarded by `creditsRemaining >= count`. The previous
+ * implementation used an unconditional `decrement`, so two concurrent bulk jobs
+ * could both pass the upstream `canCreateBulkReports` check and both decrement —
+ * driving `creditsRemaining` negative / over-issuing reports. With the `gte`
+ * guard, only deducts that the balance can actually cover succeed (`count > 0`);
+ * a deduct that would overdraw fails (`success: false`) and the caller must NOT
+ * proceed. Callers should reserve BEFORE creating so a failed reservation never
+ * leaves orphaned reports.
  */
 export async function deductBulkCredits(
   userId: string,
@@ -122,24 +134,36 @@ export async function deductBulkCredits(
     const ownerId = await getOrganizationOwner(userId);
     const targetUserId = ownerId || userId;
 
-    const user = await prisma.user.update({
-      where: { id: targetUserId },
+    // Atomic guarded decrement: only succeeds if the balance covers `count`.
+    const result = await prisma.user.updateMany({
+      where: { id: targetUserId, creditsRemaining: { gte: count } },
       data: {
-        creditsRemaining: {
-          decrement: count,
-        },
-        totalCreditsUsed: {
-          increment: count,
-        },
+        creditsRemaining: { decrement: count },
+        totalCreditsUsed: { increment: count },
       },
-      select: {
-        creditsRemaining: true,
-      },
+    });
+
+    if (result.count === 0) {
+      // Insufficient credits (or concurrent job won the reservation first).
+      // Do not over-issue — report the current balance and fail.
+      const current = await prisma.user.findUnique({
+        where: { id: targetUserId },
+        select: { creditsRemaining: true },
+      });
+      return {
+        success: false,
+        creditsRemaining: current?.creditsRemaining ?? 0,
+      };
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: { creditsRemaining: true },
     });
 
     return {
       success: true,
-      creditsRemaining: user.creditsRemaining || 0,
+      creditsRemaining: user?.creditsRemaining ?? 0,
     };
   } catch (error) {
     console.error(`Error deducting credits for user ${userId}:`, error);
@@ -147,6 +171,34 @@ export async function deductBulkCredits(
       success: false,
       creditsRemaining: 0,
     };
+  }
+}
+
+/**
+ * Refund `count` bulk operation credits previously reserved via
+ * `deductBulkCredits`. Used to compensate when a reservation succeeded but the
+ * downstream create transaction failed (the create is all-or-nothing, so a
+ * failed transaction means zero reports were issued and the reserved credits
+ * must be returned). Best-effort: failures are logged, not thrown, so they
+ * never mask the original error.
+ */
+export async function refundBulkCredits(
+  userId: string,
+  count: number,
+): Promise<void> {
+  if (count <= 0) return;
+  try {
+    const ownerId = await getOrganizationOwner(userId);
+    const targetUserId = ownerId || userId;
+    await prisma.user.update({
+      where: { id: targetUserId },
+      data: {
+        creditsRemaining: { increment: count },
+        totalCreditsUsed: { decrement: count },
+      },
+    });
+  } catch (error) {
+    console.error(`Error refunding ${count} credits for user ${userId}:`, error);
   }
 }
 

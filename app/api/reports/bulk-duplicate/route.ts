@@ -9,6 +9,7 @@ import {
   validateReportIds,
   validateBatchSize,
   deductBulkCredits,
+  refundBulkCredits,
   formatBulkResponse,
   getUnauthorizedReportIds,
 } from "@/lib/bulk-operations";
@@ -127,6 +128,46 @@ export async function POST(request: NextRequest) {
 
     const errors: Array<{ reportId: string; error: string }> = [];
     const newReportIds: string[] = [];
+
+    // 8b. Reserve trial credits BEFORE creating anything.
+    //
+    // TOCTOU fix: `canCreateBulkReports` (step 5) only *reads* the balance, and
+    // the actual deduct used to run *after* the (expensive) create transaction
+    // with an unconditional decrement. Two concurrent bulk jobs could both pass
+    // the read-check, both create, and both decrement → `creditsRemaining` goes
+    // negative / reports over-issued. We now reserve the exact number of credits
+    // up front via an atomic guarded decrement (see `deductBulkCredits`). If the
+    // reservation fails, no reports are created and no credits are spent.
+    //
+    // Only TRIAL users consume credits here; ACTIVE subscribers are metered by
+    // monthly usage (incremented post-create) and reservation is a no-op for them.
+    const { getEffectiveSubscription } =
+      await import("@/lib/organization-credits");
+    const effectiveSub = await getEffectiveSubscription(session.user.id);
+    const isTrial = effectiveSub?.subscriptionStatus === "TRIAL";
+
+    let creditsRemaining = effectiveSub?.creditsRemaining || 0;
+    let creditsUsed = 0;
+
+    if (isTrial) {
+      const reservation = await deductBulkCredits(
+        session.user.id,
+        reportsToClone.length,
+        "bulk-duplicate",
+      );
+      if (!reservation.success) {
+        return NextResponse.json(
+          {
+            error: "Insufficient credits",
+            message: `Insufficient trial report credits to duplicate ${reportsToClone.length} report${reportsToClone.length === 1 ? "" : "s"}.`,
+            upgradeRequired: true,
+          },
+          { status: 403 },
+        );
+      }
+      creditsRemaining = reservation.creditsRemaining;
+      creditsUsed = reportsToClone.length;
+    }
 
     // 9. Execute duplications in transaction
     try {
@@ -264,24 +305,11 @@ export async function POST(request: NextRequest) {
         newReportIds.push(report.id);
       });
 
-      // 11. Deduct credits and track usage for each duplicated report
-      const { getEffectiveSubscription } =
-        await import("@/lib/organization-credits");
-      const effectiveSub = await getEffectiveSubscription(session.user.id);
-
-      let creditsRemaining = effectiveSub?.creditsRemaining || 0;
-      let creditsUsed = 0;
-
-      if (effectiveSub?.subscriptionStatus === "TRIAL") {
-        // Deduct credits from admin
-        const creditResult = await deductBulkCredits(
-          session.user.id,
-          createdReports.length,
-          "bulk-duplicate",
-        );
-        creditsRemaining = creditResult.creditsRemaining;
-        creditsUsed = createdReports.length;
-      } else if (effectiveSub?.subscriptionStatus === "ACTIVE") {
+      // 11. Track usage for each duplicated report.
+      // TRIAL credits were already reserved atomically in step 8b (before the
+      // create), so there is nothing to deduct here. ACTIVE subscribers are
+      // metered by monthly usage, incremented now that the reports exist.
+      if (effectiveSub?.subscriptionStatus === "ACTIVE") {
         // Increment monthly usage on admin's account
         const { incrementReportUsage } = await import("@/lib/report-limits");
         for (let i = 0; i < createdReports.length; i++) {
@@ -325,6 +353,13 @@ export async function POST(request: NextRequest) {
         "Transaction error during bulk duplicate:",
         transactionError,
       );
+
+      // Compensate: the create transaction is all-or-nothing, so no reports
+      // were issued. Refund the trial credits reserved in step 8b so a failed
+      // duplication never burns credits.
+      if (isTrial && creditsUsed > 0) {
+        await refundBulkCredits(session.user.id, creditsUsed);
+      }
 
       return NextResponse.json(
         {
