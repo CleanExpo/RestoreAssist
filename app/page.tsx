@@ -252,7 +252,9 @@ export default function Home() {
             One System. Fewer Gaps. <br /> More Confidence.
           </p>
 
-          {/* Supporting Description */}
+          {/* Supporting Description.
+              BRAND.description is spine-locked verbatim per Synthex
+              ceo-foundation.md Brief 4 — do NOT paraphrase it here. */}
           <p
             className="hero-fade-up hero-fade-up-3 text-lg md:text-xl text-white/80 font-light max-w-2xl text-left mt-6 leading-relaxed"
             style={{
@@ -263,7 +265,65 @@ export default function Home() {
             {BRAND.description}
           </p>
 
-          {/* CTA Buttons */}
+          {/* ── Funnel proof bullets ───────────────────────────────────────
+              DRAFT COPY — NEEDS HUMAN VOICE REVIEW before launch.
+              Source: docs/marketing/pillar-c/copy-pack.md §2 ("Three proof
+              bullets"). Lightly trimmed to fit the hero; the verbatim
+              long-form lives in the copy pack. Kept honest re: which
+              capability gates are live vs. Phase 5+ (no false promises).
+              Reviewer: confirm tone matches BrandConfig banned-vocab list
+              and that the IICRC citation edition/section stays exact. */}
+          <ul
+            className="hero-fade-up hero-fade-up-3 mt-6 max-w-2xl space-y-3 text-left text-white/85"
+            style={{
+              fontFamily:
+                'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            }}
+          >
+            <li className="flex gap-3">
+              <span aria-hidden="true" className="mt-1 text-[#D4A574]">
+                ●
+              </span>
+              <span>
+                <strong className="text-white">
+                  One field in. Eleven fields out.
+                </strong>{" "}
+                Your ABN drives parallel hydration against the Australian
+                Business Register, your website, and a 2026 Australian pricing
+                dataset.
+              </span>
+            </li>
+            <li className="flex gap-3">
+              <span aria-hidden="true" className="mt-1 text-[#D4A574]">
+                ●
+              </span>
+              <span>
+                <strong className="text-white">
+                  Every wired capability is checked before Activate.
+                </strong>{" "}
+                Live checks on AI report generation and integration health.
+                Chain-of-custody, sample-report render, and welcome-email gates
+                ship in Phase 5+.
+              </span>
+            </li>
+            <li className="flex gap-3">
+              <span aria-hidden="true" className="mt-1 text-[#D4A574]">
+                ●
+              </span>
+              <span>
+                <strong className="text-white">
+                  IICRC S500:2025 §7.1 cited correctly in every report footer.
+                </strong>{" "}
+                GST at 10%. ABN at 11 digits. State codes routed through the
+                correct jurisdictional authority.
+              </span>
+            </li>
+          </ul>
+
+          {/* CTA Buttons.
+              Primary href stays BRAND.cta.primary.href (/signup) — locked route.
+              Label is the finalized funnel CTA from copy-pack §2.
+              Secondary points to BRAND.cta.secondary.href (/how-it-works). */}
           <div className="hero-fade-up hero-fade-up-4 flex flex-col sm:flex-row gap-4 mt-8">
             <Link
               href={BRAND.cta.primary.href}
@@ -273,7 +333,8 @@ export default function Home() {
                   'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
               }}
             >
-              {BRAND.cta.primary.label}
+              {/* DRAFT CTA copy — copy-pack §2 "Primary CTA". Human voice review. */}
+              Start with your ABN — under 90 seconds
             </Link>
             <Link
               href={BRAND.cta.secondary.href}
