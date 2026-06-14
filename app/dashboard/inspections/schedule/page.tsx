@@ -186,12 +186,25 @@ function InspectionChip({ inspection, onClick }: InspectionChipProps) {
 
 export default function InspectionSchedulePage() {
   const router = useRouter();
-  const today = new Date();
 
-  const [currentYear, setCurrentYear] = useState(today.getFullYear());
-  const [currentMonth, setCurrentMonth] = useState(today.getMonth()); // 0-indexed
+  // Hydration-safe "today": `new Date()` at render reads the SSR server clock,
+  // which can differ from the client at month/timezone boundaries and cause a
+  // hydration mismatch. We start with no resolved "today" (so the server and
+  // first client render are identical — no ring, neutral month) and resolve the
+  // real value client-side in an effect. Once mounted, behaviour is unchanged.
+  const [today, setToday] = useState<Date | null>(null);
+  const [currentYear, setCurrentYear] = useState<number | null>(null);
+  const [currentMonth, setCurrentMonth] = useState<number | null>(null); // 0-indexed
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Resolve "today" and the initial month view on the client only.
+  useEffect(() => {
+    const now = new Date();
+    setToday(now);
+    setCurrentYear((y) => (y === null ? now.getFullYear() : y));
+    setCurrentMonth((m) => (m === null ? now.getMonth() : m));
+  }, []);
 
   // Fetch all inspections once; filter client-side (API has no date range params)
   useEffect(() => {
@@ -224,10 +237,15 @@ export default function InspectionSchedulePage() {
     return map;
   }, [inspections]);
 
-  // Calendar cells for the current month view
+  // Whether the client has resolved the current month view yet.
+  const monthResolved = currentYear !== null && currentMonth !== null;
+
+  // Calendar cells for the current month view. Empty until the client resolves
+  // the month (server / first client render show no grid, then it mounts in).
   const cells = useMemo(
-    () => buildCalendarCells(currentYear, currentMonth),
-    [currentYear, currentMonth],
+    () =>
+      monthResolved ? buildCalendarCells(currentYear!, currentMonth!) : [],
+    [monthResolved, currentYear, currentMonth],
   );
 
   // Inspections in the currently displayed month (for empty state message)
@@ -239,26 +257,30 @@ export default function InspectionSchedulePage() {
   }, [cells, currentMonth, inspectionsByDay]);
 
   const goToPrevMonth = () => {
+    if (currentMonth === null) return;
     if (currentMonth === 0) {
       setCurrentMonth(11);
-      setCurrentYear((y) => y - 1);
+      setCurrentYear((y) => (y === null ? y : y - 1));
     } else {
-      setCurrentMonth((m) => m - 1);
+      setCurrentMonth((m) => (m === null ? m : m - 1));
     }
   };
 
   const goToNextMonth = () => {
+    if (currentMonth === null) return;
     if (currentMonth === 11) {
       setCurrentMonth(0);
-      setCurrentYear((y) => y + 1);
+      setCurrentYear((y) => (y === null ? y : y + 1));
     } else {
-      setCurrentMonth((m) => m + 1);
+      setCurrentMonth((m) => (m === null ? m : m + 1));
     }
   };
 
   const goToToday = () => {
-    setCurrentYear(today.getFullYear());
-    setCurrentMonth(today.getMonth());
+    const now = today ?? new Date();
+    setToday(now);
+    setCurrentYear(now.getFullYear());
+    setCurrentMonth(now.getMonth());
   };
 
   return (
@@ -310,7 +332,7 @@ export default function InspectionSchedulePage() {
         </Button>
 
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-white min-w-[160px] text-center">
-          {MONTH_NAMES[currentMonth]} {currentYear}
+          {monthResolved ? `${MONTH_NAMES[currentMonth!]} ${currentYear}` : " "}
         </h2>
 
         <Button
@@ -333,7 +355,7 @@ export default function InspectionSchedulePage() {
       </div>
 
       {/* ── Calendar grid ── */}
-      {loading ? (
+      {loading || !monthResolved ? (
         <SkeletonGrid />
       ) : (
         <>
@@ -358,7 +380,7 @@ export default function InspectionSchedulePage() {
               >
                 {cells.slice(rowIdx * 7, rowIdx * 7 + 7).map((cell, colIdx) => {
                   const isCurrentMonth = cell.getMonth() === currentMonth;
-                  const isToday = isSameDay(cell, today);
+                  const isToday = today !== null && isSameDay(cell, today);
                   const dayKey = toDateKey(cell);
                   const dayInspections = inspectionsByDay.get(dayKey) ?? [];
                   const visibleChips = dayInspections.slice(0, 3);
@@ -417,7 +439,7 @@ export default function InspectionSchedulePage() {
           {/* Empty month message */}
           {!monthHasInspections && (
             <p className="text-center text-sm text-neutral-400 dark:text-slate-500 py-4">
-              No inspections scheduled for {MONTH_NAMES[currentMonth]}{" "}
+              No inspections scheduled for {MONTH_NAMES[currentMonth!]}{" "}
               {currentYear}
             </p>
           )}

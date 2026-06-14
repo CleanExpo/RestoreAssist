@@ -29,6 +29,7 @@ import {
   isCancelled,
   type InvoiceStatus,
 } from "@/lib/invoice-status";
+import { getVariationAmountDisplay } from "@/lib/invoices/variation-amount";
 import { formatDate } from "@/lib/formatters";
 
 interface LineItem {
@@ -871,6 +872,7 @@ export default function InvoiceDetailPage({
                     amountDue: v.amountDue,
                   });
                   const vStatusConfig = getStatusConfig(vEffectiveStatus);
+                  const vAmount = getVariationAmountDisplay(v.totalIncGST);
                   return (
                     <div
                       key={v.id}
@@ -895,12 +897,14 @@ export default function InvoiceDetailPage({
                         </div>
                       </div>
                       <div className="flex items-center gap-4 flex-shrink-0">
-                        <span className="text-sm font-semibold text-slate-900 dark:text-white">
-                          $
-                          {(v.totalIncGST / 100).toLocaleString("en-AU", {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
+                        <span
+                          className={`text-sm font-semibold tabular-nums ${
+                            vAmount.positive
+                              ? "text-green-600 dark:text-green-400"
+                              : "text-red-600 dark:text-red-400"
+                          }`}
+                        >
+                          {vAmount.value}
                         </span>
                         <a
                           href={`/dashboard/invoices/${v.id}`}
