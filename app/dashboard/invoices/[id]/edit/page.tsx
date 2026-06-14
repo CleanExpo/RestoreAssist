@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Plus, Trash2, User, FileText } from "lucide-react";
 import toast from "react-hot-toast";
 import Link from "next/link";
+import {
+  calculateInvoiceTotals,
+  toLocalDateInputValue,
+  addDaysLocalDateInputValue,
+} from "@/lib/invoices/calc";
 
 interface Client {
   id: string;
@@ -75,15 +80,13 @@ export default function EditInvoicePage({
   const [customerAddress, setCustomerAddress] = useState("");
   const [customerABN, setCustomerABN] = useState("");
 
-  const [invoiceDate, setInvoiceDate] = useState(
-    new Date().toISOString().slice(0, 10),
+  const [invoiceDate, setInvoiceDate] = useState(() =>
+    toLocalDateInputValue(),
   );
   const [dueInDays, setDueInDays] = useState(30);
-  const [dueDate, setDueDate] = useState(() => {
-    const date = new Date();
-    date.setDate(date.getDate() + 30);
-    return date.toISOString().slice(0, 10);
-  });
+  const [dueDate, setDueDate] = useState(() =>
+    addDaysLocalDateInputValue(new Date(), 30),
+  );
 
   const [lineItems, setLineItems] = useState<LineItem[]>([
     {
@@ -142,13 +145,13 @@ export default function EditInvoicePage({
         setCustomerABN(inv.customerABN || "");
         setInvoiceDate(
           inv.invoiceDate
-            ? new Date(inv.invoiceDate).toISOString().slice(0, 10)
-            : new Date().toISOString().slice(0, 10),
+            ? toLocalDateInputValue(new Date(inv.invoiceDate))
+            : toLocalDateInputValue(),
         );
         setDueDate(
           inv.dueDate
-            ? new Date(inv.dueDate).toISOString().slice(0, 10)
-            : new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
+            ? toLocalDateInputValue(new Date(inv.dueDate))
+            : addDaysLocalDateInputValue(new Date(), 30),
         );
         if (inv.invoiceDate && inv.dueDate) {
           const days = Math.round(
@@ -209,9 +212,13 @@ export default function EditInvoicePage({
   }, [invoiceId]);
 
   useEffect(() => {
-    const date = new Date(invoiceDate);
-    date.setDate(date.getDate() + parseInt(String(dueInDays), 10));
-    setDueDate(date.toISOString().slice(0, 10));
+    // Parse the YYYY-MM-DD input as a LOCAL calendar date (not UTC).
+    const [y, m, d] = invoiceDate.split("-").map((n) => parseInt(n, 10));
+    if (!y || !m || !d) return;
+    const date = new Date(y, m - 1, d);
+    setDueDate(
+      addDaysLocalDateInputValue(date, parseInt(String(dueInDays), 10)),
+    );
   }, [invoiceDate, dueInDays]);
 
   useEffect(() => {
@@ -267,23 +274,30 @@ export default function EditInvoicePage({
   };
 
   const calculateFinancials = () => {
-    let subtotal = 0;
-    lineItems.forEach((item) => {
-      subtotal += item.quantity * item.unitPrice * 100;
+    // Mirror the server's persisted computation exactly (lib/invoices/calc),
+    // converting the form's dollar inputs to integer cents first.
+    const { subtotalExGST, gstAmount, totalIncGST } = calculateInvoiceTotals({
+      lineItems: lineItems.map((item) => ({
+        quantity: item.quantity,
+        unitPrice: Math.round(item.unitPrice * 100),
+        gstRate: item.gstRate,
+      })),
+      discountAmount:
+        discountType === "amount" && discountAmount
+          ? Math.round(parseFloat(discountAmount) * 100)
+          : undefined,
+      discountPercentage:
+        discountType === "percentage" && discountPercentage
+          ? parseFloat(discountPercentage)
+          : undefined,
+      shippingAmount: shippingAmount
+        ? Math.round(parseFloat(shippingAmount) * 100)
+        : undefined,
     });
-    if (discountType === "amount" && discountAmount) {
-      subtotal -= parseFloat(discountAmount) * 100;
-    } else if (discountType === "percentage" && discountPercentage) {
-      subtotal -= subtotal * (parseFloat(discountPercentage) / 100);
-    }
-    if (shippingAmount) {
-      subtotal += parseFloat(shippingAmount) * 100;
-    }
-    const gst = Math.round(subtotal * 0.1);
     return {
-      subtotal: Math.round(subtotal),
-      gst,
-      total: Math.round(subtotal) + gst,
+      subtotal: subtotalExGST,
+      gst: gstAmount,
+      total: totalIncGST,
     };
   };
 
