@@ -26,6 +26,18 @@ export default function DocumentExportPackage({
   const [exporting, setExporting] = useState<string | null>(null);
 
   const handleExport = async (format: "pdf" | "word" | "json" | "zip") => {
+    // Word (DOCX) export isn't implemented yet. Short-circuit with an honest
+    // notice before hitting the API — otherwise the code below would fire a
+    // false "exported successfully" toast for a download that never happened.
+    // (The Word button is also disabled in the UI; this guards the stub too.)
+    if (format === "word") {
+      toast("Word format export coming soon", {
+        icon: "ℹ️",
+        duration: 4000,
+      });
+      return;
+    }
+
     setExporting(format);
     try {
       const response = await fetch(
@@ -45,18 +57,14 @@ export default function DocumentExportPackage({
           type: "application/json",
         });
         downloadBlob(blob, `RestoreAssist-Export-${reportId}.json`);
-      } else if (format === "zip" || format === "pdf") {
+      } else {
+        // zip | pdf — both stream a binary document back from the API.
         const blob = await response.blob();
         const extension = format === "zip" ? "zip" : "pdf";
         downloadBlob(blob, `RestoreAssist-Package-${reportId}.${extension}`);
-      } else {
-        // Word format (future implementation)
-        toast("Word format export coming soon", {
-          icon: "ℹ️",
-          duration: 4000,
-        });
       }
 
+      // Only reached after a real export succeeded.
       toast.success(
         `Documents exported successfully as ${format.toUpperCase()}`,
       );
@@ -77,14 +85,6 @@ export default function DocumentExportPackage({
     a.click();
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
-  };
-
-  const handleEmailDelivery = async () => {
-    // Future implementation - email delivery
-    toast("Email delivery feature coming soon", {
-      icon: "ℹ️",
-      duration: 4000,
-    });
   };
 
   return (
@@ -250,21 +250,23 @@ export default function DocumentExportPackage({
             </p>
           </div>
 
-          {/* Email Delivery */}
-          <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30">
+          {/* Email Delivery (Future) */}
+          <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30 opacity-60">
             <div className="flex items-center gap-3 mb-2">
               <Mail className="w-5 h-5 text-slate-400" />
               <h4 className="font-semibold">Email Delivery</h4>
+              <span className="text-xs text-slate-400">(Coming soon)</span>
             </div>
             <p className="text-sm text-slate-300 mb-3">
-              Email to client/admin automatically. Subject line includes claim
-              reference.
+              Email documents to the client/admin automatically with the claim
+              reference in the subject line. Coming soon.
             </p>
             <button
-              onClick={handleEmailDelivery}
-              className="px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50 transition-colors text-sm"
+              disabled
+              className="px-4 py-2 border border-slate-700 rounded-lg text-sm text-slate-400 cursor-not-allowed flex items-center gap-2"
             >
-              Configure Email
+              <Mail className="w-4 h-4" />
+              Coming Soon
             </button>
           </div>
         </div>

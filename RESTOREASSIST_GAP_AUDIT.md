@@ -190,7 +190,24 @@ were found in `.planning/` video docs.
   non-clickable "Coming Soon". Removed the stale "Coming Soon" badge from Getting Started Guide
   (it has a real `/help` link). Verified: eslint, tsc, live preview (all hrefs resolve to existing
   routes, zero `#` links, click-through to `/compliance-library` works).
-- ⬜ Homepage greeting video (high) — needs graceful degradation or the asset; next.
-- ⬜ `.env.example` undocumented required vars (Stripe price IDs, `RESEND_FROM_EMAIL`, etc.) — next.
-- ⬜ Mock-data honesty banners (usage/forms dashboards) — pending.
-- ⬜ Stub integrations (OpenAI/Gemini, cloud-mirror, Drive, DOCX/email export) — de-advertise or finish.
+- ✅ **Homepage greeting video (high)** — confirmed remediated on `main`:
+  `app/page.tsx` now omits `greetingVideoUrl` (commented rationale), so `AvatarOrb`
+  degrades to its greeting tooltip instead of opening an empty player. Covered by
+  `components/avatar/__tests__/AvatarOrb.test.tsx`.
+- ✅ **`.env.example` undocumented required vars** — confirmed remediated on `main`:
+  `STRIPE_PRICE_STANDARD/PREMIUM/ENTERPRISE`, `STRIPE_PRICE_MONTHLY/YEARLY`, and
+  `RESEND_FROM_EMAIL` are now documented in `.env.example`.
+- ✅ **Mock-data honesty banners (usage/forms dashboards)** — confirmed remediated on
+  `main`: both `app/dashboard/admin/usage/page.tsx` and
+  `app/dashboard/forms/submissions/page.tsx` now render a "Showing sample data —
+  couldn't reach the API" banner when the API fall-back fires.
+- 🔶 **Stub integrations — DOCX & email export (Missing connections medium)** —
+  de-advertised in `components/DocumentExportPackage.tsx`: removed a false
+  `toast.success("…exported successfully as WORD")` that fired even though no Word
+  document is produced (Word export now short-circuits with an honest "coming soon"
+  notice before any API call), and converted the active-looking "Configure Email"
+  button into a disabled "Coming soon" control to match the Word card. Added
+  `components/__tests__/DocumentExportPackage.test.tsx` (4/4) locking the honesty
+  guarantees + success-only-on-real-export. Verified: vitest, eslint, tsc.
+- ⬜ Stub integrations — OpenAI/Gemini, cloud-mirror, Google Drive read paths,
+  blog articles — remain honestly labelled "Coming soon"; finish or keep gated.
