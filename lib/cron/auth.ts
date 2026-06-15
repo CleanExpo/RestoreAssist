@@ -10,8 +10,16 @@ import { NextRequest, NextResponse } from "next/server";
  * @returns NextResponse with 401 error if auth fails, null if auth passes
  */
 export function verifyCronAuth(request: NextRequest): NextResponse | null {
+  // Fail CLOSED when the secret is unset/empty. Otherwise `expected` would be
+  // "Bearer " and any caller sending `Authorization: Bearer ` (trailing space)
+  // would pass — silently authorising every (data-mutating) cron route. (RA-6679)
+  const secret = process.env.CRON_SECRET;
+  if (!secret) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const authHeader = request.headers.get("authorization") ?? "";
-  const expected = `Bearer ${process.env.CRON_SECRET ?? ""}`;
+  const expected = `Bearer ${secret}`;
 
   // Use constant-time comparison to prevent timing oracle attacks
   try {
