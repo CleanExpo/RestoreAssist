@@ -18,6 +18,8 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { gstForInspection } from "@/lib/assessments/gst";
+import type { GstTreatment } from "@/lib/gst-rules";
 import {
   generateScopeItems,
   type DamageType,
@@ -62,8 +64,6 @@ const DEFAULT_AU_PRICING = {
   callOutFee: 220,
   thermalCameraUseCostPerAssessment: 95,
 };
-
-const GST_RATE = 0.1;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -135,11 +135,12 @@ function categoryToScopeCategory(itemType: string): ScopeCategory {
 function buildEstimate(
   scope: ScopeItem[],
   unitCostByItem: Map<string, number>,
+  gst: GstTreatment,
 ): AssessmentEstimate {
   const lines: EstimateLine[] = scope.map((item) => {
     const rate = unitCostByItem.get(item.description) ?? 0;
     const lineTotalExGst = +(item.quantity * rate).toFixed(2);
-    const gstAmount = +(lineTotalExGst * GST_RATE).toFixed(2);
+    const gstAmount = +(lineTotalExGst * gst.rate).toFixed(2);
     const lineTotalIncGst = +(lineTotalExGst + gstAmount).toFixed(2);
     return {
       description: item.description,
@@ -163,8 +164,8 @@ function buildEstimate(
       subtotalExGst,
       gstTotal,
       totalIncGst,
-      gstRate: GST_RATE,
-      currency: "AUD",
+      gstRate: gst.rate,
+      currency: gst.currency,
     },
   };
 }
@@ -347,7 +348,8 @@ export const waterDomain: DomainPlugin = {
           .map((d) => [d.description, d.unitCostAud as number]),
       );
 
-      const estimate = buildEstimate(scope, unitCostByDescription);
+      const gst = await gstForInspection(input.inspectionId);
+      const estimate = buildEstimate(scope, unitCostByDescription, gst);
 
       // Moisture summary — classify each reading against the IICRC dry
       // standard for its surface type. Unknown materials count toward

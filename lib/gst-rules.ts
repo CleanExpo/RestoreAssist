@@ -12,6 +12,8 @@ export type Country = "AU" | "NZ";
 export type GstTreatment = {
   country: Country;
   rate: 0.1 | 0.15;
+  /** ISO-4217 billing currency for the jurisdiction. */
+  currency: "AUD" | "NZD";
   percentLabel: "10%" | "15%";
   /** Xero tax type — NZ realms use OUTPUT2 for 15% GST */
   xeroTaxType: "OUTPUT" | "OUTPUT2";
@@ -26,6 +28,7 @@ export function getGstTreatment(country: Country): GstTreatment {
     return {
       country: "NZ",
       rate: 0.15,
+      currency: "NZD",
       percentLabel: "15%",
       xeroTaxType: "OUTPUT2",
       myobTaxCode: "GST15",
@@ -35,6 +38,7 @@ export function getGstTreatment(country: Country): GstTreatment {
   return {
     country: "AU",
     rate: 0.1,
+    currency: "AUD",
     percentLabel: "10%",
     xeroTaxType: "OUTPUT",
     myobTaxCode: "GST",

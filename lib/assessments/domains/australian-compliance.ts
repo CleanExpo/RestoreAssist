@@ -29,6 +29,8 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { gstForInspection } from "@/lib/assessments/gst";
+import type { GstTreatment } from "@/lib/gst-rules";
 import { detectStateFromPostcode } from "@/lib/state-detection";
 import type {
   AssessmentEstimate,
@@ -45,8 +47,6 @@ import type {
 // ─── Pricing ─────────────────────────────────────────────────────────────────
 
 const ADMIN_HOUR_AUD = 95;
-const GST_RATE = 0.1;
-
 // ─── Options narrowing ──────────────────────────────────────────────────────
 
 type AustralianState =
@@ -222,11 +222,12 @@ function buildScope(
 function buildEstimate(
   scope: ScopeItem[],
   rateByDescription: Map<string, number>,
+  gst: GstTreatment,
 ): AssessmentEstimate {
   const lines: EstimateLine[] = scope.map((item) => {
     const rate = rateByDescription.get(item.description) ?? 0;
     const lineTotalExGst = +(item.quantity * rate).toFixed(2);
-    const gstAmount = +(lineTotalExGst * GST_RATE).toFixed(2);
+    const gstAmount = +(lineTotalExGst * gst.rate).toFixed(2);
     const lineTotalIncGst = +(lineTotalExGst + gstAmount).toFixed(2);
     return {
       description: item.description,
@@ -250,8 +251,8 @@ function buildEstimate(
       subtotalExGst,
       gstTotal,
       totalIncGst,
-      gstRate: GST_RATE,
-      currency: "AUD",
+      gstRate: gst.rate,
+      currency: gst.currency,
     },
   };
 }
@@ -432,7 +433,8 @@ export const australianComplianceDomain: DomainPlugin = {
         { hasLabourHire, hasBiohazard, iicrcCertifications, state },
         state,
       );
-      const estimate = buildEstimate(scope, rateByDescription);
+      const gst = await gstForInspection(input.inspectionId);
+      const estimate = buildEstimate(scope, rateByDescription, gst);
       const { report, citations } = buildReport({
         propertyAddress: inspection.propertyAddress,
         state,

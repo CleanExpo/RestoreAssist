@@ -14,6 +14,8 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { gstForInspection } from "@/lib/assessments/gst";
+import type { GstTreatment } from "@/lib/gst-rules";
 import {
   generateBiohazardScope,
   type AustralianState,
@@ -55,8 +57,6 @@ const DEFAULT_AU_PRICING = {
   thermalCameraUseCostPerAssessment: 95,
 };
 
-const GST_RATE = 0.1;
-
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function categoryFromItemType(itemType: string): ScopeCategory {
@@ -96,11 +96,12 @@ function categoryFromItemType(itemType: string): ScopeCategory {
 function buildEstimate(
   scope: ScopeItem[],
   rateByDescription: Map<string, number>,
+  gst: GstTreatment,
 ): AssessmentEstimate {
   const lines: EstimateLine[] = scope.map((item) => {
     const rate = rateByDescription.get(item.description) ?? 0;
     const lineTotalExGst = +(item.quantity * rate).toFixed(2);
-    const gstAmount = +(lineTotalExGst * GST_RATE).toFixed(2);
+    const gstAmount = +(lineTotalExGst * gst.rate).toFixed(2);
     const lineTotalIncGst = +(lineTotalExGst + gstAmount).toFixed(2);
     return {
       description: item.description,
@@ -124,8 +125,8 @@ function buildEstimate(
       subtotalExGst,
       gstTotal,
       totalIncGst,
-      gstRate: GST_RATE,
-      currency: "AUD",
+      gstRate: gst.rate,
+      currency: gst.currency,
     },
   };
 }
@@ -420,7 +421,8 @@ export const biohazardDomain: DomainPlugin = {
           .filter((d) => typeof d.unitCostAud === "number")
           .map((d) => [d.description, d.unitCostAud as number]),
       );
-      const estimate = buildEstimate(scope, rateByDescription);
+      const gst = await gstForInspection(input.inspectionId);
+      const estimate = buildEstimate(scope, rateByDescription, gst);
 
       const { report, citations } = buildReport({
         propertyAddress: inspection.propertyAddress,

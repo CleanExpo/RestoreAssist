@@ -5,6 +5,7 @@ describe("getGstTreatment", () => {
   it("returns 10% rate for AU", () => {
     const treatment = getGstTreatment("AU");
     expect(treatment.rate).toBe(0.1);
+    expect(treatment.currency).toBe("AUD");
     expect(treatment.percentLabel).toBe("10%");
     expect(treatment.xeroTaxType).toBe("OUTPUT");
     expect(treatment.myobTaxCode).toBe("GST");
@@ -14,6 +15,7 @@ describe("getGstTreatment", () => {
   it("returns 15% rate for NZ", () => {
     const treatment = getGstTreatment("NZ");
     expect(treatment.rate).toBe(0.15);
+    expect(treatment.currency).toBe("NZD");
     expect(treatment.percentLabel).toBe("15%");
     expect(treatment.xeroTaxType).toBe("OUTPUT2");
     expect(treatment.myobTaxCode).toBe("GST15");
