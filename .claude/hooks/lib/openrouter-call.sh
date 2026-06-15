@@ -33,7 +33,9 @@ TIMEOUT="${VERIFIER_TIMEOUT_SECONDS:-30}"
 MAX_TOKENS="${VERIFIER_MAX_OUTPUT_TOKENS:-2000}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SYSTEM_PROMPT_FILE="$SCRIPT_DIR/verifier-system-prompt.md"
+# Per-domain verifier prompt. stop-verifier.sh sets VERIFIER_PROMPT_FILE when
+# dispatching a registered domain; default preserves the original iOS verifier.
+SYSTEM_PROMPT_FILE="${VERIFIER_PROMPT_FILE:-$SCRIPT_DIR/verifier-system-prompt.md}"
 
 if [[ ! -r "$SYSTEM_PROMPT_FILE" ]]; then
   echo "openrouter-call: system prompt missing: $SYSTEM_PROMPT_FILE" >&2
