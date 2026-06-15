@@ -33,6 +33,8 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { gstForInspection } from "@/lib/assessments/gst";
+import type { GstTreatment } from "@/lib/gst-rules";
 import type {
   AssessmentEstimate,
   AssessmentReport,
@@ -54,8 +56,6 @@ const CONDENSATE_SANITISE_PER_UNIT_AUD = 95;
 const FILTER_REPLACE_PER_UNIT_AUD = 120;
 const ATP_TEST_PER_SAMPLE_AUD = 45;
 const SANITISER_FOG_PER_M2_SERVED_AUD = 2.5;
-
-const GST_RATE = 0.1;
 
 // ─── Options narrowing ──────────────────────────────────────────────────────
 
@@ -256,11 +256,12 @@ function buildScope(opts: HvacOptions): BuiltScope {
 function buildEstimate(
   scope: ScopeItem[],
   rateByDescription: Map<string, number>,
+  gst: GstTreatment,
 ): AssessmentEstimate {
   const lines: EstimateLine[] = scope.map((item) => {
     const rate = rateByDescription.get(item.description) ?? 0;
     const lineTotalExGst = +(item.quantity * rate).toFixed(2);
-    const gstAmount = +(lineTotalExGst * GST_RATE).toFixed(2);
+    const gstAmount = +(lineTotalExGst * gst.rate).toFixed(2);
     const lineTotalIncGst = +(lineTotalExGst + gstAmount).toFixed(2);
     return {
       description: item.description,
@@ -284,8 +285,8 @@ function buildEstimate(
       subtotalExGst,
       gstTotal,
       totalIncGst,
-      gstRate: GST_RATE,
-      currency: "AUD",
+      gstRate: gst.rate,
+      currency: gst.currency,
     },
   };
 }
@@ -471,7 +472,8 @@ export const hvacDomain: DomainPlugin = {
       }
 
       const { items: scope, rateByDescription } = buildScope(opts);
-      const estimate = buildEstimate(scope, rateByDescription);
+      const gst = await gstForInspection(input.inspectionId);
+      const estimate = buildEstimate(scope, rateByDescription, gst);
       const { report, citations } = buildReport({
         propertyAddress: inspection.propertyAddress,
         systemType: opts.systemType,
