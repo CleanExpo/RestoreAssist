@@ -66,10 +66,16 @@ a non-matching edit is a no-op._
 - `claim-truthfulness`: when a turn asserts "tests pass / CI green / deployed", require a
   matching tool result in-transcript or downgrade to `failed`. Directly attacks "board ≠ reality".
 
-**Phase 3 — Aggregate ledger.** A `npm run verifier:ledger` script that reads
-`.claude/verifier-reports/*.json` into one weekly roll-up: counts of `failed` blocks by
-domain and `claims_unverified` that still shipped. (Fable's `summarizeEvidence` equivalent,
-longitudinal.)
+**Phase 3 — Aggregate ledger.** ✅ SHIPPED. `npm run verifier:ledger`
+(`scripts/verifier-ledger.mjs`) reads `.claude/verifier-reports/*.json` into an
+all-time + last-N-days roll-up: per-domain `failed` blocks, partials, and
+`claims_unverified` totals (`--json` for machine output). Legacy pre-router reports are
+attributed to `ios-app-review`. (Fable's `summarizeEvidence` equivalent, longitudinal.)
+
+---
+
+**Status:** Phases 1, 2 (migration-safety + claim-truthfulness), and 3 are all shipped to
+`main`. The verifier covers 3 domains and is now measurable via the ledger.
 
 ## Measurable success criteria (counts, not invented percentages)
 
