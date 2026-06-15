@@ -164,7 +164,7 @@ run_domain() {
 # shellcheck source=lib/domains.sh
 source "$LIB/domains.sh"
 
-while IFS='|' read -r D_NAME D_MATCH D_STATIC D_PROMPT; do
+while IFS=$'\t' read -r D_NAME D_MATCH D_STATIC D_PROMPT; do
   [[ -z "$D_NAME" || "$D_NAME" == \#* ]] && continue
   MATCHED=$(match_paths "$D_MATCH")
   [[ -z "$MATCHED" ]] && continue
