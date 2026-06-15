@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { createClient } from "@supabase/supabase-js";
+import { fromException } from "@/lib/api-errors";
 
 function getSupabaseClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -53,7 +54,10 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { ok: false, error: "Unauthorized" },
+        { status: 401 },
+      );
     }
 
     const supabase = getSupabaseClient();
@@ -64,7 +68,7 @@ export async function POST(req: NextRequest) {
     if (!videoSlug || !VALID_EVENTS.includes(eventType)) {
       return NextResponse.json(
         { ok: false, error: "Invalid videoSlug or eventType" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -83,16 +87,11 @@ export async function POST(req: NextRequest) {
     });
 
     if (error) {
-      console.error("[video/engagement] Supabase error:", error);
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+      return fromException(req, error, { stage: "video/engagement:insert" });
     }
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("[video/engagement] error:", err);
-    return NextResponse.json(
-      { ok: false, error: err instanceof Error ? err.message : "Unknown error" },
-      { status: 500 }
-    );
+    return fromException(req, err, { stage: "video/engagement" });
   }
 }

@@ -22,6 +22,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { fromException } from "@/lib/api-errors";
 import {
   generateAvatarVideo,
   getVideoStatus,
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("[api/heygen] Error:", message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return fromException(request, error, { stage: "heygen" });
   }
 }
 
@@ -122,6 +123,6 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("[api/heygen] GET error:", message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return fromException(request, error, { stage: "heygen" });
   }
 }

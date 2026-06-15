@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { generateSFX } from "@/lib/elevenlabs/client";
+import { fromException } from "@/lib/api-errors";
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,10 +37,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Enforce duration bounds (ElevenLabs limit)
-    const duration = Math.min(
-      Math.max(duration_seconds ?? 3, 0.5),
-      5,
-    );
+    const duration = Math.min(Math.max(duration_seconds ?? 3, 0.5), 5);
 
     const buf = await generateSFX({
       text: description,
@@ -60,6 +58,6 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("[api/elevenlabs/sfx] Error:", message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return fromException(request, error, { stage: "elevenlabs/sfx" });
   }
 }

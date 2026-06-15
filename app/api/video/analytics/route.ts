@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { fromException } from "@/lib/api-errors";
 import { createClient } from "@supabase/supabase-js";
 
 function getSupabaseClient() {
@@ -41,7 +42,10 @@ export async function GET(req: NextRequest) {
       .maybeSingle();
 
     if (!roleData) {
-      return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+      return NextResponse.json(
+        { error: "Admin access required" },
+        { status: 403 },
+      );
     }
 
     const { searchParams } = new URL(req.url);
@@ -63,33 +67,56 @@ export async function GET(req: NextRequest) {
     const { data: events, error } = await query;
 
     if (error) {
-      console.error("[video/analytics] error:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return fromException(req, error, { stage: "video/analytics:query" });
     }
 
     // Aggregate
     const slugStats: Record<
       string,
-      { plays: number; pauses: number; completes: number; p25: number; p50: number; p75: number; uniqueUsers: Set<string> }
+      {
+        plays: number;
+        pauses: number;
+        completes: number;
+        p25: number;
+        p50: number;
+        p75: number;
+        uniqueUsers: Set<string>;
+      }
     > = {};
 
     for (const ev of events || []) {
       if (!slugStats[ev.video_slug]) {
         slugStats[ev.video_slug] = {
-          plays: 0, pauses: 0, completes: 0,
-          p25: 0, p50: 0, p75: 0,
+          plays: 0,
+          pauses: 0,
+          completes: 0,
+          p25: 0,
+          p50: 0,
+          p75: 0,
           uniqueUsers: new Set(),
         };
       }
       const s = slugStats[ev.video_slug];
       s.uniqueUsers.add(ev.user_id);
       switch (ev.event_type) {
-        case "play": s.plays++; break;
-        case "pause": s.pauses++; break;
-        case "complete": s.completes++; break;
-        case "progress_25": s.p25++; break;
-        case "progress_50": s.p50++; break;
-        case "progress_75": s.p75++; break;
+        case "play":
+          s.plays++;
+          break;
+        case "pause":
+          s.pauses++;
+          break;
+        case "complete":
+          s.completes++;
+          break;
+        case "progress_25":
+          s.p25++;
+          break;
+        case "progress_50":
+          s.p50++;
+          break;
+        case "progress_75":
+          s.p75++;
+          break;
       }
     }
 
@@ -102,15 +129,16 @@ export async function GET(req: NextRequest) {
       p50: stats.p50,
       p75: stats.p75,
       uniqueUsers: stats.uniqueUsers.size,
-      completionRate: stats.plays > 0
-        ? Math.round((stats.completes / stats.plays) * 100)
-        : 0,
-      dropoff25: stats.plays > 0
-        ? Math.round(((stats.plays - stats.p25) / stats.plays) * 100)
-        : 0,
-      dropoff50: stats.p25 > 0
-        ? Math.round(((stats.p25 - stats.p50) / stats.p25) * 100)
-        : 0,
+      completionRate:
+        stats.plays > 0 ? Math.round((stats.completes / stats.plays) * 100) : 0,
+      dropoff25:
+        stats.plays > 0
+          ? Math.round(((stats.plays - stats.p25) / stats.plays) * 100)
+          : 0,
+      dropoff50:
+        stats.p25 > 0
+          ? Math.round(((stats.p25 - stats.p50) / stats.p25) * 100)
+          : 0,
     }));
 
     result.sort((a, b) => b.plays - a.plays);
@@ -122,10 +150,6 @@ export async function GET(req: NextRequest) {
       data: result,
     });
   } catch (err) {
-    console.error("[video/analytics] error:", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Unknown error" },
-      { status: 500 }
-    );
+    return fromException(req, err, { stage: "video/analytics" });
   }
 }
