@@ -96,7 +96,10 @@ run_domain() {
     local static_report="$REPORTS_DIR/${SESSION_ID}-${ts}-${name}-static.json"
     local static_out; static_out=$(mktemp)
     local static_rc=0
-    echo "$matched" | "$LIB/$static_check" > "$static_out" 2>>"$ERROR_LOG" || static_rc=$?
+    # static check gets matched paths on stdin AND the transcript as $1
+    # (transcript-based domains like claim-truthfulness read $1; path-based
+    # domains like ios/migration read stdin and ignore it).
+    echo "$matched" | "$LIB/$static_check" "$TRANSCRIPT" > "$static_out" 2>>"$ERROR_LOG" || static_rc=$?
 
     if (( static_rc == 0 )) && jq empty "$static_out" 2>/dev/null; then
       cp "$static_out" "$static_report"   # audit trail
@@ -117,6 +120,11 @@ run_domain() {
     fi
     rm -f "$static_out"
   fi
+
+  # Static-only domains (prompt_file == "-") skip the LLM stage entirely:
+  # the deterministic check is the whole gate (e.g. claim-truthfulness). This
+  # keeps such domains $0 and avoids an LLM call on every edit turn.
+  [[ "$prompt_file" == "-" ]] && return 0
 
   # ---- Stage 2: LLM verifier (only if static passed / inconclusive) ----
   local context_file; context_file=$(mktemp)

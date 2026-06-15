@@ -27,10 +27,22 @@ if [[ -z "$TRANSCRIPT" || ! -r "$TRANSCRIPT" ]]; then
   exit 3
 fi
 
-# Find the LAST user message and everything that came after it (the most
-# recent assistant turn). Claude Code transcripts are one JSON object per
-# line with a "type" field: "user" | "assistant" | "system".
-LAST_USER_LINE=$(jq -r 'select(.type == "user") | input_line_number' "$TRANSCRIPT" 2>/dev/null | tail -n1 || true)
+# Find the last GENUINE user prompt and everything after it (the most recent
+# assistant turn). Claude Code stores tool_results as type:"user" too (array
+# content of tool_result blocks), so anchoring on the last raw "user" line
+# lands on a tool result and truncates the turn. A genuine prompt has string
+# content, or array content with a text block and no tool_result blocks.
+LAST_USER_LINE=$(jq -r '
+  select(.type == "user")
+  | (.message.content // .content) as $c
+  | select(
+      ($c|type) == "string"
+      or (($c|type) == "array"
+          and any($c[]?; .type=="text")
+          and (any($c[]?; .type=="tool_result") | not))
+    )
+  | input_line_number
+' "$TRANSCRIPT" 2>/dev/null | tail -n1 || true)
 
 if [[ -z "$LAST_USER_LINE" ]]; then
   echo "gather-context: no user message in transcript" >&2
