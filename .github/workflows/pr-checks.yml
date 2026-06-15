@@ -128,8 +128,26 @@ jobs:
       - name: AI guardrail audit
         run: pnpm audit:ai
 
+      # RA-6685 — apply migrations BEFORE the unit tests so the DB-gated suites
+      # (described with `describe.skipIf(!process.env.DATABASE_URL)`:
+      # trial-handling, setup checks, subscription-event, google-drive oauth,
+      # setup routes, …) run against a real schema instead of silently
+      # skipping. Idempotent: the later "Prisma migration drift check" step
+      # re-runs `migrate deploy` (a no-op once applied) plus `migrate status`,
+      # so the drift gate is unchanged.
+      - name: Apply migrations for DB-gated tests
+        run: pnpm exec prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+          DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+
       - name: Unit tests
         run: pnpm exec vitest run
+        # RA-6685 — without DATABASE_URL the `skipIf(!process.env.DATABASE_URL)`
+        # suites evaluate `skipIf(true)` and report green WITHOUT running.
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+          DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
 
       # Build flipped to enforcing 2026-05-06 (Wave 1 PR-B production-readiness push).
       # Vercel previews already pass `pnpm build` against both `restoreassist` and
