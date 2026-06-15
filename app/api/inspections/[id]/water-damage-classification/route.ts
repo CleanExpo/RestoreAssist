@@ -22,6 +22,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { fromException } from "@/lib/api-errors";
 
 // ─── Validation ────────────────────────────────────────────────────────────────
 
@@ -72,26 +73,32 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = await params;
+
+    const inspection = await prisma.inspection.findUnique({
+      where: { id, userId: session.user.id },
+      select: { id: true, waterDamageClassification: true },
+    });
+
+    if (!inspection) {
+      return NextResponse.json(
+        { error: "Inspection not found" },
+        { status: 404 },
+      );
+    }
+
+    return NextResponse.json(inspection.waterDamageClassification ?? null);
+  } catch (err) {
+    return fromException(_req, err, {
+      stage: "water-damage-classification:get",
+    });
   }
-
-  const { id } = await params;
-
-  const inspection = await prisma.inspection.findUnique({
-    where: { id, userId: session.user.id },
-    select: { id: true, waterDamageClassification: true },
-  });
-
-  if (!inspection) {
-    return NextResponse.json(
-      { error: "Inspection not found" },
-      { status: 404 },
-    );
-  }
-
-  return NextResponse.json(inspection.waterDamageClassification ?? null);
 }
 
 // ─── POST ─────────────────────────────────────────────────────────────────────
@@ -100,84 +107,90 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  const { id } = await params;
+    const { id } = await params;
 
-  const inspection = await prisma.inspection.findUnique({
-    where: { id, userId: session.user.id },
-    select: {
-      id: true,
-      _count: { select: { photos: true } },
-    },
-  });
-
-  if (!inspection) {
-    return NextResponse.json(
-      { error: "Inspection not found" },
-      { status: 404 },
-    );
-  }
-
-  const body = await req.json();
-  const parsed = classificationSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid data", details: parsed.error.flatten() },
-      { status: 400 },
-    );
-  }
-
-  const data = parsed.data;
-  const gates = computeGates(data, inspection._count.photos);
-
-  // Atomically upsert classification + stamp claimType — prevents split-brain
-  // state if DB connection drops between the two writes.
-  const [record] = await prisma.$transaction([
-    prisma.waterDamageClassification.upsert({
-      where: { inspectionId: id },
-      create: {
-        inspectionId: id,
-        waterCategory: data.waterCategory ?? undefined,
-        damageClass: data.damageClass ?? undefined,
-        lossSourceType: data.lossSourceType ?? undefined,
-        lossSourceIdentified: data.lossSourceIdentified ?? false,
-        lossSourceAddressed: data.lossSourceAddressed ?? false,
-        hoursOfExposure: data.hoursOfExposure ?? undefined,
-        ...gates,
+    const inspection = await prisma.inspection.findUnique({
+      where: { id, userId: session.user.id },
+      select: {
+        id: true,
+        _count: { select: { photos: true } },
       },
-      update: {
-        ...(data.waterCategory !== undefined && {
-          waterCategory: data.waterCategory,
-        }),
-        ...(data.damageClass !== undefined && {
-          damageClass: data.damageClass,
-        }),
-        ...(data.lossSourceType !== undefined && {
-          lossSourceType: data.lossSourceType,
-        }),
-        ...(data.lossSourceIdentified !== undefined && {
-          lossSourceIdentified: data.lossSourceIdentified,
-        }),
-        ...(data.lossSourceAddressed !== undefined && {
-          lossSourceAddressed: data.lossSourceAddressed,
-        }),
-        ...(data.hoursOfExposure !== undefined && {
-          hoursOfExposure: data.hoursOfExposure,
-        }),
-        ...gates,
-      },
-    }),
-    prisma.inspection.update({
-      where: { id },
-      data: { claimType: "WATER" },
-    }),
-  ]);
+    });
 
-  return NextResponse.json(record);
+    if (!inspection) {
+      return NextResponse.json(
+        { error: "Inspection not found" },
+        { status: 404 },
+      );
+    }
+
+    const body = await req.json();
+    const parsed = classificationSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid data", details: parsed.error.flatten() },
+        { status: 400 },
+      );
+    }
+
+    const data = parsed.data;
+    const gates = computeGates(data, inspection._count.photos);
+
+    // Atomically upsert classification + stamp claimType — prevents split-brain
+    // state if DB connection drops between the two writes.
+    const [record] = await prisma.$transaction([
+      prisma.waterDamageClassification.upsert({
+        where: { inspectionId: id },
+        create: {
+          inspectionId: id,
+          waterCategory: data.waterCategory ?? undefined,
+          damageClass: data.damageClass ?? undefined,
+          lossSourceType: data.lossSourceType ?? undefined,
+          lossSourceIdentified: data.lossSourceIdentified ?? false,
+          lossSourceAddressed: data.lossSourceAddressed ?? false,
+          hoursOfExposure: data.hoursOfExposure ?? undefined,
+          ...gates,
+        },
+        update: {
+          ...(data.waterCategory !== undefined && {
+            waterCategory: data.waterCategory,
+          }),
+          ...(data.damageClass !== undefined && {
+            damageClass: data.damageClass,
+          }),
+          ...(data.lossSourceType !== undefined && {
+            lossSourceType: data.lossSourceType,
+          }),
+          ...(data.lossSourceIdentified !== undefined && {
+            lossSourceIdentified: data.lossSourceIdentified,
+          }),
+          ...(data.lossSourceAddressed !== undefined && {
+            lossSourceAddressed: data.lossSourceAddressed,
+          }),
+          ...(data.hoursOfExposure !== undefined && {
+            hoursOfExposure: data.hoursOfExposure,
+          }),
+          ...gates,
+        },
+      }),
+      prisma.inspection.update({
+        where: { id },
+        data: { claimType: "WATER" },
+      }),
+    ]);
+
+    return NextResponse.json(record);
+  } catch (err) {
+    return fromException(req, err, {
+      stage: "water-damage-classification:post",
+    });
+  }
 }
 
 // ─── DELETE ───────────────────────────────────────────────────────────────────
@@ -186,34 +199,40 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = await params;
+
+    const inspection = await prisma.inspection.findUnique({
+      where: { id, userId: session.user.id },
+      select: { id: true },
+    });
+
+    if (!inspection) {
+      return NextResponse.json(
+        { error: "Inspection not found" },
+        { status: 404 },
+      );
+    }
+
+    await prisma.$transaction([
+      prisma.waterDamageClassification.deleteMany({
+        where: { inspectionId: id },
+      }),
+      prisma.inspection.update({
+        where: { id },
+        data: { claimType: null },
+      }),
+    ]);
+
+    return NextResponse.json({ deleted: true });
+  } catch (err) {
+    return fromException(_req, err, {
+      stage: "water-damage-classification:delete",
+    });
   }
-
-  const { id } = await params;
-
-  const inspection = await prisma.inspection.findUnique({
-    where: { id, userId: session.user.id },
-    select: { id: true },
-  });
-
-  if (!inspection) {
-    return NextResponse.json(
-      { error: "Inspection not found" },
-      { status: 404 },
-    );
-  }
-
-  await prisma.$transaction([
-    prisma.waterDamageClassification.deleteMany({
-      where: { inspectionId: id },
-    }),
-    prisma.inspection.update({
-      where: { id },
-      data: { claimType: null },
-    }),
-  ]);
-
-  return NextResponse.json({ deleted: true });
 }

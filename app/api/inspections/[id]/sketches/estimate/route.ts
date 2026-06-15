@@ -15,54 +15,59 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { extractSketchEstimate } from "@/lib/sketch-estimate-extractor";
+import { fromException } from "@/lib/api-errors";
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = await params;
+
+    // Verify inspection ownership
+    const inspection = await prisma.inspection.findFirst({
+      where: { id, userId: session.user.id },
+      select: { id: true },
+    });
+    if (!inspection) {
+      return NextResponse.json(
+        { error: "Inspection not found" },
+        { status: 404 },
+      );
+    }
+
+    const sketches = await (prisma as any).claimSketch.findMany({
+      where: { inspectionId: id },
+      orderBy: { floorNumber: "asc" },
+      select: {
+        floorLabel: true,
+        sketchType: true,
+        sketchData: true,
+        equipmentPoints: true,
+        moisturePoints: true,
+      },
+      take: 50,
+    });
+
+    // Only process structural sketches for the estimate
+    const floors = sketches
+      .filter((s: any) => s.sketchType === "structural" || !s.sketchType)
+      .map((s: any) => ({
+        floorLabel: s.floorLabel,
+        sketchData: s.sketchData as Record<string, unknown> | null,
+        equipmentPoints: s.equipmentPoints as unknown[] | null,
+        moisturePoints: s.moisturePoints as unknown[] | null,
+      }));
+
+    const estimate = extractSketchEstimate(floors);
+
+    return NextResponse.json({ estimate });
+  } catch (err) {
+    return fromException(_req, err, { stage: "estimate:get" });
   }
-
-  const { id } = await params;
-
-  // Verify inspection ownership
-  const inspection = await prisma.inspection.findFirst({
-    where: { id, userId: session.user.id },
-    select: { id: true },
-  });
-  if (!inspection) {
-    return NextResponse.json(
-      { error: "Inspection not found" },
-      { status: 404 },
-    );
-  }
-
-  const sketches = await (prisma as any).claimSketch.findMany({
-    where: { inspectionId: id },
-    orderBy: { floorNumber: "asc" },
-    select: {
-      floorLabel: true,
-      sketchType: true,
-      sketchData: true,
-      equipmentPoints: true,
-      moisturePoints: true,
-    },
-    take: 50,
-  });
-
-  // Only process structural sketches for the estimate
-  const floors = sketches
-    .filter((s: any) => s.sketchType === "structural" || !s.sketchType)
-    .map((s: any) => ({
-      floorLabel: s.floorLabel,
-      sketchData: s.sketchData as Record<string, unknown> | null,
-      equipmentPoints: s.equipmentPoints as unknown[] | null,
-      moisturePoints: s.moisturePoints as unknown[] | null,
-    }));
-
-  const estimate = extractSketchEstimate(floors);
-
-  return NextResponse.json({ estimate });
 }

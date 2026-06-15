@@ -22,53 +22,60 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generatePKCE } from "@/lib/integrations/oauth-handler";
 import { buildGoogleDriveAuthUrl } from "@/lib/storage/google-drive-oauth";
+import { fromException } from "@/lib/api-errors";
 
 const SETUP_URL = (path: string) =>
   new URL(path, process.env.NEXTAUTH_URL ?? "http://localhost:3000");
 
 export async function GET(_request: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const org = await prisma.organization.findFirst({
+      where: { ownerId: session.user.id },
+      select: { id: true },
+    });
+    if (!org) {
+      return NextResponse.redirect(SETUP_URL("/setup?error=no-org"));
+    }
+
+    const clientId =
+      process.env.GOOGLE_DRIVE_CLIENT_ID ?? process.env.GOOGLE_CLIENT_ID;
+    if (!clientId) {
+      return NextResponse.redirect(
+        SETUP_URL("/setup?error=drive-not-configured"),
+      );
+    }
+
+    const nonce = crypto.randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    await prisma.oAuthStateNonce.create({
+      data: {
+        nonce,
+        userId: session.user.id,
+        provider: "GOOGLE_DRIVE",
+        expiresAt,
+      },
+    });
+
+    const { codeVerifier, codeChallenge } = generatePKCE();
+    await prisma.organization.update({
+      where: { id: org.id },
+      data: { storageProviderPkceVerifier: codeVerifier },
+    });
+
+    const redirectUri = `${process.env.NEXTAUTH_URL ?? "http://localhost:3000"}/api/oauth/google-drive/callback`;
+    const authUrl = buildGoogleDriveAuthUrl({
+      state: nonce,
+      codeChallenge,
+      redirectUri,
+      clientId,
+    });
+    return NextResponse.redirect(authUrl);
+  } catch (err) {
+    return fromException(undefined, err, { stage: "google-drive/start:get" });
   }
-
-  const org = await prisma.organization.findFirst({
-    where: { ownerId: session.user.id },
-    select: { id: true },
-  });
-  if (!org) {
-    return NextResponse.redirect(SETUP_URL("/setup?error=no-org"));
-  }
-
-  const clientId =
-    process.env.GOOGLE_DRIVE_CLIENT_ID ?? process.env.GOOGLE_CLIENT_ID;
-  if (!clientId) {
-    return NextResponse.redirect(SETUP_URL("/setup?error=drive-not-configured"));
-  }
-
-  const nonce = crypto.randomBytes(32).toString("hex");
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-  await prisma.oAuthStateNonce.create({
-    data: {
-      nonce,
-      userId: session.user.id,
-      provider: "GOOGLE_DRIVE",
-      expiresAt,
-    },
-  });
-
-  const { codeVerifier, codeChallenge } = generatePKCE();
-  await prisma.organization.update({
-    where: { id: org.id },
-    data: { storageProviderPkceVerifier: codeVerifier },
-  });
-
-  const redirectUri = `${process.env.NEXTAUTH_URL ?? "http://localhost:3000"}/api/oauth/google-drive/callback`;
-  const authUrl = buildGoogleDriveAuthUrl({
-    state: nonce,
-    codeChallenge,
-    redirectUri,
-    clientId,
-  });
-  return NextResponse.redirect(authUrl);
 }

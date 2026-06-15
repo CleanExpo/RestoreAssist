@@ -36,6 +36,7 @@ import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
+import { fromException } from "@/lib/api-errors";
 
 const TOKEN_TTL_SECONDS = 60;
 const SESSION_COOKIE_NAME =
@@ -54,53 +55,62 @@ function isSafeNextPath(next: string | null): string {
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  const url = new URL(request.url);
-  const next = isSafeNextPath(url.searchParams.get("next"));
+  try {
+    const url = new URL(request.url);
+    const next = isSafeNextPath(url.searchParams.get("next"));
 
-  // 1. Read the existing NextAuth session cookie. We read the cookie
-  //    VALUE directly (the encoded JWT string) so we can re-emit it as
-  //    Set-Cookie from /auth/redeem. We also call getServerSession to
-  //    verify it's still valid (not expired, not tampered).
-  const sessionTokenCookie = request.cookies.get(SESSION_COOKIE_NAME);
-  if (!sessionTokenCookie?.value) {
-    // No cookie present — user landed here without completing OAuth.
-    // Redirect to /login. (This is the Path B fallback if the OAuth
-    // callback failed silently.)
-    return NextResponse.redirect(new URL("/login", url.origin), { status: 302 });
+    // 1. Read the existing NextAuth session cookie. We read the cookie
+    //    VALUE directly (the encoded JWT string) so we can re-emit it as
+    //    Set-Cookie from /auth/redeem. We also call getServerSession to
+    //    verify it's still valid (not expired, not tampered).
+    const sessionTokenCookie = request.cookies.get(SESSION_COOKIE_NAME);
+    if (!sessionTokenCookie?.value) {
+      // No cookie present — user landed here without completing OAuth.
+      // Redirect to /login. (This is the Path B fallback if the OAuth
+      // callback failed silently.)
+      return NextResponse.redirect(new URL("/login", url.origin), {
+        status: 302,
+      });
+    }
+
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      // Cookie present but session is invalid (expired / revoked).
+      return NextResponse.redirect(
+        new URL("/login?error=HandoffSessionInvalid", url.origin),
+        { status: 302 },
+      );
+    }
+
+    // 2. Mint a single-use opaque handoff token. 32 random bytes, base64url
+    //    encoded → ~43-char URL-safe string. Stored as sha256 hash; the
+    //    plaintext only travels in the URL between this redirect and
+    //    /auth/redeem (which is a Universal Link target — the trip is
+    //    intercepted by iOS within milliseconds).
+    const plaintext = crypto.randomBytes(32).toString("base64url");
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(plaintext)
+      .digest("hex");
+
+    await prisma.oAuthHandoffToken.create({
+      data: {
+        tokenHash,
+        userId: session.user.id,
+        encodedJwt: sessionTokenCookie.value,
+        expiresAt: new Date(Date.now() + TOKEN_TTL_SECONDS * 1000),
+      },
+    });
+
+    // 3. Redirect to /auth/redeem. iOS Universal Links will intercept this
+    //    redirect target (it matches the AASA "/*" rule), close the
+    //    SFSafariViewController, and open the URL in the parent WKWebView.
+    const redeemUrl = new URL("/auth/redeem", url.origin);
+    redeemUrl.searchParams.set("token", plaintext);
+    redeemUrl.searchParams.set("next", next);
+
+    return NextResponse.redirect(redeemUrl, { status: 302 });
+  } catch (err) {
+    return fromException(request, err, { stage: "handoff/initiate:get" });
   }
-
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    // Cookie present but session is invalid (expired / revoked).
-    return NextResponse.redirect(
-      new URL("/login?error=HandoffSessionInvalid", url.origin),
-      { status: 302 },
-    );
-  }
-
-  // 2. Mint a single-use opaque handoff token. 32 random bytes, base64url
-  //    encoded → ~43-char URL-safe string. Stored as sha256 hash; the
-  //    plaintext only travels in the URL between this redirect and
-  //    /auth/redeem (which is a Universal Link target — the trip is
-  //    intercepted by iOS within milliseconds).
-  const plaintext = crypto.randomBytes(32).toString("base64url");
-  const tokenHash = crypto.createHash("sha256").update(plaintext).digest("hex");
-
-  await prisma.oAuthHandoffToken.create({
-    data: {
-      tokenHash,
-      userId: session.user.id,
-      encodedJwt: sessionTokenCookie.value,
-      expiresAt: new Date(Date.now() + TOKEN_TTL_SECONDS * 1000),
-    },
-  });
-
-  // 3. Redirect to /auth/redeem. iOS Universal Links will intercept this
-  //    redirect target (it matches the AASA "/*" rule), close the
-  //    SFSafariViewController, and open the URL in the parent WKWebView.
-  const redeemUrl = new URL("/auth/redeem", url.origin);
-  redeemUrl.searchParams.set("token", plaintext);
-  redeemUrl.searchParams.set("next", next);
-
-  return NextResponse.redirect(redeemUrl, { status: 302 });
 }
