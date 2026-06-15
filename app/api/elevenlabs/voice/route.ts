@@ -14,6 +14,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { fromException } from "@/lib/api-errors";
 import {
   generateVoice,
   streamVoice,
@@ -32,10 +33,7 @@ export async function POST(request: NextRequest) {
     const { text, voice_id, stream = false } = body;
 
     if (!text || typeof text !== "string") {
-      return NextResponse.json(
-        { error: "text is required" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "text is required" }, { status: 400 });
     }
 
     if (text.length > 5000) {
@@ -88,7 +86,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("[api/elevenlabs/voice] Error:", message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return fromException(request, error, { stage: "elevenlabs/voice" });
   }
 }
 
@@ -118,6 +116,6 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("[api/elevenlabs/voice] GET error:", message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return fromException(request, error, { stage: "elevenlabs/voice" });
   }
 }
