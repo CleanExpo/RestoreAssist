@@ -25,10 +25,15 @@
  *      for a table the audit marks service-only.
  */
 
-import { readFileSync } from "fs";
+import { readFileSync, readdirSync } from "fs";
 import { resolve } from "path";
 
 const REPO = resolve(__dirname, "..");
+
+const MIGRATION_DIRS = [
+  resolve(REPO, "prisma/migrations"),
+  resolve(REPO, "supabase/migrations"),
+];
 
 export const RA4956_MIGRATION = resolve(
   REPO,
@@ -333,6 +338,138 @@ export function parseSketchRlsCoverage(sql: string): {
     policied.add(m[1]);
   }
   return { enabled, policied };
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// RA-6677: schema-derived RLS disposition. The original guard hardcoded a frozen
+// 119-table list and never read schema.prisma, so a NEW model was invisible to
+// it (the exact mechanism behind the #1326 exposure). These functions derive the
+// table universe from schema.prisma and the RLS-enable posture from EVERY
+// migration, so any new model that isn't dispositioned fails CI.
+// ───────────────────────────────────────────────────────────────────────────
+
+/** Every Prisma model → its table name (honouring `@@map`). */
+export function schemaModels(): Map<string, string> {
+  const schema = readFileSync(resolve(REPO, "prisma/schema.prisma"), "utf8");
+  const out = new Map<string, string>();
+  for (const block of schema.split(/\n(?=model )/)) {
+    const m = block.match(/^model\s+(\w+)\s*\{/);
+    if (!m) continue;
+    const map = block.match(/@@map\("([^"]+)"\)/);
+    out.set(m[1], map ? map[1] : m[1]);
+  }
+  return out;
+}
+
+/** Every table that gets ENABLE ROW LEVEL SECURITY across ALL migration files. */
+export function allRlsEnabledTables(): Set<string> {
+  const out = new Set<string>();
+  const walk = (dir: string) => {
+    let entries: ReturnType<typeof readdirSync>;
+    try {
+      entries = readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      const p = resolve(dir, e.name);
+      if (e.isDirectory()) {
+        walk(p);
+      } else if (e.name.endsWith(".sql")) {
+        const sql = readFileSync(p, "utf8");
+        for (const m of sql.matchAll(
+          /ALTER\s+TABLE\s+(?:public\.)?"?(\w+)"?\s+ENABLE\s+ROW\s+LEVEL\s+SECURITY/gi,
+        )) {
+          out.add(m[1]);
+        }
+        for (const m of sql.matchAll(/enable_rls_if_exists\s*\(\s*'(\w+)'/g)) {
+          out.add(m[1]);
+        }
+        // FOREACH ... ENABLE ROW LEVEL SECURITY loop (the sketch migration).
+        const eb = sql.match(
+          /FOREACH\s+\w+\s+IN\s+ARRAY\s+ARRAY\[([^\]]+)\][\s\S]*?ENABLE\s+ROW\s+LEVEL\s+SECURITY/i,
+        );
+        if (eb) for (const x of eb[1].matchAll(/'(\w+)'/g)) out.add(x[1]);
+      }
+    }
+  };
+  MIGRATION_DIRS.forEach(walk);
+  return out;
+}
+
+/**
+ * Models audited 2026-06-15 (RA-6677) as NOT yet RLS-governed by any migration.
+ * Prod anon/authenticated exposure is UNCONFIRMED (needs the Supabase advisor).
+ * NONE are declared exempt without verification — each must either receive an
+ * ENABLE-RLS + tenant-policy migration (then be removed from this list) or be
+ * reclassified into RLS_EXEMPT with a documented reason. **This list may only
+ * shrink** — the test below fails if an entry is already RLS-enabled (stale) or
+ * if a brand-new un-RLS'd model appears that isn't listed here.
+ */
+export const PENDING_RLS = new Set<string>([
+  "ActivationEvent",
+  "AdminImpersonation",
+  "Authorisation",
+  "BrandAmbassadorPost",
+  "CancellationFeedback",
+  "ClaimProgress",
+  "ClaimSketch",
+  "DeviceSigningKey",
+  "EmailAudit",
+  "EmailConnection",
+  "FloorPlan",
+  "FormAttachment",
+  "FormAuditLog",
+  "FormSignature",
+  "FormSubmission",
+  "FormTemplate",
+  "FormTemplateVersion",
+  "HistoricalJob",
+  "InterviewQuestion",
+  "InterviewResponse",
+  "InterviewSession",
+  "InterviewStandardsMapping",
+  "InvoiceSequence",
+  "InvoiceSyncJob",
+  "InvoiceTemplate",
+  "LidarScan",
+  "LiveTeacherSession",
+  "MakeSafeAction",
+  "OAuthStateNonce",
+  "ProgressAttestation",
+  "ProgressTransition",
+  "ScopeTemplate",
+  "ScopeVariation",
+  "SketchAnnotation",
+  "StandardsChunk",
+  "SubscriptionTier",
+  "SupportTicket",
+  "SwmsDraft",
+  "TeacherToolCall",
+  "TeacherUtterance",
+  "UsageEvent",
+  "VoiceNote",
+  "VoiceTranscript",
+  "WHSCorrectiveAction",
+  "WHSIncident",
+]);
+
+/** Models verified to legitimately need no RLS (non-tenant). Keep minimal. */
+export const RLS_EXEMPT = new Set<string>([]);
+
+/**
+ * Disposition of a model: "rls" (an ENABLE migration exists), "exempt", "pending",
+ * or "unclassified" (a new model nobody has triaged — must fail CI).
+ */
+export function rlsDisposition(
+  model: string,
+  table: string,
+  rlsEnabled: Set<string>,
+): "rls" | "exempt" | "pending" | "unclassified" {
+  if (rlsEnabled.has(table) || rlsEnabled.has(model)) return "rls";
+  if (RLS_EXEMPT.has(model)) return "exempt";
+  if (PENDING_RLS.has(model)) return "pending";
+  return "unclassified";
 }
 
 /** Tables that should carry an authenticated tenant policy. */

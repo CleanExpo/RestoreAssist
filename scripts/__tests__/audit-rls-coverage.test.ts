@@ -24,6 +24,11 @@ import {
   parseRlsEnabledTables,
   parseServiceOnlyDowngrade,
   parseSketchRlsCoverage,
+  schemaModels,
+  allRlsEnabledTables,
+  rlsDisposition,
+  PENDING_RLS,
+  RLS_EXEMPT,
   tenantScopedTables,
   AUDIT_TABLES,
   SERVICE_ONLY,
@@ -178,5 +183,42 @@ describe("PR #1326 — sketch/capture RLS regression guard", () => {
 
   it("emits a policy for all 8 (no table left RLS-enabled-without-a-policy)", () => {
     expect(EXPOSED.filter((t) => !policied.has(t))).toEqual([]);
+  });
+});
+
+describe("RA-6677 — schema-derived RLS disposition (catches new un-RLS'd models)", () => {
+  const models = schemaModels();
+  const rlsEnabled = allRlsEnabledTables();
+
+  it("parses the full model set + RLS-enable posture from disk", () => {
+    expect(models.size).toBeGreaterThan(150); // ~193 today
+    expect(rlsEnabled.size).toBeGreaterThan(100); // ~155 today
+  });
+
+  it("every schema model is dispositioned — a new un-RLS'd model fails CI", () => {
+    const unclassified = [...models]
+      .filter(([m, t]) => rlsDisposition(m, t, rlsEnabled) === "unclassified")
+      .map(([m]) => m)
+      .sort();
+    expect(
+      unclassified,
+      "models with no RLS-enable migration and absent from PENDING_RLS/RLS_EXEMPT — classify each (add an RLS migration, or add to RLS_EXEMPT with a reason)",
+    ).toEqual([]);
+  });
+
+  it("PENDING_RLS only shrinks — no stale (already-RLS'd or non-existent) entries", () => {
+    const stale = [...PENDING_RLS].filter((m) => {
+      const t = models.get(m);
+      return !t || rlsEnabled.has(t) || rlsEnabled.has(m);
+    });
+    expect(
+      stale,
+      "PENDING_RLS entries that are now RLS-enabled (remove them) or no longer a model",
+    ).toEqual([]);
+  });
+
+  it("PENDING_RLS and RLS_EXEMPT do not overlap", () => {
+    const both = [...PENDING_RLS].filter((m) => RLS_EXEMPT.has(m));
+    expect(both, "models in both PENDING_RLS and RLS_EXEMPT").toEqual([]);
   });
 });
