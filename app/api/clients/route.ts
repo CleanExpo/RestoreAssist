@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
-
-const prisma = new PrismaClient();
 
 export async function GET(request: NextRequest) {
   try {
@@ -51,21 +49,6 @@ export async function GET(request: NextRequest) {
     const [clients, total] = await Promise.all([
       prisma.client.findMany({
         where,
-        include: {
-          reports: {
-            select: {
-              id: true,
-              title: true,
-              status: true,
-              totalCost: true,
-              createdAt: true,
-            },
-            orderBy: { createdAt: "desc" },
-          },
-          _count: {
-            select: { reports: true },
-          },
-        },
         orderBy: { createdAt: "desc" },
         skip,
         take: limit,
@@ -73,39 +56,55 @@ export async function GET(request: NextRequest) {
       prisma.client.count({ where }),
     ]);
 
-    // RA-1204 — Open jobs are reports not yet in a terminal state. The
-    // ReportStatus enum has no CANCELLED value, so terminal = COMPLETED
-    // or ARCHIVED. openJobCount feeds the "N open" badge on the clients
-    // table so the Client Name cell previews workload at a glance;
-    // lastReportAt feeds the "Last report: 3 days ago" secondary line.
-    // Both are derived from the already-fetched reports relation — no
-    // extra query, no N+1 (CLAUDE.md rule 4).
-    const TERMINAL_REPORT_STATUSES = new Set<string>(["COMPLETED", "ARCHIVED"]);
+    // RA-6686 — Per-client report stats via aggregation over ONLY this page's
+    // client IDs, instead of fetching the full reports[] relation per client
+    // (which was unbounded and grew with client tenure). Indexed by
+    // @@index([clientId, createdAt]).
+    //
+    // RA-1204 — Open jobs are reports not in a terminal state. ReportStatus has
+    // no CANCELLED value, so terminal = COMPLETED or ARCHIVED.
+    const TERMINAL_REPORT_STATUSES = ["COMPLETED", "ARCHIVED"] as const;
+    const clientIds = clients.map((c) => c.id);
 
-    // Calculate client statistics
-    const clientsWithStats = clients.map((client: (typeof clients)[number]) => {
-      const totalRevenue = client.reports.reduce(
-        (sum: number, report: { totalCost: number | null }) =>
-          sum + (report.totalCost || 0),
-        0,
-      );
-      const lastReportAt =
-        client.reports.length > 0 ? client.reports[0].createdAt : null;
-      const openJobCount = client.reports.reduce(
-        (n: number, r: { status: string }) =>
-          TERMINAL_REPORT_STATUSES.has(r.status) ? n : n + 1,
-        0,
-      );
+    const [statsByClient, openByClient] = await Promise.all([
+      clientIds.length
+        ? prisma.report.groupBy({
+            by: ["clientId"],
+            where: { clientId: { in: clientIds } },
+            _sum: { totalCost: true },
+            _max: { createdAt: true },
+            _count: { _all: true },
+          })
+        : [],
+      clientIds.length
+        ? prisma.report.groupBy({
+            by: ["clientId"],
+            where: {
+              clientId: { in: clientIds },
+              status: { notIn: [...TERMINAL_REPORT_STATUSES] },
+            },
+            _count: { _all: true },
+          })
+        : [],
+    ]);
 
+    const statsMap = new Map(statsByClient.map((s) => [s.clientId, s]));
+    const openMap = new Map(
+      openByClient.map((s) => [s.clientId, s._count._all]),
+    );
+
+    const clientsWithStats = clients.map((client) => {
+      const s = statsMap.get(client.id);
+      const lastReportAt = s?._max.createdAt ?? null;
       return {
         ...client,
-        totalRevenue,
+        totalRevenue: s?._sum.totalCost ?? 0,
         lastJob: lastReportAt
           ? new Date(lastReportAt).toLocaleDateString()
           : "Never",
         lastReportAt: lastReportAt ? lastReportAt.toISOString() : null,
-        openJobCount,
-        reportsCount: client._count.reports,
+        openJobCount: openMap.get(client.id) ?? 0,
+        reportsCount: s?._count._all ?? 0,
       };
     });
 
