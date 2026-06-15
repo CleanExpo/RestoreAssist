@@ -23,4 +23,5 @@
 verifier_domains() {
   printf '%s\t%s\t%s\t%s\n' ios-app-review '.' ios-static-check.sh verifier-system-prompt.md
   printf '%s\t%s\t%s\t%s\n' migration-safety '(prisma|supabase)/migrations/' migration-static-check.sh verifier-migration-safety.md
+  printf '%s\t%s\t%s\t%s\n' claim-truthfulness '.' claim-truthfulness-static-check.sh -
 }
