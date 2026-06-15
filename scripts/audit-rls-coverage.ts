@@ -48,6 +48,16 @@ export const RA4956_FOLLOWUP_MIGRATION = resolve(
   REPO,
   "prisma/migrations/20260615000000_ra_4956_session_account_service_only/migration.sql",
 );
+/**
+ * PR #1326 — RLS for the 8 Sketch/Capture/Insurer/Material tables that shipped
+ * after RA-4970 and were found anon-exposed. Uses its own `rask_*` emitters +
+ * an ENABLE-RLS loop; the guard below asserts none of the 8 silently loses its
+ * ENABLE or its policy.
+ */
+export const RA_SKETCH_MIGRATION = resolve(
+  REPO,
+  "prisma/migrations/20260615120000_ra_sketch_capture_rls/migration.sql",
+);
 
 /**
  * The 119 tables the Supabase advisor flagged as RLS-disabled (the audit set).
@@ -295,6 +305,34 @@ export function parseServiceOnlyDowngrade(sql: string): Set<string> {
     }
   }
   return out;
+}
+
+/**
+ * PR #1326 coverage: tables the sketch/capture migration ENABLEs RLS on, and
+ * tables it emits a policy for (via the rask_via_parent / rask_via_grandparent
+ * / rask_reference_readall emitters). A table in `enabled` but not `policied`
+ * is RLS-enabled-without-a-policy = silent default-deny breakage.
+ */
+export function parseSketchRlsCoverage(sql: string): {
+  enabled: Set<string>;
+  policied: Set<string>;
+} {
+  const enabled = new Set<string>();
+  const policied = new Set<string>();
+  // The FOREACH array in the block that performs ENABLE ROW LEVEL SECURITY.
+  const enableBlock = sql.match(
+    /FOREACH\s+\w+\s+IN\s+ARRAY\s+ARRAY\[([^\]]+)\][\s\S]*?ENABLE\s+ROW\s+LEVEL\s+SECURITY/i,
+  );
+  if (enableBlock) {
+    for (const m of enableBlock[1].matchAll(/'([^']+)'/g)) enabled.add(m[1]);
+  }
+  // Policy emitter calls — first arg is the target table.
+  for (const m of sql.matchAll(
+    /pg_temp\.rask_(?:via_parent|via_grandparent|reference_readall)\s*\(\s*'([^']+)'/g,
+  )) {
+    policied.add(m[1]);
+  }
+  return { enabled, policied };
 }
 
 /** Tables that should carry an authenticated tenant policy. */

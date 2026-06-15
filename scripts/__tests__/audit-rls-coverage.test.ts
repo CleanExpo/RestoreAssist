@@ -18,10 +18,12 @@ import {
   RA4956_MIGRATION,
   RA4970_MIGRATION,
   RA4956_FOLLOWUP_MIGRATION,
+  RA_SKETCH_MIGRATION,
   readMigration,
   parseEmittedPolicies,
   parseRlsEnabledTables,
   parseServiceOnlyDowngrade,
+  parseSketchRlsCoverage,
   tenantScopedTables,
   AUDIT_TABLES,
   SERVICE_ONLY,
@@ -151,5 +153,30 @@ describe("RA-4956 static RLS coverage", () => {
       expect(anchors.has("parent-join")).toBe(true);
       expect(anchors.has("org-lookup")).toBe(true);
     });
+  });
+});
+
+describe("PR #1326 — sketch/capture RLS regression guard", () => {
+  // The 8 tables that shipped after RA-4970 and were found anon-exposed.
+  const EXPOSED = [
+    "CaptureToken",
+    "ClientEvidenceSubmission",
+    "SketchElement",
+    "Hazard",
+    "InsuranceContext",
+    "SketchMoistureReading",
+    "Material",
+    "InsurerProfile",
+  ];
+  const { enabled, policied } = parseSketchRlsCoverage(
+    readMigration(RA_SKETCH_MIGRATION),
+  );
+
+  it("ENABLEs RLS on all 8 formerly-exposed tables", () => {
+    expect(EXPOSED.filter((t) => !enabled.has(t))).toEqual([]);
+  });
+
+  it("emits a policy for all 8 (no table left RLS-enabled-without-a-policy)", () => {
+    expect(EXPOSED.filter((t) => !policied.has(t))).toEqual([]);
   });
 });
