@@ -63,7 +63,7 @@ $$;
 
 -- 1-HOP: child.fk -> parent.id, parent is workspace-backed (userId + workspaceId).
 -- Verbatim shape of RA-4956's policy_child_via_parent.
-CREATE OR REPLACE FUNCTION pg_temp.policy_child_via_parent(tbl text, fk_col text, parent_tbl text)
+CREATE OR REPLACE FUNCTION pg_temp.rask_via_parent(tbl text, fk_col text, parent_tbl text)
 RETURNS void AS $$
 DECLARE cond text;
 BEGIN
@@ -92,7 +92,7 @@ $$ LANGUAGE plpgsql;
 -- 2-HOP: child.fk -> mid.id, mid.mid_fk -> grandparent.id (Inspection, workspace-backed).
 -- Needed because ClaimSketch has no ownership column of its own — RLS does not
 -- recurse into the subquery, so the grandparent predicate is inlined here.
-CREATE OR REPLACE FUNCTION pg_temp.policy_child_via_grandparent(
+CREATE OR REPLACE FUNCTION pg_temp.rask_via_grandparent(
   tbl text, fk_col text, mid_tbl text, mid_fk text, gp_tbl text)
 RETURNS void AS $$
 DECLARE cond text;
@@ -124,7 +124,7 @@ $$ LANGUAGE plpgsql;
 -- are service-role only (default-deny — no write policy emitted). These tables have
 -- NO ownership column by design, so a read-all SELECT policy is correct reference
 -- behaviour, NOT a USING(true) tenant leak (mirrors RA-4970's public-ref tables).
-CREATE OR REPLACE FUNCTION pg_temp.policy_reference_readall(tbl text)
+CREATE OR REPLACE FUNCTION pg_temp.rask_reference_readall(tbl text)
 RETURNS void AS $$
 BEGIN
   IF to_regclass('public.' || quote_ident(tbl)) IS NULL THEN
@@ -152,17 +152,17 @@ $$;
 
 -- ── Policies ──
 -- 1-hop via Inspection
-SELECT pg_temp.policy_child_via_parent('CaptureToken', 'inspectionId', 'Inspection');
-SELECT pg_temp.policy_child_via_parent('ClientEvidenceSubmission', 'inspectionId', 'Inspection');
+SELECT pg_temp.rask_via_parent('CaptureToken', 'inspectionId', 'Inspection');
+SELECT pg_temp.rask_via_parent('ClientEvidenceSubmission', 'inspectionId', 'Inspection');
 
 -- 2-hop via ClaimSketch -> Inspection
-SELECT pg_temp.policy_child_via_grandparent('SketchElement', 'sketchId', 'ClaimSketch', 'inspectionId', 'Inspection');
-SELECT pg_temp.policy_child_via_grandparent('Hazard', 'sketchId', 'ClaimSketch', 'inspectionId', 'Inspection');
-SELECT pg_temp.policy_child_via_grandparent('InsuranceContext', 'sketchId', 'ClaimSketch', 'inspectionId', 'Inspection');
-SELECT pg_temp.policy_child_via_grandparent('SketchMoistureReading', 'sketchId', 'ClaimSketch', 'inspectionId', 'Inspection');
+SELECT pg_temp.rask_via_grandparent('SketchElement', 'sketchId', 'ClaimSketch', 'inspectionId', 'Inspection');
+SELECT pg_temp.rask_via_grandparent('Hazard', 'sketchId', 'ClaimSketch', 'inspectionId', 'Inspection');
+SELECT pg_temp.rask_via_grandparent('InsuranceContext', 'sketchId', 'ClaimSketch', 'inspectionId', 'Inspection');
+SELECT pg_temp.rask_via_grandparent('SketchMoistureReading', 'sketchId', 'ClaimSketch', 'inspectionId', 'Inspection');
 
 -- Reference data (read-all for authenticated; service-role writes)
-SELECT pg_temp.policy_reference_readall('Material');
-SELECT pg_temp.policy_reference_readall('InsurerProfile');
+SELECT pg_temp.rask_reference_readall('Material');
+SELECT pg_temp.rask_reference_readall('InsurerProfile');
 
 COMMIT;
