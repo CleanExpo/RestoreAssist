@@ -23,9 +23,24 @@ clean() { jq -n --arg r "$1" '{status:"static-clean", reason:$r}'; exit 0; }
 
 [[ -z "$TRANSCRIPT" || ! -r "$TRANSCRIPT" ]] && clean "no transcript"
 
-# Final assistant turn = all assistant lines after the last user message.
-LAST_USER=$(jq -r 'select(.type=="user") | input_line_number' "$TRANSCRIPT" 2>/dev/null | tail -n1)
-[[ -z "$LAST_USER" ]] && clean "no user message"
+# Final assistant turn = all assistant lines after the last GENUINE user prompt.
+# In Claude Code transcripts tool_results are ALSO type:"user" (array content
+# of tool_result blocks); anchoring on the last "user" line lands on a tool
+# result, not the human prompt, and hides the turn's Bash calls. A genuine
+# prompt has string content, or array content with a text block and no
+# tool_result blocks.
+LAST_USER=$(jq -r '
+  select(.type=="user")
+  | (.message.content // .content) as $c
+  | select(
+      ($c|type) == "string"
+      or (($c|type) == "array"
+          and any($c[]?; .type=="text")
+          and (any($c[]?; .type=="tool_result") | not))
+    )
+  | input_line_number
+' "$TRANSCRIPT" 2>/dev/null | tail -n1)
+[[ -z "$LAST_USER" ]] && clean "no genuine user message"
 
 ASSIST=$(awk -v n="$LAST_USER" 'NR>n' "$TRANSCRIPT" | jq -c 'select(.type=="assistant")' 2>/dev/null)
 [[ -z "$ASSIST" ]] && clean "no assistant turn"
