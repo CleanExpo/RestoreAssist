@@ -1,0 +1,38 @@
+name: RLS Tenant Isolation
+
+# RA-6685 — the test/rls harness (RA-4956) proves tenant A cannot read tenant
+# B's rows under the `authenticated` role, but nothing ran it: `grep rls
+# .github/workflows/` found only lighthouse. Only the STATIC
+# audit-rls-coverage.test.ts ran, which by its own header does NOT prove
+# runtime isolation. This wires the real harness in.
+#
+# Scoped to PRs that touch migrations (or the harness itself) — RLS policies
+# live in migration files, so a migration is the only thing that can break the
+# isolation guarantee. The Makefile spins up and tears down its own disposable
+# postgres:16 via Docker (both Docker and psql are preinstalled on
+# ubuntu-latest), so this job needs no `services:` block and never touches a
+# remote database (run.sh refuses any non-localhost DATABASE_URL).
+
+on:
+  pull_request:
+    branches: [main, sandbox]
+    paths:
+      - "**/migrations/**"
+      - "test/rls/**"
+
+concurrency:
+  group: rls-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  rls-isolation:
+    name: RLS tenant isolation harness
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Run RLS isolation harness
+        run: make -f test/rls/Makefile rls-test
