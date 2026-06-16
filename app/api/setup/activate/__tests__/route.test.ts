@@ -41,6 +41,30 @@ describe.skipIf(!process.env.DATABASE_URL)('POST /api/setup/activate', () => {
       user: { id: testUserId, email: 't@t.com' },
     });
     (routeBasic as ReturnType<typeof vi.fn>).mockResolvedValue({ text: 'ok', confidence: 1 });
+    // welcomeEmailCheck (inside runAllChecks) does a live Resend domain probe —
+    // the only env-dependent check that goes red (Drive/Xero stay yellow when
+    // unconnected and never reach fetch). Stub fetch + key so it resolves green,
+    // making the gate deterministic. Re-spied after restoreAllMocks() above.
+    process.env.RESEND_API_KEY = 're_test_key';
+    process.env.RESEND_FROM_EMAIL = 'RestoreAssist <noreply@restoreassist.app>';
+    vi.spyOn(globalThis, 'fetch').mockImplementation(
+      async () =>
+        new Response(
+          JSON.stringify({
+            data: [
+              {
+                name: 'restoreassist.app',
+                records: [
+                  { record: 'SPF', status: 'verified' },
+                  { record: 'DKIM', status: 'verified' },
+                  { record: 'DMARC', status: 'verified' },
+                ],
+              },
+            ],
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
+    );
     // Reset Organization state between tests
     await prisma.organization.update({
       where: { id: testOrgId },
