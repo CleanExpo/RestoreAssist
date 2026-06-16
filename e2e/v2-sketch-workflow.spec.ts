@@ -12,7 +12,7 @@
  */
 
 import { test, expect, devices, type Page } from "@playwright/test";
-import { AUTH_FILE } from "./auth.setup";
+import { AUTH_FILE } from "./auth-paths";
 
 // ── Auth setup — all tests in this file use saved credentials ──
 test.use({ storageState: AUTH_FILE });

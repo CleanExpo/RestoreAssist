@@ -11,21 +11,20 @@
  */
 
 import { test as setup, expect } from "@playwright/test";
-import path from "path";
-import { fileURLToPath } from "url";
+import { AUTH_FILE } from "./auth-paths";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-export const AUTH_FILE = path.join(__dirname, "../playwright/.auth/user.json");
+// Re-export for back-compat with any existing importer.
+export { AUTH_FILE };
 
 setup("authenticate", async ({ page }) => {
   const email = process.env.E2E_USER_EMAIL ?? "test@restoreassist.app";
   const password = process.env.E2E_USER_PASSWORD ?? "Test1234!";
 
   await page.goto("/login");
-  await page.getByLabel(/email/i).fill(email);
-  await page.getByLabel(/password/i).fill(password);
+  // Target inputs by type — getByLabel(/password/i) is ambiguous (the field +
+  // a show/hide toggle both match, tripping Playwright strict mode). RA-6764.
+  await page.locator('input[type="email"]').first().fill(email);
+  await page.locator('input[type="password"]').first().fill(password);
   await page.getByRole("button", { name: /sign in/i }).click();
 
   // Wait for successful redirect to dashboard

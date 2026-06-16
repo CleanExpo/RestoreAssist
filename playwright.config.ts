@@ -30,19 +30,25 @@ export default defineConfig({
 
   /* Configure projects for major browsers */
   projects: [
+    // RA-6764: run auth.setup once (logs in → storageState) before the specs.
+    { name: "setup", testMatch: /auth\.setup\.ts/ },
     {
       name: "chromium",
+      testIgnore: /auth\.setup\.ts/,
       use: { ...devices["Desktop Chrome"] },
+      dependencies: ["setup"],
     },
   ],
 
-  /* Run your local dev server before starting the tests */
-  webServer: process.env.CI
+  /* Start a local dev server unless an external target is supplied.
+   * smoke-prod sets PLAYWRIGHT_BASE_URL (prod) → no local server (unchanged).
+   * The RA-6764 e2e job leaves it unset → boots the app locally in CI. */
+  webServer: process.env.PLAYWRIGHT_BASE_URL
     ? undefined
     : {
         command: "npm run dev",
         url: "http://localhost:3000",
         reuseExistingServer: !process.env.CI,
-        timeout: 120000,
+        timeout: 180_000, // CI cold compile can exceed 120s
       },
 });

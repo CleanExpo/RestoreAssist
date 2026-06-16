@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { AUTH_FILE } from "./auth.setup";
+import { AUTH_FILE } from "./auth-paths";
 
 // Injects a mock window.Capacitor that reports platform as "ios".
 // isCapacitorIOS() checks cap.getPlatform() === "ios" first, so this

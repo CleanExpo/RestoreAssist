@@ -1,0 +1,118 @@
+name: Sketch E2E
+
+# RA-6764 — runnable e2e harness for the V2 Sketch workflow. Boots the app
+# against an ephemeral Postgres, seeds the e2e login account, and runs the
+# real draw/save/estimate flows. Scoped to sketch-touching paths so it doesn't
+# run on every PR. NOT a required check yet — it's being stabilised; flip to
+# required once it's reliably green.
+#
+# Mirrors pr-checks.yml's DB bootstrap (auth.uid() stub + CONCURRENTLY
+# pre-resolve) so `prisma migrate deploy` applies cleanly on plain Postgres.
+
+on:
+  pull_request:
+    paths:
+      - "e2e/**"
+      - "components/sketch/**"
+      - "app/api/inspections/**/sketches/**"
+      - "lib/sketch/**"
+      - "playwright.config.ts"
+      - "scripts/seed-e2e-user.ts"
+      - ".github/workflows/sketch-e2e.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: sketch-e2e-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sketch-e2e:
+    name: Sketch E2E (chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+      NEXTAUTH_SECRET: e2e-nextauth-secret-not-for-prod-deadbeefdeadbeef
+      NEXTAUTH_URL: http://localhost:3000
+      E2E_USER_EMAIL: test@restoreassist.app
+      E2E_USER_PASSWORD: Test1234!
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          PRISMA_SKIP_POSTINSTALL_GENERATE: "1"
+
+      - name: Generate Prisma client
+        run: pnpm prisma:generate
+
+      # Supabase ships auth.uid(); plain Postgres doesn't. The RLS migrations
+      # define SQL functions that reference it, so stub it before migrate deploy.
+      - name: Bootstrap Supabase auth.uid() stub for CI
+        run: |
+          PGPASSWORD=ci psql -h localhost -U ci -d ci -c "
+            CREATE SCHEMA IF NOT EXISTS auth;
+            CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid
+              LANGUAGE sql STABLE AS \$\$ SELECT NULL::uuid \$\$;
+          "
+
+      # CREATE INDEX CONCURRENTLY can't run inside Prisma's per-migration
+      # transaction on plain Postgres — mark them applied (mirrors pr-checks).
+      - name: Pre-resolve CONCURRENTLY migrations
+        run: |
+          pnpm exec prisma migrate resolve --applied 20260407_n1_performance_indexes
+          pnpm exec prisma migrate resolve --applied 20260407_perf_composite_indexes
+          pnpm exec prisma migrate resolve --applied 20260516010000_inspection_close_terminal_index
+
+      - name: Apply migrations
+        run: pnpm exec prisma migrate deploy
+
+      - name: Seed e2e login account
+        run: pnpm exec tsx scripts/seed-e2e-user.ts
+
+      - name: Install Playwright (chromium)
+        run: pnpm exec playwright install --with-deps chromium
+
+      # playwright.config boots `npm run dev` (PLAYWRIGHT_BASE_URL unset) and the
+      # "setup" project logs in before the specs run. We run the deterministic
+      # API-level money-path spec here; the broader UI-interaction suite
+      # (v2-sketch-workflow.spec.ts) has stale selectors and is stabilised
+      # separately before being added.
+      - name: Run Sketch E2E
+        run: pnpm exec playwright test e2e/sketch-api.spec.ts --project=chromium --reporter=line
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
