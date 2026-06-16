@@ -10,6 +10,7 @@
  * Wave 4 PR-L of the 2026-05-06 production-readiness push.
  */
 import * as Sentry from "@sentry/nextjs";
+import { scrubTransaction, scrubErrorEvent } from "./lib/sentry-scrub";
 
 const dsn = process.env.SENTRY_DSN;
 
@@ -23,5 +24,10 @@ if (dsn) {
     tracesSampleRate: process.env.VERCEL_ENV === "production" ? 0.05 : 0.5,
 
     sendDefaultPii: false,
+
+    // B4: strip secret query params (?key=, ?apiKey=, ?token=) from span +
+    // request URLs so a BYOK key can never be recorded by HTTP tracing.
+    beforeSendTransaction: scrubTransaction,
+    beforeSend: scrubErrorEvent,
   });
 }

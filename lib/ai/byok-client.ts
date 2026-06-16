@@ -274,11 +274,16 @@ async function callGoogle(req: ByokRequest): Promise<ByokResponse> {
   const timeout = setTimeout(() => controller.abort(), req.timeoutMs ?? 60000);
 
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${req.model}:generateContent?key=${req.apiKey}`;
+    // Key goes in the x-goog-api-key header, NEVER the URL query string — a key
+    // in the URL is captured by HTTP tracing (Sentry spans) and proxy logs.
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${req.model}:generateContent`;
 
     const res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": req.apiKey,
+      },
       body: JSON.stringify({
         contents: formatGeminiContents(req.userPrompt, req.visionInputs),
         systemInstruction: { parts: [{ text: req.systemPrompt }] },

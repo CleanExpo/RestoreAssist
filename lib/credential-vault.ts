@@ -16,13 +16,33 @@ const IV_LENGTH = 16;
  * or arbitrary strings (hashed to 32 bytes via SHA-256).
  */
 function resolveKey(keyString: string): Buffer {
-  if (keyString.length === 64) {
-    return Buffer.from(keyString, "hex");
+  let key: Buffer;
+  try {
+    if (/^[0-9a-fA-F]{64}$/.test(keyString)) {
+      key = Buffer.from(keyString, "hex"); // 32-byte hex
+    } else if (keyString.length === 44) {
+      key = Buffer.from(keyString, "base64"); // 32-byte base64
+    } else {
+      // Arbitrary string — derive a 32-byte key via SHA-256.
+      key = crypto.createHash("sha256").update(keyString).digest();
+    }
+  } catch (err) {
+    throw new Error(
+      `Invalid encryption key: could not decode (${err instanceof Error ? err.message : String(err)}).`,
+    );
   }
-  if (keyString.length === 44) {
-    return Buffer.from(keyString, "base64");
+
+  if (key.length !== 32) {
+    throw new Error(
+      `Invalid encryption key: expected 32 bytes after decoding, got ${key.length}.`,
+    );
   }
-  return crypto.createHash("sha256").update(keyString).digest();
+  if (key.every((b) => b === 0)) {
+    throw new Error(
+      'Invalid encryption key: all-zero/placeholder key is not allowed. Generate one with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))".',
+    );
+  }
+  return key;
 }
 
 /**
@@ -41,13 +61,21 @@ function resolveKey(keyString: string): Buffer {
  * (or clearing the Integration table's accessToken / refreshToken columns first).
  */
 function getDefaultKey(): Buffer {
-  const key =
+  const dedicated =
     process.env.CREDENTIAL_ENCRYPTION_KEY ||
-    process.env.INTEGRATION_ENCRYPTION_KEY ||
-    process.env.NEXTAUTH_SECRET;
+    process.env.INTEGRATION_ENCRYPTION_KEY;
+  const key = dedicated || process.env.NEXTAUTH_SECRET;
   if (!key) {
     throw new Error(
       "No encryption key configured. Set CREDENTIAL_ENCRYPTION_KEY, INTEGRATION_ENCRYPTION_KEY, or NEXTAUTH_SECRET.",
+    );
+  }
+  // Production boot guard: a dedicated vault key is mandatory in prod. Never
+  // silently fall back to NEXTAUTH_SECRET there — rotating the auth secret
+  // would make every stored credential permanently undecryptable.
+  if (!dedicated && process.env.VERCEL_ENV === "production") {
+    throw new Error(
+      "CREDENTIAL_ENCRYPTION_KEY (or INTEGRATION_ENCRYPTION_KEY) must be set in production; refusing to fall back to NEXTAUTH_SECRET.",
     );
   }
   return resolveKey(key);
