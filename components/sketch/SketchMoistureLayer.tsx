@@ -23,11 +23,15 @@ import {
   type MaterialTypeId,
 } from "@/lib/sketch/iicrc-utils";
 import { pinDryingStatus } from "@/lib/sketch/pin-drying";
+import { toNormalized, pinPixelPosition } from "@/lib/sketch/pin-coords";
 
 export interface MoisturePin {
   id: string;
-  x: number; // canvas pixel coordinate
+  x: number; // legacy absolute canvas pixel coordinate (back-compat)
   y: number;
+  /** Normalized 0..1 position (RA-6763) — stable under zoom/pan/resize. */
+  nx?: number;
+  ny?: number;
   wme: number; // wood moisture equivalent %
   material: MaterialTypeId;
   note?: string;
@@ -71,10 +75,15 @@ export function SketchMoistureLayer({
       const rect = e.currentTarget.getBoundingClientRect();
       const x = (e.clientX - rect.left) / canvasZoom;
       const y = (e.clientY - rect.top) / canvasZoom;
+      // RA-6763: also store the normalized position so the pin stays anchored
+      // when the canvas is zoomed/panned/resized.
+      const { nx, ny } = toNormalized(x, y, width, height);
       const pin: MoisturePin = {
         id: newPinId(),
         x,
         y,
+        nx,
+        ny,
         wme: 16,
         material: "plasterboard",
         iicrClass: deriveIicrClass(16),
@@ -82,7 +91,7 @@ export function SketchMoistureLayer({
       onChange([...pins, pin]);
       setEditingId(pin.id);
     },
-    [active, pins, onChange, canvasZoom],
+    [active, pins, onChange, canvasZoom, width, height],
   );
 
   const updatePin = useCallback(
@@ -119,10 +128,13 @@ export function SketchMoistureLayer({
     >
       {pins.map((pin) => {
         const info = getClassInfo(pin.iicrClass);
+        const { left, top } = pinPixelPosition(pin, width, height);
         return (
           <PinMarker
             key={pin.id}
             pin={pin}
+            left={left}
+            top={top}
             info={info}
             isEditing={editingId === pin.id}
             onEdit={() => setEditingId(pin.id)}
@@ -140,6 +152,9 @@ export function SketchMoistureLayer({
 
 interface PinMarkerProps {
   pin: MoisturePin;
+  /** Rendered pixel position for the current canvas size (RA-6763). */
+  left: number;
+  top: number;
   info: ReturnType<typeof getClassInfo>;
   isEditing: boolean;
   onEdit: () => void;
@@ -150,6 +165,8 @@ interface PinMarkerProps {
 
 function PinMarker({
   pin,
+  left,
+  top,
   info,
   isEditing,
   onEdit,
@@ -161,7 +178,7 @@ function PinMarker({
     <div
       data-pin={pin.id}
       className="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-auto"
-      style={{ left: pin.x, top: pin.y }}
+      style={{ left, top }}
     >
       {/* Pin dot */}
       <button
