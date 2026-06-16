@@ -59,7 +59,12 @@ const mocks = {
 };
 
 beforeEach(() => {
-  vi.restoreAllMocks();
+  // resetAllMocks (not restoreAllMocks): restoreAllMocks only resets spyOn
+  // spies, leaving vi.fn() module-mock call history intact across tests — which
+  // makes the unconnected-provider `not.toHaveBeenCalled()` assertions see a
+  // prior test's call. reset clears history + impl + once-queues; defaults are
+  // re-established below.
+  vi.resetAllMocks();
   // Default: org exists with owner u1; business profile + branding green
   mocks.orgFindUnique.mockResolvedValue({
     id: "o1",
