@@ -63,7 +63,7 @@ export interface ValidateProviderResult {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /** Mask a plaintext API key for safe display (first 10 + dots + last 4). */
-function maskApiKey(key: string): string {
+export function maskApiKey(key: string): string {
   if (key.length <= 14) return "•".repeat(key.length);
   const prefix = key.slice(0, 10);
   const suffix = key.slice(-4);
@@ -374,8 +374,13 @@ async function testGoogleKey(
   apiKey: string,
   signal: AbortSignal,
 ): Promise<void> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
-  const res = await fetch(url, { signal });
+  // Key in the x-goog-api-key header, never the URL query string (HTTP tracing
+  // and proxy logs capture full URLs).
+  const url = `https://generativelanguage.googleapis.com/v1beta/models`;
+  const res = await fetch(url, {
+    headers: { "x-goog-api-key": apiKey },
+    signal,
+  });
 
   if (res.status === 400 || res.status === 401 || res.status === 403) {
     throw new Error("Invalid Google AI API key");
