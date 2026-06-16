@@ -126,7 +126,11 @@ describe.skipIf(!process.env.DATABASE_URL)("runAllChecks", () => {
 
 describe("welcomeEmailCheck (Resend domain probe)", () => {
   const ORIGINAL_ENV = { ...process.env };
-  const fetchSpy = vi.spyOn(globalThis, "fetch");
+  // Re-created in beforeEach (not once at module load): the sibling DB-gated
+  // runAllChecks block runs vi.restoreAllMocks(), which would otherwise DETACH
+  // this spy. Since CI now provides DATABASE_URL (#1337), that block runs and
+  // strands the spy — letting welcomeEmailCheck hit the real Resend API (→ 400).
+  let fetchSpy!: ReturnType<typeof vi.spyOn>;
 
   // The welcome-email check is the 10th registered check.
   const welcomeEmailCheck = CHECKS[9];
@@ -141,6 +145,10 @@ describe("welcomeEmailCheck (Resend domain probe)", () => {
   }
 
   beforeEach(() => {
+    // Detach any spy a prior suite left behind, then re-attach a fresh one so
+    // this block is immune to sibling vi.restoreAllMocks() calls.
+    vi.restoreAllMocks();
+    fetchSpy = vi.spyOn(globalThis, "fetch");
     fetchSpy.mockReset();
     process.env = { ...ORIGINAL_ENV };
     process.env.RESEND_API_KEY = "re_test_key";
