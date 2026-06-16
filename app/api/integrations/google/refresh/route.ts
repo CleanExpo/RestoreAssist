@@ -17,6 +17,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import {
+  decryptAccountTokens,
+  encryptAccountTokens,
+} from "@/lib/auth/account-tokens";
 import { apiError } from "@/lib/api-errors";
 
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -68,10 +72,12 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  // refresh_token is encrypted at rest (B3) — decrypt before sending to Google.
+  const refreshToken = decryptAccountTokens(account).refresh_token!;
   const body = new URLSearchParams({
     client_id: clientId,
     client_secret: clientSecret,
-    refresh_token: account.refresh_token,
+    refresh_token: refreshToken,
     grant_type: "refresh_token",
   });
 
@@ -123,10 +129,10 @@ export async function POST(request: NextRequest) {
 
   await prisma.account.update({
     where: { id: account.id },
-    data: {
+    data: encryptAccountTokens({
       access_token: data.access_token ?? null,
       expires_at: expiresAt,
-    },
+    }),
   });
 
   return NextResponse.json({

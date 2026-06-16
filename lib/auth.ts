@@ -1,5 +1,6 @@
 import { NextAuthOptions } from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
+import { encryptAccountTokens } from "@/lib/auth/account-tokens";
 import GoogleProvider from "next-auth/providers/google";
 import AppleProvider from "next-auth/providers/apple";
 import CredentialsProvider from "next-auth/providers/credentials";
@@ -40,8 +41,17 @@ function verifyGoogleAuthToken(email: string, token: string): boolean {
   }
 }
 
+// B3: encrypt OAuth tokens at rest. Wrap PrismaAdapter.linkAccount so Google
+// access/refresh/id tokens are ciphertexted before they reach the Account table.
+const basePrismaAdapter = PrismaAdapter(prisma);
+const encryptingPrismaAdapter = {
+  ...basePrismaAdapter,
+  linkAccount: (account: any) =>
+    basePrismaAdapter.linkAccount!(encryptAccountTokens(account)),
+};
+
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma) as any,
+  adapter: encryptingPrismaAdapter as any,
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -337,7 +347,9 @@ export const authOptions: NextAuthOptions = {
             subscriptionStatus: "TRIAL",
             creditsRemaining: 30,
             totalCreditsUsed: 0,
-            trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
+            trialEndsAt: new Date(
+              Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000,
+            ),
             quickFillCreditsRemaining: 30,
             totalQuickFillUsed: 0,
           } as any,

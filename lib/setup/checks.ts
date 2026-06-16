@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
+import { decryptAccountTokens } from "@/lib/auth/account-tokens";
 import { routeBasic } from "@/lib/ai/model-router";
 import { getValidXeroAccessToken } from "@/lib/services/xero/credentials";
 import {
@@ -246,10 +247,13 @@ const cloudStorageCheck: Check = async (orgId) => {
     };
   }
 
+  // access_token is encrypted at rest (B3) — decrypt before using it as a Bearer.
+  const accessToken = decryptAccountTokens(account).access_token;
+
   try {
     const res = await fetch(
       "https://www.googleapis.com/drive/v3/files?pageSize=1&fields=files(id)",
-      { headers: { Authorization: `Bearer ${account.access_token}` } },
+      { headers: { Authorization: `Bearer ${accessToken}` } },
     );
     if (res.ok) {
       return {
