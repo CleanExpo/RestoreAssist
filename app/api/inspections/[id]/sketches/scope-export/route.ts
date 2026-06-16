@@ -60,6 +60,7 @@ export async function POST(
         moisturePoints: true,
         country: true,
       },
+      take: 100,
     });
     const moisturePins = sketchRows.flatMap((s: { moisturePoints: unknown }) =>
       Array.isArray(s.moisturePoints) ? s.moisturePoints : [],
