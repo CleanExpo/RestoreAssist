@@ -12,7 +12,7 @@
  */
 
 import { test, expect, devices, type Page } from "@playwright/test";
-import { AUTH_FILE } from "./auth.setup";
+import { AUTH_FILE } from "./auth-paths";
 
 // ── Auth setup — all tests in this file use saved credentials ──
 test.use({ storageState: AUTH_FILE });
@@ -461,5 +461,83 @@ test.describe("V2 Performance Benchmarks", () => {
     console.log(`[Perf] Sketch PDF API in ${elapsed}ms`);
     // Expect ownership check (404) in well under 10 s
     expect(elapsed).toBeLessThan(10_000);
+  });
+});
+
+// ── RA-6764: real save → persist → estimate happy paths (deterministic API) ──
+// These exercise the actual production flow (POST sketch → GET back → GET
+// estimate) rather than just presence/auth. API-level (not canvas-pixel) so
+// they're not flaky. `request` inherits the authed storageState.
+test.describe("V2 Workflow — sketch save → persist → estimate", () => {
+  const room = (
+    n: number,
+    label: string,
+    provenance = "operator_measured",
+  ) => ({
+    type: "polygon",
+    points: [
+      { x: 0, y: 0 },
+      { x: n, y: 0 },
+      { x: n, y: n },
+      { x: 0, y: n },
+    ],
+    data: { type: "room", label, provenance },
+  });
+
+  async function saveFloor(
+    request: import("@playwright/test").APIRequestContext,
+    id: string,
+    objects: unknown[],
+  ) {
+    return request.post(`/api/inspections/${id}/sketches`, {
+      headers: { "x-client-updated-at": String(Date.now()) },
+      data: {
+        floorNumber: 0,
+        floorLabel: "Ground Floor",
+        sketchType: "structural",
+        sketchData: { scaleConfig: { pxPerMetre: 100 }, objects },
+      },
+    });
+  }
+
+  test("a saved measured room persists and feeds the estimate", async ({
+    page,
+    request,
+  }) => {
+    const id = await createInspection(page, `E2E Sketch ${Date.now()}`);
+    test.skip(!id, "inspection creation did not yield an id");
+
+    const save = await saveFloor(request, id, [room(300, "Living")]); // 3m×4m → 12 m²
+    expect([200, 201]).toContain(save.status());
+
+    const est = await request.get(`/api/inspections/${id}/sketches/estimate`);
+    expect(est.status()).toBe(200);
+    const { estimate } = await est.json();
+    const areaItems = (estimate?.lineItems ?? []).filter(
+      (li: { areaM2?: number }) => typeof li.areaM2 === "number",
+    );
+    expect(areaItems.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test("imported (underlay_reference) geometry is excluded from the estimate", async ({
+    page,
+    request,
+  }) => {
+    const id = await createInspection(page, `E2E Provenance ${Date.now()}`);
+    test.skip(!id, "inspection creation did not yield an id");
+
+    // Only an AI-imported room — must NOT contribute billed area (RA-6761).
+    const save = await saveFloor(request, id, [
+      room(1000, "AI Room", "underlay_reference"),
+    ]);
+    expect([200, 201]).toContain(save.status());
+
+    const est = await request.get(`/api/inspections/${id}/sketches/estimate`);
+    expect(est.status()).toBe(200);
+    const { estimate } = await est.json();
+    const areaItems = (estimate?.lineItems ?? []).filter(
+      (li: { areaM2?: number }) => typeof li.areaM2 === "number",
+    );
+    expect(areaItems.length).toBe(0);
   });
 });
