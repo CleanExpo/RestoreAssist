@@ -4,8 +4,9 @@
  * pure-filter level and end-to-end through the estimate extractor.
  */
 import { describe, expect, it } from "vitest";
-import { measuredSketchData } from "../measured-sketch-data";
+import { measuredSketchData, measuredFloors } from "../measured-sketch-data";
 import { extractSketchEstimate } from "@/lib/sketch-estimate-extractor";
+import { extractRooms } from "@/lib/sketch/extract-rooms";
 
 const rect = (w: number, h: number) => [
   { x: 0, y: 0 },
@@ -99,5 +100,50 @@ describe("estimate extractor honours the provenance guard", () => {
     expect(guarded).toHaveLength(1);
     // only the 12 m² measured room survives — the 100 m² import is gone
     expect(guarded[0].areaM2).toBeCloseTo(12, 1);
+  });
+});
+
+describe("measuredFloors — PDF/scope export guard (RA-6761 pt 2)", () => {
+  const objects = [
+    // technician room 300×400 px = 12 m²
+    { type: "polygon", points: rect(300, 400), data: { label: "Living" } },
+    // AI-imported room 1000×1000 px = 100 m² — must NOT count
+    {
+      type: "polygon",
+      points: rect(1000, 1000),
+      data: { label: "AI", provenance: "underlay_reference" },
+    },
+  ];
+
+  it("baseline: extractRooms counts both rooms without the guard", () => {
+    expect(extractRooms({ objects })).toHaveLength(2);
+  });
+
+  it("excludes imported rooms from generator area extraction", () => {
+    const [f] = measuredFloors([
+      {
+        label: "GF",
+        pngDataUrl: "data:image/png;base64,xx",
+        fabricJson: { objects },
+      },
+    ]);
+    const rooms = extractRooms(f.fabricJson);
+    expect(rooms).toHaveLength(1);
+    expect(rooms[0].areaM2).toBeCloseTo(12, 1);
+  });
+
+  it("preserves non-geometry fields and tolerates a missing fabricJson", () => {
+    const [withPng] = measuredFloors([
+      {
+        label: "GF",
+        pngDataUrl: "data:image/png;base64,xx",
+        fabricJson: { objects },
+      },
+    ]);
+    expect(withPng.label).toBe("GF");
+    expect(withPng.pngDataUrl).toBe("data:image/png;base64,xx");
+
+    const [noJson] = measuredFloors([{ label: "Bare" }]);
+    expect(noJson).toEqual({ label: "Bare" }); // untouched
   });
 });

@@ -17,6 +17,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateSketchPdf, type SketchFloor } from "@/lib/generate-sketch-pdf";
+import { measuredFloors } from "@/lib/sketch/measured-sketch-data";
 import type { DamageCause } from "@/lib/nz/nhcover";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 
@@ -110,7 +111,9 @@ export async function POST(
 
   try {
     const pdfBytes = await generateSketchPdf({
-      floors: body.floors,
+      // RA-6761 pt 2: strip underlay_reference geometry so the PDF's room areas
+      // + compliance annex are computed from technician-measured geometry only.
+      floors: measuredFloors(body.floors),
       propertyAddress: body.propertyAddress ?? inspection.propertyAddress ?? "",
       reportNumber: body.reportNumber ?? id.slice(-8).toUpperCase(),
       materials,
