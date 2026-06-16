@@ -21,8 +21,10 @@ setup("authenticate", async ({ page }) => {
   const password = process.env.E2E_USER_PASSWORD ?? "Test1234!";
 
   await page.goto("/login");
-  await page.getByLabel(/email/i).fill(email);
-  await page.getByLabel(/password/i).fill(password);
+  // Target inputs by type — getByLabel(/password/i) is ambiguous (the field +
+  // a show/hide toggle both match, tripping Playwright strict mode). RA-6764.
+  await page.locator('input[type="email"]').first().fill(email);
+  await page.locator('input[type="password"]').first().fill(password);
   await page.getByRole("button", { name: /sign in/i }).click();
 
   // Wait for successful redirect to dashboard
