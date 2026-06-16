@@ -12,7 +12,7 @@ import type {
   VisionInput,
   VisionMediaType,
 } from "@/lib/ai/byok-client";
-import type { RouterConfig } from "@/lib/ai/model-router";
+import { resolveWorkspaceRouterConfig } from "@/lib/ai/workspace-byok-dispatch";
 import { BYOK_ALLOWED_MODELS } from "@/lib/ai/byok-client";
 
 const CONTENTS_MANIFEST_FAILURE_ERROR =
@@ -36,7 +36,6 @@ export async function POST(request: NextRequest) {
     inspectionId: string;
     photos: Array<{ data: string; mediaType: string; label?: string }>;
     model: string;
-    apiKey: string;
     context?: {
       jobType?: string;
       rooms?: string[];
@@ -72,11 +71,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (!body.model || !body.apiKey?.trim()) {
-    return NextResponse.json(
-      { error: "model and apiKey are required (BYOK)" },
-      { status: 400 },
-    );
+  if (!body.model) {
+    return NextResponse.json({ error: "model is required" }, { status: 400 });
   }
 
   // Validate model against allowlist
@@ -97,6 +93,7 @@ export async function POST(request: NextRequest) {
     },
     select: {
       id: true,
+      workspaceId: true,
       inspectionNumber: true,
       propertyAddress: true,
       inspectionWorkflow: {
@@ -135,11 +132,31 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Build router config
-  const routerConfig: RouterConfig = {
-    byokModel: body.model as AllowedModel,
-    byokApiKey: body.apiKey,
-  };
+  // BYOK key is resolved SERVER-SIDE from the inspection's workspace — never
+  // trusted from the request body (which any caller could forge).
+  if (!inspection.workspaceId) {
+    return NextResponse.json(
+      {
+        error:
+          "This inspection is not linked to a workspace. Configure AI Providers in Workspace Settings to use the contents manifest.",
+      },
+      { status: 422 },
+    );
+  }
+
+  const routerConfig = await resolveWorkspaceRouterConfig(
+    inspection.workspaceId,
+    body.model as AllowedModel,
+  );
+  if (!routerConfig) {
+    return NextResponse.json(
+      {
+        error:
+          "No active AI provider configured for this workspace. Add your API key in Workspace Settings → AI Providers.",
+      },
+      { status: 422 },
+    );
+  }
 
   // Build context — merge request context with inspection data
   const context = {

@@ -16,6 +16,24 @@ export interface AIIntegration {
 }
 
 /**
+ * Authoritatively resolve the AI vendor from the API key's prefix.
+ * The key itself decides which vendor will accept it, so this can never
+ * misroute the way a free-text integration name can. Returns null for an
+ * unrecognised format (callers fall back to a name hint as a last resort).
+ *   Anthropic: sk-ant-…   OpenAI: sk-… / sk-proj-…   Google (Gemini): AIza…
+ */
+export function providerForKey(
+  apiKey: string | null | undefined,
+): AIProvider | null {
+  if (!apiKey) return null;
+  const k = apiKey.trim();
+  if (k.startsWith("sk-ant-")) return "anthropic";
+  if (k.startsWith("AIza")) return "gemini";
+  if (k.startsWith("sk-")) return "openai";
+  return null;
+}
+
+/**
  * Get the effective user ID for integrations
  * For Managers/Technicians, returns the Admin's ID
  * For Admins, returns their own ID
@@ -85,16 +103,20 @@ export async function getLatestAIIntegration(
   // Get the latest integration
   const integration = integrations[0];
 
-  // Determine provider type
-  let provider: AIProvider = "anthropic"; // default
-  const nameLower = integration.name.toLowerCase();
-
-  if (nameLower.includes("openai") || nameLower.includes("gpt")) {
-    provider = "openai";
-  } else if (nameLower.includes("gemini") || nameLower.includes("google")) {
-    provider = "gemini";
-  } else if (nameLower.includes("anthropic") || nameLower.includes("claude")) {
-    provider = "anthropic";
+  // Provider is resolved from the API key prefix (authoritative — the key
+  // decides which vendor accepts it), falling back to the free-text name only
+  // when the key format is unrecognised. Never name-only: a key named
+  // "Claude API" that is actually an OpenAI key must NOT be sent to Anthropic.
+  let provider = providerForKey(integration.apiKey);
+  if (!provider) {
+    const nameLower = (integration.name || "").toLowerCase();
+    if (nameLower.includes("openai") || nameLower.includes("gpt")) {
+      provider = "openai";
+    } else if (nameLower.includes("gemini") || nameLower.includes("google")) {
+      provider = "gemini";
+    } else {
+      provider = "anthropic";
+    }
   }
 
   return {
@@ -132,6 +154,14 @@ export async function getAnthropicApiKey(userId: string): Promise<string> {
     );
   }
 
+  // Refuse to return a non-Anthropic key for Anthropic use (key prefix is authoritative).
+  const keyProvider = providerForKey(integration.apiKey);
+  if (keyProvider && keyProvider !== "anthropic") {
+    throw new Error(
+      "The configured Anthropic integration holds a non-Anthropic API key; refusing to use it. Re-add your Anthropic key in Settings → Integrations.",
+    );
+  }
+
   return integration.apiKey;
 }
 
@@ -148,6 +178,16 @@ export async function callAIProvider(
   },
 ): Promise<string> {
   const { system, prompt, maxTokens = 16000, temperature = 0.7 } = options;
+
+  // Defence in depth: never send a key to a vendor it does not belong to.
+  // If the key's prefix contradicts its configured provider, fail closed
+  // rather than leak the key to the wrong vendor's endpoint.
+  const keyProvider = providerForKey(integration.apiKey);
+  if (keyProvider && keyProvider !== integration.provider) {
+    throw new Error(
+      `API key format (${keyProvider}) does not match its configured provider (${integration.provider}); refusing to send the key to the wrong vendor.`,
+    );
+  }
 
   switch (integration.provider) {
     case "anthropic": {
