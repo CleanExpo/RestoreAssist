@@ -26,9 +26,13 @@
  */
 
 import { readFileSync, readdirSync } from "fs";
-import { resolve } from "path";
+import { dirname, resolve } from "path";
+import { fileURLToPath } from "url";
 
-const REPO = resolve(__dirname, "..");
+// ESM-safe repo root: __dirname is undefined when this module is imported by a
+// natively-run ESM script (e.g. `tsx scripts/audit-rls.ts`). vitest's transform
+// happens to provide __dirname, but import.meta.url works in both.
+const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const MIGRATION_DIRS = [
   resolve(REPO, "prisma/migrations"),
