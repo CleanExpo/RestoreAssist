@@ -21,12 +21,19 @@ export type ToolMode =
   | "pan"; // Pan/navigate
 
 import { fabricObjectToSelected } from "@/lib/sketch/selected-object";
+import {
+  describeToolObject,
+  DEFAULT_PX_PER_METRE,
+  type Point,
+} from "@/lib/sketch/tool-objects";
 import type { SelectedObject } from "./SketchSelectionPanel";
 
 export interface SketchCanvasProps {
   width?: number;
   height?: number;
   toolMode?: ToolMode;
+  /** Canvas pixels per real-world metre — drives measure-tool dimensions. */
+  pxPerMetre?: number;
   backgroundImageUrl?: string | null;
   backgroundImageOpacity?: number;
   onReady?: (canvas: FabricCanvasRef) => void;
@@ -78,6 +85,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       width = 1200,
       height = 800,
       toolMode = "select",
+      pxPerMetre = DEFAULT_PX_PER_METRE,
       onSelect,
       backgroundImageUrl,
       backgroundImageOpacity = 0.4,
@@ -93,6 +101,11 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
     const historyRef = useRef<string[]>([]);
     const historyIdxRef = useRef(-1);
     const isLoadingRef = useRef(false);
+    // ── Drawing state for the click/drag tools (read inside Fabric handlers) ──
+    const toolModeRef = useRef<ToolMode>(toolMode);
+    const pxPerMetreRef = useRef<number>(pxPerMetre);
+    const drawStartRef = useRef<Point | null>(null);
+    const polygonPtsRef = useRef<Point[]>([]);
     const [historyState, setHistoryState] = useState({
       canUndo: false,
       canRedo: false,
@@ -330,6 +343,165 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
         canvas.on("selection:updated", emitSelection);
         canvas.on("selection:cleared", () => onSelect?.(null));
 
+        // ── Tool object creation (room/line/text/arrow/measure/photo) ──
+        // RA-6759: each declared ToolMode now produces a real Fabric object
+        // carrying custom `data` (type + provenance) for selection +
+        // decomposition. Geometry/units/data logic lives in the pure
+        // describeToolObject() factory; this only materialises the descriptor.
+        const F = fabric as unknown as Record<
+          string,
+          new (...args: unknown[]) => unknown
+        >;
+        const scenePoint = (e: MouseEvent): Point => {
+          const c = canvas as unknown as {
+            getScenePoint?: (e: MouseEvent) => { x: number; y: number };
+            getPointer: (e: MouseEvent) => { x: number; y: number };
+          };
+          const p = c.getScenePoint ? c.getScenePoint(e) : c.getPointer(e);
+          return { x: p.x, y: p.y };
+        };
+
+        const materialize = (
+          d: NonNullable<ReturnType<typeof describeToolObject>>,
+        ): unknown => {
+          let obj: unknown = null;
+          if (d.kind === "polygon") {
+            const { points, ...rest } = d.props as { points: Point[] };
+            obj = new F.Polygon(points, rest);
+          } else if (d.kind === "line") {
+            const { x1, y1, x2, y2, ...rest } = d.props as Record<
+              string,
+              number
+            >;
+            obj = new F.Line([x1, y1, x2, y2], rest);
+          } else if (d.kind === "measure") {
+            const { x1, y1, x2, y2, ...rest } = d.props as Record<
+              string,
+              number
+            >;
+            const line = new F.Line([x1, y1, x2, y2], rest);
+            const label = new F.Text(d.label!.text, {
+              left: d.label!.left,
+              top: d.label!.top,
+              fontSize: 14,
+              fill: "#8A6B4E",
+              originX: "center",
+              originY: "center",
+              selectable: false,
+            });
+            obj = new F.Group([line, label]);
+          } else if (d.kind === "arrow") {
+            const { x1, y1, x2, y2, ...rest } = d.props as Record<
+              string,
+              number
+            >;
+            const line = new F.Line([x1, y1, x2, y2], rest);
+            const head = new F.Triangle({
+              left: x2,
+              top: y2,
+              width: 14,
+              height: 14,
+              fill: (rest as { stroke?: string }).stroke ?? "#1C2E47",
+              angle: (d.data.angle as number) + 90,
+              originX: "center",
+              originY: "center",
+            });
+            obj = new F.Group([line, head]);
+          } else if (d.kind === "itext") {
+            const { text, ...rest } = d.props as { text: string };
+            obj = new F.IText(text, rest);
+          } else if (d.kind === "photo-marker") {
+            obj = new F.Circle({
+              ...d.props,
+              originX: "center",
+              originY: "center",
+            });
+          }
+          if (obj) (obj as { data?: unknown }).data = d.data;
+          return obj;
+        };
+
+        const addToolObject = (d: ReturnType<typeof describeToolObject>) => {
+          if (!d) return;
+          const obj = materialize(d);
+          if (!obj) return;
+          const c = canvas as unknown as {
+            add: (o: unknown) => void;
+            setActiveObject: (o: unknown) => void;
+          };
+          c.add(obj);
+          c.setActiveObject(obj);
+          if (d.kind === "itext") {
+            (obj as { enterEditing?: () => void }).enterEditing?.();
+          }
+          canvas.renderAll();
+        };
+
+        canvas.on("mouse:down", (opt: unknown) => {
+          const e = (opt as { e: MouseEvent }).e;
+          const tool = toolModeRef.current;
+          if (readonly || e.altKey) return;
+          // "photo" is the moisture-pin tool (SketchMoistureLayer overlay) in
+          // SketchEditorV2 — it owns those clicks, so the canvas ignores it.
+          if (
+            tool === "select" ||
+            tool === "freehand" ||
+            tool === "pan" ||
+            tool === "photo"
+          )
+            return;
+          const p = scenePoint(e);
+          if (tool === "room") {
+            polygonPtsRef.current.push(p); // closed on double-click
+            return;
+          }
+          if (tool === "text") {
+            addToolObject(
+              describeToolObject({
+                tool,
+                points: [p],
+                pxPerMetre: pxPerMetreRef.current,
+              }),
+            );
+            return;
+          }
+          // drag tools: line / measure / arrow
+          drawStartRef.current = p;
+        });
+
+        canvas.on("mouse:up", (opt: unknown) => {
+          const tool = toolModeRef.current;
+          const start = drawStartRef.current;
+          if (!start) return;
+          drawStartRef.current = null;
+          if (tool === "line" || tool === "measure" || tool === "arrow") {
+            const end = scenePoint((opt as { e: MouseEvent }).e);
+            addToolObject(
+              describeToolObject({
+                tool,
+                points: [start, end],
+                pxPerMetre: pxPerMetreRef.current,
+              }),
+            );
+          }
+        });
+
+        canvas.on("mouse:dblclick", () => {
+          if (
+            toolModeRef.current === "room" &&
+            polygonPtsRef.current.length >= 3
+          ) {
+            addToolObject(
+              describeToolObject({
+                tool: "room",
+                points: polygonPtsRef.current,
+                pxPerMetre: pxPerMetreRef.current,
+              }),
+            );
+          }
+          polygonPtsRef.current = [];
+        });
+
         // ── Keyboard shortcuts ──
         const handleKeyDown = (e: KeyboardEvent) => {
           if (
@@ -430,6 +602,13 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       } | null;
       if (!canvas) return;
 
+      // Keep the handler-visible refs current and reset any in-progress draw
+      // (e.g. a half-finished room polygon) when the tool changes.
+      toolModeRef.current = toolMode;
+      pxPerMetreRef.current = pxPerMetre;
+      drawStartRef.current = null;
+      polygonPtsRef.current = [];
+
       canvas.isDrawingMode = toolMode === "freehand";
       canvas.selection = toolMode === "select" && !readonly;
 
@@ -439,7 +618,7 @@ const SketchCanvas = forwardRef<FabricCanvasRef, SketchCanvasProps>(
       }
 
       canvas.defaultCursor = toolMode === "pan" ? "grab" : "default";
-    }, [toolMode, readonly]);
+    }, [toolMode, readonly, pxPerMetre]);
 
     // ── Update background image when URL/opacity changes (Fabric.js v6) ──
     useEffect(() => {

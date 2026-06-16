@@ -966,6 +966,7 @@ export function SketchEditorV2({
               width={width}
               height={height}
               toolMode={toolMode}
+              pxPerMetre={fd.scaleConfig?.pxPerMetre}
               backgroundImageUrl={fd.backgroundUrl}
               backgroundImageOpacity={fd.backgroundOpacity}
               readonly={readonly}
