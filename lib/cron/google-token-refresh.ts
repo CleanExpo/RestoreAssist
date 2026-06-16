@@ -36,6 +36,10 @@
  * (no last-refreshed/updated_at), so it is used as the urgency proxy.
  */
 import { prisma } from "@/lib/prisma";
+import {
+  decryptAccountTokens,
+  encryptAccountTokens,
+} from "@/lib/auth/account-tokens";
 import type { CronJobResult } from "./runner";
 
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -87,16 +91,19 @@ export async function refreshGoogleTokens(): Promise<CronJobResult> {
   for (const acc of accounts) {
     if (!acc.refresh_token) continue; // narrowing; filter already applied
 
-    const outcome = await refreshOne(clientId, clientSecret, acc.refresh_token);
+    // refresh_token is encrypted at rest (B3) — decrypt before use; legacy
+    // plaintext rows pass through unchanged until the backfill runs.
+    const refreshToken = decryptAccountTokens(acc).refresh_token!;
+    const outcome = await refreshOne(clientId, clientSecret, refreshToken);
 
     if (outcome.ok) {
       refreshed++;
       await prisma.account.update({
         where: { id: acc.id },
-        data: {
+        data: encryptAccountTokens({
           access_token: outcome.accessToken,
           expires_at: outcome.expiresAt,
-        },
+        }),
       });
       continue;
     }

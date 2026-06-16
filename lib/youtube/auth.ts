@@ -14,6 +14,10 @@
 
 import { google } from "googleapis";
 import { prisma } from "@/lib/prisma";
+import {
+  decryptAccountTokens,
+  encryptAccountTokens,
+} from "@/lib/auth/account-tokens";
 
 const youtubeClientId = () =>
   process.env.YOUTUBE_CLIENT_ID ?? process.env.GOOGLE_CLIENT_ID;
@@ -46,6 +50,9 @@ export async function getYouTubeClient(systemUserId: string) {
     );
   }
 
+  // Tokens are encrypted at rest (B3) — decrypt before handing to the client.
+  const tokens = decryptAccountTokens(account);
+
   const oauth2Client = new google.auth.OAuth2(
     youtubeClientId(),
     youtubeClientSecret(),
@@ -53,8 +60,8 @@ export async function getYouTubeClient(systemUserId: string) {
   );
 
   oauth2Client.setCredentials({
-    refresh_token: account.refresh_token,
-    access_token: account.access_token ?? undefined,
+    refresh_token: tokens.refresh_token,
+    access_token: tokens.access_token ?? undefined,
   });
 
   return google.youtube({ version: "v3", auth: oauth2Client });
@@ -112,7 +119,8 @@ export async function exchangeYouTubeCode(
         providerAccountId: "youtube-upload",
       },
     },
-    create: {
+    // B3: encrypt access/refresh tokens before persisting (non-token fields untouched).
+    create: encryptAccountTokens({
       userId,
       type: "oauth",
       provider: "google",
@@ -124,14 +132,14 @@ export async function exchangeYouTubeCode(
         : null,
       token_type: tokens.token_type ?? "Bearer",
       scope: tokens.scope ?? "youtube.upload youtube.readonly",
-    },
-    update: {
+    }),
+    update: encryptAccountTokens({
       refresh_token: tokens.refresh_token,
       access_token: tokens.access_token ?? null,
       expires_at: tokens.expiry_date
         ? Math.floor(tokens.expiry_date / 1000)
         : null,
       scope: tokens.scope ?? "youtube.upload youtube.readonly",
-    },
+    }),
   });
 }

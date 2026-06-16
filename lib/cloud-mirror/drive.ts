@@ -13,6 +13,7 @@ import { google, type drive_v3 } from "googleapis";
 import { OAuth2Client } from "google-auth-library";
 import { Readable } from "node:stream";
 import { prisma } from "@/lib/prisma";
+import { decryptAccountTokens } from "@/lib/auth/account-tokens";
 import {
   type CloudMirrorProvider,
   type CloudMirrorUploadInput,
@@ -51,9 +52,10 @@ async function getTokensForUser(userId: string): Promise<{
       "Google account not linked for this user — Drive mirror is unavailable until they sign in with Google.",
     );
   }
+  const tokens = decryptAccountTokens(account);
   return {
-    accessToken: account.access_token,
-    refreshToken: account.refresh_token,
+    accessToken: tokens.access_token!,
+    refreshToken: tokens.refresh_token ?? null,
   };
 }
 

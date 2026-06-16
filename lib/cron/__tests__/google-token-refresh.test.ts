@@ -9,6 +9,10 @@ vi.mock("@/lib/prisma", () => {
 
 import { prisma } from "@/lib/prisma";
 import { refreshGoogleTokens } from "../google-token-refresh";
+import {
+  isEncryptedToken,
+  decryptAccountTokens,
+} from "@/lib/auth/account-tokens";
 
 const account = (
   prisma as unknown as {
@@ -25,6 +29,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   process.env.GOOGLE_CLIENT_ID = "test-client-id";
   process.env.GOOGLE_CLIENT_SECRET = "test-client-secret";
+  // B3: the refresh path encrypts the rewritten access_token at rest.
+  process.env.INTEGRATION_ENCRYPTION_KEY =
+    "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
   account.update.mockResolvedValue({});
 });
 
@@ -62,8 +69,20 @@ describe("refreshGoogleTokens — bounded ordered batch", () => {
 
   it("processes every row in the returned batch", async () => {
     account.findMany.mockResolvedValueOnce([
-      { id: "a1", userId: "u1", refresh_token: "r1", expires_at: null, scope: "s" },
-      { id: "a2", userId: "u2", refresh_token: "r2", expires_at: 1, scope: "s" },
+      {
+        id: "a1",
+        userId: "u1",
+        refresh_token: "r1",
+        expires_at: null,
+        scope: "s",
+      },
+      {
+        id: "a2",
+        userId: "u2",
+        refresh_token: "r2",
+        expires_at: 1,
+        scope: "s",
+      },
     ]);
 
     const fetchMock = vi.fn().mockResolvedValue({
@@ -78,12 +97,30 @@ describe("refreshGoogleTokens — bounded ordered batch", () => {
     expect(account.update).toHaveBeenCalledTimes(2);
     expect(result.itemsProcessed).toBe(2);
     expect(result.metadata?.refreshed).toBe(2);
+
+    // B3: the rewritten access_token is encrypted at rest, not stored plaintext.
+    const writeData = account.update.mock.calls[0][0].data;
+    expect(writeData.access_token).not.toBe("new");
+    expect(isEncryptedToken(writeData.access_token)).toBe(true);
+    expect(decryptAccountTokens(writeData).access_token).toBe("new");
   });
 
   it("isolates per-row failures and clears dead refresh tokens", async () => {
     account.findMany.mockResolvedValueOnce([
-      { id: "a1", userId: "u1", refresh_token: "good", expires_at: 1, scope: "s" },
-      { id: "a2", userId: "u2", refresh_token: "dead", expires_at: 2, scope: "s" },
+      {
+        id: "a1",
+        userId: "u1",
+        refresh_token: "good",
+        expires_at: 1,
+        scope: "s",
+      },
+      {
+        id: "a2",
+        userId: "u2",
+        refresh_token: "dead",
+        expires_at: 2,
+        scope: "s",
+      },
     ]);
 
     const fetchMock = vi
