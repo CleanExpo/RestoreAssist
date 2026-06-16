@@ -6,6 +6,7 @@ import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import { buildScopeExport } from "@/lib/export/scope-contract";
 import { buildScopeNarrative } from "@/lib/export/scope-narrative";
+import { measuredFloors } from "@/lib/sketch/measured-sketch-data";
 import type { DamageCause } from "@/lib/nz/nhcover";
 
 // POST /api/inspections/[id]/sketches/scope-narrative
@@ -66,7 +67,8 @@ export async function POST(
       : "AU";
 
     const scope = buildScopeExport({
-      floors: body.floors,
+      // RA-6761 pt 2: measured-only geometry for scope quantities/compliance.
+      floors: measuredFloors(body.floors),
       materials,
       propertyAddress:
         body.propertyAddress ?? inspection?.propertyAddress ?? "",

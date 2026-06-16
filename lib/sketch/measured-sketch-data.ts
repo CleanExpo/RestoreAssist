@@ -31,3 +31,25 @@ export function measuredSketchData<T extends SketchBlob | null | undefined>(
     ),
   };
 }
+
+/**
+ * Sanitize an export `floors[]` payload (RA-6761 pt 2): strip underlay_reference
+ * geometry from each floor's Fabric blob so the PDF + scope generators compute
+ * room areas and the compliance annex from technician-measured geometry only.
+ * Non-geometry fields (label, pngDataUrl, …) pass through untouched.
+ */
+export function measuredFloors<
+  T extends { fabricJson?: Record<string, unknown> | null },
+>(floors: T[]): T[] {
+  return floors.map((f) =>
+    f.fabricJson
+      ? {
+          ...f,
+          fabricJson: measuredSketchData(f.fabricJson as SketchBlob) as Record<
+            string,
+            unknown
+          >,
+        }
+      : f,
+  );
+}
