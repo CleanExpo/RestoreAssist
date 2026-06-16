@@ -717,6 +717,10 @@ export function SketchEditorV2({
             id: `imported-${Date.now()}-${i}`,
             label: room.label,
             type: "room",
+            // RA-6760: AI/Vision-imported geometry is reference-only until a
+            // technician reviews + confirms it. Without this it would default
+            // to operator_measured and inflate billed/scoped quantities.
+            provenance: "underlay_reference",
           },
         });
 
@@ -1073,6 +1077,33 @@ export function SketchEditorV2({
             fc.renderAll();
             setSelectedObj((prev) =>
               prev && prev.id === id ? { ...prev, materialSlug: slug } : prev,
+            );
+            scheduleSave();
+          }}
+          onConfirmProvenance={(id) => {
+            const fc = activeFloor?.canvasRef.current?.getFabricCanvas() as {
+              getObjects: () => unknown[];
+              renderAll: () => void;
+            } | null;
+            if (!fc) return;
+            const obj = fc
+              .getObjects()
+              .find(
+                (o) =>
+                  (
+                    (o as Record<string, unknown>).data as
+                      | Record<string, unknown>
+                      | undefined
+                  )?.id === id,
+              ) as Record<string, unknown> | undefined;
+            if (obj?.data)
+              (obj.data as Record<string, unknown>).provenance =
+                "operator_measured";
+            fc.renderAll();
+            setSelectedObj((prev) =>
+              prev && prev.id === id
+                ? { ...prev, provenance: "operator_measured" }
+                : prev,
             );
             scheduleSave();
           }}

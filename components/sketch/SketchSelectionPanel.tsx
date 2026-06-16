@@ -57,6 +57,12 @@ export interface SelectedObject {
   cause?: DamageCause;
   /** S500 water category assigned to the area (spec §5.2). */
   waterCategory?: "cat1" | "cat2" | "cat3";
+  /**
+   * Geometry provenance (RA-6760). `underlay_reference` = AI/imported, excluded
+   * from measured quantities until a technician confirms it; `operator_measured`
+   * = technician-drawn/confirmed.
+   */
+  provenance?: "operator_measured" | "underlay_reference";
 }
 
 export interface MaterialOption {
@@ -86,6 +92,8 @@ export interface SketchSelectionPanelProps {
     id: string,
     category: "cat1" | "cat2" | "cat3",
   ) => void;
+  /** Promote reference (AI/imported) geometry to operator_measured (RA-6760). */
+  onConfirmProvenance?: (id: string) => void;
   onDelete?: (id: string) => void;
   onDeselect?: () => void;
   className?: string;
@@ -105,6 +113,7 @@ export function SketchSelectionPanel({
   onCountryChange,
   onCauseChange,
   onWaterCategoryChange,
+  onConfirmProvenance,
   onDelete,
   onDeselect,
   className,
@@ -155,6 +164,30 @@ export function SketchSelectionPanel({
           <X size={14} />
         </button>
       </div>
+
+      {/* Provenance — reference (AI/import) geometry is excluded from measured
+          quantities until a technician confirms it (RA-6760). */}
+      {selected.provenance === "underlay_reference" && (
+        <div
+          role="alert"
+          className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-2 space-y-2"
+        >
+          <div className="flex items-start gap-1.5 text-xs text-amber-200">
+            <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+            <span>
+              Reference geometry (AI / imported) — excluded from measured
+              quantities until confirmed.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => onConfirmProvenance?.(selected.id)}
+            className="w-full min-h-11 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-100 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors text-xs font-medium"
+          >
+            Confirm measurement
+          </button>
+        </div>
+      )}
 
       {/* Label input (rooms + text) */}
       {(isRoom || isText) && (
