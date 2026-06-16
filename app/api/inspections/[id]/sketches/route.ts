@@ -175,23 +175,30 @@ export async function POST(
       const idBySlug = new Map(
         materials.map((m: { id: string; slug: string }) => [m.slug, m.id]),
       );
-      await (prisma as any).sketchElement.deleteMany({
-        where: { sketchId: sketch.id },
-      });
+      // RA-6762: delete + recreate the normalized rows atomically so a failure
+      // can't leave them half-written (these were two un-transactioned calls).
+      const elementOps: unknown[] = [
+        (prisma as any).sketchElement.deleteMany({
+          where: { sketchId: sketch.id },
+        }),
+      ];
       if (decomposed.length) {
-        await (prisma as any).sketchElement.createMany({
-          data: decomposed.map((d) => ({
-            sketchId: sketch.id,
-            type: d.type,
-            geometryJson: d.geometryJson as unknown,
-            dimensionsM: d.dimensionsM as unknown,
-            materialId: d.materialSlug
-              ? (idBySlug.get(d.materialSlug) ?? null)
-              : null,
-            provenance: d.provenance,
-          })),
-        });
+        elementOps.push(
+          (prisma as any).sketchElement.createMany({
+            data: decomposed.map((d) => ({
+              sketchId: sketch.id,
+              type: d.type,
+              geometryJson: d.geometryJson as unknown,
+              dimensionsM: d.dimensionsM as unknown,
+              materialId: d.materialSlug
+                ? (idBySlug.get(d.materialSlug) ?? null)
+                : null,
+              provenance: d.provenance,
+            })),
+          }),
+        );
       }
+      await (prisma as any).$transaction(elementOps);
     } catch (e) {
       console.error(
         "[sketches] SketchElement decomposition failed (non-fatal):",
