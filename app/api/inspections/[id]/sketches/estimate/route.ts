@@ -15,6 +15,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { extractSketchEstimate } from "@/lib/sketch-estimate-extractor";
+import { measuredSketchData } from "@/lib/sketch/measured-sketch-data";
 import { fromException } from "@/lib/api-errors";
 
 export async function GET(
@@ -59,7 +60,12 @@ export async function GET(
       .filter((s: any) => s.sketchType === "structural" || !s.sketchType)
       .map((s: any) => ({
         floorLabel: s.floorLabel,
-        sketchData: s.sketchData as Record<string, unknown> | null,
+        // RA-6761: strip underlay_reference (AI/imported) geometry before the
+        // extractor parses it, so unconfirmed geometry never inflates billed
+        // quantities. Untagged/technician geometry is measured and kept.
+        sketchData: measuredSketchData(
+          s.sketchData as Record<string, unknown> | null,
+        ),
         equipmentPoints: s.equipmentPoints as unknown[] | null,
         moisturePoints: s.moisturePoints as unknown[] | null,
       }));
