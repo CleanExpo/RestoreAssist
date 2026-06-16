@@ -39,4 +39,18 @@ describe("fabricObjectToSelected", () => {
     expect(fabricObjectToSelected({ type: "rect", data: {} })).toBeNull();
     expect(fabricObjectToSelected(null)).toBeNull();
   });
+
+  it("surfaces provenance so the panel can show the confirm-flow (RA-6760)", () => {
+    const ref = fabricObjectToSelected({
+      type: "polygon",
+      data: { id: "r1", type: "room", provenance: "underlay_reference" },
+    });
+    expect(ref?.provenance).toBe("underlay_reference");
+
+    const measured = fabricObjectToSelected({
+      type: "polygon",
+      data: { id: "r2", type: "room", provenance: "operator_measured" },
+    });
+    expect(measured?.provenance).toBe("operator_measured");
+  });
 });

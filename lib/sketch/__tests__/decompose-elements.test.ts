@@ -112,3 +112,49 @@ describe("provenance guard (measured-elements)", () => {
     expect(totalMeasuredFloorAreaM2(mixed)).toBeCloseTo(12, 5);
   });
 });
+
+describe("RA-6760 — imported geometry provenance flows decompose → measured", () => {
+  const sq = (n: number) => [
+    { x: 0, y: 0 },
+    { x: n, y: 0 },
+    { x: n, y: n },
+    { x: 0, y: n },
+  ];
+
+  it("preserves underlay_reference and excludes it from measured totals", () => {
+    const data = {
+      scaleConfig: { pxPerMetre: 100 },
+      objects: [
+        {
+          type: "polygon",
+          points: sq(300),
+          data: { type: "room", provenance: "underlay_reference" as const },
+        },
+        {
+          type: "polygon",
+          points: sq(100),
+          data: { type: "room", provenance: "operator_measured" as const },
+        },
+      ],
+    };
+    const decomposed = decomposeElements(data);
+    expect(decomposed).toHaveLength(2); // both decompose (geometry persists)
+    const measured = measuredElements(decomposed);
+    expect(measured).toHaveLength(1); // only the operator-measured room counts
+    expect(measured[0].provenance).toBe("operator_measured");
+  });
+
+  it("a confirmed (promoted) element becomes measured", () => {
+    const data = {
+      objects: [
+        {
+          type: "polygon",
+          points: sq(300),
+          // After "Confirm measurement" the object's provenance is measured.
+          data: { type: "room", provenance: "operator_measured" as const },
+        },
+      ],
+    };
+    expect(measuredElements(decomposeElements(data))).toHaveLength(1);
+  });
+});

@@ -31,5 +31,6 @@ export function fabricObjectToSelected(
     whsPathwayNote: data.whsPathwayNote as string | undefined,
     cause: data.cause as SelectedObject["cause"],
     waterCategory: data.waterCategory as SelectedObject["waterCategory"],
+    provenance: data.provenance as SelectedObject["provenance"],
   };
 }
