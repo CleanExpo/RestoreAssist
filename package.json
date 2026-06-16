@@ -47,6 +47,7 @@
     "lint": "eslint .",
     "type-check": "NODE_OPTIONS=\"--max-old-space-size=8192\" tsc --noEmit",
     "audit:ai": "tsx scripts/audit-ai-call-sites.ts --gate",
+    "audit:rls": "tsx scripts/audit-rls.ts",
     "security:scan": "node scripts/security/route-safety-scan.mjs",
     "verifier:ledger": "node scripts/verifier-ledger.mjs",
     "prisma:generate": "prisma generate",
