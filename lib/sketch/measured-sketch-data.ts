@@ -53,3 +53,39 @@ export function measuredFloors<
       : f,
   );
 }
+
+/**
+ * Server-authoritative export floors (RA-6761 residual). Compliance/quantity
+ * geometry comes from the server-saved ClaimSketch (keyed by floor label), not
+ * from client-supplied `fabricJson` — a client can't inflate or fabricate areas.
+ * Falls back to the provenance-sanitised client blob only when there is no saved
+ * floor for that label (e.g. a brand-new unsaved floor). Either source is run
+ * through `measuredSketchData`, so underlay_reference geometry never counts.
+ * Non-geometry fields (label, pngDataUrl, …) pass through untouched.
+ */
+export function serverAuthoritativeFloors<
+  T extends { label?: string; fabricJson?: Record<string, unknown> | null },
+>(
+  clientFloors: T[],
+  serverSketches: Array<{
+    floorLabel?: string | null;
+    sketchData?: Record<string, unknown> | null;
+  }>,
+): T[] {
+  const byLabel = new Map<string, Record<string, unknown> | null | undefined>();
+  for (const s of serverSketches) {
+    if (s.floorLabel) byLabel.set(s.floorLabel, s.sketchData ?? null);
+  }
+  return clientFloors.map((f) => {
+    const serverSketch = f.label ? byLabel.get(f.label) : undefined;
+    const source = serverSketch ?? f.fabricJson;
+    if (!source) return f;
+    return {
+      ...f,
+      fabricJson: measuredSketchData(source as SketchBlob) as Record<
+        string,
+        unknown
+      >,
+    };
+  });
+}

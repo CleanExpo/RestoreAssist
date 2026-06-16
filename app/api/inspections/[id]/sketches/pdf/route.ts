@@ -17,7 +17,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateSketchPdf, type SketchFloor } from "@/lib/generate-sketch-pdf";
-import { measuredFloors } from "@/lib/sketch/measured-sketch-data";
+import { serverAuthoritativeFloors } from "@/lib/sketch/measured-sketch-data";
 import type { DamageCause } from "@/lib/nz/nhcover";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 
@@ -97,7 +97,12 @@ export async function POST(
   // Moisture pins across floors for the S500 drying log (spec §5.2).
   const sketchRows = await (prisma as any).claimSketch.findMany({
     where: { inspectionId: id },
-    select: { moisturePoints: true, country: true },
+    select: {
+      floorLabel: true,
+      sketchData: true,
+      moisturePoints: true,
+      country: true,
+    },
   });
   const moisturePins = sketchRows.flatMap((s: { moisturePoints: unknown }) =>
     Array.isArray(s.moisturePoints) ? s.moisturePoints : [],
@@ -111,9 +116,9 @@ export async function POST(
 
   try {
     const pdfBytes = await generateSketchPdf({
-      // RA-6761 pt 2: strip underlay_reference geometry so the PDF's room areas
-      // + compliance annex are computed from technician-measured geometry only.
-      floors: measuredFloors(body.floors),
+      // RA-6761: server-authoritative geometry — room areas + compliance annex
+      // come from the saved ClaimSketch (measured-only), not client fabricJson.
+      floors: serverAuthoritativeFloors(body.floors, sketchRows),
       propertyAddress: body.propertyAddress ?? inspection.propertyAddress ?? "",
       reportNumber: body.reportNumber ?? id.slice(-8).toUpperCase(),
       materials,

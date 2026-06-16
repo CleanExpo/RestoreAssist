@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import { buildScopeExport } from "@/lib/export/scope-contract";
-import { measuredFloors } from "@/lib/sketch/measured-sketch-data";
+import { serverAuthoritativeFloors } from "@/lib/sketch/measured-sketch-data";
 import type { DamageCause } from "@/lib/nz/nhcover";
 
 // POST /api/inspections/[id]/sketches/scope-export
@@ -54,7 +54,12 @@ export async function POST(
     });
     const sketchRows = await (prisma as any).claimSketch.findMany({
       where: { inspectionId: id },
-      select: { moisturePoints: true, country: true },
+      select: {
+        floorLabel: true,
+        sketchData: true,
+        moisturePoints: true,
+        country: true,
+      },
     });
     const moisturePins = sketchRows.flatMap((s: { moisturePoints: unknown }) =>
       Array.isArray(s.moisturePoints) ? s.moisturePoints : [],
@@ -66,8 +71,8 @@ export async function POST(
       : "AU";
 
     const scope = buildScopeExport({
-      // RA-6761 pt 2: measured-only geometry for scope quantities/compliance.
-      floors: measuredFloors(body.floors),
+      // RA-6761: server-authoritative, measured-only geometry for scope.
+      floors: serverAuthoritativeFloors(body.floors, sketchRows),
       materials,
       propertyAddress:
         body.propertyAddress ?? inspection?.propertyAddress ?? "",
