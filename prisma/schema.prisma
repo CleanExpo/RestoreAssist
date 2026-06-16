@@ -6077,11 +6077,17 @@ model SketchMoistureReading {
   targetMc        Float?
   currentMc       Float
   dryStandardMet  Boolean        @default(false)
+  // RA-6763 pt2: provenance of the row. "manual" = technician-entered via the
+  // moisture-readings route (the validated S500 drying log); "pin" = derived
+  // from a sketch moisture overlay pin on save. Sync only ever touches "pin"
+  // rows, so it can never clobber the curated manual log.
+  source          String         @default("manual") // manual | pin
   readingDatetime DateTime       @default(now())
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
   @@index([sketchId])
+  @@index([sketchId, source])
   @@index([elementId])
   @@index([materialId])
 }

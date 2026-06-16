@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
 import { decomposeElements } from "@/lib/sketch/decompose-elements";
+import { pinsToMoistureReadingInputs } from "@/lib/sketch/moisture-readings-sync";
 
 // GET /api/inspections/[id]/sketches — list all sketches for an inspection
 export async function GET(
@@ -199,9 +200,29 @@ export async function POST(
         );
       }
       await (prisma as any).$transaction(elementOps);
+
+      // RA-6763 pt2: mirror the moisture overlay pins into normalized
+      // SketchMoistureReading rows (source="pin"). Scoped delete+recreate so the
+      // technician's manual drying log (source="manual") is never touched.
+      const pinReadings = pinsToMoistureReadingInputs(
+        sketch.id,
+        moisturePoints,
+      );
+      await (prisma as any).$transaction([
+        (prisma as any).sketchMoistureReading.deleteMany({
+          where: { sketchId: sketch.id, source: "pin" },
+        }),
+        ...(pinReadings.length
+          ? [
+              (prisma as any).sketchMoistureReading.createMany({
+                data: pinReadings,
+              }),
+            ]
+          : []),
+      ]);
     } catch (e) {
       console.error(
-        "[sketches] SketchElement decomposition failed (non-fatal):",
+        "[sketches] SketchElement / moisture decomposition failed (non-fatal):",
         e,
       );
     }
