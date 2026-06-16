@@ -285,99 +285,120 @@ export function SketchEditorV2({
   // enqueueSketchSave guarantees we keep only the latest state per
   // (inspectionId, floorNumber); clientUpdatedAt rides as a header
   // on each POST so the server can drop stale replays via 409.
+  // ── Core save (awaitable). scheduleSave() debounces it; flushSaveNow() runs
+  // it immediately and resolves after server acknowledgment — call flushSaveNow
+  // before a floor switch, PDF export, or scope generation so no edits are lost
+  // (RA-6762: the old `await scheduleSave()` returned void and never waited).
+  const performSave = useCallback(async () => {
+    setSaving(true);
+    let queuedThisTick = 0;
+    const tickStartedAt = Date.now();
+
+    const floorPromises = floorsData.map(async (fd) => {
+      const canvas = fd.canvasRef.current;
+      if (!canvas) return;
+      const sketchData = {
+        ...(canvas.toJSON() as Record<string, unknown>),
+        scaleConfig: fd.scaleConfig,
+      };
+      const clientUpdatedAt = Date.now();
+      const body = {
+        floorNumber: fd.floor.floorNumber,
+        floorLabel: fd.floor.floorLabel,
+        sketchType: "structural",
+        sketchData,
+        moisturePoints: fd.moisturePins,
+        backgroundImageUrl: fd.backgroundUrl,
+        country,
+      };
+
+      const saveUrl = captureToken
+        ? `/api/capture/${captureToken}/sketch`
+        : `/api/inspections/${inspectionId}/sketches`;
+      try {
+        const res = await fetch(saveUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-client-updated-at": String(clientUpdatedAt),
+          },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error(`save ${res.status}`);
+      } catch {
+        // Capture mode has no offline queue (the queue is bound to the authed
+        // sketches route); a failed homeowner save just surfaces via savedAt.
+        if (captureMode || !inspectionId) {
+          return;
+        }
+        // Network failure or non-2xx — queue locally, drain later.
+        try {
+          await enqueueSketchSave(inspectionId, {
+            ...body,
+            clientUpdatedAt,
+          });
+          queuedThisTick++;
+        } catch {
+          // Both online save AND IDB enqueue failed — nothing more
+          // we can do here. Don't bubble; tickStart timer below
+          // surfaces the lack of a fresh savedAt so the user knows
+          // something is off.
+        }
+      }
+    });
+
+    await Promise.allSettled(floorPromises);
+
+    // Refresh the offline-pending count from the queue so it reflects
+    // ground truth (entries can also get added/removed by the SW
+    // drain, by other tabs, or by deeper retries we don't see here).
+    try {
+      const entries = await getPendingEntries(inspectionId);
+      const pendingSketches = entries.filter(
+        (e) => e.type === "sketch-save",
+      ).length;
+      setOfflinePending(pendingSketches);
+    } catch {
+      // IDB unavailable — fall back to the locally incremented count
+      // so the UI still surfaces the immediate enqueue feedback.
+      if (queuedThisTick > 0) {
+        setOfflinePending((c) => c + queuedThisTick);
+      }
+    }
+    // Only refresh savedAt when at least one floor succeeded online —
+    // otherwise the indicator would lie about the save being durable.
+    // If everything got queued, the user sees "Offline: N pending"
+    // instead of "Saved at HH:MM".
+    const floorsWithCanvas = floorsData.filter(
+      (fd) => fd.canvasRef.current,
+    ).length;
+    if (queuedThisTick < floorsWithCanvas || queuedThisTick === 0) {
+      setSavedAt(new Date(tickStartedAt));
+    }
+    setSaving(false);
+  }, [inspectionId, floorsData, country, captureMode, captureToken]);
+
   const scheduleSave = useCallback(() => {
     if (readonly) return;
     if (!inspectionId && !captureToken) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(async () => {
-      setSaving(true);
-      let queuedThisTick = 0;
-      const tickStartedAt = Date.now();
-
-      const floorPromises = floorsData.map(async (fd) => {
-        const canvas = fd.canvasRef.current;
-        if (!canvas) return;
-        const sketchData = {
-          ...(canvas.toJSON() as Record<string, unknown>),
-          scaleConfig: fd.scaleConfig,
-        };
-        const clientUpdatedAt = Date.now();
-        const body = {
-          floorNumber: fd.floor.floorNumber,
-          floorLabel: fd.floor.floorLabel,
-          sketchType: "structural",
-          sketchData,
-          moisturePoints: fd.moisturePins,
-          backgroundImageUrl: fd.backgroundUrl,
-          country,
-        };
-
-        const saveUrl = captureToken
-          ? `/api/capture/${captureToken}/sketch`
-          : `/api/inspections/${inspectionId}/sketches`;
-        try {
-          const res = await fetch(saveUrl, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "x-client-updated-at": String(clientUpdatedAt),
-            },
-            body: JSON.stringify(body),
-          });
-          if (!res.ok) throw new Error(`save ${res.status}`);
-        } catch {
-          // Capture mode has no offline queue (the queue is bound to the authed
-          // sketches route); a failed homeowner save just surfaces via savedAt.
-          if (captureMode || !inspectionId) {
-            return;
-          }
-          // Network failure or non-2xx — queue locally, drain later.
-          try {
-            await enqueueSketchSave(inspectionId, {
-              ...body,
-              clientUpdatedAt,
-            });
-            queuedThisTick++;
-          } catch {
-            // Both online save AND IDB enqueue failed — nothing more
-            // we can do here. Don't bubble; tickStart timer below
-            // surfaces the lack of a fresh savedAt so the user knows
-            // something is off.
-          }
-        }
-      });
-
-      await Promise.allSettled(floorPromises);
-
-      // Refresh the offline-pending count from the queue so it reflects
-      // ground truth (entries can also get added/removed by the SW
-      // drain, by other tabs, or by deeper retries we don't see here).
-      try {
-        const entries = await getPendingEntries(inspectionId);
-        const pendingSketches = entries.filter(
-          (e) => e.type === "sketch-save",
-        ).length;
-        setOfflinePending(pendingSketches);
-      } catch {
-        // IDB unavailable — fall back to the locally incremented count
-        // so the UI still surfaces the immediate enqueue feedback.
-        if (queuedThisTick > 0) {
-          setOfflinePending((c) => c + queuedThisTick);
-        }
-      }
-      // Only refresh savedAt when at least one floor succeeded online —
-      // otherwise the indicator would lie about the save being durable.
-      // If everything got queued, the user sees "Offline: N pending"
-      // instead of "Saved at HH:MM".
-      const floorsWithCanvas = floorsData.filter(
-        (fd) => fd.canvasRef.current,
-      ).length;
-      if (queuedThisTick < floorsWithCanvas || queuedThisTick === 0) {
-        setSavedAt(new Date(tickStartedAt));
-      }
-      setSaving(false);
+    saveTimerRef.current = setTimeout(() => {
+      void performSave();
     }, 1500);
-  }, [inspectionId, readonly, floorsData, country, captureMode, captureToken]);
+  }, [readonly, inspectionId, captureToken, performSave]);
+
+  /** Persist all dirty floors NOW; resolves after server acknowledgment so
+   * callers (floor switch, PDF export, scope generation) never race the
+   * debounce and lose edits (RA-6762). */
+  const flushSaveNow = useCallback(async () => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    if (readonly) return;
+    if (!inspectionId && !captureToken) return;
+    await performSave();
+  }, [readonly, inspectionId, captureToken, performSave]);
 
   // RA-1762 / RA-1769 — keep the offline-pending count + failed-entry
   // list fresh. Pending changes when sibling tabs or the SW drain
@@ -528,13 +549,11 @@ export function SketchEditorV2({
 
   // ── Floor management ────────────────────────────────────
   const handleBeforeSwitch = useCallback(async () => {
-    // Flush save before switching floors (prevents race condition)
-    if (saveTimerRef.current) {
-      clearTimeout(saveTimerRef.current);
-      saveTimerRef.current = null;
-    }
-    await scheduleSave();
-  }, [scheduleSave]);
+    // Durably persist the current floor before switching — flushSaveNow awaits
+    // server acknowledgment, unlike the old `await scheduleSave()` which only
+    // re-armed the debounce timer and returned immediately (RA-6762).
+    await flushSaveNow();
+  }, [flushSaveNow]);
 
   const handleAddFloor = useCallback(() => {
     const newFloorNum = floorsData.length;
@@ -623,6 +642,9 @@ export function SketchEditorV2({
     if (exportingPdf) return;
     setExportingPdf(true);
     try {
+      // RA-6762: durably persist all floors before exporting so the PDF
+      // reflects the latest edits (and the server-side sketch is current).
+      await flushSaveNow();
       const floorPayload = floorsData
         .map((fd) => {
           const canvas = fd.canvasRef.current;
@@ -656,7 +678,7 @@ export function SketchEditorV2({
     } finally {
       setExportingPdf(false);
     }
-  }, [floorsData, inspectionId, exportingPdf]);
+  }, [floorsData, inspectionId, exportingPdf, flushSaveNow]);
 
   // ── RA-1607: Import hand-drawn sketch via Claude Vision ─
   const handleImportSketch = useCallback(
