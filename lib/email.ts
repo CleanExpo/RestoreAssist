@@ -13,6 +13,21 @@ function getResendClient(): Resend {
   return resend;
 }
 
+/**
+ * Resolve the verified "from" address for outbound email.
+ * RESEND_FROM_EMAIL must be configured — we never silently fall back to the
+ * resend.dev sandbox domain (it delivers nowhere real and reads as spoofing).
+ */
+export function getFromEmail(): string {
+  const configured = process.env.RESEND_FROM_EMAIL;
+  if (!configured) {
+    throw new Error(
+      "RESEND_FROM_EMAIL is not configured — refusing to send email from the resend.dev sandbox fallback",
+    );
+  }
+  return configured;
+}
+
 // ── Signed Authority Form Email ──
 
 export interface SignedFormEmailData {
@@ -47,8 +62,7 @@ export async function sendSignedFormEmail(data: SignedFormEmailData) {
     throw new Error("Email service is not configured");
   }
 
-  const fromEmail =
-    process.env.RESEND_FROM_EMAIL || "Restore Assist <onboarding@resend.dev>";
+  const fromEmail = getFromEmail();
 
   const sigList = data.signatories
     .map(
@@ -133,7 +147,7 @@ export async function sendInviteEmail(data: InviteEmailData) {
   console.log("✅ [EMAIL] RESEND_API_KEY is configured");
   console.log(
     "📧 [EMAIL] From email:",
-    process.env.RESEND_FROM_EMAIL || "Restore Assist <onboarding@resend.dev>",
+    getFromEmail(),
   );
 
   const roleLabel = data.role === "MANAGER" ? "Manager" : "Technician";
@@ -325,8 +339,7 @@ This is an automated email from Restore Assist. Please do not reply to this emai
     console.log("📧 [EMAIL] Preparing email payload...");
     const emailPayload = {
       from:
-        process.env.RESEND_FROM_EMAIL ||
-        "Restore Assist <onboarding@resend.dev>",
+        getFromEmail(),
       to: data.email,
       subject: isTransfer
         ? `You've been added to ${data.inviterName}'s organization - Restore Assist`
@@ -397,8 +410,7 @@ export async function sendPaymentFailedEmail(data: PaymentFailedEmailData) {
     return null;
   }
 
-  const fromEmail =
-    process.env.RESEND_FROM_EMAIL || "Restore Assist <onboarding@resend.dev>";
+  const fromEmail = getFromEmail();
 
   const html = `
     <!DOCTYPE html>
@@ -544,8 +556,7 @@ export async function sendSubscriptionCancelledEmail(
     return null;
   }
 
-  const fromEmail =
-    process.env.RESEND_FROM_EMAIL || "Restore Assist <onboarding@resend.dev>";
+  const fromEmail = getFromEmail();
 
   const html = `
     <!DOCTYPE html>
@@ -642,8 +653,7 @@ export async function sendTrialExpiringEmail(data: TrialExpiringEmailData) {
     return null;
   }
 
-  const fromEmail =
-    process.env.RESEND_FROM_EMAIL || "Restore Assist <onboarding@resend.dev>";
+  const fromEmail = getFromEmail();
 
   const html = `
     <!DOCTYPE html>
@@ -738,8 +748,7 @@ export async function sendPasswordResetEmail(data: PasswordResetEmailData) {
     return null;
   }
 
-  const fromEmail =
-    process.env.RESEND_FROM_EMAIL || "Restore Assist <onboarding@resend.dev>";
+  const fromEmail = getFromEmail();
 
   const html = `
     <!DOCTYPE html>
@@ -856,8 +865,7 @@ export async function sendWelcomeEmail(data: WelcomeEmailData) {
     return null;
   }
 
-  const fromEmail =
-    process.env.RESEND_FROM_EMAIL || "Restore Assist <onboarding@resend.dev>";
+  const fromEmail = getFromEmail();
 
   const html = `
     <!DOCTYPE html>
@@ -974,8 +982,7 @@ export async function sendReportCompletedEmail(data: ReportCompletedEmailData) {
     return null;
   }
 
-  const fromEmail =
-    process.env.RESEND_FROM_EMAIL || "Restore Assist <onboarding@resend.dev>";
+  const fromEmail = getFromEmail();
 
   const html = `
     <!DOCTYPE html>
@@ -1096,8 +1103,7 @@ export async function sendSubscriptionActivatedEmail(
     return null;
   }
 
-  const fromEmail =
-    process.env.RESEND_FROM_EMAIL || "Restore Assist <onboarding@resend.dev>";
+  const fromEmail = getFromEmail();
 
   const amountFormatted = new Intl.NumberFormat("en-AU", {
     style: "currency",
@@ -1180,8 +1186,7 @@ export async function sendWinbackEmail(data: WinbackEmailData) {
     );
     return null;
   }
-  const fromEmail =
-    process.env.RESEND_FROM_EMAIL || "Restore Assist <onboarding@resend.dev>";
+  const fromEmail = getFromEmail();
 
   const html = `
     <!DOCTYPE html>
