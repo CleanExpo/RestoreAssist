@@ -51,6 +51,14 @@ const mockUserFindUnique = vi.fn().mockResolvedValue({
   lifetimeAccess: false,
 });
 
+// ---------------------------------------------------------------------------
+// Mock the Live Teacher cloud client (RA-6731) — keeps tests offline/key-free
+// ---------------------------------------------------------------------------
+const mockInvokeClaudeCloud = vi.fn();
+vi.mock("@/lib/live-teacher/claude-cloud", () => ({
+  invokeClaudeCloud: (...args: unknown[]) => mockInvokeClaudeCloud(...args),
+}));
+
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     user: {
@@ -171,11 +179,25 @@ describe("POST /api/live-teacher/turn", () => {
     mockGetServerSession.mockResolvedValue({
       user: { id: "user-1", email: "test@example.com" },
     } as any);
-    mockSessionFindFirst.mockResolvedValue({ id: "sess-1", userId: "user-1" });
-    mockUtteranceCount.mockResolvedValue(0);
+    mockSessionFindFirst.mockResolvedValue({
+      id: "sess-1",
+      userId: "user-1",
+      inspectionId: "insp-1",
+      jurisdiction: "AU",
+    });
+    mockUtteranceFindMany.mockResolvedValue([]);
     mockUtteranceCreate
       .mockResolvedValueOnce({ id: "utt-user-1" }) // user turn
       .mockResolvedValueOnce({ id: "utt-asst-1" }); // assistant turn
+    mockInvokeClaudeCloud.mockResolvedValue({
+      content: "Category 2 water. [S500:2025 §10.5.4]",
+      clauseRefs: ["[S500:2025 §10.5.4]"],
+      confidence: 86,
+      toolCalls: [],
+      inputTokens: 10,
+      outputTokens: 8,
+      costAudCents: 1,
+    });
 
     const { POST } = await import("../turn/route");
     const req = makeRequest("POST", "http://localhost/api/live-teacher/turn", {
@@ -194,6 +216,63 @@ describe("POST /api/live-teacher/turn", () => {
     expect(text).toContain("utt-asst-1");
     // Verify create was called twice: once for user, once for assistant
     expect(mockUtteranceCreate).toHaveBeenCalledTimes(2);
+  });
+
+  it("5. streams the real cloud client output — no canned stub string", async () => {
+    mockGetServerSession.mockResolvedValue({
+      user: { id: "user-1", email: "test@example.com" },
+    } as any);
+    mockSessionFindFirst.mockResolvedValue({
+      id: "sess-1",
+      userId: "user-1",
+      inspectionId: "insp-1",
+      jurisdiction: "NZ",
+    });
+    // Prior conversation history is passed to the client (not the current turn).
+    mockUtteranceFindMany.mockResolvedValue([
+      { role: "user", content: "Hi", clauseRefs: [] },
+      { role: "assistant", content: "Kia ora", clauseRefs: [] },
+    ]);
+    mockUtteranceCreate
+      .mockResolvedValueOnce({ id: "utt-user-2" })
+      .mockResolvedValueOnce({ id: "utt-asst-2" });
+    mockInvokeClaudeCloud.mockResolvedValue({
+      content: "Use NZBS E2 guidance here. [NZBS E2 §3.1]",
+      clauseRefs: ["[NZBS E2 §3.1]"],
+      confidence: 92,
+      toolCalls: [],
+      inputTokens: 20,
+      outputTokens: 12,
+      costAudCents: 2,
+    });
+
+    const { POST } = await import("../turn/route");
+    const req = makeRequest("POST", "http://localhost/api/live-teacher/turn", {
+      sessionId: "sess-1",
+      utterance: "What standard applies?",
+    });
+
+    const res = await POST(req);
+    const text = await res.text();
+
+    // Real model content is streamed; the RA-1132g placeholder is gone.
+    expect(text).toContain("NZBS E2 guidance");
+    expect(text).not.toContain("cloud client lands in RA-1132g");
+
+    // Client was called with assembled context (jurisdiction from session) and
+    // prior history (2 turns), and the current utterance.
+    expect(mockInvokeClaudeCloud).toHaveBeenCalledTimes(1);
+    const callArg = mockInvokeClaudeCloud.mock.calls[0][0];
+    expect(callArg.context.jurisdiction).toBe("NZ");
+    expect(callArg.context.inspectionId).toBe("insp-1");
+    expect(callArg.history).toHaveLength(2);
+    expect(callArg.userUtterance).toBe("What standard applies?");
+
+    // Confidence (0–100 from client) is normalised to 0..1 before persisting.
+    const assistantCreate = mockUtteranceCreate.mock.calls.find(
+      ([arg]) => arg?.data?.role === "assistant",
+    );
+    expect(assistantCreate?.[0].data.confidence).toBeCloseTo(0.92, 5);
   });
 });
 

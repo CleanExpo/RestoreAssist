@@ -3,6 +3,11 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import {
+  invokeClaudeCloud,
+  type TeacherContext,
+  type TeacherTurn,
+} from "@/lib/live-teacher/claude-cloud";
 
 // POST — stream an SSE response for a user utterance turn
 // Rule 1: getServerSession required
@@ -11,24 +16,6 @@ import { applyRateLimit } from "@/lib/rate-limiter";
 interface TurnBody {
   sessionId: string;
   utterance: string;
-}
-
-interface HandleTurnResult {
-  content: string;
-  clauseRefs: string[];
-  confidence: number;
-}
-
-/**
- * Stub AI handler — returns a placeholder response.
- * TODO RA-1132g: wire to lib/live-teacher/claude-cloud.ts once merged
- */
-async function handleTurn(): Promise<HandleTurnResult> {
-  return {
-    content: "Acknowledged. (Live Teacher cloud client lands in RA-1132g.)",
-    clauseRefs: [],
-    confidence: 0.5,
-  };
 }
 
 function sseEvent(data: Record<string, unknown>): string {
@@ -95,7 +82,7 @@ export async function POST(request: NextRequest) {
   // Verify session ownership (Rule 4: explicit select)
   const liveSession = await prisma.liveTeacherSession.findFirst({
     where: { id: body.sessionId, userId: session.user.id },
-    select: { id: true, userId: true },
+    select: { id: true, userId: true, inspectionId: true, jurisdiction: true },
   });
 
   if (!liveSession) {
@@ -105,10 +92,32 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  // Count existing turns for turnIndex (Rule 4: explicit select)
-  const turnCount = await prisma.teacherUtterance.count({
+  // Load prior turns for both the turnIndex and the model conversation history
+  // (Rule 4: explicit select). These are the turns that precede this utterance;
+  // the current utterance is appended by invokeClaudeCloud's message builder.
+  const priorTurns = await prisma.teacherUtterance.findMany({
     where: { sessionId: body.sessionId },
+    orderBy: { turnIndex: "asc" },
+    select: { role: true, content: true, clauseRefs: true },
   });
+  const turnCount = priorTurns.length;
+  const history: TeacherTurn[] = priorTurns.map((turn) => ({
+    role: turn.role as TeacherTurn["role"],
+    content: turn.content,
+    clauseRefs: turn.clauseRefs,
+  }));
+
+  // Assemble the teaching context from the session. currentRoom/stage/
+  // missingFields have no backing columns yet (follow-up: enrich from the
+  // inspection); jurisdiction drives AU vs NZ clause guidance.
+  const context: TeacherContext = {
+    inspectionId: liveSession.inspectionId,
+    userId: session.user.id,
+    jurisdiction: liveSession.jurisdiction === "NZ" ? "NZ" : "AU",
+    currentRoom: null,
+    stage: "walkthrough",
+    missingFields: [],
+  };
 
   // SSE streaming via ReadableStream
   const encoder = new TextEncoder();
@@ -128,10 +137,21 @@ export async function POST(request: NextRequest) {
           select: { id: true },
         });
 
-        // Get assistant response (stubbed)
-        const result = await handleTurn();
+        // Get assistant response from the real cloud client (RA-6731).
+        // invokeClaudeCloud handles its own API errors (Rule 7) and returns a
+        // safe fallback rather than throwing.
+        const result = await invokeClaudeCloud({
+          sessionId: body.sessionId,
+          context,
+          history,
+          userUtterance: body.utterance.trim(),
+        });
 
-        // Stream content as token events (single chunk for stub)
+        // invokeClaudeCloud grades confidence 0–100; TeacherUtterance.confidence
+        // is a 0..1 Float, so normalise before persisting/streaming.
+        const confidence = result.confidence / 100;
+
+        // Stream content as token events (single chunk — non-streaming client)
         controller.enqueue(
           encoder.encode(sseEvent({ type: "token", content: result.content })),
         );
@@ -144,7 +164,7 @@ export async function POST(request: NextRequest) {
             role: "assistant",
             content: result.content,
             clauseRefs: result.clauseRefs,
-            confidence: result.confidence,
+            confidence,
           },
           select: { id: true },
         });
@@ -156,6 +176,7 @@ export async function POST(request: NextRequest) {
               type: "done",
               utteranceId: assistantUtterance.id,
               clauseRefs: result.clauseRefs,
+              confidence,
             }),
           ),
         );
