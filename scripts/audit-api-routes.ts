@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "fs";
 import path from "path";
+import { pathToFileURL } from "url";
 
 export type AuditSeverity = "error" | "warning";
 
@@ -86,6 +87,23 @@ function hasTestHelperEnvGuard(content: string): boolean {
   return /process\.env\.ALLOW_TEST_HELPERS\s*!==\s*["']true["']/.test(content);
 }
 
+// An unbounded findMany may be intentional (e.g. a small, fixed-cardinality
+// lookup). Authors opt out per-call by annotating the call — inline, or within
+// the ~3 lines immediately preceding it — with a `// ra-query-ok` comment.
+function isQueryExempt(
+  content: string,
+  callStart: number,
+  call: string,
+): boolean {
+  if (/ra-query-ok/.test(call)) return true;
+  const precedingLines = content
+    .slice(Math.max(0, callStart - 240), callStart)
+    .split("\n")
+    .slice(-3)
+    .join("\n");
+  return /ra-query-ok/.test(precedingLines);
+}
+
 function findManyWithoutTake(content: string): boolean {
   const marker = ".findMany(";
   let start = content.indexOf(marker);
@@ -106,7 +124,9 @@ function findManyWithoutTake(content: string): boolean {
     }
 
     const call = content.slice(start, end);
-    if (!/\btake\s*:/.test(call)) return true;
+    if (!/\btake\s*:/.test(call) && !isQueryExempt(content, start, call)) {
+      return true;
+    }
     start = content.indexOf(marker, end);
   }
 
@@ -139,7 +159,11 @@ function extractNextResponseJsonCalls(content: string): string[] {
     let depth = 0;
     let end = start;
 
-    for (let index = start + marker.length - 1; index < content.length; index++) {
+    for (
+      let index = start + marker.length - 1;
+      index < content.length;
+      index++
+    ) {
       const char = content[index];
       if (char === "(") depth++;
       if (char === ")") depth--;
@@ -158,7 +182,10 @@ function extractNextResponseJsonCalls(content: string): string[] {
 
 function hasGeneric500BodyLeak(content: string): boolean {
   return extractNextResponseJsonCalls(content).some((call) => {
-    if (!/\bstatus\s*:\s*500\b/.test(call) && !/\bstatus\s*:\s*result\.status\b/.test(call)) {
+    if (
+      !/\bstatus\s*:\s*500\b/.test(call) &&
+      !/\bstatus\s*:\s*result\.status\b/.test(call)
+    ) {
       return false;
     }
 
@@ -176,7 +203,10 @@ function hasGeneric500BodyLeak(content: string): boolean {
   });
 }
 
-export function auditApiRoute(file: string, content: string): ApiRouteFinding[] {
+export function auditApiRoute(
+  file: string,
+  content: string,
+): ApiRouteFinding[] {
   const normalized = normalisePath(file);
   const findings: ApiRouteFinding[] = [];
   const isExempt = isPrefixMatch(normalized, EXEMPT_ROUTE_PREFIXES);
@@ -202,7 +232,10 @@ export function auditApiRoute(file: string, content: string): ApiRouteFinding[] 
     );
   }
 
-  if (normalized.startsWith("app/api/admin/") && !content.includes("verifyAdminFromDb(")) {
+  if (
+    normalized.startsWith("app/api/admin/") &&
+    !content.includes("verifyAdminFromDb(")
+  ) {
     addFinding(
       findings,
       normalized,
@@ -256,11 +289,11 @@ export function auditApiRoute(file: string, content: string): ApiRouteFinding[] 
     addFinding(
       findings,
       normalized,
-    "public-token-route-review",
-    "warning",
-    "Public/token/monitoring route is unauthenticated by design candidate; verify scope, expiry where applicable, audit event, and rate limit.",
-    true,
-  );
+      "public-token-route-review",
+      "warning",
+      "Public/token/monitoring route is unauthenticated by design candidate; verify scope, expiry where applicable, audit event, and rate limit.",
+      true,
+    );
   }
 
   return findings;
@@ -270,10 +303,7 @@ export function auditApiRoutes(rootDir = process.cwd()): ApiRouteAuditReport {
   const routeRoot = path.join(rootDir, "app", "api");
   const routeFiles = walkRouteFiles(routeRoot);
   const findings = routeFiles.flatMap((file) =>
-    auditApiRoute(
-      path.relative(rootDir, file),
-      readFileSync(file, "utf8"),
-    ),
+    auditApiRoute(path.relative(rootDir, file), readFileSync(file, "utf8")),
   );
 
   const errorCount = findings.filter(
@@ -307,7 +337,10 @@ function printTextReport(report: ApiRouteAuditReport): void {
   }
 }
 
-if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
   const json = process.argv.includes("--json");
   const strict = process.argv.includes("--strict");
   const report = auditApiRoutes();

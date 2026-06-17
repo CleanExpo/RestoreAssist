@@ -97,6 +97,46 @@ describe("auditApiRoute", () => {
     expect(findings).toHaveLength(0);
   });
 
+  it("flags an unbounded findMany (no take) as prisma-findmany-take", () => {
+    const findings = auditApiRoute(
+      "app/api/reports/list/route.ts",
+      `
+        const session = await getServerSession(authOptions);
+        await prisma.report.findMany({
+          where: { userId: session.user.id },
+          select: { id: true },
+        });
+      `,
+    );
+
+    expect(findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          rule: "prisma-findmany-take",
+          severity: "warning",
+        }),
+      ]),
+    );
+  });
+
+  it("exempts an unbounded findMany annotated with // ra-query-ok", () => {
+    const findings = auditApiRoute(
+      "app/api/reports/list/route.ts",
+      `
+        const session = await getServerSession(authOptions);
+        // ra-query-ok: fixed small set of jurisdiction codes
+        await prisma.jurisdiction.findMany({
+          where: { active: true },
+          select: { code: true },
+        });
+      `,
+    );
+
+    expect(
+      findings.some((finding) => finding.rule === "prisma-findmany-take"),
+    ).toBe(false);
+  });
+
   it("flags error.message JSON responses", () => {
     const findings = auditApiRoute(
       "app/api/clients/route.ts",

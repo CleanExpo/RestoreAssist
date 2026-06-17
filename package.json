@@ -51,6 +51,7 @@
     "type-check": "NODE_OPTIONS=\"--max-old-space-size=8192\" tsc --noEmit",
     "audit:ai": "tsx scripts/audit-ai-call-sites.ts --gate",
     "audit:rls": "tsx scripts/audit-rls.ts",
+    "audit:api": "tsx scripts/audit-api-routes.ts",
     "backfill:account-tokens": "tsx scripts/backfill-encrypt-account-tokens.ts",
     "security:scan": "node scripts/security/route-safety-scan.mjs",
     "verifier:ledger": "node scripts/verifier-ledger.mjs",
