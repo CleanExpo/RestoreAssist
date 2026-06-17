@@ -19,12 +19,14 @@ export const capturePhotoSchema = z.object({
 export type CapturePhotoArgs = z.infer<typeof capturePhotoSchema>;
 
 /**
- * Cloudinary's uploader accepts a remote/HTTPS url or a data: URI. Ephemeral
- * client handles (blob:, file:) can't be fetched server-side, so we skip the
- * upload for those and persist the original uri rather than failing the capture.
+ * Cloudinary's uploader fetches a server-reachable source: an `https:` URL or a
+ * base64 `data:` URI. Plain `http:` is rejected (no server-side fetch of
+ * untrusted cleartext URLs), as are ephemeral client handles (`blob:`, `file:`)
+ * which can't be fetched server-side at all. Non-hostable sources are persisted
+ * as-is rather than failing the capture (see toDurableUrl).
  */
 function isUploadable(uri: string): boolean {
-  return /^(https?:|data:)/i.test(uri);
+  return /^(https:|data:)/i.test(uri);
 }
 
 /**
@@ -32,17 +34,32 @@ function isUploadable(uri: string): boolean {
  * Returns the secure Cloudinary url, or falls back to the original uri if the
  * upload is skipped or fails — capturing the photo record must never be blocked
  * by hosting.
+ *
+ * NOTE: a non-hostable sourceUri (blob:/file:/http:) is stored verbatim, which
+ * yields a URL that won't resolve later. The client must send a fetchable
+ * `https:` URL or a base64 `data:` URI for the photo to be durably hosted; we
+ * log a warning so this shows up in ops rather than silently producing a dead
+ * link. (Tracked in RA-6798 alongside the tool-dispatch wiring.)
  */
 async function toDurableUrl(sourceUri: string): Promise<string> {
-  if (!isUploadable(sourceUri)) return sourceUri;
+  if (!isUploadable(sourceUri)) {
+    console.warn(
+      "[capturePhoto] sourceUri is not server-hostable (expected https:/data:); storing as-is — the stored url will not be durable",
+      { scheme: sourceUri.split(":", 1)[0] },
+    );
+    return sourceUri;
+  }
   try {
     const { secure_url } = await uploadImage(sourceUri, "inspection-photos");
     return secure_url;
   } catch (error) {
     // Internal-only log; never surface raw error detail to the caller.
-    console.error("[capturePhoto] Cloudinary upload failed; storing source uri", {
-      message: error instanceof Error ? error.message : String(error),
-    });
+    console.error(
+      "[capturePhoto] Cloudinary upload failed; storing source uri",
+      {
+        message: error instanceof Error ? error.message : String(error),
+      },
+    );
     return sourceUri;
   }
 }
@@ -93,7 +110,8 @@ export const capturePhotoDefinition = {
       },
       sourceUri: {
         type: "string",
-        description: "Temp blob URL or camera URI from the mobile client",
+        description:
+          "A server-fetchable image source: an https URL or a base64 data: URI. Do not pass ephemeral blob:/file: handles — they cannot be hosted and the stored photo URL would not resolve.",
       },
     },
     required: ["inspectionId", "caption", "sourceUri"],
