@@ -77,7 +77,17 @@ export async function loadCategoryIndex(
 }
 
 export async function loadAllArticles(): Promise<LoadedArticle[]> {
-  const categories = [...HELP_CATEGORIES, "_fixtures" as const];
+  // The `_fixtures` category exists only for the loader unit tests. Its
+  // frontmatter uses `category: "_fixtures"`, which is deliberately NOT in
+  // the published HELP_CATEGORIES enum, so `parseHelpFrontmatter` rejects it
+  // and `readMdx` logs `[help] frontmatter invalid`. In production (where
+  // /help renders) that fires on every cold render / revalidation as pure
+  // log noise (the page still 200s). Only walk `_fixtures` under test mode —
+  // mirrors the existing `NODE_ENV === "test"` bypass in `readMdx`.
+  const categories =
+    process.env.NODE_ENV === "test"
+      ? [...HELP_CATEGORIES, "_fixtures" as const]
+      : [...HELP_CATEGORIES];
   const lists = await Promise.all(categories.map(loadCategoryIndex));
   return lists.flat();
 }
