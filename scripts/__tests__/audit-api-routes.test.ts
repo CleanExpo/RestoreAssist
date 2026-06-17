@@ -189,6 +189,24 @@ describe("auditApiRoute", () => {
     ]);
   });
 
+  it("classifies capture token routes as public-token (not api-auth-required)", () => {
+    const findings = auditApiRoute(
+      "app/api/capture/[token]/sketch/route.ts",
+      "export async function POST() { return Response.json({ ok: true }); }",
+    );
+
+    expect(findings.some((f) => f.rule === "api-auth-required")).toBe(false);
+    expect(findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          rule: "public-token-route-review",
+          exception: true,
+          severity: "warning",
+        }),
+      ]),
+    );
+  });
+
   it("accepts test helpers with an explicit ALLOW_TEST_HELPERS hard guard", () => {
     const findings = auditApiRoute(
       "app/api/test/sign-in-as/route.ts",
