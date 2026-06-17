@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -7,7 +7,7 @@ import {
   getOrganizationOwner,
 } from "@/lib/organization-credits";
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions);
 
@@ -38,15 +38,12 @@ export async function GET(request: NextRequest) {
     const effectiveSub = await getEffectiveSubscription(session.user.id);
 
     // Subscription is no longer required for onboarding - users get 30 free credits to start
-    // Use effective subscription for team members
-    const hasActiveSubscription = effectiveSub?.subscriptionStatus === "ACTIVE";
 
     // For Managers/Technicians, check Admin's onboarding status
     // For Admins, check their own onboarding status
     const isAdmin = user.role === "ADMIN";
     const isTeamMember = user.role === "MANAGER" || user.role === "USER";
 
-    let targetUserId = session.user.id;
     let businessProfileCompleted = !!(
       user.businessName && user.businessAddress
     );
@@ -57,8 +54,6 @@ export async function GET(request: NextRequest) {
       // Get Admin's ID
       const ownerId = await getOrganizationOwner(session.user.id);
       if (ownerId) {
-        targetUserId = ownerId;
-
         // Check Admin's business profile
         const owner = await prisma.user.findUnique({
           where: { id: ownerId },
@@ -193,7 +188,9 @@ export async function GET(request: NextRequest) {
       business_profile: {
         completed: businessProfileCompleted, // Uses Admin's profile for team members
         required: !isTrial, // Only required for paid users
-        title: isTrial ? "Add business details (when you're ready)" : "Settings & Profile",
+        title: isTrial
+          ? "Add business details (when you're ready)"
+          : "Settings & Profile",
         description: "Setup Business Details",
         route: "/dashboard/settings",
       },
