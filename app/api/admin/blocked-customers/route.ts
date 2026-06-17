@@ -35,9 +35,9 @@ export async function GET(request: NextRequest) {
 
     // Optional single-status filter; otherwise show all blocked states.
     const statusParam = searchParams.get("status")?.toUpperCase() ?? "";
-    const statusFilter = (
-      BLOCKED_STATUSES as readonly string[]
-    ).includes(statusParam)
+    const statusFilter = (BLOCKED_STATUSES as readonly string[]).includes(
+      statusParam,
+    )
       ? [statusParam as (typeof BLOCKED_STATUSES)[number]]
       : [...BLOCKED_STATUSES];
 
@@ -68,8 +68,14 @@ export async function GET(request: NextRequest) {
           subscriptionEndsAt: true,
           trialEndsAt: true,
         },
-        // Most recently lapsed first; nulls sort last under Prisma default.
-        orderBy: { subscriptionEndsAt: "desc" },
+        // Most recently lapsed first. Rows without a subscriptionEndsAt (some
+        // CANCELED/EXPIRED users never had one recorded) sort last, then fall
+        // back to lastBillingDate so they are still ordered meaningfully rather
+        // than buried in arbitrary order.
+        orderBy: [
+          { subscriptionEndsAt: { sort: "desc", nulls: "last" } },
+          { lastBillingDate: "desc" },
+        ],
       }),
       prisma.user.count({ where }),
     ]);
