@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Shield, ArrowLeft } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -147,7 +146,6 @@ export default function AdminBlockedCustomersPage() {
   if (session?.user?.role !== "ADMIN") {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-        <Shield className="h-12 w-12 text-neutral-400" />
         <p className="text-neutral-600 dark:text-neutral-400">
           Admin access required
         </p>
@@ -165,7 +163,7 @@ export default function AdminBlockedCustomersPage() {
           onClick={() => router.push("/dashboard/admin")}
           className="gap-2 text-neutral-500 hover:text-neutral-900 dark:hover:text-white"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <span aria-hidden="true">←</span>
           Back to Admin
         </Button>
       </div>
@@ -189,7 +187,6 @@ export default function AdminBlockedCustomersPage() {
           </div>
         </div>
         <Badge className="gap-1 bg-amber-500/10 text-amber-600 dark:text-amber-400">
-          <Shield className="h-3 w-3" />
           Admin Only
         </Badge>
       </div>
@@ -198,7 +195,10 @@ export default function AdminBlockedCustomersPage() {
       <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-neutral-900 dark:text-white">
-            <AlertTriangle className="h-5 w-5 text-red-500" />
+            <span
+              aria-hidden="true"
+              className="inline-block h-2.5 w-2.5 rounded-full bg-red-500"
+            />
             Lapsed subscriptions
           </CardTitle>
           <CardDescription>
@@ -214,7 +214,6 @@ export default function AdminBlockedCustomersPage() {
             </div>
           ) : customers.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3 text-neutral-500">
-              <AlertTriangle className="h-10 w-10 text-neutral-300 dark:text-neutral-600" />
               <p className="text-sm">No blocked customers</p>
             </div>
           ) : (
