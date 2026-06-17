@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -7,7 +7,7 @@ import {
   getOrganizationOwner,
 } from "@/lib/organization-credits";
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions);
 
@@ -38,15 +38,12 @@ export async function GET(request: NextRequest) {
     const effectiveSub = await getEffectiveSubscription(session.user.id);
 
     // Subscription is no longer required for onboarding - users get 30 free credits to start
-    // Use effective subscription for team members
-    const hasActiveSubscription = effectiveSub?.subscriptionStatus === "ACTIVE";
 
     // For Managers/Technicians, check Admin's onboarding status
     // For Admins, check their own onboarding status
     const isAdmin = user.role === "ADMIN";
     const isTeamMember = user.role === "MANAGER" || user.role === "USER";
 
-    let targetUserId = session.user.id;
     let businessProfileCompleted = !!(
       user.businessName && user.businessAddress
     );
@@ -57,8 +54,6 @@ export async function GET(request: NextRequest) {
       // Get Admin's ID
       const ownerId = await getOrganizationOwner(session.user.id);
       if (ownerId) {
-        targetUserId = ownerId;
-
         // Check Admin's business profile
         const owner = await prisma.user.findUnique({
           where: { id: ownerId },
@@ -160,20 +155,49 @@ export async function GET(request: NextRequest) {
       where: { inspection: { userId: session.user.id } },
     });
 
-    // Define onboarding steps - Simplified for free users
-    // For team members, use Admin's onboarding status; for Admins, use their own
+    // RA-6792: Reconcile first-run surfaces. The canonical first action that
+    // reaches first value is "create an inspection → generate a report"
+    // (matches /api/onboarding/first-run and the in-app first-run checklist).
+    // Has the user created their first inspection yet?
+    const inspectionCount = await prisma.inspection.count({
+      where: { userId: session.user.id },
+    });
+
+    // RA-6792: For TRIAL users we hide/relabel steps that are NOT required to
+    // reach first value. Business profile and pricing config are real setup
+    // tasks but they do NOT block a trial user from creating an inspection and
+    // generating a report, so we mark them clearly optional ("when you're
+    // ready") and never count them as blocking incomplete steps for trials.
+    // Paid users still see them as required.
     const steps = {
+      first_inspection: {
+        completed: inspectionCount > 0,
+        required: false, // Self-serve first value, not a hard gate
+        title: "Create your first inspection",
+        description: "Capture field data for a water damage job to get started",
+        route: "/dashboard/inspections/new",
+      },
+      first_report: {
+        completed: reportCount > 0,
+        required: false, // Informational — produced from an inspection
+        title: "Generate your first report",
+        description:
+          "Turn an inspection into an IICRC S500:2025 compliance report",
+        route: "/dashboard/reports/new",
+      },
       business_profile: {
         completed: businessProfileCompleted, // Uses Admin's profile for team members
         required: !isTrial, // Only required for paid users
-        title: "Settings & Profile",
+        title: isTrial ? "Add business details (when you're ready)" : "Settings & Profile",
         description: "Setup Business Details",
         route: "/dashboard/settings",
       },
       pricing_config: {
         completed: !!pricingConfig, // Uses Admin's pricing config for team members
         required: !isTrial, // Only required for paid users (locked for free users)
-        title: "Pricing Configuration",
+        title: isTrial
+          ? "Configure pricing (when you're ready)"
+          : "Pricing Configuration",
         description: "Set up your company pricing rates",
         route: "/dashboard/pricing-config",
       },
@@ -185,18 +209,11 @@ export async function GET(request: NextRequest) {
           "Auto-fill inspections with property details and floor plans via Claude in Chrome",
         route: "/dashboard/integrations",
       },
-      first_report: {
-        completed: reportCount > 0,
-        required: false, // This is informational, not blocking
-        title: "Start First Report",
-        description: "Create your first report to complete setup",
-        route: "/dashboard/reports/new",
-      },
     };
 
     // Get incomplete required steps
     const incompleteSteps = Object.entries(steps)
-      .filter(([key, step]) => step.required && !step.completed)
+      .filter(([, step]) => step.required && !step.completed)
       .map(([key]) => key);
 
     const isComplete = incompleteSteps.length === 0;

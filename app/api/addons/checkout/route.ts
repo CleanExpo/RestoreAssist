@@ -147,6 +147,10 @@ export async function POST(request: NextRequest) {
         const priceData = {
           unit_amount: Math.round(addon.amount * 100), // Convert to cents
           currency: addon.currency.toLowerCase(),
+          // RA-6791 — addon prices are GST-inclusive (AU convention), so
+          // Stripe Tax breaks out the 10 % GST component rather than adding
+          // it on top of the displayed amount.
+          tax_behavior: "inclusive" as const,
           product_data: {
             name: addon.name,
             metadata: {
@@ -177,6 +181,13 @@ export async function POST(request: NextRequest) {
             addonReports: addon.reportLimit.toString(),
             type: "addon",
           },
+          // RA-6791 — AU GST compliance for one-time addon purchases. Stripe
+          // Tax auto-applies 10 % GST; tax_id_collection captures the buyer's
+          // ABN for input-credit claims and an ATO-compliant tax invoice.
+          // customer_update lets automatic_tax read the saved name/address.
+          automatic_tax: { enabled: true },
+          tax_id_collection: { enabled: true },
+          customer_update: { name: "auto", address: "auto" },
           payment_intent_data: {
             metadata: {
               userId: userId,
