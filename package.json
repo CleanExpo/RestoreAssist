@@ -65,7 +65,7 @@
     "prebuild": "tsx scripts/build-help-index.ts",
     "test:smoke": "playwright test --grep @smoke",
     "test:smoke:ci": "playwright test --grep @smoke --reporter=line",
-    "test:smoke:prod": "CI=true PLAYWRIGHT_BASE_URL=https://restoreassist.app playwright test --grep @smoke --reporter=line",
+    "test:smoke:prod": "CI=true PLAYWRIGHT_BASE_URL=https://restoreassist.app playwright test --grep @smoke --no-deps --reporter=line",
     "test:smoke:sandbox": "CI=true PLAYWRIGHT_BASE_URL=https://restoreassist-sandbox.vercel.app playwright test --grep @smoke --reporter=line",
     "render:tutorials": "tsx remotion/render-all.ts",
     "studio": "npx remotion studio",

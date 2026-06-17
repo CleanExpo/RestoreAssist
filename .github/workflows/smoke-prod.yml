@@ -57,7 +57,7 @@ jobs:
         env:
           PLAYWRIGHT_BASE_URL: ${{ github.event.inputs.base_url || 'https://restoreassist.app' }}
           CI: true
-        run: pnpm exec playwright test --grep @smoke --reporter=line
+        run: pnpm exec playwright test --grep @smoke --no-deps --reporter=line
 
       - name: Upload report on failure
         if: failure()
