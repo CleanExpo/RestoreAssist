@@ -22,6 +22,7 @@ function snap(overrides: Partial<InspectionSnapshot> = {}): InspectionSnapshot {
     latestAffectedRoom: null,
     hasMoistureReadings: false,
     hasBaselineReading: false,
+    readings: [],
     hasScopeItems: false,
     hasPhotos: false,
     ...overrides,
@@ -38,7 +39,27 @@ describe("deriveTeacherContext", () => {
       currentRoom: null,
       stage: "walkthrough",
       missingFields: [],
+      wetReadings: [],
     });
+  });
+
+  it("surfaces still-wet readings (veteran wet/dry read)", () => {
+    const ctx = deriveTeacherContext(
+      "i",
+      "u",
+      "AU",
+      snap({
+        hasMoistureReadings: true,
+        hasBaselineReading: true,
+        readings: [
+          { location: "Bathroom", surfaceType: "drywall", moistureLevel: 22, unit: "PERCENT_MC" },
+          { location: "Hallway", surfaceType: "drywall", moistureLevel: 0.5, unit: "PERCENT_MC" },
+        ],
+      }),
+    );
+    expect(ctx.wetReadings).toHaveLength(1);
+    expect(ctx.wetReadings[0]).toContain("Bathroom");
+    expect(ctx.wetReadings[0]).toContain("dry standard");
   });
 
   it("a fresh DRAFT inspection is at 'arrival' with the full capture checklist", () => {
