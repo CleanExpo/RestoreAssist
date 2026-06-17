@@ -11,6 +11,7 @@
 
 import { prisma } from "@/lib/prisma";
 import type { TeacherContext } from "@/lib/live-teacher/claude-cloud";
+import { summariseWetReadings } from "@/lib/moisture/reading-dryness";
 
 type Stage = TeacherContext["stage"];
 
@@ -31,6 +32,13 @@ export interface InspectionSnapshot {
   hasMoistureReadings: boolean;
   /** At least one reading flagged isBaseline — the dry-standard reference. */
   hasBaselineReading: boolean;
+  /** Recent readings for wet-vs-dry assessment (surface + level + unit). */
+  readings: Array<{
+    location: string | null;
+    surfaceType: string | null;
+    moistureLevel: number;
+    unit: string | null;
+  }>;
   hasScopeItems: boolean;
   hasPhotos: boolean;
 }
@@ -66,6 +74,7 @@ export function deriveTeacherContext(
       currentRoom: null,
       stage: "walkthrough",
       missingFields: [],
+      wetReadings: [],
     };
   }
 
@@ -107,6 +116,11 @@ export function deriveTeacherContext(
   if (classified && snap.hasMoistureReadings && !snap.hasScopeItems)
     missingFields.push("scope of works");
 
+  // Materials still above their dry standard — the veteran wet/dry read.
+  const wetReadings = summariseWetReadings(snap.readings).map((w) =>
+    w.location ? `${w.location}: ${w.summary}` : w.summary,
+  );
+
   return {
     inspectionId,
     userId,
@@ -114,6 +128,7 @@ export function deriveTeacherContext(
     currentRoom: snap.latestMoistureRoom ?? snap.latestAffectedRoom,
     stage,
     missingFields,
+    wetReadings,
   };
 }
 
@@ -141,9 +156,14 @@ export async function buildTeacherContext(
           select: { roomZoneId: true, category: true, class: true },
         },
         moistureReadings: {
-          select: { location: true },
+          select: {
+            location: true,
+            surfaceType: true,
+            moistureLevel: true,
+            unit: true,
+          },
           orderBy: { recordedAt: "desc" },
-          take: 1,
+          take: 30,
         },
         scopeItems: { select: { id: true }, take: 1 },
         photos: { select: { id: true }, take: 1 },
@@ -176,6 +196,12 @@ export async function buildTeacherContext(
     latestAffectedRoom: inspection.affectedAreas[0]?.roomZoneId ?? null,
     hasMoistureReadings: inspection.moistureReadings.length > 0,
     hasBaselineReading: baselineCount > 0,
+    readings: inspection.moistureReadings.map((r) => ({
+      location: r.location ?? null,
+      surfaceType: r.surfaceType ?? null,
+      moistureLevel: r.moistureLevel,
+      unit: r.unit ?? null,
+    })),
     hasScopeItems: inspection.scopeItems.length > 0,
     hasPhotos: inspection.photos.length > 0,
   };

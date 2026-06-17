@@ -62,6 +62,7 @@ const baseInput: ClaudeCloudInput = {
     currentRoom: "Bathroom",
     stage: "moisture",
     missingFields: [],
+    wetReadings: [],
   },
   history: [],
   userUtterance: "What moisture reading indicates Category 2 water damage?",
@@ -188,6 +189,7 @@ describe("invokeClaudeCloud", () => {
         currentRoom: "Bathroom",
         stage: "walkthrough",
         missingFields: ["water category (S500 §10.5)", "moisture readings"],
+        wetReadings: ["Bathroom: plasterboard at 22% is above the 1% dry standard"],
       },
     });
 
@@ -196,16 +198,20 @@ describe("invokeClaudeCloud", () => {
       messages: Array<{ content: string }>;
     };
 
-    // System prompt tells the coach to act on outstanding items.
+    // System prompt tells the coach to act on outstanding items + wet materials.
     expect(callArg.system).toMatch(/Coach proactively/);
     expect(callArg.system).toContain("missingFields");
+    expect(callArg.system).toContain("stillWet");
 
-    // The outstanding items + stage actually reach the model in the context block.
+    // The outstanding items + stage + still-wet materials reach the model.
     const firstMessage = callArg.messages[0].content;
     expect(firstMessage).toContain(
       "missingFields=water category (S500 §10.5), moisture readings",
     );
     expect(firstMessage).toContain("stage=walkthrough");
     expect(firstMessage).toContain("room=Bathroom");
+    expect(firstMessage).toContain(
+      "stillWet=Bathroom: plasterboard at 22% is above the 1% dry standard",
+    );
   });
 });

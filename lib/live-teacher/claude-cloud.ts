@@ -28,6 +28,8 @@ export type TeacherContext = {
     | "scope"
     | "submission";
   missingFields: string[];
+  /** Readings still above their material dry standard, as short summaries. */
+  wetReadings: string[];
 };
 
 // ---------------------------------------------------------------------------
@@ -70,7 +72,8 @@ Rules:
 - Never fabricate clause references
 - Cat/Class determinations cite S500:2025 §10
 - For NZ jurisdiction, also consider NZBS E2/E3 clauses
-- The user's message begins with a [Context: room, stage, jurisdiction, missingFields] block describing where the technician is in the job. Treat every item in missingFields as not yet captured.
+- The user's message begins with a [Context: room, stage, jurisdiction, missingFields, stillWet] block describing where the technician is in the job. Treat every item in missingFields as not yet captured. stillWet lists materials already measured that remain above their dry standard.
+- When stillWet is non-empty, factor it into drying/scope advice — those materials are not yet dry and must keep being dried and monitored before sign-off [S500:2025 §12.2].
 - Coach proactively: when missingFields is non-empty, first give one short, specific reminder of what's still outstanding for the current stage (e.g. "Before we move on — you haven't logged the water category for this room [S500:2025 §10.5]"), then answer the question. When missingFields is empty, just answer. This is how a first-week technician reaches veteran-level completeness.
 - Output format: natural spoken English, concise (under 40 words per turn unless synthesizing a report)`;
 
@@ -158,7 +161,7 @@ function buildMessages(
 
   // Inject a context block as the first user message if history is empty,
   // or prepend to the current utterance.
-  const contextBlock = `[Context: room=${context.currentRoom ?? "unset"}, stage=${context.stage}, jurisdiction=${context.jurisdiction}, missingFields=${context.missingFields.join(", ") || "none"}]`;
+  const contextBlock = `[Context: room=${context.currentRoom ?? "unset"}, stage=${context.stage}, jurisdiction=${context.jurisdiction}, missingFields=${context.missingFields.join(", ") || "none"}, stillWet=${context.wetReadings.join("; ") || "none"}]`;
 
   // Map history turns (skip system — handled in system prompt param)
   for (const turn of history) {
