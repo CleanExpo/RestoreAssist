@@ -49,6 +49,8 @@ const mockInspectionFindFirst = vi.fn();
 // buildTeacherContext (RA-6731 follow-up) reads inspection.findUnique; default
 // to null → safe-default context so existing turn tests are unaffected.
 const mockInspectionFindUnique = vi.fn().mockResolvedValue(null);
+// buildTeacherContext also counts baseline (dry-standard) moisture readings.
+const mockMoistureReadingCount = vi.fn().mockResolvedValue(0);
 const mockUserFindUnique = vi.fn().mockResolvedValue({
   subscriptionStatus: "ACTIVE",
   lifetimeAccess: false,
@@ -84,6 +86,9 @@ vi.mock("@/lib/prisma", () => ({
     },
     teacherToolCall: {
       findMany: (...args: unknown[]) => mockToolCallFindMany(...args),
+    },
+    moistureReading: {
+      count: (...args: unknown[]) => mockMoistureReadingCount(...args),
     },
   },
 }));

@@ -21,6 +21,7 @@ function snap(overrides: Partial<InspectionSnapshot> = {}): InspectionSnapshot {
     latestMoistureRoom: null,
     latestAffectedRoom: null,
     hasMoistureReadings: false,
+    hasBaselineReading: false,
     hasScopeItems: false,
     hasPhotos: false,
     ...overrides,
@@ -110,6 +111,7 @@ describe("deriveTeacherContext", () => {
       snap({
         affectedAreas: [{ roomZoneId: "Lounge", category: "2", class: "2" }],
         hasMoistureReadings: true,
+        hasBaselineReading: true,
         hasScopeItems: true,
         hasPhotos: true,
         lossDescription: "burst pipe",
@@ -117,6 +119,38 @@ describe("deriveTeacherContext", () => {
     );
     expect(ctx.stage).toBe("scope");
     expect(ctx.missingFields).toEqual([]);
+  });
+
+  it("flags a missing dry-standard reference when readings exist but no baseline", () => {
+    const ctx = deriveTeacherContext(
+      "i",
+      "u",
+      "AU",
+      snap({
+        affectedAreas: [{ roomZoneId: "Lounge", category: "2", class: "2" }],
+        hasMoistureReadings: true,
+        hasBaselineReading: false,
+      }),
+    );
+    expect(ctx.missingFields).toContain(
+      "dry-standard reference reading (unaffected area, S500 §12.2)",
+    );
+  });
+
+  it("does not flag the dry-standard reference once a baseline reading exists", () => {
+    const ctx = deriveTeacherContext(
+      "i",
+      "u",
+      "AU",
+      snap({
+        affectedAreas: [{ roomZoneId: "Lounge", category: "2", class: "2" }],
+        hasMoistureReadings: true,
+        hasBaselineReading: true,
+      }),
+    );
+    expect(ctx.missingFields).not.toContain(
+      "dry-standard reference reading (unaffected area, S500 §12.2)",
+    );
   });
 
   it("signed/submitted → 'submission'", () => {

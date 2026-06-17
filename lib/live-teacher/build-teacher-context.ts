@@ -29,6 +29,8 @@ export interface InspectionSnapshot {
   latestMoistureRoom: string | null;
   latestAffectedRoom: string | null;
   hasMoistureReadings: boolean;
+  /** At least one reading flagged isBaseline — the dry-standard reference. */
+  hasBaselineReading: boolean;
   hasScopeItems: boolean;
   hasPhotos: boolean;
 }
@@ -94,6 +96,11 @@ export function deriveTeacherContext(
     missingFields.push("drying class — Class 1-4 (S500 §10.6)");
   if (!snap.hasMoistureReadings)
     missingFields.push("moisture readings (incl. a dry-standard reference)");
+  // The dry-standard reference (a reading in an unaffected area) is what a
+  // veteran always takes and a junior forgets — it's required to validate
+  // drying progress against the material's dry standard.
+  if (snap.hasMoistureReadings && !snap.hasBaselineReading)
+    missingFields.push("dry-standard reference reading (unaffected area, S500 §12.2)");
   if (!snap.hasPhotos) missingFields.push("photo evidence");
   if (!snap.lossDescription)
     missingFields.push("loss description / cause of loss");
@@ -120,27 +127,34 @@ export async function buildTeacherContext(
   userId: string,
   jurisdiction: "AU" | "NZ",
 ): Promise<TeacherContext> {
-  const inspection = await prisma.inspection.findUnique({
-    where: { id: inspectionId },
-    select: {
-      status: true,
-      claimType: true,
-      lossDescription: true,
-      signedAt: true,
-      completedAt: true,
-      submittedAt: true,
-      affectedAreas: {
-        select: { roomZoneId: true, category: true, class: true },
+  const [inspection, baselineCount] = await Promise.all([
+    prisma.inspection.findUnique({
+      where: { id: inspectionId },
+      select: {
+        status: true,
+        claimType: true,
+        lossDescription: true,
+        signedAt: true,
+        completedAt: true,
+        submittedAt: true,
+        affectedAreas: {
+          select: { roomZoneId: true, category: true, class: true },
+        },
+        moistureReadings: {
+          select: { location: true },
+          orderBy: { recordedAt: "desc" },
+          take: 1,
+        },
+        scopeItems: { select: { id: true }, take: 1 },
+        photos: { select: { id: true }, take: 1 },
       },
-      moistureReadings: {
-        select: { location: true },
-        orderBy: { recordedAt: "desc" },
-        take: 1,
-      },
-      scopeItems: { select: { id: true }, take: 1 },
-      photos: { select: { id: true }, take: 1 },
-    },
-  });
+    }),
+    // count() is unbounded-safe (returns a number) — presence of a baseline
+    // (dry-standard reference) reading for this inspection.
+    prisma.moistureReading.count({
+      where: { inspectionId, isBaseline: true },
+    }),
+  ]);
 
   if (!inspection) {
     return deriveTeacherContext(inspectionId, userId, jurisdiction, null);
@@ -161,6 +175,7 @@ export async function buildTeacherContext(
     latestMoistureRoom: inspection.moistureReadings[0]?.location ?? null,
     latestAffectedRoom: inspection.affectedAreas[0]?.roomZoneId ?? null,
     hasMoistureReadings: inspection.moistureReadings.length > 0,
+    hasBaselineReading: baselineCount > 0,
     hasScopeItems: inspection.scopeItems.length > 0,
     hasPhotos: inspection.photos.length > 0,
   };
