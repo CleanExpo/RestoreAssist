@@ -81,6 +81,15 @@ const ROOM_FILL = "rgba(28,46,71,0.08)";
 const ROOM_STROKE = "#1C2E47"; // brand primary (CLAUDE.md)
 const ROOM_STROKE_WIDTH = 2;
 
+/**
+ * Minimum floor area (m²) for an imported room to be materialised. A capture
+ * whose vertices lack a depth axis (z/y) collapses to a near-zero-area line;
+ * emitting it as a "room" would inject a bogus 0 m² measurement into the
+ * report/compliance surface, so degenerate captures are skipped. 0.01 m²
+ * (100 cm²) is far below any real room while still catching collapsed polygons.
+ */
+const MIN_ROOM_AREA_M2 = 0.01;
+
 /** Read a vertex's depth axis, accepting RoomPlan's `z` or a flattened `y`. */
 function depthOf(p: RoomPlanPoint): number {
   return p.z ?? p.y ?? 0;
@@ -89,7 +98,9 @@ function depthOf(p: RoomPlanPoint): number {
 /**
  * Convert a RoomPlan `CapturedRoom`-style JSON into Fabric.js polygon
  * element(s). Rooms with fewer than 3 floor vertices are skipped (a polygon
- * needs at least a triangle), matching the room-tool guard in tool-objects.ts.
+ * needs at least a triangle), matching the room-tool guard in tool-objects.ts,
+ * as are degenerate captures that collapse to a near-zero area (see
+ * MIN_ROOM_AREA_M2).
  *
  * @param captured RoomPlan CapturedRoom JSON (floor polygons in metres).
  * @returns One `FabricPolygonElement` per valid captured room.
@@ -112,6 +123,10 @@ export function roomPlanToFabric(
     }));
 
     const areaM2 = shoelaceArea(points) / (PX_PER_METRE * PX_PER_METRE);
+
+    // Skip degenerate captures (e.g. vertices with no depth axis) that collapse
+    // to a line — they would otherwise emit a bogus 0 m² room measurement.
+    if (areaM2 < MIN_ROOM_AREA_M2) continue;
 
     elements.push({
       type: "polygon",

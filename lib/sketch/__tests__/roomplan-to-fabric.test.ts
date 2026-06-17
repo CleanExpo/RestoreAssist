@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  roomPlanToFabric,
-  type CapturedRoom,
-} from "../roomplan-to-fabric";
+import { roomPlanToFabric, type CapturedRoom } from "../roomplan-to-fabric";
 
 // A clean 4 m × 3 m rectangular room. Floor polygon vertices are in METRES,
 // matching Apple RoomPlan's CapturedRoom output. At PX_PER_METRE = 100 these
@@ -35,7 +32,14 @@ describe("roomPlanToFabric — vertex scaling", () => {
   it("maps RoomPlan's depth axis (z) onto the canvas y axis", () => {
     const [poly] = roomPlanToFabric({
       rooms: [
-        { label: "R", floorPolygon: [{ x: 1, z: 2 }, { x: 1, z: 2 }, { x: 1, z: 2 }] },
+        {
+          label: "R",
+          floorPolygon: [
+            { x: 1, z: 2 },
+            { x: 3, z: 2 },
+            { x: 3, z: 5 },
+          ],
+        },
       ],
     });
     expect(poly.points[0]).toEqual({ x: 100, y: 200 });
@@ -111,8 +115,44 @@ describe("roomPlanToFabric — guards", () => {
   it("skips rooms with fewer than 3 floor vertices", () => {
     const result = roomPlanToFabric({
       rooms: [
-        { label: "Degenerate", floorPolygon: [{ x: 0, z: 0 }, { x: 1, z: 1 }] },
-        { label: "Valid", floorPolygon: [{ x: 0, z: 0 }, { x: 1, z: 0 }, { x: 1, z: 1 }] },
+        {
+          label: "Degenerate",
+          floorPolygon: [
+            { x: 0, z: 0 },
+            { x: 1, z: 1 },
+          ],
+        },
+        {
+          label: "Valid",
+          floorPolygon: [
+            { x: 0, z: 0 },
+            { x: 1, z: 0 },
+            { x: 1, z: 1 },
+          ],
+        },
+      ],
+    });
+    expect(result).toHaveLength(1);
+    expect(result[0].data.label).toBe("Valid");
+  });
+
+  it("skips degenerate captures that collapse to a near-zero area", () => {
+    // Vertices with no depth axis (no z, no y) all map to y=0 → a flat line
+    // enclosing 0 m². It must be skipped rather than emit a bogus 0 m² room.
+    const result = roomPlanToFabric({
+      rooms: [
+        {
+          label: "Collapsed",
+          floorPolygon: [{ x: 0 }, { x: 4 }, { x: 8 }],
+        },
+        {
+          label: "Valid",
+          floorPolygon: [
+            { x: 0, z: 0 },
+            { x: 1, z: 0 },
+            { x: 1, z: 1 },
+          ],
+        },
       ],
     });
     expect(result).toHaveLength(1);
@@ -121,12 +161,29 @@ describe("roomPlanToFabric — guards", () => {
 
   it("falls back to category, then 'Room', for the label", () => {
     const [byCategory] = roomPlanToFabric({
-      rooms: [{ category: "Kitchen", floorPolygon: [{ x: 0, z: 0 }, { x: 1, z: 0 }, { x: 1, z: 1 }] }],
+      rooms: [
+        {
+          category: "Kitchen",
+          floorPolygon: [
+            { x: 0, z: 0 },
+            { x: 1, z: 0 },
+            { x: 1, z: 1 },
+          ],
+        },
+      ],
     });
     expect(byCategory.data.label).toBe("Kitchen");
 
     const [unlabelled] = roomPlanToFabric({
-      rooms: [{ floorPolygon: [{ x: 0, z: 0 }, { x: 1, z: 0 }, { x: 1, z: 1 }] }],
+      rooms: [
+        {
+          floorPolygon: [
+            { x: 0, z: 0 },
+            { x: 1, z: 0 },
+            { x: 1, z: 1 },
+          ],
+        },
+      ],
     });
     expect(unlabelled.data.label).toBe("Room");
   });
