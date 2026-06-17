@@ -28,15 +28,15 @@ const anthropicMock = {
 vi.mock("@anthropic-ai/sdk", () => {
   return {
     default: vi.fn().mockImplementation(function () {
-    return ({
-      messages: {
-        // Indirect reference — safe because the object is initialised before
-        // any test body runs (hoisting only affects the factory call site,
-        // not module-level object creation).
-        create: (...args: unknown[]) => anthropicMock.create(...args),
-      },
-    });
-  }),
+      return {
+        messages: {
+          // Indirect reference — safe because the object is initialised before
+          // any test body runs (hoisting only affects the factory call site,
+          // not module-level object creation).
+          create: (...args: unknown[]) => anthropicMock.create(...args),
+        },
+      };
+    }),
   };
 });
 
@@ -171,5 +171,41 @@ describe("invokeClaudeCloud", () => {
     expect(result.inputTokens).toBe(1000);
     expect(result.outputTokens).toBe(500);
     expect(result.costAudCents).toBe(expectedCostAudCents);
+  });
+
+  // -------------------------------------------------------------------------
+  // Test 5: proactive coaching — missingFields reach the model and the system
+  // prompt instructs the coach to act on them (the deskilling loop).
+  // -------------------------------------------------------------------------
+
+  it("injects missingFields context and instructs proactive coaching", async () => {
+    anthropicMock.create.mockResolvedValueOnce(makeSuccessResponse("Noted."));
+
+    await invokeClaudeCloud({
+      ...baseInput,
+      context: {
+        ...baseInput.context,
+        currentRoom: "Bathroom",
+        stage: "walkthrough",
+        missingFields: ["water category (S500 §10.5)", "moisture readings"],
+      },
+    });
+
+    const callArg = anthropicMock.create.mock.calls[0][0] as {
+      system: string;
+      messages: Array<{ content: string }>;
+    };
+
+    // System prompt tells the coach to act on outstanding items.
+    expect(callArg.system).toMatch(/Coach proactively/);
+    expect(callArg.system).toContain("missingFields");
+
+    // The outstanding items + stage actually reach the model in the context block.
+    const firstMessage = callArg.messages[0].content;
+    expect(firstMessage).toContain(
+      "missingFields=water category (S500 §10.5), moisture readings",
+    );
+    expect(firstMessage).toContain("stage=walkthrough");
+    expect(firstMessage).toContain("room=Bathroom");
   });
 });
