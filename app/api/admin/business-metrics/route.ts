@@ -73,6 +73,30 @@ export async function GET(request: NextRequest) {
       mrr += (plan.toLowerCase().includes("year") ? price / 12 : price) * count;
     }
 
+    // RA-6794. Blocked-customer summary — one extra groupBy on the same
+    // subscriptionStatus column (no new heavy query). Surfaces how many
+    // customers are currently in a non-paying state for ops follow-up.
+    const blockedGroups = await prisma.user.groupBy({
+      by: ["subscriptionStatus"],
+      where: { subscriptionStatus: { in: ["PAST_DUE", "EXPIRED", "CANCELED"] } },
+      _count: { id: true },
+    });
+    const blockedCustomers = { pastDue: 0, expired: 0, canceled: 0 };
+    for (const group of blockedGroups) {
+      const count = group._count.id;
+      switch (group.subscriptionStatus) {
+        case "PAST_DUE":
+          blockedCustomers.pastDue = count;
+          break;
+        case "EXPIRED":
+          blockedCustomers.expired = count;
+          break;
+        case "CANCELED":
+          blockedCustomers.canceled = count;
+          break;
+      }
+    }
+
     // 2–4. Independent counts — run in parallel
     const [newTrialsThisMonth, convertedThisMonth, churnedThisMonth] =
       await Promise.all([
@@ -127,6 +151,7 @@ export async function GET(request: NextRequest) {
       churnedThisMonth,
       failedCharges30d,
       subscriptionsDeleted30d,
+      blockedCustomers,
     });
   } catch (err) {
     return fromException(request, err, { stage: "load" });
