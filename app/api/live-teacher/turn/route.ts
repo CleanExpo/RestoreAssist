@@ -92,16 +92,24 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  // Load prior turns for both the turnIndex and the model conversation history
-  // (Rule 4: explicit select). These are the turns that precede this utterance;
-  // the current utterance is appended by invokeClaudeCloud's message builder.
-  const priorTurns = await prisma.teacherUtterance.findMany({
+  // True turn count drives turnIndex — count() returns a number, not a row set,
+  // so it is safe regardless of session length.
+  const turnCount = await prisma.teacherUtterance.count({
     where: { sessionId: body.sessionId },
-    orderBy: { turnIndex: "asc" },
+  });
+
+  // Load only the most recent turns for the model conversation history. Bounding
+  // this caps context size and AI cost on long sessions; the current utterance
+  // is appended by invokeClaudeCloud's message builder. (Rule 4: explicit select.)
+  const RECENT_TURN_LIMIT = 40; // ~20 exchanges of context
+  const recentTurns = await prisma.teacherUtterance.findMany({
+    where: { sessionId: body.sessionId },
+    orderBy: { turnIndex: "desc" },
+    take: RECENT_TURN_LIMIT,
     select: { role: true, content: true, clauseRefs: true },
   });
-  const turnCount = priorTurns.length;
-  const history: TeacherTurn[] = priorTurns.map((turn) => ({
+  recentTurns.reverse(); // restore chronological order for the model
+  const history: TeacherTurn[] = recentTurns.map((turn) => ({
     role: turn.role as TeacherTurn["role"],
     content: turn.content,
     clauseRefs: turn.clauseRefs,

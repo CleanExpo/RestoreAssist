@@ -19,6 +19,8 @@ export async function GET(request: NextRequest) {
     const region = request.nextUrl.searchParams.get("region");
     const where = region ? { region: { has: region } } : {};
 
+    // ra-query-ok: ANZ materials reference catalogue (seed-only, optionally
+    // region-filtered); the endpoint's purpose is to return the full library.
     const materials = await (prisma as any).material.findMany({
       where,
       orderBy: { name: "asc" },

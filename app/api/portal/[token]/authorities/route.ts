@@ -48,6 +48,8 @@ export async function GET(
       );
     }
 
+    // ra-query-ok: open authority forms for one token-scoped client's reports;
+    // the portal must list all outstanding forms.
     const instances = await prisma.authorityFormInstance.findMany({
       where: {
         report: { clientId: account.clientId },
