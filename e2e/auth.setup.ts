@@ -27,8 +27,16 @@ setup("authenticate", async ({ page }) => {
   await page.locator('input[type="password"]').first().fill(password);
   await page.getByRole("button", { name: /sign in/i }).click();
 
-  // Wait for successful redirect to dashboard
-  await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });
+  // After a successful login the middleware may redirect to /dashboard
+  // (active subscription), /billing/upgrade (trial-expired / paywalled),
+  // /setup (first-run wizard), or /onboarding (incomplete profile).
+  // All of these prove authentication succeeded. The specific landing page
+  // is a business-logic concern; individual tests assert their own URL state.
+  // Using waitForURL rather than toHaveURL so setup doesn't fail if the
+  // production test account's trial has expired (e.g. between seed runs).
+  await page.waitForURL(/\/(dashboard|billing|setup|onboarding)/, {
+    timeout: 15_000,
+  });
 
   // Save auth state for other test files
   await page.context().storageState({ path: AUTH_FILE });
