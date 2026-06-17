@@ -372,12 +372,23 @@ export function formatPinpoint(
 /**
  * Validate AGLC4 citation format
  *
- * Returns true if citation appears to follow AGLC4 format
+ * Returns true if citation appears to follow AGLC4 format.
+ *
+ * RA-6793: The `§` symbol is rejected only for AGLC4 *legal* citations (statutes,
+ * cases, codes), where AGLC4 mandates "s" instead. IICRC technical standards
+ * (S500:2025, S520, S540, S700) deliberately cite with `§` per CLAUDE.md rule #14,
+ * so callers validating a standard reference must pass `kind: "standard"` to avoid
+ * a false-positive on the mandated symbol. Defaults to "legal" to preserve the
+ * historical strict-AGLC4 behaviour for existing call sites.
  */
-export function validateAGLC4Format(citation: string): {
+export function validateAGLC4Format(
+  citation: string,
+  options: { kind?: "legal" | "standard" } = {},
+): {
   isValid: boolean;
   issues: string[];
 } {
+  const { kind = "legal" } = options;
   const issues: string[] = [];
 
   // Check for proper spacing
@@ -390,7 +401,9 @@ export function validateAGLC4Format(citation: string): {
     issues.push('Use "s" not "Sec." for section in AGLC4');
   }
 
-  if (citation.includes("§")) {
+  // The § symbol is invalid for AGLC4 legal citations only. IICRC technical
+  // standards legitimately use § and must not be flagged here.
+  if (kind === "legal" && citation.includes("§")) {
     issues.push('AGLC4 does not use § symbol - use "s"');
   }
 
