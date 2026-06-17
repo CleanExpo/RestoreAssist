@@ -9,7 +9,7 @@
  * Critique addressed: C1 — Standards cited as badge, not embedded in logic
  *
  * Standards covered:
- *   IICRC S500 — Standard for Professional Water Damage Restoration (7th Ed)
+ *   IICRC S500 — Standard for Professional Water Damage Restoration (S500:2025)
  *   IICRC S520 — Standard for Professional Mould Remediation (3rd Ed)
  *   IICRC S540 — Standard for Trauma and Crime Scene Cleanup (S540:2023)
  *   IICRC S700 — Standard for Professional Fire and Smoke Damage Restoration (2nd Ed)
@@ -25,7 +25,7 @@ export const S500_FIELD_MAP = {
    * >0.5% in concrete substrates
    */
   moistureContent: {
-    clauseRef: "IICRC S500 §12.3",
+    clauseRef: "S500:2025 §12.3",
     thresholds: {
       wood: { normal: 12, elevated: 16, critical: 25 },
       drywall: { normal: 0.5, elevated: 1.0, critical: 2.0 },
@@ -44,7 +44,7 @@ export const S500_FIELD_MAP = {
    * conditions for the region
    */
   relativeHumidity: {
-    clauseRef: "IICRC S500 §12.4",
+    clauseRef: "S500:2025 §12.4",
     drinkTarget: "Match or below ambient outdoor RH at time of inspection",
     engineLogic:
       "Compute drying target from recorded outdoor RH. Target is calculated, not estimated.",
@@ -58,7 +58,7 @@ export const S500_FIELD_MAP = {
    * Cat 1: Clean/potable water  Cat 2: Grey water  Cat 3: Black/contaminated water
    */
   waterCategory: {
-    clauseRef: "IICRC S500 §7.1–7.3",
+    clauseRef: "S500:2025 §7.1–7.3",
     definitions: {
       category1: {
         label: "Clean Water",
@@ -81,7 +81,7 @@ export const S500_FIELD_MAP = {
       },
     },
     timeEscalation:
-      "Cat 1 degrades to Cat 2 after 48 hrs standing (S500 §7.1 note)",
+      "Cat 1 degrades to Cat 2 after 48 hrs standing (S500:2025 §7.1 note)",
     engineLogic:
       "Map observed water source to category. Cat 3 triggers mandatory containment protocol and PPE requirement in scope items.",
     adjusterValue:
@@ -93,7 +93,7 @@ export const S500_FIELD_MAP = {
    * Source: IICRC S500 §8.1–8.4
    */
   waterClass: {
-    clauseRef: "IICRC S500 §8.1–8.4",
+    clauseRef: "S500:2025 §8.1–8.4",
     definitions: {
       class1: {
         label: "Slow Evaporation",
@@ -127,7 +127,7 @@ export const S500_FIELD_MAP = {
    * Source: IICRC S500 §14 — Equipment placement and air movement requirements
    */
   dryingEquipment: {
-    clauseRef: "IICRC S500 §14",
+    clauseRef: "S500:2025 §14",
     engineLogic:
       "Validate equipment selection and quantity against S500 §14 formulas for affected area and class. Flag if proposed equipment is undersized.",
     adjusterValue: "Equipment adequacy is verifiable — audit trail available.",
@@ -138,7 +138,7 @@ export const S500_FIELD_MAP = {
    * Source: IICRC S500 §5.3 — Documentation requirements for insurance claims
    */
   photoDocumentation: {
-    clauseRef: "IICRC S500 §5.3",
+    clauseRef: "S500:2025 §5.3",
     requirements: [
       "Auto-timestamp on every photo",
       "GPS geotag on every photo",

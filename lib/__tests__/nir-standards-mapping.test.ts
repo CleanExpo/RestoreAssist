@@ -9,11 +9,33 @@
  */
 import { describe, it, expect } from "vitest";
 import {
+  S500_FIELD_MAP,
   S540_FIELD_MAP,
   getStandardsCitation,
   getFieldMapForClaimType,
   CLAIM_TYPE_PICKER_OPTIONS,
 } from "@/lib/nir-standards-mapping";
+
+describe("S500_FIELD_MAP — IICRC S500:2025 edition standardisation (RA-6793)", () => {
+  it("every S500 clause reference uses the canonical 'S500:2025 §X' format", () => {
+    for (const [key, field] of Object.entries(S500_FIELD_MAP)) {
+      expect(
+        field.clauseRef,
+        `${key}.clauseRef must cite the S500:2025 edition (RA-6793)`,
+      ).toMatch(/^S500:2025 §/);
+    }
+  });
+
+  it("does not leave the legacy '7th Ed'-style 'IICRC S500 §' prefix on any clause", () => {
+    for (const field of Object.values(S500_FIELD_MAP)) {
+      expect(field.clauseRef.startsWith("IICRC S500 §")).toBe(false);
+    }
+  });
+
+  it("the moisture-content clause is exactly 'S500:2025 §12.3'", () => {
+    expect(S500_FIELD_MAP.moistureContent.clauseRef).toBe("S500:2025 §12.3");
+  });
+});
 
 describe("S540_FIELD_MAP — IICRC S540:2023 trauma/biohazard field map", () => {
   it("exposes the trauma-scene fields required by §6 Project Scoping", () => {
