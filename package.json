@@ -47,7 +47,7 @@
     "validate:next-build-no-db": "sh scripts/validate-next-build-no-db.sh",
     "dev": "next dev",
     "start": "next start",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 851",
     "type-check": "NODE_OPTIONS=\"--max-old-space-size=8192\" tsc --noEmit",
     "audit:ai": "tsx scripts/audit-ai-call-sites.ts --gate",
     "audit:rls": "tsx scripts/audit-rls.ts",
