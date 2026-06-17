@@ -4,6 +4,8 @@
  * Prisma ORM already prevents SQL injection via parameterized queries.
  */
 
+import { isValidAbn } from "@/lib/abn/checksum";
+
 const HTML_ENTITY_MAP: Record<string, string> = {
   "&": "&amp;",
   "<": "&lt;",
@@ -36,17 +38,15 @@ export function sanitizeString(
  * must be 0.
  *
  * Returns true if the ABN is structurally valid; does NOT check ATO registration.
+ *
+ * RA-6793: This is a thin delegate to the canonical implementation in
+ * `lib/abn/checksum.ts` so the checksum logic cannot drift between the two
+ * historically-duplicated validators. The legacy `isValidABN` export name is
+ * retained for the existing call sites.
  */
 export function isValidABN(abn: unknown): boolean {
   if (typeof abn !== "string") return false;
-  const digits = abn.replace(/\s/g, ""); // strip spaces
-  if (!/^\d{11}$/.test(digits)) return false;
-
-  const weights = [10, 1, 3, 5, 7, 9, 11, 13, 15, 17, 19];
-  const d = digits.split("").map(Number);
-  d[0] -= 1; // subtract 1 from first digit per ATO spec
-  const sum = d.reduce((acc, digit, i) => acc + digit * weights[i], 0);
-  return sum % 89 === 0;
+  return isValidAbn(abn);
 }
 
 /**
