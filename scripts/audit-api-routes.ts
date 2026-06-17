@@ -28,6 +28,9 @@ const EXEMPT_ROUTE_PREFIXES = [
 ];
 
 const PUBLIC_TOKEN_ROUTE_PREFIXES = [
+  // Homeowner capture flow — capability-token-scoped (verifyCaptureToken),
+  // unauthenticated-by-design like the portal routes (rate-limit + BotID + CSRF).
+  "app/api/capture/",
   "app/api/contractors/",
   "app/api/health/",
   "app/api/inspections/checklists/",
