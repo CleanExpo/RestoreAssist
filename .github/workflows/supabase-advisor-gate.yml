@@ -1,0 +1,54 @@
+name: Supabase advisor gate
+
+# RA-6724 — fails if the live Supabase security advisors for prod report any
+# ERROR-level finding or an RLS-disabled public table. Distinct from the
+# DB-free static audit:rls gate (#1343); this one needs live prod credentials,
+# so it runs on a schedule (and on demand) rather than on fork PRs.
+on:
+  schedule:
+    - cron: "0 13 * * 1" # 23:00 UTC Monday = 09:00 AEST Tuesday
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  advisor-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+
+      - name: Install dependencies
+        # Gate only needs tsx + global fetch; skip postinstall (prisma generate)
+        # and the puppeteer browser download.
+        run: pnpm install --frozen-lockfile --ignore-scripts
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: "1"
+
+      - name: Run Supabase advisor gate
+        run: pnpm audit:advisors
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          # Defaults to the prod ref (udooysjajglluvuxkijp) when unset.
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+
+      - name: Open issue on failure
+        if: failure()
+        run: |
+          gh issue create \
+            --title "[supabase-advisor-gate] ERROR advisor or RLS-off public table $(date +%Y-%m-%d)" \
+            --label "security" \
+            --body "The Supabase security-advisor gate failed (ERROR-level advisor or an RLS-disabled public table on prod). See the run logs for the failing findings."
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
