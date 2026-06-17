@@ -14,7 +14,7 @@ export default {
     include: [
       "lib/**/__tests__/**/*.test.ts",
       "app/api/**/__tests__/**/*.test.ts",
-      "scripts/__tests__/**/*.test.ts",
+      "scripts/**/__tests__/**/*.test.ts",
       "components/**/__tests__/**/*.test.ts",
       "components/**/__tests__/**/*.test.tsx",
       "app/billing/**/__tests__/**/*.test.tsx",
