@@ -27,7 +27,7 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSBluetoothPeripheralUsageDescription</key>
-	<string>RestoreAssist uses Bluetooth to read moisture meter data.</string>
+	<string>RestoreAssist uses Bluetooth to read moisture meter and sensor readings.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>RestoreAssist uses your camera to photograph moisture meters, thermo-hygrometers, and laser measures so readings can be automatically extracted into your inspection report.</string>
 	<key>NSFaceIDUsageDescription</key>
