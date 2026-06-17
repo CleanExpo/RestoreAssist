@@ -35,7 +35,7 @@ describe("roomPlanToFabric — vertex scaling", () => {
   it("maps RoomPlan's depth axis (z) onto the canvas y axis", () => {
     const [poly] = roomPlanToFabric({
       rooms: [
-        { label: "R", floorPolygon: [{ x: 1, z: 2 }, { x: 1, z: 2 }, { x: 1, z: 2 }] },
+        { label: "R", floorPolygon: [{ x: 1, z: 2 }, { x: 3, z: 2 }, { x: 3, z: 5 }] },
       ],
     });
     expect(poly.points[0]).toEqual({ x: 100, y: 200 });
@@ -112,6 +112,19 @@ describe("roomPlanToFabric — guards", () => {
     const result = roomPlanToFabric({
       rooms: [
         { label: "Degenerate", floorPolygon: [{ x: 0, z: 0 }, { x: 1, z: 1 }] },
+        { label: "Valid", floorPolygon: [{ x: 0, z: 0 }, { x: 1, z: 0 }, { x: 1, z: 1 }] },
+      ],
+    });
+    expect(result).toHaveLength(1);
+    expect(result[0].data.label).toBe("Valid");
+  });
+
+  it("skips degenerate captures that collapse to a near-zero area", () => {
+    // Vertices with no depth axis (no z, no y) all map to y=0 → a flat line
+    // enclosing 0 m². It must be skipped rather than emit a bogus 0 m² room.
+    const result = roomPlanToFabric({
+      rooms: [
+        { label: "Collapsed", floorPolygon: [{ x: 0 }, { x: 4 }, { x: 8 }] },
         { label: "Valid", floorPolygon: [{ x: 0, z: 0 }, { x: 1, z: 0 }, { x: 1, z: 1 }] },
       ],
     });
