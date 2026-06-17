@@ -5,9 +5,9 @@ import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import {
   invokeClaudeCloud,
-  type TeacherContext,
   type TeacherTurn,
 } from "@/lib/live-teacher/claude-cloud";
+import { buildTeacherContext } from "@/lib/live-teacher/build-teacher-context";
 
 // POST — stream an SSE response for a user utterance turn
 // Rule 1: getServerSession required
@@ -115,17 +115,15 @@ export async function POST(request: NextRequest) {
     clauseRefs: turn.clauseRefs,
   }));
 
-  // Assemble the teaching context from the session. currentRoom/stage/
-  // missingFields have no backing columns yet (follow-up: enrich from the
-  // inspection); jurisdiction drives AU vs NZ clause guidance.
-  const context: TeacherContext = {
-    inspectionId: liveSession.inspectionId,
-    userId: session.user.id,
-    jurisdiction: liveSession.jurisdiction === "NZ" ? "NZ" : "AU",
-    currentRoom: null,
-    stage: "walkthrough",
-    missingFields: [],
-  };
+  // Derive the teaching context from real inspection data — current room, the
+  // furthest-reached S500 stage, and the gaps a veteran would still close — so
+  // the coach guides against where the technician actually is, not generic
+  // defaults. Resilient: a missing inspection yields safe defaults.
+  const context = await buildTeacherContext(
+    liveSession.inspectionId,
+    session.user.id,
+    liveSession.jurisdiction === "NZ" ? "NZ" : "AU",
+  );
 
   // SSE streaming via ReadableStream
   const encoder = new TextEncoder();
