@@ -22,7 +22,14 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
+// ─── Mock @/lib/cloudinary (durable photo hosting) ───────────────────────────
+
+vi.mock("@/lib/cloudinary", () => ({
+  uploadImage: vi.fn(),
+}));
+
 import { prisma } from "@/lib/prisma";
+import { uploadImage } from "@/lib/cloudinary";
 import { takeReading } from "../take-reading";
 import { capturePhoto } from "../capture-photo";
 import { startLidarScan } from "../start-lidar-scan";
@@ -37,6 +44,7 @@ const mockPrisma = prisma as {
   wHSIncident: { create: ReturnType<typeof vi.fn> };
   inspection: { findUnique: ReturnType<typeof vi.fn> };
 };
+const mockUploadImage = vi.mocked(uploadImage);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -104,6 +112,42 @@ describe("capturePhoto", () => {
     expect(mockPrisma.inspectionPhoto.create).toHaveBeenCalledOnce();
     expect(result.id).toBe("ph-1");
     expect(result.url).toBe("blob://temp/photo.jpg");
+    // A non-hostable blob: handle is stored as-is, never uploaded.
+    expect(mockUploadImage).not.toHaveBeenCalled();
+  });
+
+  it("routes a hostable https sourceUri through Cloudinary and stores the secure url", async () => {
+    mockUploadImage.mockResolvedValue({
+      secure_url: "https://res.cloudinary.com/x/inspection-photos/ph-2.jpg",
+    });
+    mockPrisma.inspectionPhoto.create.mockResolvedValue({
+      id: "ph-2",
+      url: "https://res.cloudinary.com/x/inspection-photos/ph-2.jpg",
+      location: null,
+      description: "ceiling stain",
+    });
+
+    const result = await capturePhoto({
+      inspectionId: "insp-1",
+      caption: "ceiling stain",
+      sourceUri: "https://uploads.example.com/raw/ph-2.jpg",
+    });
+
+    expect(mockUploadImage).toHaveBeenCalledWith(
+      "https://uploads.example.com/raw/ph-2.jpg",
+      "inspection-photos",
+    );
+    // The persisted url is the durable Cloudinary url, not the raw source.
+    expect(mockPrisma.inspectionPhoto.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          url: "https://res.cloudinary.com/x/inspection-photos/ph-2.jpg",
+        }),
+      }),
+    );
+    expect(result.url).toBe(
+      "https://res.cloudinary.com/x/inspection-photos/ph-2.jpg",
+    );
   });
 });
 
