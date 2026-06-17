@@ -4,25 +4,41 @@ import { authOptions } from "@/lib/auth";
 import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import { PRICING_CONFIG } from "@/lib/pricing";
+import { withIdempotency } from "@/lib/idempotency";
 
 export async function POST(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
+  const session = await getServerSession(authOptions);
 
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const scopeUserId = session.user.id;
 
-    const { sessionId } = await request.json();
-
-    if (!sessionId) {
-      return NextResponse.json(
-        { error: "Session ID is required" },
-        { status: 400 },
-      );
-    }
-
+  // RA-6791: verify-subscription is the lifetime fulfillment path (the
+  // Stripe webhook ignores mode!=='subscription'). It also grants the
+  // signup bonus. A retried POST without idempotency would re-run those
+  // writes — wrap it so an identical replay returns the cached response.
+  return withIdempotency(request, scopeUserId, async (rawBody) => {
     try {
+      let parsed: { sessionId?: string } = {};
+      try {
+        parsed = rawBody ? JSON.parse(rawBody) : {};
+      } catch {
+        return NextResponse.json(
+          { error: "Invalid JSON body" },
+          { status: 400 },
+        );
+      }
+      const { sessionId } = parsed;
+
+      if (!sessionId) {
+        return NextResponse.json(
+          { error: "Session ID is required" },
+          { status: 400 },
+        );
+      }
+
+      try {
       // Retrieve the checkout session from Stripe
       const checkoutSession = await stripe.checkout.sessions.retrieve(
         sessionId as string,
@@ -201,19 +217,20 @@ export async function POST(request: NextRequest) {
           creditsRemaining: updatedUser.creditsRemaining,
         },
       });
-    } catch (stripeError: any) {
-      console.error("Error verifying subscription:", stripeError);
-      // RA-786: do not leak stripeError.message to clients
+      } catch (stripeError: any) {
+        console.error("Error verifying subscription:", stripeError);
+        // RA-786: do not leak stripeError.message to clients
+        return NextResponse.json(
+          { error: "Failed to verify subscription" },
+          { status: 500 },
+        );
+      }
+    } catch (error) {
+      console.error("Error verifying subscription:", error);
       return NextResponse.json(
-        { error: "Failed to verify subscription" },
+        { error: "Internal server error" },
         { status: 500 },
       );
     }
-  } catch (error) {
-    console.error("Error verifying subscription:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
-  }
+  });
 }

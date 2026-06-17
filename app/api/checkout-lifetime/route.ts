@@ -96,6 +96,11 @@ export async function POST(request: NextRequest) {
             price_data: {
               currency: "aud",
               unit_amount: LIFETIME_AMOUNT_CENTS,
+              // RA-1351 / RA-6791 — mark the one-time price GST-inclusive so
+              // Stripe Tax doesn't add 10 % on top of the displayed amount.
+              // The amount shown to the customer is GST-inclusive; the
+              // ATO-compliant tax invoice breaks out the GST component.
+              tax_behavior: "inclusive" as const,
               product_data: {
                 name: `${LIFETIME_PLAN_NAME} - RestoreAssist`,
                 description: "One-time lifetime access. No monthly fee.",
@@ -110,6 +115,14 @@ export async function POST(request: NextRequest) {
           userId: userId,
           type: "lifetime",
         },
+        // RA-6791 — AU GST compliance for one-time purchases. Stripe Tax
+        // auto-applies 10 % GST to AU customers; tax_id_collection captures
+        // the buyer's ABN so business customers can claim input credits and
+        // the tax invoice is ATO-compliant. customer_update is required by
+        // Stripe so automatic_tax can read the saved customer name/address.
+        automatic_tax: { enabled: true },
+        tax_id_collection: { enabled: true },
+        customer_update: { name: "auto", address: "auto" },
       });
 
       return NextResponse.json({
