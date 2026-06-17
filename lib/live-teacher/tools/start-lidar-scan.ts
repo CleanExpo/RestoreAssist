@@ -17,7 +17,7 @@ export async function startLidarScan(args: StartLidarScanArgs) {
 
   return {
     status: "not_implemented" as const,
-    hint: "Native LiDAR plugin ships in RA-1133",
+    hint: "Native LiDAR plugin ships in RA-1133 (iOS / Apple ARKit LiDAR only — Android has no equivalent depth API)",
   };
 }
 
