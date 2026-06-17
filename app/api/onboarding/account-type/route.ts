@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { validateCsrf } from "@/lib/csrf";
 import { sanitizeString } from "@/lib/sanitize";
+import { isValidAbn } from "@/lib/abn/checksum";
 
 /**
  * RA-1259: Capture the AU business details that the Google OAuth signup
@@ -12,7 +13,7 @@ import { sanitizeString } from "@/lib/sanitize";
  *
  * Rules:
  * - Auth required (session.user.id).
- * - ABN = 11 digits (strip whitespace before validating).
+ * - ABN must pass the ATO mod-89 checksum (strip whitespace before validating).
  * - ACN optional but, if supplied, must be 9 digits.
  * - state must be one of the 8 AU states/territories.
  * - Terms acceptance is mandatory (mirrors /api/auth/register).
@@ -65,9 +66,12 @@ export async function POST(request: NextRequest) {
       { status: 400 },
     );
   }
-  if (!/^\d{11}$/.test(abn)) {
+  // RA-6793: enforce the ATO mod-89 checksum (not just digit count) so invalid
+  // ABNs cannot pass onboarding. Matches /api/user/profile, which already gates
+  // on the checksum — an invalid ABN on a tax invoice forces 47% PAYG withholding.
+  if (!isValidAbn(abn)) {
     return NextResponse.json(
-      { error: "ABN must be 11 digits" },
+      { error: "Invalid ABN — please enter a valid 11-digit Australian Business Number" },
       { status: 400 },
     );
   }
