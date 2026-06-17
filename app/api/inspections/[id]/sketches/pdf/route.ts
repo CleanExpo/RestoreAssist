@@ -90,6 +90,8 @@ export async function POST(
   }
 
   // ANZ materials library for the compliance annex (spec §11).
+  // ra-query-ok: Material is a seed-only reference catalogue (no tenant write
+  // path); the full list is required for the compliance annex.
   const materials = await (prisma as any).material.findMany({
     select: { slug: true, name: true, isPotentialAcm: true },
   });

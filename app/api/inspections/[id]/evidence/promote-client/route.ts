@@ -40,6 +40,8 @@ export async function POST(
       });
     }
 
+    // ra-query-ok: unreviewed submissions for a single inspection; the whole
+    // batch is promoted in this action, so a take would silently drop evidence.
     const pending = await prisma.clientEvidenceSubmission.findMany({
       where: { inspectionId: id, reviewedAt: null },
     });

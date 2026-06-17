@@ -46,6 +46,8 @@ export async function GET(
       return NextResponse.json({ error: "not_found" }, { status: 404 });
     }
 
+    // ra-query-ok: floors scoped to one token-resolved inspection (one
+    // ClaimSketch per floor); the full set is needed to render the capture view.
     const floors = await prisma.claimSketch.findMany({
       where: { inspectionId: resolved.inspectionId },
       select: {

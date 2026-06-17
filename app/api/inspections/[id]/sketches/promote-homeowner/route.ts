@@ -46,6 +46,8 @@ export async function POST(
       });
     }
 
+    // ra-query-ok: sketches for a single inspection; all must be promoted, so a
+    // take would leave some homeowner captures un-promoted.
     const sketches = await prisma.claimSketch.findMany({
       where: { inspectionId: id },
       select: { id: true, pendingHomeownerCapture: true },

@@ -49,6 +49,7 @@ export async function POST(
       where: { id },
       select: { propertyAddress: true },
     });
+    // ra-query-ok: Material is a seed-only reference catalogue (no tenant write path).
     const materials = await (prisma as any).material.findMany({
       select: { slug: true, name: true, isPotentialAcm: true },
     });

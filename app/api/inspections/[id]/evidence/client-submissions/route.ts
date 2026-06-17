@@ -42,6 +42,8 @@ export async function GET(
       });
     }
 
+    // ra-query-ok: unreviewed submissions for a single inspection; the staff
+    // review panel must show every pending item, so bounding would hide work.
     const pending = await prisma.clientEvidenceSubmission.findMany({
       where: { inspectionId: id, reviewedAt: null },
       orderBy: { submittedAt: "asc" },

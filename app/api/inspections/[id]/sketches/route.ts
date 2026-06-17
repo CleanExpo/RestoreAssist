@@ -168,7 +168,8 @@ export async function POST(
         ),
       ];
       const materials = slugs.length
-        ? await (prisma as any).material.findMany({
+        ? // ra-query-ok: materials filtered to slugs derived from one sketch
+          await (prisma as any).material.findMany({
             where: { slug: { in: slugs } },
             select: { id: true, slug: true },
           })

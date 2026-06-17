@@ -59,7 +59,8 @@ export async function GET(
         select: { submissionScore: true },
       }),
       inspection.report
-        ? prisma.reportApproval.findMany({
+        ? // ra-query-ok: pending approvals for one report
+          prisma.reportApproval.findMany({
             where: { reportId: inspection.report.id, status: "PENDING" },
             select: { id: true, approvalType: true },
           })

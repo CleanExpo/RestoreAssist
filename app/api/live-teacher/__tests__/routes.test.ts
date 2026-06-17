@@ -185,6 +185,7 @@ describe("POST /api/live-teacher/turn", () => {
       inspectionId: "insp-1",
       jurisdiction: "AU",
     });
+    mockUtteranceCount.mockResolvedValue(0);
     mockUtteranceFindMany.mockResolvedValue([]);
     mockUtteranceCreate
       .mockResolvedValueOnce({ id: "utt-user-1" }) // user turn
@@ -228,10 +229,12 @@ describe("POST /api/live-teacher/turn", () => {
       inspectionId: "insp-1",
       jurisdiction: "NZ",
     });
+    mockUtteranceCount.mockResolvedValue(2);
     // Prior conversation history is passed to the client (not the current turn).
+    // Returned newest-first; the route reverses to chronological order.
     mockUtteranceFindMany.mockResolvedValue([
-      { role: "user", content: "Hi", clauseRefs: [] },
       { role: "assistant", content: "Kia ora", clauseRefs: [] },
+      { role: "user", content: "Hi", clauseRefs: [] },
     ]);
     mockUtteranceCreate
       .mockResolvedValueOnce({ id: "utt-user-2" })
