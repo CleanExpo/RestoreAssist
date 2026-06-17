@@ -47,7 +47,8 @@ const WINANSI_PUNCT = new Set([
   0x0160, 0x2039, 0x0152, 0x017d, 0x2018, 0x2019, 0x201c, 0x201d, 0x2022,
   0x2013, 0x2014, 0x02dc, 0x2122, 0x0161, 0x203a, 0x0153, 0x017e, 0x0178,
 ]);
-function safe(text: string): string {
+// Exported for unit testing (RA-6687). Pure helper — no side effects.
+export function safe(text: string): string {
   return Array.from(text ?? "")
     .map((ch) => {
       const cp = ch.codePointAt(0) ?? 0;
@@ -65,7 +66,7 @@ function safe(text: string): string {
 
 // ── Data URL → Uint8Array ─────────────────────────────────
 
-function dataUrlToBytes(dataUrl: string): Uint8Array {
+export function dataUrlToBytes(dataUrl: string): Uint8Array {
   const base64 = dataUrl.split(",")[1];
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);

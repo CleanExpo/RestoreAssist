@@ -249,7 +249,8 @@ class PDFWriter {
   }
 }
 
-function sanitise(s: any): string {
+// Exported for unit testing (RA-6687). Pure helpers — no side effects.
+export function sanitise(s: any): string {
   if (s == null) return "";
   return String(s)
     .replace(/[\r\n\t]+/g, " ")
@@ -257,7 +258,7 @@ function sanitise(s: any): string {
     .trim();
 }
 
-function fmtDate(d: Date | string | null | undefined): string {
+export function fmtDate(d: Date | string | null | undefined): string {
   if (!d) return "—";
   try {
     return new Date(d).toLocaleDateString("en-AU", {
@@ -270,7 +271,7 @@ function fmtDate(d: Date | string | null | undefined): string {
   }
 }
 
-function fmtCurrency(n: number | null | undefined): string {
+export function fmtCurrency(n: number | null | undefined): string {
   if (n == null) return "—";
   return new Intl.NumberFormat("en-AU", {
     style: "currency",
