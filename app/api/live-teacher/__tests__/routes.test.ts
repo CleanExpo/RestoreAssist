@@ -46,6 +46,9 @@ const mockUtteranceCount = vi.fn();
 const mockUtteranceFindMany = vi.fn();
 const mockToolCallFindMany = vi.fn();
 const mockInspectionFindFirst = vi.fn();
+// buildTeacherContext (RA-6731 follow-up) reads inspection.findUnique; default
+// to null → safe-default context so existing turn tests are unaffected.
+const mockInspectionFindUnique = vi.fn().mockResolvedValue(null);
 const mockUserFindUnique = vi.fn().mockResolvedValue({
   subscriptionStatus: "ACTIVE",
   lifetimeAccess: false,
@@ -66,6 +69,7 @@ vi.mock("@/lib/prisma", () => ({
     },
     inspection: {
       findFirst: (...args: unknown[]) => mockInspectionFindFirst(...args),
+      findUnique: (...args: unknown[]) => mockInspectionFindUnique(...args),
     },
     liveTeacherSession: {
       create: (...args: unknown[]) => mockSessionCreate(...args),
