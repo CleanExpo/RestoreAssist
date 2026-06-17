@@ -10,6 +10,12 @@
  * Idempotent (upsert) — safe to re-run. Run against a LOCAL/EPHEMERAL DB:
  *   DATABASE_URL=... pnpm exec tsx scripts/seed-e2e-user.ts
  *
+ * Subscription: ACTIVE (not TRIAL) so the hard-paywall middleware never
+ * intercepts the e2e login flow regardless of how long it has been since the
+ * last seed run. TRIAL + trialEndsAt expired was the original choice; it
+ * caused smoke-prod failures after the first year and on production accounts
+ * that pre-date the seed (RA-6764 hotfix).
+ *
  * NOTE (RA-6764 / Option ii): authored without a local run. If `user.create`
  * rejects on a required-without-default column, add it here — the field set
  * mirrors app/api/auth/register/route.ts as of 2026-06-16.
@@ -24,25 +30,26 @@ const PASSWORD = process.env.E2E_USER_PASSWORD ?? "Test1234!";
 
 async function main() {
   const hashedPassword = await bcrypt.hash(PASSWORD, 12);
-  const oneYear = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
 
   const user = await prisma.user.upsert({
     where: { email: EMAIL },
     update: {
       password: hashedPassword,
       role: "ADMIN",
-      subscriptionStatus: "TRIAL",
-      trialEndsAt: oneYear,
+      // ACTIVE so the hard-paywall never blocks the e2e account regardless
+      // of time elapsed since seed was last run. trialEndsAt is cleared.
+      subscriptionStatus: "ACTIVE",
+      trialEndsAt: null,
     },
     create: {
       name: "E2E Test User",
       email: EMAIL,
       password: hashedPassword,
       role: "ADMIN",
-      subscriptionStatus: "TRIAL",
+      subscriptionStatus: "ACTIVE",
       creditsRemaining: 999,
       totalCreditsUsed: 0,
-      trialEndsAt: oneYear,
+      trialEndsAt: null,
       quickFillCreditsRemaining: 999,
       totalQuickFillUsed: 0,
     },
