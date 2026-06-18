@@ -16,9 +16,24 @@ export const fillScopeItemSchema = z.object({
 
 export type FillScopeItemArgs = z.infer<typeof fillScopeItemSchema>;
 
-export async function fillScopeItem(args: FillScopeItemArgs) {
+export async function fillScopeItem(
+  args: FillScopeItemArgs,
+  ctx: { userId: string },
+) {
   const { inspectionId, itemType, description, quantity, unit, clauseRef } =
     fillScopeItemSchema.parse(args);
+
+  // RA-6798: Verify the inspection belongs to the authenticated user before
+  // writing. A model-supplied inspectionId with no ownership check is IDOR.
+  const owned = await prisma.inspection.findFirst({
+    where: { id: inspectionId, userId: ctx.userId },
+    select: { id: true },
+  });
+  if (!owned) {
+    throw new Error(
+      `Forbidden: inspection ${inspectionId} does not belong to user ${ctx.userId}`,
+    );
+  }
 
   const item = await prisma.scopeItem.create({
     data: {

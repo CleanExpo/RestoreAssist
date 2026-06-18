@@ -37,7 +37,18 @@ export const flagWhsHazardSchema = z.object({
 
 export type FlagWhsHazardArgs = z.infer<typeof flagWhsHazardSchema>;
 
-export async function flagWhsHazard(args: FlagWhsHazardArgs) {
+// Owning-user context, threaded from the authenticated turn route (RA-6798).
+// Required — callers must supply the authenticated userId so the tool can
+// (a) verify the inspection belongs to the caller before writing and
+// (b) attribute the incident to the real user, not the "system" placeholder.
+export interface FlagWhsHazardContext {
+  userId: string;
+}
+
+export async function flagWhsHazard(
+  args: FlagWhsHazardArgs,
+  ctx: FlagWhsHazardContext,
+) {
   const {
     inspectionId,
     hazardType,
@@ -49,6 +60,18 @@ export async function flagWhsHazard(args: FlagWhsHazardArgs) {
     injuryDescription,
     incidentTypeEnum,
   } = flagWhsHazardSchema.parse(args);
+
+  // RA-6798: Verify the inspection belongs to the authenticated user before
+  // writing. A model-supplied inspectionId with no ownership check is IDOR.
+  const owned = await prisma.inspection.findFirst({
+    where: { id: inspectionId, userId: ctx.userId },
+    select: { id: true },
+  });
+  if (!owned) {
+    throw new Error(
+      `Forbidden: inspection ${inspectionId} does not belong to user ${ctx.userId}`,
+    );
+  }
 
   // Build description from controls array if provided
   const controlsBullets =
@@ -71,7 +94,7 @@ export async function flagWhsHazard(args: FlagWhsHazardArgs) {
       description: source
         ? `Flagged by: ${source}${controlsBullets}`
         : controlsBullets || null,
-      userId: "system", // TODO: get from session context
+      userId: ctx.userId,
     },
     select: {
       id: true,

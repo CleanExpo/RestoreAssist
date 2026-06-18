@@ -64,9 +64,24 @@ async function toDurableUrl(sourceUri: string): Promise<string> {
   }
 }
 
-export async function capturePhoto(args: CapturePhotoArgs) {
+export async function capturePhoto(
+  args: CapturePhotoArgs,
+  ctx: { userId: string },
+) {
   const { inspectionId, caption, location, contextTag, sourceUri } =
     capturePhotoSchema.parse(args);
+
+  // RA-6798: Verify the inspection belongs to the authenticated user before
+  // writing. A model-supplied inspectionId with no ownership check is IDOR.
+  const owned = await prisma.inspection.findFirst({
+    where: { id: inspectionId, userId: ctx.userId },
+    select: { id: true },
+  });
+  if (!owned) {
+    throw new Error(
+      `Forbidden: inspection ${inspectionId} does not belong to user ${ctx.userId}`,
+    );
+  }
 
   const url = await toDurableUrl(sourceUri);
   const description = contextTag ? `[${contextTag}] ${caption}` : caption;

@@ -186,7 +186,12 @@ function buildMessages(
 export async function invokeClaudeCloud(
   input: ClaudeCloudInput,
 ): Promise<ClaudeCloudResult> {
-  // TODO: wire tool definitions from lib/live-teacher/tools/ once RA-1132f lands
+  // TODO RA-1132f: wire tool definitions from lib/live-teacher/tools/.
+  // When wiring, pass auth context so handlers can enforce IDOR protection:
+  //   const toolCtx: ToolDispatchContext = { userId: input.context.userId };
+  //   for each tool_use block: TOOL_HANDLERS[name](args, toolCtx)
+  // RA-6798: NEVER call TOOL_HANDLERS without toolCtx — ownership checks inside
+  // each handler depend on userId being present.
   const tools: Anthropic.Tool[] = [];
 
   const messages = buildMessages(

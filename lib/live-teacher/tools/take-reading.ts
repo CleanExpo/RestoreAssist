@@ -20,7 +20,10 @@ export const takeReadingSchema = z.object({
 
 export type TakeReadingArgs = z.infer<typeof takeReadingSchema>;
 
-export async function takeReading(args: TakeReadingArgs) {
+export async function takeReading(
+  args: TakeReadingArgs,
+  ctx: { userId: string },
+) {
   const {
     inspectionId,
     location,
@@ -32,6 +35,18 @@ export async function takeReading(args: TakeReadingArgs) {
     deviceModel,
     source,
   } = takeReadingSchema.parse(args);
+
+  // RA-6798: Verify the inspection belongs to the authenticated user before
+  // writing. A model-supplied inspectionId with no ownership check is IDOR.
+  const owned = await prisma.inspection.findFirst({
+    where: { id: inspectionId, userId: ctx.userId },
+    select: { id: true },
+  });
+  if (!owned) {
+    throw new Error(
+      `Forbidden: inspection ${inspectionId} does not belong to user ${ctx.userId}`,
+    );
+  }
 
   // Persist extra metadata (unit, device, source) in the notes field as JSON
   const notes = JSON.stringify({ unit, deviceVendor, deviceModel, source });

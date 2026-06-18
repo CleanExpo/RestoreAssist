@@ -12,7 +12,11 @@ export const startLidarScanSchema = z.object({
 
 export type StartLidarScanArgs = z.infer<typeof startLidarScanSchema>;
 
-export async function startLidarScan(args: StartLidarScanArgs) {
+export async function startLidarScan(
+  args: StartLidarScanArgs,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _ctx: { userId: string },
+) {
   startLidarScanSchema.parse(args);
 
   return {
