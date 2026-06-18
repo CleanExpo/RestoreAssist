@@ -174,7 +174,10 @@ export async function getWorkflowContext(
 /**
  * Cancel a running workflow. All non-completed tasks are set to CANCELLED.
  */
-export async function cancelWorkflow(workflowId: string): Promise<void> {
+export async function cancelWorkflow(
+  workflowId: string,
+  userId: string,
+): Promise<void> {
   await prisma.$transaction(async (tx) => {
     await tx.agentTask.updateMany({
       where: {
@@ -185,7 +188,7 @@ export async function cancelWorkflow(workflowId: string): Promise<void> {
     });
 
     await tx.agentWorkflow.update({
-      where: { id: workflowId },
+      where: { id: workflowId, userId },
       data: {
         status: "CANCELLED",
         completedAt: new Date(),

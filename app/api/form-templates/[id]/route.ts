@@ -146,7 +146,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     const updated = await prisma.formTemplate.update({
-      where: { id },
+      where: { id, userId: session.user.id },
       data: {
         ...(name !== undefined ? { name: name.trim() } : {}),
         ...(description !== undefined

@@ -68,7 +68,7 @@ export async function DELETE(
       );
     }
 
-    await cancelWorkflow(id);
+    await cancelWorkflow(id, session.user.id);
 
     return NextResponse.json({ message: "Workflow cancelled", workflowId: id });
   } catch (error) {
