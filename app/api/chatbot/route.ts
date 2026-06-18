@@ -146,10 +146,10 @@ export async function POST(request: NextRequest) {
       const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
 
       if (!anthropicApiKey) {
+        console.error("[chatbot] AI provider API key is not configured");
         return apiError(request, {
           code: "INTERNAL",
-          message:
-            "ANTHROPIC_API_KEY is not configured. Please set it in your environment variables.",
+          message: "AI service is not available. Please contact support.",
           status: 500,
           stage: "chatbot-config",
         });

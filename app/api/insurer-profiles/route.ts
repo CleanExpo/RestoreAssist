@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
     const profiles = await (prisma as any).insurerProfile.findMany({
       where: includeInactive ? undefined : { isActive: true },
       orderBy: [{ isSystemProfile: "desc" }, { name: "asc" }],
+      take: 500,
     });
 
     return NextResponse.json({ data: profiles });

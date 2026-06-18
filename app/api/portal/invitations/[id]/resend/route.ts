@@ -4,6 +4,15 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Resend } from "resend";
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 // Lazy initialize Resend to avoid build errors if API key is missing
 function getResend() {
   if (!process.env.RESEND_API_KEY) {
@@ -100,8 +109,8 @@ export async function POST(
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h2>Reminder: You've been invited to the Client Portal</h2>
-            <p>Hi ${invitation.client.name},</p>
-            <p>This is a reminder that ${contractorName} has invited you to access the Client Portal where you can:</p>
+            <p>Hi ${escapeHtml(invitation.client.name)},</p>
+            <p>This is a reminder that ${escapeHtml(contractorName)} has invited you to access the Client Portal where you can:</p>
             <ul>
               <li>View your restoration project reports</li>
               <li>Review and approve scope of work</li>
