@@ -65,39 +65,42 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Find customer
-      const customers = await stripe.customers.list({
-        email: session.user.email!,
-        limit: 1,
+      // Look up user from DB to get stored subscriptionId / stripeCustomerId.
+      // Using session.user.email for Stripe lookups is unsafe — email claims can
+      // be stale and multiple Stripe customer records may share an email.
+      const userRecord = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { stripeCustomerId: true, subscriptionId: true },
       });
 
-      if (customers.data.length === 0) {
-        return apiError(request, {
-          code: "NOT_FOUND",
-          message: "Customer not found",
-          status: 404,
+      let subscriptionToCancel = userRecord?.subscriptionId ?? null;
+
+      if (!subscriptionToCancel) {
+        // Fall back: find via stored stripeCustomerId
+        if (!userRecord?.stripeCustomerId) {
+          return apiError(request, {
+            code: "NOT_FOUND",
+            message: "No Stripe customer found",
+            status: 404,
+          });
+        }
+        const subscriptions = await stripe.subscriptions.list({
+          customer: userRecord.stripeCustomerId,
+          status: "active",
+          limit: 1,
         });
+        if (subscriptions.data.length === 0) {
+          return apiError(request, {
+            code: "NOT_FOUND",
+            message: "No active subscription found",
+            status: 404,
+          });
+        }
+        subscriptionToCancel = subscriptions.data[0].id;
       }
-
-      const customer = customers.data[0];
-      const subscriptions = await stripe.subscriptions.list({
-        customer: customer.id,
-        status: "active",
-        limit: 1,
-      });
-
-      if (subscriptions.data.length === 0) {
-        return apiError(request, {
-          code: "NOT_FOUND",
-          message: "No active subscription found",
-          status: 404,
-        });
-      }
-
-      const subscription = subscriptions.data[0];
 
       // Cancel subscription at period end
-      await stripe.subscriptions.update(subscription.id, {
+      await stripe.subscriptions.update(subscriptionToCancel, {
         cancel_at_period_end: true,
       });
 

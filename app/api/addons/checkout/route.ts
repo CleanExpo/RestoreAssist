@@ -105,8 +105,11 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      if (user.subscriptionStatus !== "ACTIVE") {
-        // Preserve upgradeRequired flag for client UX
+      // TRIAL users should be able to purchase add-ons (reports activate on subscription).
+      // LIFETIME users have subscriptionStatus "ACTIVE" so they pass too.
+      // Block only CANCELED, PAST_DUE, INACTIVE, and other lapsed states.
+      const ADDON_ALLOWED_STATUSES = ["ACTIVE", "TRIAL"];
+      if (!ADDON_ALLOWED_STATUSES.includes(user.subscriptionStatus ?? "")) {
         return NextResponse.json(
           {
             error: "Active subscription required to purchase add-ons",
