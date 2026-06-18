@@ -25,9 +25,22 @@ export async function GET(request: NextRequest) {
   const statusFilter = searchParams.get("status")?.trim() ?? ""; // incomplete | stale | all
   const search = searchParams.get("search")?.trim() ?? "";
 
+  // Scope to this admin's organisation — prevents cross-tenant data leakage.
+  const adminUser = await prisma.user.findUnique({
+    where: { id: session!.user.id },
+    select: { organizationId: true },
+  });
+  const orgUserIds = await prisma.user
+    .findMany({
+      where: { organizationId: adminUser?.organizationId ?? "__none__" },
+      select: { id: true },
+    })
+    .then((users) => users.map((u) => u.id));
+
   // Build where clause for inspections that have workflows
   const inspectionWhere: Record<string, unknown> = {
     inspectionWorkflow: { isNot: null },
+    userId: { in: orgUserIds },
   };
 
   if (search) {

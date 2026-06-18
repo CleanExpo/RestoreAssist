@@ -119,6 +119,8 @@ export async function POST(request: NextRequest) {
   // We resolve which user/integration this belongs to via the signature check.
   const integrations = await (prisma as any).drNrpgIntegration.findMany({
     where: { isActive: true },
+    select: { id: true, userId: true, webhookSecret: true },
+    take: 100,
   });
 
   if (integrations.length === 0) {
