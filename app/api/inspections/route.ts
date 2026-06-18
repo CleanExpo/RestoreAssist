@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
           },
           include: {
             environmentalData: true,
-            moistureReadings: { take: 500, orderBy: { timestamp: "desc" } },
+            moistureReadings: { take: 500, orderBy: { recordedAt: "desc" } },
             affectedAreas: { take: 100 },
             scopeItems: { take: 500 },
             classifications: { take: 50 },
