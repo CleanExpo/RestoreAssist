@@ -259,7 +259,7 @@ export async function POST(request: NextRequest) {
 
       // Save the structured report as JSON
       await prisma.report.update({
-        where: { id: reportId },
+        where: { id: reportId, userId: user.id },
         data: {
           detailedReport: JSON.stringify(structuredReportData),
           reportDepthLevel: reportType === "basic" ? "Basic" : "Enhanced",
@@ -381,7 +381,7 @@ BUSINESS INFORMATION: If business information is provided in the REPORT DATA sec
 
     // Save the generated report
     await prisma.report.update({
-      where: { id: reportId },
+      where: { id: reportId, userId: user.id },
       data: {
         detailedReport: inspectionReport,
         reportDepthLevel: report.reportDepthLevel || "Enhanced",

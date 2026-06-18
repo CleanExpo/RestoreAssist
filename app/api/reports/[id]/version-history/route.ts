@@ -103,7 +103,7 @@ export async function POST(
     const updatedHistory = [...existingHistory, newEntry];
 
     await prisma.report.update({
-      where: { id },
+      where: { id, userId: user.id },
       data: {
         versionHistory: JSON.stringify(updatedHistory),
         reportVersion: newVersion,

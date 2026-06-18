@@ -177,7 +177,7 @@ export async function POST(request: NextRequest) {
       const scopeDocument = buildScopeOfWorksDocument(scopeData);
 
       const updatedReport = await prisma.report.update({
-        where: { id: reportId },
+        where: { id: reportId, userId: user.id },
         data: {
           scopeOfWorksDocument: scopeDocument,
           scopeOfWorksData: JSON.stringify(scopeData),
