@@ -399,7 +399,7 @@ export async function PUT(
       // Update invoice without line items
       const invoice = await prisma.$transaction(async (tx) => {
         const updated = await tx.invoice.update({
-          where: { id },
+          where: { id, userId: session.user.id },
           data: updateData,
           include: {
             lineItems: {
@@ -499,7 +499,7 @@ export async function DELETE(
 
     // Delete invoice (cascade will handle related records)
     await prisma.invoice.delete({
-      where: { id },
+      where: { id, userId: session.user.id },
     });
 
     await recordMutationAudit({
