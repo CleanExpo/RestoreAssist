@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
 import { toPostgresTsquery, validateSearchParams } from "@/lib/search-utils";
 import { apiError, fromException } from "@/lib/api-errors";
 
@@ -49,15 +48,23 @@ export async function GET(request: NextRequest) {
     const tsquery = toPostgresTsquery(query);
     const userId = session.user.id;
 
-    let whereFragment = Prisma.sql`"userId" = ${userId}
-      AND search_vector @@ to_tsquery('english', ${tsquery})`;
+    // RA-6800: Prisma.sql removed in Prisma 6; use $queryRawUnsafe with
+    // positional parameters. Column names are hardcoded; user values are bound.
+    const whereParams: unknown[] = [userId, tsquery];
+    let pIdx = 2;
+
+    let where = `"userId" = $1 AND search_vector @@ to_tsquery('english', $2)`;
 
     if (status && status !== "all") {
-      whereFragment = Prisma.sql`${whereFragment} AND "status" = ${status}`;
+      where += ` AND "status" = $${++pIdx}`;
+      whereParams.push(status);
     }
 
-    const clients = await prisma.$queryRaw<any[]>(Prisma.sql`
-      SELECT
+    const limitIdx = ++pIdx;
+    const offsetIdx = ++pIdx;
+
+    const clients = (await prisma.$queryRawUnsafe(
+      `SELECT
         id,
         name,
         email,
@@ -67,19 +74,21 @@ export async function GET(request: NextRequest) {
         status,
         "createdAt",
         "updatedAt",
-        ts_rank(search_vector, to_tsquery('english', ${tsquery})) as rank
+        ts_rank(search_vector, to_tsquery('english', $2)) as rank
       FROM "Client"
-      WHERE ${whereFragment}
+      WHERE ${where}
       ORDER BY rank DESC, "updatedAt" DESC
-      LIMIT ${limit}
-      OFFSET ${offset}
-    `);
+      LIMIT $${limitIdx}
+      OFFSET $${offsetIdx}`,
+      ...whereParams,
+      limit,
+      offset,
+    )) as any[];
 
-    const totalResult = await prisma.$queryRaw<[{ count: bigint }]>(Prisma.sql`
-      SELECT COUNT(*) as count
-      FROM "Client"
-      WHERE ${whereFragment}
-    `);
+    const totalResult = (await prisma.$queryRawUnsafe(
+      `SELECT COUNT(*) as count FROM "Client" WHERE ${where}`,
+      ...whereParams,
+    )) as [{ count: bigint }];
 
     const totalCount = Number(totalResult[0].count);
 
