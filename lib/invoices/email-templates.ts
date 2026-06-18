@@ -230,13 +230,13 @@ export function generateInvoiceSentEmail(data: InvoiceEmailData): string {
 
       <p style="margin-top: 30px;">You can view and download your invoice using the button above. If you have any questions about this invoice, please don't hesitate to contact us.</p>
 
-      ${businessEmail ? `<p style="margin-top: 20px; font-size: 14px; color: #6b7280;"><strong>Questions?</strong> Contact us at <a href="mailto:${businessEmail}" style="color: #0ea5e9;">${businessEmail}</a>${businessPhone ? ` or ${businessPhone}` : ""}</p>` : ""}
+      ${businessEmail ? `<p style="margin-top: 20px; font-size: 14px; color: #6b7280;"><strong>Questions?</strong> Contact us at <a href="mailto:${escapeHtml(businessEmail)}" style="color: #0ea5e9;">${escapeHtml(businessEmail)}</a>${businessPhone ? ` or ${escapeHtml(businessPhone)}` : ""}</p>` : ""}
     </div>
 
     <div class="footer">
       <p><strong>${escapeHtml(businessName)}</strong></p>
-      ${businessEmail ? `<p><a href="mailto:${businessEmail}">${businessEmail}</a></p>` : ""}
-      ${businessPhone ? `<p>${businessPhone}</p>` : ""}
+      ${businessEmail ? `<p><a href="mailto:${escapeHtml(businessEmail)}">${escapeHtml(businessEmail)}</a></p>` : ""}
+      ${businessPhone ? `<p>${escapeHtml(businessPhone)}</p>` : ""}
       <p style="margin-top: 15px; font-size: 12px;">This is an automated email from RestoreAssist. Please do not reply directly to this email.</p>
     </div>
   </div>
@@ -392,14 +392,14 @@ export function generatePaymentReceivedEmail(data: PaymentEmailData): string {
         </div>
         <div class="detail-row">
           <span class="detail-label">Payment Method:</span>
-          <span class="detail-value">${paymentMethod}</span>
+          <span class="detail-value">${escapeHtml(paymentMethod)}</span>
         </div>
         ${
           reference
             ? `
         <div class="detail-row">
           <span class="detail-label">Reference:</span>
-          <span class="detail-value">${reference}</span>
+          <span class="detail-value">${escapeHtml(reference)}</span>
         </div>
         `
             : ""
@@ -654,8 +654,8 @@ export function generateOverdueReminderEmail(data: ReminderEmailData): string {
           ? `
       <p style="margin-top: 20px; padding: 15px; background-color: #f9fafb; border-radius: 4px; font-size: 14px;">
         <strong>Need Help?</strong><br/>
-        ${businessEmail ? `Email: <a href="mailto:${businessEmail}" style="color: #ef4444;">${businessEmail}</a><br/>` : ""}
-        ${businessPhone ? `Phone: ${businessPhone}` : ""}
+        ${businessEmail ? `Email: <a href="mailto:${escapeHtml(businessEmail)}" style="color: #ef4444;">${escapeHtml(businessEmail)}</a><br/>` : ""}
+        ${businessPhone ? `Phone: ${escapeHtml(businessPhone)}` : ""}
       </p>
       `
           : ""
@@ -666,8 +666,8 @@ export function generateOverdueReminderEmail(data: ReminderEmailData): string {
 
     <div class="footer">
       <p><strong>${escapeHtml(businessName)}</strong></p>
-      ${businessEmail ? `<p><a href="mailto:${businessEmail}">${businessEmail}</a></p>` : ""}
-      ${businessPhone ? `<p>${businessPhone}</p>` : ""}
+      ${businessEmail ? `<p><a href="mailto:${escapeHtml(businessEmail)}">${escapeHtml(businessEmail)}</a></p>` : ""}
+      ${businessPhone ? `<p>${escapeHtml(businessPhone)}</p>` : ""}
       <p style="margin-top: 15px; font-size: 12px;">This is an automated reminder from RestoreAssist.</p>
     </div>
   </div>
@@ -859,8 +859,8 @@ export function generateUpcomingPaymentReminderEmail(
           ? `
       <p style="margin-top: 20px; font-size: 14px; color: #6b7280;">
         <strong>Questions?</strong><br/>
-        ${businessEmail ? `Email: <a href="mailto:${businessEmail}" style="color: #f59e0b;">${businessEmail}</a><br/>` : ""}
-        ${businessPhone ? `Phone: ${businessPhone}` : ""}
+        ${businessEmail ? `Email: <a href="mailto:${escapeHtml(businessEmail)}" style="color: #f59e0b;">${escapeHtml(businessEmail)}</a><br/>` : ""}
+        ${businessPhone ? `Phone: ${escapeHtml(businessPhone)}` : ""}
       </p>
       `
           : ""
@@ -869,8 +869,8 @@ export function generateUpcomingPaymentReminderEmail(
 
     <div class="footer">
       <p><strong>${escapeHtml(businessName)}</strong></p>
-      ${businessEmail ? `<p><a href="mailto:${businessEmail}">${businessEmail}</a></p>` : ""}
-      ${businessPhone ? `<p>${businessPhone}</p>` : ""}
+      ${businessEmail ? `<p><a href="mailto:${escapeHtml(businessEmail)}">${escapeHtml(businessEmail)}</a></p>` : ""}
+      ${businessPhone ? `<p>${escapeHtml(businessPhone)}</p>` : ""}
       <p style="margin-top: 15px; font-size: 12px;">This is an automated reminder from RestoreAssist.</p>
     </div>
   </div>
