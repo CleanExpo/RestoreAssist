@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
 import { toPostgresTsquery, validateSearchParams } from "@/lib/search-utils";
 
 export async function GET(request: NextRequest) {
@@ -44,31 +43,41 @@ export async function GET(request: NextRequest) {
     const tsquery = toPostgresTsquery(query);
     const userId = session.user.id;
 
-    // RA-892 / RA-1167: Build WHERE via Prisma.sql fragments so all values are
-    // parameterized. Previous string-interpolated whereClause was SQL-injectable
-    // via ?status=' OR 1=1-- and similar payloads (CLAUDE.md rule 6).
-    let whereFragment = Prisma.sql`"userId" = ${userId}
-      AND search_vector @@ to_tsquery('english', ${tsquery})`;
+    // RA-892 / RA-1167 / RA-6800: Build WHERE with positional parameters so all
+    // user-supplied values are bound via $queryRawUnsafe — never interpolated.
+    // Column names and SQL operators are hardcoded, not user-supplied.
+    // Prisma.sql was removed in Prisma 6; $queryRawUnsafe is the correct API
+    // for composable parameterized queries with dynamic WHERE clauses.
+    const whereParams: unknown[] = [userId, tsquery];
+    let pIdx = 2; // $1=userId, $2=tsquery already reserved
+
+    let where = `"userId" = $1 AND search_vector @@ to_tsquery('english', $2)`;
 
     if (status && status !== "all") {
-      whereFragment = Prisma.sql`${whereFragment} AND "status" = ${status}`;
+      where += ` AND "status" = $${++pIdx}`;
+      whereParams.push(status);
     }
 
     if (hazardType && hazardType !== "all") {
-      whereFragment = Prisma.sql`${whereFragment} AND "hazardType" = ${hazardType}`;
+      where += ` AND "hazardType" = $${++pIdx}`;
+      whereParams.push(hazardType);
     }
 
     if (dateFrom) {
-      whereFragment = Prisma.sql`${whereFragment} AND "createdAt" >= ${dateFrom}::timestamp`;
+      where += ` AND "createdAt" >= $${++pIdx}::timestamp`;
+      whereParams.push(dateFrom);
     }
 
     if (dateTo) {
-      whereFragment = Prisma.sql`${whereFragment} AND "createdAt" <= ${dateTo}::timestamp`;
+      where += ` AND "createdAt" <= $${++pIdx}::timestamp`;
+      whereParams.push(dateTo);
     }
 
-    // Execute search query — all values are parameterized by Prisma.sql
-    const reports = await prisma.$queryRaw<any[]>(Prisma.sql`
-      SELECT
+    const limitIdx = ++pIdx;
+    const offsetIdx = ++pIdx;
+
+    const reports = (await prisma.$queryRawUnsafe(
+      `SELECT
         id,
         "reportNumber",
         title,
@@ -80,20 +89,21 @@ export async function GET(request: NextRequest) {
         status,
         "createdAt",
         "updatedAt",
-        ts_rank(search_vector, to_tsquery('english', ${tsquery})) as rank
+        ts_rank(search_vector, to_tsquery('english', $2)) as rank
       FROM "Report"
-      WHERE ${whereFragment}
+      WHERE ${where}
       ORDER BY rank DESC, "updatedAt" DESC
-      LIMIT ${limit}
-      OFFSET ${offset}
-    `);
+      LIMIT $${limitIdx}
+      OFFSET $${offsetIdx}`,
+      ...whereParams,
+      limit,
+      offset,
+    )) as any[];
 
-    // Get total count
-    const totalResult = await prisma.$queryRaw<[{ count: bigint }]>(Prisma.sql`
-      SELECT COUNT(*) as count
-      FROM "Report"
-      WHERE ${whereFragment}
-    `);
+    const totalResult = (await prisma.$queryRawUnsafe(
+      `SELECT COUNT(*) as count FROM "Report" WHERE ${where}`,
+      ...whereParams,
+    )) as [{ count: bigint }];
 
     const totalCount = Number(totalResult[0].count);
 
