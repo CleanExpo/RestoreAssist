@@ -5,6 +5,15 @@ import { prisma } from "@/lib/prisma";
 import { sanitizeString } from "@/lib/sanitize";
 import { parseDate } from "@/lib/parse-date";
 
+function safeJsonParse(value: string | null | undefined): unknown {
+  if (!value) return null;
+  try {
+    return safeJsonParse(value);
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -49,53 +58,53 @@ export async function GET(
     const parsedReport = {
       ...report,
       psychrometricReadings: report.psychrometricReadings
-        ? JSON.parse(report.psychrometricReadings)
+        ? safeJsonParse(report.psychrometricReadings)
         : null,
       moistureReadings: report.moistureReadings
-        ? JSON.parse(report.moistureReadings)
+        ? safeJsonParse(report.moistureReadings)
         : null,
       propertyCover: report.propertyCover
-        ? JSON.parse(report.propertyCover)
+        ? safeJsonParse(report.propertyCover)
         : null,
       contentsCover: report.contentsCover
-        ? JSON.parse(report.contentsCover)
+        ? safeJsonParse(report.contentsCover)
         : null,
       liabilityCover: report.liabilityCover
-        ? JSON.parse(report.liabilityCover)
+        ? safeJsonParse(report.liabilityCover)
         : null,
       businessInterruption: report.businessInterruption
-        ? JSON.parse(report.businessInterruption)
+        ? safeJsonParse(report.businessInterruption)
         : null,
       additionalCover: report.additionalCover
-        ? JSON.parse(report.additionalCover)
+        ? safeJsonParse(report.additionalCover)
         : null,
       // Phase 3 & 4: Parse analysis and tier responses
       technicianReportAnalysis: report.technicianReportAnalysis
-        ? JSON.parse(report.technicianReportAnalysis)
+        ? safeJsonParse(report.technicianReportAnalysis)
         : null,
       tier1Responses: report.tier1Responses
-        ? JSON.parse(report.tier1Responses)
+        ? safeJsonParse(report.tier1Responses)
         : null,
       tier2Responses: report.tier2Responses
-        ? JSON.parse(report.tier2Responses)
+        ? safeJsonParse(report.tier2Responses)
         : null,
       tier3Responses: report.tier3Responses
-        ? JSON.parse(report.tier3Responses)
+        ? safeJsonParse(report.tier3Responses)
         : null,
       // Phase 6 & 7: Parse scope and cost data
       scopeOfWorksData: report.scopeOfWorksData
-        ? JSON.parse(report.scopeOfWorksData)
+        ? safeJsonParse(report.scopeOfWorksData)
         : null,
       costEstimationData: report.costEstimationData
-        ? JSON.parse(report.costEstimationData)
+        ? safeJsonParse(report.costEstimationData)
         : null,
       // Equipment Tools: Parse psychrometric and equipment data
       psychrometricAssessment: report.psychrometricAssessment
-        ? JSON.parse(report.psychrometricAssessment)
+        ? safeJsonParse(report.psychrometricAssessment)
         : null,
-      scopeAreas: report.scopeAreas ? JSON.parse(report.scopeAreas) : null,
+      scopeAreas: report.scopeAreas ? safeJsonParse(report.scopeAreas) : null,
       equipmentSelection: report.equipmentSelection
-        ? JSON.parse(report.equipmentSelection)
+        ? safeJsonParse(report.equipmentSelection)
         : null,
     };
 
