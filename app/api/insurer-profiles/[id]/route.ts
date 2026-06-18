@@ -142,7 +142,7 @@ export async function DELETE(request: NextRequest, { params }: RouteContext) {
       );
     }
 
-    await (prisma as any).insurerProfile.delete({ where: { id } });
+    await (prisma as any).insurerProfile.delete({ where: { id, isSystemProfile: false } });
     return NextResponse.json({ data: { id } });
   } catch (error) {
     console.error("Error deleting insurer profile:", error);
