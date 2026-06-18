@@ -147,7 +147,7 @@ export async function PATCH(
     }
 
     await prisma.interviewSession.update({
-      where: { id },
+      where: { id, userId: user.id },
       data: data as {
         autoPopulatedFields?: string;
         status?: "COMPLETED" | "IN_PROGRESS" | "STARTED" | "ABANDONED";

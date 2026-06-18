@@ -243,7 +243,12 @@ export async function POST(
 
     // Update alt text and invalidate cached JSON-LD so it regenerates
     const updated = await prisma.mediaAsset.update({
-      where: { id },
+      where: {
+        id,
+        workspace: {
+          members: { some: { userId: session.user.id, status: "ACTIVE" } },
+        },
+      },
       data: {
         altText: altText.trim(),
         seoJsonLd: null as any, // force regeneration on next GET

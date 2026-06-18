@@ -46,7 +46,7 @@ export async function POST(
       }
 
       const updated = await prisma.webhookEvent.update({
-        where: { id },
+        where: { id, integration: { userId } },
         data: {
           status: "PENDING",
           retryCount: { increment: 1 },

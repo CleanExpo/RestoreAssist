@@ -83,7 +83,7 @@ export async function PUT(
     if (data !== undefined) updateData.data = data as object;
 
     const doc = await prisma.restorationDocument.update({
-      where: { id },
+      where: { id, userId: session.user.id },
       data: updateData,
     });
 

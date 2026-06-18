@@ -104,7 +104,7 @@ export async function PATCH(
     }
 
     const updated = await prisma.scope.update({
-      where: { id },
+      where: { id, report: { userId: session.user.id } },
       data,
     });
 

@@ -63,7 +63,7 @@ export async function POST(
     const { token, expiresAt, rotatedAt } = mintPublicToken();
 
     await prisma.invoice.update({
-      where: { id },
+      where: { id, userId: session.user.id },
       data: {
         publicToken: token,
         publicTokenExpiresAt: expiresAt,

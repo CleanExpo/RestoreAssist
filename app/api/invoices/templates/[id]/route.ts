@@ -141,7 +141,7 @@ export async function PUT(
     }
 
     const template = await prisma.invoiceTemplate.update({
-      where: { id },
+      where: { id, userId: session.user.id },
       data: {
         name,
         description,
@@ -254,7 +254,7 @@ export async function DELETE(
     }
 
     await prisma.invoiceTemplate.delete({
-      where: { id },
+      where: { id, userId: session.user.id },
     });
 
     return NextResponse.json({ success: true });
