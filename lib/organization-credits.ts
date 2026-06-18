@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { LIFETIME_PLAN_NAME } from "@/lib/lifetime-pricing";
 
 /**
  * Get the organization owner (Admin) for a user
@@ -74,7 +75,7 @@ export async function getEffectiveSubscription(userId: string): Promise<{
 
     const status = user?.lifetimeAccess ? "ACTIVE" : user?.subscriptionStatus;
     const credits = user?.lifetimeAccess ? 999999 : user?.creditsRemaining;
-    const plan = user?.lifetimeAccess ? "Lifetime" : user?.subscriptionPlan;
+    const plan = user?.lifetimeAccess ? LIFETIME_PLAN_NAME : user?.subscriptionPlan;
 
     return user
       ? {
@@ -108,7 +109,7 @@ export async function getEffectiveSubscription(userId: string): Promise<{
 
   const status = owner?.lifetimeAccess ? "ACTIVE" : owner?.subscriptionStatus;
   const credits = owner?.lifetimeAccess ? 999999 : owner?.creditsRemaining;
-  const plan = owner?.lifetimeAccess ? "Lifetime" : owner?.subscriptionPlan;
+  const plan = owner?.lifetimeAccess ? LIFETIME_PLAN_NAME : owner?.subscriptionPlan;
 
   return owner
     ? {
