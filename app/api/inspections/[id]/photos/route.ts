@@ -46,6 +46,7 @@ export async function GET(
     const photos = await prisma.inspectionPhoto.findMany({
       where: { inspectionId: id },
       orderBy: { timestamp: "desc" },
+      take: 200,
       select: {
         id: true,
         url: true,
