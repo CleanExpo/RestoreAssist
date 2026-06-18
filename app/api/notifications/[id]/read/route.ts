@@ -37,7 +37,7 @@ export async function POST(
       }
 
       const updated = await prisma.notification.update({
-        where: { id },
+        where: { id, userId: session.user.id },
         data: { read: true },
       });
 
