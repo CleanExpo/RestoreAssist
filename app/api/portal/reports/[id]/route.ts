@@ -49,9 +49,8 @@ export async function GET(
           },
         },
         approvals: {
-          orderBy: {
-            createdAt: "desc",
-          },
+          orderBy: { createdAt: "desc" },
+          take: 50,
         },
       },
     });

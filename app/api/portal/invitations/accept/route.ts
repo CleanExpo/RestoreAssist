@@ -7,14 +7,17 @@ import { sanitizeString } from "@/lib/sanitize";
 // POST /api/portal/invitations/accept - Accept invitation and create ClientUser account
 export async function POST(request: NextRequest) {
   try {
+    const body = await request.json();
+    const { token, password } = body;
+
+    // Rate-limit per invitation token so brute-force of a specific invite
+    // is bounded even when IP-based keying is bypassable in serverless cold starts.
     const rateLimited = await applyRateLimit(request, {
       maxRequests: 10,
       prefix: "portal-invite-accept",
+      key: typeof token === "string" ? token : "no-token",
     });
     if (rateLimited) return rateLimited;
-
-    const body = await request.json();
-    const { token, password } = body;
     // RA-6800: sanitize user-supplied strings before writing to DB
     const name = sanitizeString(body.name, 200);
     const phone =

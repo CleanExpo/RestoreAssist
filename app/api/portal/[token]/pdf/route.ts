@@ -26,9 +26,9 @@ export async function GET(
     const inspection = await prisma.inspection.findUnique({
       where: { id: inspectionId },
       include: {
-        moistureReadings: { orderBy: { recordedAt: "asc" } },
-        affectedAreas: true,
-        scopeItems: { where: { isSelected: true } },
+        moistureReadings: { orderBy: { recordedAt: "asc" }, take: 500 },
+        affectedAreas: { take: 100 },
+        scopeItems: { where: { isSelected: true }, take: 200 },
         // RA-1383 (M-7): EnvironmentalData is a time-series — use the most recent reading
         environmentalData: { orderBy: { recordedAt: "desc" }, take: 1 },
         classifications: { orderBy: { createdAt: "desc" }, take: 1 },

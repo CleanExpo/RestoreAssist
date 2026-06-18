@@ -19,11 +19,9 @@ export async function GET(
     const inspection = await prisma.inspection.findUnique({
       where: { id: inspectionId },
       include: {
-        moistureReadings: true,
-        affectedAreas: true,
-        scopeItems: {
-          where: { isSelected: true },
-        },
+        moistureReadings: { take: 500, orderBy: { recordedAt: "desc" } },
+        affectedAreas: { take: 100 },
+        scopeItems: { where: { isSelected: true }, take: 200 },
         report: {
           select: { status: true, id: true },
         },
