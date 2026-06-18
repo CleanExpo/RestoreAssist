@@ -39,7 +39,7 @@ export async function DELETE(
   }
 
   await prisma.contentsPackOutItem.delete({
-    where: { id: itemId },
+    where: { id: itemId, inspectionId: id },
   });
 
   return NextResponse.json({ deleted: true });

@@ -89,7 +89,7 @@ export async function PUT(
     }
 
     const integration = await prisma.integration.update({
-      where: { id },
+      where: { id, userId: session.user.id },
       data: {
         name,
         description,

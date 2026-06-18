@@ -91,9 +91,9 @@ export async function POST(
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
 
-      // Get the signature record
+      // Get the signature record — scope by instanceId to prevent cross-form IDOR
       const signature = await prisma.authorityFormSignature.findUnique({
-        where: { id: signatureId },
+        where: { id: signatureId, instanceId: formId },
       });
 
       if (!signature) {
@@ -119,7 +119,7 @@ export async function POST(
 
       // Update signature record
       await prisma.authorityFormSignature.update({
-        where: { id: signatureId },
+        where: { id: signatureId, instanceId: formId },
         data: {
           signatureRequestToken: token,
           signatureRequestSent: true,

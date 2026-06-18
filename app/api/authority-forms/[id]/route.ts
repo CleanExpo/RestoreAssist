@@ -114,7 +114,16 @@ export async function PUT(
     }
 
     const updatedForm = await prisma.authorityFormInstance.update({
-      where: { id },
+      where: {
+        id,
+        report: {
+          OR: [
+            { userId: session.user.id },
+            { assignedManagerId: session.user.id },
+            { assignedAdminId: session.user.id },
+          ],
+        },
+      },
       data: updateData,
       include: {
         template: true,
@@ -177,7 +186,16 @@ export async function DELETE(
 
     // Delete form (signatures will be cascade deleted)
     await prisma.authorityFormInstance.delete({
-      where: { id },
+      where: {
+        id,
+        report: {
+          OR: [
+            { userId: session.user.id },
+            { assignedManagerId: session.user.id },
+            { assignedAdminId: session.user.id },
+          ],
+        },
+      },
     });
 
     return NextResponse.json({ message: "Form deleted successfully" });
