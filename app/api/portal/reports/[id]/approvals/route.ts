@@ -82,7 +82,7 @@ export async function POST(
       if (existingApproval) {
         // Update existing approval
         approval = await prisma.reportApproval.update({
-          where: { id: existingApproval.id },
+          where: { id: existingApproval.id, reportId },
           data: {
             status,
             respondedAt: new Date(),
