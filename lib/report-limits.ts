@@ -96,9 +96,12 @@ export async function getUserReportLimits(
     const isLifetime =
       user.lifetimeAccess === true ||
       user.subscriptionPlan === LIFETIME_PLAN_NAME;
+    const isYearly =
+      !isLifetime &&
+      (user.subscriptionPlan?.toLowerCase().includes("year") ?? false);
     const plan = isLifetime
       ? { reportLimit: 999 }
-      : user.subscriptionPlan === "Yearly Plan"
+      : isYearly
         ? PRICING_CONFIG.pricing.yearly
         : PRICING_CONFIG.pricing.monthly;
 
