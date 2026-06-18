@@ -164,6 +164,15 @@ export async function POST(request: NextRequest) {
           (userBefore?.subscriptionStatus !== "ACTIVE" ||
             !userBefore?.lastBillingDate);
 
+        // Only reset the monthly counter when the Stripe billing period has
+        // actually rolled over. Without this guard a user can call this endpoint
+        // mid-month to zero out monthlyReportsUsed and exceed their plan limit.
+        const periodStart = subPeriodStart(activeSubscription);
+        const lastBillingTs = userBefore?.lastBillingDate
+          ? Math.floor(userBefore.lastBillingDate.getTime() / 1000)
+          : 0;
+        const billingPeriodChanged = periodStart > lastBillingTs;
+
         // Prepare update data
         const updateData: any = {
           subscriptionStatus: "ACTIVE",
@@ -172,10 +181,10 @@ export async function POST(request: NextRequest) {
           subscriptionId: activeSubscription.id,
           subscriptionEndsAt: new Date(subPeriodEnd(activeSubscription) * 1000),
           nextBillingDate: new Date(subPeriodEnd(activeSubscription) * 1000),
-          lastBillingDate: new Date(subPeriodStart(activeSubscription) * 1000),
-          monthlyReportsUsed: 0,
+          lastBillingDate: new Date(periodStart * 1000),
           monthlyResetDate: nextReset,
           // Don't set creditsRemaining for active subscriptions - they use monthly limits
+          ...(billingPeriodChanged ? { monthlyReportsUsed: 0 } : {}),
         };
 
         // Grant signup bonus (10 reports) if first subscription
