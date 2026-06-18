@@ -25,15 +25,14 @@ export async function DELETE(
     );
   }
 
-  // Verify area belongs to inspection
-  const area = await prisma.affectedArea.findFirst({
+  // Atomic deleteMany scopes by inspectionId — closes TOCTOU between the
+  // findFirst checks above and the delete.
+  const deleted = await prisma.affectedArea.deleteMany({
     where: { id: areaId, inspectionId },
   });
-  if (!area) {
+  if (deleted.count === 0) {
     return NextResponse.json({ error: "Area not found" }, { status: 404 });
   }
-
-  await prisma.affectedArea.delete({ where: { id: areaId } });
 
   return NextResponse.json({ success: true });
 }

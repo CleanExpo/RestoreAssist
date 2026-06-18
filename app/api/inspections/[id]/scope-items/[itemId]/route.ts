@@ -41,8 +41,10 @@ export async function PATCH(
     }
   }
 
-  const updated = await prisma.scopeItem.update({
-    where: { id: itemId },
+  // updateMany scopes by inspectionId — closes TOCTOU between findFirst checks
+  // above and this write.
+  const result = await prisma.scopeItem.updateMany({
+    where: { id: itemId, inspectionId: id },
     data: {
       ...(body.description !== undefined && {
         description: String(body.description).slice(0, 2000),
@@ -63,6 +65,9 @@ export async function PATCH(
       }),
     },
   });
+  if (result.count === 0)
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const updated = await prisma.scopeItem.findUnique({ where: { id: itemId } });
   return NextResponse.json({ scopeItem: updated });
 }
 
