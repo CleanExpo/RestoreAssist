@@ -8,7 +8,7 @@ import { parseDate } from "@/lib/parse-date";
 function safeJsonParse(value: string | null | undefined): unknown {
   if (!value) return null;
   try {
-    return safeJsonParse(value);
+    return JSON.parse(value as string);
   } catch {
     return null;
   }
