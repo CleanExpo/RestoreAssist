@@ -36,6 +36,7 @@ export async function GET(
     const evidenceItems = await prisma.evidenceItem.findMany({
       where: { inspectionId },
       orderBy: { capturedAt: "desc" },
+      take: 500,
     });
 
     return NextResponse.json({ evidenceItems });

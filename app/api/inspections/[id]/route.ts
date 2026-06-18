@@ -266,14 +266,17 @@ export async function GET(request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
 
-    // Demo inspection — no auth required, static data
-    if (id === "demo-inspection-001") {
-      return NextResponse.json({ inspection: DEMO_INSPECTION });
-    }
-
+    // Auth check runs before demo bypass — unauthenticated callers must not
+    // reach any inspection data, even static demo content. The demo is only
+    // needed for authenticated dashboard previews.
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Demo inspection — static data, no DB query. Auth required (see above).
+    if (id === "demo-inspection-001") {
+      return NextResponse.json({ inspection: DEMO_INSPECTION });
     }
 
     // RA-1711 batch 5 — adopt shared tenancy helper for read.

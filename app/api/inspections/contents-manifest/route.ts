@@ -164,12 +164,13 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (err) {
-    const message =
-      err instanceof Error
-        ? err.message
-        : "Contents manifest generation failed";
-    console.error("[RA-405] Contents manifest error:", message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    // Log the real error server-side; never expose error.message to the
+    // client — AI provider errors can leak rate-limit or topology details.
+    console.error("[RA-405] Contents manifest error:", err);
+    return NextResponse.json(
+      { error: "Contents manifest generation failed" },
+      { status: 500 },
+    );
   }
 }
 
