@@ -35,7 +35,7 @@ export async function PATCH(
     const { name, description, claimType, items } = body;
 
     const updated = await (prisma as any).scopeTemplate.update({
-      where: { id },
+      where: { id, userId: session.user.id },
       data: {
         ...(name !== undefined && { name: name.trim() }),
         ...(description !== undefined && {
@@ -90,7 +90,7 @@ export async function DELETE(
       });
     }
 
-    await (prisma as any).scopeTemplate.delete({ where: { id } });
+    await (prisma as any).scopeTemplate.delete({ where: { id, userId: session.user.id } });
 
     return NextResponse.json({ success: true });
   } catch (err) {

@@ -230,7 +230,7 @@ export async function POST(
   });
 
   await prisma.inspection.update({
-    where: { id },
+    where: { id, userId: tenancy.data.userId },
     data: { claimType: "FIRE" },
   });
 
@@ -276,7 +276,7 @@ export async function DELETE(
   );
 
   await prisma.inspection.update({
-    where: { id },
+    where: { id, userId: tenancy.data.userId },
     data: { claimType: null },
   });
 

@@ -163,7 +163,7 @@ export async function POST(
 
     const runAt = new Date();
     await prisma.inspectionPhoto.update({
-      where: { id: photo.id },
+      where: { id: photo.id, inspection: { userId } },
       data: {
         // Prisma's JSON input type requires a cast from a generic object.
         aiLabels: labels as Prisma.InputJsonValue,

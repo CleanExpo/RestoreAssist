@@ -64,7 +64,7 @@ export async function POST(
       }
 
       const updated = await prisma.contractorReview.update({
-        where: { id },
+        where: { id, profileId: review.profileId },
         data: {
           disputeStatus: "PENDING_REVIEW",
           disputeReason,
