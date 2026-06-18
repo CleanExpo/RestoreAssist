@@ -104,8 +104,14 @@ export async function GET(request: NextRequest) {
     // If userId is provided, validate that the user belongs to the same organization
     let targetUserId = session.user.id;
     if (userIdParam && userIdParam !== session.user.id) {
-      const isAdmin = session.user.role === "ADMIN";
-      const isManager = session.user.role === "MANAGER";
+      // Read role from DB — JWT role can be stale for the full token lifetime.
+      const currentUser = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { organizationId: true, role: true },
+      });
+
+      const isAdmin = currentUser?.role === "ADMIN";
+      const isManager = currentUser?.role === "MANAGER";
 
       // Only Admins and Managers can view other users' analytics
       if (!isAdmin && !isManager) {
@@ -117,12 +123,6 @@ export async function GET(request: NextRequest) {
           { status: 403 },
         );
       }
-
-      // Verify the target user is in the same organization
-      const currentUser = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: { organizationId: true, role: true },
-      });
 
       if (!currentUser?.organizationId) {
         return NextResponse.json(

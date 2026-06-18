@@ -332,12 +332,12 @@ export async function PUT(
       const invoice = await prisma.$transaction(async (tx) => {
         // Delete existing line items
         await tx.invoiceLineItem.deleteMany({
-          where: { invoiceId: id },
+          where: { invoiceId: id, invoice: { userId: session.user.id } },
         });
 
         // Update invoice and create new line items
         const updated = await tx.invoice.update({
-          where: { id },
+          where: { id, userId: session.user.id },
           data: {
             ...updateData,
             lineItems: {
