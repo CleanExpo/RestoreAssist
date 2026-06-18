@@ -89,12 +89,12 @@ export async function GET(request: NextRequest) {
           },
           include: {
             environmentalData: true,
-            moistureReadings: true,
-            affectedAreas: true,
-            scopeItems: true,
-            classifications: true,
-            costEstimates: true,
-            photos: true,
+            moistureReadings: { take: 500, orderBy: { timestamp: "desc" } },
+            affectedAreas: { take: 100 },
+            scopeItems: { take: 500 },
+            classifications: { take: 50 },
+            costEstimates: { take: 100 },
+            photos: { take: 200, orderBy: { timestamp: "desc" } },
           },
           orderBy: { createdAt: "desc" },
         });
