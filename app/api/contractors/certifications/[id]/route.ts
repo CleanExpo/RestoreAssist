@@ -58,7 +58,7 @@ export async function PATCH(
     } = body;
 
     const updated = await prisma.contractorCertification.update({
-      where: { id },
+      where: { id, profileId: certification.profileId },
       data: {
         ...(certificationType && { certificationType }),
         ...(certificationName && { certificationName }),
@@ -118,7 +118,7 @@ export async function DELETE(
     }
 
     await prisma.contractorCertification.delete({
-      where: { id },
+      where: { id, profileId: certification.profileId },
     });
 
     return NextResponse.json({ success: true });

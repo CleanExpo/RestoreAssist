@@ -42,7 +42,7 @@ export async function PATCH(
     const { suburb, radius, isActive, priority } = body;
 
     const updated = await prisma.contractorServiceArea.update({
-      where: { id },
+      where: { id, profileId: serviceArea.profileId },
       data: {
         ...(suburb !== undefined && { suburb }),
         ...(radius !== undefined && {
@@ -99,7 +99,7 @@ export async function DELETE(
     }
 
     await prisma.contractorServiceArea.delete({
-      where: { id },
+      where: { id, profileId: serviceArea.profileId },
     });
 
     return NextResponse.json({ success: true });
