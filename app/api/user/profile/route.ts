@@ -11,6 +11,7 @@ import {
   checkAndUpdateTrialStatus,
 } from "@/lib/trial-handling";
 import { sanitizeString, isValidABN } from "@/lib/sanitize";
+import { LIFETIME_PLAN_NAME } from "@/lib/lifetime-pricing";
 
 export async function GET(_request: NextRequest) {
   try {
@@ -216,7 +217,8 @@ export async function GET(_request: NextRequest) {
       trialStatus = await getTrialStatus(user.id);
     }
 
-    const isLifetime = subscriptionPlan === "Lifetime";
+    const isLifetime =
+      user.lifetimeAccess === true || subscriptionPlan === LIFETIME_PLAN_NAME;
     return NextResponse.json({
       profile: {
         ...user,

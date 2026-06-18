@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
-import { LIFETIME_PRICING_EMAIL } from "@/lib/lifetime-pricing";
+import { LIFETIME_PRICING_EMAIL, LIFETIME_PLAN_NAME } from "@/lib/lifetime-pricing";
 import { apiError, fromException } from "@/lib/api-errors";
 
 function subPeriodEnd(sub: import("stripe").Stripe.Subscription): number {
@@ -59,13 +59,13 @@ export async function POST(request: NextRequest) {
     if (
       user.lifetimeAccess ||
       (user.subscriptionStatus === "ACTIVE" &&
-        user.subscriptionPlan === "Lifetime")
+        user.subscriptionPlan === LIFETIME_PLAN_NAME)
     ) {
       return NextResponse.json({
         success: true,
         subscription: {
           status: "ACTIVE",
-          plan: "Lifetime",
+          plan: LIFETIME_PLAN_NAME,
           creditsRemaining: 999999,
         },
       });
@@ -219,7 +219,7 @@ export async function POST(request: NextRequest) {
                 data: {
                   lifetimeAccess: true,
                   subscriptionStatus: "ACTIVE",
-                  subscriptionPlan: "Lifetime",
+                  subscriptionPlan: LIFETIME_PLAN_NAME,
                   creditsRemaining: 999999,
                 },
               });
@@ -227,7 +227,7 @@ export async function POST(request: NextRequest) {
                 success: true,
                 subscription: {
                   status: "ACTIVE",
-                  plan: "Lifetime",
+                  plan: LIFETIME_PLAN_NAME,
                   creditsRemaining: 999999,
                 },
               });
