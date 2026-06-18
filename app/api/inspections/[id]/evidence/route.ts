@@ -169,7 +169,7 @@ export async function DELETE(
       );
     }
 
-    await prisma.evidenceItem.delete({ where: { id: evidenceId } });
+    await prisma.evidenceItem.delete({ where: { id: evidenceId, inspectionId } });
 
     return NextResponse.json({ success: true });
   } catch (error) {

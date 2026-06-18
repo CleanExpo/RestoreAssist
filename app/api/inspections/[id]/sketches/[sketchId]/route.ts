@@ -25,7 +25,7 @@ export async function PUT(
 
     const body = await request.json();
     const updated = await (prisma as any).claimSketch.update({
-      where: { id: sketchId },
+      where: { id: sketchId, inspection: { id, userId: session.user.id } },
       data: {
         sketchType: body.sketchType ?? sketch.sketchType,
         sketchData:
@@ -87,7 +87,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Sketch not found" }, { status: 404 });
     }
 
-    await (prisma as any).claimSketch.delete({ where: { id: sketchId } });
+    await (prisma as any).claimSketch.delete({ where: { id: sketchId, inspection: { id, userId: session.user.id } } });
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("DELETE sketch error:", error);
