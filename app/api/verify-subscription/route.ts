@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
+import { LIFETIME_PLAN_NAME } from "@/lib/lifetime-pricing";
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -92,7 +93,7 @@ export async function POST(request: NextRequest) {
             data: {
               lifetimeAccess: true,
               subscriptionStatus: "ACTIVE",
-              subscriptionPlan: "Lifetime",
+              subscriptionPlan: LIFETIME_PLAN_NAME,
               creditsRemaining: 999999,
               ...(checkoutSession.customer
                 ? { stripeCustomerId: checkoutSession.customer as string }
@@ -103,7 +104,7 @@ export async function POST(request: NextRequest) {
             success: true,
             subscription: {
               status: "ACTIVE",
-              plan: "Lifetime",
+              plan: LIFETIME_PLAN_NAME,
               creditsRemaining: 999999,
             },
           });
