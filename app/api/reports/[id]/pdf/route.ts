@@ -86,24 +86,23 @@ export async function GET(
       return NextResponse.json({ error: "Report not found" }, { status: 404 });
     }
 
+    function safeJsonParse(v: string | null | undefined): unknown {
+      if (!v) return null;
+      try {
+        return JSON.parse(v as string);
+      } catch {
+        return null;
+      }
+    }
+
     // Parse JSON fields before passing to PDF generator
     const reportData = {
       ...report,
-      moistureReadings: report.moistureReadings
-        ? JSON.parse(report.moistureReadings as string)
-        : null,
-      psychrometricReadings: report.psychrometricReadings
-        ? JSON.parse(report.psychrometricReadings as string)
-        : null,
-      psychrometricAssessment: report.psychrometricAssessment
-        ? JSON.parse(report.psychrometricAssessment as string)
-        : null,
-      equipmentSelection: report.equipmentSelection
-        ? JSON.parse(report.equipmentSelection as string)
-        : null,
-      scopeAreas: report.scopeAreas
-        ? JSON.parse(report.scopeAreas as string)
-        : null,
+      moistureReadings: safeJsonParse(report.moistureReadings as string | null),
+      psychrometricReadings: safeJsonParse(report.psychrometricReadings as string | null),
+      psychrometricAssessment: safeJsonParse(report.psychrometricAssessment as string | null),
+      equipmentSelection: safeJsonParse(report.equipmentSelection as string | null),
+      scopeAreas: safeJsonParse(report.scopeAreas as string | null),
     };
 
     const pdfBytes = await generateIICRCReportPDF(reportData as any);
