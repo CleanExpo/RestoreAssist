@@ -22,6 +22,7 @@ import {
   serializeToken,
 } from "@/lib/admin-impersonation";
 import { apiError } from "@/lib/api-errors";
+import { verifyAdminFromDb } from "@/lib/admin-auth";
 
 export async function POST(request: NextRequest) {
   // RA-1545 — defence-in-depth. Session cookies are SameSite=Lax by
@@ -40,13 +41,9 @@ export async function POST(request: NextRequest) {
       status: 401,
     });
   }
-  if (session.user.role !== "ADMIN") {
-    return apiError(request, {
-      code: "FORBIDDEN",
-      message: "Forbidden — admin only",
-      status: 403,
-    });
-  }
+  // DB-validated admin check — JWT role can be stale (CLAUDE.md rule 3).
+  const auth = await verifyAdminFromDb(session);
+  if (auth.response) return auth.response;
 
   // RA-1592 — feature flag gate. Impersonation mints a token but the
   // runtime session-swap is still pending security review. Until the
