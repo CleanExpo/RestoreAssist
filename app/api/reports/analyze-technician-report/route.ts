@@ -223,7 +223,7 @@ Be thorough and extract all relevant information. If information is not explicit
             error: "API Usage Limit Reached",
             message:
               "Your Anthropic API account has reached its usage limit. Please check your API account settings or contact your administrator. The analysis cannot be completed at this time.",
-            details: errorMessage,
+            ...(process.env.NODE_ENV === "development" ? { details: errorMessage } : {}),
           },
           { status: 429 },
         );
@@ -239,7 +239,7 @@ Be thorough and extract all relevant information. If information is not explicit
             error: "Insufficient API Credits",
             message:
               "Your Anthropic API account has insufficient credits. Please go to Plans & Billing in your Anthropic account to upgrade or purchase credits. The analysis cannot be completed until credits are available.",
-            details: errorMessage,
+            ...(process.env.NODE_ENV === "development" ? { details: errorMessage } : {}),
           },
           { status: 402 },
         );
@@ -253,7 +253,7 @@ Be thorough and extract all relevant information. If information is not explicit
           {
             error: "Rate Limit Exceeded",
             message: "Too many requests. Please wait a moment and try again.",
-            details: errorMessage,
+            ...(process.env.NODE_ENV === "development" ? { details: errorMessage } : {}),
           },
           { status: 429 },
         );
@@ -268,7 +268,7 @@ Be thorough and extract all relevant information. If information is not explicit
             error: "API Authentication Error",
             message:
               "There is an issue with your Anthropic API key. Please check your API integration settings.",
-            details: errorMessage,
+            ...(process.env.NODE_ENV === "development" ? { details: errorMessage } : {}),
           },
           { status: 401 },
         );

@@ -141,6 +141,17 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // When updating an existing report, verify ownership before the expensive AI call
+      if (reportId) {
+        const ownedReport = await prisma.report.findFirst({
+          where: { id: reportId, userId },
+          select: { id: true },
+        });
+        if (!ownedReport) {
+          return NextResponse.json({ error: "Report not found" }, { status: 404 });
+        }
+      }
+
       // Get API key (required for all users in Integrations; trial has unlimited reports during 15-day period)
       let anthropicApiKey: string;
       try {
@@ -427,7 +438,7 @@ Format the response as a well-structured professional report with clear sections
       if (reportId) {
         // Update existing report - don't deduct credits
         savedReport = await prisma.report.update({
-          where: { id: reportId },
+          where: { id: reportId, userId },
           data: {
             detailedReport: enhancedReport,
             ...(clientName && { clientName }),
