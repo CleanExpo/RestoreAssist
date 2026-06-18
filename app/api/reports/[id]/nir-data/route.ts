@@ -114,8 +114,10 @@ export async function POST(
         scopeItems = parsed;
       }
     } catch (parseErr) {
+      // Don't expose internal error details — log and return a generic message.
+      console.error("[nir-data] form data parse error:", parseErr);
       return NextResponse.json(
-        { error: (parseErr as Error).message ?? "Invalid JSON in form data" },
+        { error: "Invalid request data" },
         { status: 400 },
       );
     }
@@ -244,7 +246,7 @@ export async function POST(
     const nirDataJson = JSON.stringify(nirData);
 
     await prisma.report.update({
-      where: { id },
+      where: { id, userId: session.user.id },
       data: {
         moistureReadings: nirDataJson,
       },

@@ -185,7 +185,7 @@ export async function POST(request: NextRequest) {
 
       // Save the generated document and data
       await prisma.report.update({
-        where: { id: reportId },
+        where: { id: reportId, userId: user.id },
         data: {
           costEstimationDocument: costDocument,
           costEstimationData: JSON.stringify(costData),
