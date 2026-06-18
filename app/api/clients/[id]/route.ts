@@ -46,6 +46,7 @@ export async function GET(
             affectedArea: true,
           },
           orderBy: { createdAt: "desc" },
+          take: 50,
         },
         _count: {
           select: { reports: true },
@@ -185,7 +186,7 @@ export async function PUT(
     }
 
     const client = await prisma.client.update({
-      where: { id },
+      where: { id, userId: session.user.id },
       data: {
         name,
         email,
@@ -274,9 +275,17 @@ export async function DELETE(
       });
     }
 
-    await prisma.client.delete({
-      where: { id },
+    const deleted = await prisma.client.deleteMany({
+      where: { id, userId: session.user.id },
     });
+
+    if (deleted.count === 0) {
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Client not found",
+        status: 404,
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
