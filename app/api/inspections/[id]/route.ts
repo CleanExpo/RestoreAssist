@@ -564,7 +564,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     }
 
     await prisma.inspection.delete({
-      where: { id },
+      where: { id, userId: session.user.id },
     });
 
     return NextResponse.json({ success: true });
