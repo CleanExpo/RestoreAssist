@@ -37,10 +37,10 @@ export async function POST(
 
   const { clientId } = await params;
 
-  // Verify the Client exists before we mint — avoids burning a token on
-  // a 404. Select-only the id (CLAUDE.md rule #4).
+  // Verify the Client exists and belongs to this admin — prevents IDOR
+  // where any admin could mint tokens for other tenants' clients.
   const client = await prisma.client.findUnique({
-    where: { id: clientId },
+    where: { id: clientId, userId: auth.user!.id },
     select: { id: true },
   });
   if (!client) {
