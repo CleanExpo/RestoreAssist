@@ -342,9 +342,10 @@ export async function PATCH(
       );
     }
 
-    // Persist
+    // Persist — inspectionId in WHERE closes the TOCTOU between the
+    // findFirst ownership checks above and this write.
     const updatedPhoto = await prisma.inspectionPhoto.update({
-      where: { id: photoId },
+      where: { id: photoId, inspectionId },
       data: updateData,
     });
 
