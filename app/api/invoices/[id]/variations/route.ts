@@ -96,6 +96,7 @@ export async function GET(
       original = await prisma.invoice.findUnique({
         where: {
           id: invoice.originalInvoiceId,
+          userId: session.user.id,
         },
         include: variationsInclude,
       });
