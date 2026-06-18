@@ -1082,7 +1082,7 @@ function drawStandardsAttestation(w: PDFWriter, data: DisputePackData): void {
     { size: 8 },
   );
   w.drawText(
-    "- IICRC S520:2015 Standard for Professional Mould Remediation (where applicable)",
+    "- IICRC S520:2024 Standard for Professional Mould Remediation (where applicable)",
     { size: 8 },
   );
   w.drawText(

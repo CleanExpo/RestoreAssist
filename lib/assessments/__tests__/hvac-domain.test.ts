@@ -69,7 +69,7 @@ describe("hvacDomain — happy paths per condition", () => {
     expect(duct?.unit).toBe("lin·m");
   });
 
-  it("MICROBIAL_GROWTH adds sanitiser fog + cross-references S520:2015 §6", async () => {
+  it("MICROBIAL_GROWTH adds sanitiser fog + cross-references S520:2024 §6", async () => {
     inspectionFindUnique.mockResolvedValueOnce(baseInspection);
     const r = await hvacDomain.generate({
       ...baseInput,
@@ -85,11 +85,11 @@ describe("hvacDomain — happy paths per condition", () => {
       i.description.toLowerCase().includes("fog"),
     );
     expect(fog).toBeDefined();
-    // Findings section cross-refs S520:2015 §6
+    // Findings section cross-refs S520:2024 §6
     const findings = r.data.report.sections.find(
       (s) => s.heading === "Inspection findings",
     );
-    expect(findings?.body.toLowerCase()).toContain("s520:2015");
+    expect(findings?.body.toLowerCase()).toContain("s520:2024");
   });
 
   it("FIRE_SMOKE_RESIDUE cross-references S700:2015 §6.3", async () => {

@@ -12,7 +12,7 @@
  * these prelims — they do not replace them.
  *
  * IICRC references: S500:2025 §4.1 (Attendance), §8.3 (Drying Monitoring),
- * §6.5 (Waste Handling). S520:2015 §5.4 for mould/contamination disposal.
+ * §6.5 (Waste Handling). S520:2024 §5.4 for mould/contamination disposal.
  */
 
 import { CompanyPricingRates } from "./nir-cost-estimation";
@@ -34,7 +34,7 @@ export type PrelimsDamageType =
 const S500_SITE_ATTENDANCE = "S500:2025 §4.1";
 const S500_MONITORING = "S500:2025 §8.3";
 const S500_WASTE_HANDLING = "S500:2025 §6.5";
-const S520_CONTAMINATED_WASTE = "S520:2015 §5.4";
+const S520_CONTAMINATED_WASTE = "S520:2024 §5.4";
 const SAFEWORK_PPE = "Safe Work Australia — Model Code of Practice (PPE)";
 
 // ─── MARKET-RATE PLACEHOLDERS ────────────────────────────────────────────────
@@ -71,7 +71,7 @@ function estimateWasteVolumeM3(
 }
 
 /**
- * Damage types that MUST use contaminated-waste disposal (S520:2015 §5.4)
+ * Damage types that MUST use contaminated-waste disposal (S520:2024 §5.4)
  * rather than standard S500:2025 §6.5 disposal.
  */
 function isContaminatedWaste(damageType: PrelimsDamageType): boolean {
@@ -161,7 +161,7 @@ export function generatePrelims(params: {
         ? "Contaminated waste disposal"
         : "Waste disposal — water damage",
       justification: contaminated
-        ? "Contaminated materials (CAT3, mould, biohazard) require licensed disposal and additional containment per IICRC S520:2015 §5.4."
+        ? "Contaminated materials (CAT3, mould, biohazard) require licensed disposal and additional containment per IICRC S520:2024 §5.4."
         : "Removal and tipping of saturated carpet, underlay, and demolished materials per IICRC S500:2025 §6.5.",
       iicrcReference: contaminated
         ? S520_CONTAMINATED_WASTE

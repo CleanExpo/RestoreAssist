@@ -45,7 +45,7 @@ export interface CompletenessCheckInput {
     | "chemical_spill"
     | "blood_trauma"
     | null;
-  /** For mould — Class ≥ 2 requires clearance testing (S520:2015 §7.2). */
+  /** For mould — Class ≥ 2 requires clearance testing (S520:2024 §7.2). */
   mouldContaminationClass?: 1 | 2 | 3 | 4 | null;
 }
 
@@ -170,7 +170,7 @@ export function checkBillingCompleteness(
       code: "MISSING_CLEARANCE_TESTING",
       severity: "warning",
       message:
-        "Mould remediation at Class ≥ 2 requires post-remediation clearance testing before re-occupancy (S520:2015 §7.2).",
+        "Mould remediation at Class ≥ 2 requires post-remediation clearance testing before re-occupancy (S520:2024 §7.2).",
     });
   }
 

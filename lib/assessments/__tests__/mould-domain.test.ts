@@ -44,7 +44,7 @@ describe("mouldDomain — happy path (Condition 3, ≥9 m²)", () => {
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error("unreachable");
 
-    // Report sections present and citations all S520:2015.
+    // Report sections present and citations all S520:2024.
     const headings = r.data.report.sections.map((s) => s.heading);
     expect(headings).toContain("Situation");
     expect(headings).toContain("Containment classification");
@@ -53,7 +53,7 @@ describe("mouldDomain — happy path (Condition 3, ≥9 m²)", () => {
     expect(headings).toContain("Clearance criteria");
 
     // Citations include S520 + AIHA.
-    expect(r.data.citations.some((c) => c.standard === "IICRC S520:2015")).toBe(
+    expect(r.data.citations.some((c) => c.standard === "IICRC S520:2024")).toBe(
       true,
     );
     expect(r.data.citations.some((c) => c.standard === "AIHA Z9.11")).toBe(
