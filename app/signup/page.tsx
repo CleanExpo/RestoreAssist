@@ -18,6 +18,7 @@ import {
   ChevronDown,
   ChevronUp,
   ExternalLink,
+  Key,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { apiErrorMessage } from "@/lib/api-error-message";
@@ -198,6 +199,34 @@ export default function SignupPage() {
           <p className="text-slate-400">Create your account</p>
         </div>
 
+        {/* API Key requirement — always visible */}
+        <motion.div
+          initial={{ opacity: 1, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.08 }}
+          className="mb-4 bg-amber-500/10 border border-amber-500/40 rounded-xl p-4"
+          role="note"
+          aria-label="Anthropic API key required for AI features"
+        >
+          <div className="flex items-start gap-3">
+            <Key className="w-5 h-5 text-amber-400 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-amber-300 font-semibold text-sm">
+                AI report generation requires an Anthropic API key
+              </p>
+              <p className="text-amber-200/70 text-xs mt-1 leading-relaxed">
+                Your free trial uses our platform key automatically — no setup
+                needed to get started. For ongoing use after your trial, add
+                your own key in{" "}
+                <span className="font-medium text-amber-300">
+                  Settings → Integrations
+                </span>
+                .
+              </p>
+            </div>
+          </div>
+        </motion.div>
+
         {/* Information Box */}
         <motion.div
           initial={{ opacity: 1, y: 20 }}
@@ -238,8 +267,11 @@ export default function SignupPage() {
                 <p className="text-slate-400">
                   Get started immediately with{" "}
                   {PRICING_CONFIG.free.trialReportCredits} free report credits,
-                  valid for {PRICING_CONFIG.free.trialDays} days. Create basic
-                  reports right away!
+                  valid for {PRICING_CONFIG.free.trialDays} days.{" "}
+                  <span className="text-amber-400 font-medium">
+                    AI-powered reports use our platform key during your trial
+                  </span>{" "}
+                  — no Anthropic account needed to get started.
                 </p>
               </div>
 
@@ -276,6 +308,21 @@ export default function SignupPage() {
                 <p className="text-slate-400">
                   Set your company's rates for accurate cost estimates
                   (available after upgrade).
+                </p>
+              </div>
+
+              <div>
+                <p className="font-semibold text-cyan-300 mb-1">
+                  5. Add Your Own Anthropic API Key (after trial)
+                </p>
+                <p className="text-slate-400">
+                  For unlimited AI report generation beyond your trial credits,
+                  add your own Anthropic API key in{" "}
+                  <span className="font-medium text-white">
+                    Settings → Integrations
+                  </span>
+                  . Without a key configured, report generation will be
+                  unavailable once trial credits are exhausted.
                 </p>
               </div>
 
