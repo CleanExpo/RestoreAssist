@@ -57,6 +57,15 @@ export async function GET(
         userId: stateData.userId,
         provider,
       },
+      select: {
+        id: true,
+        config: true,
+        provider: true,
+        tenantId: true,
+        realmId: true,
+        companyId: true,
+        status: true,
+      },
     });
 
     if (!integration) {
@@ -75,7 +84,7 @@ export async function GET(
 
       // Update integration status to connected
       await prisma.integration.update({
-        where: { id: integration.id },
+        where: { id: integration.id, userId: stateData.userId },
         data: {
           status: "CONNECTED",
           tenantId:
@@ -133,7 +142,7 @@ export async function GET(
       const realmId = searchParams.get("realmId");
       if (realmId) {
         await prisma.integration.update({
-          where: { id: integration.id },
+          where: { id: integration.id, userId: stateData.userId },
           data: { realmId },
         });
       }
@@ -141,7 +150,7 @@ export async function GET(
 
     // Clear config (remove stored state and code verifier)
     await prisma.integration.update({
-      where: { id: integration.id },
+      where: { id: integration.id, userId: stateData.userId },
       data: { config: null },
     });
 
