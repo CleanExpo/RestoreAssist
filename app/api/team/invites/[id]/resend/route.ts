@@ -22,15 +22,23 @@ export async function POST(
       status: 401,
     });
   }
-  if (!canResendInvite(session.user.role)) {
+  const userId = session.user.id;
+  const { id } = await params;
+
+  // Re-fetch role and orgId from DB — JWT claims can be stale (CLAUDE.md rule 3)
+  const callerDb = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true, organizationId: true },
+  });
+  if (!callerDb) return apiError(req, { code: "NOT_FOUND", message: "User not found", status: 404 });
+
+  if (!canResendInvite(callerDb.role)) {
     return apiError(req, {
       code: "FORBIDDEN",
       message: "Forbidden",
       status: 403,
     });
   }
-  const userId = session.user.id;
-  const { id } = await params;
 
   // RA-1266: prevents spamming the invitee with duplicate emails when
   // the admin double-clicks "Resend".
@@ -55,8 +63,8 @@ export async function POST(
         });
       }
 
-      // Verify the invite belongs to the user's organization
-      if (invite.createdBy?.organizationId !== session.user.organizationId) {
+      // Verify the invite belongs to the user's organization (use DB-sourced orgId)
+      if (invite.organizationId !== callerDb.organizationId) {
         return apiError(req, {
           code: "FORBIDDEN",
           message: "Forbidden",
@@ -65,7 +73,7 @@ export async function POST(
       }
 
       // Managers can only resend invites they created
-      if (session.user.role === "MANAGER" && invite.createdById !== userId) {
+      if (callerDb.role === "MANAGER" && invite.createdById !== userId) {
         return apiError(req, {
           code: "FORBIDDEN",
           message: "You can only resend invites you created",

@@ -30,6 +30,7 @@ export async function GET() {
         email: true,
       },
       orderBy: { name: "asc" },
+      take: 500, // CLAUDE.md rule 4
     });
     return NextResponse.json({ assignees: managers });
   }
@@ -47,6 +48,7 @@ export async function GET() {
         email: true,
       },
       orderBy: { name: "asc" },
+      take: 500, // CLAUDE.md rule 4
     });
     return NextResponse.json({ assignees: admins });
   }
