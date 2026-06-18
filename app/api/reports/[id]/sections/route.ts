@@ -97,9 +97,10 @@ export async function PATCH(
       }
     });
 
-    // Update the report
+    // Update the report — userId in WHERE closes the TOCTOU between the
+    // ownership check above and this write.
     const updatedReport = await prisma.report.update({
-      where: { id },
+      where: { id, userId: session.user.id },
       data: updateData,
     });
 

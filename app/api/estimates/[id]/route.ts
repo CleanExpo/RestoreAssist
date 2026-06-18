@@ -89,7 +89,12 @@ export async function DELETE(
       );
     }
 
-    await prisma.estimate.delete({ where: { id } });
+    const deleted = await prisma.estimate.deleteMany({
+      where: { id, userId: session.user.id },
+    });
+    if (deleted.count === 0) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
 
     await recordMutationAudit({
       resource: "estimate",
