@@ -61,7 +61,7 @@ describe("POST /api/verify-subscription — lifetime fulfillment (RA-6791)", () 
 
     vi.mocked(prisma.user.update).mockResolvedValue({
       subscriptionStatus: "ACTIVE",
-      subscriptionPlan: "Lifetime",
+      subscriptionPlan: "Lifetime Access",
       creditsRemaining: 999999,
     } as any);
 
@@ -71,7 +71,7 @@ describe("POST /api/verify-subscription — lifetime fulfillment (RA-6791)", () 
     const body = await res.json();
     expect(body.success).toBe(true);
     expect(body.subscription.status).toBe("ACTIVE");
-    expect(body.subscription.plan).toBe("Lifetime");
+    expect(body.subscription.plan).toBe("Lifetime Access");
 
     // The lifetime branch must persist lifetimeAccess=true + ACTIVE status.
     expect(prisma.user.update).toHaveBeenCalledTimes(1);
@@ -80,7 +80,7 @@ describe("POST /api/verify-subscription — lifetime fulfillment (RA-6791)", () 
     expect(updateArg.data).toMatchObject({
       lifetimeAccess: true,
       subscriptionStatus: "ACTIVE",
-      subscriptionPlan: "Lifetime",
+      subscriptionPlan: "Lifetime Access",
       stripeCustomerId: "cus_life_1",
     });
 
