@@ -335,7 +335,11 @@ export async function POST(request: NextRequest) {
         reportData.assignedAdminId = data.assignedAdminId;
       }
 
-      // Check if user can create a report and deduct credits
+      // Pre-check credits (read-only) — short-circuits before the Anthropic
+      // call and DB write for zero-credit users. Actual atomic deduct happens
+      // AFTER prisma.report.create so a post-create credit-deduct failure
+      // gives the user their report (logged) rather than losing a credit with
+      // nothing to show for it (matches the pattern in generate-enhanced).
       const { canCreateReport, deductCreditsAndTrackUsage } =
         await import("@/lib/report-limits");
       const canCreate = await canCreateReport(user.id);
@@ -350,9 +354,16 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Deduct credits and track usage for team hierarchy
-      // deductCreditsAndTrackUsage throws 'INSUFFICIENT_CREDITS' if the atomic
-      // updateMany finds creditsRemaining < 1 (race-safe check-and-deduct)
+      // Create the report with initial data (including NIR and equipment data if provided)
+      const report = await prisma.report.create({
+        data: reportData,
+      });
+
+      // Deduct credits AFTER successful DB write.
+      // RA-6800: previously deducted then created — if the create threw, the
+      // idempotency layer did not cache the 500, so a retry double-deducted.
+      // Now: create succeeds first; a deduct failure is logged but doesn't
+      // 500 the user (they already have their report).
       try {
         await deductCreditsAndTrackUsage(user.id);
       } catch (creditError) {
@@ -360,21 +371,20 @@ export async function POST(request: NextRequest) {
           creditError instanceof Error &&
           creditError.message === "INSUFFICIENT_CREDITS"
         ) {
-          return NextResponse.json(
-            {
-              error: "No credits remaining. Please subscribe to continue.",
-              upgradeRequired: true,
-            },
-            { status: 402 },
+          // Race: another concurrent request exhausted credits between the
+          // canCreateReport check and this deduct. The report is created.
+          // Log it — do NOT fail the response (user has their report).
+          console.error(
+            "[initial-entry] INSUFFICIENT_CREDITS after report create",
+            { reportId: report.id, userId: user.id },
+          );
+        } else {
+          console.error(
+            "[initial-entry] Credit deduction failed after report create",
+            { reportId: report.id, error: creditError },
           );
         }
-        throw creditError;
       }
-
-      // Create the report with initial data (including NIR and equipment data if provided)
-      const report = await prisma.report.create({
-        data: reportData,
-      });
 
       // After saving, trigger intelligent standards analysis in background
       // This prepares standards context for when user generates the report.
