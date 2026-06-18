@@ -274,32 +274,51 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   }
 
   // Create the user and mark the invite used atomically.
-  await prisma.$transaction(async (tx) => {
-    await tx.user.create({
-      data: {
-        email: invite.email.toLowerCase(),
-        name,
-        password: hashedPassword,
-        role: invite.role,
-        organizationId: invite.organizationId,
-        managedById: invite.managedById,
-        phone,
-        image: headshotUrl,
-        // Invited members don't have their own trial credits —
-        // they share the Admin org's credits.
-        subscriptionStatus: null,
-        creditsRemaining: null,
-        totalCreditsUsed: 0,
-        mustChangePassword: false,
-        acceptedTermsAt: new Date() as any,
-      } as any,
-    });
+  // RA-6800: wrap in try-catch so a concurrent request racing on the same
+  // token (both pass the usedAt check before either commits) gets a 409
+  // instead of a raw 500 from the email unique-constraint P2002.
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.user.create({
+        data: {
+          email: invite.email.toLowerCase(),
+          name,
+          password: hashedPassword,
+          role: invite.role,
+          organizationId: invite.organizationId,
+          managedById: invite.managedById,
+          phone,
+          image: headshotUrl,
+          // Invited members don't have their own trial credits —
+          // they share the Admin org's credits.
+          subscriptionStatus: null,
+          creditsRemaining: null,
+          totalCreditsUsed: 0,
+          mustChangePassword: false,
+          acceptedTermsAt: new Date() as any,
+        } as any,
+      });
 
-    await tx.userInvite.update({
-      where: { id: invite.id },
-      data: { usedAt: new Date() },
+      await tx.userInvite.update({
+        where: { id: invite.id },
+        data: { usedAt: new Date() },
+      });
     });
-  });
+  } catch (e) {
+    const code =
+      (e as { code?: string; cause?: { code?: string } })?.code ??
+      (e as { cause?: { code?: string } })?.cause?.code;
+    if (code === "P2002") {
+      return NextResponse.json(
+        {
+          error:
+            "An account with this email already exists. Sign in, then ask an admin to re-link you to the organization.",
+        },
+        { status: 409 },
+      );
+    }
+    throw e;
+  }
 
   return NextResponse.json({
     success: true,
