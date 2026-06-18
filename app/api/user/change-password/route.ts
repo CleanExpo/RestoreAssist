@@ -4,13 +4,25 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { withIdempotency } from "@/lib/idempotency";
+import { validateCsrf } from "@/lib/csrf";
+import { applyRateLimit } from "@/lib/rate-limiter";
 
 export async function POST(request: NextRequest) {
+  const csrfError = validateCsrf(request);
+  if (csrfError) return csrfError;
+
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   }
   const userId = session.user.id;
+
+  const rateLimited = await applyRateLimit(request, {
+    maxRequests: 5,
+    prefix: "change-password",
+    key: userId,
+  });
+  if (rateLimited) return rateLimited;
 
   // RA-1266: idempotency spares the double-bcrypt cost on retry and keeps
   // the "wrong current password" response cached for the retry window,
@@ -27,9 +39,9 @@ export async function POST(request: NextRequest) {
     if (!currentPassword || !newPassword) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     }
-    if (newPassword.length < 8) {
+    if (newPassword.length < 12) {
       return NextResponse.json(
-        { error: "New password must be at least 8 characters" },
+        { error: "New password must be at least 12 characters" },
         { status: 400 },
       );
     }
