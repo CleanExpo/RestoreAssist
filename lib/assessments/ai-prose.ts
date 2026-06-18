@@ -55,7 +55,7 @@ export interface EnhanceProseResult {
 const DOMAIN_TONE: Record<AssessmentDomain, string> = {
   WATER:
     "IICRC S500:2025 water-damage restoration assessor for an Australian insurer",
-  MOULD: "IICRC S520:2015 mould remediation Indoor Environmental Professional",
+  MOULD: "IICRC S520:2024 mould remediation Indoor Environmental Professional",
   BIOHAZARD: "IICRC S540:2021 trauma & biohazard remediation lead in Australia",
   FIRE_SMOKE: "IICRC S700:2015 fire & smoke damage restoration assessor",
   STORM:

@@ -8,7 +8,7 @@
  * Authority:
  *   - AS-IICRC S500:2025 (water damage restoration)
  *   - State WHS Acts via lib/state-detection.ts
- *   - IICRC S520:2015 (mould remediation)
+ *   - IICRC S520:2024 (mould remediation)
  */
 
 import { prisma } from "@/lib/prisma";
@@ -124,7 +124,7 @@ const MOULD_HAZARD: SwmsHazard = {
   ],
   clauseRefs: [
     "AS-IICRC S500:2025 §12.1 — Mould presence during water damage restoration",
-    "AS-IICRC S520:2015 §7 — Mould remediation: containment and removal",
+    "AS-IICRC S520:2024 §7 — Mould remediation: containment and removal",
     "AS-IICRC S500:2025 §6.3 — Personal protective equipment",
   ],
 };

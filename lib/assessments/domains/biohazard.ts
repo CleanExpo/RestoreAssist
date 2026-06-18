@@ -276,7 +276,7 @@ function buildReport(args: {
         ? `Category 3 contamination requires removal of porous materials ` +
           `that contacted sewage (S500:2025 §6.3). Hard surfaces: detergent ` +
           `wash → rinse → quaternary ammonium or hypochlorite disinfection ` +
-          `(EPA-registered tuberculocide). HVAC must be inspected (S520:2015 ` +
+          `(EPA-registered tuberculocide). HVAC must be inspected (S520:2024 ` +
           `§6.1) — replace porous insulation. Anti-microbial application ` +
           `at conclusion before drying restoration begins.`
         : args.biohazardType === "decomposition" ||
@@ -292,7 +292,7 @@ function buildReport(args: {
             `Surfaces undergo solvent wash + rinse + ATP verification.`,
     citations:
       args.biohazardType === "sewage_overflow"
-        ? [primary, { standard: "IICRC S520:2015", section: "§6.1" }]
+        ? [primary, { standard: "IICRC S520:2024", section: "§6.1" }]
         : [primary],
   });
 

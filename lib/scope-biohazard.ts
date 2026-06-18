@@ -50,7 +50,7 @@ const SAFEWORK_PPE = "Safe Work Australia — PPE Model Code of Practice";
 const AS_NZS_4360 = "AS/NZS 4360:2004 §3.2 (risk controls)";
 const S500_CAT3 = "S500:2025 §6.3 (Category 3 treatment)";
 const S540_TRAUMA = "IICRC S540:2021 §5";
-const S520_HEPA = "S520:2015 §6.1";
+const S520_HEPA = "S520:2024 §6.1";
 
 // Each state's primary EPA regulator reference used in the manifest item.
 const STATE_EPA_REF: Record<AustralianState, string> = {
@@ -119,7 +119,7 @@ export function generateBiohazardScope(params: {
     itemType: "hepa_vacuum",
     description: "HEPA vacuum contaminated surfaces",
     justification:
-      "HEPA vacuuming removes settled particulate, dried tissue, and airborne spores before wet-cleaning per IICRC S520:2015 §6.1.",
+      "HEPA vacuuming removes settled particulate, dried tissue, and airborne spores before wet-cleaning per IICRC S520:2024 §6.1.",
     iicrcReference: S520_HEPA,
     quantity: area,
     unit: "m²",
@@ -166,7 +166,7 @@ export function generateBiohazardScope(params: {
       itemType: "hepa_air_scrubber",
       description: "HEPA air scrubber",
       justification:
-        "Continuous HEPA air filtration during sewage remediation captures airborne bacteria per IICRC S520:2015 §6.1.",
+        "Continuous HEPA air filtration during sewage remediation captures airborne bacteria per IICRC S520:2024 §6.1.",
       iicrcReference: S520_HEPA,
       quantity: 1,
       unit: "job",

@@ -72,7 +72,7 @@ const NZ_INSURER_PROFILES = [
     specialInstructions:
       "Suncorp NZ (Vero/AA Insurance) requires daily progress reports for jobs exceeding 5 days. Enhanced report format preferred. Air quality readings required for all Category 2+ jobs. Invoice must reference the claim number. All amounts in NZD; GST at 15%. Submit reports and photos in PDF format.",
     iicrcComplianceNote:
-      "Suncorp NZ follows IICRC S500:2025 and S520:2015 for mould remediation. NZ building compliance per NZBS E2:2004+A3:2013 and E3. Psychrometric readings required at start and end of each drying phase.",
+      "Suncorp NZ follows IICRC S500:2025 and S520:2024 for mould remediation. NZ building compliance per NZBS E2:2004+A3:2013 and E3. Psychrometric readings required at start and end of each drying phase.",
     isSystemProfile: true,
   },
   {
@@ -160,7 +160,7 @@ const NZ_INSURER_PROFILES = [
     specialInstructions:
       "MAS serves medical professionals and their families. Higher documentation standards expected given the professional membership. Air quality readings recommended for any Category 2+ job. Submit reports in PDF format. Amounts in NZD; GST 15% shown separately. Pre-authorisation recommended for jobs over $5,000.",
     iicrcComplianceNote:
-      "MAS references IICRC S500:2025 standards. NZ building compliance per NZBS E2:2004+A3:2013 and E3. Air quality documentation per S520:2015 for any mould-adjacent restoration work.",
+      "MAS references IICRC S500:2025 standards. NZ building compliance per NZBS E2:2004+A3:2013 and E3. Air quality documentation per S520:2024 for any mould-adjacent restoration work.",
     isSystemProfile: true,
   },
   {

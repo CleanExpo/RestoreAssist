@@ -10,7 +10,7 @@
  *
  * Standards covered:
  *   IICRC S500 — Standard for Professional Water Damage Restoration (S500:2025)
- *   IICRC S520 — Standard for Professional Mould Remediation (3rd Ed)
+ *   IICRC S520 — Standard for Professional Mould Remediation (4th Ed, S520:2024)
  *   IICRC S540 — Standard for Trauma and Crime Scene Cleanup (S540:2023)
  *   IICRC S700 — Standard for Professional Fire and Smoke Damage Restoration (2nd Ed)
  *   NCC 2022   — National Construction Code (Australia)
@@ -806,7 +806,7 @@ export const S540_FIELD_MAP = {
 
 export const STANDARDS_VERSIONS = {
   S500: { edition: "7th", year: 2021, nextRevisionExpected: 2027 },
-  S520: { edition: "3rd", year: 2015, nextRevisionExpected: 2026 },
+  S520: { edition: "4th", year: 2024, nextRevisionExpected: 2029 },
   S540: { edition: "S540:2023", year: 2023, nextRevisionExpected: 2028 },
   S700: { edition: "2nd", year: 2015, nextRevisionExpected: 2026 },
   NCC: { edition: "2022", year: 2022, nextRevisionExpected: 2025 },

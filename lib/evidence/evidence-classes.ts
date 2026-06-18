@@ -91,7 +91,7 @@ export const EVIDENCE_CLASSES: Record<string, EvidenceClassMeta> = {
     displayName: "Material Sample",
     description:
       "Documentation of material samples collected for lab testing (asbestos, mould, lead)",
-    iicrcRef: "S520:2015 §12.2",
+    iicrcRef: "S520:2024 §12.2",
     mediaTypes: ["PHOTO", "DOCUMENT"],
     requiresMeasurement: false,
   },

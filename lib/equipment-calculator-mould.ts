@@ -4,7 +4,7 @@
  * Converts mould-affected area + IICRC contamination condition → defensible
  * equipment list. Mirrors the water/fire calculators' ratio-driven pattern.
  *
- * IICRC S520:2015 Condition classification:
+ * IICRC S520:2024 Condition classification:
  *   - Condition 1: normal fungal ecology (no remediation)
  *   - Condition 2: settled spores / traces of amplification
  *   - Condition 3: actual fungal growth / active amplification
@@ -18,7 +18,7 @@
 export type MouldCondition = "CONDITION_2" | "CONDITION_3";
 
 /**
- * Containment level per IICRC S520:2015 §12.
+ * Containment level per IICRC S520:2024 §12.
  * - LIMITED: poly sheeting, single-entry flap (≤ 10 ft²)
  * - FULL: 6-sided containment with negative-air + decon chamber
  * - SOURCE_CONTROL: small polybag enclosure for single item / small area
@@ -66,7 +66,7 @@ export interface MouldEquipmentCalculatorResult {
 // ─── IICRC S520 Ratios ────────────────────────────────────────────────────────
 
 /**
- * Negative-air machine (NAM) m²/unit — S520:2015 §12.3.
+ * Negative-air machine (NAM) m²/unit — S520:2024 §12.3.
  * Goal: 4+ air changes per hour at 2.4m ceiling height.
  */
 const NAM_RATIO: Record<MouldCondition, number> = {
@@ -74,16 +74,16 @@ const NAM_RATIO: Record<MouldCondition, number> = {
   CONDITION_3: 60, // active amplification — tighter ratio
 };
 
-/** Air scrubber m²/unit — S520:2015 §12.4 (HEPA particulate filtration during work). */
+/** Air scrubber m²/unit — S520:2024 §12.4 (HEPA particulate filtration during work). */
 const AIR_SCRUBBER_RATIO: Record<MouldCondition, number> = {
   CONDITION_2: 90,
   CONDITION_3: 50,
 };
 
-/** HEPA vacuum m²/unit — S520:2015 §8.4.3. */
+/** HEPA vacuum m²/unit — S520:2024 §8.4.3. */
 const HEPA_VACUUM_RATIO = 80;
 
-/** LGR dehu m²/unit — S520:2015 §7.2 when RH > 60%. */
+/** LGR dehu m²/unit — S520:2024 §7.2 when RH > 60%. */
 const DEHU_RATIO = 40;
 
 /** Auto-containment decision: area + condition → containment level. */
@@ -91,7 +91,7 @@ function selectContainment(
   areaM2: number,
   condition: MouldCondition,
 ): ContainmentLevel {
-  // IICRC S520:2015 §12 — condition + area thresholds
+  // IICRC S520:2024 §12 — condition + area thresholds
   if (areaM2 < 1) return "SOURCE_CONTROL";
   if (condition === "CONDITION_3" && areaM2 >= 9) return "FULL"; // ~100 ft²
   if (condition === "CONDITION_3") return "LIMITED";
@@ -174,7 +174,7 @@ export function calculateMouldEquipment(
         namQty,
         namRatio,
         areaM2,
-        "IICRC S520:2015 §12.3 — Negative pressure containment",
+        "IICRC S520:2024 §12.3 — Negative pressure containment",
       ),
     );
   }
@@ -188,7 +188,7 @@ export function calculateMouldEquipment(
       asQty,
       asRatio,
       areaM2,
-      "IICRC S520:2015 §12.4 — HEPA air scrubbing during work",
+      "IICRC S520:2024 §12.4 — HEPA air scrubbing during work",
     ),
   );
 
@@ -200,7 +200,7 @@ export function calculateMouldEquipment(
       vacQty,
       HEPA_VACUUM_RATIO,
       areaM2,
-      "IICRC S520:2015 §8.4.3 — HEPA vacuuming",
+      "IICRC S520:2024 §8.4.3 — HEPA vacuuming",
     ),
   );
 
@@ -213,7 +213,7 @@ export function calculateMouldEquipment(
         dehuQty,
         DEHU_RATIO,
         areaM2,
-        "IICRC S520:2015 §7.2 — Humidity control (RH > 60%)",
+        "IICRC S520:2024 §7.2 — Humidity control (RH > 60%)",
       ),
     );
   }
@@ -235,6 +235,6 @@ export function calculateMouldEquipment(
     recommendedCircuits,
     containmentLevel: containment,
     summary: `${condition.replace("_", " ")} mould remediation over ${areaM2.toFixed(0)}m² (${containment.replace("_", " ")} containment) → ${items.length} equipment types, ${totalAmps.toFixed(1)}A total`,
-    iicrcClassification: `IICRC S520:2015 — ${condition.replace("_", " ")} (${containment.replace("_", " ")} containment)`,
+    iicrcClassification: `IICRC S520:2024 — ${condition.replace("_", " ")} (${containment.replace("_", " ")} containment)`,
   };
 }

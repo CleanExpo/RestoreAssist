@@ -129,7 +129,7 @@ const AS_NZS_3666_1 =
   "AS/NZS 3666.1:2011 (Microbial control in building water systems)";
 const AS_NZS_3666_2 =
   "AS/NZS 3666.2:2011 (Operation + maintenance of air-handling systems)";
-const S520_HVAC = "IICRC S520:2015 §6 (HVAC involvement in mould)";
+const S520_HVAC = "IICRC S520:2024 §6 (HVAC involvement in mould)";
 const S700_HVAC = "IICRC S700:2015 §6.3 (HVAC after fire/smoke)";
 
 interface BuiltScope {
@@ -357,7 +357,7 @@ function buildReport(args: {
             `prevent IAQ degradation and downstream filter loading.`
           : args.condition === "MICROBIAL_GROWTH"
             ? `Microbial growth observed (visible amplification or ` +
-              `confirmed sampling). Cross-reference with IICRC S520:2015 ` +
+              `confirmed sampling). Cross-reference with IICRC S520:2024 ` +
               `§6 — HVAC involvement in mould remediation. System must be ` +
               `isolated from occupied space during cleaning + sanitisation.`
             : `Fire / smoke residue identified in HVAC. Cross-reference ` +
@@ -367,8 +367,8 @@ function buildReport(args: {
       args.condition === "MICROBIAL_GROWTH"
         ? [
             {
-              standard: "IICRC S520:2015",
-              section: S520_HVAC.replace(/^IICRC S520:2015\s*/, ""),
+              standard: "IICRC S520:2024",
+              section: S520_HVAC.replace(/^IICRC S520:2024\s*/, ""),
             },
           ]
         : args.condition === "FIRE_SMOKE_RESIDUE"

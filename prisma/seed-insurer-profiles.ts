@@ -67,7 +67,7 @@ const INSURER_PROFILES = [
     specialInstructions:
       "Suncorp (AAMI/GIO) requires daily progress reports for jobs exceeding 5 days. Enhanced report format preferred. Air quality readings required for all Category 2+ jobs. Invoice must reference the claim number in the description field.",
     iicrcComplianceNote:
-      "Suncorp follows IICRC S500:2025 and S520:2015 for mould remediation. Document psychrometric readings at start and end of each drying phase.",
+      "Suncorp follows IICRC S500:2025 and S520:2024 for mould remediation. Document psychrometric readings at start and end of each drying phase.",
     isSystemProfile: true,
   },
   {
