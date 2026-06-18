@@ -50,7 +50,14 @@ export async function GET(request: NextRequest) {
       message: "Unauthorized",
       status: 401,
     });
-  if (!canViewInvites(session.user.role))
+  // Re-read role from DB — JWT role can be stale for the full token lifetime.
+  const currentUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { role: true },
+  });
+  const dbRole = currentUser?.role ?? "TECHNICIAN";
+
+  if (!canViewInvites(dbRole))
     return apiError(request, {
       code: "FORBIDDEN",
       message: "Forbidden",
@@ -63,7 +70,7 @@ export async function GET(request: NextRequest) {
   let whereClause: any = { organizationId: orgId };
 
   // Managers can only see invites they created
-  if (session.user.role === "MANAGER") {
+  if (dbRole === "MANAGER") {
     whereClause = {
       organizationId: orgId,
       createdById: session.user.id, // Only invites created by this Manager
