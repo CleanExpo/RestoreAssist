@@ -169,7 +169,7 @@ export async function POST(
 
     const now = new Date();
     await prisma.report.update({
-      where: { id: report.id },
+      where: { id: report.id, userId },
       data: {
         clientSummaryCache: result.summary,
         clientSummaryCachedAt: now,

@@ -29,21 +29,23 @@ export async function POST(
   const auth = await verifyAdminFromDb(session);
   if (auth.response) return auth.response;
 
+  const adminUserId = auth.user!.id;
   const { id } = await params;
 
   try {
-    // Atomic rotate: only updates if the account exists AND is not revoked.
-    // This eliminates the TOCTOU window between the old findUnique + update.
+    // Atomic rotate: only updates if the account exists, is not revoked,
+    // and belongs to the requesting admin's tenant.
     const newToken = mintToken();
     const result = await prisma.clientPortalAccount.updateMany({
-      where: { id, revokedAt: null },
+      where: { id, revokedAt: null, client: { userId: adminUserId } },
       data: { token: newToken, tokenRotatedAt: new Date() },
     });
 
     if (result.count === 0) {
-      // Either the account doesn't exist or it was revoked — read to distinguish.
-      const check = await prisma.clientPortalAccount.findUnique({
-        where: { id },
+      // Either the account doesn't exist / not owned by this admin, or it was
+      // revoked — read (scoped to tenant) to distinguish the two cases.
+      const check = await prisma.clientPortalAccount.findFirst({
+        where: { id, client: { userId: adminUserId } },
         select: { id: true },
       });
       if (!check) {

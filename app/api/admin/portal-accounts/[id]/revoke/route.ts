@@ -62,7 +62,7 @@ export async function POST(
 
   try {
     const updated = await prisma.clientPortalAccount.update({
-      where: { id },
+      where: { id, client: { userId: adminUserId } },
       data: { revokedAt: new Date() },
       select: { id: true, clientId: true, revokedAt: true },
     });
