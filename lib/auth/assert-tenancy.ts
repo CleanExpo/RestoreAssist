@@ -34,8 +34,18 @@ export interface SessionLike {
   } | null;
 }
 
-function isAdmin(session: SessionLike | null | undefined): boolean {
-  return session?.user?.role === "ADMIN";
+// DB-revalidated admin check — JWT role claim can be stale for up to the
+// token lifetime. Never use session.user.role for admin bypass decisions
+// (CLAUDE.md rule 3).
+async function isAdminFromDb(
+  session: SessionLike | null | undefined,
+): Promise<boolean> {
+  if (!session?.user?.id) return false;
+  const u = await prisma.user.findUnique({
+    where: { id: session.user.id as string },
+    select: { role: true },
+  });
+  return u?.role === "ADMIN";
 }
 
 /**
@@ -52,7 +62,7 @@ export async function assertReportTenancy(
     return { ok: false, status: 401, reason: "Unauthorized" };
   }
   const userId = session.user.id;
-  const admin = isAdmin(session);
+  const admin = await isAdminFromDb(session);
 
   const report = await prisma.report.findUnique({
     where: { id: reportId },
@@ -82,7 +92,7 @@ export async function assertInspectionTenancy(
     return { ok: false, status: 401, reason: "Unauthorized" };
   }
   const userId = session.user.id;
-  const admin = isAdmin(session);
+  const admin = await isAdminFromDb(session);
 
   // Admin path: read by id only.
   if (admin) {
