@@ -98,24 +98,17 @@ export async function DELETE(
     }
 
     try {
-      const notification = await prisma.notification.findFirst({
-        where: {
-          id,
-          userId: session.user.id,
-        },
+      const result = await prisma.notification.deleteMany({
+        where: { id, userId: session.user.id },
       });
 
-      if (!notification) {
+      if (result.count === 0) {
         return apiError(request, {
           code: "NOT_FOUND",
           message: "Notification not found",
           status: 404,
         });
       }
-
-      await prisma.notification.delete({
-        where: { id },
-      });
 
       return NextResponse.json({ success: true });
     } catch {
