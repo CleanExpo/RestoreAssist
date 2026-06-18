@@ -117,8 +117,8 @@ export default function PortalInvitationSection({
         icon: <Clock size={14} />,
       },
       ACCEPTED: {
-        bg: "bg-emerald-500/20",
-        text: "text-emerald-400",
+        bg: "bg-brand-bronze/20",
+        text: "text-brand-navy",
         icon: <CheckCircle size={14} />,
       },
       EXPIRED: {
@@ -142,13 +142,13 @@ export default function PortalInvitationSection({
     <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-medium flex items-center gap-2">
-          <Key className="text-purple-400" size={20} />
+          <Key className="text-brand-navy" size={20} />
           Client Portal Access
         </h3>
         {!hasActiveInvitation && (
           <button
             onClick={() => setShowInviteModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors text-sm"
+            className="flex items-center gap-2 px-4 py-2 bg-brand-bronze text-white rounded-lg hover:bg-brand-bronze transition-colors text-sm"
           >
             <Send size={16} />
             Send Portal Invitation
@@ -158,11 +158,11 @@ export default function PortalInvitationSection({
 
       {loading ? (
         <div className="text-center py-4">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-500 mx-auto"></div>
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-bronze mx-auto"></div>
         </div>
       ) : hasActiveInvitation ? (
         <div className="space-y-3">
-          <div className="flex items-center gap-2 text-emerald-400">
+          <div className="flex items-center gap-2 text-brand-navy">
             <CheckCircle size={18} />
             <span className="font-medium">Client has portal access</span>
           </div>
@@ -173,7 +173,7 @@ export default function PortalInvitationSection({
             </p>
             <p className="mt-1">
               They can log in at:{" "}
-              <span className="text-purple-400">
+              <span className="text-brand-navy">
                 https://restoreassist.app/portal/login
               </span>
             </p>
@@ -221,7 +221,7 @@ export default function PortalInvitationSection({
               {invitation.status === "PENDING" && (
                 <button
                   onClick={() => handleResendInvitation(invitation.id)}
-                  className="flex items-center gap-1 px-3 py-1 text-xs text-purple-400 hover:bg-purple-500/20 rounded transition-colors"
+                  className="flex items-center gap-1 px-3 py-1 text-xs text-brand-navy hover:bg-brand-bronze/20 rounded transition-colors"
                 >
                   <RefreshCw size={12} />
                   Resend
@@ -230,7 +230,7 @@ export default function PortalInvitationSection({
               {invitation.status === "EXPIRED" && (
                 <button
                   onClick={() => setShowInviteModal(true)}
-                  className="flex items-center gap-1 px-3 py-1 text-xs text-purple-400 hover:bg-purple-500/20 rounded transition-colors"
+                  className="flex items-center gap-1 px-3 py-1 text-xs text-brand-navy hover:bg-brand-bronze/20 rounded transition-colors"
                 >
                   <Send size={12} />
                   Send New
@@ -270,7 +270,7 @@ export default function PortalInvitationSection({
                   value={inviteMessage}
                   onChange={(e) => setInviteMessage(e.target.value)}
                   rows={4}
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-brand-bronze"
                   placeholder="Add a personal message to include in the invitation email..."
                 />
               </div>
@@ -304,7 +304,7 @@ export default function PortalInvitationSection({
               <button
                 onClick={handleSendInvitation}
                 disabled={sending}
-                className="flex-1 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-2 bg-brand-bronze text-white rounded-lg hover:bg-brand-bronze transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {sending ? (
                   <>

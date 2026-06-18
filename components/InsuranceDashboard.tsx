@@ -132,8 +132,8 @@ export default function InsuranceDashboard({
         type: "Contents Coverage",
         percentage: insuranceStats.contentsCoverage,
         count: Math.round((insuranceStats.contentsCoverage / 100) * total),
-        color: "text-green-400",
-        bgColor: "bg-green-500/20",
+        color: "text-brand-navy",
+        bgColor: "bg-brand-bronze/20",
         icon: Home,
       },
       {
@@ -148,8 +148,8 @@ export default function InsuranceDashboard({
         type: "Business Interruption",
         percentage: insuranceStats.businessInterruption,
         count: Math.round((insuranceStats.businessInterruption / 100) * total),
-        color: "text-purple-400",
-        bgColor: "bg-purple-500/20",
+        color: "text-brand-navy",
+        bgColor: "bg-brand-bronze/20",
         icon: Clock,
       },
     ];
@@ -208,7 +208,7 @@ export default function InsuranceDashboard({
           <select
             value={selectedPeriod}
             onChange={(e) => setSelectedPeriod(e.target.value)}
-            className="px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+            className="px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze"
           >
             <option value="7days">Last 7 days</option>
             <option value="30days">Last 30 days</option>
@@ -227,11 +227,11 @@ export default function InsuranceDashboard({
           className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6"
         >
           <div className="flex items-center justify-between mb-4">
-            <Shield className="text-cyan-400" size={24} />
-            <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+            <Shield className="text-brand-navy" size={24} />
+            <div className="w-2 h-2 bg-brand-navy rounded-full animate-pulse" />
           </div>
           <div className="space-y-1">
-            <p className="text-3xl font-bold text-cyan-400">
+            <p className="text-3xl font-bold text-brand-navy">
               {insuranceStats.averageCoverage}%
             </p>
             <p className="text-slate-400 text-sm font-medium">
@@ -247,11 +247,11 @@ export default function InsuranceDashboard({
           className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6"
         >
           <div className="flex items-center justify-between mb-4">
-            <DollarSign className="text-emerald-400" size={24} />
-            <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+            <DollarSign className="text-brand-navy" size={24} />
+            <div className="w-2 h-2 bg-brand-navy rounded-full animate-pulse" />
           </div>
           <div className="space-y-1">
-            <p className="text-3xl font-bold text-emerald-400">
+            <p className="text-3xl font-bold text-brand-navy">
               ${summary.totalValue.toLocaleString()}
             </p>
             <p className="text-slate-400 text-sm font-medium">Total Value</p>
@@ -368,11 +368,11 @@ export default function InsuranceDashboard({
               <div className="flex items-center gap-2">
                 <div className="w-20 h-2 bg-slate-600 rounded-full">
                   <div
-                    className="h-2 bg-green-500 rounded-full"
+                    className="h-2 bg-brand-bronze rounded-full"
                     style={{ width: `${insuranceStats.contentsCoverage}%` }}
                   />
                 </div>
-                <span className="text-green-400 font-bold">
+                <span className="text-brand-navy font-bold">
                   {insuranceStats.contentsCoverage}%
                 </span>
               </div>
@@ -398,11 +398,11 @@ export default function InsuranceDashboard({
               <div className="flex items-center gap-2">
                 <div className="w-20 h-2 bg-slate-600 rounded-full">
                   <div
-                    className="h-2 bg-purple-500 rounded-full"
+                    className="h-2 bg-brand-bronze rounded-full"
                     style={{ width: `${insuranceStats.businessInterruption}%` }}
                   />
                 </div>
-                <span className="text-purple-400 font-bold">
+                <span className="text-brand-navy font-bold">
                   {insuranceStats.businessInterruption}%
                 </span>
               </div>
@@ -452,7 +452,7 @@ export default function InsuranceDashboard({
                   <div
                     className={`w-2 h-2 rounded-full ${
                       coverageCount >= 3
-                        ? "bg-emerald-400"
+                        ? "bg-brand-navy"
                         : coverageCount >= 2
                           ? "bg-amber-400"
                           : "bg-red-400"
@@ -468,7 +468,7 @@ export default function InsuranceDashboard({
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-medium text-cyan-400">
+                  <p className="text-sm font-medium text-brand-navy">
                     {coverageCount}/4 Coverage Types
                   </p>
                   <p className="text-xs text-slate-400">
@@ -505,28 +505,28 @@ export default function InsuranceDashboard({
               <li className="flex items-center gap-2">
                 <CheckCircle
                   size={16}
-                  className="text-emerald-400 flex-shrink-0"
+                  className="text-brand-navy flex-shrink-0"
                 />
                 Property insurance for business buildings
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle
                   size={16}
-                  className="text-emerald-400 flex-shrink-0"
+                  className="text-brand-navy flex-shrink-0"
                 />
                 Contents insurance for equipment and stock
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle
                   size={16}
-                  className="text-emerald-400 flex-shrink-0"
+                  className="text-brand-navy flex-shrink-0"
                 />
                 Public liability insurance
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle
                   size={16}
-                  className="text-emerald-400 flex-shrink-0"
+                  className="text-brand-navy flex-shrink-0"
                 />
                 Business interruption coverage
               </li>

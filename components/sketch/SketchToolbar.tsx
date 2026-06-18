@@ -89,7 +89,7 @@ export function SketchToolbar({
             "w-8 h-8 flex items-center justify-center rounded-lg transition-all",
             "disabled:opacity-30 disabled:cursor-not-allowed",
             toolMode === mode
-              ? "bg-cyan-500 text-white shadow-md shadow-cyan-500/30"
+              ? "bg-brand-bronze text-white shadow-md shadow-brand-bronze/30"
               : "text-neutral-500 dark:text-slate-400 hover:bg-neutral-100 dark:hover:bg-slate-700 hover:text-neutral-800 dark:hover:text-white",
           )}
         >

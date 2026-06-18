@@ -193,7 +193,7 @@ export function BulkActionsToolbar({
             <button
               onClick={handleExportExcel}
               disabled={isLoading}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-600/50 text-white rounded-lg transition-colors text-sm font-medium"
+              className="flex items-center gap-2 px-4 py-2 bg-brand-bronze hover:bg-green-700 disabled:bg-brand-bronze/50 text-white rounded-lg transition-colors text-sm font-medium"
             >
               {isLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -237,7 +237,7 @@ export function BulkActionsToolbar({
             <button
               onClick={handleStatusUpdate}
               disabled={isLoading}
-              className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-600/50 text-white rounded-lg transition-colors text-sm font-medium"
+              className="flex items-center gap-2 px-4 py-2 bg-brand-bronze hover:bg-purple-700 disabled:bg-brand-bronze/50 text-white rounded-lg transition-colors text-sm font-medium"
             >
               <CheckSquare className="w-4 h-4" />
               Update Status

@@ -2466,7 +2466,7 @@ export default function InitialDataEntryForm({
               !hasUnlimitedQuickFill &&
                 (quickFillCredits === null || quickFillCredits <= 0)
                 ? "bg-neutral-300 dark:bg-neutral-700 text-neutral-500 dark:text-neutral-400 cursor-not-allowed"
-                : "bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white dark:text-white",
+                : "bg-brand-bronze hover:bg-green-700 dark:bg-brand-bronze dark:hover:bg-brand-bronze text-white dark:text-white",
             )}
             title={
               hasUnlimitedQuickFill
@@ -2518,7 +2518,7 @@ export default function InitialDataEntryForm({
             <div
               className={cn(
                 "px-3 py-1.5 rounded-full text-sm font-semibold",
-                "bg-blue-500/10 dark:bg-cyan-500/10 text-blue-600 dark:text-cyan-400",
+                "bg-blue-500/10 dark:bg-brand-bronze/10 text-blue-600 dark:text-brand-navy",
               )}
             >
               {Math.round(((currentStep + 1) / visibleSteps.length) * 100)}%
@@ -2536,7 +2536,7 @@ export default function InitialDataEntryForm({
             <div
               className={cn(
                 "h-full rounded-full transition-all duration-500 ease-out",
-                "bg-gradient-to-r from-blue-500 to-cyan-500",
+                "bg-gradient-to-r from-blue-500 to-brand-bronze",
               )}
               style={{
                 width: `${((currentStep + 1) / visibleSteps.length) * 100}%`,
@@ -2569,7 +2569,7 @@ export default function InitialDataEntryForm({
                     isCurrent
                       ? "bg-blue-500 text-white"
                       : isCompleted
-                        ? "bg-green-500/10 text-green-600 dark:text-green-400"
+                        ? "bg-brand-bronze/10 text-brand-bronze dark:text-brand-navy"
                         : isAccessible
                           ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700"
                           : "bg-neutral-100 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-600 cursor-not-allowed",
@@ -2581,7 +2581,7 @@ export default function InitialDataEntryForm({
                       isCurrent
                         ? "bg-white/20 text-white"
                         : isCompleted
-                          ? "bg-green-500/20 text-green-600 dark:text-green-400"
+                          ? "bg-brand-bronze/20 text-brand-bronze dark:text-brand-navy"
                           : "bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-400",
                     )}
                   >
@@ -3693,15 +3693,15 @@ export default function InitialDataEntryForm({
           <div
             className={cn(
               "p-6 rounded-xl border-2 space-y-6 animate-in fade-in slide-in-from-right-4 duration-300",
-              "border-green-200 dark:border-green-500/50",
-              "bg-green-50 dark:bg-green-500/10",
-              "shadow-lg shadow-green-500/10",
+              "border-green-200 dark:border-brand-bronze/50",
+              "bg-green-50 dark:bg-brand-bronze/10",
+              "shadow-lg shadow-brand-bronze/10",
             )}
           >
             <h3
               className={cn(
                 "text-xl font-semibold mb-4 flex items-center gap-2",
-                "text-neutral-900 dark:text-green-300",
+                "text-neutral-900 dark:text-brand-navy",
               )}
             >
               <CheckCircle className="w-5 h-5" />
@@ -4126,10 +4126,10 @@ export default function InitialDataEntryForm({
                         setNirSelectedScopeItems(newSelected);
                       }}
                       className={cn(
-                        "w-3 h-3 rounded focus:ring-green-500",
+                        "w-3 h-3 rounded focus:ring-brand-bronze",
                         "border-neutral-300 dark:border-neutral-700",
                         "bg-white dark:bg-slate-700",
-                        "text-green-500",
+                        "text-brand-bronze",
                       )}
                     />
                     <span
@@ -4236,7 +4236,7 @@ export default function InitialDataEntryForm({
                         e.target.checked,
                       )
                     }
-                    className="w-4 h-4 rounded border-neutral-300 dark:border-neutral-700 bg-slate-700 text-cyan-500 focus:ring-cyan-500"
+                    className="w-4 h-4 rounded border-neutral-300 dark:border-neutral-700 bg-slate-700 text-brand-bronze focus:ring-brand-bronze"
                   />
                   Bio/Mould Detected
                 </label>
@@ -4471,7 +4471,7 @@ export default function InitialDataEntryForm({
                         onClick={() => setWaterClass(cls as 1 | 2 | 3 | 4)}
                         className={`px-4 py-2 rounded-lg border transition-colors ${
                           waterClass === cls
-                            ? "border-cyan-500 bg-cyan-500/20 text-primary-600 dark:text-primary-400"
+                            ? "border-brand-bronze bg-brand-bronze/20 text-primary-600 dark:text-primary-400"
                             : "border-neutral-300 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:border-slate-500"
                         }`}
                       >
@@ -4540,7 +4540,7 @@ export default function InitialDataEntryForm({
                         : dryingPotential.status === "FAIR"
                           ? "bg-orange-500 text-white"
                           : dryingPotential.status === "GOOD"
-                            ? "bg-green-500 text-white"
+                            ? "bg-brand-bronze text-white"
                             : "bg-blue-500 text-white"
                     }`}
                   >
@@ -4555,11 +4555,11 @@ export default function InitialDataEntryForm({
 
             {/* Equipment Selection */}
             <div className="space-y-4">
-              <div className="p-4 rounded-lg border border-green-500/50 bg-green-500/10">
+              <div className="p-4 rounded-lg border border-brand-bronze/50 bg-brand-bronze/10">
                 <div className="flex items-start gap-3">
-                  <Wrench className="w-5 h-5 text-green-400 mt-0.5" />
+                  <Wrench className="w-5 h-5 text-brand-navy mt-0.5" />
                   <div>
-                    <h4 className="font-semibold text-green-400 mb-1">
+                    <h4 className="font-semibold text-brand-navy mb-1">
                       Equipment Selection
                     </h4>
                     <p className="text-sm text-neutral-700 dark:text-neutral-300">
@@ -4590,7 +4590,7 @@ export default function InitialDataEntryForm({
                         </div>
                         <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2">
                           <div
-                            className="bg-cyan-500 h-2 rounded-full"
+                            className="bg-brand-bronze h-2 rounded-full"
                             style={{
                               width: `${Math.min(
                                 100,
@@ -4613,7 +4613,7 @@ export default function InitialDataEntryForm({
                         </div>
                         <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2">
                           <div
-                            className="bg-cyan-500 h-2 rounded-full"
+                            className="bg-brand-bronze h-2 rounded-full"
                             style={{
                               width: `${Math.min(
                                 100,
@@ -4636,7 +4636,7 @@ export default function InitialDataEntryForm({
                           </div>
                           <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2">
                             <div
-                              className="bg-cyan-500 h-2 rounded-full"
+                              className="bg-brand-bronze h-2 rounded-full"
                               style={{
                                 width: `${Math.min(
                                   100,
@@ -4680,7 +4680,7 @@ export default function InitialDataEntryForm({
                   <button
                     type="button"
                     onClick={handleAutoSelect}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-brand-bronze rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
                   >
                     <Wrench className="w-4 h-4" />
                     Auto-Select Best Fit
@@ -4701,7 +4701,7 @@ export default function InitialDataEntryForm({
                             key={group.id}
                             className={`p-3 rounded-lg border ${
                               quantity > 0
-                                ? "border-cyan-500/50 bg-cyan-500/10"
+                                ? "border-brand-bronze/50 bg-brand-bronze/10"
                                 : "border-gray-300 dark:border-slate-700 bg-gray-100 dark:bg-slate-800/50"
                             }`}
                           >
@@ -4725,7 +4725,7 @@ export default function InitialDataEntryForm({
                                 </div>
                               </div>
                               {quantity > 0 && (
-                                <div className="px-3 py-1 bg-cyan-500/20 text-cyan-700 dark:text-primary-400 rounded text-sm font-semibold mr-2">
+                                <div className="px-3 py-1 bg-brand-bronze/20 text-cyan-700 dark:text-primary-400 rounded text-sm font-semibold mr-2">
                                   {quantity}
                                 </div>
                               )}
@@ -4769,7 +4769,7 @@ export default function InitialDataEntryForm({
                             key={group.id}
                             className={`p-3 rounded-lg border ${
                               quantity > 0
-                                ? "border-cyan-500/50 bg-cyan-500/10"
+                                ? "border-brand-bronze/50 bg-brand-bronze/10"
                                 : "border-gray-300 dark:border-slate-700 bg-gray-100 dark:bg-slate-800/50"
                             }`}
                           >
@@ -4793,7 +4793,7 @@ export default function InitialDataEntryForm({
                                 </div>
                               </div>
                               {quantity > 0 && (
-                                <div className="px-3 py-1 bg-cyan-500/20 text-cyan-700 dark:text-primary-400 rounded text-sm font-semibold mr-2">
+                                <div className="px-3 py-1 bg-brand-bronze/20 text-cyan-700 dark:text-primary-400 rounded text-sm font-semibold mr-2">
                                   {quantity}
                                 </div>
                               )}
@@ -4841,7 +4841,7 @@ export default function InitialDataEntryForm({
                             key={group.id}
                             className={`p-3 rounded-lg border ${
                               quantity > 0
-                                ? "border-cyan-500/50 bg-cyan-500/10"
+                                ? "border-brand-bronze/50 bg-brand-bronze/10"
                                 : "border-gray-300 dark:border-slate-700 bg-gray-100 dark:bg-slate-800/50"
                             }`}
                           >
@@ -4865,7 +4865,7 @@ export default function InitialDataEntryForm({
                                 </div>
                               </div>
                               {quantity > 0 && (
-                                <div className="px-3 py-1 bg-cyan-500/20 text-cyan-700 dark:text-primary-400 rounded text-sm font-semibold mr-2">
+                                <div className="px-3 py-1 bg-brand-bronze/20 text-cyan-700 dark:text-primary-400 rounded text-sm font-semibold mr-2">
                                   {quantity}
                                 </div>
                               )}

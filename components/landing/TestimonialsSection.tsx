@@ -14,7 +14,7 @@ const testimonials = [
     title: "Restoration Manager",
     company: "Sydney",
     stat: "75% time saved",
-    color: "from-blue-500 to-cyan-500",
+    color: "from-blue-500 to-brand-bronze",
   },
   {
     quote:
@@ -23,7 +23,7 @@ const testimonials = [
     title: "Insurance Assessor",
     company: "Melbourne",
     stat: "200+ reports completed",
-    color: "from-emerald-500 to-teal-500",
+    color: "from-brand-bronze to-brand-bronze",
   },
   {
     quote:
@@ -32,7 +32,7 @@ const testimonials = [
     title: "Property Manager",
     company: "Brisbane",
     stat: "40% admin reduction",
-    color: "from-purple-500 to-pink-500",
+    color: "from-brand-bronze to-pink-500",
   },
 ];
 

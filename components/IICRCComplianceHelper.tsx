@@ -196,7 +196,7 @@ export default function IICRCComplianceHelper({
   return (
     <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
       <div className="flex items-center gap-3 mb-6">
-        <BookOpen className="text-cyan-400" size={24} />
+        <BookOpen className="text-brand-navy" size={24} />
         <h3
           className="text-xl font-medium text-white"
           style={{ fontFamily: "Titillium Web, sans-serif" }}
@@ -213,7 +213,7 @@ export default function IICRCComplianceHelper({
             onClick={() => setActiveTab(tab.id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
               activeTab === tab.id
-                ? "bg-cyan-500 text-white"
+                ? "bg-brand-bronze text-white"
                 : "bg-slate-700/50 text-slate-300 hover:bg-slate-700"
             }`}
           >
@@ -235,7 +235,7 @@ export default function IICRCComplianceHelper({
             {categoryGuidelines && (
               <div>
                 <h4 className="text-lg font-medium text-white mb-3 flex items-center gap-2">
-                  <Droplets className="text-cyan-400" size={20} />
+                  <Droplets className="text-brand-navy" size={20} />
                   {categoryGuidelines.title}
                 </h4>
                 <p className="text-slate-300 mb-4">
@@ -252,7 +252,7 @@ export default function IICRCComplianceHelper({
                         >
                           <CheckCircle
                             size={14}
-                            className="text-emerald-400 flex-shrink-0"
+                            className="text-brand-navy flex-shrink-0"
                           />
                           {procedure}
                         </li>
@@ -285,7 +285,7 @@ export default function IICRCComplianceHelper({
             {classGuidelines && (
               <div>
                 <h4 className="text-lg font-medium text-white mb-3 flex items-center gap-2">
-                  <Wind className="text-cyan-400" size={20} />
+                  <Wind className="text-brand-navy" size={20} />
                   {classGuidelines.title}
                 </h4>
                 <p className="text-slate-300 mb-4">
@@ -356,19 +356,19 @@ export default function IICRCComplianceHelper({
                 </h5>
                 <ul className="space-y-2 text-sm text-slate-300">
                   <li className="flex items-center gap-2">
-                    <CheckCircle size={14} className="text-emerald-400" />
+                    <CheckCircle size={14} className="text-brand-navy" />
                     Safety glasses or goggles
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle size={14} className="text-emerald-400" />
+                    <CheckCircle size={14} className="text-brand-navy" />
                     Protective gloves
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle size={14} className="text-emerald-400" />
+                    <CheckCircle size={14} className="text-brand-navy" />
                     Non-slip footwear
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle size={14} className="text-emerald-400" />
+                    <CheckCircle size={14} className="text-brand-navy" />
                     Hard hat (if overhead hazards)
                   </li>
                   {waterCategory === "Category 2" ||
@@ -393,23 +393,23 @@ export default function IICRCComplianceHelper({
                 </h5>
                 <ul className="space-y-2 text-sm text-slate-300">
                   <li className="flex items-center gap-2">
-                    <CheckCircle size={14} className="text-emerald-400" />
+                    <CheckCircle size={14} className="text-brand-navy" />
                     Turn off electrical power
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle size={14} className="text-emerald-400" />
+                    <CheckCircle size={14} className="text-brand-navy" />
                     Check for gas leaks
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle size={14} className="text-emerald-400" />
+                    <CheckCircle size={14} className="text-brand-navy" />
                     Assess structural integrity
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle size={14} className="text-emerald-400" />
+                    <CheckCircle size={14} className="text-brand-navy" />
                     Post warning signs
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle size={14} className="text-emerald-400" />
+                    <CheckCircle size={14} className="text-brand-navy" />
                     Evacuate occupants if necessary
                   </li>
                 </ul>
@@ -421,8 +421,8 @@ export default function IICRCComplianceHelper({
         {activeTab === "equipment" && (
           <div className="space-y-6">
             {equipmentNeeds && (
-              <div className="bg-cyan-500/20 border border-cyan-500/30 rounded-lg p-4">
-                <h4 className="font-medium text-cyan-400 mb-3">
+              <div className="bg-brand-bronze/20 border border-brand-bronze/30 rounded-lg p-4">
+                <h4 className="font-medium text-brand-navy mb-3">
                   Calculated Equipment Needs
                 </h4>
                 <div className="grid md:grid-cols-2 gap-4">
@@ -433,7 +433,7 @@ export default function IICRCComplianceHelper({
                         Airmovers
                       </span>
                     </div>
-                    <p className="text-2xl font-bold text-cyan-400">
+                    <p className="text-2xl font-bold text-brand-navy">
                       {equipmentNeeds.airmovers}
                     </p>
                     <p className="text-xs text-slate-400">units required</p>
@@ -445,7 +445,7 @@ export default function IICRCComplianceHelper({
                         Dehumidification
                       </span>
                     </div>
-                    <p className="text-2xl font-bold text-cyan-400">
+                    <p className="text-2xl font-bold text-brand-navy">
                       {equipmentNeeds.dehumidification}L
                     </p>
                     <p className="text-xs text-slate-400">per day capacity</p>
@@ -461,23 +461,23 @@ export default function IICRCComplianceHelper({
                 </h5>
                 <ul className="space-y-2 text-sm text-slate-300">
                   <li className="flex items-center gap-2">
-                    <CheckCircle size={14} className="text-emerald-400" />
+                    <CheckCircle size={14} className="text-brand-navy" />
                     Moisture meters
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle size={14} className="text-emerald-400" />
+                    <CheckCircle size={14} className="text-brand-navy" />
                     Psychrometers
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle size={14} className="text-emerald-400" />
+                    <CheckCircle size={14} className="text-brand-navy" />
                     Airmovers
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle size={14} className="text-emerald-400" />
+                    <CheckCircle size={14} className="text-brand-navy" />
                     Dehumidifiers
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle size={14} className="text-emerald-400" />
+                    <CheckCircle size={14} className="text-brand-navy" />
                     Air filtration devices
                   </li>
                 </ul>
@@ -523,25 +523,25 @@ export default function IICRCComplianceHelper({
                 </h5>
                 <ol className="space-y-2 text-sm text-slate-300">
                   <li className="flex items-start gap-2">
-                    <span className="bg-cyan-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+                    <span className="bg-brand-bronze text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
                       1
                     </span>
                     <span>Safety assessment and hazard identification</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="bg-cyan-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+                    <span className="bg-brand-bronze text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
                       2
                     </span>
                     <span>Water source identification and control</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="bg-cyan-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+                    <span className="bg-brand-bronze text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
                       3
                     </span>
                     <span>Category and class determination</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="bg-cyan-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+                    <span className="bg-brand-bronze text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
                       4
                     </span>
                     <span>Documentation and photography</span>
@@ -555,25 +555,25 @@ export default function IICRCComplianceHelper({
                 </h5>
                 <ol className="space-y-2 text-sm text-slate-300">
                   <li className="flex items-start gap-2">
-                    <span className="bg-cyan-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+                    <span className="bg-brand-bronze text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
                       1
                     </span>
                     <span>Equipment placement and setup</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="bg-cyan-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+                    <span className="bg-brand-bronze text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
                       2
                     </span>
                     <span>Psychrometric monitoring</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="bg-cyan-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+                    <span className="bg-brand-bronze text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
                       3
                     </span>
                     <span>Moisture content measurements</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="bg-cyan-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+                    <span className="bg-brand-bronze text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
                       4
                     </span>
                     <span>Equipment adjustments as needed</span>
@@ -582,14 +582,14 @@ export default function IICRCComplianceHelper({
               </div>
             </div>
 
-            <div className="bg-emerald-500/20 border border-emerald-500/30 rounded-lg p-4">
+            <div className="bg-brand-bronze/20 border border-brand-bronze/30 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
-                <CheckCircle className="text-emerald-400" size={20} />
-                <h4 className="font-medium text-emerald-400">
+                <CheckCircle className="text-brand-navy" size={20} />
+                <h4 className="font-medium text-brand-navy">
                   Completion Verification
                 </h4>
               </div>
-              <ul className="space-y-1 text-sm text-emerald-300">
+              <ul className="space-y-1 text-sm text-brand-navy">
                 <li>• All materials returned to pre-loss moisture content</li>
                 <li>• Psychrometric conditions stabilized</li>
                 <li>• No visible moisture or condensation</li>

@@ -65,22 +65,22 @@ export default function OnboardingStepModal({
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.95, opacity: 0, y: 20 }}
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
-          className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-500/30 rounded-2xl shadow-2xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden"
+          className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-brand-bronze/30 rounded-2xl shadow-2xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Animated Background Gradient */}
-          <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 via-purple-500/5 to-cyan-500/10 animate-pulse"></div>
+          <div className="absolute inset-0 bg-gradient-to-br from-brand-bronze/10 via-brand-bronze/5 to-brand-bronze/10 animate-pulse"></div>
 
           {/* Header */}
-          <div className="relative border-b border-cyan-500/20 bg-slate-800/50 backdrop-blur-sm px-8 py-6">
+          <div className="relative border-b border-brand-bronze/20 bg-slate-800/50 backdrop-blur-sm px-8 py-6">
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="p-2 bg-gradient-to-br from-cyan-500/20 to-purple-500/20 rounded-lg border border-cyan-500/30">
-                    <Sparkles className="w-6 h-6 text-cyan-400" />
+                  <div className="p-2 bg-gradient-to-br from-brand-bronze/20 to-brand-bronze/20 rounded-lg border border-brand-bronze/30">
+                    <Sparkles className="w-6 h-6 text-brand-navy" />
                   </div>
                   <div>
-                    <h2 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
+                    <h2 className="text-2xl font-bold bg-gradient-to-r from-brand-navy to-brand-navy bg-clip-text text-transparent">
                       {title}
                     </h2>
                     <p className="text-sm text-slate-400 mt-1">
@@ -94,7 +94,7 @@ export default function OnboardingStepModal({
           </div>
 
           {/* Progress Steps */}
-          <div className="relative px-8 py-6 bg-slate-800/30 border-b border-cyan-500/10">
+          <div className="relative px-8 py-6 bg-slate-800/30 border-b border-brand-bronze/10">
             <div className="flex items-center justify-between">
               {steps.map((s, index) => {
                 const isCompleted = s.number < step;
@@ -108,9 +108,9 @@ export default function OnboardingStepModal({
                       <div
                         className={`relative w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
                           isCompleted
-                            ? "bg-gradient-to-br from-green-500 to-emerald-500 border-green-400 shadow-lg shadow-green-500/30"
+                            ? "bg-gradient-to-br from-brand-bronze to-brand-bronze border-brand-navy shadow-lg shadow-brand-bronze/30"
                             : isCurrent
-                              ? "bg-gradient-to-br from-cyan-500 to-purple-500 border-cyan-400 shadow-lg shadow-cyan-500/30 animate-pulse"
+                              ? "bg-gradient-to-br from-brand-bronze to-brand-bronze border-brand-navy shadow-lg shadow-brand-bronze/30 animate-pulse"
                               : "bg-slate-700 border-slate-600"
                         }`}
                       >
@@ -130,9 +130,9 @@ export default function OnboardingStepModal({
                       <div
                         className={`mt-2 text-xs text-center max-w-[100px] ${
                           isCurrent
-                            ? "text-cyan-400 font-semibold"
+                            ? "text-brand-navy font-semibold"
                             : isCompleted
-                              ? "text-green-400"
+                              ? "text-brand-navy"
                               : "text-slate-500"
                         }`}
                       >
@@ -144,7 +144,7 @@ export default function OnboardingStepModal({
                       <div
                         className={`flex-1 h-0.5 mx-2 transition-all duration-300 ${
                           isCompleted
-                            ? "bg-gradient-to-r from-green-500 to-cyan-500"
+                            ? "bg-gradient-to-r from-brand-bronze to-brand-bronze"
                             : "bg-slate-700"
                         }`}
                       ></div>
@@ -161,7 +161,7 @@ export default function OnboardingStepModal({
           </div>
 
           {/* Footer Note */}
-          <div className="relative border-t border-cyan-500/10 bg-slate-800/30 px-8 py-4">
+          <div className="relative border-t border-brand-bronze/10 bg-slate-800/30 px-8 py-4">
             <p className="text-xs text-center text-slate-400">
               💡 Complete this step to automatically proceed to the next one
             </p>

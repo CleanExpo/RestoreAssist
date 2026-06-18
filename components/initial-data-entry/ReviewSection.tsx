@@ -56,8 +56,8 @@ export function ReviewSection({
     <div
       className={cn(
         "p-6 rounded-lg border-2 space-y-6 mt-6",
-        "border-cyan-500/50 dark:border-cyan-500/50",
-        "bg-cyan-500/10 dark:bg-cyan-500/10",
+        "border-brand-bronze/50 dark:border-brand-bronze/50",
+        "bg-brand-bronze/10 dark:bg-brand-bronze/10",
       )}
     >
       <div className="mb-6">
@@ -339,7 +339,7 @@ export function ReviewSection({
                   </span>
                   <span
                     className={cn(
-                      "font-semibold text-cyan-600 dark:text-cyan-400",
+                      "font-semibold text-brand-bronze dark:text-brand-navy",
                     )}
                   >
                     {reading.moistureLevel}%
@@ -394,7 +394,7 @@ export function ReviewSection({
                   </span>
                   <span
                     className={cn(
-                      "text-xs px-2 py-1 bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 rounded",
+                      "text-xs px-2 py-1 bg-brand-bronze/20 text-brand-bronze dark:text-brand-navy rounded",
                     )}
                   >
                     {area.affectedSquareFootage.toFixed(2)} m²
@@ -491,8 +491,8 @@ export function ReviewSection({
           onClick={onContinue}
           className={cn(
             "px-6 py-2 rounded-lg font-medium transition-all flex items-center gap-2",
-            "bg-gradient-to-r from-blue-500 to-cyan-500",
-            "hover:from-blue-600 hover:to-cyan-600",
+            "bg-gradient-to-r from-blue-500 to-brand-bronze",
+            "hover:from-blue-600 hover:to-brand-bronze",
             "text-white shadow-lg hover:shadow-xl",
           )}
         >

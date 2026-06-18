@@ -198,7 +198,7 @@ export default function AuthorityFormsViewer({
       },
       COMPLETED: {
         label: "Completed",
-        color: "bg-green-500",
+        color: "bg-brand-bronze",
         icon: CheckCircle,
       },
       CANCELLED: { label: "Cancelled", color: "bg-red-500", icon: X },
@@ -249,7 +249,7 @@ export default function AuthorityFormsViewer({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-bronze"></div>
       </div>
     );
   }
@@ -273,7 +273,7 @@ export default function AuthorityFormsViewer({
         </div>
         <button
           onClick={() => setShowCreateModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-brand-bronze text-white rounded-lg hover:bg-brand-bronze transition-colors"
         >
           <Plus size={18} />
           Create Form
@@ -327,7 +327,7 @@ export default function AuthorityFormsViewer({
                         <span
                           className={cn(
                             "px-2 py-1 rounded-full text-xs",
-                            "bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400",
+                            "bg-green-100 dark:bg-brand-bronze/20 text-green-700 dark:text-brand-navy",
                           )}
                         >
                           Already Created
@@ -349,7 +349,7 @@ export default function AuthorityFormsViewer({
                         setSelectedTemplateCode(suggestion.templateCode);
                         setShowCreateModal(true);
                       }}
-                      className="px-3 py-1.5 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors text-sm"
+                      className="px-3 py-1.5 bg-brand-bronze text-white rounded-lg hover:bg-brand-bronze transition-colors text-sm"
                     >
                       Create
                     </button>
@@ -550,7 +550,7 @@ export default function AuthorityFormsViewer({
                   <button
                     onClick={() => handleCreateForm(selectedTemplateCode)}
                     disabled={creating}
-                    className="flex-1 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors disabled:opacity-50"
+                    className="flex-1 px-4 py-2 bg-brand-bronze text-white rounded-lg hover:bg-brand-bronze transition-colors disabled:opacity-50"
                   >
                     {creating ? "Creating..." : "Create Form"}
                   </button>
@@ -642,7 +642,7 @@ export default function AuthorityFormsViewer({
                               <span
                                 className={cn(
                                   "text-xs ml-2",
-                                  "text-green-700 dark:text-green-400",
+                                  "text-green-700 dark:text-brand-navy",
                                 )}
                               >
                                 Created

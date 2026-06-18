@@ -76,7 +76,7 @@ export default function PortalInvitePanel({
   return (
     <div className="p-4 rounded-xl border border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50">
       <div className="flex items-center gap-2 mb-3">
-        <Link2 size={16} className="text-cyan-500" />
+        <Link2 size={16} className="text-brand-bronze" />
         <h4 className="font-semibold text-sm">Share Job Status with Client</h4>
       </div>
       <p className="text-xs text-neutral-500 dark:text-slate-400 mb-4">
@@ -85,7 +85,7 @@ export default function PortalInvitePanel({
       </p>
 
       {inviteStatus === "sent" && (
-        <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
+        <div className="flex items-center gap-2 text-sm text-brand-bronze dark:text-brand-navy">
           <CheckCircle size={14} /> Invite sent to {selectedClient?.name}
         </div>
       )}
@@ -110,7 +110,7 @@ export default function PortalInvitePanel({
               value={selectedClientId}
               onChange={(e) => setSelectedClientId(e.target.value)}
               disabled={loading}
-              className="w-full rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              className="w-full rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-bronze"
             >
               <option value="">Select a client...</option>
               {clients.map((c) => (
@@ -129,7 +129,7 @@ export default function PortalInvitePanel({
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="We're keeping your home dry..."
-              className="w-full rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              className="w-full rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-bronze"
             />
           </div>
           <button
@@ -137,7 +137,7 @@ export default function PortalInvitePanel({
             disabled={sending || !selectedClientId}
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-              "bg-cyan-500 hover:bg-cyan-600 text-white disabled:opacity-50 disabled:cursor-not-allowed",
+              "bg-brand-bronze hover:bg-brand-bronze text-white disabled:opacity-50 disabled:cursor-not-allowed",
             )}
           >
             {sending ? (

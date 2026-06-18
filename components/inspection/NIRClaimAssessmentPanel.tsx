@@ -139,20 +139,20 @@ const CLAIM_TYPES: {
 ];
 
 const COLOR_MAP: Record<string, string> = {
-  cyan: "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 ring-cyan-400",
+  cyan: "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-brand-navy ring-brand-navy",
   orange:
     "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 ring-orange-400",
   green:
-    "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 ring-green-400",
+    "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-brand-navy ring-brand-navy",
   blue: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 ring-blue-400",
   purple:
-    "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 ring-purple-400",
+    "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-brand-navy ring-brand-navy",
   red: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 ring-red-400",
   yellow:
     "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 ring-yellow-400",
   amber:
     "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 ring-amber-400",
-  teal: "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 ring-teal-400",
+  teal: "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-brand-navy ring-brand-navy",
   rose: "bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 ring-rose-400",
 };
 
@@ -199,7 +199,7 @@ function Select({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+      className="w-full text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-bronze/30"
     >
       <option value="">{placeholder}</option>
       {options.map((o) => (
@@ -237,7 +237,7 @@ function Input({
       min={min}
       max={max}
       step={step}
-      className="w-full text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+      className="w-full text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-bronze/30"
     />
   );
 }
@@ -255,7 +255,7 @@ function Toggle({
       onClick={() => onChange(!value)}
       className={cn(
         "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none",
-        value ? "bg-cyan-500" : "bg-neutral-300 dark:bg-slate-600",
+        value ? "bg-brand-bronze" : "bg-neutral-300 dark:bg-slate-600",
       )}
     >
       <span
@@ -274,7 +274,7 @@ function GateBadge({ ok, label }: { ok: boolean; label: string }) {
       className={cn(
         "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium",
         ok
-          ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
+          ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-brand-navy"
           : "bg-neutral-100 dark:bg-slate-800 text-neutral-500 dark:text-slate-400",
       )}
     >
@@ -874,7 +874,7 @@ function ContentsNewItemForm({
       <button
         type="button"
         onClick={handleAdd}
-        className="px-4 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-600 text-white text-sm font-medium transition-colors"
+        className="px-4 py-1.5 rounded-lg bg-brand-bronze hover:bg-brand-bronze text-white text-sm font-medium transition-colors"
       >
         Add Item
       </button>
@@ -1310,7 +1310,7 @@ function AustralianComplianceForm({
         className="w-full flex items-center justify-between px-4 py-3 bg-neutral-50 dark:bg-slate-800/60 hover:bg-neutral-100 dark:hover:bg-slate-800 transition-colors"
       >
         <div className="flex items-center gap-2">
-          <Shield size={15} className="text-cyan-500" />
+          <Shield size={15} className="text-brand-bronze" />
           <span className="text-sm font-semibold text-neutral-700 dark:text-slate-200">
             Australian Compliance
           </span>
@@ -1760,7 +1760,7 @@ export default function NIRClaimAssessmentPanel({
                                     ? "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"
                                     : item.condition === "PACK_OUT"
                                       ? "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400"
-                                      : "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400",
+                                      : "bg-emerald-100 text-brand-bronze dark:bg-emerald-900/30 dark:text-brand-navy",
                                 )}
                               >
                                 {(item.condition as string)?.replace(/_/g, " ")}
@@ -1808,7 +1808,7 @@ export default function NIRClaimAssessmentPanel({
                 type="button"
                 onClick={handleSave}
                 disabled={saving || loading}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-bronze hover:bg-brand-bronze disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
               >
                 {saving ? (
                   <Loader2 size={14} className="animate-spin" />

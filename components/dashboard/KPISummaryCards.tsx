@@ -45,26 +45,26 @@ const CARDS: CardDef[] = [
   {
     key: "activeInspections",
     icon: <ClipboardCheck size={20} />,
-    gradient: "from-blue-500 to-cyan-500",
+    gradient: "from-blue-500 to-brand-bronze",
     iconBg: "bg-blue-500/10 text-blue-500 dark:text-blue-400",
   },
   {
     key: "moistureReadings7d",
     icon: <Droplets size={20} />,
-    gradient: "from-cyan-500 to-teal-500",
-    iconBg: "bg-cyan-500/10 text-cyan-500 dark:text-cyan-400",
+    gradient: "from-brand-bronze to-brand-bronze",
+    iconBg: "bg-brand-bronze/10 text-brand-bronze dark:text-brand-navy",
   },
   {
     key: "equipmentItems",
     icon: <Wrench size={20} />,
-    gradient: "from-violet-500 to-purple-500",
-    iconBg: "bg-violet-500/10 text-violet-500 dark:text-violet-400",
+    gradient: "from-brand-bronze to-brand-bronze",
+    iconBg: "bg-brand-bronze/10 text-brand-bronze dark:text-brand-navy",
   },
   {
     key: "completedThisMonth",
     icon: <CheckCircle2 size={20} />,
-    gradient: "from-emerald-500 to-green-500",
-    iconBg: "bg-emerald-500/10 text-emerald-500 dark:text-emerald-400",
+    gradient: "from-brand-bronze to-brand-bronze",
+    iconBg: "bg-brand-bronze/10 text-brand-bronze dark:text-brand-navy",
   },
   {
     key: "createdToday",
@@ -86,7 +86,7 @@ function DeltaBadge({ delta }: { delta: string | null }) {
         neutral
           ? "text-neutral-400 dark:text-slate-500"
           : positive
-            ? "text-emerald-500 dark:text-emerald-400"
+            ? "text-brand-bronze dark:text-brand-navy"
             : "text-rose-500 dark:text-rose-400",
       )}
     >
@@ -172,7 +172,7 @@ export default function KPISummaryCards() {
               "border-neutral-200 dark:border-slate-700/50",
               "bg-white dark:bg-slate-900/50",
               "hover:border-transparent hover:shadow-lg hover:scale-[1.02] active:scale-[0.99]",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-bronze",
             )}
           >
             {/* Hover gradient overlay */}

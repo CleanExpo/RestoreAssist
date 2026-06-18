@@ -79,7 +79,7 @@ export function FormPreviewModal({
           <div className="flex items-center justify-between">
             <div>
               <DialogTitle className="flex items-center gap-2 text-xl">
-                <Eye className="h-5 w-5 text-cyan-500" />
+                <Eye className="h-5 w-5 text-brand-bronze" />
                 Form Preview
               </DialogTitle>
               <DialogDescription className="mt-1">
@@ -221,7 +221,7 @@ export function FormPreviewModal({
                     className={cn(
                       "border-2 rounded-lg p-4 transition-colors",
                       signature.signedAt
-                        ? "border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/20"
+                        ? "border-brand-navy dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/20"
                         : "border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800",
                     )}
                   >
@@ -250,7 +250,7 @@ export function FormPreviewModal({
                         {signature.signatoryRole}
                       </p>
                       {signature.signedAt && (
-                        <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
+                        <p className="text-xs text-brand-bronze dark:text-brand-navy mt-1">
                           ✓ Signed{" "}
                           {new Date(signature.signedAt).toLocaleDateString(
                             "en-AU",
@@ -292,7 +292,7 @@ export function FormPreviewModal({
             {canSign && onSign && (
               <button
                 onClick={onSign}
-                className="flex items-center gap-2 px-5 py-2 text-sm font-medium rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white transition-colors"
+                className="flex items-center gap-2 px-5 py-2 text-sm font-medium rounded-lg bg-brand-bronze hover:bg-brand-bronze text-white transition-colors"
               >
                 <PenTool className="h-4 w-4" />
                 Sign This Form

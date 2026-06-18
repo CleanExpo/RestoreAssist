@@ -364,7 +364,7 @@ export default function ScopeOfWorksViewer({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
+        <Loader2 className="w-8 h-8 animate-spin text-brand-bronze" />
       </div>
     );
   }
@@ -392,7 +392,7 @@ export default function ScopeOfWorksViewer({
           {scopeDocument && (
             <button
               onClick={handlePrint}
-              className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors print:hidden"
+              className="flex items-center gap-2 px-4 py-2 bg-brand-bronze hover:bg-cyan-700 text-white rounded-lg transition-colors print:hidden"
             >
               <Printer className="w-4 h-4" />
               Print Report
@@ -418,7 +418,7 @@ export default function ScopeOfWorksViewer({
           <button
             onClick={handleGenerateScope}
             disabled={generating}
-            className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+            className="px-6 py-3 bg-gradient-to-r from-brand-bronze to-blue-500 hover:from-brand-bronze hover:to-blue-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
           >
             {generating ? "Generating..." : "Generate Scope of Works"}
           </button>
@@ -427,11 +427,11 @@ export default function ScopeOfWorksViewer({
 
       {/* Generating Indicator */}
       {generating && (
-        <div className="p-6 rounded-lg border border-cyan-500/50 bg-cyan-500/10">
+        <div className="p-6 rounded-lg border border-brand-bronze/50 bg-brand-bronze/10">
           <div className="flex items-center gap-3">
-            <Loader2 className="w-5 h-5 animate-spin text-cyan-400" />
+            <Loader2 className="w-5 h-5 animate-spin text-brand-navy" />
             <div>
-              <p className="text-cyan-400 font-medium">
+              <p className="text-brand-navy font-medium">
                 Processing scope of works generation...
               </p>
               <p className="text-sm text-slate-400">
@@ -567,10 +567,10 @@ export default function ScopeOfWorksViewer({
             id="scope-of-works-print-content"
             className="bg-white text-slate-900 print-content"
           >
-            <div className="p-4 rounded-lg border border-green-500/50 bg-green-500/10 print:hidden">
+            <div className="p-4 rounded-lg border border-brand-bronze/50 bg-brand-bronze/10 print:hidden">
               <div className="flex items-center gap-2">
-                <CheckCircle className="w-5 h-5 text-green-400" />
-                <p className="text-green-400 font-medium">
+                <CheckCircle className="w-5 h-5 text-brand-navy" />
+                <p className="text-brand-navy font-medium">
                   Scope of Works Generated Successfully
                 </p>
               </div>

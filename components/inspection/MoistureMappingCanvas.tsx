@@ -439,7 +439,7 @@ export default function MoistureMappingCanvas({
                 ? points.length === 0
                 : equipmentPoints.length === 0
           }
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-500 text-white rounded-lg text-sm hover:bg-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-bronze text-white rounded-lg text-sm hover:bg-brand-bronze disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           <Download size={14} />
           Export PNG
@@ -739,7 +739,7 @@ export default function MoistureMappingCanvas({
                 Floor plan overview without moisture or equipment data.
               </p>
               {backgroundImage ? (
-                <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                <p className="text-xs text-brand-bronze dark:text-brand-navy">
                   Floor plan loaded
                 </p>
               ) : (
@@ -754,8 +754,8 @@ export default function MoistureMappingCanvas({
           {sketchMode === "moisture" && (
             <>
               {selectedPoint && (
-                <div className="p-3 rounded-xl border-2 border-cyan-400 bg-cyan-50/50 dark:bg-cyan-900/10 space-y-2">
-                  <div className="text-xs font-semibold text-cyan-600 uppercase">
+                <div className="p-3 rounded-xl border-2 border-brand-navy bg-cyan-50/50 dark:bg-cyan-900/10 space-y-2">
+                  <div className="text-xs font-semibold text-brand-bronze uppercase">
                     Selected Reading
                   </div>
                   <div className="text-sm font-medium">
@@ -807,8 +807,8 @@ export default function MoistureMappingCanvas({
                         className={cn(
                           "w-full text-left p-2.5 rounded-lg border text-sm transition-all",
                           placingReading?.id === reading.id
-                            ? "border-cyan-400 bg-cyan-50 dark:bg-cyan-900/20 ring-2 ring-cyan-500/30"
-                            : "border-neutral-200 dark:border-slate-700 hover:border-cyan-300 dark:hover:border-cyan-800",
+                            ? "border-brand-navy bg-cyan-50 dark:bg-cyan-900/20 ring-2 ring-brand-bronze/30"
+                            : "border-neutral-200 dark:border-slate-700 hover:border-brand-navy dark:hover:border-cyan-800",
                         )}
                       >
                         <div className="flex items-center justify-between">
@@ -839,10 +839,10 @@ export default function MoistureMappingCanvas({
               {unplacedReadings.length === 0 && points.length > 0 && (
                 <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800/50 text-center">
                   <Droplets
-                    className="mx-auto text-emerald-500 mb-1"
+                    className="mx-auto text-brand-bronze mb-1"
                     size={20}
                   />
-                  <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                  <p className="text-xs text-brand-bronze dark:text-brand-navy font-medium">
                     All readings placed
                   </p>
                 </div>

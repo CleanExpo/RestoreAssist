@@ -234,10 +234,10 @@ export default function Tier3Questions({
 
   return (
     <div className="space-y-6">
-      <div className="p-4 rounded-lg border-2 border-green-500/50 bg-green-50 dark:bg-green-500/10">
+      <div className="p-4 rounded-lg border-2 border-brand-bronze/50 bg-green-50 dark:bg-brand-bronze/10">
         <div className="flex items-center gap-2 mb-2">
-          <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
-          <h2 className="text-xl font-semibold text-green-700 dark:text-green-400">
+          <CheckCircle className="w-5 h-5 text-brand-bronze dark:text-brand-navy" />
+          <h2 className="text-xl font-semibold text-green-700 dark:text-brand-navy">
             TIER 3: OPTIMISATION QUESTIONS
           </h2>
         </div>
@@ -248,10 +248,10 @@ export default function Tier3Questions({
       </div>
 
       {/* Advanced Tier 3 Questions */}
-      <div className="p-4 rounded-lg border-2 border-green-500/50 bg-green-50 dark:bg-green-500/10 mb-6">
+      <div className="p-4 rounded-lg border-2 border-brand-bronze/50 bg-green-50 dark:bg-brand-bronze/10 mb-6">
         <div className="flex items-center justify-between mb-2">
           <div>
-            <h3 className="text-lg font-semibold text-green-700 dark:text-green-400 mb-2">
+            <h3 className="text-lg font-semibold text-green-700 dark:text-brand-navy mb-2">
               Advanced Optimisation Questions
             </h3>
             <p className="text-sm text-gray-700 dark:text-slate-300">
@@ -278,7 +278,7 @@ export default function Tier3Questions({
               }));
               toast.success("Tier 3 advanced questions filled with test data");
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm font-medium"
+            className="flex items-center gap-2 px-4 py-2 bg-brand-bronze hover:bg-green-700 text-white rounded-lg transition-colors text-sm font-medium"
           >
             <Zap className="w-4 h-4" />
             Quick Fill Tier 3
@@ -315,7 +315,7 @@ export default function Tier3Questions({
                     T3_Q1_timelineRequirements: e.target.value,
                   }))
                 }
-                className="w-4 h-4 text-cyan-500"
+                className="w-4 h-4 text-brand-bronze"
               />
               <span className="text-gray-700 dark:text-slate-300">
                 {option}
@@ -365,7 +365,7 @@ export default function Tier3Questions({
                     T3_Q2_dryingPreferences: e.target.value,
                   }))
                 }
-                className="w-4 h-4 text-cyan-500"
+                className="w-4 h-4 text-brand-bronze"
               />
               <span className="text-gray-700 dark:text-slate-300">
                 {option}
@@ -403,7 +403,7 @@ export default function Tier3Questions({
                     T3_Q3_chemicalTreatment: e.target.value,
                   }))
                 }
-                className="w-4 h-4 text-cyan-500"
+                className="w-4 h-4 text-brand-bronze"
               />
               <span className="text-gray-700 dark:text-slate-300">
                 {option}
@@ -433,7 +433,7 @@ export default function Tier3Questions({
             }))
           }
           placeholder="Enter total affected area breakdown..."
-          className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
+          className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
         />
       </div>
 
@@ -465,7 +465,7 @@ export default function Tier3Questions({
                     T3_Q5_class4DryingAssessment: e.target.value,
                   }))
                 }
-                className="w-4 h-4 text-cyan-500"
+                className="w-4 h-4 text-brand-bronze"
               />
               <span className="text-gray-700 dark:text-slate-300">
                 {option}
@@ -476,10 +476,10 @@ export default function Tier3Questions({
       </div>
 
       {/* Photo Uploads Section (Optimised Only) */}
-      <div className="p-6 rounded-lg border-2 border-green-500/50 bg-green-50 dark:bg-green-500/10">
+      <div className="p-6 rounded-lg border-2 border-brand-bronze/50 bg-green-50 dark:bg-brand-bronze/10">
         <div className="flex items-center gap-2 mb-4">
-          <Camera className="w-5 h-5 text-green-600 dark:text-green-400" />
-          <h3 className="text-lg font-semibold text-green-700 dark:text-green-400">
+          <Camera className="w-5 h-5 text-brand-bronze dark:text-brand-navy" />
+          <h3 className="text-lg font-semibold text-green-700 dark:text-brand-navy">
             Photo Uploads
           </h3>
         </div>
@@ -541,7 +541,7 @@ export default function Tier3Questions({
                     </div>
                   ))}
                   {remaining > 0 && (
-                    <label className="w-full h-20 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded flex items-center justify-center cursor-pointer hover:border-green-500 transition-colors bg-gray-50 dark:bg-slate-900/50">
+                    <label className="w-full h-20 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded flex items-center justify-center cursor-pointer hover:border-brand-bronze transition-colors bg-gray-50 dark:bg-slate-900/50">
                       <div className="text-center">
                         <Camera className="w-4 h-4 text-gray-500 dark:text-slate-400 mx-auto mb-1" />
                         <span className="text-xs text-gray-600 dark:text-slate-400">
@@ -591,7 +591,7 @@ export default function Tier3Questions({
         <button
           onClick={handleSave}
           disabled={loading}
-          className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg font-medium hover:shadow-lg hover:shadow-green-500/50 transition-all disabled:opacity-50"
+          className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-brand-bronze to-brand-bronze rounded-lg font-medium hover:shadow-lg hover:shadow-brand-bronze/50 transition-all disabled:opacity-50"
         >
           <Save className="w-4 h-4" />
           {loading ? "Saving..." : "Save & Complete"}

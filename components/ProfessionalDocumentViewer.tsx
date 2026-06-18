@@ -32,7 +32,7 @@ export default function ProfessionalDocumentViewer({
     // Convert section headers (## SECTION) - with better styling for category headers
     html = html.replace(
       /^##\s+(.*$)/gim,
-      '<h2 class="text-xl font-bold text-slate-900 mt-8 mb-4 pb-3 border-b-2 border-cyan-300 bg-gradient-to-r from-cyan-50 to-transparent px-4 py-2 rounded-t-lg">$1</h2>',
+      '<h2 class="text-xl font-bold text-slate-900 mt-8 mb-4 pb-3 border-b-2 border-brand-navy bg-gradient-to-r from-cyan-50 to-transparent px-4 py-2 rounded-t-lg">$1</h2>',
     );
 
     // Convert phase headers (### PHASE)
@@ -61,7 +61,7 @@ export default function ProfessionalDocumentViewer({
     // Use $$$1 where $$ = literal $ and $1 = capture group (the number)
     html = html.replace(
       /\$(\d+[\d,]*\.?\d*)/g,
-      '<span class="text-green-600 font-semibold">$$$1</span>',
+      '<span class="text-brand-bronze font-semibold">$$$1</span>',
     );
 
     // Format tables - handle pipe-delimited tables

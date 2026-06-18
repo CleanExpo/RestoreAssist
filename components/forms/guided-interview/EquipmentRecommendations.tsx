@@ -52,13 +52,13 @@ const getEquipmentIcon = (type: string) => {
     case "dehumidifier":
       return <Droplets className="h-5 w-5 text-blue-600" />;
     case "air_mover":
-      return <Wind className="h-5 w-5 text-green-600" />;
+      return <Wind className="h-5 w-5 text-brand-bronze" />;
     case "air_scrubber":
       return <Zap className="h-5 w-5 text-amber-600" />;
     case "heater":
       return <Thermometer className="h-5 w-5 text-red-600" />;
     case "monitor":
-      return <AlertCircle className="h-5 w-5 text-purple-600" />;
+      return <AlertCircle className="h-5 w-5 text-brand-bronze" />;
     default:
       return null;
   }

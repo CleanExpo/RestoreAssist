@@ -222,7 +222,7 @@ export function QuickMoistureEntry({
         className={cn(
           "h-16 rounded-2xl text-lg font-bold transition-all active:scale-95",
           saved
-            ? "bg-green-600 text-white"
+            ? "bg-brand-bronze text-white"
             : isValid && location
               ? "bg-[#1C2E47] text-white hover:bg-[#1C2E47]/80"
               : "bg-white/5 text-white/30 cursor-not-allowed",

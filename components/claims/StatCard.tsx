@@ -46,9 +46,9 @@ export function StatCard({
     },
     success: {
       card: "border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/20",
-      icon: "text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30",
-      value: "text-green-700 dark:text-green-400",
-      title: "text-green-600 dark:text-green-400",
+      icon: "text-brand-bronze dark:text-brand-navy bg-green-100 dark:bg-green-900/30",
+      value: "text-green-700 dark:text-brand-navy",
+      title: "text-brand-bronze dark:text-brand-navy",
     },
     warning: {
       card: "border-yellow-200 dark:border-yellow-800 bg-yellow-50/50 dark:bg-yellow-950/20",
@@ -64,9 +64,9 @@ export function StatCard({
     },
     info: {
       card: "border-cyan-200 dark:border-cyan-800 bg-cyan-50/50 dark:bg-cyan-950/20",
-      icon: "text-cyan-600 dark:text-cyan-400 bg-cyan-100 dark:bg-cyan-900/30",
-      value: "text-cyan-700 dark:text-cyan-400",
-      title: "text-cyan-600 dark:text-cyan-400",
+      icon: "text-brand-bronze dark:text-brand-navy bg-cyan-100 dark:bg-cyan-900/30",
+      value: "text-cyan-700 dark:text-brand-navy",
+      title: "text-brand-bronze dark:text-brand-navy",
     },
   };
 
@@ -143,7 +143,7 @@ export function StatCard({
                   className={cn(
                     "text-xs font-medium",
                     trend.isPositive
-                      ? "text-green-600 dark:text-green-400"
+                      ? "text-brand-bronze dark:text-brand-navy"
                       : "text-red-600 dark:text-red-400",
                   )}
                 >

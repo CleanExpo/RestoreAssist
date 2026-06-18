@@ -222,7 +222,7 @@ export function AdaptiveGuidancePanel({
                 >
                   <div className="mt-0.5 flex-shrink-0">
                     {checked ? (
-                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      <CheckCircle2 className="h-4 w-4 text-brand-bronze" />
                     ) : (
                       <Circle className="h-4 w-4 text-slate-400" />
                     )}
@@ -232,7 +232,7 @@ export function AdaptiveGuidancePanel({
                       className={cn(
                         "text-sm font-medium",
                         checked
-                          ? "text-green-700 dark:text-green-400 line-through"
+                          ? "text-green-700 dark:text-brand-navy line-through"
                           : "text-slate-800 dark:text-slate-200",
                       )}
                     >
@@ -269,7 +269,7 @@ export function AdaptiveGuidancePanel({
       {guidance.confirmingQuestions.length > 0 &&
         stepStatus === "IN_PROGRESS" && (
           <div className="bg-white dark:bg-slate-900 rounded-xl border border-violet-200 dark:border-violet-800/50 p-5">
-            <h4 className="text-xs font-semibold text-violet-700 dark:text-violet-400 uppercase tracking-wide mb-3">
+            <h4 className="text-xs font-semibold text-violet-700 dark:text-brand-navy uppercase tracking-wide mb-3">
               Before You Continue
             </h4>
             <div className="space-y-2.5">
@@ -284,18 +284,18 @@ export function AdaptiveGuidancePanel({
                       confirmed
                         ? "border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/10"
                         : q.required
-                          ? "border-violet-200 dark:border-violet-700 bg-violet-50 dark:bg-violet-900/10 hover:border-violet-300"
+                          ? "border-violet-200 dark:border-violet-700 bg-violet-50 dark:bg-violet-900/10 hover:border-brand-navy"
                           : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/30 hover:border-slate-300",
                     )}
                   >
                     <div className="mt-0.5 flex-shrink-0">
                       {confirmed ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        <CheckCircle2 className="h-4 w-4 text-brand-bronze" />
                       ) : (
                         <Circle
                           className={cn(
                             "h-4 w-4",
-                            q.required ? "text-violet-400" : "text-slate-400",
+                            q.required ? "text-brand-navy" : "text-slate-400",
                           )}
                         />
                       )}
@@ -305,14 +305,14 @@ export function AdaptiveGuidancePanel({
                         className={cn(
                           "text-sm",
                           confirmed
-                            ? "text-green-700 dark:text-green-400"
+                            ? "text-green-700 dark:text-brand-navy"
                             : "text-slate-800 dark:text-slate-200",
                         )}
                       >
                         {q.question}
                       </span>
                       {q.required && !confirmed && (
-                        <span className="ml-2 text-[10px] text-violet-500 dark:text-violet-400 font-medium">
+                        <span className="ml-2 text-[10px] text-brand-bronze dark:text-brand-navy font-medium">
                           Required
                         </span>
                       )}
@@ -335,15 +335,15 @@ export function AdaptiveGuidancePanel({
                 className="w-full flex items-center justify-between p-4 text-left hover:bg-emerald-50 dark:hover:bg-emerald-900/10 transition-colors"
               >
                 <div className="flex items-center gap-2">
-                  <Lightbulb className="h-4 w-4 text-emerald-500" />
-                  <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">
+                  <Lightbulb className="h-4 w-4 text-brand-bronze" />
+                  <span className="text-xs font-semibold text-emerald-700 dark:text-brand-navy uppercase tracking-wide">
                     Tips ({guidance.tips.length})
                   </span>
                 </div>
                 {showTips ? (
-                  <ChevronUp className="h-4 w-4 text-emerald-400" />
+                  <ChevronUp className="h-4 w-4 text-brand-navy" />
                 ) : (
-                  <ChevronDown className="h-4 w-4 text-emerald-400" />
+                  <ChevronDown className="h-4 w-4 text-brand-navy" />
                 )}
               </button>
               {showTips && (
@@ -351,7 +351,7 @@ export function AdaptiveGuidancePanel({
                   {guidance.tips.map((tip, i) => (
                     <p
                       key={i}
-                      className="text-xs text-emerald-800 dark:text-emerald-300 leading-relaxed pl-6"
+                      className="text-xs text-emerald-800 dark:text-brand-navy leading-relaxed pl-6"
                     >
                       {tip}
                     </p>

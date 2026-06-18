@@ -106,7 +106,7 @@ export default function DocumentExportPackage({
 
         <div className="grid md:grid-cols-2 gap-4">
           {/* PDF Format */}
-          <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30 hover:border-cyan-500/50 transition-colors">
+          <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30 hover:border-brand-bronze/50 transition-colors">
             <div className="flex items-center gap-3 mb-3">
               <div className="p-2 rounded-lg bg-red-500/20">
                 <FileText className="w-5 h-5 text-red-400" />
@@ -142,7 +142,7 @@ export default function DocumentExportPackage({
           </div>
 
           {/* ZIP Format */}
-          <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30 hover:border-cyan-500/50 transition-colors">
+          <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30 hover:border-brand-bronze/50 transition-colors">
             <div className="flex items-center gap-3 mb-3">
               <div className="p-2 rounded-lg bg-amber-500/20">
                 <FileArchive className="w-5 h-5 text-amber-400" />
@@ -176,10 +176,10 @@ export default function DocumentExportPackage({
           </div>
 
           {/* JSON Format */}
-          <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30 hover:border-cyan-500/50 transition-colors">
+          <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30 hover:border-brand-bronze/50 transition-colors">
             <div className="flex items-center gap-3 mb-3">
-              <div className="p-2 rounded-lg bg-green-500/20">
-                <FileJson className="w-5 h-5 text-green-400" />
+              <div className="p-2 rounded-lg bg-brand-bronze/20">
+                <FileJson className="w-5 h-5 text-brand-navy" />
               </div>
               <div>
                 <h4 className="font-semibold">JSON Format</h4>
@@ -192,7 +192,7 @@ export default function DocumentExportPackage({
             <button
               onClick={() => handleExport("json")}
               disabled={exporting !== null}
-              className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full px-4 py-2 bg-brand-bronze hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {exporting === "json" ? (
                 <>
@@ -239,10 +239,10 @@ export default function DocumentExportPackage({
 
         <div className="grid md:grid-cols-2 gap-4">
           {/* Direct Download */}
-          <div className="p-4 rounded-lg border border-green-500/50 bg-green-500/10">
+          <div className="p-4 rounded-lg border border-brand-bronze/50 bg-brand-bronze/10">
             <div className="flex items-center gap-3 mb-2">
-              <CheckCircle className="w-5 h-5 text-green-400" />
-              <h4 className="font-semibold text-green-400">Direct Download</h4>
+              <CheckCircle className="w-5 h-5 text-brand-navy" />
+              <h4 className="font-semibold text-brand-navy">Direct Download</h4>
             </div>
             <p className="text-sm text-slate-300">
               Download all documents directly from the application. Immediate
@@ -275,23 +275,23 @@ export default function DocumentExportPackage({
         <h4 className="font-semibold mb-3">Package Contents</h4>
         <ul className="space-y-2 text-sm">
           <li className="flex items-center gap-2">
-            <CheckCircle className="w-4 h-4 text-green-400" />
+            <CheckCircle className="w-4 h-4 text-brand-navy" />
             <span>Professional Inspection Report (with watermark)</span>
           </li>
           <li className="flex items-center gap-2">
-            <CheckCircle className="w-4 h-4 text-green-400" />
+            <CheckCircle className="w-4 h-4 text-brand-navy" />
             <span>Scope of Works (with watermark)</span>
           </li>
           <li className="flex items-center gap-2">
-            <CheckCircle className="w-4 h-4 text-green-400" />
+            <CheckCircle className="w-4 h-4 text-brand-navy" />
             <span>Cost Estimation (with watermark)</span>
           </li>
           <li className="flex items-center gap-2">
-            <CheckCircle className="w-4 h-4 text-green-400" />
+            <CheckCircle className="w-4 h-4 text-brand-navy" />
             <span>Version history & change log</span>
           </li>
           <li className="flex items-center gap-2">
-            <CheckCircle className="w-4 h-4 text-green-400" />
+            <CheckCircle className="w-4 h-4 text-brand-navy" />
             <span>Raw data export (all Q&A responses)</span>
           </li>
         </ul>

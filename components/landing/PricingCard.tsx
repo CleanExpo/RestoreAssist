@@ -32,7 +32,7 @@ export default function PricingCard({
       viewport={{ once: true }}
       className={`relative p-8 rounded-2xl border transition-all duration-500 ${
         popular
-          ? "border-cyan-500/50 bg-gradient-to-br from-slate-800/60 to-slate-800/80 ring-2 ring-cyan-500/20 transform scale-105 hover:scale-110"
+          ? "border-brand-bronze/50 bg-gradient-to-br from-slate-800/60 to-slate-800/80 ring-2 ring-brand-bronze/20 transform scale-105 hover:scale-110"
           : "border-slate-700/50 bg-gradient-to-br from-slate-800/30 to-slate-800/50 hover:bg-gradient-to-br hover:from-slate-800/50 hover:to-slate-800/70 hover:scale-105"
       }`}
       whileHover={{ y: -5 }}
@@ -41,8 +41,8 @@ export default function PricingCard({
         <motion.div
           className={`absolute -top-4 left-1/2 transform -translate-x-1/2 px-6 py-2 rounded-full text-sm font-medium ${
             popular
-              ? "bg-gradient-to-r from-blue-500 to-cyan-500"
-              : "bg-gradient-to-r from-emerald-500 to-cyan-500"
+              ? "bg-gradient-to-r from-blue-500 to-brand-bronze"
+              : "bg-gradient-to-r from-brand-bronze to-brand-bronze"
           }`}
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
@@ -67,7 +67,7 @@ export default function PricingCard({
       <ul className="space-y-4 mb-8">
         {features.map((feature, i) => (
           <li key={i} className="flex items-center gap-3 text-slate-300">
-            <CheckCircle size={20} className="text-cyan-400 flex-shrink-0" />
+            <CheckCircle size={20} className="text-brand-navy flex-shrink-0" />
             <span className="text-lg font-light">{feature}</span>
           </li>
         ))}
@@ -76,7 +76,7 @@ export default function PricingCard({
       <motion.button
         className={`w-full py-4 rounded-xl font-medium text-lg transition-all duration-300 ${
           popular
-            ? "bg-gradient-to-r from-blue-500 to-cyan-500 hover:shadow-2xl hover:shadow-blue-500/50"
+            ? "bg-gradient-to-r from-blue-500 to-brand-bronze hover:shadow-2xl hover:shadow-blue-500/50"
             : "border-2 border-slate-600 hover:bg-slate-700/50"
         }`}
         whileHover={{ scale: 1.02 }}

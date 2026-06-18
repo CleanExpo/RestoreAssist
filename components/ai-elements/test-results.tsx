@@ -96,7 +96,7 @@ export const TestResultsSummary = ({
       {children ?? (
         <>
           <Badge
-            className="gap-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+            className="gap-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-brand-navy"
             variant="secondary"
           >
             <CheckCircle2Icon className="size-3" />
@@ -178,7 +178,7 @@ export const TestResultsProgress = ({
         <>
           <div className="flex h-2 overflow-hidden rounded-full bg-muted">
             <div
-              className="bg-green-500 transition-all"
+              className="bg-brand-bronze transition-all"
               style={{ width: `${passedPercent}%` }}
             />
             <div
@@ -222,7 +222,7 @@ const TestSuiteContext = createContext<TestSuiteContextType>({
 
 const statusStyles: Record<TestStatusValue, string> = {
   failed: "text-red-600 dark:text-red-400",
-  passed: "text-green-600 dark:text-green-400",
+  passed: "text-brand-bronze dark:text-brand-navy",
   running: "text-blue-600 dark:text-blue-400",
   skipped: "text-yellow-600 dark:text-yellow-400",
 };
@@ -308,7 +308,7 @@ export const TestSuiteStats = ({
     {children ?? (
       <>
         {passed > 0 && (
-          <span className="text-green-600 dark:text-green-400">
+          <span className="text-brand-bronze dark:text-brand-navy">
             {passed} passed
           </span>
         )}

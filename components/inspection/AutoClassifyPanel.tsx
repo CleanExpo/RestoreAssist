@@ -44,8 +44,8 @@ const CLASS_LABEL: Record<ClassifySuggestion["waterClass"], string> = {
 };
 
 function confidenceTone(c: number): string {
-  if (c >= 85) return "text-emerald-600 dark:text-emerald-400";
-  if (c >= 65) return "text-cyan-600 dark:text-cyan-400";
+  if (c >= 85) return "text-brand-bronze dark:text-brand-navy";
+  if (c >= 65) return "text-brand-bronze dark:text-brand-navy";
   if (c >= 40) return "text-amber-600 dark:text-amber-400";
   return "text-red-600 dark:text-red-400";
 }
@@ -149,7 +149,7 @@ export default function AutoClassifyPanel({ inspectionId, onApply }: Props) {
                 </div>
               </div>
               <div className="rounded-lg border border-purple-200 bg-purple-50/60 p-3 dark:border-purple-800/50 dark:bg-purple-900/10">
-                <div className="text-xs font-semibold uppercase text-purple-600 dark:text-purple-400">
+                <div className="text-xs font-semibold uppercase text-brand-bronze dark:text-brand-navy">
                   Water Class
                 </div>
                 <div className="mt-1 text-sm font-medium text-neutral-800 dark:text-slate-200">

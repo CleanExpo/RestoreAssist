@@ -100,7 +100,7 @@ export default function ActivityTimeline({
                   variant="secondary"
                   className={
                     entry.device === "Mobile"
-                      ? "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-0 text-xs"
+                      ? "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-brand-navy border-0 text-xs"
                       : "bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 border-0 text-xs"
                   }
                 >

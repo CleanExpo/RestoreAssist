@@ -68,14 +68,14 @@ export default function CloseJobPrompt({
       >
         <div className="flex items-start gap-3">
           <Lock
-            className="h-5 w-5 text-cyan-600 mt-0.5 shrink-0"
+            className="h-5 w-5 text-brand-bronze mt-0.5 shrink-0"
             aria-hidden="true"
           />
           <div className="min-w-0">
-            <p className="font-semibold text-cyan-700 dark:text-cyan-400">
+            <p className="font-semibold text-cyan-700 dark:text-brand-navy">
               Job Closed
             </p>
-            <p className="text-sm text-cyan-700/80 dark:text-cyan-300/80 mt-0.5">
+            <p className="text-sm text-cyan-700/80 dark:text-brand-navy/80 mt-0.5">
               Inspection {inspectionNumber} was closed on{" "}
               {new Date(completedAt as string).toLocaleString("en-AU", {
                 day: "2-digit",
@@ -212,12 +212,12 @@ function CloseJobPromptActive({
     >
       <div className="flex items-start gap-3">
         <Sparkles
-          className="h-5 w-5 text-cyan-600 mt-0.5 shrink-0"
+          className="h-5 w-5 text-brand-bronze mt-0.5 shrink-0"
           aria-hidden="true"
         />
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
-            <p className="font-semibold text-cyan-700 dark:text-cyan-400">
+            <p className="font-semibold text-cyan-700 dark:text-brand-navy">
               Ready to close inspection {inspectionNumber}?
             </p>
             <button
@@ -228,7 +228,7 @@ function CloseJobPromptActive({
               Not yet
             </button>
           </div>
-          <p className="text-sm text-cyan-700/80 dark:text-cyan-300/80 mt-1">
+          <p className="text-sm text-cyan-700/80 dark:text-brand-navy/80 mt-1">
             Review the AI-drafted summary below before closing. You can edit
             anything before confirming.
           </p>
@@ -268,7 +268,7 @@ function CloseJobPromptActive({
               type="button"
               onClick={() => setDialogOpen(true)}
               disabled={loadingDraft || !draft.trim() || submitting}
-              className="bg-cyan-600 hover:bg-cyan-700 text-white"
+              className="bg-brand-bronze hover:bg-cyan-700 text-white"
             >
               {submitting ? (
                 <>
@@ -319,7 +319,7 @@ function CloseJobPromptActive({
             <Button
               onClick={() => void submitClose()}
               disabled={submitting}
-              className="bg-cyan-600 hover:bg-cyan-700 text-white"
+              className="bg-brand-bronze hover:bg-cyan-700 text-white"
             >
               {submitting ? (
                 <>

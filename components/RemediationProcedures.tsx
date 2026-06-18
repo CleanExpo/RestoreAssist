@@ -264,7 +264,7 @@ export default function RemediationProcedures({
                 onChange={(e) =>
                   handleInputChange("safetyPlan", e.target.value)
                 }
-                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze"
                 rows={4}
                 placeholder="Detailed safety protocols, emergency procedures, evacuation plans"
               />
@@ -279,7 +279,7 @@ export default function RemediationProcedures({
                 onChange={(e) =>
                   handleInputChange("emergencyProcedures", e.target.value)
                 }
-                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze"
                 rows={3}
                 placeholder="Emergency contacts, evacuation routes, medical procedures"
               />
@@ -292,7 +292,7 @@ export default function RemediationProcedures({
                 onChange={(e) =>
                   handleInputChange("ppeRequired", e.target.value)
                 }
-                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze"
                 rows={3}
                 placeholder="PPE requirements will be auto-filled based on water category"
               />
@@ -304,7 +304,7 @@ export default function RemediationProcedures({
                   >
                     <CheckCircle
                       size={16}
-                      className="text-emerald-400 flex-shrink-0"
+                      className="text-brand-navy flex-shrink-0"
                     />
                     {ppe}
                   </li>
@@ -342,7 +342,7 @@ export default function RemediationProcedures({
                     onChange={(e) =>
                       handleInputChange("containmentSetup", e.target.value)
                     }
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze"
                     rows={4}
                     placeholder="Containment barriers, negative pressure setup, isolation procedures"
                   />
@@ -357,7 +357,7 @@ export default function RemediationProcedures({
                     onChange={(e) =>
                       handleInputChange("containmentBarriers", e.target.value)
                     }
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze"
                     rows={2}
                     placeholder="Containment barriers will be auto-filled based on water category"
                   />
@@ -372,7 +372,7 @@ export default function RemediationProcedures({
                     onChange={(e) =>
                       handleInputChange("airFiltration", e.target.value)
                     }
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze"
                     rows={2}
                     placeholder="Air filtration requirements will be auto-filled"
                   />
@@ -387,7 +387,7 @@ export default function RemediationProcedures({
                     onChange={(e) =>
                       handleInputChange("negativePressure", e.target.value)
                     }
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze"
                     rows={2}
                     placeholder="Negative pressure requirements will be auto-filled"
                   />
@@ -438,28 +438,28 @@ export default function RemediationProcedures({
                       <li className="flex items-center gap-2">
                         <CheckCircle
                           size={16}
-                          className="text-cyan-400 flex-shrink-0"
+                          className="text-brand-navy flex-shrink-0"
                         />
                         HEPA filtration systems
                       </li>
                       <li className="flex items-center gap-2">
                         <CheckCircle
                           size={16}
-                          className="text-cyan-400 flex-shrink-0"
+                          className="text-brand-navy flex-shrink-0"
                         />
                         Negative pressure units
                       </li>
                       <li className="flex items-center gap-2">
                         <CheckCircle
                           size={16}
-                          className="text-cyan-400 flex-shrink-0"
+                          className="text-brand-navy flex-shrink-0"
                         />
                         Air scrubbing equipment
                       </li>
                       <li className="flex items-center gap-2">
                         <CheckCircle
                           size={16}
-                          className="text-cyan-400 flex-shrink-0"
+                          className="text-brand-navy flex-shrink-0"
                         />
                         Containment barriers
                       </li>
@@ -483,7 +483,7 @@ export default function RemediationProcedures({
                 onChange={(e) =>
                   handleInputChange("decontaminationProcedures", e.target.value)
                 }
-                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze"
                 rows={4}
                 placeholder="Detailed decontamination procedures, cleaning protocols, antimicrobial application"
               />
@@ -498,7 +498,7 @@ export default function RemediationProcedures({
                 onChange={(e) =>
                   handleInputChange("wasteDisposal", e.target.value)
                 }
-                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze"
                 rows={3}
                 placeholder="Waste disposal procedures will be auto-filled based on water category"
               />
@@ -513,7 +513,7 @@ export default function RemediationProcedures({
                 onChange={(e) =>
                   handleInputChange("safetyProtocols", e.target.value)
                 }
-                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze"
                 rows={3}
                 placeholder="Safety protocols will be auto-filled based on water category"
               />
@@ -528,7 +528,7 @@ export default function RemediationProcedures({
                 onChange={(e) =>
                   handleInputChange("monitoringFrequency", e.target.value)
                 }
-                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze"
                 rows={2}
                 placeholder="Monitoring frequency will be auto-filled"
               />
@@ -544,7 +544,7 @@ export default function RemediationProcedures({
                     key={index}
                     className="flex items-start gap-2 text-sm text-slate-300"
                   >
-                    <span className="bg-cyan-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                    <span className="bg-brand-bronze text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
                       {index + 1}
                     </span>
                     {step}
@@ -562,7 +562,7 @@ export default function RemediationProcedures({
                 onChange={(e) =>
                   handleInputChange("wasteDisposal", e.target.value)
                 }
-                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze"
                 rows={3}
                 placeholder="Waste segregation, disposal methods, regulatory compliance"
               />
@@ -626,7 +626,7 @@ export default function RemediationProcedures({
                   onChange={(e) =>
                     handleInputChange("iepContact", e.target.value)
                   }
-                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze"
                   placeholder="IEP company name, contact person, phone number"
                 />
               </div>
@@ -671,14 +671,14 @@ export default function RemediationProcedures({
       case 5:
         return (
           <div className="space-y-6">
-            <div className="bg-emerald-500/20 border border-emerald-500/30 rounded-lg p-4">
+            <div className="bg-brand-bronze/20 border border-brand-bronze/30 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
-                <CheckCircle className="text-emerald-400" size={20} />
-                <h4 className="font-medium text-emerald-400">
+                <CheckCircle className="text-brand-navy" size={20} />
+                <h4 className="font-medium text-brand-navy">
                   Post-Remediation Verification
                 </h4>
               </div>
-              <p className="text-sm text-emerald-300">
+              <p className="text-sm text-brand-navy">
                 Final verification ensures all contamination has been properly
                 addressed and the environment is safe for occupancy.
               </p>
@@ -696,7 +696,7 @@ export default function RemediationProcedures({
                     e.target.value,
                   )
                 }
-                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze"
                 rows={4}
                 placeholder="Verification procedures, clearance testing, final documentation"
               />
@@ -711,28 +711,28 @@ export default function RemediationProcedures({
                   <li className="flex items-center gap-2">
                     <CheckCircle
                       size={16}
-                      className="text-emerald-400 flex-shrink-0"
+                      className="text-brand-navy flex-shrink-0"
                     />
                     Visual inspection completed
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle
                       size={16}
-                      className="text-emerald-400 flex-shrink-0"
+                      className="text-brand-navy flex-shrink-0"
                     />
                     Air quality testing
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle
                       size={16}
-                      className="text-emerald-400 flex-shrink-0"
+                      className="text-brand-navy flex-shrink-0"
                     />
                     Surface sampling (if required)
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle
                       size={16}
-                      className="text-emerald-400 flex-shrink-0"
+                      className="text-brand-navy flex-shrink-0"
                     />
                     Odor elimination confirmed
                   </li>
@@ -747,28 +747,28 @@ export default function RemediationProcedures({
                   <li className="flex items-center gap-2">
                     <CheckCircle
                       size={16}
-                      className="text-cyan-400 flex-shrink-0"
+                      className="text-brand-navy flex-shrink-0"
                     />
                     Clearance test results
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle
                       size={16}
-                      className="text-cyan-400 flex-shrink-0"
+                      className="text-brand-navy flex-shrink-0"
                     />
                     Final inspection report
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle
                       size={16}
-                      className="text-cyan-400 flex-shrink-0"
+                      className="text-brand-navy flex-shrink-0"
                     />
                     Certificate of completion
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle
                       size={16}
-                      className="text-cyan-400 flex-shrink-0"
+                      className="text-brand-navy flex-shrink-0"
                     />
                     Regulatory compliance documentation
                   </li>
@@ -792,7 +792,7 @@ export default function RemediationProcedures({
             <motion.div
               className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${
                 activeStep >= step.id
-                  ? "bg-cyan-500 border-cyan-500 text-white"
+                  ? "bg-brand-bronze border-brand-bronze text-white"
                   : "border-slate-600 text-slate-400"
               } ${!step.required ? "opacity-50" : ""}`}
               initial={{ scale: 0.8 }}
@@ -809,7 +809,7 @@ export default function RemediationProcedures({
             {index < remediationSteps.length - 1 && (
               <div
                 className={`w-16 h-0.5 mx-2 ${
-                  activeStep > step.id ? "bg-cyan-500" : "bg-slate-600"
+                  activeStep > step.id ? "bg-brand-bronze" : "bg-slate-600"
                 }`}
               />
             )}
@@ -857,12 +857,12 @@ export default function RemediationProcedures({
               onClick={() =>
                 setActiveStep(Math.min(remediationSteps.length, activeStep + 1))
               }
-              className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg text-white font-medium hover:shadow-lg hover:shadow-cyan-500/50 transition-all"
+              className="px-6 py-3 bg-gradient-to-r from-brand-bronze to-blue-500 rounded-lg text-white font-medium hover:shadow-lg hover:shadow-brand-bronze/50 transition-all"
             >
               Next Step
             </button>
           ) : (
-            <div className="flex items-center gap-2 text-emerald-400">
+            <div className="flex items-center gap-2 text-brand-navy">
               <CheckCircle size={20} />
               <span className="font-medium">Remediation Plan Complete</span>
             </div>

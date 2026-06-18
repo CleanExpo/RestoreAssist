@@ -629,8 +629,8 @@ export function SketchEditor({
               className={cn(
                 "px-3 py-1.5 rounded-l-lg text-sm font-medium border transition-all",
                 idx === activeFloorIdx
-                  ? "bg-cyan-500 text-white border-cyan-500"
-                  : "bg-white dark:bg-slate-800 text-neutral-600 dark:text-slate-300 border-neutral-200 dark:border-slate-700 hover:border-cyan-300",
+                  ? "bg-brand-bronze text-white border-brand-bronze"
+                  : "bg-white dark:bg-slate-800 text-neutral-600 dark:text-slate-300 border-neutral-200 dark:border-slate-700 hover:border-brand-navy",
               )}
             >
               {floor.floorLabel}
@@ -641,7 +641,7 @@ export function SketchEditor({
                 className={cn(
                   "px-1.5 py-1.5 rounded-r-lg text-xs border-y border-r transition-all",
                   idx === activeFloorIdx
-                    ? "bg-cyan-600 text-white border-cyan-600 hover:bg-cyan-700"
+                    ? "bg-brand-bronze text-white border-brand-bronze hover:bg-cyan-700"
                     : "bg-white dark:bg-slate-800 text-neutral-400 border-neutral-200 dark:border-slate-700 hover:text-rose-500",
                 )}
               >
@@ -653,7 +653,7 @@ export function SketchEditor({
         {!readonly && (
           <button
             onClick={addFloor}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm text-neutral-500 dark:text-slate-400 border border-dashed border-neutral-300 dark:border-slate-600 hover:border-cyan-400 hover:text-cyan-500 transition-all flex-shrink-0"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm text-neutral-500 dark:text-slate-400 border border-dashed border-neutral-300 dark:border-slate-600 hover:border-brand-navy hover:text-brand-bronze transition-all flex-shrink-0"
           >
             <Plus size={13} />
             Add Floor
@@ -670,7 +670,7 @@ export function SketchEditor({
                 </>
               ) : savedAt ? (
                 <>
-                  <Check size={12} className="text-emerald-500" /> Saved
+                  <Check size={12} className="text-brand-bronze" /> Saved
                 </>
               ) : null}
             </span>
@@ -680,7 +680,7 @@ export function SketchEditor({
               onClick={handleExportPdf}
               disabled={exportingPdf}
               title="Export floor plan PDF"
-              className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium border border-neutral-200 dark:border-slate-600 text-neutral-500 dark:text-slate-400 hover:border-cyan-400 hover:text-cyan-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium border border-neutral-200 dark:border-slate-600 text-neutral-500 dark:text-slate-400 hover:border-brand-navy hover:text-brand-bronze disabled:opacity-40 disabled:cursor-not-allowed transition-all"
             >
               {exportingPdf ? (
                 <Loader2 size={11} className="animate-spin" />

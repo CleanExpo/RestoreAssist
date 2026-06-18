@@ -154,13 +154,13 @@ export function InterviewValidationPanel({
       {findings && findings.length === 0 && !error && (
         <Alert className="mt-3 border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20">
           <CheckCircle2
-            className="h-4 w-4 text-green-600 dark:text-green-400"
+            className="h-4 w-4 text-brand-bronze dark:text-brand-navy"
             aria-hidden="true"
           />
-          <AlertTitle className="text-green-800 dark:text-green-300">
+          <AlertTitle className="text-green-800 dark:text-brand-navy">
             No IICRC S500:2025 issues detected
           </AlertTitle>
-          <AlertDescription className="text-green-800/90 dark:text-green-300/90">
+          <AlertDescription className="text-green-800/90 dark:text-brand-navy/90">
             Your answers look consistent with IICRC S500:2025. Review remains
             advisory — final compliance is the technician&apos;s responsibility.
             {validatedAt && (

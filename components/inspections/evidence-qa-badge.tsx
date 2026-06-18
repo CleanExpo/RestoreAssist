@@ -32,7 +32,7 @@ export function EvidenceQABadge({ score, size = "md" }: EvidenceQABadgeProps) {
 
   const tierStyles: Record<typeof tier, string> = {
     acceptable:
-      "bg-green-100 text-green-800 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700",
+      "bg-green-100 text-green-800 border-brand-navy dark:bg-green-900/30 dark:text-brand-navy dark:border-green-700",
     marginal:
       "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700",
     rejected:
