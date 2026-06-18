@@ -96,6 +96,12 @@ export type ReportType = "basic" | "enhanced" | "optimised";
 
 export interface InitialDataEntryFormProps {
   onSuccess?: (reportId: string, reportType?: ReportType) => void;
+  /**
+   * RA-6799: called immediately after a report is created (before the
+   * review/type-selection step), so the parent can persist the reportId and
+   * never create a duplicate on remount/refresh/re-submit.
+   */
+  onReportCreated?: (reportId: string) => void;
   /** Report ID when editing existing report */
   initialReportId?: string | null;
   initialData?: InitialDataShape;

@@ -104,6 +104,17 @@ export default function ReportWorkflow({
     }
   };
 
+  // RA-6799 AC2: persist the reportId the moment the report is created (before
+  // the review/type-selection step), so a remount/refresh reuses the same
+  // report instead of creating a duplicate. Does NOT advance the stage — that
+  // happens in handleInitialEntryComplete once a report type is chosen.
+  const handleReportCreated = (newReportId: string) => {
+    setReportId(newReportId);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("currentReportId", newReportId);
+    }
+  };
+
   const handleInitialEntryComplete = (
     newReportId: string,
     reportType?: "basic" | "enhanced" | "optimised",
@@ -320,6 +331,7 @@ export default function ReportWorkflow({
       {currentStage === "initial-entry" && (
         <InitialDataEntryForm
           onSuccess={handleInitialEntryComplete}
+          onReportCreated={handleReportCreated}
           initialReportId={reportId}
           initialData={initialFormData}
           subscriptionStatus={subscriptionStatus}

@@ -55,6 +55,7 @@ import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import type { InitialDataEntryFormProps } from "./initial-data-entry/types";
 import { normalizeDate } from "./initial-data-entry/normalize-date";
+import { shouldCreateReport } from "@/lib/reports/should-create-report";
 import { FormNavigation } from "./initial-data-entry/FormNavigation";
 import { ReportTypeSelection } from "./initial-data-entry/ReportTypeSelection";
 import { ReviewSection } from "./initial-data-entry/ReviewSection";
@@ -62,6 +63,7 @@ import { UseCaseModal } from "./initial-data-entry/UseCaseModal";
 
 export default function InitialDataEntryForm({
   onSuccess,
+  onReportCreated,
   initialReportId,
   initialData,
   subscriptionStatus,
@@ -69,6 +71,9 @@ export default function InitialDataEntryForm({
   const router = useRouter();
   const { data: session } = useSession();
   const [loading, setLoading] = useState(false);
+  // RA-6799: race-safe guard so a create cannot fire twice concurrently
+  // (double-click / impatient re-submit) before `reportId` state updates.
+  const creatingReportRef = useRef(false);
   const isTrial =
     subscriptionStatus === "TRIAL" || subscriptionStatus === "trial";
   const [quickFillCredits, setQuickFillCredits] = useState<number | null>(null);
@@ -1407,15 +1412,20 @@ export default function InitialDataEntryForm({
         assigneeData.assignedAdminId = selectedAssigneeId;
       }
 
-      // RA-6799: if a report was already created in this session, reuse it
-      // instead of POSTing /api/reports/initial-entry again — re-creating would
-      // produce orphan reports (the production loop). Re-show the review step
-      // for the existing report.
-      if (reportId) {
-        setShowReview(true);
+      // RA-6799 AC2: only create when there is no existing report AND no create
+      // is in flight — so remount / refresh / double-click / impatient re-submit
+      // can never produce orphan reports.
+      if (
+        !shouldCreateReport({
+          existingReportId: reportId,
+          createInFlight: creatingReportRef.current,
+        })
+      ) {
+        if (reportId) setShowReview(true);
         setLoading(false);
         return;
       }
+      creatingReportRef.current = true;
 
       // Single API call to save all data
       const response = await fetch("/api/reports/initial-entry", {
@@ -1449,6 +1459,9 @@ export default function InitialDataEntryForm({
         const data = await response.json();
         const newReportId = data.report.id;
         setReportId(newReportId);
+        // RA-6799: notify the parent immediately so it persists the reportId and
+        // never creates a duplicate on remount/refresh.
+        onReportCreated?.(newReportId);
         toast.success("All data saved successfully");
 
         // Show review page first, then report type selection
@@ -1460,6 +1473,7 @@ export default function InitialDataEntryForm({
     } catch (error) {
       toast.error("Failed to save data");
     } finally {
+      creatingReportRef.current = false;
       setLoading(false);
     }
   };
