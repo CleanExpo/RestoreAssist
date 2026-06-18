@@ -536,8 +536,8 @@ export default function SuccessPage() {
       description:
         "Add your Anthropic API key to enable AI-powered report generation",
       impact: "High Impact",
-      impactColor: "text-emerald-600 dark:text-emerald-400",
-      impactBg: "bg-emerald-50 dark:bg-emerald-500/10",
+      impactColor: "text-emerald-600 dark:text-brand-bronze",
+      impactBg: "bg-emerald-50 dark:bg-brand-bronze/10",
       details:
         "Personalizes report generation, enables advanced AI features, and improves report quality",
       route: "/dashboard/integrations?onboarding=true",
@@ -550,8 +550,8 @@ export default function SuccessPage() {
       description:
         "Set up your business rates for labour, equipment, and services",
       impact: "High Impact",
-      impactColor: "text-emerald-600 dark:text-emerald-400",
-      impactBg: "bg-emerald-50 dark:bg-emerald-500/10",
+      impactColor: "text-emerald-600 dark:text-brand-bronze",
+      impactBg: "bg-emerald-50 dark:bg-brand-bronze/10",
       details:
         "Ensures accurate cost estimations and professional quotes for your clients",
       route: "/dashboard/pricing-config?onboarding=true",

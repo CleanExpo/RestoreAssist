@@ -95,7 +95,7 @@ function renderOpenJobsBadge(client: {
     return (
       <Badge
         variant="outline"
-        className="border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+        className="border-brand-bronze/40 bg-brand-bronze/15 text-emerald-700 dark:text-emerald-300"
       >
         No open jobs
       </Badge>
@@ -545,7 +545,7 @@ export default function ClientsPage() {
                     ._isFromReport;
                   const statusClass =
                     client.status === "ACTIVE"
-                      ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                      ? "bg-brand-bronze/20 text-emerald-600 dark:text-brand-bronze"
                       : client.status === "INACTIVE"
                         ? "bg-amber-500/20 text-amber-600 dark:text-amber-400"
                         : client.status === "PROSPECT"
@@ -553,14 +553,14 @@ export default function ClientsPage() {
                           : "bg-neutral-200 dark:bg-slate-500/20 text-neutral-600 dark:text-slate-400";
                   const NameWrap = fromReport
                     ? ({ children }: { children: React.ReactNode }) => (
-                        <span className="text-cyan-500 dark:text-cyan-400">
+                        <span className="text-cyan-500 dark:text-brand-tan">
                           {children}
                         </span>
                       )
                     : ({ children }: { children: React.ReactNode }) => (
                         <Link
                           href={`/dashboard/clients/${client.id}`}
-                          className="text-cyan-500 dark:text-cyan-400 hover:underline"
+                          className="text-cyan-500 dark:text-brand-tan hover:underline"
                         >
                           {children}
                         </Link>
@@ -617,7 +617,7 @@ export default function ClientsPage() {
                         <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-600 dark:text-blue-400 font-medium">
                           {client.reportsCount || 0} reports
                         </span>
-                        <span className="font-medium text-cyan-600 dark:text-cyan-400">
+                        <span className="font-medium text-cyan-600 dark:text-brand-tan">
                           $
                           {client.totalRevenue
                             ? client.totalRevenue.toLocaleString()
@@ -757,13 +757,13 @@ export default function ClientsPage() {
                               to see any context. */}
                           <div className="flex items-center gap-2 flex-wrap">
                             {(client as ClientWithReportFlag)._isFromReport ? (
-                              <span className="text-cyan-400">
+                              <span className="text-brand-tan">
                                 {client.name}
                               </span>
                             ) : (
                               <Link
                                 href={`/dashboard/clients/${client.id}`}
-                                className="text-cyan-400 hover:underline"
+                                className="text-brand-tan hover:underline"
                               >
                                 {client.name}
                               </Link>
@@ -817,7 +817,7 @@ export default function ClientsPage() {
                           <span
                             className={`px-3 py-1 rounded-full text-xs font-medium ${
                               client.status === "ACTIVE"
-                                ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                                ? "bg-brand-bronze/20 text-emerald-600 dark:text-brand-bronze"
                                 : client.status === "INACTIVE"
                                   ? "bg-amber-500/20 text-amber-600 dark:text-amber-400"
                                   : client.status === "PROSPECT"
@@ -839,7 +839,7 @@ export default function ClientsPage() {
                         <td
                           className={cn(
                             "py-4 px-6 font-medium",
-                            "text-cyan-600 dark:text-cyan-400",
+                            "text-cyan-600 dark:text-brand-tan",
                           )}
                         >
                           $

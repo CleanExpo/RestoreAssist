@@ -518,7 +518,7 @@ export default function CostLibrariesPage() {
                     </Link>
                     <p className="text-xs text-slate-400 mt-1">{lib.region}</p>
                     {lib.isDefault && (
-                      <span className="inline-block mt-2 px-2 py-1 text-xs bg-emerald-500/20 text-emerald-400 rounded">
+                      <span className="inline-block mt-2 px-2 py-1 text-xs bg-brand-bronze/20 text-brand-bronze rounded">
                         Default
                       </span>
                     )}
@@ -598,7 +598,7 @@ export default function CostLibrariesPage() {
                           </p>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="font-medium text-cyan-400">
+                          <span className="font-medium text-brand-tan">
                             ${item.rate.toFixed(2)}/{item.unit}
                           </span>
                           <div className="flex items-center gap-1">

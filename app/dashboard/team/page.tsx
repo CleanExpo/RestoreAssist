@@ -119,7 +119,7 @@ const roleConfig = {
     icon: Wrench,
     color: "from-cyan-500 to-cyan-600",
     bgColor: "bg-cyan-100 dark:bg-cyan-900/30",
-    textColor: "text-cyan-700 dark:text-cyan-300",
+    textColor: "text-cyan-700 dark:text-brand-tan",
     borderColor: "border-cyan-200 dark:border-cyan-800",
   },
 };
@@ -645,7 +645,7 @@ export default function TeamPage() {
                       "bg-cyan-100 dark:bg-cyan-900/30",
                     )}
                   >
-                    <Mail className="w-6 h-6 text-cyan-600 dark:text-cyan-400" />
+                    <Mail className="w-6 h-6 text-cyan-600 dark:text-brand-tan" />
                   </div>
                 </div>
               </CardContent>
@@ -728,7 +728,7 @@ export default function TeamPage() {
                     "bg-cyan-100 dark:bg-cyan-900/30",
                   )}
                 >
-                  <Wrench className="w-6 h-6 text-cyan-600 dark:text-cyan-400" />
+                  <Wrench className="w-6 h-6 text-cyan-600 dark:text-brand-tan" />
                 </div>
               </div>
             </CardContent>
@@ -748,7 +748,7 @@ export default function TeamPage() {
           >
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <UserPlus className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+                <UserPlus className="w-5 h-5 text-cyan-600 dark:text-brand-tan" />
                 Invite New Team Member
               </CardTitle>
               <CardDescription>
@@ -1442,7 +1442,7 @@ export default function TeamPage() {
                                     ) : (
                                       <Badge
                                         variant="outline"
-                                        className="text-xs text-cyan-600 dark:text-cyan-400 border-cyan-200 dark:border-cyan-800"
+                                        className="text-xs text-cyan-600 dark:text-brand-tan border-cyan-200 dark:border-cyan-800"
                                       >
                                         <Clock className="w-3 h-3 mr-1" />
                                         Active

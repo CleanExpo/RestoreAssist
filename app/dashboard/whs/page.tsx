@@ -851,7 +851,7 @@ export default function WHSPage() {
             onClick={() => setActiveTab(tab.key)}
             className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
               activeTab === tab.key
-                ? "border-cyan-500 text-cyan-400"
+                ? "border-cyan-500 text-brand-tan"
                 : "border-transparent text-slate-400 hover:text-slate-300 hover:border-slate-600"
             }`}
           >
@@ -860,7 +860,7 @@ export default function WHSPage() {
               <span
                 className={`inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full text-xs font-semibold ${
                   activeTab === tab.key
-                    ? "bg-cyan-500/20 text-cyan-400"
+                    ? "bg-cyan-500/20 text-brand-tan"
                     : "bg-slate-700 text-slate-400"
                 }`}
               >

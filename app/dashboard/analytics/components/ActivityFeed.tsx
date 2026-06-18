@@ -125,7 +125,7 @@ export default function ActivityFeed({
       USER: {
         label: "Technician",
         color:
-          "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300",
+          "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-brand-tan",
       },
     };
     const roleInfo = roleMap[role] || {

@@ -281,7 +281,7 @@ export default function MonthlyVolumeChart({
               className={cn(
                 "p-4 rounded-lg border",
                 isGrowing
-                  ? "bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border-emerald-500/20"
+                  ? "bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border-brand-bronze/20"
                   : "bg-gradient-to-br from-red-500/10 to-orange-500/10 border-red-500/20",
               )}
             >

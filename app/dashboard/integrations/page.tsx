@@ -777,7 +777,7 @@ export default function IntegrationsPage() {
               <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-violet-500/10 dark:bg-violet-500/15 border border-violet-500/20">
                 <Zap
                   size={16}
-                  className="text-violet-600 dark:text-violet-400"
+                  className="text-violet-600 dark:text-brand-slate"
                 />
               </div>
               <div>
@@ -825,7 +825,7 @@ export default function IntegrationsPage() {
                               {integration.name}
                             </CardTitle>
                             {integration.status === "CONNECTED" ? (
-                              <Badge className="shrink-0 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-xs">
+                              <Badge className="shrink-0 bg-brand-bronze/15 text-emerald-600 dark:text-brand-bronze border-brand-bronze/20 text-xs">
                                 Connected
                               </Badge>
                             ) : (
@@ -950,7 +950,7 @@ export default function IntegrationsPage() {
                               {integration.name}
                             </CardTitle>
                             {isConnected && (
-                              <Badge className="shrink-0 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-xs">
+                              <Badge className="shrink-0 bg-brand-bronze/15 text-emerald-600 dark:text-brand-bronze border-brand-bronze/20 text-xs">
                                 Connected
                               </Badge>
                             )}
@@ -1120,7 +1120,7 @@ export default function IntegrationsPage() {
                               {integration.name}
                             </CardTitle>
                             {isConnected && (
-                              <Badge className="shrink-0 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-xs">
+                              <Badge className="shrink-0 bg-brand-bronze/15 text-emerald-600 dark:text-brand-bronze border-brand-bronze/20 text-xs">
                                 Connected
                               </Badge>
                             )}
@@ -1301,7 +1301,7 @@ export default function IntegrationsPage() {
                       <div className="flex items-center justify-between gap-2 flex-wrap">
                         <CardTitle className="text-sm">DR-NRPG</CardTitle>
                         {drNrpg.connected ? (
-                          <Badge className="shrink-0 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-xs">
+                          <Badge className="shrink-0 bg-brand-bronze/15 text-emerald-600 dark:text-brand-bronze border-brand-bronze/20 text-xs">
                             Connected
                           </Badge>
                         ) : (

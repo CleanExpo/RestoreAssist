@@ -759,7 +759,7 @@ export default function EquipmentPage() {
                           setCalibrationForm(EMPTY_CALIBRATION_FORM);
                         }
                       }}
-                      className="flex-1 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
+                      className="flex-1 bg-cyan-500/10 hover:bg-cyan-500/20 text-brand-tan border border-cyan-500/30"
                       variant="outline"
                     >
                       {isLoggingThisItem ? "Cancel" : "Log Calibration"}

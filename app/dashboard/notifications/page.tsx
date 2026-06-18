@@ -88,7 +88,7 @@ function getTypeConfig(type: NotificationType) {
       return {
         Icon: Info,
         badgeClass:
-          "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20",
+          "bg-cyan-500/10 text-cyan-600 dark:text-brand-tan border-cyan-500/20",
         label: "Info",
       };
   }
@@ -182,7 +182,7 @@ function NotificationRow({ notification, onRead }: NotificationRowProps) {
           {!notification.read && (
             <Badge
               variant="outline"
-              className="text-[10px] px-1.5 py-0 h-4 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20 flex-shrink-0"
+              className="text-[10px] px-1.5 py-0 h-4 bg-cyan-500/10 text-cyan-600 dark:text-brand-tan border-cyan-500/20 flex-shrink-0"
             >
               New
             </Badge>
@@ -392,7 +392,7 @@ export default function NotificationsPage() {
             variant="outline"
             size="sm"
             onClick={handleMarkAllRead}
-            className="text-cyan-600 dark:text-cyan-400 border-cyan-500/30 hover:bg-cyan-500/10"
+            className="text-cyan-600 dark:text-brand-tan border-cyan-500/30 hover:bg-cyan-500/10"
           >
             Mark all read
           </Button>

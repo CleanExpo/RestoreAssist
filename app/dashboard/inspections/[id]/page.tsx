@@ -231,10 +231,10 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
               className={cn(
                 "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all",
                 isComplete &&
-                  "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400",
+                  "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-brand-bronze",
                 isActive &&
                   !isRejected &&
-                  "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 ring-2 ring-cyan-500/30",
+                  "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-brand-tan ring-2 ring-cyan-500/30",
                 isActive &&
                   isRejected &&
                   "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 ring-2 ring-red-500/30",
@@ -255,7 +255,7 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
                 className={cn(
                   "w-4 h-0.5 mx-0.5",
                   i < currentIndex
-                    ? "bg-emerald-400"
+                    ? "bg-brand-bronze"
                     : "bg-neutral-200 dark:bg-slate-700",
                 )}
               />
@@ -276,7 +276,7 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
 }
 
 function moistureColor(level: number): string {
-  if (level < 15) return "text-emerald-600 dark:text-emerald-400";
+  if (level < 15) return "text-emerald-600 dark:text-brand-bronze";
   if (level < 25) return "text-amber-600 dark:text-amber-400";
   return "text-red-600 dark:text-red-400";
 }
@@ -943,7 +943,7 @@ export default function InspectionDetailPage({
             </Link>
             <Link
               href={`/dashboard/inspections/${inspection.id}/invoice`}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-cyan-500 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/10 text-xs font-semibold transition-colors ml-auto"
+              className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-cyan-500 text-cyan-600 dark:text-brand-tan hover:bg-cyan-50 dark:hover:bg-cyan-900/10 text-xs font-semibold transition-colors ml-auto"
             >
               <Receipt size={14} />
               Generate Invoice
@@ -1062,7 +1062,7 @@ export default function InspectionDetailPage({
             className={cn(
               "flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-t-lg whitespace-nowrap transition-all border-b-2 focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:outline-none",
               activeTab === tab.key
-                ? "border-cyan-500 text-cyan-600 dark:text-cyan-400 bg-cyan-50/50 dark:bg-cyan-900/10"
+                ? "border-cyan-500 text-cyan-600 dark:text-brand-tan bg-cyan-50/50 dark:bg-cyan-900/10"
                 : "border-transparent text-neutral-500 dark:text-slate-400 hover:text-neutral-700 dark:hover:text-slate-300 hover:bg-neutral-50 dark:hover:bg-slate-800/50",
             )}
           >
@@ -1094,7 +1094,7 @@ export default function InspectionDetailPage({
               <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider mb-1">
                 Moisture Readings
               </div>
-              <div className="text-2xl font-bold text-cyan-600 dark:text-cyan-400">
+              <div className="text-2xl font-bold text-cyan-600 dark:text-brand-tan">
                 {inspection.moistureReadings.length}
               </div>
               {inspection.moistureReadings.length > 0 && (
@@ -1143,7 +1143,7 @@ export default function InspectionDetailPage({
               <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider mb-1">
                 Estimated Cost
               </div>
-              <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+              <div className="text-2xl font-bold text-emerald-600 dark:text-brand-bronze">
                 $
                 {totalCost.toLocaleString("en-AU", {
                   minimumFractionDigits: 2,
@@ -1368,7 +1368,7 @@ export default function InspectionDetailPage({
                     />
                   </div>
                 </div>
-                <div className="p-3 rounded-lg bg-cyan-50 dark:bg-cyan-900/20 text-sm text-cyan-700 dark:text-cyan-300">
+                <div className="p-3 rounded-lg bg-cyan-50 dark:bg-cyan-900/20 text-sm text-cyan-700 dark:text-brand-tan">
                   Auto dew point:{" "}
                   <strong>
                     {calcDewPoint(
@@ -1918,10 +1918,10 @@ export default function InspectionDetailPage({
                     </div>
                     {cls.confidence && (
                       <div className="text-center">
-                        <div className="text-xs text-cyan-600 dark:text-cyan-400 uppercase font-semibold mb-1">
+                        <div className="text-xs text-cyan-600 dark:text-brand-tan uppercase font-semibold mb-1">
                           Confidence
                         </div>
-                        <div className="w-16 h-16 rounded-full bg-cyan-100 dark:bg-cyan-900/30 flex items-center justify-center text-2xl font-bold text-cyan-700 dark:text-cyan-300">
+                        <div className="w-16 h-16 rounded-full bg-cyan-100 dark:bg-cyan-900/30 flex items-center justify-center text-2xl font-bold text-cyan-700 dark:text-brand-tan">
                           {cls.confidence}%
                         </div>
                       </div>
@@ -2039,7 +2039,7 @@ export default function InspectionDetailPage({
 
             {showAddScope && (
               <div className="p-4 rounded-xl border border-cyan-200 dark:border-cyan-800/50 bg-cyan-50/30 dark:bg-cyan-900/10 space-y-3">
-                <h4 className="text-sm font-semibold text-cyan-700 dark:text-cyan-300">
+                <h4 className="text-sm font-semibold text-cyan-700 dark:text-brand-tan">
                   New Scope Item
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2324,7 +2324,7 @@ export default function InspectionDetailPage({
                             : `Select: ${item.description}`
                         }
                         className={cn(
-                          "w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none",
+                          "w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors focus-visible:ring-2 focus-visible:ring-brand-bronze focus-visible:outline-none",
                           item.isSelected
                             ? "bg-emerald-500 text-white hover:bg-emerald-600"
                             : "bg-neutral-200 dark:bg-slate-700 hover:bg-neutral-300 dark:hover:bg-slate-600",
@@ -2340,7 +2340,7 @@ export default function InspectionDetailPage({
                             {item.description}
                           </span>
                           {item.autoDetermined && (
-                            <span className="px-1.5 py-0.5 rounded text-xs bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400">
+                            <span className="px-1.5 py-0.5 rounded text-xs bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-brand-tan">
                               Auto
                             </span>
                           )}
@@ -2480,7 +2480,7 @@ export default function InspectionDetailPage({
                       >
                         Total
                       </td>
-                      <td className="px-4 py-3 text-sm font-bold text-right text-emerald-600 dark:text-emerald-400">
+                      <td className="px-4 py-3 text-sm font-bold text-right text-emerald-600 dark:text-brand-bronze">
                         $
                         {totalCost.toLocaleString("en-AU", {
                           minimumFractionDigits: 2,
@@ -2571,7 +2571,7 @@ export default function InspectionDetailPage({
                     href={photo.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="group relative aspect-square rounded-xl overflow-hidden border border-neutral-200 dark:border-slate-700/50 hover:border-cyan-400 transition-all"
+                    className="group relative aspect-square rounded-xl overflow-hidden border border-neutral-200 dark:border-slate-700/50 hover:border-brand-navy transition-all"
                   >
                     <img
                       src={photo.thumbnailUrl || photo.url}

@@ -137,7 +137,7 @@ export default function DashboardLayout({
           "bg-white dark:bg-slate-950",
         )}
       >
-        <div className="w-8 h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-brand-navy/30 border-t-brand-navy rounded-full animate-spin" />
       </div>
     );
   }
@@ -150,7 +150,7 @@ export default function DashboardLayout({
           "bg-white dark:bg-slate-950",
         )}
       >
-        <div className="w-8 h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-brand-navy/30 border-t-brand-navy rounded-full animate-spin" />
       </div>
     );
   }
@@ -448,9 +448,9 @@ export default function DashboardLayout({
                       (item as { adminOnly?: boolean }).adminOnly
                         ? cn(
                             "text-neutral-500 dark:text-slate-500",
-                            "hover:bg-cyan-50 dark:hover:bg-cyan-950/30 hover:text-cyan-700 dark:hover:text-cyan-400",
+                            "hover:bg-cyan-50 dark:hover:bg-cyan-950/30 hover:text-cyan-700 dark:hover:text-brand-tan",
                             pathname === item.href &&
-                              "bg-cyan-50 dark:bg-cyan-950/30 text-cyan-700 dark:text-cyan-400",
+                              "bg-cyan-50 dark:bg-cyan-950/30 text-cyan-700 dark:text-brand-tan",
                             "hover:scale-[1.02]",
                           )
                         : item.highlight

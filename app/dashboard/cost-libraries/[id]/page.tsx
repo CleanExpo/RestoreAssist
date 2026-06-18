@@ -166,7 +166,7 @@ export default function CostLibraryDetailPage({
               {library._count.items} item{library._count.items !== 1 ? "s" : ""}
             </span>
             {library.isDefault && (
-              <span className="px-2 py-0.5 text-xs bg-emerald-500/20 text-emerald-400 rounded">
+              <span className="px-2 py-0.5 text-xs bg-brand-bronze/20 text-brand-bronze rounded">
                 Default
               </span>
             )}
@@ -257,7 +257,7 @@ export default function CostLibraryDetailPage({
                     <td className="px-4 py-3 text-slate-100">
                       {item.description}
                     </td>
-                    <td className="px-4 py-3 text-right font-medium text-cyan-400">
+                    <td className="px-4 py-3 text-right font-medium text-brand-tan">
                       ${item.rate.toFixed(2)}
                     </td>
                     <td className="px-4 py-3 text-slate-300">{item.unit}</td>

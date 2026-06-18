@@ -279,7 +279,7 @@ export default function ServiceAreasPage() {
           <div className="text-sm text-slate-400 mt-1">Total Areas</div>
         </div>
         <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-4 text-center">
-          <div className="text-3xl font-bold text-cyan-400">{activeAreas}</div>
+          <div className="text-3xl font-bold text-brand-tan">{activeAreas}</div>
           <div className="text-sm text-slate-400 mt-1">Active Areas</div>
         </div>
         <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-4 text-center">
@@ -319,7 +319,7 @@ export default function ServiceAreasPage() {
                   className="w-full flex items-center justify-between px-5 py-3 hover:bg-slate-700/30 transition-colors"
                 >
                   <div className="flex items-center gap-3">
-                    <MapPin className="h-4 w-4 text-cyan-400" />
+                    <MapPin className="h-4 w-4 text-brand-tan" />
                     <span className="font-semibold text-white">{state}</span>
                     <Badge variant="secondary" className="text-xs">
                       {areas.length} {areas.length === 1 ? "area" : "areas"}
@@ -360,7 +360,7 @@ export default function ServiceAreasPage() {
                               {area.radius != null && (
                                 <Badge
                                   variant="outline"
-                                  className="text-xs border-cyan-500/40 text-cyan-400"
+                                  className="text-xs border-cyan-500/40 text-brand-tan"
                                 >
                                   {area.radius} km radius
                                 </Badge>

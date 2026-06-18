@@ -373,7 +373,7 @@ export default function InspectionSchedulePage() {
                         !isCurrentMonth &&
                           "bg-neutral-50/70 dark:bg-slate-900/30",
                         isToday &&
-                          "ring-2 ring-inset ring-cyan-400 dark:ring-cyan-500",
+                          "ring-2 ring-inset ring-brand-navy dark:ring-cyan-500",
                       )}
                     >
                       {/* Day number */}

@@ -284,7 +284,7 @@ export default function Claim004AdjusterSessionPage() {
           Back to pilot dashboard
         </button>
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-cyan-50 dark:bg-cyan-950/30 flex items-center justify-center text-cyan-600 dark:text-cyan-400">
+          <div className="w-9 h-9 rounded-lg bg-cyan-50 dark:bg-cyan-950/30 flex items-center justify-center text-cyan-600 dark:text-brand-tan">
             <Clock size={18} />
           </div>
           <div>
@@ -310,7 +310,7 @@ export default function Claim004AdjusterSessionPage() {
       {/* Context card */}
       <div className="rounded-lg border border-cyan-200/60 dark:border-cyan-800/40 bg-cyan-50/40 dark:bg-cyan-950/20 px-4 py-3 space-y-2">
         <div className="flex items-center gap-1.5 text-xs font-semibold text-neutral-700 dark:text-slate-300">
-          <Info size={12} className="text-cyan-600 dark:text-cyan-400" />
+          <Info size={12} className="text-cyan-600 dark:text-brand-tan" />
           Two data collection methods
         </div>
         <p className="text-xs text-neutral-600 dark:text-slate-400 leading-relaxed">
@@ -327,7 +327,7 @@ export default function Claim004AdjusterSessionPage() {
           href="/api/pilot/adjuster-session"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-xs text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 font-medium"
+          className="inline-flex items-center gap-1 text-xs text-cyan-600 dark:text-brand-tan hover:text-cyan-700 font-medium"
         >
           View self-report API endpoint <ExternalLink size={11} />
         </a>
@@ -423,13 +423,13 @@ export default function Claim004AdjusterSessionPage() {
                     updateEntry(idx, "adjusterCode", e.target.value)
                   }
                   placeholder="ADJ-03"
-                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-navy/40"
                 />
                 {/* Group */}
                 <select
                   value={entry.group}
                   onChange={(e) => updateEntry(idx, "group", e.target.value)}
-                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-2 py-2 text-neutral-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-2 py-2 text-neutral-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-navy/40"
                 >
                   <option value="nir">NIR</option>
                   <option value="control">Control</option>
@@ -444,7 +444,7 @@ export default function Claim004AdjusterSessionPage() {
                     updateEntry(idx, "reviewMinutes", e.target.value)
                   }
                   placeholder="e.g. 42.5"
-                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-navy/40"
                 />
                 {/* Report ref */}
                 <input
@@ -454,7 +454,7 @@ export default function Claim004AdjusterSessionPage() {
                     updateEntry(idx, "reportRef", e.target.value)
                   }
                   placeholder="Report ID or ref"
-                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-navy/40"
                 />
                 {/* Notes */}
                 <input
@@ -462,7 +462,7 @@ export default function Claim004AdjusterSessionPage() {
                   value={entry.notes}
                   onChange={(e) => updateEntry(idx, "notes", e.target.value)}
                   placeholder="Optional notes"
-                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-navy/40"
                 />
                 {/* Remove */}
                 <button
@@ -478,7 +478,7 @@ export default function Claim004AdjusterSessionPage() {
             {/* Add row */}
             <button
               onClick={addEntry}
-              className="flex items-center gap-1.5 text-xs text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 transition-colors font-medium"
+              className="flex items-center gap-1.5 text-xs text-cyan-600 dark:text-brand-tan hover:text-cyan-700 transition-colors font-medium"
             >
               <Plus size={13} />
               Add row
@@ -558,7 +558,7 @@ export default function Claim004AdjusterSessionPage() {
               onChange={(e) => setBatchJson(e.target.value)}
               placeholder="Paste JSON array here..."
               rows={10}
-              className="w-full font-mono text-xs rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2.5 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 resize-y"
+              className="w-full font-mono text-xs rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2.5 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-navy/40 resize-y"
             />
 
             {batchErrors.length > 0 && (
@@ -607,13 +607,13 @@ export default function Claim004AdjusterSessionPage() {
             {
               label: "NIR sessions",
               target: 60,
-              colour: "bg-cyan-400",
+              colour: "bg-brand-navy",
               note: "NIR format reviewed by adjusters",
             },
             {
               label: "Control sessions",
               target: 60,
-              colour: "bg-violet-400",
+              colour: "bg-brand-bronze",
               note: "Existing format reviewed by adjusters",
             },
           ].map(({ label, target, colour, note }) => (

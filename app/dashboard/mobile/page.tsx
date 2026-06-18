@@ -227,7 +227,7 @@ const V2_FEATURES = [
 function FeatureStatusBadge({ status }: { status: FeatureStatus }) {
   if (status === "done") {
     return (
-      <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-0 text-xs">
+      <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-brand-bronze border-0 text-xs">
         Complete
       </Badge>
     );
@@ -259,7 +259,7 @@ function FeatureRow({ feature }: { feature: MobileFeature }) {
         className={cn(
           "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5",
           feature.status === "done"
-            ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400"
+            ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-brand-bronze"
             : feature.status === "blocked"
               ? "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
               : "bg-neutral-100 dark:bg-slate-800 text-neutral-500 dark:text-slate-500",
@@ -360,7 +360,7 @@ function BetaSignupCard() {
             <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
               <CheckCircle2
                 size={24}
-                className="text-emerald-600 dark:text-emerald-400"
+                className="text-emerald-600 dark:text-brand-bronze"
               />
             </div>
             <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
@@ -415,7 +415,7 @@ function BetaSignupCard() {
                       "px-4 py-2 rounded-lg text-sm font-medium transition-all duration-150 border",
                       deviceType === type
                         ? "bg-cyan-500 text-white border-cyan-500 shadow-sm"
-                        : "bg-white dark:bg-slate-800 text-neutral-700 dark:text-slate-300 border-neutral-300 dark:border-slate-700 hover:border-cyan-400",
+                        : "bg-white dark:bg-slate-800 text-neutral-700 dark:text-slate-300 border-neutral-300 dark:border-slate-700 hover:border-brand-navy",
                     )}
                   >
                     {type === "ios"
@@ -873,7 +873,7 @@ export default function MobileDashboardPage() {
               href="https://docs.expo.dev/"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs text-cyan-600 dark:text-cyan-400 hover:underline"
+              className="inline-flex items-center gap-1.5 text-xs text-cyan-600 dark:text-brand-tan hover:underline"
             >
               Expo Docs
               <ExternalLink size={11} />

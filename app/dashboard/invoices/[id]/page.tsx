@@ -589,7 +589,7 @@ export default function InvoiceDetailPage({
           </div>
         )}
         {invoice.paidDate && (
-          <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
+          <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-brand-bronze">
             <CheckCircle className="h-4 w-4" />
             <span>Paid {formatDate(invoice.paidDate)}</span>
           </div>
@@ -597,7 +597,7 @@ export default function InvoiceDetailPage({
         {/* External Sync Status */}
         {invoice.externalSyncStatus === "SYNCED" &&
           invoice.externalSyncProvider && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-brand-tan">
               <CheckCircle className="h-4 w-4" />
               <span className="text-sm font-medium">
                 Synced to{" "}
@@ -758,7 +758,7 @@ export default function InvoiceDetailPage({
                   </span>
                 </div>
                 {invoice.discountAmount && invoice.discountAmount > 0 && (
-                  <div className="flex justify-between text-sm text-emerald-600 dark:text-emerald-400">
+                  <div className="flex justify-between text-sm text-emerald-600 dark:text-brand-bronze">
                     <span>Discount</span>
                     <span>-${(invoice.discountAmount / 100).toFixed(2)}</span>
                   </div>
@@ -789,7 +789,7 @@ export default function InvoiceDetailPage({
                 </div>
                 {invoice.amountPaid > 0 && (
                   <>
-                    <div className="flex justify-between text-sm text-emerald-600 dark:text-emerald-400">
+                    <div className="flex justify-between text-sm text-emerald-600 dark:text-brand-bronze">
                       <span>Amount Paid</span>
                       <span>-${(invoice.amountPaid / 100).toFixed(2)}</span>
                     </div>
@@ -816,7 +816,7 @@ export default function InvoiceDetailPage({
                     className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700/30 rounded-lg"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-emerald-500/10 rounded-lg">
+                      <div className="p-2 bg-brand-bronze/10 rounded-lg">
                         <CreditCard className="h-5 w-5 text-emerald-500" />
                       </div>
                       <div>

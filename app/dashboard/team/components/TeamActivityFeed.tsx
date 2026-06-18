@@ -80,7 +80,7 @@ const activityConfig: Record<
   report_completed: {
     icon: CheckCircle2,
     color: "text-emerald-500",
-    bgColor: "bg-emerald-500/10",
+    bgColor: "bg-brand-bronze/10",
     label: "Completed",
   },
   member_joined: {

@@ -61,7 +61,7 @@ const STATUS_CONFIG: Record<
   },
   COMPLETED: {
     label: "Completed",
-    color: "text-emerald-600 dark:text-emerald-400",
+    color: "text-emerald-600 dark:text-brand-bronze",
     bg: "bg-emerald-50 dark:bg-emerald-900/30",
     icon: CheckCircle2,
   },
@@ -262,14 +262,14 @@ export default function InterviewsPage() {
         <div className="p-4 rounded-xl border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50/50 dark:bg-emerald-900/10">
           <div className="flex items-start gap-3">
             <FileText
-              className="text-emerald-600 dark:text-emerald-400 mt-0.5"
+              className="text-emerald-600 dark:text-brand-bronze mt-0.5"
               size={20}
             />
             <div className="flex-1">
               <h3 className="text-sm font-semibold text-emerald-900 dark:text-emerald-300 mb-1">
                 Form Templates ({templates.length} available)
               </h3>
-              <p className="text-sm text-emerald-700 dark:text-emerald-400">
+              <p className="text-sm text-emerald-700 dark:text-brand-bronze">
                 {templates.length} form template
                 {templates.length !== 1 ? "s" : ""} available for interviews.
                 Select a template when starting a new interview.
@@ -278,13 +278,13 @@ export default function InterviewsPage() {
                 {templates.slice(0, 5).map((tpl) => (
                   <span
                     key={tpl.id}
-                    className="text-xs px-2 py-1 rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800"
+                    className="text-xs px-2 py-1 rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-brand-bronze border border-emerald-200 dark:border-emerald-800"
                   >
                     {tpl.name}
                   </span>
                 ))}
                 {templates.length > 5 && (
-                  <span className="text-xs px-2 py-1 rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                  <span className="text-xs px-2 py-1 rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-brand-bronze border border-emerald-200 dark:border-emerald-800">
                     +{templates.length - 5} more
                   </span>
                 )}
@@ -301,7 +301,7 @@ export default function InterviewsPage() {
         {[
           {
             label: "Finished",
-            colour: "text-emerald-600 dark:text-emerald-400",
+            colour: "text-emerald-600 dark:text-brand-bronze",
             value:
               stats != null
                 ? `${Math.round(stats.completionRate ?? 0)}%`
@@ -478,8 +478,8 @@ export default function InterviewsPage() {
                 className={cn(
                   "w-full text-left p-4 rounded-xl border cursor-pointer transition-all duration-200 group flex items-start gap-3",
                   selectedIds.has(s.id)
-                    ? "border-cyan-400 dark:border-cyan-600 bg-cyan-50/50 dark:bg-cyan-900/20"
-                    : "border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 hover:bg-neutral-50 dark:hover:bg-slate-800/50 hover:border-cyan-300 dark:hover:border-cyan-800 hover:shadow-md",
+                    ? "border-brand-navy dark:border-cyan-600 bg-cyan-50/50 dark:bg-cyan-900/20"
+                    : "border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 hover:bg-neutral-50 dark:hover:bg-slate-800/50 hover:border-brand-tan dark:hover:border-cyan-800 hover:shadow-md",
                 )}
               >
                 <input
@@ -505,7 +505,7 @@ export default function InterviewsPage() {
                       {cfg.label}
                     </span>
                     {isResumable && (
-                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-cyan-50 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400">
+                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-cyan-50 dark:bg-cyan-900/30 text-cyan-600 dark:text-brand-tan">
                         Resume
                       </span>
                     )}

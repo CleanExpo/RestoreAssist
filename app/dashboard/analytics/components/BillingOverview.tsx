@@ -220,7 +220,7 @@ export default function BillingOverview() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-emerald-500/10">
+          <div className="p-2 rounded-lg bg-brand-bronze/10">
             <DollarSign className="w-5 h-5 text-emerald-500" />
           </div>
           <div>
@@ -255,7 +255,7 @@ export default function BillingOverview() {
       {/* MRR & ARR Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {/* MRR */}
-        <div className="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 rounded-xl p-4">
+        <div className="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border border-brand-bronze/20 rounded-xl p-4">
           <p
             className={cn(
               "text-xs mb-1",
@@ -264,7 +264,7 @@ export default function BillingOverview() {
           >
             Monthly Recurring Revenue
           </p>
-          <p className="text-2xl font-bold text-emerald-400">
+          <p className="text-2xl font-bold text-brand-bronze">
             {data.mrr.formatted}
           </p>
           <div className="flex items-center gap-1 mt-1">
@@ -316,7 +316,7 @@ export default function BillingOverview() {
             {data.addonRevenue.change !== 0 ? (
               <>
                 {data.addonRevenue.change > 0 ? (
-                  <TrendingUp className="w-3 h-3 text-emerald-400" />
+                  <TrendingUp className="w-3 h-3 text-brand-bronze" />
                 ) : (
                   <TrendingDown className="w-3 h-3 text-red-400" />
                 )}
@@ -324,7 +324,7 @@ export default function BillingOverview() {
                   className={cn(
                     "text-xs",
                     data.addonRevenue.change > 0
-                      ? "text-emerald-400"
+                      ? "text-brand-bronze"
                       : "text-red-400",
                   )}
                 >
@@ -377,7 +377,7 @@ export default function BillingOverview() {
             "border border-neutral-200 dark:border-slate-700/30",
           )}
         >
-          <div className="p-2 rounded-lg bg-emerald-500/10">
+          <div className="p-2 rounded-lg bg-brand-bronze/10">
             <ShieldCheck className="w-4 h-4 text-emerald-500" />
           </div>
           <div>

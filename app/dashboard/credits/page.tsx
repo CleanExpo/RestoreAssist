@@ -79,7 +79,7 @@ function formatTrialEnd(dateStr?: string): string {
 function getPlanBadgeClass(status: string): string {
   switch (status) {
     case "ACTIVE":
-      return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800";
+      return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-brand-bronze border-emerald-200 dark:border-emerald-800";
     case "TRIAL":
       return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800";
     case "EXPIRED":
@@ -157,7 +157,7 @@ function CreditsPageContent() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="w-8 h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-brand-navy/30 border-t-brand-navy rounded-full animate-spin" />
       </div>
     );
   }
@@ -370,7 +370,7 @@ function CreditsPageContent() {
                     ? "text-red-600 dark:text-red-400"
                     : usagePct >= 70
                       ? "text-amber-600 dark:text-amber-400"
-                      : "text-emerald-600 dark:text-emerald-400",
+                      : "text-emerald-600 dark:text-brand-bronze",
                 )}
               >
                 {monthlyUsed} / {totalLimit} ({usagePct}%)
@@ -394,7 +394,7 @@ function CreditsPageContent() {
             className={cn(
               "flex items-center gap-2 px-4 py-3 rounded-lg text-sm",
               "bg-emerald-50 text-emerald-700 border border-emerald-200",
-              "dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800",
+              "dark:bg-emerald-900/20 dark:text-brand-bronze dark:border-emerald-800",
             )}
           >
             <CheckCircle size={16} />

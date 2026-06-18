@@ -216,7 +216,7 @@ export default function InsurerProfilePage({
             {profile && (
               <Badge
                 variant="outline"
-                className="bg-cyan-50 dark:bg-cyan-900/20 text-cyan-700 dark:text-cyan-400 border-cyan-200 dark:border-cyan-800"
+                className="bg-cyan-50 dark:bg-cyan-900/20 text-cyan-700 dark:text-brand-tan border-cyan-200 dark:border-cyan-800"
               >
                 {profile.id}
               </Badge>
@@ -300,7 +300,7 @@ export default function InsurerProfilePage({
               {formattedRef && (
                 <p className="text-xs text-neutral-500 dark:text-slate-400">
                   Formatted reference:{" "}
-                  <span className="font-mono text-cyan-600 dark:text-cyan-400">
+                  <span className="font-mono text-cyan-600 dark:text-brand-tan">
                     {formattedRef}
                   </span>
                 </p>
@@ -322,7 +322,7 @@ export default function InsurerProfilePage({
                   {gapAnalysis.isComplete ? (
                     <CheckCircle2
                       size={20}
-                      className="text-emerald-600 dark:text-emerald-400"
+                      className="text-emerald-600 dark:text-brand-bronze"
                     />
                   ) : (
                     <AlertTriangle
@@ -334,7 +334,7 @@ export default function InsurerProfilePage({
                     className={cn(
                       "text-sm font-semibold",
                       gapAnalysis.isComplete
-                        ? "text-emerald-700 dark:text-emerald-400"
+                        ? "text-emerald-700 dark:text-brand-bronze"
                         : "text-amber-700 dark:text-amber-400",
                     )}
                   >
@@ -424,7 +424,7 @@ export default function InsurerProfilePage({
                           {r.instructions}
                         </p>
                         {r.s500Reference && (
-                          <p className="text-xs text-cyan-600 dark:text-cyan-400 mt-1">
+                          <p className="text-xs text-cyan-600 dark:text-brand-tan mt-1">
                             {r.s500Reference}
                           </p>
                         )}
@@ -658,7 +658,7 @@ export default function InsurerProfilePage({
                       >
                         <Shield
                           size={14}
-                          className="text-cyan-600 dark:text-cyan-400 mt-0.5 flex-shrink-0"
+                          className="text-cyan-600 dark:text-brand-tan mt-0.5 flex-shrink-0"
                         />
                         <p className="text-sm text-neutral-700 dark:text-slate-300">
                           {area}

@@ -565,7 +565,7 @@ export default function AiUsageDashboardPage() {
               setSelectedMonth(e.target.value);
               setPage(0);
             }}
-            className="rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
+            className="rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-navy"
           >
             {months.map((m) => (
               <option key={m.value} value={m.value}>
@@ -607,7 +607,7 @@ export default function AiUsageDashboardPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <KpiCard
               icon={DollarSign}
-              iconClass="bg-cyan-500/10 text-cyan-600 dark:text-cyan-400"
+              iconClass="bg-cyan-500/10 text-cyan-600 dark:text-brand-tan"
               title="Total Cost MTD"
               value={`$${data.totalCostMtd.toFixed(2)} AUD`}
             />
@@ -664,7 +664,7 @@ export default function AiUsageDashboardPage() {
                         className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
                           billingFilter.has(s)
                             ? "bg-cyan-500 text-white border-cyan-500"
-                            : "bg-transparent text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:border-cyan-400"
+                            : "bg-transparent text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:border-brand-navy"
                         }`}
                       >
                         {s.charAt(0).toUpperCase() + s.slice(1)}
@@ -684,7 +684,7 @@ export default function AiUsageDashboardPage() {
                         className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
                           eventTypeFilter.has(et)
                             ? `${EVENT_COLORS[et].bar} text-white border-transparent`
-                            : "bg-transparent text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:border-cyan-400"
+                            : "bg-transparent text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:border-brand-navy"
                         }`}
                       >
                         {EVENT_LABELS[et]}

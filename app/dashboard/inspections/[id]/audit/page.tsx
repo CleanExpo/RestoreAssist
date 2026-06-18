@@ -63,7 +63,7 @@ function getActionColor(action: string): string {
     lower.includes("add") ||
     lower.includes("submit")
   ) {
-    return "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800";
+    return "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-brand-bronze border-emerald-200 dark:border-emerald-800";
   }
   if (lower.includes("delet") || lower.includes("remov")) {
     return "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800";

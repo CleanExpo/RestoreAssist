@@ -424,7 +424,7 @@ export default function EditInvoicePage({
                   onClick={() => setCustomerType("client")}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-colors ${
                     customerType === "client"
-                      ? "border-cyan-500 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400"
+                      ? "border-cyan-500 bg-cyan-500/10 text-cyan-600 dark:text-brand-tan"
                       : "border-slate-300 dark:border-slate-600 hover:border-slate-400"
                   }`}
                 >
@@ -436,7 +436,7 @@ export default function EditInvoicePage({
                   onClick={() => setCustomerType("manual")}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-colors ${
                     customerType === "manual"
-                      ? "border-cyan-500 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400"
+                      ? "border-cyan-500 bg-cyan-500/10 text-cyan-600 dark:text-brand-tan"
                       : "border-slate-300 dark:border-slate-600 hover:border-slate-400"
                   }`}
                 >

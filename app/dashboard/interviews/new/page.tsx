@@ -56,7 +56,7 @@ const JOB_TYPES = [
     bg: "bg-emerald-50 dark:bg-emerald-900/20",
     border: "border-emerald-200 dark:border-emerald-800",
     activeBg: "bg-emerald-100 dark:bg-emerald-900/40",
-    activeRing: "ring-emerald-500/30",
+    activeRing: "ring-brand-bronze/30",
   },
   {
     value: "STORM_DAMAGE",
@@ -91,7 +91,7 @@ const EXPERIENCE_LEVELS = [
     bg: "bg-emerald-50 dark:bg-emerald-900/20",
     border: "border-emerald-200 dark:border-emerald-800",
     activeBg: "bg-emerald-100 dark:bg-emerald-900/40",
-    activeRing: "ring-emerald-500/30",
+    activeRing: "ring-brand-bronze/30",
   },
   {
     value: "expert",
@@ -238,7 +238,7 @@ export default function NewInterviewPage() {
                     : cn(
                         jt.bg,
                         "border-neutral-200 dark:border-slate-700",
-                        "hover:border-cyan-300 dark:hover:border-cyan-800",
+                        "hover:border-brand-tan dark:hover:border-cyan-800",
                       ),
                 )}
               >
@@ -314,7 +314,7 @@ export default function NewInterviewPage() {
                     : cn(
                         level.bg,
                         "border-neutral-200 dark:border-slate-700",
-                        "hover:border-cyan-300 dark:hover:border-cyan-800",
+                        "hover:border-brand-tan dark:hover:border-cyan-800",
                       ),
                 )}
               >
@@ -376,8 +376,8 @@ export default function NewInterviewPage() {
                 className={cn(
                   "w-full text-left p-3 rounded-xl border transition-all duration-200",
                   selectedTemplate === tpl.id
-                    ? "border-cyan-400 bg-cyan-50 dark:bg-cyan-900/20 ring-2 ring-cyan-500/30"
-                    : "border-neutral-200 dark:border-slate-700 hover:border-cyan-300 dark:hover:border-cyan-800",
+                    ? "border-brand-navy bg-cyan-50 dark:bg-cyan-900/20 ring-2 ring-cyan-500/30"
+                    : "border-neutral-200 dark:border-slate-700 hover:border-brand-tan dark:hover:border-cyan-800",
                 )}
               >
                 <div className="flex items-center justify-between">
@@ -415,7 +415,7 @@ export default function NewInterviewPage() {
           className={cn(
             "w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-medium text-white transition-all duration-200",
             starting
-              ? "bg-cyan-400 cursor-not-allowed"
+              ? "bg-brand-navy cursor-not-allowed"
               : "bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-600 hover:to-cyan-600 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.01] active:scale-[0.99]",
           )}
         >

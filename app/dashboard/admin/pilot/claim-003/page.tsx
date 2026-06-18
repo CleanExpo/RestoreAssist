@@ -242,7 +242,7 @@ export default function Claim003ReInspectionPage() {
           Back to pilot dashboard
         </button>
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-cyan-50 dark:bg-cyan-950/30 flex items-center justify-center text-cyan-600 dark:text-cyan-400">
+          <div className="w-9 h-9 rounded-lg bg-cyan-50 dark:bg-cyan-950/30 flex items-center justify-center text-cyan-600 dark:text-brand-tan">
             <FileCheck size={18} />
           </div>
           <div>
@@ -268,7 +268,7 @@ export default function Claim003ReInspectionPage() {
       {/* Context card */}
       <div className="rounded-lg border border-cyan-200/60 dark:border-cyan-800/40 bg-cyan-50/40 dark:bg-cyan-950/20 px-4 py-3 space-y-1.5">
         <div className="flex items-center gap-1.5 text-xs font-semibold text-neutral-700 dark:text-slate-300">
-          <Info size={12} className="text-cyan-600 dark:text-cyan-400" />
+          <Info size={12} className="text-cyan-600 dark:text-brand-tan" />
           Control group only — NIR group is auto-collected
         </div>
         <p className="text-xs text-neutral-600 dark:text-slate-400 leading-relaxed">
@@ -373,7 +373,7 @@ export default function Claim003ReInspectionPage() {
                   value={entry.claimRef}
                   onChange={(e) => updateEntry(idx, "claimRef", e.target.value)}
                   placeholder="e.g. GW-2026-009144"
-                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-navy/40"
                 />
                 {/* Re-inspection required */}
                 <select
@@ -381,7 +381,7 @@ export default function Claim003ReInspectionPage() {
                   onChange={(e) =>
                     updateEntry(idx, "reInspectionRequired", e.target.value)
                   }
-                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-2 py-2 text-neutral-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-2 py-2 text-neutral-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-navy/40"
                 >
                   <option value="1">Yes (required)</option>
                   <option value="0">No (single visit)</option>
@@ -392,7 +392,7 @@ export default function Claim003ReInspectionPage() {
                   value={entry.notes}
                   onChange={(e) => updateEntry(idx, "notes", e.target.value)}
                   placeholder="Optional context"
-                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+                  className="w-full text-sm rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-navy/40"
                 />
                 {/* Remove */}
                 <button
@@ -408,7 +408,7 @@ export default function Claim003ReInspectionPage() {
             {/* Add row */}
             <button
               onClick={addEntry}
-              className="flex items-center gap-1.5 text-xs text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 transition-colors font-medium"
+              className="flex items-center gap-1.5 text-xs text-cyan-600 dark:text-brand-tan hover:text-cyan-700 transition-colors font-medium"
             >
               <Plus size={13} />
               Add row
@@ -484,7 +484,7 @@ export default function Claim003ReInspectionPage() {
               onChange={(e) => setBatchJson(e.target.value)}
               placeholder="Paste JSON array here..."
               rows={10}
-              className="w-full font-mono text-xs rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2.5 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 resize-y"
+              className="w-full font-mono text-xs rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2.5 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-navy/40 resize-y"
             />
 
             {batchErrors.length > 0 && (
@@ -532,12 +532,12 @@ export default function Claim003ReInspectionPage() {
           <div className="space-y-1">
             <div className="flex justify-between text-neutral-500 dark:text-slate-400">
               <span>NIR group</span>
-              <span className="font-mono text-emerald-600 dark:text-emerald-400">
+              <span className="font-mono text-emerald-600 dark:text-brand-bronze">
                 Auto-collected
               </span>
             </div>
             <div className="h-1.5 w-full bg-emerald-100 dark:bg-emerald-900/30 rounded-full overflow-hidden">
-              <div className="h-full rounded-full bg-emerald-400 w-full" />
+              <div className="h-full rounded-full bg-brand-bronze w-full" />
             </div>
             <p className="text-[10px] text-neutral-400 dark:text-slate-500">
               Recorded automatically on each inspection submit.
@@ -549,7 +549,7 @@ export default function Claim003ReInspectionPage() {
               <span className="font-mono">? / 50</span>
             </div>
             <div className="h-1.5 w-full bg-neutral-100 dark:bg-slate-800 rounded-full overflow-hidden">
-              <div className="h-full rounded-full bg-violet-400 w-0" />
+              <div className="h-full rounded-full bg-brand-bronze w-0" />
             </div>
             <p className="text-[10px] text-neutral-400 dark:text-slate-500">
               Enter using this form. Check the{" "}

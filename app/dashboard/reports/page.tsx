@@ -601,7 +601,7 @@ export default function ReportsPage() {
                   No reports found.{" "}
                   <Link
                     href="/dashboard/reports/new"
-                    className="text-cyan-400 hover:underline"
+                    className="text-brand-tan hover:underline"
                   >
                     Create your first report
                   </Link>
@@ -623,7 +623,7 @@ export default function ReportsPage() {
                         className="mt-1 flex-shrink-0 text-slate-500 dark:text-slate-400 hover:text-white transition-colors min-h-[24px] min-w-[24px]"
                       >
                         {selectedReports.includes(report.id) ? (
-                          <CheckSquare size={20} className="text-cyan-400" />
+                          <CheckSquare size={20} className="text-brand-tan" />
                         ) : (
                           <Square size={20} />
                         )}
@@ -632,7 +632,7 @@ export default function ReportsPage() {
                         <div className="flex items-center gap-2 flex-wrap mb-2">
                           <Link
                             href={`/dashboard/reports/${report.id}`}
-                            className="font-mono text-sm font-semibold text-cyan-400 hover:underline"
+                            className="font-mono text-sm font-semibold text-brand-tan hover:underline"
                           >
                             {report.reportNumber || report.id}
                           </Link>
@@ -712,7 +712,7 @@ export default function ReportsPage() {
                               {synopsising === report.id ? (
                                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cyan-500" />
                               ) : (
-                                <Sparkles size={16} className="text-cyan-400" />
+                                <Sparkles size={16} className="text-brand-tan" />
                               )}
                             </button>
                           )}
@@ -814,14 +814,14 @@ export default function ReportsPage() {
                             {selectedReports.includes(report.id) ? (
                               <CheckSquare
                                 size={16}
-                                className="text-cyan-400"
+                                className="text-brand-tan"
                               />
                             ) : (
                               <Square size={16} />
                             )}
                           </button>
                         </td>
-                        <td className="py-4 px-6 font-medium text-cyan-400">
+                        <td className="py-4 px-6 font-medium text-brand-tan">
                           <Link
                             href={`/dashboard/reports/${report.id}`}
                             className="hover:underline"
@@ -846,7 +846,7 @@ export default function ReportsPage() {
                               size="sm"
                               disabled={synopsising === report.id}
                               onClick={() => generateSynopsis(report.id)}
-                              className="mt-1 h-6 px-2 text-xs text-cyan-400 hover:text-cyan-300 hover:bg-slate-700/40"
+                              className="mt-1 h-6 px-2 text-xs text-brand-tan hover:text-brand-tan hover:bg-slate-700/40"
                             >
                               {synopsising === report.id ? (
                                 <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-cyan-500" />

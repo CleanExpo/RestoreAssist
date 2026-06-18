@@ -535,7 +535,7 @@ export default function SettingsPage() {
                   <label className="block text-sm font-medium mb-2">
                     Remaining
                   </label>
-                  <div className="text-2xl font-bold text-cyan-400 flex items-center gap-2">
+                  <div className="text-2xl font-bold text-brand-tan flex items-center gap-2">
                     {refreshing && (
                       <RefreshCw className="w-4 h-4 animate-spin" />
                     )}

@@ -189,7 +189,7 @@ export default function ClientDetailPage({
       case "SUBMITTED":
         return "bg-blue-500/20 text-blue-400";
       case "PROCESSED":
-        return "bg-emerald-500/20 text-emerald-400";
+        return "bg-brand-bronze/20 text-brand-bronze";
       case "CANCELLED":
         return "bg-red-500/20 text-red-400";
       case "DRAFT":
@@ -205,7 +205,7 @@ export default function ClientDetailPage({
   };
 
   const getDocTypeBadgeColor = (type: string) => {
-    if (type === "RESTORATION_INVOICE") return "bg-cyan-500/20 text-cyan-400";
+    if (type === "RESTORATION_INVOICE") return "bg-cyan-500/20 text-brand-tan";
     if (type === "QUOTE" || type === "ESTIMATE")
       return "bg-amber-500/20 text-amber-400";
     return "bg-slate-500/20 text-slate-400";
@@ -272,7 +272,7 @@ export default function ClientDetailPage({
         {/* Contact Information */}
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
           <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
-            <User className="text-cyan-400" size={20} />
+            <User className="text-brand-tan" size={20} />
             Contact Information
           </h2>
           <div className="space-y-3">
@@ -340,19 +340,19 @@ export default function ClientDetailPage({
         {/* Statistics */}
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
           <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
-            <DollarSign className="text-emerald-400" size={20} />
+            <DollarSign className="text-brand-bronze" size={20} />
             Statistics
           </h2>
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-slate-400">Total Reports</span>
-              <span className="text-2xl font-bold text-cyan-400">
+              <span className="text-2xl font-bold text-brand-tan">
                 {client.reportsCount}
               </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-slate-400">Total Revenue</span>
-              <span className="text-2xl font-bold text-emerald-400">
+              <span className="text-2xl font-bold text-brand-bronze">
                 ${client.totalRevenue.toLocaleString()}
               </span>
             </div>
@@ -396,7 +396,7 @@ export default function ClientDetailPage({
       {/* Inspections */}
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
         <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
-          <ClipboardList className="text-cyan-400" size={20} />
+          <ClipboardList className="text-brand-tan" size={20} />
           Inspections
           {!loadingInspections && (
             <span className="text-slate-400 text-sm font-normal">
@@ -465,7 +465,7 @@ export default function ClientDetailPage({
                     <td className="py-3">
                       <Link
                         href={`/dashboard/inspections/${inspection.id}`}
-                        className="flex items-center gap-1 text-cyan-400 hover:underline"
+                        className="flex items-center gap-1 text-brand-tan hover:underline"
                       >
                         <Eye size={14} />
                         View
@@ -517,7 +517,7 @@ export default function ClientDetailPage({
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  <span className="text-lg font-bold text-cyan-400">
+                  <span className="text-lg font-bold text-brand-tan">
                     ${(report.totalCost || 0).toLocaleString()}
                   </span>
                   <StatusBadge
@@ -530,7 +530,7 @@ export default function ClientDetailPage({
                   </StatusBadge>
                   <Link
                     href={`/dashboard/reports/${report.id}`}
-                    className="flex items-center gap-1 text-cyan-400 hover:underline text-sm"
+                    className="flex items-center gap-1 text-brand-tan hover:underline text-sm"
                   >
                     <Eye size={14} />
                     View
@@ -545,7 +545,7 @@ export default function ClientDetailPage({
       {/* Restoration Invoices */}
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
         <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
-          <Receipt className="text-emerald-400" size={20} />
+          <Receipt className="text-brand-bronze" size={20} />
           Restoration Invoices
           {!invoicesLoading && (
             <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-600/60 text-slate-300">
@@ -607,7 +607,7 @@ export default function ClientDetailPage({
                 </div>
                 <Link
                   href={`/dashboard/restoration-documents/invoice/${doc.id}`}
-                  className="flex items-center gap-1 text-cyan-400 hover:underline text-sm ml-4"
+                  className="flex items-center gap-1 text-brand-tan hover:underline text-sm ml-4"
                 >
                   <Eye size={14} />
                   View

@@ -288,7 +288,7 @@ export default function EditReportPage({
                     : report.status === "PENDING"
                       ? "bg-amber-500/20 text-amber-400"
                       : report.status === "APPROVED"
-                        ? "bg-emerald-500/20 text-emerald-400"
+                        ? "bg-brand-bronze/20 text-brand-bronze"
                         : report.status === "COMPLETED"
                           ? "bg-blue-500/20 text-blue-400"
                           : "bg-blue-500/20 text-blue-400"
@@ -761,7 +761,7 @@ export default function EditReportPage({
 
           <TabsContent value="scoping">
             <div className="text-center py-12 bg-slate-900/50 border border-slate-800 rounded-lg">
-              <Calculator className="mx-auto h-12 w-12 text-cyan-400 mb-4" />
+              <Calculator className="mx-auto h-12 w-12 text-brand-tan mb-4" />
               <h3 className="text-xl font-semibold text-white mb-2">
                 {scope ? "Edit Scope of Work" : "Create Scope of Work"}
               </h3>
@@ -781,7 +781,7 @@ export default function EditReportPage({
 
           <TabsContent value="estimation">
             <div className="text-center py-12 bg-slate-900/50 border border-slate-800 rounded-lg">
-              <DollarSign className="mx-auto h-12 w-12 text-cyan-400 mb-4" />
+              <DollarSign className="mx-auto h-12 w-12 text-brand-tan mb-4" />
               <h3 className="text-xl font-semibold text-white mb-2">
                 {estimate ? "Edit Estimate" : "Create Estimate"}
               </h3>

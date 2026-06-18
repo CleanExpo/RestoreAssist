@@ -457,7 +457,7 @@ export default function AnalyticsPage() {
                   {selectedMember.role === "MANAGER" ? (
                     <UserCog className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                   ) : (
-                    <Wrench className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+                    <Wrench className="w-5 h-5 text-cyan-600 dark:text-brand-tan" />
                   )}
                 </div>
                 <div>
@@ -568,14 +568,14 @@ export default function AnalyticsPage() {
                           Growth Rate
                         </p>
                         <p
-                          className={`text-2xl font-bold ${insights.isGrowing ? "text-emerald-400" : "text-red-400"}`}
+                          className={`text-2xl font-bold ${insights.isGrowing ? "text-brand-bronze" : "text-red-400"}`}
                         >
                           {insights.revenueGrowth > 0 ? "+" : ""}
                           {insights.revenueGrowth.toFixed(1)}%
                         </p>
                       </div>
                       {insights.isGrowing ? (
-                        <TrendingUp className="w-8 h-8 text-emerald-400" />
+                        <TrendingUp className="w-8 h-8 text-brand-bronze" />
                       ) : (
                         <TrendingDown className="w-8 h-8 text-red-400" />
                       )}
@@ -628,7 +628,7 @@ export default function AnalyticsPage() {
                     </div>
                   </div>
 
-                  <div className="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 rounded-xl p-4 backdrop-blur-sm">
+                  <div className="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border border-brand-bronze/20 rounded-xl p-4 backdrop-blur-sm">
                     <div className="flex items-center justify-between">
                       <div>
                         <p
@@ -639,11 +639,11 @@ export default function AnalyticsPage() {
                         >
                           Avg Value/Report
                         </p>
-                        <p className="text-lg font-bold text-emerald-400">
+                        <p className="text-lg font-bold text-brand-bronze">
                           ${(insights.avgValuePerReport / 1000).toFixed(1)}K
                         </p>
                       </div>
-                      <DollarSign className="w-8 h-8 text-emerald-400" />
+                      <DollarSign className="w-8 h-8 text-brand-bronze" />
                     </div>
                   </div>
                 </div>
@@ -718,7 +718,7 @@ export default function AnalyticsPage() {
                     "backdrop-blur-sm rounded-2xl shadow-2xl transition-all duration-300 overflow-hidden",
                     "bg-white/50 dark:bg-slate-800/50",
                     "border border-neutral-200 dark:border-slate-700/50",
-                    "hover:border-emerald-500/30",
+                    "hover:border-brand-bronze/30",
                   )}
                 >
                   <BillingOverview />
@@ -797,7 +797,7 @@ export default function AnalyticsPage() {
                             >
                               {item.type || "Unknown"}
                             </span>
-                            <span className="text-sm font-bold text-cyan-400">
+                            <span className="text-sm font-bold text-brand-tan">
                               {item.count}
                             </span>
                           </div>
@@ -1029,7 +1029,7 @@ export default function AnalyticsPage() {
                   "backdrop-blur-sm rounded-2xl shadow-xl transition-all duration-300 overflow-hidden",
                   "bg-white/50 dark:bg-slate-800/50",
                   "border border-neutral-200 dark:border-slate-700/50",
-                  "hover:border-emerald-500/30",
+                  "hover:border-brand-bronze/30",
                 )}
               >
                 <TopClientsTable
@@ -1131,7 +1131,7 @@ export default function AnalyticsPage() {
                     "backdrop-blur-sm rounded-2xl shadow-2xl transition-all duration-300 overflow-hidden",
                     "bg-white/50 dark:bg-slate-800/50",
                     "border border-neutral-200 dark:border-slate-700/50",
-                    "hover:border-emerald-500/30",
+                    "hover:border-brand-bronze/30",
                   )}
                 >
                   <BillingOverview />
@@ -1383,8 +1383,8 @@ export default function AnalyticsPage() {
                     </div>
 
                     <div className="text-center">
-                      <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-500/10 mb-3">
-                        <DollarSign className="w-6 h-6 text-emerald-400" />
+                      <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-brand-bronze/10 mb-3">
+                        <DollarSign className="w-6 h-6 text-brand-bronze" />
                       </div>
                       <p
                         className={cn(

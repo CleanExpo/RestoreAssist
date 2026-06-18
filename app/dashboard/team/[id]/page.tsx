@@ -62,14 +62,14 @@ const roleConfig = {
     label: "Technician",
     icon: Wrench,
     bgColor: "bg-cyan-500/20",
-    textColor: "text-cyan-400",
+    textColor: "text-brand-tan",
     borderColor: "border-cyan-500/30",
   },
 };
 
 const statusConfig: Record<string, { bg: string; text: string }> = {
-  completed: { bg: "bg-emerald-500/20", text: "text-emerald-400" },
-  COMPLETED: { bg: "bg-emerald-500/20", text: "text-emerald-400" },
+  completed: { bg: "bg-brand-bronze/20", text: "text-brand-bronze" },
+  COMPLETED: { bg: "bg-brand-bronze/20", text: "text-brand-bronze" },
   submitted: { bg: "bg-blue-500/20", text: "text-blue-400" },
   SUBMITTED: { bg: "bg-blue-500/20", text: "text-blue-400" },
   in_progress: { bg: "bg-amber-500/20", text: "text-amber-400" },
@@ -321,7 +321,7 @@ export default function TeamMemberDetailPage({
       {editing && isAdmin && (
         <Card className="bg-slate-800/50 border-cyan-500/30">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base text-cyan-400">
+            <CardTitle className="text-base text-brand-tan">
               Edit Member Details
             </CardTitle>
           </CardHeader>
@@ -461,7 +461,7 @@ export default function TeamMemberDetailPage({
                       className="flex items-center justify-between p-3 rounded-lg bg-slate-700/30 hover:bg-slate-700/50 transition-colors group"
                     >
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-white truncate group-hover:text-cyan-400 transition-colors">
+                        <p className="text-sm font-medium text-white truncate group-hover:text-brand-tan transition-colors">
                           {inspection.propertyAddress ||
                             inspection.inspectionNumber ||
                             "Inspection"}
@@ -493,7 +493,7 @@ export default function TeamMemberDetailPage({
         <Card className="bg-slate-800/50 border-slate-700/50">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
-              <User size={16} className="text-cyan-400" />
+              <User size={16} className="text-brand-tan" />
               Member Details
             </CardTitle>
           </CardHeader>
@@ -527,7 +527,7 @@ export default function TeamMemberDetailPage({
                   <User size={14} />
                   Status
                 </span>
-                <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-xs">
+                <Badge className="bg-brand-bronze/20 text-brand-bronze border-brand-bronze/30 text-xs">
                   Active
                 </Badge>
               </div>

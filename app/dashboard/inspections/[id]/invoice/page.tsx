@@ -52,7 +52,7 @@ function StatusBadge({ status }: { status: string }) {
     DRAFT:
       "bg-neutral-100 dark:bg-slate-800 text-neutral-600 dark:text-slate-300",
     SENT: "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400",
-    PAID: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400",
+    PAID: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-brand-bronze",
     OVERDUE: "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400",
     CANCELLED: "bg-neutral-100 dark:bg-slate-800 text-neutral-400",
   };
@@ -169,7 +169,7 @@ export default function InspectionInvoicePage({
         {invoice && (
           <Link
             href={`/dashboard/invoices/${invoice.id}`}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-cyan-500 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/10 text-sm font-semibold transition-colors"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-cyan-500 text-cyan-600 dark:text-brand-tan hover:bg-cyan-50 dark:hover:bg-cyan-900/10 text-sm font-semibold transition-colors"
           >
             <ExternalLink size={16} />
             View Full Invoice
@@ -231,7 +231,7 @@ export default function InspectionInvoicePage({
                 <p className="text-xs text-neutral-400 uppercase tracking-wider mb-0.5">
                   Total inc. GST
                 </p>
-                <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                <p className="text-2xl font-bold text-emerald-600 dark:text-brand-bronze">
                   {centsToAud(invoice.totalIncGST)}
                 </p>
               </div>
@@ -259,7 +259,7 @@ export default function InspectionInvoicePage({
                 <span className="text-neutral-400 text-xs uppercase tracking-wider block">
                   Amount Due
                 </span>
-                <span className="font-semibold text-cyan-600 dark:text-cyan-400">
+                <span className="font-semibold text-cyan-600 dark:text-brand-tan">
                   {centsToAud(invoice.amountDue)}
                 </span>
               </div>
@@ -333,7 +333,7 @@ export default function InspectionInvoicePage({
                     >
                       Total inc. GST
                     </td>
-                    <td className="px-4 py-3 text-right font-bold text-emerald-600 dark:text-emerald-400">
+                    <td className="px-4 py-3 text-right font-bold text-emerald-600 dark:text-brand-bronze">
                       {centsToAud(invoice.totalIncGST)}
                     </td>
                   </tr>

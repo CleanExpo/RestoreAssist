@@ -158,7 +158,7 @@ const REASON_CONFIG: Record<
   GOODWILL: {
     label: "Goodwill",
     className:
-      "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300 border-0",
+      "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-brand-tan border-0",
   },
   OTHER: {
     label: "Other",
@@ -433,7 +433,7 @@ export default function CreditNotesPage() {
               }}
               className={`px-4 py-2 text-sm font-medium transition-colors relative -mb-px ${
                 isActive
-                  ? "text-cyan-600 dark:text-cyan-400 border-b-2 border-cyan-500"
+                  ? "text-cyan-600 dark:text-brand-tan border-b-2 border-cyan-500"
                   : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
@@ -442,7 +442,7 @@ export default function CreditNotesPage() {
                 <span
                   className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${
                     isActive
-                      ? "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300"
+                      ? "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-brand-tan"
                       : "bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400"
                   }`}
                 >
@@ -549,7 +549,7 @@ export default function CreditNotesPage() {
                         <Link
                           href={`/dashboard/invoices/${cn.invoiceId}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="text-cyan-600 dark:text-cyan-400 hover:underline text-sm font-mono"
+                          className="text-cyan-600 dark:text-brand-tan hover:underline text-sm font-mono"
                         >
                           {cn.invoice.invoiceNumber}
                         </Link>

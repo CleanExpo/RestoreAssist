@@ -63,7 +63,7 @@ function StatusBadge({ status }: { status: InvitationStatus }) {
     },
     ACCEPTED: {
       label: "Accepted",
-      variant: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+      variant: "bg-brand-bronze/20 text-brand-bronze border-brand-bronze/30",
       icon: <CheckCircle size={12} />,
     },
     EXPIRED: {
@@ -286,10 +286,10 @@ export default function ClientPortalPage({
             <div className="flex items-start gap-3">
               <CheckCircle
                 size={22}
-                className="text-emerald-400 mt-0.5 shrink-0"
+                className="text-brand-bronze mt-0.5 shrink-0"
               />
               <div>
-                <p className="font-medium text-emerald-400">Portal Active</p>
+                <p className="font-medium text-brand-bronze">Portal Active</p>
                 <p className="text-sm text-slate-400 mt-0.5">
                   {client?.name ?? "Client"} accepted the invitation on{" "}
                   {fmt(acceptedInvitation.acceptedAt)}.

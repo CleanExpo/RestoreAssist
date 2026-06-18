@@ -42,7 +42,7 @@ interface KPICardsProps {
 
 function TrendIcon({ change }: { change: string }): React.ReactNode {
   if (change.startsWith("+")) {
-    return <TrendingUp size={16} className="text-emerald-400" />;
+    return <TrendingUp size={16} className="text-brand-bronze" />;
   } else if (change.startsWith("-")) {
     return <TrendingDown size={16} className="text-red-400" />;
   }
@@ -53,7 +53,7 @@ function TrendIcon({ change }: { change: string }): React.ReactNode {
 
 function getTrendColor(change: string): string {
   if (change.startsWith("+") || change === "0%") {
-    return "text-emerald-400";
+    return "text-brand-bronze";
   }
   return "text-red-400";
 }

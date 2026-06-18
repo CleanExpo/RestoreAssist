@@ -208,7 +208,7 @@ function ScopeRow({ item, onToggleSelected, onPatchField }: ScopeRowProps) {
             {item.autoDetermined && (
               <Badge
                 variant="secondary"
-                className="text-xs px-1.5 py-0 bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 border-0"
+                className="text-xs px-1.5 py-0 bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-brand-tan border-0"
               >
                 Auto
               </Badge>

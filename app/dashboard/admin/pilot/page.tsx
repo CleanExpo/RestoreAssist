@@ -169,8 +169,8 @@ function ClaimCard({ result }: { result: ClaimReadinessResult }) {
               className={cn(
                 "w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0",
                 ready
-                  ? "bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400"
-                  : "bg-cyan-50 dark:bg-cyan-950/30 text-cyan-600 dark:text-cyan-400",
+                  ? "bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-brand-bronze"
+                  : "bg-cyan-50 dark:bg-cyan-950/30 text-cyan-600 dark:text-brand-tan",
               )}
             >
               {CLAIM_ICONS[claim.id] ?? <BarChart2 size={16} />}
@@ -181,7 +181,7 @@ function ClaimCard({ result }: { result: ClaimReadinessResult }) {
                   {claim.id}
                 </span>
                 {ready ? (
-                  <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400 text-[10px] py-0 px-1.5 border-0">
+                  <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-brand-bronze text-[10px] py-0 px-1.5 border-0">
                     Ready to promote
                   </Badge>
                 ) : dataCollection ? (
@@ -233,7 +233,7 @@ function ClaimCard({ result }: { result: ClaimReadinessResult }) {
                 className={cn(
                   "font-medium tabular-nums",
                   nirObservationCount >= criteria.minNirSampleSize
-                    ? "text-emerald-600 dark:text-emerald-400"
+                    ? "text-emerald-600 dark:text-brand-bronze"
                     : "text-neutral-600 dark:text-slate-400",
                 )}
               >
@@ -245,8 +245,8 @@ function ClaimCard({ result }: { result: ClaimReadinessResult }) {
               max={criteria.minNirSampleSize}
               colour={
                 nirObservationCount >= criteria.minNirSampleSize
-                  ? "bg-emerald-400"
-                  : "bg-cyan-400"
+                  ? "bg-brand-bronze"
+                  : "bg-brand-navy"
               }
             />
           </div>
@@ -263,7 +263,7 @@ function ClaimCard({ result }: { result: ClaimReadinessResult }) {
                   className={cn(
                     "font-medium tabular-nums",
                     controlObservationCount >= criteria.minControlSampleSize
-                      ? "text-emerald-600 dark:text-emerald-400"
+                      ? "text-emerald-600 dark:text-brand-bronze"
                       : "text-neutral-600 dark:text-slate-400",
                   )}
                 >
@@ -275,8 +275,8 @@ function ClaimCard({ result }: { result: ClaimReadinessResult }) {
                 max={criteria.minControlSampleSize}
                 colour={
                   controlObservationCount >= criteria.minControlSampleSize
-                    ? "bg-emerald-400"
-                    : "bg-violet-400"
+                    ? "bg-brand-bronze"
+                    : "bg-brand-bronze"
                 }
               />
             </div>
@@ -312,7 +312,7 @@ function ClaimCard({ result }: { result: ClaimReadinessResult }) {
               className={cn(
                 "leading-relaxed",
                 evaluation.met
-                  ? "text-emerald-700 dark:text-emerald-400"
+                  ? "text-emerald-700 dark:text-brand-bronze"
                   : "text-amber-700 dark:text-amber-400",
               )}
             >
@@ -334,7 +334,7 @@ function ClaimCard({ result }: { result: ClaimReadinessResult }) {
         {claim.id === "CLAIM-002" && (
           <a
             href="/dashboard/admin/pilot/claim-002"
-            className="inline-flex items-center gap-1.5 text-xs text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 font-medium transition-colors"
+            className="inline-flex items-center gap-1.5 text-xs text-cyan-600 dark:text-brand-tan hover:text-cyan-700 dark:hover:text-brand-tan font-medium transition-colors"
           >
             Record cost observation <ArrowRight size={12} />
           </a>
@@ -342,7 +342,7 @@ function ClaimCard({ result }: { result: ClaimReadinessResult }) {
         {claim.id === "CLAIM-003" && (
           <a
             href="/dashboard/admin/pilot/claim-003"
-            className="inline-flex items-center gap-1.5 text-xs text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 font-medium transition-colors"
+            className="inline-flex items-center gap-1.5 text-xs text-cyan-600 dark:text-brand-tan hover:text-cyan-700 dark:hover:text-brand-tan font-medium transition-colors"
           >
             Enter control group data <ArrowRight size={12} />
           </a>
@@ -350,7 +350,7 @@ function ClaimCard({ result }: { result: ClaimReadinessResult }) {
         {claim.id === "CLAIM-004" && (
           <a
             href="/dashboard/admin/pilot/claim-004"
-            className="inline-flex items-center gap-1.5 text-xs text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 font-medium transition-colors"
+            className="inline-flex items-center gap-1.5 text-xs text-cyan-600 dark:text-brand-tan hover:text-cyan-700 dark:hover:text-brand-tan font-medium transition-colors"
           >
             Record adjuster sessions <ArrowRight size={12} />
           </a>
@@ -449,7 +449,7 @@ export default function PilotReadinessDashboard() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+            <div className="w-2 h-2 rounded-full bg-brand-navy animate-pulse" />
             <span className="text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-slate-400">
               NIR Phase 2 Pilot
             </span>
@@ -496,7 +496,7 @@ export default function PilotReadinessDashboard() {
             <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
               Pilot complete — all HYPOTHESIS claims are ready for promotion
             </p>
-            <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">
+            <p className="text-xs text-emerald-600 dark:text-brand-bronze mt-0.5">
               Open one PR per claim in{" "}
               <code className="font-mono">
                 lib/nir-evidence-architecture.ts
@@ -512,7 +512,7 @@ export default function PilotReadinessDashboard() {
           <div>
             <p className="text-sm font-semibold text-neutral-800 dark:text-slate-200">
               Pilot in progress —{" "}
-              <span className="text-emerald-600 dark:text-emerald-400">
+              <span className="text-emerald-600 dark:text-brand-bronze">
                 {report.readyToPromote.length}
               </span>{" "}
               of {allClaims.length} claims ready
@@ -598,7 +598,7 @@ export default function PilotReadinessDashboard() {
           <div className="flex items-center gap-2">
             <CheckCircle2
               size={16}
-              className="text-cyan-600 dark:text-cyan-400"
+              className="text-cyan-600 dark:text-brand-tan"
             />
             <p className="text-sm font-semibold text-neutral-800 dark:text-slate-200">
               Promotion checklist
@@ -631,7 +631,7 @@ export default function PilotReadinessDashboard() {
             {report.readyToPromote.map((r) => (
               <Badge
                 key={r.claim.id}
-                className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400 border-0 gap-1"
+                className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-brand-bronze border-0 gap-1"
               >
                 <CheckCircle2 size={10} />
                 {r.claim.id}
@@ -688,7 +688,7 @@ function StatTile({
         className={cn(
           "flex items-center gap-1.5 text-xs",
           highlight
-            ? "text-emerald-600 dark:text-emerald-400"
+            ? "text-emerald-600 dark:text-brand-bronze"
             : "text-neutral-500 dark:text-slate-400",
         )}
       >
