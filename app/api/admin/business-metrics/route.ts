@@ -14,11 +14,12 @@
  * lives below — update when pricing changes.
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { apiError, fromException } from "@/lib/api-errors";
+import { verifyAdminFromDb } from "@/lib/admin-auth";
+import { fromException } from "@/lib/api-errors";
 
 // Plan-name → monthly price (AUD). Update when pricing changes.
 // Values are best-effort: if a plan name doesn't match, MRR for that
@@ -32,20 +33,8 @@ const PLAN_PRICE_AUD: Record<string, number> = {
 
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return apiError(request, {
-      code: "UNAUTHORIZED",
-      message: "Unauthorized",
-      status: 401,
-    });
-  }
-  if (session.user.role !== "ADMIN") {
-    return apiError(request, {
-      code: "FORBIDDEN",
-      message: "Forbidden — admin only",
-      status: 403,
-    });
-  }
+  const auth = await verifyAdminFromDb(session);
+  if (auth.response) return auth.response;
 
   try {
     const now = new Date();

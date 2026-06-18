@@ -354,6 +354,7 @@ export async function POST(request: NextRequest) {
               invoiceNumber: { startsWith: `${prefix}-${year}-` },
             },
             select: { invoiceNumber: true },
+            take: 500,
           });
           const numbers = existing
             .map((inv) =>

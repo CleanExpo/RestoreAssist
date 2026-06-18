@@ -43,6 +43,7 @@ export async function GET(_request: NextRequest) {
           orderBy: {
             createdAt: "desc",
           },
+          take: 50,
         },
       },
       orderBy: {

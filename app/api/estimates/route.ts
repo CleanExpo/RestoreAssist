@@ -154,6 +154,7 @@ export async function POST(request: NextRequest) {
         const existingLineItems = await prisma.estimateLineItem.findMany({
           where: { estimateId: existingEstimate.id },
           select: { id: true },
+          take: 1000,
         });
 
         const toDeleteIds = existingLineItems
