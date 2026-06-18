@@ -102,7 +102,7 @@ export default function EditableReportSection({
               size="sm"
               onClick={handleSave}
               disabled={saving}
-              className="bg-cyan-600 hover:bg-cyan-700 text-white"
+              className="bg-brand-navy hover:bg-cyan-700 text-white"
             >
               <Save size={16} className="mr-2" />
               {saving ? "Saving..." : "Save"}

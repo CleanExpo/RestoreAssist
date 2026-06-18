@@ -43,7 +43,7 @@ export function PhaseProgressBar({ phases }: PhaseProgressBarProps) {
       </div>
       <div className="w-full bg-slate-700/50 rounded-full h-1.5 overflow-hidden">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-500"
+          className="h-full rounded-full bg-gradient-to-r from-brand-navy to-blue-500 transition-all duration-500"
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -56,7 +56,7 @@ export function PhaseProgressBar({ phases }: PhaseProgressBarProps) {
               title={label}
               className={`inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold transition-colors ${
                 p.completed
-                  ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
+                  ? "bg-brand-navy/20 text-brand-tan border border-brand-navy/30"
                   : "bg-slate-700/50 text-slate-500 border border-slate-600/30"
               }`}
             >
@@ -164,7 +164,7 @@ const sessionStatusConfig: Record<
 > = {
   pending: { label: "Pending", colour: "text-slate-400", icon: Clock },
   running: { label: "Running", colour: "text-blue-400", icon: Clock },
-  completed: { label: "Done", colour: "text-emerald-400", icon: CheckCircle },
+  completed: { label: "Done", colour: "text-brand-bronze", icon: CheckCircle },
   failed: { label: "Failed", colour: "text-red-400", icon: AlertTriangle },
   retrying: { label: "Retrying", colour: "text-orange-400", icon: RefreshCw },
 };

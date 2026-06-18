@@ -156,7 +156,7 @@ export function FeatureHealthCard({ postActivation = false }: { postActivation?:
 
 function StatusPill({ status }: { status: CheckStatus }) {
   const cls =
-    status === 'green' ? 'bg-emerald-500'
+    status === 'green' ? 'bg-brand-bronze'
     : status === 'yellow' ? 'bg-amber-500'
     : 'bg-rose-500';
   const labels = { green: 'OK', yellow: 'Optional', red: 'Needs attention' };

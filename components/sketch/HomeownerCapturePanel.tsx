@@ -100,7 +100,7 @@ export function HomeownerCapturePanel({
           onClick={invite}
           disabled={busy !== null}
           aria-label="Invite homeowner to capture"
-          className={`${btn} border-cyan-400/40 bg-cyan-500/15 text-cyan-100 hover:bg-cyan-500/25`}
+          className={`${btn} border-brand-navy/40 bg-brand-navy/15 text-cyan-100 hover:bg-brand-navy/25`}
         >
           {busy === "invite" ? "Creating…" : "Invite homeowner…"}
         </button>
@@ -109,7 +109,7 @@ export function HomeownerCapturePanel({
           onClick={review}
           disabled={busy !== null}
           aria-label="Review homeowner submission"
-          className={`${btn} border-emerald-400/40 bg-emerald-500/15 text-emerald-100 hover:bg-emerald-500/25`}
+          className={`${btn} border-brand-bronze/40 bg-brand-bronze/15 text-emerald-100 hover:bg-brand-bronze/25`}
         >
           {busy === "review" ? "Reviewing…" : "Review submission"}
         </button>

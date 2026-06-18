@@ -63,7 +63,7 @@ export function ClientPortalStatus({ token }: { token: string }) {
         aria-label="Claim progress"
       >
         <div
-          className="h-full bg-cyan-500 transition-all"
+          className="h-full bg-brand-navy transition-all"
           style={{ width: `${feed.progressPct}%` }}
         />
       </div>

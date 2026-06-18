@@ -73,7 +73,7 @@ export function BiometricLockScreen() {
       <button
         onClick={handleUnlock}
         disabled={authenticating}
-        className="px-6 py-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+        className="px-6 py-3 bg-brand-navy hover:bg-cyan-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
       >
         {authenticating ? "Verifying…" : "Unlock with Face ID"}
       </button>

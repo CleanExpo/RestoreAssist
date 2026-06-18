@@ -152,7 +152,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="flex items-center gap-2 w-full max-w-xs sm:max-w-md px-3 py-2 rounded-lg text-sm bg-neutral-50 dark:bg-slate-800 border border-neutral-300 dark:border-slate-700 text-neutral-500 dark:text-slate-400 hover:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/50 transition-colors"
+        className="flex items-center gap-2 w-full max-w-xs sm:max-w-md px-3 py-2 rounded-lg text-sm bg-neutral-50 dark:bg-slate-800 border border-neutral-300 dark:border-slate-700 text-neutral-500 dark:text-slate-400 hover:border-brand-navy focus:outline-none focus:ring-1 focus:ring-brand-navy/50 transition-colors"
         aria-label="Open search"
       >
         <Search size={18} className="flex-shrink-0" />

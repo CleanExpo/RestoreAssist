@@ -1469,7 +1469,7 @@ export default function NIRTechnicianInputForm({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
+        <Loader2 className="w-8 h-8 animate-spin text-brand-tan" />
       </div>
     );
   }
@@ -1673,7 +1673,7 @@ export default function NIRTechnicianInputForm({
                   <span
                     className={cn(
                       "font-semibold",
-                      "text-cyan-600 dark:text-cyan-400",
+                      "text-brand-tan dark:text-brand-tan",
                     )}
                   >
                     {reading.moistureLevel}%
@@ -1685,9 +1685,9 @@ export default function NIRTechnicianInputForm({
               </div>
             ))}
             {classificationPreview && (
-              <div className="mt-4 p-3 bg-cyan-500/10 border border-cyan-500/30 rounded-lg">
+              <div className="mt-4 p-3 bg-brand-navy/10 border border-brand-navy/30 rounded-lg">
                 <p
-                  className={cn("text-sm", "text-cyan-700 dark:text-cyan-400")}
+                  className={cn("text-sm", "text-cyan-700 dark:text-brand-tan")}
                 >
                   <strong>Average Moisture:</strong>{" "}
                   {classificationPreview.avgMoisture.toFixed(1)}%
@@ -1736,7 +1736,7 @@ export default function NIRTechnicianInputForm({
                       <span
                         className={cn(
                           "text-xs px-2 py-1 rounded",
-                          "bg-cyan-100 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-400",
+                          "bg-cyan-100 dark:bg-brand-navy/20 text-cyan-700 dark:text-brand-tan",
                         )}
                       >
                         {area.affectedSquareFootage.toFixed(2)} m²
@@ -1780,7 +1780,7 @@ export default function NIRTechnicianInputForm({
                       <span>
                         Water Source:{" "}
                         <span
-                          className={cn("text-cyan-600 dark:text-cyan-400")}
+                          className={cn("text-brand-tan dark:text-brand-tan")}
                         >
                           {area.waterSource}
                         </span>
@@ -1792,9 +1792,9 @@ export default function NIRTechnicianInputForm({
               </div>
             ))}
             {classificationPreview && (
-              <div className="mt-4 p-3 bg-cyan-500/10 border border-cyan-500/30 rounded-lg">
+              <div className="mt-4 p-3 bg-brand-navy/10 border border-brand-navy/30 rounded-lg">
                 <p
-                  className={cn("text-sm", "text-cyan-700 dark:text-cyan-400")}
+                  className={cn("text-sm", "text-cyan-700 dark:text-brand-tan")}
                 >
                   <strong>Total Affected Area:</strong>{" "}
                   {classificationPreview.totalArea.toFixed(2)} m²
@@ -1806,14 +1806,14 @@ export default function NIRTechnicianInputForm({
 
         {/* Expected Classification Preview */}
         {classificationPreview && (
-          <div className="p-6 rounded-lg border-2 border-cyan-500/50 bg-gradient-to-br from-cyan-500/10 to-blue-500/10">
+          <div className="p-6 rounded-lg border-2 border-brand-navy/50 bg-gradient-to-br from-brand-navy/10 to-blue-500/10">
             <h3
               className={cn(
                 "text-lg font-semibold mb-4 flex items-center gap-2",
                 "text-neutral-900 dark:text-white",
               )}
             >
-              <Sparkles className="w-5 h-5 text-cyan-400" />
+              <Sparkles className="w-5 h-5 text-brand-tan" />
               Expected Auto-Classification Preview
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1834,7 +1834,7 @@ export default function NIRTechnicianInputForm({
                 <p
                   className={cn(
                     "text-2xl font-bold mt-1",
-                    "text-cyan-600 dark:text-cyan-400",
+                    "text-brand-tan dark:text-brand-tan",
                   )}
                 >
                   Category {classificationPreview.category}
@@ -1869,7 +1869,7 @@ export default function NIRTechnicianInputForm({
                 <p
                   className={cn(
                     "text-2xl font-bold mt-1",
-                    "text-cyan-600 dark:text-cyan-400",
+                    "text-brand-tan dark:text-brand-tan",
                   )}
                 >
                   Class {classificationPreview.class}
@@ -1915,7 +1915,7 @@ export default function NIRTechnicianInputForm({
               "text-neutral-900 dark:text-white",
             )}
           >
-            <ClipboardCheck className="w-5 h-5 text-cyan-400" />
+            <ClipboardCheck className="w-5 h-5 text-brand-tan" />
             Selected Scope Items ({selectedScopeItems.size})
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -1929,7 +1929,7 @@ export default function NIRTechnicianInputForm({
                     "bg-neutral-100 dark:bg-slate-900/50",
                   )}
                 >
-                  <CheckCircle className="w-4 h-4 text-cyan-400" />
+                  <CheckCircle className="w-4 h-4 text-brand-tan" />
                   <span className={cn("text-neutral-900 dark:text-white")}>
                     {item.label}
                   </span>
@@ -1962,7 +1962,7 @@ export default function NIRTechnicianInputForm({
                 "text-neutral-900 dark:text-white",
               )}
             >
-              <Map className="w-5 h-5 text-cyan-400" />
+              <Map className="w-5 h-5 text-brand-tan" />
               Visual Moisture Mapping
             </h3>
             <MoistureMappingCanvas
@@ -2008,7 +2008,7 @@ export default function NIRTechnicianInputForm({
                         "border-neutral-300 dark:border-slate-600 bg-neutral-100 dark:bg-slate-900/50",
                       )}
                     >
-                      <Loader2 className="w-6 h-6 animate-spin text-cyan-500" />
+                      <Loader2 className="w-6 h-6 animate-spin text-brand-tan" />
                     </div>
                   ) : (
                     <img
@@ -2046,7 +2046,7 @@ export default function NIRTechnicianInputForm({
             type="button"
             onClick={handleSubmit}
             disabled={saving}
-            className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none text-white group"
+            className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-500 to-brand-tan rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none text-white group"
           >
             {saving ? (
               <>
@@ -2216,7 +2216,7 @@ export default function NIRTechnicianInputForm({
               value={propertyAddress}
               onChange={(e) => setPropertyAddress(e.target.value)}
               className={cn(
-                "w-full px-4 py-2 rounded-lg focus:outline-none focus:border-cyan-500",
+                "w-full px-4 py-2 rounded-lg focus:outline-none focus:border-brand-navy",
                 "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                 "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
               )}
@@ -2229,7 +2229,7 @@ export default function NIRTechnicianInputForm({
                 disabled={locating}
                 className={cn(
                   "mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-xs",
-                  "bg-cyan-600 hover:bg-cyan-700 text-white transition-colors",
+                  "bg-brand-navy hover:bg-cyan-700 text-white transition-colors",
                   "disabled:opacity-50 disabled:cursor-not-allowed",
                 )}
               >
@@ -2266,7 +2266,7 @@ export default function NIRTechnicianInputForm({
                 setPropertyPostcode(e.target.value.replace(/\D/g, ""))
               }
               className={cn(
-                "w-full px-4 py-2 rounded-lg focus:outline-none focus:border-cyan-500",
+                "w-full px-4 py-2 rounded-lg focus:outline-none focus:border-brand-navy",
                 "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                 "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
               )}
@@ -2293,7 +2293,7 @@ export default function NIRTechnicianInputForm({
               value={technicianName}
               onChange={(e) => setTechnicianName(e.target.value)}
               className={cn(
-                "w-full px-4 py-2 rounded-lg focus:outline-none focus:border-cyan-500",
+                "w-full px-4 py-2 rounded-lg focus:outline-none focus:border-brand-navy",
                 "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                 "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
               )}
@@ -2342,7 +2342,7 @@ export default function NIRTechnicianInputForm({
                 }))
               }
               className={cn(
-                "w-full px-4 py-2 rounded-lg focus:outline-none focus:border-cyan-500",
+                "w-full px-4 py-2 rounded-lg focus:outline-none focus:border-brand-navy",
                 "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                 "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
               )}
@@ -2375,7 +2375,7 @@ export default function NIRTechnicianInputForm({
                 }))
               }
               className={cn(
-                "w-full px-4 py-2 rounded-lg focus:outline-none focus:border-cyan-500",
+                "w-full px-4 py-2 rounded-lg focus:outline-none focus:border-brand-navy",
                 "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                 "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
               )}
@@ -2433,7 +2433,7 @@ export default function NIRTechnicianInputForm({
                   }))
                 }
                 className={cn(
-                  "w-4 h-4 rounded border text-cyan-500 focus:ring-cyan-500",
+                  "w-4 h-4 rounded border text-brand-tan focus:ring-brand-navy",
                   "border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700",
                 )}
               />
@@ -2495,7 +2495,7 @@ export default function NIRTechnicianInputForm({
                 }))
               }
               className={cn(
-                "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-brand-navy text-sm",
                 "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                 "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
               )}
@@ -2521,7 +2521,7 @@ export default function NIRTechnicianInputForm({
                 }))
               }
               className={cn(
-                "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-brand-navy text-sm",
                 "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                 "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
               )}
@@ -2556,7 +2556,7 @@ export default function NIRTechnicianInputForm({
                 }))
               }
               className={cn(
-                "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-brand-navy text-sm",
                 "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                 "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
               )}
@@ -2581,7 +2581,7 @@ export default function NIRTechnicianInputForm({
                 }))
               }
               className={cn(
-                "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-brand-navy text-sm",
                 "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                 "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
               )}
@@ -2595,7 +2595,7 @@ export default function NIRTechnicianInputForm({
             <button
               type="button"
               onClick={handleAddMoistureReading}
-              className="w-full px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-lg hover:shadow-cyan-500/30 hover:scale-[1.02] active:scale-[0.98] group"
+              className="w-full px-4 py-2 bg-gradient-to-r from-brand-navy to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-lg hover:shadow-brand-navy/30 hover:scale-[1.02] active:scale-[0.98] group"
             >
               <Plus className="w-4 h-4 transition-transform duration-200 group-hover:rotate-90 group-hover:scale-110" />
               <span className="font-medium">Add Reading</span>
@@ -2629,7 +2629,7 @@ export default function NIRTechnicianInputForm({
                   <span
                     className={cn(
                       "font-semibold",
-                      "text-cyan-600 dark:text-cyan-400",
+                      "text-brand-tan dark:text-brand-tan",
                     )}
                   >
                     {reading.moistureLevel}%
@@ -2669,7 +2669,7 @@ export default function NIRTechnicianInputForm({
               "text-neutral-900 dark:text-white",
             )}
           >
-            <Map className="w-5 h-5 text-cyan-400" />
+            <Map className="w-5 h-5 text-brand-tan" />
             Visual Moisture Mapping (Floor Plan Overlay)
           </h3>
           <p
@@ -2808,7 +2808,7 @@ export default function NIRTechnicianInputForm({
                   }))
                 }
                 className={cn(
-                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-brand-navy text-sm",
                   "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                   "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
                 )}
@@ -2842,7 +2842,7 @@ export default function NIRTechnicianInputForm({
                     }))
                   }
                   className={cn(
-                    "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                    "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-brand-navy text-sm",
                     "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                     "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
                   )}
@@ -2876,7 +2876,7 @@ export default function NIRTechnicianInputForm({
                   }))
                 }
                 className={cn(
-                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-brand-navy text-sm",
                   "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                   "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
                 )}
@@ -2906,7 +2906,7 @@ export default function NIRTechnicianInputForm({
                   }))
                 }
                 className={cn(
-                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-brand-navy text-sm",
                   "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                   "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
                 )}
@@ -2935,7 +2935,7 @@ export default function NIRTechnicianInputForm({
                   }))
                 }
                 className={cn(
-                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-brand-navy text-sm",
                   "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                   "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
                 )}
@@ -2998,7 +2998,7 @@ export default function NIRTechnicianInputForm({
                     checked={newAffectedArea.materials.includes(material)}
                     onChange={() => handleMaterialToggle(material)}
                     className={cn(
-                      "w-4 h-4 rounded border text-cyan-500 focus:ring-cyan-500",
+                      "w-4 h-4 rounded border text-brand-tan focus:ring-brand-navy",
                       "border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700",
                     )}
                   />
@@ -3014,7 +3014,7 @@ export default function NIRTechnicianInputForm({
               ))}
             </div>
             {newAffectedArea.materials.length > 0 && (
-              <p className="text-xs text-cyan-400 mt-2">
+              <p className="text-xs text-brand-tan mt-2">
                 Selected: {newAffectedArea.materials.join(", ")}
               </p>
             )}
@@ -3040,7 +3040,7 @@ export default function NIRTechnicianInputForm({
                   }))
                 }
                 className={cn(
-                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-brand-navy text-sm",
                   "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                   "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
                 )}
@@ -3074,7 +3074,7 @@ export default function NIRTechnicianInputForm({
                   }))
                 }
                 className={cn(
-                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-brand-navy text-sm",
                   "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                   "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
                 )}
@@ -3085,7 +3085,7 @@ export default function NIRTechnicianInputForm({
               <button
                 type="button"
                 onClick={handleAddAffectedArea}
-                className="w-full px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-lg hover:shadow-cyan-500/30 hover:scale-[1.02] active:scale-[0.98] group"
+                className="w-full px-4 py-2 bg-gradient-to-r from-brand-navy to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-lg hover:shadow-brand-navy/30 hover:scale-[1.02] active:scale-[0.98] group"
               >
                 <Plus className="w-4 h-4 transition-transform duration-200 group-hover:rotate-90 group-hover:scale-110" />
                 <span className="font-medium">Add Area</span>
@@ -3119,7 +3119,7 @@ export default function NIRTechnicianInputForm({
                       <span
                         className={cn(
                           "text-xs px-2 py-1 rounded",
-                          "bg-cyan-100 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-400",
+                          "bg-cyan-100 dark:bg-brand-navy/20 text-cyan-700 dark:text-brand-tan",
                         )}
                       >
                         {area.affectedSquareFootage.toFixed(2)} m²
@@ -3192,7 +3192,7 @@ export default function NIRTechnicianInputForm({
             "text-neutral-900 dark:text-white",
           )}
         >
-          <Shield className="w-5 h-5 text-cyan-400" />
+          <Shield className="w-5 h-5 text-brand-tan" />
           IICRC Classification (Optional Manual Override)
         </h3>
         <p
@@ -3217,7 +3217,7 @@ export default function NIRTechnicianInputForm({
             value={damageDescription}
             onChange={(e) => setDamageDescription(e.target.value)}
             className={cn(
-              "w-full px-4 py-2 rounded-lg focus:outline-none focus:border-cyan-500 resize-none",
+              "w-full px-4 py-2 rounded-lg focus:outline-none focus:border-brand-navy resize-none",
               "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
               "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
             )}
@@ -3285,7 +3285,7 @@ export default function NIRTechnicianInputForm({
                       }))
                     }
                     className={cn(
-                      "mt-1 w-4 h-4 text-cyan-500 focus:ring-cyan-500",
+                      "mt-1 w-4 h-4 text-brand-tan focus:ring-brand-navy",
                       "border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700",
                     )}
                   />
@@ -3344,7 +3344,7 @@ export default function NIRTechnicianInputForm({
                       }))
                     }
                     className={cn(
-                      "mt-1 w-4 h-4 text-cyan-500 focus:ring-cyan-500",
+                      "mt-1 w-4 h-4 text-brand-tan focus:ring-brand-navy",
                       "border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700",
                     )}
                   />
@@ -3373,8 +3373,8 @@ export default function NIRTechnicianInputForm({
         </div>
 
         {manualClassification && (
-          <div className="mt-4 p-3 bg-cyan-500/10 border border-cyan-500/30 rounded-lg">
-            <p className={cn("text-sm", "text-cyan-700 dark:text-cyan-400")}>
+          <div className="mt-4 p-3 bg-brand-navy/10 border border-brand-navy/30 rounded-lg">
+            <p className={cn("text-sm", "text-cyan-700 dark:text-brand-tan")}>
               <strong>Manual Override Active:</strong> Category{" "}
               {manualClassification.category}, Class{" "}
               {manualClassification.class}
@@ -3384,7 +3384,7 @@ export default function NIRTechnicianInputForm({
               onClick={() => setManualClassification(null)}
               className={cn(
                 "mt-2 text-xs underline",
-                "text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300",
+                "text-brand-tan dark:text-brand-tan hover:text-cyan-700 dark:hover:text-brand-tan",
               )}
             >
               Clear manual override (use auto-classification)
@@ -3406,7 +3406,7 @@ export default function NIRTechnicianInputForm({
             "text-neutral-900 dark:text-white",
           )}
         >
-          <ClipboardCheck className="w-5 h-5 text-cyan-400" />
+          <ClipboardCheck className="w-5 h-5 text-brand-tan" />
           Scope Items
         </h3>
         <p
@@ -3430,7 +3430,7 @@ export default function NIRTechnicianInputForm({
                 checked={selectedScopeItems.has(item.id)}
                 onChange={() => handleScopeItemToggle(item.id)}
                 className={cn(
-                  "w-4 h-4 rounded border text-cyan-500 focus:ring-cyan-500",
+                  "w-4 h-4 rounded border text-brand-tan focus:ring-brand-navy",
                   "border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700",
                 )}
               />
@@ -3492,7 +3492,7 @@ export default function NIRTechnicianInputForm({
                   setNewEquipment((prev) => ({ ...prev, type: e.target.value }))
                 }
                 className={cn(
-                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-brand-navy text-sm",
                   "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                   "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
                 )}
@@ -3524,7 +3524,7 @@ export default function NIRTechnicianInputForm({
                   }))
                 }
                 className={cn(
-                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-brand-navy text-sm",
                   "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                   "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
                 )}
@@ -3548,7 +3548,7 @@ export default function NIRTechnicianInputForm({
                   setNewEquipment({ type: EQUIPMENT_TYPES[0], quantity: 1 });
                   toast.success("Equipment added");
                 }}
-                className="w-full px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
+                className="w-full px-4 py-2 bg-gradient-to-r from-brand-navy to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
               >
                 <Plus className="w-4 h-4" />
                 <span className="text-sm font-medium">Add</span>
@@ -3619,7 +3619,7 @@ export default function NIRTechnicianInputForm({
                   setDryingDuration(parseInt(e.target.value) || 4)
                 }
                 className={cn(
-                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm",
+                  "w-full px-3 py-2 rounded-lg focus:outline-none focus:border-brand-navy text-sm",
                   "bg-neutral-50 dark:bg-slate-700/50 border border-neutral-300 dark:border-slate-600",
                   "text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-slate-400",
                 )}
@@ -3676,7 +3676,7 @@ export default function NIRTechnicianInputForm({
                     "border-neutral-300 dark:border-slate-600 bg-neutral-100 dark:bg-slate-900/50",
                   )}
                 >
-                  <Loader2 className="w-6 h-6 animate-spin text-cyan-500" />
+                  <Loader2 className="w-6 h-6 animate-spin text-brand-tan" />
                 </div>
               ) : (
                 <>
@@ -3709,21 +3709,21 @@ export default function NIRTechnicianInputForm({
               "w-full h-32 border-2 border-dashed rounded-lg flex items-center justify-center cursor-pointer transition-all duration-200 group bg-slate-900/50",
               uploadingPhotos
                 ? "border-slate-500 cursor-wait opacity-50"
-                : "border-slate-600 hover:border-cyan-500 hover:bg-slate-800/50 hover:scale-[1.02] active:scale-[0.98]",
+                : "border-slate-600 hover:border-brand-navy hover:bg-slate-800/50 hover:scale-[1.02] active:scale-[0.98]",
             )}
           >
             <div className="text-center">
               {uploadingPhotos ? (
-                <Loader2 className="w-8 h-8 text-cyan-400 mx-auto mb-2 animate-spin" />
+                <Loader2 className="w-8 h-8 text-brand-tan mx-auto mb-2 animate-spin" />
               ) : (
-                <Upload className="w-8 h-8 text-slate-400 group-hover:text-cyan-400 mx-auto mb-2 transition-all duration-200 group-hover:scale-110 group-hover:-translate-y-1" />
+                <Upload className="w-8 h-8 text-slate-400 group-hover:text-brand-tan mx-auto mb-2 transition-all duration-200 group-hover:scale-110 group-hover:-translate-y-1" />
               )}
               <span
                 className={cn(
                   "text-xs transition-colors duration-200 font-medium",
                   uploadingPhotos
                     ? "text-slate-500"
-                    : "text-slate-400 group-hover:text-cyan-400",
+                    : "text-slate-400 group-hover:text-brand-tan",
                 )}
               >
                 {uploadingPhotos ? "Uploading..." : "Add Photo"}
@@ -3867,7 +3867,7 @@ export default function NIRTechnicianInputForm({
           type="button"
           onClick={handleReview}
           disabled={saving}
-          className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none text-white group"
+          className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-500 to-brand-tan rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none text-white group"
         >
           <ClipboardCheck className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" />
           <span>Review & Submit</span>

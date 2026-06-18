@@ -45,7 +45,7 @@ export function CapturedEvidenceList({
           Captured ({items.length}/{requiredCount})
         </p>
         {met && (
-          <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+          <Badge className="bg-brand-bronze/20 text-brand-bronze border-brand-bronze/30">
             <Check className="mr-1 h-3 w-3" />
             Requirement met
           </Badge>
@@ -71,7 +71,7 @@ export function CapturedEvidenceList({
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs text-zinc-300">{item.title}</p>
               {item.measurementValue != null && (
-                <p className="text-xs text-cyan-400">
+                <p className="text-xs text-brand-tan">
                   {item.measurementValue} {item.measurementUnit ?? ""}
                 </p>
               )}

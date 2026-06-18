@@ -81,7 +81,7 @@ export function BottomActionBar({
             <Button
               onClick={onComplete}
               disabled={disabled}
-              className="gap-2 h-11 px-6 text-base font-semibold bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95"
+              className="gap-2 h-11 px-6 text-base font-semibold bg-gradient-to-r from-brand-bronze to-green-600 hover:from-emerald-700 hover:to-green-700 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95"
             >
               <Check className="h-5 w-5" />
               <span>Complete Interview</span>

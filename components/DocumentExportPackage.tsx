@@ -106,7 +106,7 @@ export default function DocumentExportPackage({
 
         <div className="grid md:grid-cols-2 gap-4">
           {/* PDF Format */}
-          <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30 hover:border-cyan-500/50 transition-colors">
+          <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30 hover:border-brand-navy/50 transition-colors">
             <div className="flex items-center gap-3 mb-3">
               <div className="p-2 rounded-lg bg-red-500/20">
                 <FileText className="w-5 h-5 text-red-400" />
@@ -142,7 +142,7 @@ export default function DocumentExportPackage({
           </div>
 
           {/* ZIP Format */}
-          <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30 hover:border-cyan-500/50 transition-colors">
+          <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30 hover:border-brand-navy/50 transition-colors">
             <div className="flex items-center gap-3 mb-3">
               <div className="p-2 rounded-lg bg-amber-500/20">
                 <FileArchive className="w-5 h-5 text-amber-400" />
@@ -176,7 +176,7 @@ export default function DocumentExportPackage({
           </div>
 
           {/* JSON Format */}
-          <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30 hover:border-cyan-500/50 transition-colors">
+          <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30 hover:border-brand-navy/50 transition-colors">
             <div className="flex items-center gap-3 mb-3">
               <div className="p-2 rounded-lg bg-green-500/20">
                 <FileJson className="w-5 h-5 text-green-400" />

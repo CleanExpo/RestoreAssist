@@ -145,7 +145,7 @@ export function PropertyDataSetupWizard({
         {/* Progress bar */}
         <div className="h-1 bg-gray-100 dark:bg-slate-700">
           <div
-            className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 transition-all duration-500"
+            className="h-full bg-gradient-to-r from-blue-500 to-brand-tan transition-all duration-500"
             style={{ width: `${(step / 4) * 100}%` }}
           />
         </div>
@@ -218,7 +218,7 @@ export function PropertyDataSetupWizard({
                 href="https://chromewebstore.google.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg text-white text-sm font-medium hover:shadow-lg hover:shadow-blue-500/30 transition-all mt-2"
+                className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-gradient-to-r from-blue-500 to-brand-tan rounded-lg text-white text-sm font-medium hover:shadow-lg hover:shadow-blue-500/30 transition-all mt-2"
               >
                 <ExternalLink size={16} />
                 Open Chrome Web Store
@@ -242,7 +242,7 @@ export function PropertyDataSetupWizard({
               <div
                 className={`rounded-xl border-2 p-6 flex flex-col items-center gap-3 transition-all ${
                   testResult === "success"
-                    ? "border-emerald-400 dark:border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10"
+                    ? "border-brand-bronze dark:border-brand-bronze bg-emerald-50 dark:bg-brand-bronze/10"
                     : testResult === "fail"
                       ? "border-rose-400 dark:border-rose-500 bg-rose-50 dark:bg-rose-500/10"
                       : "border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-700/30"
@@ -251,7 +251,7 @@ export function PropertyDataSetupWizard({
                 {testing ? (
                   <Loader2 size={32} className="animate-spin text-blue-500" />
                 ) : testResult === "success" ? (
-                  <CheckCircle2 size={32} className="text-emerald-500" />
+                  <CheckCircle2 size={32} className="text-brand-bronze" />
                 ) : testResult === "fail" ? (
                   <WifiOff size={32} className="text-rose-500" />
                 ) : (
@@ -263,7 +263,7 @@ export function PropertyDataSetupWizard({
                 <p
                   className={`text-sm font-medium ${
                     testResult === "success"
-                      ? "text-emerald-700 dark:text-emerald-400"
+                      ? "text-emerald-700 dark:text-brand-bronze"
                       : testResult === "fail"
                         ? "text-rose-700 dark:text-rose-400"
                         : "text-gray-600 dark:text-slate-400"
@@ -308,8 +308,8 @@ export function PropertyDataSetupWizard({
 
           {step === 4 && (
             <div className="flex flex-col items-center text-center space-y-4 py-4">
-              <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center">
-                <CheckCircle2 size={36} className="text-emerald-500" />
+              <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-brand-bronze/20 flex items-center justify-center">
+                <CheckCircle2 size={36} className="text-brand-bronze" />
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -343,7 +343,7 @@ export function PropertyDataSetupWizard({
             {step < 4 ? (
               <button
                 onClick={handleNext}
-                className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg text-sm font-medium hover:shadow-lg hover:shadow-blue-500/30 transition-all"
+                className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-500 to-brand-tan text-white rounded-lg text-sm font-medium hover:shadow-lg hover:shadow-blue-500/30 transition-all"
               >
                 {step === 3 && testResult === "idle" ? "Skip" : "Next"}
                 <ArrowRight size={16} />
@@ -354,7 +354,7 @@ export function PropertyDataSetupWizard({
                   onComplete();
                   onClose();
                 }}
-                className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-lg text-sm font-medium hover:shadow-lg hover:shadow-emerald-500/30 transition-all"
+                className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-brand-bronze to-teal-500 text-white rounded-lg text-sm font-medium hover:shadow-lg hover:shadow-brand-bronze/30 transition-all"
               >
                 Finish Setup
                 <CheckCircle2 size={16} />

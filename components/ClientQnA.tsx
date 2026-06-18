@@ -156,7 +156,7 @@ export default function ClientQnA({
     <Card className="border-slate-700 bg-slate-800/30">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-white">
-          <MessageCircle className="h-5 w-5 text-cyan-400" />
+          <MessageCircle className="h-5 w-5 text-brand-tan" />
           Client Information Gathering
         </CardTitle>
         <CardDescription className="text-slate-300">
@@ -176,14 +176,14 @@ export default function ClientQnA({
               }`}
             >
               {message.role === "system" && (
-                <div className="w-8 h-8 rounded-full bg-cyan-500/20 flex items-center justify-center flex-shrink-0">
-                  <Bot className="h-4 w-4 text-cyan-400" />
+                <div className="w-8 h-8 rounded-full bg-brand-navy/20 flex items-center justify-center flex-shrink-0">
+                  <Bot className="h-4 w-4 text-brand-tan" />
                 </div>
               )}
               <div
                 className={`max-w-[80%] rounded-lg p-3 ${
                   message.role === "client"
-                    ? "bg-cyan-600 text-white"
+                    ? "bg-brand-navy text-white"
                     : "bg-slate-700 text-slate-200"
                 }`}
               >
@@ -202,11 +202,11 @@ export default function ClientQnA({
 
           {isLoading && (
             <div className="flex gap-3 justify-start">
-              <div className="w-8 h-8 rounded-full bg-cyan-500/20 flex items-center justify-center flex-shrink-0">
-                <Bot className="h-4 w-4 text-cyan-400" />
+              <div className="w-8 h-8 rounded-full bg-brand-navy/20 flex items-center justify-center flex-shrink-0">
+                <Bot className="h-4 w-4 text-brand-tan" />
               </div>
               <div className="bg-slate-700 rounded-lg p-3">
-                <Loader2 className="h-4 w-4 animate-spin text-cyan-400" />
+                <Loader2 className="h-4 w-4 animate-spin text-brand-tan" />
               </div>
             </div>
           )}
@@ -222,13 +222,13 @@ export default function ClientQnA({
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Type client's response here..."
-              className="bg-slate-900 border-slate-600 text-white placeholder:text-slate-500 focus:border-cyan-500 focus:ring-cyan-500"
+              className="bg-slate-900 border-slate-600 text-white placeholder:text-slate-500 focus:border-brand-navy focus:ring-brand-navy"
               disabled={isLoading}
             />
             <Button
               onClick={handleSend}
               disabled={isLoading || !input.trim()}
-              className="bg-cyan-600 hover:bg-cyan-700 text-white"
+              className="bg-brand-navy hover:bg-cyan-700 text-white"
             >
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

@@ -22,7 +22,7 @@ export function ClientPortalVideos() {
               target="_blank"
               rel="noopener noreferrer"
               aria-label={`Watch: ${v.title}`}
-              className="block rounded-lg border border-gray-200 p-3 hover:border-cyan-400 hover:bg-cyan-50/40 transition-colors"
+              className="block rounded-lg border border-gray-200 p-3 hover:border-brand-navy hover:bg-cyan-50/40 transition-colors"
             >
               <span className="block text-sm font-medium text-gray-900">
                 ▶ {v.title}

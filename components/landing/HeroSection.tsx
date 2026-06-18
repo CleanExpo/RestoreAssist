@@ -72,7 +72,7 @@ export default function HeroSection() {
 
           {/* Enhanced Floating Geometric Shapes - More Visible */}
           <motion.div
-            className="absolute top-32 right-32 w-8 h-8 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full opacity-80 shadow-lg shadow-cyan-400/30"
+            className="absolute top-32 right-32 w-8 h-8 bg-gradient-to-r from-brand-navy to-blue-500 rounded-full opacity-80 shadow-lg shadow-brand-navy/30"
             animate={{
               y: [0, -30, 0],
               x: [0, 15, 0],
@@ -103,7 +103,7 @@ export default function HeroSection() {
           />
 
           <motion.div
-            className="absolute top-1/3 left-1/4 w-6 h-6 bg-gradient-to-r from-cyan-400 to-teal-500 rounded-full opacity-80 shadow-lg shadow-teal-400/30"
+            className="absolute top-1/3 left-1/4 w-6 h-6 bg-gradient-to-r from-brand-navy to-teal-500 rounded-full opacity-80 shadow-lg shadow-teal-400/30"
             animate={{
               y: [0, -35, 0],
               x: [0, 20, 0],
@@ -135,7 +135,7 @@ export default function HeroSection() {
           />
 
           <motion.div
-            className="absolute bottom-20 left-1/3 w-20 h-20 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full opacity-50 shadow-lg shadow-emerald-500/30"
+            className="absolute bottom-20 left-1/3 w-20 h-20 bg-gradient-to-r from-brand-bronze to-brand-tan rounded-full opacity-50 shadow-lg shadow-brand-bronze/30"
             animate={{
               y: [0, 30, 0],
               x: [0, -25, 0],
@@ -170,7 +170,7 @@ export default function HeroSection() {
           {[...Array(8)].map((_, i) => (
             <motion.div
               key={i}
-              className="absolute w-3 h-3 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full opacity-70 shadow-lg shadow-cyan-400/40"
+              className="absolute w-3 h-3 bg-gradient-to-r from-brand-navy to-blue-500 rounded-full opacity-70 shadow-lg shadow-brand-navy/40"
               style={{
                 left: `${15 + i * 12}%`,
                 top: `${20 + i * 8}%`,
@@ -199,7 +199,7 @@ export default function HeroSection() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
-            <span className="text-sm text-cyan-400 font-medium">
+            <span className="text-sm text-brand-tan font-medium">
               ✨ AI-Powered Damage Assessment
             </span>
           </motion.div>
@@ -217,7 +217,7 @@ export default function HeroSection() {
           >
             <span className="block text-white">One System. Fewer Gaps.</span>
             <motion.span
-              className="block bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent"
+              className="block bg-gradient-to-r from-blue-400 via-brand-navy to-blue-400 bg-clip-text text-transparent"
               animate={{
                 backgroundPosition: ["0%", "100%", "0%"],
               }}
@@ -252,7 +252,7 @@ export default function HeroSection() {
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
               <Link
                 href={BRAND.cta.primary.href}
-                className="px-10 py-4 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full font-medium text-lg hover:shadow-2xl hover:shadow-blue-500/50 transition-all duration-300"
+                className="px-10 py-4 bg-gradient-to-r from-blue-500 to-brand-tan rounded-full font-medium text-lg hover:shadow-2xl hover:shadow-blue-500/50 transition-all duration-300"
                 style={{ fontFamily: "Titillium Web, sans-serif" }}
               >
                 {BRAND.cta.primary.label}
@@ -277,11 +277,11 @@ export default function HeroSection() {
             transition={{ duration: 0.6, delay: 0.9 }}
           >
             <div className="flex items-center gap-3">
-              <Zap size={20} className="text-cyan-400" />
+              <Zap size={20} className="text-brand-tan" />
               <span className="font-medium">10-15s Generation</span>
             </div>
             <div className="flex items-center gap-3">
-              <CheckCircle size={20} className="text-emerald-400" />
+              <CheckCircle size={20} className="text-brand-bronze" />
               <span className="font-medium">100% NCC Compliant</span>
             </div>
             <div className="flex items-center gap-3">
@@ -316,18 +316,18 @@ export default function HeroSection() {
               </div>
               <div>
                 <p className="text-slate-400 text-sm mb-2">Estimated Cost</p>
-                <p className="text-cyan-400 font-bold text-xl">$8,750 AUD</p>
+                <p className="text-brand-tan font-bold text-xl">$8,750 AUD</p>
               </div>
             </div>
             <div className="mt-6 pt-6 border-t border-slate-700/50">
               <div className="flex flex-wrap justify-center gap-4 text-sm">
-                <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-full">
+                <span className="px-3 py-1 bg-brand-bronze/20 text-brand-bronze rounded-full">
                   NCC 2022 Compliant
                 </span>
                 <span className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full">
                   NSW Building Code Verified
                 </span>
-                <span className="px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded-full">
+                <span className="px-3 py-1 bg-brand-navy/20 text-brand-tan rounded-full">
                   Insurance Ready Format
                 </span>
               </div>
@@ -350,14 +350,14 @@ export default function HeroSection() {
             <div className="grid md:grid-cols-3 gap-8">
               {/* 3 FREE Reports */}
               <motion.div
-                className="p-6 bg-slate-800/30 border border-slate-700/50 rounded-xl backdrop-blur-sm hover:border-cyan-500/30 transition-all duration-300"
+                className="p-6 bg-slate-800/30 border border-slate-700/50 rounded-xl backdrop-blur-sm hover:border-brand-navy/30 transition-all duration-300"
                 whileHover={{ y: -5 }}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 1.4 }}
               >
                 <div className="flex items-center gap-4 mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg flex items-center justify-center">
+                  <div className="w-12 h-12 bg-gradient-to-r from-brand-navy to-blue-500 rounded-lg flex items-center justify-center">
                     <Gift size={24} className="text-white" />
                   </div>
                   <div>
@@ -367,7 +367,7 @@ export default function HeroSection() {
                     >
                       3 FREE Reports
                     </h3>
-                    <p className="text-cyan-400 text-sm font-medium">
+                    <p className="text-brand-tan text-sm font-medium">
                       No credit card required
                     </p>
                   </div>
@@ -380,14 +380,14 @@ export default function HeroSection() {
 
               {/* Australian First */}
               <motion.div
-                className="p-6 bg-slate-800/30 border border-slate-700/50 rounded-xl backdrop-blur-sm hover:border-emerald-500/30 transition-all duration-300"
+                className="p-6 bg-slate-800/30 border border-slate-700/50 rounded-xl backdrop-blur-sm hover:border-brand-bronze/30 transition-all duration-300"
                 whileHover={{ y: -5 }}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 1.5 }}
               >
                 <div className="flex items-center gap-4 mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-lg flex items-center justify-center">
+                  <div className="w-12 h-12 bg-gradient-to-r from-brand-bronze to-brand-tan rounded-lg flex items-center justify-center">
                     <Shield size={24} className="text-white" />
                   </div>
                   <div>
@@ -397,7 +397,7 @@ export default function HeroSection() {
                     >
                       Australian First
                     </h3>
-                    <p className="text-emerald-400 text-sm font-medium">
+                    <p className="text-brand-bronze text-sm font-medium">
                       Uniformed Reporting System
                     </p>
                   </div>

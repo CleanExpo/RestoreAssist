@@ -203,7 +203,7 @@ export function GroupReadingsPanel({
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <Sparkles
-                className="size-4 text-cyan-600 dark:text-cyan-400"
+                className="size-4 text-brand-tan dark:text-brand-tan"
                 aria-hidden="true"
               />
               Proposed affected-area groups

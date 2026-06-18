@@ -10,9 +10,9 @@ const states = [
   {
     name: "NSW",
     fullName: "New South Wales",
-    color: "from-blue-500 to-cyan-500",
+    color: "from-blue-500 to-brand-tan",
   },
-  { name: "VIC", fullName: "Victoria", color: "from-emerald-500 to-teal-500" },
+  { name: "VIC", fullName: "Victoria", color: "from-brand-bronze to-teal-500" },
   { name: "QLD", fullName: "Queensland", color: "from-orange-500 to-red-500" },
   {
     name: "WA",
@@ -22,9 +22,9 @@ const states = [
   {
     name: "SA",
     fullName: "South Australia",
-    color: "from-green-500 to-emerald-500",
+    color: "from-green-500 to-brand-bronze",
   },
-  { name: "TAS", fullName: "Tasmania", color: "from-cyan-500 to-blue-500" },
+  { name: "TAS", fullName: "Tasmania", color: "from-brand-navy to-blue-500" },
   {
     name: "ACT",
     fullName: "Australian Capital Territory",
@@ -77,7 +77,7 @@ export default function StatesCoverageSection() {
         viewport={{ once: true }}
       >
         <div className="text-center p-6 bg-slate-800/30 border border-slate-700/50 rounded-xl">
-          <div className="w-12 h-12 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full flex items-center justify-center mx-auto mb-4">
+          <div className="w-12 h-12 bg-gradient-to-r from-brand-bronze to-brand-tan rounded-full flex items-center justify-center mx-auto mb-4">
             <Shield size={24} className="text-white" />
           </div>
           <h3
@@ -93,7 +93,7 @@ export default function StatesCoverageSection() {
         </div>
 
         <div className="text-center p-6 bg-slate-800/30 border border-slate-700/50 rounded-xl">
-          <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full flex items-center justify-center mx-auto mb-4">
+          <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-brand-tan rounded-full flex items-center justify-center mx-auto mb-4">
             <CheckCircle size={24} className="text-white" />
           </div>
           <h3

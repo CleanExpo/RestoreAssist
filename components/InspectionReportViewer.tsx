@@ -389,7 +389,7 @@ export default function InspectionReportViewer({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
+        <Loader2 className="w-8 h-8 animate-spin text-brand-tan" />
       </div>
     );
   }
@@ -473,7 +473,7 @@ export default function InspectionReportViewer({
             <>
               <button
                 onClick={handlePrint}
-                className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors print:hidden"
+                className="flex items-center gap-2 px-4 py-2 bg-brand-navy hover:bg-cyan-700 text-white rounded-lg transition-colors print:hidden"
               >
                 <Printer className="w-4 h-4" />
                 Print Report
@@ -481,7 +481,7 @@ export default function InspectionReportViewer({
               {reportContent && (
                 <button
                   onClick={handleDownload}
-                  className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors print:hidden"
+                  className="flex items-center gap-2 px-4 py-2 bg-brand-navy hover:bg-cyan-700 text-white rounded-lg transition-colors print:hidden"
                 >
                   <Download className="w-4 h-4" />
                   Download PDF
@@ -490,7 +490,7 @@ export default function InspectionReportViewer({
               <button
                 onClick={handleExportExcel}
                 disabled={exportingExcel}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-lg transition-colors print:hidden disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-brand-bronze hover:from-green-700 hover:to-emerald-700 text-white rounded-lg transition-colors print:hidden disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {exportingExcel ? (
                   <>
@@ -539,7 +539,7 @@ export default function InspectionReportViewer({
               <button
                 onClick={() => handleGenerateReport("enhanced")}
                 disabled={generating}
-                className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+                className="px-6 py-3 bg-gradient-to-r from-brand-navy to-blue-500 hover:from-brand-navy hover:to-blue-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
               >
                 {generating ? "Generating..." : "Generate Enhanced Report"}
               </button>
@@ -549,7 +549,7 @@ export default function InspectionReportViewer({
               <button
                 onClick={() => handleGenerateReport("enhanced")}
                 disabled={generating}
-                className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+                className="px-6 py-3 bg-gradient-to-r from-green-500 to-brand-bronze hover:from-green-600 hover:to-brand-bronze text-white rounded-lg font-medium transition-colors disabled:opacity-50"
               >
                 {generating ? "Generating..." : "Generate Optimised Report"}
               </button>
@@ -558,7 +558,7 @@ export default function InspectionReportViewer({
               <button
                 onClick={handleExportExcel}
                 disabled={exportingExcel}
-                className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="px-6 py-3 bg-gradient-to-r from-green-600 to-brand-bronze hover:from-green-700 hover:to-emerald-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {exportingExcel ? (
                   <>
@@ -579,11 +579,11 @@ export default function InspectionReportViewer({
 
       {/* Generating Indicator */}
       {generating && (
-        <div className="p-6 rounded-lg border border-cyan-500/50 bg-cyan-500/10">
+        <div className="p-6 rounded-lg border border-brand-navy/50 bg-brand-navy/10">
           <div className="flex items-center gap-3">
-            <Loader2 className="w-5 h-5 animate-spin text-cyan-400" />
+            <Loader2 className="w-5 h-5 animate-spin text-brand-tan" />
             <div>
-              <p className="text-cyan-400 font-medium">
+              <p className="text-brand-tan font-medium">
                 Processing report generation...
               </p>
               <p className="text-sm text-slate-400">
@@ -741,7 +741,7 @@ export default function InspectionReportViewer({
                     value={reportContent}
                     onChange={(e) => setReportContent(e.target.value)}
                     rows={30}
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 font-mono text-sm text-slate-300"
+                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-navy font-mono text-sm text-slate-300"
                   />
                 </div>
               ) : (

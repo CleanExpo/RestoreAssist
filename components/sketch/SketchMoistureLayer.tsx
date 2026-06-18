@@ -233,7 +233,7 @@ function PinMarker({
                 onChange={(e) =>
                   onUpdate({ wme: parseFloat(e.target.value) || 0 })
                 }
-                className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white focus:outline-none focus:ring-1 focus:ring-brand-navy"
               />
             </div>
 
@@ -245,7 +245,7 @@ function PinMarker({
                 onChange={(e) =>
                   onUpdate({ material: e.target.value as MaterialTypeId })
                 }
-                className="w-full px-2 py-1.5 rounded-lg bg-[#0d1b2e] border border-white/10 text-white focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                className="w-full px-2 py-1.5 rounded-lg bg-[#0d1b2e] border border-white/10 text-white focus:outline-none focus:ring-1 focus:ring-brand-navy"
               >
                 {MATERIAL_TYPES.map((m) => (
                   <option key={m.id} value={m.id}>
@@ -263,7 +263,7 @@ function PinMarker({
                   className={cn(
                     "flex items-center justify-between px-2 py-1.5 rounded-lg text-xs font-medium",
                     dry.dryStandardMet
-                      ? "bg-emerald-500/15 text-emerald-300"
+                      ? "bg-brand-bronze/15 text-brand-bronze"
                       : "bg-rose-500/15 text-rose-300",
                   )}
                 >
@@ -285,7 +285,7 @@ function PinMarker({
                 value={pin.note ?? ""}
                 onChange={(e) => onUpdate({ note: e.target.value })}
                 placeholder="e.g. near skirting board"
-                className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-brand-navy"
               />
             </div>
 

@@ -81,7 +81,7 @@ export default function ClaimTypePicker({
                 "border-neutral-200 dark:border-slate-700",
                 "hover:bg-neutral-50 dark:hover:bg-slate-800/50",
                 value === opt.value &&
-                  "border-cyan-500 bg-cyan-50/40 dark:bg-cyan-500/10",
+                  "border-brand-navy bg-cyan-50/40 dark:bg-brand-navy/10",
               )}
             >
               <RadioGroupItem

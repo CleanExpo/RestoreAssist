@@ -73,7 +73,7 @@ export function ClientPortalUpload({ token }: { token: string }) {
 
       <label
         htmlFor="ev-files"
-        className="inline-flex items-center min-h-11 px-4 rounded-lg border border-cyan-300 bg-cyan-50 text-cyan-700 text-sm font-medium cursor-pointer hover:bg-cyan-100"
+        className="inline-flex items-center min-h-11 px-4 rounded-lg border border-brand-navy bg-cyan-50 text-cyan-700 text-sm font-medium cursor-pointer hover:bg-cyan-100"
       >
         Add photos
       </label>
@@ -97,7 +97,7 @@ export function ClientPortalUpload({ token }: { token: string }) {
         placeholder="Describe the damage (optional)…"
         rows={3}
         maxLength={2000}
-        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-400"
+        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-1 focus:ring-brand-navy"
       />
 
       <button
@@ -105,7 +105,7 @@ export function ClientPortalUpload({ token }: { token: string }) {
         onClick={submit}
         disabled={!canSend}
         aria-label="Send to my assessor"
-        className="min-h-11 px-4 rounded-lg bg-cyan-600 text-white text-sm font-medium hover:bg-cyan-700 transition-colors disabled:opacity-40"
+        className="min-h-11 px-4 rounded-lg bg-brand-navy text-white text-sm font-medium hover:bg-cyan-700 transition-colors disabled:opacity-40"
       >
         {busy ? "Sending…" : "Send to my assessor"}
       </button>

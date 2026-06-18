@@ -325,8 +325,8 @@ export function SketchDockToolbar({
             onClick={() => fileInputRef.current?.click()}
             className={cn(
               "w-14 h-14 flex items-center justify-center rounded-xl transition-all duration-150",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400",
-              "text-cyan-400 hover:bg-cyan-500/20 hover:text-cyan-300",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy",
+              "text-brand-tan hover:bg-brand-navy/20 hover:text-brand-tan",
               isImporting && "opacity-50 cursor-not-allowed",
             )}
           >
@@ -371,9 +371,9 @@ function ToolBtn({
       className={cn(
         // 56px touch targets (WCAG 2.5.5 + mobile UX)
         "w-14 h-14 flex items-center justify-center rounded-xl transition-all duration-150",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy",
         active
-          ? "bg-cyan-500 text-white shadow-md shadow-cyan-500/30"
+          ? "bg-brand-navy text-white shadow-md shadow-brand-navy/30"
           : danger
             ? "text-rose-400 hover:bg-rose-500/20 hover:text-rose-300"
             : "text-white/60 hover:bg-white/10 hover:text-white",

@@ -121,7 +121,7 @@ function CustomTooltip({ active, payload, label }: any) {
             className={cn(
               "font-semibold",
               entry.value <= DRY_STANDARD
-                ? "text-emerald-600 dark:text-emerald-400"
+                ? "text-brand-bronze dark:text-brand-bronze"
                 : entry.value <= 25
                   ? "text-amber-600 dark:text-amber-400"
                   : "text-rose-600 dark:text-rose-400",
@@ -130,7 +130,7 @@ function CustomTooltip({ active, payload, label }: any) {
             {entry.value}%
           </span>
           {entry.value <= DRY_STANDARD && (
-            <CheckCircle2 size={11} className="text-emerald-500" />
+            <CheckCircle2 size={11} className="text-brand-bronze" />
           )}
           {entry.value > DRY_STANDARD && (
             <AlertTriangle size={11} className="text-amber-500" />
@@ -208,12 +208,12 @@ export default function MoistureTrendChart({
           </div>
         </div>
       ) : (
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 text-sm">
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 dark:bg-brand-bronze/10 border border-emerald-200 dark:border-brand-bronze/30 text-sm">
           <CheckCircle2
             size={16}
-            className="text-emerald-600 dark:text-emerald-400"
+            className="text-brand-bronze dark:text-brand-bronze"
           />
-          <span className="text-emerald-700 dark:text-emerald-400 font-medium">
+          <span className="text-emerald-700 dark:text-brand-bronze font-medium">
             All {dryCount}/{totalLocations} locations at or below dry standard (
             {DRY_STANDARD}%)
           </span>
@@ -322,7 +322,7 @@ export default function MoistureTrendChart({
                     className={cn(
                       "px-4 py-2.5 text-right font-semibold",
                       level <= DRY_STANDARD
-                        ? "text-emerald-600 dark:text-emerald-400"
+                        ? "text-brand-bronze dark:text-brand-bronze"
                         : level <= 25
                           ? "text-amber-600 dark:text-amber-400"
                           : "text-rose-600 dark:text-rose-400",
@@ -332,7 +332,7 @@ export default function MoistureTrendChart({
                   </td>
                   <td className="px-4 py-2.5 text-right">
                     {level <= DRY_STANDARD ? (
-                      <span className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                      <span className="inline-flex items-center gap-1 text-xs text-brand-bronze dark:text-brand-bronze bg-emerald-50 dark:bg-brand-bronze/10 px-2 py-0.5 rounded-full">
                         <CheckCircle2 size={11} /> Dry
                       </span>
                     ) : level <= 25 ? (

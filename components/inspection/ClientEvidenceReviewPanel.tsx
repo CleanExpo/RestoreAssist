@@ -75,7 +75,7 @@ export function ClientEvidenceReviewPanel({
   if (submissions.length === 0) {
     // Show a brief confirmation after a successful accept, else hide entirely.
     return message ? (
-      <p role="status" className="text-xs text-emerald-600">
+      <p role="status" className="text-xs text-brand-bronze">
         {message}
       </p>
     ) : null;
@@ -132,7 +132,7 @@ export function ClientEvidenceReviewPanel({
         onClick={acceptAll}
         disabled={busy}
         aria-label="Add all client photos to the report"
-        className="min-h-11 px-4 rounded-lg bg-cyan-600 text-white text-sm font-medium hover:bg-cyan-700 disabled:opacity-40"
+        className="min-h-11 px-4 rounded-lg bg-brand-navy text-white text-sm font-medium hover:bg-cyan-700 disabled:opacity-40"
       >
         {busy ? "Adding…" : "Add all to report"}
       </button>

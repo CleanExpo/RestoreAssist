@@ -125,7 +125,7 @@ export function MoistureReadingEntryForm({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Droplets size={18} className="text-cyan-500" />
+          <Droplets size={18} className="text-brand-tan" />
           <h3 className="font-semibold text-gray-900 dark:text-white text-sm">
             Add Moisture Reading
           </h3>
@@ -155,7 +155,7 @@ export function MoistureReadingEntryForm({
           value={location}
           onChange={(e) => setLocation(e.target.value)}
           placeholder="e.g. Living Room North Wall"
-          className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30"
+          className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-brand-navy focus:ring-1 focus:ring-brand-navy/30"
         />
       </div>
 
@@ -172,7 +172,7 @@ export function MoistureReadingEntryForm({
             id="moisture-material"
             value={material}
             onChange={(e) => setMaterial(e.target.value)}
-            className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:border-cyan-500"
+            className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:border-brand-navy"
           >
             {IICRC_DRY_STANDARDS.map((s) => (
               <option key={s.material} value={s.material}>
@@ -192,7 +192,7 @@ export function MoistureReadingEntryForm({
             id="moisture-depth"
             value={depth}
             onChange={(e) => setDepth(e.target.value)}
-            className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:border-cyan-500"
+            className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:border-brand-navy"
           >
             {DEPTH_OPTIONS.map((d) => (
               <option key={d} value={d}>
@@ -215,7 +215,7 @@ export function MoistureReadingEntryForm({
           id="moisture-meter-type"
           value={meterType}
           onChange={(e) => setMeterType(e.target.value)}
-          className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:border-cyan-500"
+          className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:border-brand-navy"
         >
           {METER_TYPES.map((m) => (
             <option key={m.value} value={m.value}>
@@ -266,7 +266,7 @@ export function MoistureReadingEntryForm({
               className={cn(
                 "inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors",
                 ble.paired
-                  ? "bg-cyan-50 text-cyan-700 border border-cyan-300 hover:bg-cyan-100 dark:bg-cyan-900/30 dark:text-cyan-300 dark:border-cyan-700"
+                  ? "bg-cyan-50 text-cyan-700 border border-brand-navy hover:bg-cyan-100 dark:bg-cyan-900/30 dark:text-brand-tan dark:border-cyan-700"
                   : "bg-slate-100 text-slate-600 border border-slate-300 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600",
               )}
             >
@@ -289,7 +289,7 @@ export function MoistureReadingEntryForm({
         </div>
         {/* BLE source indicator */}
         {source === "ble" && (
-          <div className="flex items-center gap-1 mb-1 text-xs text-cyan-600 dark:text-cyan-400">
+          <div className="flex items-center gap-1 mb-1 text-xs text-brand-tan dark:text-brand-tan">
             <Bluetooth size={11} />
             <span>Value from paired meter — confirm before saving</span>
           </div>
@@ -310,8 +310,8 @@ export function MoistureReadingEntryForm({
             className={cn(
               "flex-1 px-3 py-2 text-sm rounded-lg border bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-1",
               source === "ble"
-                ? "border-cyan-400 focus:border-cyan-500 focus:ring-cyan-500/30"
-                : "border-gray-300 dark:border-slate-600 focus:border-cyan-500 focus:ring-cyan-500/30",
+                ? "border-brand-navy focus:border-brand-navy focus:ring-brand-navy/30"
+                : "border-gray-300 dark:border-slate-600 focus:border-brand-navy focus:ring-brand-navy/30",
             )}
           />
           {/* Live status badge */}
@@ -370,7 +370,7 @@ export function MoistureReadingEntryForm({
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Additional observations…"
           rows={2}
-          className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 resize-none"
+          className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-brand-navy resize-none"
         />
       </div>
 
@@ -399,7 +399,7 @@ export function MoistureReadingEntryForm({
         <button
           type="submit"
           disabled={submitting}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-lg font-medium hover:shadow-lg hover:shadow-cyan-500/30 transition-all disabled:opacity-50"
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm bg-gradient-to-r from-brand-navy to-blue-500 text-white rounded-lg font-medium hover:shadow-lg hover:shadow-brand-navy/30 transition-all disabled:opacity-50"
         >
           {submitting ? (
             <Loader2 size={14} className="animate-spin" />

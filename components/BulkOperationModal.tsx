@@ -559,11 +559,11 @@ export function BulkOperationModal({
             success && (
               <div className="space-y-3">
                 <div className="bg-emerald-900/20 border border-emerald-800 rounded-lg p-3">
-                  <p className="text-sm font-medium text-emerald-300">
+                  <p className="text-sm font-medium text-brand-bronze">
                     ✓ Successfully downloaded {excelReports.length} Excel
                     report(s) as ZIP file
                   </p>
-                  <p className="text-xs text-emerald-400 mt-1">
+                  <p className="text-xs text-brand-bronze mt-1">
                     Files downloaded from Cloudinary and packaged into a ZIP
                     archive
                   </p>
@@ -577,7 +577,7 @@ export function BulkOperationModal({
                       key={report.id}
                       className="flex items-center gap-2 p-2 bg-slate-700/30 border border-slate-600 rounded text-xs"
                     >
-                      <FileSpreadsheet className="w-3 h-3 text-emerald-400 shrink-0" />
+                      <FileSpreadsheet className="w-3 h-3 text-brand-bronze shrink-0" />
                       <span className="text-slate-300 truncate">
                         {report.reportNumber || report.id} - {report.clientName}
                       </span>
@@ -786,7 +786,7 @@ export function BulkOperationModal({
               <button
                 onClick={handleExportExcel}
                 disabled={isLoading}
-                className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 disabled:bg-emerald-600/50 text-white rounded-lg transition-all duration-200 text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50 shadow-md hover:shadow-lg hover:shadow-emerald-500/30 hover:scale-[1.02] active:scale-[0.98] disabled:hover:scale-100 disabled:hover:shadow-md group"
+                className="flex-1 px-4 py-2 bg-gradient-to-r from-brand-bronze to-green-600 hover:from-emerald-700 hover:to-green-700 disabled:bg-brand-bronze/50 text-white rounded-lg transition-all duration-200 text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50 shadow-md hover:shadow-lg hover:shadow-brand-bronze/30 hover:scale-[1.02] active:scale-[0.98] disabled:hover:scale-100 disabled:hover:shadow-md group"
               >
                 {isLoading ? (
                   <>
@@ -820,7 +820,7 @@ export function BulkOperationModal({
               }}
               className={cn(
                 "w-full px-4 py-2 rounded-lg transition-all duration-200 text-sm font-semibold flex items-center justify-center gap-2",
-                "bg-gradient-to-r from-success-600 to-emerald-600 hover:from-success-700 hover:to-emerald-700",
+                "bg-gradient-to-r from-success-600 to-brand-bronze hover:from-success-700 hover:to-emerald-700",
                 "text-white shadow-md hover:shadow-lg hover:shadow-success-500/30 hover:scale-[1.02] active:scale-[0.98] group",
               )}
             >

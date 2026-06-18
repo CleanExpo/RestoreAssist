@@ -541,14 +541,14 @@ export default function InsuranceInformation({
       case "additional":
         return (
           <div className="space-y-4">
-            <div className="bg-cyan-500/20 border border-cyan-500/30 rounded-lg p-4 mb-6">
+            <div className="bg-brand-navy/20 border border-brand-navy/30 rounded-lg p-4 mb-6">
               <div className="flex items-center gap-2 mb-2">
-                <FileText className="text-cyan-400" size={20} />
-                <h4 className="font-medium text-cyan-400">
+                <FileText className="text-brand-tan" size={20} />
+                <h4 className="font-medium text-brand-tan">
                   Additional Coverage Options
                 </h4>
               </div>
-              <p className="text-sm text-cyan-300">
+              <p className="text-sm text-brand-tan">
                 Optional add-ons to ensure your business's specific risks are
                 covered.
               </p>
@@ -626,7 +626,7 @@ export default function InsuranceInformation({
 
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
           <div className="text-center">
-            <div className="text-2xl font-bold text-cyan-400">
+            <div className="text-2xl font-bold text-brand-tan">
               {stats.percentage}%
             </div>
             <div className="text-sm text-slate-400">Coverage Selected</div>
@@ -645,7 +645,7 @@ export default function InsuranceInformation({
             onClick={() => setActiveTab(tab.id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
               activeTab === tab.id
-                ? "bg-cyan-500 text-white"
+                ? "bg-brand-navy text-white"
                 : "bg-slate-700/50 text-slate-300 hover:bg-slate-700"
             }`}
           >
@@ -668,7 +668,7 @@ export default function InsuranceInformation({
       {/* Key Considerations */}
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
         <h4 className="font-medium text-white mb-4 flex items-center gap-2">
-          <Info className="text-cyan-400" size={20} />
+          <Info className="text-brand-tan" size={20} />
           Key Insurance Considerations
         </h4>
 
@@ -681,28 +681,28 @@ export default function InsuranceInformation({
               <li className="flex items-center gap-2">
                 <CheckCircle
                   size={14}
-                  className="text-emerald-400 flex-shrink-0"
+                  className="text-brand-bronze flex-shrink-0"
                 />
                 Ensure asset values are properly covered
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle
                   size={14}
-                  className="text-emerald-400 flex-shrink-0"
+                  className="text-brand-bronze flex-shrink-0"
                 />
                 Review policy exclusions carefully
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle
                   size={14}
-                  className="text-emerald-400 flex-shrink-0"
+                  className="text-brand-bronze flex-shrink-0"
                 />
                 Consider appropriate excess levels
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle
                   size={14}
-                  className="text-emerald-400 flex-shrink-0"
+                  className="text-brand-bronze flex-shrink-0"
                 />
                 Understand claim procedures
               </li>

@@ -42,7 +42,7 @@ export default function FinalCTASection() {
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
             <Link
               href={BRAND.cta.primary.href}
-              className="px-6 py-4 bg-gradient-to-r from-blue-500 via-cyan-500 to-blue-500 rounded-md font-medium text-xl hover:shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 transform hover:scale-105"
+              className="px-6 py-4 bg-gradient-to-r from-blue-500 via-brand-navy to-blue-500 rounded-md font-medium text-xl hover:shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 transform hover:scale-105"
               style={{ fontFamily: "Titillium Web, sans-serif" }}
             >
               {BRAND.cta.primary.label}
@@ -74,7 +74,7 @@ export default function FinalCTASection() {
               whileHover={{ y: -5 }}
               transition={{ duration: 0.3 }}
             >
-              <div className="w-16 h-16 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 bg-gradient-to-r from-brand-navy to-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
                 <benefit.icon size={32} className="text-white" />
               </div>
               <h3
@@ -97,21 +97,21 @@ export default function FinalCTASection() {
           viewport={{ once: true }}
         >
           <div className="flex items-center gap-2 px-4 py-2 bg-slate-800/50 border border-slate-700/50 rounded-full">
-            <CheckCircle size={20} className="text-emerald-400" />
+            <CheckCircle size={20} className="text-brand-bronze" />
             <span className="text-slate-300 font-medium">Australian Owned</span>
           </div>
           <div className="flex items-center gap-2 px-4 py-2 bg-slate-800/50 border border-slate-700/50 rounded-full">
-            <CheckCircle size={20} className="text-emerald-400" />
+            <CheckCircle size={20} className="text-brand-bronze" />
             <span className="text-slate-300 font-medium">IICRC Compliant</span>
           </div>
           <div className="flex items-center gap-2 px-4 py-2 bg-slate-800/50 border border-slate-700/50 rounded-full">
-            <CheckCircle size={20} className="text-emerald-400" />
+            <CheckCircle size={20} className="text-brand-bronze" />
             <span className="text-slate-300 font-medium">
               NCC 2022 Verified
             </span>
           </div>
           <div className="flex items-center gap-2 px-4 py-2 bg-slate-800/50 border border-slate-700/50 rounded-full">
-            <CheckCircle size={20} className="text-emerald-400" />
+            <CheckCircle size={20} className="text-brand-bronze" />
             <span className="text-slate-300 font-medium">
               ISO 27001 Security
             </span>

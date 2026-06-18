@@ -1268,7 +1268,7 @@ export function GuidedInterviewPanel({
                 <div>
                   <p className="text-xs text-muted-foreground">Tier</p>
                   <p className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-800 dark:bg-slate-800/70 dark:text-slate-100">
-                    <span className="inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    <span className="inline-flex h-1.5 w-1.5 rounded-full bg-brand-bronze" />
                     Tier {interviewState.currentTier}
                   </p>
                 </div>

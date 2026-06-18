@@ -137,7 +137,7 @@ export function SignatoryManager({
         <div className="h-2 bg-gray-200 dark:bg-slate-700 rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full transition-all duration-500 ${
-              isCompleted ? "bg-emerald-500" : "bg-cyan-500"
+              isCompleted ? "bg-brand-bronze" : "bg-brand-navy"
             }`}
             style={{
               width: `${totalCount > 0 ? (signedCount / totalCount) * 100 : 0}%`,
@@ -159,7 +159,7 @@ export function SignatoryManager({
           >
             {/* Status icon */}
             {sig.signedAt ? (
-              <CheckCircle className="h-5 w-5 text-emerald-500 shrink-0" />
+              <CheckCircle className="h-5 w-5 text-brand-bronze shrink-0" />
             ) : sig.signatureRequestSent ? (
               <Mail className="h-5 w-5 text-blue-500 shrink-0" />
             ) : (
@@ -182,7 +182,7 @@ export function SignatoryManager({
                 </p>
               )}
               {sig.signedAt && (
-                <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                <p className="text-xs text-brand-bronze dark:text-brand-bronze">
                   Signed {new Date(sig.signedAt).toLocaleDateString("en-AU")}
                 </p>
               )}
@@ -261,7 +261,7 @@ export function SignatoryManager({
               <button
                 onClick={handleAddSignatory}
                 disabled={adding || !newName.trim()}
-                className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-md bg-cyan-500 hover:bg-cyan-600 text-white disabled:opacity-50 transition-colors"
+                className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-md bg-brand-navy hover:bg-brand-navy text-white disabled:opacity-50 transition-colors"
               >
                 {adding ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

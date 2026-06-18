@@ -104,8 +104,8 @@ export default function IICRCDashboard({ reports }: IICRCDashboardProps) {
         percentage: Math.round(
           (complianceStats.category1Reports / total) * 100,
         ),
-        color: "text-emerald-400",
-        bgColor: "bg-emerald-500/20",
+        color: "text-brand-bronze",
+        bgColor: "bg-brand-bronze/20",
       },
       {
         category: "Category 2",
@@ -171,7 +171,7 @@ export default function IICRCDashboard({ reports }: IICRCDashboardProps) {
           <select
             value={selectedPeriod}
             onChange={(e) => setSelectedPeriod(e.target.value)}
-            className="px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+            className="px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-navy"
           >
             <option value="7days">Last 7 days</option>
             <option value="30days">Last 30 days</option>
@@ -190,11 +190,11 @@ export default function IICRCDashboard({ reports }: IICRCDashboardProps) {
           className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6"
         >
           <div className="flex items-center justify-between mb-4">
-            <FileText className="text-cyan-400" size={24} />
-            <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+            <FileText className="text-brand-tan" size={24} />
+            <div className="w-2 h-2 bg-brand-bronze rounded-full animate-pulse" />
           </div>
           <div className="space-y-1">
-            <p className="text-3xl font-bold text-cyan-400">
+            <p className="text-3xl font-bold text-brand-tan">
               {complianceStats.totalReports}
             </p>
             <p className="text-slate-400 text-sm font-medium">Total Reports</p>
@@ -208,11 +208,11 @@ export default function IICRCDashboard({ reports }: IICRCDashboardProps) {
           className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6"
         >
           <div className="flex items-center justify-between mb-4">
-            <CheckCircle className="text-emerald-400" size={24} />
-            <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+            <CheckCircle className="text-brand-bronze" size={24} />
+            <div className="w-2 h-2 bg-brand-bronze rounded-full animate-pulse" />
           </div>
           <div className="space-y-1">
-            <p className="text-3xl font-bold text-emerald-400">
+            <p className="text-3xl font-bold text-brand-bronze">
               {complianceStats.complianceRate}%
             </p>
             <p className="text-slate-400 text-sm font-medium">
@@ -318,11 +318,11 @@ export default function IICRCDashboard({ reports }: IICRCDashboardProps) {
                 className="flex items-center justify-between"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full bg-cyan-500/20" />
+                  <div className="w-3 h-3 rounded-full bg-brand-navy/20" />
                   <span className="text-slate-300">{item.class}</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="font-bold text-cyan-400">{item.count}</span>
+                  <span className="font-bold text-brand-tan">{item.count}</span>
                   <span className="text-slate-400 text-sm">
                     ({item.percentage}%)
                   </span>
@@ -356,7 +356,7 @@ export default function IICRCDashboard({ reports }: IICRCDashboardProps) {
                 <div
                   className={`w-2 h-2 rounded-full ${
                     report.waterCategory === "Category 1"
-                      ? "bg-emerald-400"
+                      ? "bg-brand-bronze"
                       : report.waterCategory === "Category 2"
                         ? "bg-amber-400"
                         : "bg-red-400"
@@ -370,7 +370,7 @@ export default function IICRCDashboard({ reports }: IICRCDashboardProps) {
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-sm font-medium text-cyan-400">
+                <p className="text-sm font-medium text-brand-tan">
                   {report.waterCategory}
                 </p>
                 <p className="text-xs text-slate-400">{report.waterClass}</p>
@@ -400,19 +400,19 @@ export default function IICRCDashboard({ reports }: IICRCDashboardProps) {
             </h4>
             <ul className="space-y-2 text-sm text-slate-300">
               <li className="flex items-center gap-2">
-                <CheckCircle size={16} className="text-emerald-400" />
+                <CheckCircle size={16} className="text-brand-bronze" />
                 Water category determination
               </li>
               <li className="flex items-center gap-2">
-                <CheckCircle size={16} className="text-emerald-400" />
+                <CheckCircle size={16} className="text-brand-bronze" />
                 Water class classification
               </li>
               <li className="flex items-center gap-2">
-                <CheckCircle size={16} className="text-emerald-400" />
+                <CheckCircle size={16} className="text-brand-bronze" />
                 Safety hazard identification
               </li>
               <li className="flex items-center gap-2">
-                <CheckCircle size={16} className="text-emerald-400" />
+                <CheckCircle size={16} className="text-brand-bronze" />
                 Source identification and control
               </li>
             </ul>
@@ -424,19 +424,19 @@ export default function IICRCDashboard({ reports }: IICRCDashboardProps) {
             </h4>
             <ul className="space-y-2 text-sm text-slate-300">
               <li className="flex items-center gap-2">
-                <CheckCircle size={16} className="text-emerald-400" />
+                <CheckCircle size={16} className="text-brand-bronze" />
                 Drying plan development
               </li>
               <li className="flex items-center gap-2">
-                <CheckCircle size={16} className="text-emerald-400" />
+                <CheckCircle size={16} className="text-brand-bronze" />
                 Equipment sizing calculations
               </li>
               <li className="flex items-center gap-2">
-                <CheckCircle size={16} className="text-emerald-400" />
+                <CheckCircle size={16} className="text-brand-bronze" />
                 Psychrometric monitoring
               </li>
               <li className="flex items-center gap-2">
-                <CheckCircle size={16} className="text-emerald-400" />
+                <CheckCircle size={16} className="text-brand-bronze" />
                 Post-remediation verification
               </li>
             </ul>

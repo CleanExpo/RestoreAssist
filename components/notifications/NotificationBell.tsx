@@ -82,7 +82,7 @@ export function NotificationBell({ className }: NotificationBellProps) {
 
   const getTypeStyles = (type: Notification["type"]) => {
     const styles = {
-      info: "bg-cyan-500/10 text-cyan-500",
+      info: "bg-brand-navy/10 text-brand-tan",
       success: "bg-green-500/10 text-green-500",
       warning: "bg-amber-500/10 text-amber-500",
       error: "bg-red-500/10 text-red-500",
@@ -101,7 +101,7 @@ export function NotificationBell({ className }: NotificationBellProps) {
         >
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-cyan-500 text-xs font-medium text-white">
+            <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-brand-navy text-xs font-medium text-white">
               {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           )}
@@ -119,7 +119,7 @@ export function NotificationBell({ className }: NotificationBellProps) {
             <Button
               variant="ghost"
               size="sm"
-              className="text-xs text-cyan-500 hover:text-cyan-400"
+              className="text-xs text-brand-tan hover:text-brand-tan"
               onClick={markAllAsRead}
             >
               Mark all read
@@ -130,7 +130,7 @@ export function NotificationBell({ className }: NotificationBellProps) {
         <div className="max-h-[300px] overflow-y-auto">
           {loading ? (
             <div className="flex items-center justify-center p-8">
-              <div className="w-6 h-6 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
+              <div className="w-6 h-6 border-2 border-brand-navy/30 border-t-cyan-400 rounded-full animate-spin" />
             </div>
           ) : notifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-8 text-neutral-500">
@@ -144,7 +144,7 @@ export function NotificationBell({ className }: NotificationBellProps) {
                   key={notification.id}
                   className={cn(
                     "p-4 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors",
-                    !notification.read && "bg-cyan-500/5",
+                    !notification.read && "bg-brand-navy/5",
                   )}
                 >
                   <div className="flex items-start gap-3">
@@ -200,7 +200,7 @@ export function NotificationBell({ className }: NotificationBellProps) {
           <div className="p-2 border-t border-neutral-200 dark:border-neutral-800">
             <Button
               variant="ghost"
-              className="w-full text-sm text-cyan-500 hover:text-cyan-400"
+              className="w-full text-sm text-brand-tan hover:text-brand-tan"
               onClick={() => setOpen(false)}
             >
               View all notifications

@@ -37,7 +37,7 @@ export default function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
       title: "Welcome to Restore Assist! 🎉",
       description:
         "Your professional forensic restoration reporting platform. Let's get you set up in just 4 quick steps.",
-      color: "from-cyan-500 to-blue-500",
+      color: "from-brand-navy to-blue-500",
     },
     {
       icon: Building2,
@@ -65,7 +65,7 @@ export default function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
       title: "Step 4: Create Your First Report",
       description:
         "Generate your first professional forensic assessment report with AI-powered insights.",
-      color: "from-orange-500 to-cyan-500",
+      color: "from-orange-500 to-brand-tan",
     },
   ];
 
@@ -111,7 +111,7 @@ export default function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
               }}
               className={`h-2 rounded-full transition-all ${
                 index === currentSlide
-                  ? "w-8 bg-cyan-400"
+                  ? "w-8 bg-brand-navy"
                   : index < currentSlide
                     ? "w-2 bg-green-400"
                     : "w-2 bg-slate-600"
@@ -121,7 +121,7 @@ export default function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
         </div>
 
         {/* Slide Content */}
-        <div className="relative bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-cyan-500/20 rounded-3xl p-12 shadow-2xl min-h-[400px]">
+        <div className="relative bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-brand-navy/20 rounded-3xl p-12 shadow-2xl min-h-[400px]">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentSlide}
@@ -171,7 +171,7 @@ export default function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
                         transition={{ delay: 0.4 + idx * 0.1 }}
                         className="flex items-center gap-2 p-3 bg-slate-800/50 rounded-lg border border-slate-700/50"
                       >
-                        <ItemIcon className="w-4 h-4 text-cyan-400" />
+                        <ItemIcon className="w-4 h-4 text-brand-tan" />
                         <span className="text-sm text-slate-300">
                           {item.text}
                         </span>
@@ -196,7 +196,7 @@ export default function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
               onClick={handleNext}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="px-8 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-xl font-semibold text-white hover:shadow-lg hover:shadow-cyan-500/50 transition-all flex items-center gap-2"
+              className="px-8 py-3 bg-gradient-to-r from-brand-navy to-blue-500 rounded-xl font-semibold text-white hover:shadow-lg hover:shadow-brand-navy/50 transition-all flex items-center gap-2"
             >
               {currentSlide < slides.length - 1 ? (
                 <>

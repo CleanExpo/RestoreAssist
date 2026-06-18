@@ -62,7 +62,7 @@ export function FormNavigation({
             disabled={loading || !isValid}
             className={cn(
               "flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all",
-              "bg-gradient-to-r from-blue-500 to-cyan-500 text-white",
+              "bg-gradient-to-r from-blue-500 to-brand-tan text-white",
               "hover:shadow-lg hover:shadow-blue-500/50",
               "disabled:opacity-50 disabled:cursor-not-allowed",
             )}
@@ -88,7 +88,7 @@ export function FormNavigation({
               "flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all",
               !isValid
                 ? "bg-neutral-300 dark:bg-neutral-700 text-neutral-500 dark:text-neutral-400 cursor-not-allowed"
-                : "bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:shadow-lg hover:shadow-blue-500/50",
+                : "bg-gradient-to-r from-blue-500 to-brand-tan text-white hover:shadow-lg hover:shadow-blue-500/50",
             )}
           >
             Next

@@ -189,7 +189,7 @@ export default function InspectionFilters({
               "border border-neutral-200 dark:border-slate-700",
               "bg-white dark:bg-slate-900",
               "text-neutral-900 dark:text-white placeholder:text-neutral-400",
-              "focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 outline-none transition-all",
+              "focus:ring-2 focus:ring-brand-navy/50 focus:border-brand-navy outline-none transition-all",
             )}
           />
         </div>
@@ -218,9 +218,9 @@ export default function InspectionFilters({
             onChange={(e) => setFilter("status", e.target.value)}
             className={cn(
               "appearance-none pl-3 pr-8 py-2 rounded-lg text-xs font-medium cursor-pointer transition-colors",
-              "border focus:outline-none focus:ring-2 focus:ring-cyan-500/50",
+              "border focus:outline-none focus:ring-2 focus:ring-brand-navy/50",
               filters.status
-                ? "border-cyan-400 dark:border-cyan-600 bg-cyan-50 dark:bg-cyan-900/20 text-cyan-700 dark:text-cyan-400"
+                ? "border-brand-navy dark:border-brand-navy bg-cyan-50 dark:bg-cyan-900/20 text-cyan-700 dark:text-brand-tan"
                 : "border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-600 dark:text-slate-400",
             )}
           >
@@ -243,7 +243,7 @@ export default function InspectionFilters({
             onChange={(e) => setFilter("category", e.target.value)}
             className={cn(
               "appearance-none pl-3 pr-8 py-2 rounded-lg text-xs font-medium cursor-pointer transition-colors",
-              "border focus:outline-none focus:ring-2 focus:ring-cyan-500/50",
+              "border focus:outline-none focus:ring-2 focus:ring-brand-navy/50",
               filters.category
                 ? "border-amber-400 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400"
                 : "border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-600 dark:text-slate-400",
@@ -272,9 +272,9 @@ export default function InspectionFilters({
             onChange={(e) => setFilter("from", e.target.value)}
             className={cn(
               "pl-2 pr-2 py-2 rounded-lg text-xs cursor-pointer transition-colors",
-              "border focus:outline-none focus:ring-2 focus:ring-cyan-500/50",
+              "border focus:outline-none focus:ring-2 focus:ring-brand-navy/50",
               filters.from
-                ? "border-cyan-400 dark:border-cyan-600 bg-cyan-50 dark:bg-cyan-900/20 text-cyan-700 dark:text-cyan-400"
+                ? "border-brand-navy dark:border-brand-navy bg-cyan-50 dark:bg-cyan-900/20 text-cyan-700 dark:text-brand-tan"
                 : "border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-600 dark:text-slate-400",
             )}
           />
@@ -291,9 +291,9 @@ export default function InspectionFilters({
             onChange={(e) => setFilter("to", e.target.value)}
             className={cn(
               "pl-2 pr-2 py-2 rounded-lg text-xs cursor-pointer transition-colors",
-              "border focus:outline-none focus:ring-2 focus:ring-cyan-500/50",
+              "border focus:outline-none focus:ring-2 focus:ring-brand-navy/50",
               filters.to
-                ? "border-cyan-400 dark:border-cyan-600 bg-cyan-50 dark:bg-cyan-900/20 text-cyan-700 dark:text-cyan-400"
+                ? "border-brand-navy dark:border-brand-navy bg-cyan-50 dark:bg-cyan-900/20 text-cyan-700 dark:text-brand-tan"
                 : "border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-600 dark:text-slate-400",
             )}
           />
@@ -306,7 +306,7 @@ export default function InspectionFilters({
             onChange={(e) => setFilter("sort", e.target.value)}
             className={cn(
               "appearance-none pl-3 pr-8 py-2 rounded-lg text-xs font-medium cursor-pointer transition-colors",
-              "border focus:outline-none focus:ring-2 focus:ring-cyan-500/50",
+              "border focus:outline-none focus:ring-2 focus:ring-brand-navy/50",
               "border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-neutral-600 dark:text-slate-400",
             )}
           >
@@ -326,7 +326,7 @@ export default function InspectionFilters({
       {/* Loading indicator */}
       {isPending && (
         <div className="flex items-center gap-2 text-xs text-neutral-400 dark:text-slate-500">
-          <div className="w-3 h-3 rounded-full border-2 border-cyan-500/30 border-t-cyan-500 animate-spin" />
+          <div className="w-3 h-3 rounded-full border-2 border-brand-navy/30 border-t-cyan-500 animate-spin" />
           Filtering…
         </div>
       )}

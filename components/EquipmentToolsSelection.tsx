@@ -362,7 +362,7 @@ export default function EquipmentToolsSelection({
               <div
                 className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${
                   currentStep === step
-                    ? "bg-cyan-500 text-white"
+                    ? "bg-brand-navy text-white"
                     : currentStep > step
                       ? "bg-green-500 text-white"
                       : "bg-slate-700 text-slate-400"
@@ -414,7 +414,7 @@ export default function EquipmentToolsSelection({
                     onClick={() => setWaterClass(cls as 1 | 2 | 3 | 4)}
                     className={`px-4 py-2 rounded-lg border transition-colors ${
                       waterClass === cls
-                        ? "border-cyan-500 bg-cyan-500/20 text-cyan-400"
+                        ? "border-brand-navy bg-brand-navy/20 text-brand-tan"
                         : "border-slate-600 bg-slate-700/50 text-slate-400 hover:border-slate-500"
                     }`}
                   >
@@ -506,7 +506,7 @@ export default function EquipmentToolsSelection({
           <div className="flex justify-end">
             <button
               onClick={() => setCurrentStep(2)}
-              className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+              className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-500 to-brand-tan rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
             >
               Next: Scope Areas
               <ArrowRight className="w-4 h-4" />
@@ -668,7 +668,7 @@ export default function EquipmentToolsSelection({
                       </div>
                       <div className="w-full bg-slate-700 rounded-full h-2">
                         <div
-                          className="bg-cyan-500 h-2 rounded-full"
+                          className="bg-brand-navy h-2 rounded-full"
                           style={{ width: `${area.wetPercentage}%` }}
                         />
                       </div>
@@ -689,7 +689,7 @@ export default function EquipmentToolsSelection({
             </button>
             <button
               onClick={() => setCurrentStep(3)}
-              className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+              className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-500 to-brand-tan rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
             >
               Next: Select Equipment
               <ArrowRight className="w-4 h-4" />
@@ -746,7 +746,7 @@ export default function EquipmentToolsSelection({
                       </div>
                       <div className="w-full bg-slate-700 rounded-full h-2">
                         <div
-                          className="bg-cyan-500 h-2 rounded-full"
+                          className="bg-brand-navy h-2 rounded-full"
                           style={{
                             width: `${Math.min(
                               100,
@@ -769,7 +769,7 @@ export default function EquipmentToolsSelection({
                       </div>
                       <div className="w-full bg-slate-700 rounded-full h-2">
                         <div
-                          className="bg-cyan-500 h-2 rounded-full"
+                          className="bg-brand-navy h-2 rounded-full"
                           style={{
                             width: `${Math.min(
                               100,
@@ -821,7 +821,7 @@ export default function EquipmentToolsSelection({
             <div className="space-y-4">
               <button
                 onClick={handleAutoSelect}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-brand-tan rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all"
               >
                 <Wrench className="w-4 h-4" />
                 Auto-Select Best Fit
@@ -841,7 +841,7 @@ export default function EquipmentToolsSelection({
                         key={group.id}
                         className={`p-3 rounded-lg border ${
                           quantity > 0
-                            ? "border-cyan-500/50 bg-cyan-500/10"
+                            ? "border-brand-navy/50 bg-brand-navy/10"
                             : "border-slate-700 bg-slate-900/50"
                         }`}
                       >
@@ -851,7 +851,7 @@ export default function EquipmentToolsSelection({
                             <div className="text-xs text-slate-400">
                               {group.amps}A | {group.models.length} Models
                             </div>
-                            <div className="text-xs text-cyan-400 mt-1">
+                            <div className="text-xs text-brand-tan mt-1">
                               $
                               {(
                                 selection?.dailyRate ||
@@ -866,7 +866,7 @@ export default function EquipmentToolsSelection({
                             </div>
                           </div>
                           {quantity > 0 && (
-                            <div className="px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded text-sm font-semibold mr-2">
+                            <div className="px-3 py-1 bg-brand-navy/20 text-brand-tan rounded text-sm font-semibold mr-2">
                               {quantity}
                             </div>
                           )}
@@ -909,7 +909,7 @@ export default function EquipmentToolsSelection({
                         key={group.id}
                         className={`p-3 rounded-lg border ${
                           quantity > 0
-                            ? "border-cyan-500/50 bg-cyan-500/10"
+                            ? "border-brand-navy/50 bg-brand-navy/10"
                             : "border-slate-700 bg-slate-900/50"
                         }`}
                       >
@@ -919,7 +919,7 @@ export default function EquipmentToolsSelection({
                             <div className="text-xs text-slate-400">
                               {group.amps}A | {group.models.length} Models
                             </div>
-                            <div className="text-xs text-cyan-400 mt-1">
+                            <div className="text-xs text-brand-tan mt-1">
                               $
                               {(
                                 selection?.dailyRate ||
@@ -934,7 +934,7 @@ export default function EquipmentToolsSelection({
                             </div>
                           </div>
                           {quantity > 0 && (
-                            <div className="px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded text-sm font-semibold mr-2">
+                            <div className="px-3 py-1 bg-brand-navy/20 text-brand-tan rounded text-sm font-semibold mr-2">
                               {quantity}
                             </div>
                           )}
@@ -979,7 +979,7 @@ export default function EquipmentToolsSelection({
                         key={group.id}
                         className={`p-3 rounded-lg border ${
                           quantity > 0
-                            ? "border-cyan-500/50 bg-cyan-500/10"
+                            ? "border-brand-navy/50 bg-brand-navy/10"
                             : "border-slate-700 bg-slate-900/50"
                         }`}
                       >
@@ -989,7 +989,7 @@ export default function EquipmentToolsSelection({
                             <div className="text-xs text-slate-400">
                               {group.amps}A | {group.models.length} Models
                             </div>
-                            <div className="text-xs text-cyan-400 mt-1">
+                            <div className="text-xs text-brand-tan mt-1">
                               $
                               {(
                                 selection?.dailyRate ||
@@ -1004,7 +1004,7 @@ export default function EquipmentToolsSelection({
                             </div>
                           </div>
                           {quantity > 0 && (
-                            <div className="px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded text-sm font-semibold mr-2">
+                            <div className="px-3 py-1 bg-brand-navy/20 text-brand-tan rounded text-sm font-semibold mr-2">
                               {quantity}
                             </div>
                           )}
@@ -1053,7 +1053,7 @@ export default function EquipmentToolsSelection({
                         key={group.id}
                         className={`p-3 rounded-lg border ${
                           quantity > 0
-                            ? "border-cyan-500/50 bg-cyan-500/10"
+                            ? "border-brand-navy/50 bg-brand-navy/10"
                             : "border-slate-700 bg-slate-900/50"
                         }`}
                       >
@@ -1063,7 +1063,7 @@ export default function EquipmentToolsSelection({
                             <div className="text-xs text-slate-400">
                               {group.amps}A | {group.models.length} Models
                             </div>
-                            <div className="text-xs text-cyan-400 mt-1">
+                            <div className="text-xs text-brand-tan mt-1">
                               $
                               {(
                                 selection?.dailyRate ||
@@ -1078,7 +1078,7 @@ export default function EquipmentToolsSelection({
                             </div>
                           </div>
                           {quantity > 0 && (
-                            <div className="px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded text-sm font-semibold mr-2">
+                            <div className="px-3 py-1 bg-brand-navy/20 text-brand-tan rounded text-sm font-semibold mr-2">
                               {quantity}
                             </div>
                           )}
@@ -1120,7 +1120,7 @@ export default function EquipmentToolsSelection({
             <button
               onClick={handleSave}
               disabled={loading}
-              className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg font-medium hover:shadow-lg hover:shadow-green-500/50 transition-all disabled:opacity-50"
+              className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-green-500 to-brand-bronze rounded-lg font-medium hover:shadow-lg hover:shadow-green-500/50 transition-all disabled:opacity-50"
             >
               {loading ? "Saving..." : "Save & Complete"}
             </button>

@@ -121,7 +121,7 @@ export function SketchScaleModal({
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Ruler size={16} className="text-cyan-400" />
+            <Ruler size={16} className="text-brand-tan" />
             <h3 className="font-semibold text-sm">Scale Calibration</h3>
           </div>
           <button
@@ -135,7 +135,7 @@ export function SketchScaleModal({
 
         {/* Current scale */}
         {currentScale && (
-          <div className="flex items-start gap-2 p-2.5 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-xs text-cyan-300">
+          <div className="flex items-start gap-2 p-2.5 rounded-lg bg-brand-navy/10 border border-brand-navy/20 text-xs text-brand-tan">
             <Info size={12} className="mt-0.5 flex-shrink-0" />
             {currentScale.description}
           </div>
@@ -175,7 +175,7 @@ export function SketchScaleModal({
               step={0.1}
               value={realMetres}
               onChange={(e) => setRealMetres(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg bg-white/10 border border-white/10 text-white focus:outline-none focus:ring-1 focus:ring-cyan-400"
+              className="w-full px-3 py-2 rounded-lg bg-white/10 border border-white/10 text-white focus:outline-none focus:ring-1 focus:ring-brand-navy"
               autoFocus
             />
             {error && <p className="text-xs text-rose-400 mt-1">{error}</p>}
@@ -188,7 +188,7 @@ export function SketchScaleModal({
             <button
               type="button"
               onClick={startCalibration}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-cyan-500 text-white text-sm font-medium hover:bg-cyan-600 transition-colors"
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-brand-navy text-white text-sm font-medium hover:bg-brand-navy transition-colors"
             >
               <Ruler size={14} />
               Start calibration
@@ -199,7 +199,7 @@ export function SketchScaleModal({
             <button
               type="button"
               onClick={handleConfirm}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-cyan-500 text-white text-sm font-medium hover:bg-cyan-600 transition-colors"
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-brand-navy text-white text-sm font-medium hover:bg-brand-navy transition-colors"
             >
               <Check size={14} />
               Apply scale
@@ -245,9 +245,9 @@ function Step({
         className={cn(
           "flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold border",
           done
-            ? "bg-cyan-500 border-cyan-400 text-white"
+            ? "bg-brand-navy border-brand-navy text-white"
             : active
-              ? "border-cyan-400 text-cyan-400"
+              ? "border-brand-navy text-brand-tan"
               : "border-white/20",
         )}
       >

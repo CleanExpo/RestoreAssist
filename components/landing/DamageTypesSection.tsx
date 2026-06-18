@@ -13,7 +13,7 @@ const damageTypes = [
     range: "$2K - $15K+",
     description:
       "Flooding, burst pipes, storm damage, and water intrusion restoration services.",
-    color: "from-blue-500 to-cyan-500",
+    color: "from-blue-500 to-brand-tan",
   },
   {
     icon: Flame,
@@ -37,7 +37,7 @@ const damageTypes = [
     range: "$15K - $150K+",
     description:
       "Major flooding restoration with comprehensive water extraction and drying.",
-    color: "from-cyan-500 to-blue-500",
+    color: "from-brand-navy to-blue-500",
   },
   {
     icon: Bug,
@@ -45,7 +45,7 @@ const damageTypes = [
     range: "$3K - $30K+",
     description:
       "Mould remediation, containment, and specialized cleaning services.",
-    color: "from-green-500 to-emerald-500",
+    color: "from-green-500 to-brand-bronze",
   },
 ];
 
@@ -72,7 +72,7 @@ export default function DamageTypesSection() {
               >
                 {damage.title}
               </h3>
-              <p className="text-cyan-400 font-bold text-xl mb-4">
+              <p className="text-brand-tan font-bold text-xl mb-4">
                 Typical Range: {damage.range}
               </p>
               <p className="text-slate-400 leading-relaxed font-light">
@@ -92,7 +92,7 @@ export default function DamageTypesSection() {
         viewport={{ once: true }}
       >
         <div className="inline-flex items-center gap-3 px-6 py-3 bg-slate-800/50 border border-slate-700/50 rounded-full">
-          <Zap size={20} className="text-cyan-400" />
+          <Zap size={20} className="text-brand-tan" />
           <span className="text-slate-300 font-medium">
             All damage types supported with AI-powered assessment and NCC 2022
             compliance

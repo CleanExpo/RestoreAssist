@@ -14,8 +14,8 @@ export function ReportTypeSelection({ isTrial, loading, onChoose }: Props) {
     <div
       className={cn(
         "p-6 rounded-lg border-2 space-y-6 mt-6",
-        "border-cyan-500/50 dark:border-cyan-500/50",
-        "bg-cyan-500/10 dark:bg-cyan-500/10",
+        "border-brand-navy/50 dark:border-brand-navy/50",
+        "bg-brand-navy/10 dark:bg-brand-navy/10",
       )}
     >
       <h3
@@ -109,21 +109,21 @@ export function ReportTypeSelection({ isTrial, loading, onChoose }: Props) {
           onClick={() => onChoose("enhanced")}
           disabled={loading || isTrial}
           className={cn(
-            "p-6 rounded-lg border-2 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 hover:from-cyan-500/20 hover:to-blue-500/20 transition-all text-left group relative disabled:opacity-50",
+            "p-6 rounded-lg border-2 bg-gradient-to-br from-brand-navy/10 to-blue-500/10 hover:from-brand-navy/20 hover:to-blue-500/20 transition-all text-left group relative disabled:opacity-50",
             isTrial
               ? "border-neutral-300 dark:border-neutral-700 cursor-not-allowed"
-              : "border-cyan-500",
+              : "border-brand-navy",
           )}
         >
           <div className="absolute top-4 right-4">
-            <span className="px-3 py-1 bg-cyan-500 text-white text-xs font-semibold rounded-full">
+            <span className="px-3 py-1 bg-brand-navy text-white text-xs font-semibold rounded-full">
               RECOMMENDED
             </span>
           </div>
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-lg bg-cyan-500/30 flex items-center justify-center group-hover:bg-cyan-500/40 transition-colors">
-                <Sparkles className="w-6 h-6 text-cyan-300" />
+              <div className="w-12 h-12 rounded-lg bg-brand-navy/30 flex items-center justify-center group-hover:bg-brand-navy/40 transition-colors">
+                <Sparkles className="w-6 h-6 text-brand-tan" />
               </div>
               <div>
                 <h4
@@ -148,7 +148,7 @@ export function ReportTypeSelection({ isTrial, loading, onChoose }: Props) {
               className={cn(
                 "w-5 h-5 transition-colors",
                 "text-neutral-700 dark:text-primary-400",
-                "group-hover:text-cyan-600 dark:group-hover:text-cyan-300",
+                "group-hover:text-brand-tan dark:group-hover:text-brand-tan",
               )}
             />
           </div>
@@ -187,7 +187,7 @@ export function ReportTypeSelection({ isTrial, loading, onChoose }: Props) {
           onClick={() => onChoose("optimised")}
           disabled={loading || isTrial}
           className={cn(
-            "p-6 rounded-lg border-2 bg-gradient-to-br from-green-500/10 to-emerald-500/10 hover:from-green-500/20 hover:to-emerald-500/20 transition-all text-left group relative disabled:opacity-50",
+            "p-6 rounded-lg border-2 bg-gradient-to-br from-green-500/10 to-brand-bronze/10 hover:from-green-500/20 hover:to-brand-bronze/20 transition-all text-left group relative disabled:opacity-50",
             isTrial
               ? "border-neutral-300 dark:border-neutral-700 cursor-not-allowed"
               : "border-green-500",

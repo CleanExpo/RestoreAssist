@@ -172,7 +172,7 @@ export default function ApprovalPanel({ reportId }: ApprovalPanelProps) {
           <Button
             size="sm"
             onClick={() => setDialogOpen(true)}
-            className="bg-cyan-600 hover:bg-cyan-700 text-white h-8 gap-1"
+            className="bg-brand-navy hover:bg-cyan-700 text-white h-8 gap-1"
           >
             <Plus size={14} />
             Request Approval
@@ -335,7 +335,7 @@ export default function ApprovalPanel({ reportId }: ApprovalPanelProps) {
             <Button
               disabled={!newType || submitting}
               onClick={handleCreate}
-              className="bg-cyan-600 hover:bg-cyan-700 text-white"
+              className="bg-brand-navy hover:bg-cyan-700 text-white"
             >
               {submitting ? "Submitting..." : "Submit"}
             </Button>

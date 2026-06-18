@@ -18,7 +18,7 @@ export default function TopBanner() {
             className="flex items-center justify-center gap-4"
             whileHover={{ scale: 1.05 }}
           >
-            <div className="w-12 h-12 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full flex items-center justify-center">
+            <div className="w-12 h-12 bg-gradient-to-r from-brand-navy to-blue-500 rounded-full flex items-center justify-center">
               <Gift size={24} className="text-white" />
             </div>
             <div className="text-left">
@@ -41,7 +41,7 @@ export default function TopBanner() {
             className="flex items-center justify-center gap-4"
             whileHover={{ scale: 1.05 }}
           >
-            <div className="w-12 h-12 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full flex items-center justify-center">
+            <div className="w-12 h-12 bg-gradient-to-r from-brand-bronze to-brand-tan rounded-full flex items-center justify-center">
               <Shield size={24} className="text-white" />
             </div>
             <div className="text-left">

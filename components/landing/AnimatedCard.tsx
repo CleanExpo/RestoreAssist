@@ -24,7 +24,7 @@ export default function AnimatedCard({
       whileInView={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, delay }}
       viewport={{ once: true }}
-      className={`group p-8 rounded-2xl border border-slate-700/50 bg-gradient-to-br ${gradient} hover:bg-gradient-to-br ${hoverGradient} transition-all duration-500 hover:border-cyan-500/50 hover:shadow-2xl hover:shadow-cyan-500/10 ${className}`}
+      className={`group p-8 rounded-2xl border border-slate-700/50 bg-gradient-to-br ${gradient} hover:bg-gradient-to-br ${hoverGradient} transition-all duration-500 hover:border-brand-navy/50 hover:shadow-2xl hover:shadow-brand-navy/10 ${className}`}
       whileHover={{ y: -5 }}
     >
       {children}

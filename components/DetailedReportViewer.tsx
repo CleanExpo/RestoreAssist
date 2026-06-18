@@ -223,7 +223,7 @@ export default function DetailedReportViewer({
           <button
             onClick={handleGenerateReport}
             disabled={generating}
-            className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed mx-auto"
+            className="flex items-center gap-2 px-4 py-2 bg-brand-navy hover:bg-cyan-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed mx-auto"
           >
             <RefreshCw
               className={`w-4 h-4 ${generating ? "animate-spin" : ""}`}
@@ -240,8 +240,8 @@ export default function DetailedReportViewer({
       {/* Professional Header */}
       <div className="flex items-center justify-between px-8 py-6 border-b border-slate-700/50 bg-gradient-to-r from-slate-800/50 to-slate-800/30 backdrop-blur-sm">
         <div className="flex items-center gap-4">
-          <div className="p-3 bg-gradient-to-br from-cyan-500/20 to-cyan-600/20 rounded-lg border border-cyan-500/30">
-            <FileText className="w-6 h-6 text-cyan-400" />
+          <div className="p-3 bg-gradient-to-br from-brand-navy/20 to-brand-tan/20 rounded-lg border border-brand-navy/30">
+            <FileText className="w-6 h-6 text-brand-tan" />
           </div>
           <div>
             <h2 className="text-2xl font-bold text-white tracking-tight">
@@ -279,7 +279,7 @@ export default function DetailedReportViewer({
           <button
             onClick={handleDownloadEnhancedPDF}
             disabled={downloading}
-            className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-700 hover:to-cyan-600 text-white rounded-lg transition-all duration-200 shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold bg-gradient-to-r from-brand-navy to-brand-tan hover:from-cyan-700 hover:to-brand-tan text-white rounded-lg transition-all duration-200 shadow-lg shadow-brand-navy/20 hover:shadow-brand-navy/30 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {downloading ? (
               <>
@@ -316,18 +316,18 @@ export default function DetailedReportViewer({
                       return null; // We'll handle signature separately
                     }
                     return (
-                      <h2 className="text-2xl font-bold text-cyan-400 mb-4 mt-8 border-l-4 border-cyan-500 pl-4">
+                      <h2 className="text-2xl font-bold text-brand-tan mb-4 mt-8 border-l-4 border-brand-navy pl-4">
                         {children}
                       </h2>
                     );
                   },
                   h3: ({ children }) => (
-                    <h3 className="text-xl font-bold text-cyan-300 mb-3 mt-6">
+                    <h3 className="text-xl font-bold text-brand-tan mb-3 mt-6">
                       {children}
                     </h3>
                   ),
                   h4: ({ children }) => (
-                    <h4 className="text-lg font-bold text-emerald-400 mb-2 mt-4">
+                    <h4 className="text-lg font-bold text-brand-bronze mb-2 mt-4">
                       {children}
                     </h4>
                   ),
@@ -371,10 +371,10 @@ export default function DetailedReportViewer({
                         if (content && content.length > 0) {
                           return (
                             <div className="mb-5">
-                              <div className="font-bold text-cyan-400 text-base mb-2 tracking-wide">
+                              <div className="font-bold text-brand-tan text-base mb-2 tracking-wide">
                                 {firstLine}
                               </div>
-                              <div className="text-slate-300 leading-7 text-base pl-4 border-l-2 border-cyan-500/30 whitespace-pre-line">
+                              <div className="text-slate-300 leading-7 text-base pl-4 border-l-2 border-brand-navy/30 whitespace-pre-line">
                                 {content}
                               </div>
                             </div>
@@ -394,10 +394,10 @@ export default function DetailedReportViewer({
                       const [, label, content] = match;
                       return (
                         <div className="mb-5">
-                          <div className="font-bold text-cyan-400 text-base mb-2 tracking-wide">
+                          <div className="font-bold text-brand-tan text-base mb-2 tracking-wide">
                             {label}:
                           </div>
-                          <div className="text-slate-300 leading-7 text-base pl-4 border-l-2 border-cyan-500/30">
+                          <div className="text-slate-300 leading-7 text-base pl-4 border-l-2 border-brand-navy/30">
                             {content.trim()}
                           </div>
                         </div>
@@ -427,10 +427,10 @@ export default function DetailedReportViewer({
                     <strong className="text-white font-bold">{children}</strong>
                   ),
                   em: ({ children }) => (
-                    <em className="text-cyan-300 italic">{children}</em>
+                    <em className="text-brand-tan italic">{children}</em>
                   ),
                   code: ({ children }) => (
-                    <code className="bg-slate-800/50 text-cyan-300 px-2 py-1 rounded text-sm font-mono border border-slate-700/50">
+                    <code className="bg-slate-800/50 text-brand-tan px-2 py-1 rounded text-sm font-mono border border-slate-700/50">
                       {children}
                     </code>
                   ),
@@ -440,7 +440,7 @@ export default function DetailedReportViewer({
                     </pre>
                   ),
                   blockquote: ({ children }) => (
-                    <blockquote className="border-l-4 border-cyan-500 pl-4 text-slate-400 italic mb-4 bg-slate-800/30 py-2 rounded-r">
+                    <blockquote className="border-l-4 border-brand-navy pl-4 text-slate-400 italic mb-4 bg-slate-800/30 py-2 rounded-r">
                       {children}
                     </blockquote>
                   ),
@@ -452,7 +452,7 @@ export default function DetailedReportViewer({
                     </div>
                   ),
                   th: ({ children }) => (
-                    <th className="border border-slate-700/50 px-4 py-2 bg-slate-800/50 text-left text-cyan-400 font-semibold">
+                    <th className="border border-slate-700/50 px-4 py-2 bg-slate-800/50 text-left text-brand-tan font-semibold">
                       {children}
                     </th>
                   ),

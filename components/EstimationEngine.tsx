@@ -858,7 +858,7 @@ export default function EstimationEngine({
         <Button
           onClick={handleSaveAndNext}
           disabled={loading}
-          className="bg-cyan-600 hover:bg-cyan-700 text-white px-6"
+          className="bg-brand-navy hover:bg-cyan-700 text-white px-6"
         >
           <Save className="mr-2" size={16} />
           {loading ? "Saving..." : `Save & Continue to ${getNextTabName()}`}
@@ -969,7 +969,7 @@ export default function EstimationEngine({
                 lineItems: [...prev.lineItems, newItem],
               }));
             }}
-            className="bg-cyan-600 hover:bg-cyan-700"
+            className="bg-brand-navy hover:bg-cyan-700"
           >
             <Plus className="mr-2" size={16} />
             Add Line Item
@@ -1160,8 +1160,8 @@ export default function EstimationEngine({
                           onClick={() => handleSaveLineItemToLibrary(index)}
                           className={
                             item.sourceCostItemId
-                              ? "text-emerald-400 hover:text-emerald-300"
-                              : "text-slate-400 hover:text-cyan-300"
+                              ? "text-brand-bronze hover:text-brand-bronze"
+                              : "text-slate-400 hover:text-brand-tan"
                           }
                           disabled={item._savingToLibrary}
                           title={
@@ -1217,7 +1217,7 @@ export default function EstimationEngine({
         <Button
           onClick={handleSaveAndNext}
           disabled={loading}
-          className="bg-cyan-600 hover:bg-cyan-700 text-white px-6"
+          className="bg-brand-navy hover:bg-cyan-700 text-white px-6"
         >
           <Save className="mr-2" size={16} />
           {loading ? "Saving..." : `Save & Continue to ${getNextTabName()}`}
@@ -1291,7 +1291,7 @@ export default function EstimationEngine({
           </Card>
         </div>
 
-        <Card className="bg-slate-800 border-cyan-600">
+        <Card className="bg-slate-800 border-brand-navy">
           <CardHeader>
             <CardTitle className="text-white text-xl">Grand Total</CardTitle>
           </CardHeader>
@@ -1307,7 +1307,7 @@ export default function EstimationEngine({
               </div>
               <div className="flex justify-between text-white text-xl font-bold pt-2 border-t border-slate-700">
                 <span>Total Inc-GST:</span>
-                <span className="text-cyan-400">
+                <span className="text-brand-tan">
                   ${(estimateData.totalIncGST || 0).toFixed(2)}
                 </span>
               </div>
@@ -1321,7 +1321,7 @@ export default function EstimationEngine({
         <Button
           onClick={handleSaveAndNext}
           disabled={loading}
-          className="bg-cyan-600 hover:bg-cyan-700 text-white px-6"
+          className="bg-brand-navy hover:bg-cyan-700 text-white px-6"
         >
           <Save className="mr-2" size={16} />
           {loading ? "Saving..." : `Save & Continue to ${getNextTabName()}`}
@@ -1424,7 +1424,7 @@ export default function EstimationEngine({
         <Button
           onClick={handleSaveAndNext}
           disabled={loading}
-          className="bg-cyan-600 hover:bg-cyan-700 text-white px-6"
+          className="bg-brand-navy hover:bg-cyan-700 text-white px-6"
         >
           <Save className="mr-2" size={16} />
           {loading ? "Saving..." : `Save & Continue to ${getNextTabName()}`}
@@ -1474,7 +1474,7 @@ export default function EstimationEngine({
         <Button
           onClick={handleSaveAndNext}
           disabled={loading}
-          className="bg-cyan-600 hover:bg-cyan-700 text-white px-6"
+          className="bg-brand-navy hover:bg-cyan-700 text-white px-6"
         >
           <Save className="mr-2" size={16} />
           {loading
@@ -1590,7 +1590,7 @@ export default function EstimationEngine({
                   <div className="flex space-x-4">
                     <Button
                       onClick={() => window.print()}
-                      className="bg-cyan-600 hover:bg-cyan-700"
+                      className="bg-brand-navy hover:bg-cyan-700"
                     >
                       <FileText className="mr-2" size={16} />
                       Export PDF

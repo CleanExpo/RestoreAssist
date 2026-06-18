@@ -182,7 +182,7 @@ export function SketchSelectionPanel({
           <button
             type="button"
             onClick={() => onConfirmProvenance?.(selected.id)}
-            className="w-full min-h-11 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-100 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors text-xs font-medium"
+            className="w-full min-h-11 py-1.5 rounded-lg bg-brand-bronze/20 text-emerald-100 border border-brand-bronze/30 hover:bg-brand-bronze/30 transition-colors text-xs font-medium"
           >
             Confirm measurement
           </button>
@@ -205,7 +205,7 @@ export function SketchSelectionPanel({
                 );
               }
             }}
-            className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white placeholder:text-white/30 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-400"
+            className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white placeholder:text-white/30 text-sm focus:outline-none focus:ring-1 focus:ring-brand-navy"
             placeholder="Room name…"
           />
         </div>
@@ -275,7 +275,7 @@ export function SketchSelectionPanel({
             id="sketch-material"
             value={selected.materialSlug ?? ""}
             onChange={(e) => onMaterialChange?.(selected.id, e.target.value)}
-            className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-cyan-400"
+            className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-brand-navy"
           >
             <option value="" className="text-black">
               Select material…
@@ -307,7 +307,7 @@ export function SketchSelectionPanel({
                 e.target.value as "cat1" | "cat2" | "cat3",
               )
             }
-            className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-cyan-400"
+            className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-brand-navy"
           >
             <option value="" className="text-black">
               Select category…
@@ -374,7 +374,7 @@ export function SketchSelectionPanel({
                 className={cn(
                   "inline-flex items-center justify-center min-w-11 min-h-11 px-2 rounded-md border text-xs",
                   country === c
-                    ? "bg-cyan-500/20 border-cyan-400 text-cyan-200"
+                    ? "bg-brand-navy/20 border-brand-navy text-cyan-200"
                     : "border-white/10 text-white/50 hover:text-white/80",
                 )}
               >
@@ -393,7 +393,7 @@ export function SketchSelectionPanel({
                 onChange={(e) =>
                   onCauseChange?.(selected.id, e.target.value as DamageCause)
                 }
-                className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-brand-navy"
               >
                 <option value="" className="text-black">
                   Select cause…
@@ -414,7 +414,7 @@ export function SketchSelectionPanel({
                         Building:{" "}
                         <span
                           className={
-                            b.covered ? "text-emerald-300" : "text-amber-300"
+                            b.covered ? "text-brand-bronze" : "text-amber-300"
                           }
                         >
                           {b.covered ? "NHCover" : "Private insurer"}
@@ -424,7 +424,7 @@ export function SketchSelectionPanel({
                         Land:{" "}
                         <span
                           className={
-                            l.covered ? "text-emerald-300" : "text-white/50"
+                            l.covered ? "text-brand-bronze" : "text-white/50"
                           }
                         >
                           {l.covered ? "NHCover" : "private"}

@@ -26,21 +26,21 @@ const features = [
     title: "NCC 2022 Compliant",
     description:
       "Every report automatically includes relevant NCC 2022 compliance notes and state-specific building regulations.",
-    color: "from-emerald-500 to-cyan-500",
+    color: "from-brand-bronze to-brand-tan",
   },
   {
     icon: DollarSign,
     title: "Accurate Pricing",
     description:
       "Market-accurate 2024 Australian pricing database with realistic labour rates and material costs.",
-    color: "from-green-500 to-emerald-500",
+    color: "from-green-500 to-brand-bronze",
   },
   {
     icon: FileText,
     title: "Professional Output",
     description:
       "Industry-standard documentation with itemised estimates, scope of work, and Authority to Proceed.",
-    color: "from-blue-500 to-cyan-500",
+    color: "from-blue-500 to-brand-tan",
   },
   {
     icon: Zap,
@@ -88,7 +88,7 @@ export default function PlatformFeaturesSection() {
         viewport={{ once: true }}
       >
         <motion.button
-          className="px-8 py-4 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full font-medium text-lg hover:shadow-2xl hover:shadow-blue-500/50 transition-all duration-300"
+          className="px-8 py-4 bg-gradient-to-r from-blue-500 to-brand-tan rounded-full font-medium text-lg hover:shadow-2xl hover:shadow-blue-500/50 transition-all duration-300"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           style={{ fontFamily: "Titillium Web, sans-serif" }}

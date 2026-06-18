@@ -390,7 +390,7 @@ export default function DryingProgressChart({
       {/* Status summary */}
       <div className="flex flex-wrap gap-2">
         {dryCount > 0 && (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-50 dark:bg-brand-bronze/10 text-emerald-700 dark:text-brand-bronze border border-emerald-200 dark:border-brand-bronze/30">
             <CheckCircle2 size={12} />
             {dryCount} location{dryCount > 1 ? "s" : ""} dry
           </span>
@@ -418,7 +418,7 @@ export default function DryingProgressChart({
 
         {/* On-track indicator */}
         {trackingStatus === "ahead" && (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-50 dark:bg-brand-bronze/10 text-emerald-700 dark:text-brand-bronze border border-emerald-200 dark:border-brand-bronze/30">
             <TrendingDown size={12} />
             Ahead of schedule
           </span>

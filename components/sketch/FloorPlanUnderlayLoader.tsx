@@ -184,12 +184,12 @@ export function FloorPlanUnderlayLoader({
         onClick={() => setExpanded((v) => !v)}
         className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-slate-700/50 transition-colors"
       >
-        <Layers size={14} className="text-cyan-500 flex-shrink-0" />
+        <Layers size={14} className="text-brand-tan flex-shrink-0" />
         <span className="font-medium text-neutral-700 dark:text-slate-300 flex-1 text-left">
           Floor Plan Underlay
         </span>
         {hasBackground && !expanded && (
-          <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+          <span className="flex items-center gap-1 text-xs text-brand-bronze dark:text-brand-bronze">
             <CheckCircle2 size={12} /> Active
           </span>
         )}
@@ -215,13 +215,13 @@ export function FloorPlanUnderlayLoader({
                 onChange={(e) => setAddress(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Enter property address…"
-                className="flex-1 min-w-0 text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-400"
+                className="flex-1 min-w-0 text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-navy/30 focus:border-brand-navy"
               />
               <button
                 type="button"
                 onClick={fetchListing}
                 disabled={loading || !address.trim()}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-cyan-500 text-white hover:bg-cyan-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-brand-navy text-white hover:bg-brand-navy disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
               >
                 {loading ? (
                   <Loader2 size={13} className="animate-spin" />
@@ -241,7 +241,7 @@ export function FloorPlanUnderlayLoader({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border border-dashed border-neutral-300 dark:border-slate-600 text-neutral-500 dark:text-slate-400 hover:border-cyan-400 hover:text-cyan-500 transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border border-dashed border-neutral-300 dark:border-slate-600 text-neutral-500 dark:text-slate-400 hover:border-brand-navy hover:text-brand-tan transition-colors"
             >
               <Upload size={13} />
               Choose image file…
@@ -281,7 +281,7 @@ export function FloorPlanUnderlayLoader({
                     className={cn(
                       "relative w-16 h-12 rounded-md overflow-hidden border-2 transition-all flex-shrink-0",
                       selectedImage === img
-                        ? "border-cyan-500 shadow-md shadow-cyan-500/20"
+                        ? "border-brand-navy shadow-md shadow-brand-navy/20"
                         : "border-transparent hover:border-neutral-300 dark:hover:border-slate-500",
                     )}
                   >
@@ -292,7 +292,7 @@ export function FloorPlanUnderlayLoader({
                       className="w-full h-full object-cover"
                     />
                     {results?.floorPlanImages.includes(img) && (
-                      <span className="absolute bottom-0 left-0 right-0 text-center text-white text-[9px] font-bold bg-cyan-600/70 py-0.5">
+                      <span className="absolute bottom-0 left-0 right-0 text-center text-white text-[9px] font-bold bg-brand-navy/70 py-0.5">
                         Floor Plan
                       </span>
                     )}
@@ -304,7 +304,7 @@ export function FloorPlanUnderlayLoader({
 
           {/* Selected from file upload indicator */}
           {selectedImage && !results && (
-            <div className="flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400">
+            <div className="flex items-center gap-2 text-xs text-brand-bronze dark:text-brand-bronze">
               <ImageIcon size={13} />
               Local file selected
             </div>
@@ -339,7 +339,7 @@ export function FloorPlanUnderlayLoader({
               type="button"
               onClick={handleApply}
               disabled={!selectedImage}
-              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-sm font-medium bg-cyan-500 text-white hover:bg-cyan-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-sm font-medium bg-brand-navy text-white hover:bg-brand-navy disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               <Layers size={13} />
               Apply to Canvas

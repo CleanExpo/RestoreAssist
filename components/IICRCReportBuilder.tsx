@@ -607,13 +607,13 @@ export default function IICRCReportBuilder({
           <div className="space-y-6">
             {/* Auto-fill buttons */}
             <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
-              <h3 className="text-lg font-semibold mb-3 text-cyan-400">
+              <h3 className="text-lg font-semibold mb-3 text-brand-tan">
                 Quick Fill Options
               </h3>
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => handleAutoFill("category1")}
-                  className="px-4 py-2 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg hover:bg-emerald-500/30 transition-colors text-sm"
+                  className="px-4 py-2 bg-brand-bronze/20 text-brand-bronze border border-brand-bronze/30 rounded-lg hover:bg-brand-bronze/30 transition-colors text-sm"
                 >
                   Clean Water Scenario
                 </button>
@@ -662,7 +662,7 @@ export default function IICRCReportBuilder({
                       title: e.target.value,
                     }))
                   }
-                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-navy"
                   placeholder="Auto-generated based on client and water category"
                 />
                 <p className="text-xs text-slate-400 mt-1">
@@ -694,7 +694,7 @@ export default function IICRCReportBuilder({
                   onChange={(e) =>
                     handleInputChange("inspectionDate", e.target.value)
                   }
-                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-navy"
                 />
               </div>
             </div>
@@ -709,7 +709,7 @@ export default function IICRCReportBuilder({
                   onChange={(e) =>
                     handleInputChange("hazardType", e.target.value)
                   }
-                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-navy"
                 >
                   <option value="">Select hazard type</option>
                   <option value="Water Damage">Water Damage</option>
@@ -729,7 +729,7 @@ export default function IICRCReportBuilder({
                   onChange={(e) =>
                     handleInputChange("insuranceType", e.target.value)
                   }
-                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-navy"
                 >
                   <option value="">Select insurance type</option>
                   <option value="Building & Contents">
@@ -754,7 +754,7 @@ export default function IICRCReportBuilder({
               <select
                 value={reportData.clientName}
                 onChange={(e) => handleClientSelect(e.target.value)}
-                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-navy"
               >
                 <option value="">Choose a client...</option>
                 {clients.map((client) => (
@@ -778,7 +778,7 @@ export default function IICRCReportBuilder({
                 onChange={(e) =>
                   handleInputChange("propertyAddress", e.target.value)
                 }
-                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-navy"
                 placeholder="123 Main St, Sydney NSW 2000"
               />
             </div>
@@ -792,7 +792,7 @@ export default function IICRCReportBuilder({
                 onChange={(e) =>
                   handleInputChange("safetyHazards", e.target.value)
                 }
-                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-navy"
                 rows={4}
                 placeholder="Electrical hazards, structural damage, gas leaks, etc."
               />
@@ -805,13 +805,13 @@ export default function IICRCReportBuilder({
           <div className="space-y-6">
             {/* Auto-fill buttons */}
             <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
-              <h3 className="text-lg font-semibold mb-3 text-cyan-400">
+              <h3 className="text-lg font-semibold mb-3 text-brand-tan">
                 Quick Fill Options
               </h3>
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => handleAutoFill("category1")}
-                  className="px-4 py-2 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg hover:bg-emerald-500/30 transition-colors text-sm"
+                  className="px-4 py-2 bg-brand-bronze/20 text-brand-bronze border border-brand-bronze/30 rounded-lg hover:bg-brand-bronze/30 transition-colors text-sm"
                 >
                   Clean Water (Category 1)
                 </button>
@@ -967,7 +967,7 @@ export default function IICRCReportBuilder({
                 onChange={(e) =>
                   handleInputChange("sourceOfWater", e.target.value)
                 }
-                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-navy"
                 placeholder="Burst pipe, storm damage, appliance failure, etc."
               />
             </div>
@@ -982,7 +982,7 @@ export default function IICRCReportBuilder({
                 onChange={(e) =>
                   handleInputChange("affectedArea", parseFloat(e.target.value))
                 }
-                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-navy"
                 placeholder="500"
               />
             </div>
@@ -994,13 +994,13 @@ export default function IICRCReportBuilder({
           <div className="space-y-6">
             {/* Auto-fill buttons */}
             <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
-              <h3 className="text-lg font-semibold mb-3 text-cyan-400">
+              <h3 className="text-lg font-semibold mb-3 text-brand-tan">
                 Quick Fill Options
               </h3>
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => handleAutoFill("category1")}
-                  className="px-4 py-2 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg hover:bg-emerald-500/30 transition-colors text-sm"
+                  className="px-4 py-2 bg-brand-bronze/20 text-brand-bronze border border-brand-bronze/30 rounded-lg hover:bg-brand-bronze/30 transition-colors text-sm"
                 >
                   Clean Water Damage
                 </button>
@@ -1043,7 +1043,7 @@ export default function IICRCReportBuilder({
                 onChange={(e) =>
                   handleInputChange("structuralDamage", e.target.value)
                 }
-                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-navy"
                 rows={4}
                 placeholder="Describe structural damage to walls, floors, ceilings, framing, etc."
               />
@@ -1058,7 +1058,7 @@ export default function IICRCReportBuilder({
                 onChange={(e) =>
                   handleInputChange("contentsDamage", e.target.value)
                 }
-                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-navy"
                 rows={4}
                 placeholder="Describe damage to furniture, electronics, personal belongings, etc."
               />
@@ -1088,7 +1088,7 @@ export default function IICRCReportBuilder({
                 onChange={(e) =>
                   handleInputChange("electricalHazards", e.target.value)
                 }
-                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-navy"
                 rows={3}
                 placeholder="Electrical outlets, wiring, appliances affected by water"
               />
@@ -1103,7 +1103,7 @@ export default function IICRCReportBuilder({
                 onChange={(e) =>
                   handleInputChange("microbialGrowth", e.target.value)
                 }
-                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-navy"
                 rows={3}
                 placeholder="Visible mould, musty odours, previous water damage history"
               />
@@ -1116,7 +1116,7 @@ export default function IICRCReportBuilder({
           <div className="space-y-6">
             {/* Auto-fill buttons */}
             <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
-              <h3 className="text-lg font-semibold mb-3 text-cyan-400">
+              <h3 className="text-lg font-semibold mb-3 text-brand-tan">
                 Quick Fill Options
               </h3>
               <div className="flex flex-wrap gap-2">
@@ -1163,13 +1163,13 @@ export default function IICRCReportBuilder({
           <div className="space-y-6">
             {/* Auto-fill buttons */}
             <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
-              <h3 className="text-lg font-semibold mb-3 text-cyan-400">
+              <h3 className="text-lg font-semibold mb-3 text-brand-tan">
                 Quick Fill Options
               </h3>
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => handleAutoFill("category1")}
-                  className="px-4 py-2 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg hover:bg-emerald-500/30 transition-colors text-sm"
+                  className="px-4 py-2 bg-brand-bronze/20 text-brand-bronze border border-brand-bronze/30 rounded-lg hover:bg-brand-bronze/30 transition-colors text-sm"
                 >
                   Clean Water Drying
                 </button>
@@ -1211,13 +1211,13 @@ export default function IICRCReportBuilder({
           <div className="space-y-6">
             {/* Auto-fill buttons */}
             <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
-              <h3 className="text-lg font-semibold mb-3 text-cyan-400">
+              <h3 className="text-lg font-semibold mb-3 text-brand-tan">
                 Quick Fill Options
               </h3>
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => handleAutoFill("category1")}
-                  className="px-4 py-2 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg hover:bg-emerald-500/30 transition-colors text-sm"
+                  className="px-4 py-2 bg-brand-bronze/20 text-brand-bronze border border-brand-bronze/30 rounded-lg hover:bg-brand-bronze/30 transition-colors text-sm"
                 >
                   Clean Water Equipment
                 </button>
@@ -1261,13 +1261,13 @@ export default function IICRCReportBuilder({
           <div className="space-y-6">
             {/* Auto-fill buttons */}
             <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
-              <h3 className="text-lg font-semibold mb-3 text-cyan-400">
+              <h3 className="text-lg font-semibold mb-3 text-brand-tan">
                 Quick Fill Options
               </h3>
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => handleAutoFill("category1")}
-                  className="px-4 py-2 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg hover:bg-emerald-500/30 transition-colors text-sm"
+                  className="px-4 py-2 bg-brand-bronze/20 text-brand-bronze border border-brand-bronze/30 rounded-lg hover:bg-brand-bronze/30 transition-colors text-sm"
                 >
                   Clean Water Monitoring
                 </button>
@@ -1311,7 +1311,7 @@ export default function IICRCReportBuilder({
           <div className="space-y-6">
             {/* Auto-fill buttons */}
             <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
-              <h3 className="text-lg font-semibold mb-3 text-cyan-400">
+              <h3 className="text-lg font-semibold mb-3 text-brand-tan">
                 Quick Fill Options
               </h3>
               <div className="flex flex-wrap gap-2">
@@ -1350,14 +1350,14 @@ export default function IICRCReportBuilder({
       case "review":
         return (
           <div className="space-y-6">
-            <div className="bg-emerald-500/20 border border-emerald-500/30 rounded-lg p-6">
+            <div className="bg-brand-bronze/20 border border-brand-bronze/30 rounded-lg p-6">
               <div className="flex items-center gap-2 mb-4">
-                <CheckCircle className="text-emerald-400" size={24} />
-                <h3 className="text-xl font-medium text-emerald-400">
+                <CheckCircle className="text-brand-bronze" size={24} />
+                <h3 className="text-xl font-medium text-brand-bronze">
                   IICRC S500 Compliance Review
                 </h3>
               </div>
-              <p className="text-emerald-300">
+              <p className="text-brand-bronze">
                 This report has been generated following ANSI/IICRC S500: 2021
                 Standard for Professional Water Damage Restoration procedures.
               </p>
@@ -1400,19 +1400,19 @@ export default function IICRCReportBuilder({
                 </h4>
                 <div className="space-y-2 text-sm text-slate-300">
                   <div className="flex items-center gap-2">
-                    <CheckCircle size={16} className="text-emerald-400" />
+                    <CheckCircle size={16} className="text-brand-bronze" />
                     <span>IICRC S500 Standards</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <CheckCircle size={16} className="text-emerald-400" />
+                    <CheckCircle size={16} className="text-brand-bronze" />
                     <span>Safety Protocols</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <CheckCircle size={16} className="text-emerald-400" />
+                    <CheckCircle size={16} className="text-brand-bronze" />
                     <span>Equipment Sizing</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <CheckCircle size={16} className="text-emerald-400" />
+                    <CheckCircle size={16} className="text-brand-bronze" />
                     <span>Monitoring Procedures</span>
                   </div>
                 </div>
@@ -1490,7 +1490,7 @@ export default function IICRCReportBuilder({
           </div>
           <div className="w-full bg-slate-700 rounded-full h-2">
             <motion.div
-              className="bg-gradient-to-r from-cyan-500 to-blue-500 h-2 rounded-full"
+              className="bg-gradient-to-r from-brand-navy to-blue-500 h-2 rounded-full"
               initial={{ width: 0 }}
               animate={{ width: `${(currentStep / steps.length) * 100}%` }}
               transition={{ duration: 0.5, ease: "easeOut" }}
@@ -1509,7 +1509,7 @@ export default function IICRCReportBuilder({
                 <motion.div
                   className={`w-12 h-12 rounded-full flex items-center justify-center border-2 mb-2 transition-all flex-shrink-0 ${
                     currentStep >= step.id
-                      ? "bg-cyan-500 border-cyan-500 text-white shadow-lg shadow-cyan-500/25"
+                      ? "bg-brand-navy border-brand-navy text-white shadow-lg shadow-brand-navy/25"
                       : "border-slate-600 text-slate-400"
                   }`}
                   initial={{ scale: 0.8 }}
@@ -1539,7 +1539,7 @@ export default function IICRCReportBuilder({
                 {index < steps.length - 1 && (
                   <div
                     className={`flex-1 h-0.5 mx-4 ${
-                      currentStep > step.id ? "bg-cyan-500" : "bg-slate-600"
+                      currentStep > step.id ? "bg-brand-navy" : "bg-slate-600"
                     }`}
                   />
                 )}
@@ -1559,7 +1559,7 @@ export default function IICRCReportBuilder({
                 <motion.div
                   className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all flex-shrink-0 ${
                     currentStep >= step.id
-                      ? "bg-cyan-500 border-cyan-500 text-white shadow-lg shadow-cyan-500/25"
+                      ? "bg-brand-navy border-brand-navy text-white shadow-lg shadow-brand-navy/25"
                       : "border-slate-600 text-slate-400"
                   }`}
                   initial={{ scale: 0.8 }}
@@ -1589,7 +1589,7 @@ export default function IICRCReportBuilder({
                 {index < steps.length - 1 && (
                   <div
                     className={`w-8 h-0.5 mt-5 ${
-                      currentStep > step.id ? "bg-cyan-500" : "bg-slate-600"
+                      currentStep > step.id ? "bg-brand-navy" : "bg-slate-600"
                     }`}
                   />
                 )}
@@ -1634,7 +1634,7 @@ export default function IICRCReportBuilder({
           {currentStep === steps.length ? (
             <button
               onClick={handleSubmit}
-              className="px-8 py-3 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-lg text-white font-medium hover:shadow-lg hover:shadow-emerald-500/50 transition-all flex items-center gap-2"
+              className="px-8 py-3 bg-gradient-to-r from-brand-bronze to-brand-tan rounded-lg text-white font-medium hover:shadow-lg hover:shadow-brand-bronze/50 transition-all flex items-center gap-2"
             >
               <CheckCircle size={20} />
               {isEditMode ? "Update Report" : "Complete Report"}
@@ -1642,7 +1642,7 @@ export default function IICRCReportBuilder({
           ) : (
             <button
               onClick={handleNext}
-              className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg text-white font-medium hover:shadow-lg hover:shadow-cyan-500/50 transition-all flex items-center gap-2"
+              className="px-6 py-3 bg-gradient-to-r from-brand-navy to-blue-500 rounded-lg text-white font-medium hover:shadow-lg hover:shadow-brand-navy/50 transition-all flex items-center gap-2"
             >
               Next Step
               <ArrowRight size={20} />

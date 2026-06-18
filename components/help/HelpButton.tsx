@@ -42,7 +42,7 @@ export function HelpButton({
       <button
         onClick={() => setOpen(true)}
         className={cn(
-          "inline-flex items-center justify-center rounded-full p-1 text-neutral-500 hover:text-cyan-500 hover:bg-cyan-500/10 transition-colors",
+          "inline-flex items-center justify-center rounded-full p-1 text-neutral-500 hover:text-brand-tan hover:bg-brand-navy/10 transition-colors",
           className,
         )}
         aria-label={`Help: ${title}`}
@@ -63,7 +63,7 @@ export function HelpButton({
       <button
         onClick={() => setOpen(true)}
         className={cn(
-          "inline-flex items-center gap-1 text-sm text-cyan-500 hover:text-cyan-400 hover:underline",
+          "inline-flex items-center gap-1 text-sm text-brand-tan hover:text-brand-tan hover:underline",
           className,
         )}
       >
@@ -79,7 +79,7 @@ export function HelpButton({
         <DialogContent className="sm:max-w-lg bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-neutral-900 dark:text-white">
-              <HelpCircle className="h-5 w-5 text-cyan-500" />
+              <HelpCircle className="h-5 w-5 text-brand-tan" />
               {title}
             </DialogTitle>
             <DialogDescription className="text-neutral-600 dark:text-neutral-400">
@@ -99,7 +99,7 @@ export function HelpButton({
                       key={index}
                       className="flex gap-3 text-sm text-neutral-600 dark:text-neutral-400"
                     >
-                      <span className="flex-shrink-0 flex items-center justify-center w-5 h-5 rounded-full bg-cyan-500/10 text-cyan-500 text-xs font-medium">
+                      <span className="flex-shrink-0 flex items-center justify-center w-5 h-5 rounded-full bg-brand-navy/10 text-brand-tan text-xs font-medium">
                         {index + 1}
                       </span>
                       {step}
@@ -133,7 +133,7 @@ export function HelpButton({
                 href={learnMoreUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-sm text-cyan-500 hover:text-cyan-400"
+                className="inline-flex items-center gap-1 text-sm text-brand-tan hover:text-brand-tan"
               >
                 View full documentation
                 <ExternalLink className="h-3 w-3" />

@@ -132,13 +132,13 @@ export function NirPilotSurvey({
     return (
       <div className="mt-6 rounded-xl border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50 dark:bg-emerald-950/30 p-4 flex items-center gap-3">
         <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center">
-          <Star className="text-emerald-500" size={16} fill="currentColor" />
+          <Star className="text-brand-bronze" size={16} fill="currentColor" />
         </div>
         <div>
-          <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
+          <p className="text-sm font-medium text-emerald-800 dark:text-brand-bronze">
             Thank you — your feedback helps validate the NIR standard.
           </p>
-          <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">
+          <p className="text-xs text-brand-bronze dark:text-brand-bronze mt-0.5">
             Rating recorded as part of the Phase 2 pilot.
           </p>
         </div>
@@ -152,7 +152,7 @@ export function NirPilotSurvey({
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-3.5 border-b border-neutral-100 dark:border-slate-800">
         <div className="flex items-center gap-2.5">
-          <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+          <div className="w-2 h-2 rounded-full bg-brand-navy animate-pulse" />
           <span className="text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-slate-400">
             NIR Pilot — Quick Feedback
           </span>
@@ -188,7 +188,7 @@ export function NirPilotSurvey({
                 setRating(n);
                 setError(null);
               }}
-              className="transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 rounded"
+              className="transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy rounded"
               aria-label={`Rate ${n} — ${RATING_LABELS[n]}`}
             >
               <Star
@@ -220,7 +220,7 @@ export function NirPilotSurvey({
               onChange={(e) => setNotes(e.target.value)}
               placeholder="What worked well, or what was difficult?"
               rows={2}
-              className="w-full text-xs rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 resize-none"
+              className="w-full text-xs rounded-lg border border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2 text-neutral-800 dark:text-slate-200 placeholder:text-neutral-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-navy/40 resize-none"
             />
           </div>
         )}
@@ -244,7 +244,7 @@ export function NirPilotSurvey({
           className={cn(
             "flex items-center gap-1.5 text-xs font-medium px-3.5 py-1.5 rounded-lg transition-all",
             rating > 0
-              ? "bg-cyan-500 hover:bg-cyan-600 text-white shadow-sm"
+              ? "bg-brand-navy hover:bg-brand-navy text-white shadow-sm"
               : "bg-neutral-100 dark:bg-slate-800 text-neutral-400 cursor-not-allowed",
           )}
         >

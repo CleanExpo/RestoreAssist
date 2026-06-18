@@ -116,8 +116,8 @@ export default function PortalInvitationSection({
         icon: <Clock size={14} />,
       },
       ACCEPTED: {
-        bg: "bg-emerald-500/20",
-        text: "text-emerald-400",
+        bg: "bg-brand-bronze/20",
+        text: "text-brand-bronze",
         icon: <CheckCircle size={14} />,
       },
       EXPIRED: {
@@ -161,7 +161,7 @@ export default function PortalInvitationSection({
         </div>
       ) : hasActiveInvitation ? (
         <div className="space-y-3">
-          <div className="flex items-center gap-2 text-emerald-400">
+          <div className="flex items-center gap-2 text-brand-bronze">
             <CheckCircle size={18} />
             <span className="font-medium">Client has portal access</span>
           </div>

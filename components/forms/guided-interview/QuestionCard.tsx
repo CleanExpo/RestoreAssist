@@ -366,14 +366,14 @@ export function QuestionCard({
         {question.fieldMappings && question.fieldMappings.length > 0 && (
           <div className="bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-950/30 dark:to-green-950/30 border-2 border-emerald-200/80 dark:border-emerald-800/60 rounded-xl p-4 shadow-sm">
             <div className="flex items-start gap-2 mb-3">
-              <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <div className="w-2 h-2 rounded-full bg-emerald-500" />
+              <div className="w-5 h-5 rounded-full bg-brand-bronze/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <div className="w-2 h-2 rounded-full bg-brand-bronze" />
               </div>
               <div className="flex-1">
                 <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-200 mb-1">
                   Auto-population Preview
                 </p>
-                <p className="text-xs text-emerald-700 dark:text-emerald-300/80">
+                <p className="text-xs text-emerald-700 dark:text-brand-bronze/80">
                   Answering this question will automatically fill{" "}
                   {question.fieldMappings.length} field
                   {question.fieldMappings.length > 1 ? "s" : ""} in your report
@@ -390,7 +390,7 @@ export function QuestionCard({
                     {mapping.formFieldId}
                   </span>
                   {mapping.confidence < 100 && (
-                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400">
+                    <span className="text-[10px] text-brand-bronze dark:text-brand-bronze">
                       {mapping.confidence}%
                     </span>
                   )}

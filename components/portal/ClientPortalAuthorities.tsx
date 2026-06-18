@@ -90,7 +90,7 @@ export function ClientPortalAuthorities({ token }: { token: string }) {
             {signed[a.id] ? (
               <p
                 role="status"
-                className="text-xs text-emerald-600 font-medium mt-2"
+                className="text-xs text-brand-bronze font-medium mt-2"
               >
                 ✓ Approved — thank you.
               </p>
@@ -104,14 +104,14 @@ export function ClientPortalAuthorities({ token }: { token: string }) {
                   }
                   placeholder="Type your full name to sign"
                   aria-label={`Your full name to approve ${a.name}`}
-                  className="flex-1 min-w-[180px] px-2 py-1.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                  className="flex-1 min-w-[180px] px-2 py-1.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-1 focus:ring-brand-navy"
                 />
                 <button
                   type="button"
                   onClick={() => sign(a)}
                   disabled={busyId === a.id || !(names[a.id] ?? "").trim()}
                   aria-label={`Approve and sign ${a.name}`}
-                  className="min-h-11 px-4 rounded-lg bg-cyan-600 text-white text-sm font-medium hover:bg-cyan-700 disabled:opacity-40"
+                  className="min-h-11 px-4 rounded-lg bg-brand-navy text-white text-sm font-medium hover:bg-cyan-700 disabled:opacity-40"
                 >
                   {busyId === a.id ? "Signing…" : "Approve & sign"}
                 </button>

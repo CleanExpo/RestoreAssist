@@ -48,7 +48,7 @@ export function FeatureHint({
 
   const styles = {
     tip: "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400",
-    info: "bg-cyan-500/10 border-cyan-500/20 text-cyan-600 dark:text-cyan-400",
+    info: "bg-brand-navy/10 border-brand-navy/20 text-brand-tan dark:text-brand-tan",
     warning: "bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400",
   };
 

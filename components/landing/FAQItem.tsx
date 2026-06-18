@@ -24,7 +24,7 @@ export default function FAQItem({
       whileInView={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, delay }}
       viewport={{ once: true }}
-      className="border border-slate-700/50 bg-gradient-to-br from-slate-800/30 to-slate-800/50 rounded-2xl overflow-hidden hover:border-cyan-500/50 transition-all duration-300"
+      className="border border-slate-700/50 bg-gradient-to-br from-slate-800/30 to-slate-800/50 rounded-2xl overflow-hidden hover:border-brand-navy/50 transition-all duration-300"
     >
       <button
         className="w-full p-6 text-left flex items-center justify-between hover:bg-slate-800/50 transition-colors duration-300"
@@ -41,7 +41,7 @@ export default function FAQItem({
           transition={{ duration: 0.3 }}
         >
           {isOpen ? (
-            <Minus size={24} className="text-cyan-400" />
+            <Minus size={24} className="text-brand-tan" />
           ) : (
             <Plus size={24} className="text-slate-400" />
           )}
