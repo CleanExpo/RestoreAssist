@@ -1407,6 +1407,16 @@ export default function InitialDataEntryForm({
         assigneeData.assignedAdminId = selectedAssigneeId;
       }
 
+      // RA-6799: if a report was already created in this session, reuse it
+      // instead of POSTing /api/reports/initial-entry again — re-creating would
+      // produce orphan reports (the production loop). Re-show the review step
+      // for the existing report.
+      if (reportId) {
+        setShowReview(true);
+        setLoading(false);
+        return;
+      }
+
       // Single API call to save all data
       const response = await fetch("/api/reports/initial-entry", {
         method: "POST",
