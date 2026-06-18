@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
       }
 
       console.error("[optimize-prompts] Error:", message);
-      return NextResponse.json({ error: message }, { status: 500 });
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
   });
 }

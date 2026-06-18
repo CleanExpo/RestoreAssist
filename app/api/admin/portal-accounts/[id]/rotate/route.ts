@@ -31,38 +31,39 @@ export async function POST(
 
   const { id } = await params;
 
-  const existing = await prisma.clientPortalAccount.findUnique({
-    where: { id },
-    select: { id: true, revokedAt: true },
-  });
-  if (!existing) {
-    return apiError(request, {
-      code: "NOT_FOUND",
-      message: "Portal account not found",
-      status: 404,
-    });
-  }
-  if (existing.revokedAt) {
-    return apiError(request, {
-      code: "CONFLICT",
-      message: "Cannot rotate a revoked portal account",
-      status: 409,
-    });
-  }
-
   try {
-    const updated = await prisma.clientPortalAccount.update({
+    // Atomic rotate: only updates if the account exists AND is not revoked.
+    // This eliminates the TOCTOU window between the old findUnique + update.
+    const newToken = mintToken();
+    const result = await prisma.clientPortalAccount.updateMany({
+      where: { id, revokedAt: null },
+      data: { token: newToken, tokenRotatedAt: new Date() },
+    });
+
+    if (result.count === 0) {
+      // Either the account doesn't exist or it was revoked — read to distinguish.
+      const check = await prisma.clientPortalAccount.findUnique({
+        where: { id },
+        select: { id: true },
+      });
+      if (!check) {
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Portal account not found",
+          status: 404,
+        });
+      }
+      return apiError(request, {
+        code: "CONFLICT",
+        message: "Cannot rotate a revoked portal account",
+        status: 409,
+      });
+    }
+
+    // Fetch the updated row to return to the caller (updateMany has no select).
+    const updated = await prisma.clientPortalAccount.findUnique({
       where: { id },
-      data: {
-        token: mintToken(),
-        tokenRotatedAt: new Date(),
-      },
-      select: {
-        id: true,
-        clientId: true,
-        token: true,
-        tokenRotatedAt: true,
-      },
+      select: { id: true, clientId: true, token: true, tokenRotatedAt: true },
     });
 
     return Response.json({ data: updated });

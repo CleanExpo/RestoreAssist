@@ -34,6 +34,7 @@ export async function GET(request: NextRequest) {
         userId: { in: orgUserIds },
       },
       include: { user: { select: { id: true, name: true, email: true } } },
+      take: 10_000,
     });
 
     const totalCostMtd = events.reduce((s, e) => s + (e.totalCost ?? 0), 0);
