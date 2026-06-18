@@ -64,6 +64,7 @@ export async function GET(request: NextRequest) {
       orderBy: {
         createdAt: "desc",
       },
+      take: 200,
     });
 
     return NextResponse.json({ invitations });
