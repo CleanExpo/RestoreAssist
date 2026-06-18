@@ -115,6 +115,12 @@ export async function POST(request: NextRequest) {
           userId: userId,
           type: "lifetime",
         },
+        // RA-6800: stamp the payment intent with type=lifetime so that the
+        // payment_intent.succeeded webhook handler can skip the RA-invoice path
+        // (which expects invoiceId metadata) without returning 400 to Stripe.
+        payment_intent_data: {
+          metadata: { userId: userId, type: "lifetime" },
+        },
         // RA-6791 — AU GST compliance for one-time purchases. Stripe Tax
         // auto-applies 10 % GST to AU customers; tax_id_collection captures
         // the buyer's ABN so business customers can claim input credits and

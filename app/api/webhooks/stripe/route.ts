@@ -8,6 +8,7 @@ import { sendSubscriptionActivatedEmail } from "@/lib/email";
 import { warnIfZeroRows } from "@/lib/prisma-assert";
 import { onInvoicePaid } from "@/lib/lifecycle/subscribers/invoice-paid";
 import { recordSubscriptionEvent } from "@/lib/billing/subscription-event";
+import { LIFETIME_PLAN_NAME } from "@/lib/lifetime-pricing";
 
 /**
  * Best-effort human-readable plan name from a Stripe Subscription.
@@ -195,7 +196,13 @@ export async function POST(request: NextRequest) {
 
         // RA-1139: Missing invoiceId → 400 so Stripe retries and ops are alerted.
         // (Previously was a silent break → 200, causing Stripe to stop retrying.)
+        // RA-6800: Lifetime checkout payment intents carry type="lifetime" and
+        // no invoiceId — activation is handled via checkout.session.completed;
+        // return 200 here to stop Stripe retrying.
         if (!invoiceId) {
+          if (paymentIntent.metadata?.type === "lifetime") {
+            break;
+          }
           console.error(
             "[stripe-webhook] payment_intent.succeeded missing invoiceId metadata",
             {
@@ -380,8 +387,90 @@ export async function POST(request: NextRequest) {
  *
  * Exported so unit tests can call it directly with synthetic events.
  */
+/**
+ * RA-6800: Lifetime purchase activation (mode: "payment").
+ * Called from handleCheckoutCompleted when metadata.type === "lifetime".
+ */
+async function handleLifetimeCheckoutCompleted(
+  event: Stripe.Event,
+  session: Stripe.Checkout.Session,
+) {
+  const metadataUserId = session.metadata?.userId ?? null;
+  const customerId =
+    typeof session.customer === "string" ? session.customer : null;
+
+  if (!metadataUserId) {
+    console.error(
+      "[stripe-webhook] checkout.session.completed (lifetime) missing metadata.userId",
+      event.id,
+    );
+    return;
+  }
+
+  // Idempotency: record event first, bail on replay.
+  const recorded = await recordSubscriptionEvent({
+    userId: metadataUserId,
+    eventType: "SUBSCRIPTION_ACTIVATED",
+    stripeEventId: event.id,
+    payload: { tier: "lifetime", sessionId: session.id, type: "lifetime" },
+  });
+  if (recorded.kind === "deduped") return;
+
+  const activationResult = await prisma.user.updateMany({
+    where: { id: metadataUserId },
+    data: {
+      subscriptionStatus: SubscriptionStatus.ACTIVE,
+      lifetimeAccess: true,
+      subscriptionPlan: LIFETIME_PLAN_NAME,
+      stripeCustomerId: customerId ?? undefined,
+      subscriptionEndsAt: null,
+      nextBillingDate: null,
+      lastBillingDate: new Date(),
+      creditsRemaining: 999999,
+    },
+  });
+  warnIfZeroRows(activationResult, "stripe.checkout.completed.lifetime.activate", {
+    customerId,
+    userId: metadataUserId,
+  });
+
+  // Best-effort activation receipt — failure must not block the 200 to Stripe.
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: metadataUserId },
+      select: { id: true, name: true, email: true },
+    });
+    if (user?.email) {
+      const amountTotal = session.amount_total ?? 0;
+      const baseUrl = process.env.NEXTAUTH_URL ?? "https://restoreassist.app";
+      void sendSubscriptionActivatedEmail({
+        recipientEmail: user.email,
+        recipientName: user.name ?? "there",
+        planName: LIFETIME_PLAN_NAME,
+        amount: amountTotal / 100,
+        currency: (session.currency ?? "aud").toUpperCase(),
+        invoiceUrl: null,
+        dashboardUrl: `${baseUrl}/dashboard`,
+        nextBillingDate: null,
+      });
+    }
+  } catch (err) {
+    console.error(
+      "[stripe-webhook] lifetime activation email failed (non-fatal):",
+      err,
+    );
+  }
+}
+
 export async function handleCheckoutCompleted(event: Stripe.Event) {
   const session = event.data.object as Stripe.Checkout.Session;
+
+  // RA-6800: lifetime purchases use mode:"payment" — activate separately.
+  if (session.mode === "payment" && session.metadata?.type === "lifetime") {
+    await handleLifetimeCheckoutCompleted(event, session);
+    return;
+  }
+
   if (session.mode !== "subscription") return;
 
   const metadataUserId = session.metadata?.userId ?? null;

@@ -5,6 +5,7 @@ import {
   getOrganizationOwner,
 } from "@/lib/organization-credits";
 import { checkAndUpdateTrialStatus } from "@/lib/trial-handling";
+import { LIFETIME_PLAN_NAME } from "@/lib/lifetime-pricing";
 
 export interface ReportLimitInfo {
   baseLimit: number;
@@ -25,6 +26,7 @@ export async function getUserReportLimits(
     select: {
       subscriptionStatus: true,
       subscriptionPlan: true,
+      lifetimeAccess: true,
       addonReports: true,
       monthlyReportsUsed: true,
       monthlyResetDate: true,
@@ -91,7 +93,9 @@ export async function getUserReportLimits(
 
   // For active subscribers, calculate limits
   if (user.subscriptionStatus === "ACTIVE") {
-    const isLifetime = user.subscriptionPlan === "Lifetime";
+    const isLifetime =
+      user.lifetimeAccess === true ||
+      user.subscriptionPlan === LIFETIME_PLAN_NAME;
     const plan = isLifetime
       ? { reportLimit: 999 }
       : user.subscriptionPlan === "Yearly Plan"
