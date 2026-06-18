@@ -452,12 +452,12 @@ export async function POST(
           );
           controller.close();
         } catch (streamErr) {
-          const message =
-            streamErr instanceof Error ? streamErr.message : "Stream failed";
+          // Log the real error server-side; never send error.message to the
+          // client — it can contain Anthropic API details or rate-limit info.
           console.error("[generate-scope stream]", streamErr);
           controller.enqueue(
             encoder.encode(
-              `data: ${JSON.stringify({ type: "error", error: message })}\n\n`,
+              `data: ${JSON.stringify({ type: "error", error: "Scope generation failed. Please try again." })}\n\n`,
             ),
           );
           controller.close();
