@@ -165,7 +165,7 @@ export async function DELETE(
     }
 
     await prisma.integration.delete({
-      where: { id },
+      where: { id, userId: session.user.id },
     });
 
     await recordMutationAudit({

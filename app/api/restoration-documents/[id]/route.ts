@@ -122,7 +122,7 @@ export async function DELETE(
       });
     }
 
-    await prisma.restorationDocument.delete({ where: { id } });
+    await prisma.restorationDocument.delete({ where: { id, userId: session.user.id } });
     return NextResponse.json({ success: true });
   } catch (err) {
     return fromException(request, err, { stage: "delete" });

@@ -217,7 +217,7 @@ export async function DELETE(
     }
 
     await prisma.interviewSession.delete({
-      where: { id },
+      where: { id, userId: user.id },
     });
 
     return NextResponse.json({ success: true });

@@ -134,7 +134,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    await prisma.scope.delete({ where: { id } });
+    await prisma.scope.delete({ where: { id, report: { userId: session.user.id } } });
     return NextResponse.json({ deleted: true, id });
   } catch (error) {
     console.error("[scopes/[id] DELETE]", error);
