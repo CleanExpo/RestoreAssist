@@ -143,6 +143,15 @@ export async function POST(
         status: 400,
       });
     }
+    // I1: guard against arbitrarily large canvas payloads (base64 PNG/SVG).
+    // 500 kB covers the largest realistic signature drawing with room to spare.
+    if (typeof signatureData !== "string" || signatureData.length > 500_000) {
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Signature data exceeds maximum allowed size",
+        status: 400,
+      });
+    }
 
     // Look up the signature record to get the id and instanceId
     const signature = await prisma.authorityFormSignature.findUnique({
@@ -231,6 +240,13 @@ export async function POST(
         });
       }
     }
+
+    // I3: revoke the single-use signing token so a replayed GET cannot
+    // leak PII (signatory name, email, client address) indefinitely.
+    await prisma.authorityFormSignature.update({
+      where: { id: signature.id },
+      data: { signatureRequestToken: null },
+    });
 
     return NextResponse.json({
       success: true,

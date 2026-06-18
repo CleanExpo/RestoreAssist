@@ -115,9 +115,10 @@ export async function POST(
         "unknown";
       const userAgent = request.headers.get("user-agent") || "unknown";
 
-      // Update signature
+      // Update signature — scope by instanceId so a user cannot update a
+      // signature that belongs to a different form instance (IDOR guard).
       const signature = await prisma.authorityFormSignature.update({
-        where: { id: signatureId },
+        where: { id: signatureId, instanceId: formId },
         data: {
           signatureData,
           signatoryName: signatoryName || undefined,
