@@ -123,71 +123,50 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // CRITICAL: Create purchase record FIRST (to prevent duplicates).
-        // The create() call itself acts as a unique lock — if it fails with
-        // P2002 the purchase was already processed and we skip. The returned
-        // row is not used; only the side-effect (insert + unique-key clash)
-        // matters.
-        let shouldProcess = false;
-
+        // Wrap purchase record creation + credit increment in a single transaction.
+        // A crash between the two writes would otherwise leave the record marked
+        // COMPLETED but with no credits granted (or credits granted with no record).
+        // The unique constraint on stripeSessionId ensures exactly-once processing.
         if (canUsePurchaseTable) {
           try {
-            // Try to create the record - this will fail if it already exists (unique constraint)
-            await prisma.addonPurchase.create({
-              data: {
-                userId: session.user.id,
-                addonKey: addonKey,
-                addonName: checkoutSession.metadata?.addonName || addonKey,
-                reportLimit: addonReports,
-                amount: 0,
-                currency: "AUD",
-                stripeSessionId: checkoutSession.id,
-                status: "COMPLETED",
-              },
+            await prisma.$transaction(async (tx) => {
+              await tx.addonPurchase.create({
+                data: {
+                  userId: session.user.id,
+                  addonKey: addonKey,
+                  addonName: checkoutSession.metadata?.addonName || addonKey,
+                  reportLimit: addonReports,
+                  amount: 0,
+                  currency: "AUD",
+                  stripeSessionId: checkoutSession.id,
+                  status: "COMPLETED",
+                },
+              });
+              await tx.user.update({
+                where: { id: session.user.id },
+                data: { addonReports: { increment: addonReports } },
+              });
             });
-            shouldProcess = true; // Only process if record was created
           } catch (error: any) {
-            // If record already exists (unique constraint violation), skip processing
             if (
               error.code === "P2002" ||
               error.message?.includes("Unique constraint") ||
               error.message?.includes("unique")
             ) {
-              continue; // Skip this session - already processed
+              continue; // Already processed — skip
             }
-            console.error("❌ Error creating purchase record:", error.message);
-            // Don't process if we can't create the record
+            console.error("❌ Error processing addon purchase:", error.message);
             continue;
           }
         } else {
-          // Table doesn't exist - still process by updating user field
-          // This ensures add-ons are added even if table isn't available
-          shouldProcess = true;
+          // AddonPurchase table absent — update user field only.
+          // This is a degraded path; treat canUsePurchaseTable === false as a
+          // warning signal and still credit the user.
+          await prisma.user.update({
+            where: { id: session.user.id },
+            data: { addonReports: { increment: addonReports } },
+          });
         }
-
-        // ONLY process if we determined it's safe to do so
-        if (!shouldProcess) {
-          continue;
-        }
-
-        // Get current user value before update
-        const _userBefore = await prisma.user.findUnique({
-          where: { id: session.user.id },
-          select: { addonReports: true },
-        });
-
-        // ALWAYS update user's addonReports (works with or without table)
-        const _updatedUser = await prisma.user.update({
-          where: { id: session.user.id },
-          data: {
-            addonReports: {
-              increment: addonReports,
-            },
-          },
-          select: {
-            addonReports: true,
-          },
-        });
 
         processed.push({
           sessionId: checkoutSession.id,
