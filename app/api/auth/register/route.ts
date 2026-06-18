@@ -192,7 +192,9 @@ export async function POST(request: NextRequest) {
             trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
             quickFillCreditsRemaining: 30,
             totalQuickFillUsed: 0,
-          },
+            // RA-1255: cast needed until Prisma client regenerates in Vercel build
+            acceptedTermsAt: new Date() as any,
+          } as any,
         });
         const orgName = `${name}'s Organisation`;
         const org = await tx.organization.create({
