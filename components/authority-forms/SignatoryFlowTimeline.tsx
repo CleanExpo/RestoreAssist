@@ -61,11 +61,11 @@ export function SignatoryFlowTimeline({
     switch (status) {
       case "completed":
         return {
-          icon: "text-emerald-500",
+          icon: "text-brand-bronze",
           bg: "bg-emerald-100 dark:bg-emerald-950/30",
-          border: "border-emerald-300 dark:border-emerald-700",
-          text: "text-emerald-700 dark:text-emerald-400",
-          line: "bg-emerald-500",
+          border: "border-brand-navy dark:border-emerald-700",
+          text: "text-emerald-700 dark:text-brand-navy",
+          line: "bg-brand-bronze",
         };
       case "pending":
         return {
@@ -90,17 +90,17 @@ export function SignatoryFlowTimeline({
   const getRoleBadgeColor = (role: string) => {
     const roleColors: Record<string, string> = {
       CLIENT:
-        "bg-purple-100 text-purple-700 dark:bg-purple-950/30 dark:text-purple-400",
+        "bg-purple-100 text-purple-700 dark:bg-purple-950/30 dark:text-brand-navy",
       INSURER:
         "bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400",
       CONTRACTOR:
-        "bg-cyan-100 text-cyan-700 dark:bg-cyan-950/30 dark:text-cyan-400",
+        "bg-cyan-100 text-cyan-700 dark:bg-cyan-950/30 dark:text-brand-navy",
       PROPERTY_OWNER:
         "bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400",
       MANAGER:
         "bg-indigo-100 text-indigo-700 dark:bg-indigo-950/30 dark:text-indigo-400",
       TECHNICIAN:
-        "bg-teal-100 text-teal-700 dark:bg-teal-950/30 dark:text-teal-400",
+        "bg-teal-100 text-teal-700 dark:bg-teal-950/30 dark:text-brand-navy",
     };
     return (
       roleColors[role] ||
@@ -308,7 +308,7 @@ export function SignatoryFlowSummary({
           </span>
         )}
         {isComplete && (
-          <span className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+          <span className="text-xs text-brand-bronze dark:text-brand-navy flex items-center gap-1">
             <CheckCircle className="h-3.5 w-3.5" />
             All signed
           </span>
@@ -318,7 +318,7 @@ export function SignatoryFlowSummary({
         <div
           className={cn(
             "h-full rounded-full transition-all duration-500",
-            isComplete ? "bg-emerald-500" : "bg-blue-500",
+            isComplete ? "bg-brand-bronze" : "bg-blue-500",
           )}
           style={{ width: `${percentage}%` }}
         />

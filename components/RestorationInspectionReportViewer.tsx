@@ -1073,7 +1073,7 @@ export default function RestorationInspectionReportViewer({
           {/* Property Information */}
           <div className="mb-6 print:mb-4">
             <h3 className="text-lg print:text-base font-semibold text-slate-900 mb-3 print:mb-2 flex items-center gap-2">
-              <Building2 className="w-5 h-5 print:w-4 print:h-4 text-cyan-600" />
+              <Building2 className="w-5 h-5 print:w-4 print:h-4 text-brand-bronze" />
               Property Information
             </h3>
             <div className="space-y-3 print:space-y-2">
@@ -1135,7 +1135,7 @@ export default function RestorationInspectionReportViewer({
           {/* Incident Details */}
           <div className="mb-6 print:mb-4">
             <h3 className="text-lg print:text-base font-semibold text-slate-900 mb-3 print:mb-2 flex items-center gap-2">
-              <Calendar className="w-5 h-5 print:w-4 print:h-4 text-cyan-600" />
+              <Calendar className="w-5 h-5 print:w-4 print:h-4 text-brand-bronze" />
               Incident Details
             </h3>
             <div className="space-y-3 print:space-y-2">
@@ -1257,7 +1257,7 @@ export default function RestorationInspectionReportViewer({
               data.reportDepthLevel === "Optimised") && (
               <div className="mb-6 print:mb-4">
                 <h3 className="text-lg print:text-base font-semibold text-slate-900 mb-3 print:mb-2 flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 print:w-4 print:h-4 text-cyan-600" />
+                  <CheckCircle className="w-5 h-5 print:w-4 print:h-4 text-brand-bronze" />
                   Tier 1: Critical Assessment
                 </h3>
                 <div className="space-y-3 print:space-y-2">
@@ -1372,7 +1372,7 @@ export default function RestorationInspectionReportViewer({
               data.reportDepthLevel === "Optimised") && (
               <div className="mb-6 print:mb-4">
                 <h3 className="text-lg print:text-base font-semibold text-slate-900 mb-3 print:mb-2 flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 print:w-4 print:h-4 text-cyan-600" />
+                  <CheckCircle className="w-5 h-5 print:w-4 print:h-4 text-brand-bronze" />
                   Tier 2: Enhanced Assessment
                 </h3>
                 <div className="space-y-3 print:space-y-2">
@@ -1470,7 +1470,7 @@ export default function RestorationInspectionReportViewer({
           {data.tier3 && data.reportDepthLevel === "Optimised" && (
             <div className="mb-6 print:mb-4">
               <h3 className="text-lg print:text-base font-semibold text-slate-900 mb-3 print:mb-2 flex items-center gap-2">
-                <CheckCircle className="w-5 h-5 print:w-4 print:h-4 text-cyan-600" />
+                <CheckCircle className="w-5 h-5 print:w-4 print:h-4 text-brand-bronze" />
                 Tier 3: Optimised Assessment
               </h3>
               <div className="space-y-3 print:space-y-2">
@@ -1537,7 +1537,7 @@ export default function RestorationInspectionReportViewer({
             data.psychrometric) && (
             <section className="print-avoid-break mb-6 print:mb-4">
               <h2 className="text-2xl print:text-xl font-bold text-slate-900 mb-4 print:mb-3 flex items-center gap-2">
-                <Thermometer className="w-6 h-6 print:w-5 print:h-5 text-cyan-600" />
+                <Thermometer className="w-6 h-6 print:w-5 print:h-5 text-brand-bronze" />
                 Environmental Conditions & Classification
               </h2>
 
@@ -1639,7 +1639,7 @@ export default function RestorationInspectionReportViewer({
               {data.psychrometric && (
                 <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-6 print:p-4 border-2 border-green-200">
                   <h3 className="text-lg print:text-base font-bold text-slate-900 mb-4 print:mb-3 flex items-center gap-2">
-                    <Wind className="w-5 h-5 print:w-4 print:h-4 text-green-600" />
+                    <Wind className="w-5 h-5 print:w-4 print:h-4 text-brand-bronze" />
                     Psychrometric Assessment
                   </h3>
                   <div className="grid md:grid-cols-2 gap-4 print:gap-3">
@@ -1698,7 +1698,7 @@ export default function RestorationInspectionReportViewer({
           {data.affectedAreas && data.affectedAreas.length > 0 && (
             <section className="print-avoid-break mb-6 print:mb-4">
               <h2 className="text-2xl print:text-xl font-bold text-slate-900 mb-4 print:mb-3 flex items-center gap-2">
-                <Droplet className="w-6 h-6 print:w-5 print:h-5 text-cyan-600" />
+                <Droplet className="w-6 h-6 print:w-5 print:h-5 text-brand-bronze" />
                 Affected Areas
               </h2>
               <div className="space-y-4 print:space-y-3">
@@ -1758,7 +1758,7 @@ export default function RestorationInspectionReportViewer({
           {data.moistureReadings && data.moistureReadings.length > 0 && (
             <section className="print-avoid-break mb-6 print:mb-4">
               <h2 className="text-2xl print:text-xl font-bold text-slate-900 mb-4 print:mb-3 flex items-center gap-2">
-                <FileText className="w-6 h-6 print:w-5 print:h-5 text-cyan-600" />
+                <FileText className="w-6 h-6 print:w-5 print:h-5 text-brand-bronze" />
                 Detailed Moisture Readings
               </h2>
               <div className="overflow-x-auto">
@@ -1893,7 +1893,7 @@ export default function RestorationInspectionReportViewer({
           {data.equipment && data.equipment.length > 0 && (
             <section className="print-avoid-break mb-6 print:mb-4">
               <h2 className="text-2xl print:text-xl font-bold text-slate-900 mb-4 print:mb-3 flex items-center gap-2">
-                <Wrench className="w-6 h-6 print:w-5 print:h-5 text-cyan-600" />
+                <Wrench className="w-6 h-6 print:w-5 print:h-5 text-brand-bronze" />
                 Equipment Deployment
               </h2>
               <div className="overflow-x-auto">
@@ -1962,14 +1962,14 @@ export default function RestorationInspectionReportViewer({
           {/* Compliance & Standards */}
           <section className="print-avoid-break mb-6 print:mb-4">
             <h2 className="text-2xl print:text-xl font-bold text-slate-900 mb-4 print:mb-3 flex items-center gap-2">
-              <ClipboardCheck className="w-6 h-6 print:w-5 print:h-5 text-cyan-600" />
+              <ClipboardCheck className="w-6 h-6 print:w-5 print:h-5 text-brand-bronze" />
               Compliance & Standards
             </h2>
             <div className="bg-slate-50 rounded-lg p-6 print:p-4 border border-slate-200">
               <div className="space-y-2 print:space-y-1">
                 {getComplianceStandards().map((standard, index) => (
                   <div key={index} className="flex items-start gap-2">
-                    <CheckCircle className="w-4 h-4 print:w-3 print:h-3 text-green-600 mt-0.5 flex-shrink-0" />
+                    <CheckCircle className="w-4 h-4 print:w-3 print:h-3 text-brand-bronze mt-0.5 flex-shrink-0" />
                     <p className="text-sm print:text-xs text-slate-900">
                       {standard}
                     </p>
@@ -2008,7 +2008,7 @@ export default function RestorationInspectionReportViewer({
           {data.photos && data.photos.length > 0 && (
             <section className="print-avoid-break mb-6 print:mb-4">
               <h2 className="text-2xl print:text-xl font-bold text-slate-900 mb-4 print:mb-3 flex items-center gap-2">
-                <ImageIcon className="w-6 h-6 print:w-5 print:h-5 text-cyan-600" />
+                <ImageIcon className="w-6 h-6 print:w-5 print:h-5 text-brand-bronze" />
                 Photographic Evidence
               </h2>
 
@@ -2163,7 +2163,7 @@ export default function RestorationInspectionReportViewer({
           {data.technicianNotes && (
             <section className="print-avoid-break mb-6 print:mb-4">
               <h2 className="text-2xl print:text-xl font-bold text-slate-900 mb-4 print:mb-3 flex items-center gap-2">
-                <FileText className="w-6 h-6 print:w-5 print:h-5 text-cyan-600" />
+                <FileText className="w-6 h-6 print:w-5 print:h-5 text-brand-bronze" />
                 Technician Field Notes
               </h2>
               <div className="bg-slate-50 rounded-lg p-6 print:p-4 border border-slate-200">

@@ -449,7 +449,7 @@ export default function RestorationInvoiceForm({
           <button
             type="button"
             onClick={() => window.print()}
-            className="flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700"
+            className="flex items-center gap-2 rounded-lg bg-brand-bronze px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700"
           >
             <Printer className="h-4 w-4" />
             Print / Save PDF
@@ -481,7 +481,7 @@ export default function RestorationInvoiceForm({
         {/* Header */}
         <div className="mb-8 flex flex-wrap items-start justify-between gap-6">
           <div>
-            <h1 className="text-2xl font-bold text-teal-600 dark:text-teal-400">
+            <h1 className="text-2xl font-bold text-brand-bronze dark:text-brand-navy">
               {typeConfig?.title ?? "Tax Invoice (Cost Incurred)"}
             </h1>
             <p className="mt-1 text-lg font-bold tracking-wide text-neutral-900 dark:text-white">
@@ -514,7 +514,7 @@ export default function RestorationInvoiceForm({
         </div>
 
         {/* Legal banner */}
-        <div className="mb-7 border-l-4 border-teal-500 bg-teal-50/80 py-3 px-4 rounded-r-lg dark:bg-teal-900/20">
+        <div className="mb-7 border-l-4 border-brand-bronze bg-teal-50/80 py-3 px-4 rounded-r-lg dark:bg-teal-900/20">
           <p className="text-sm font-semibold text-neutral-900 dark:text-white">
             ⚖️ Invoice Settlement Basis — &quot;Reasonable Costs You Actually
             Incur&quot;
@@ -537,7 +537,7 @@ export default function RestorationInvoiceForm({
         {/* Parties */}
         <div className="mb-7 grid grid-cols-1 gap-6 md:grid-cols-2">
           <div className="rounded-lg border border-neutral-200 p-4 dark:border-slate-600">
-            <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400">
+            <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-brand-bronze dark:text-brand-navy">
               Contractor (Service Provider)
             </h4>
             {[
@@ -556,13 +556,13 @@ export default function RestorationInvoiceForm({
                   type="text"
                   value={data.contractor[key]}
                   onChange={(e) => updateContractor(key, e.target.value)}
-                  className="flex-1 border-b border-dashed border-neutral-300 bg-transparent py-0.5 focus:border-teal-500 focus:outline-none print:border-none dark:border-slate-500"
+                  className="flex-1 border-b border-dashed border-neutral-300 bg-transparent py-0.5 focus:border-brand-bronze focus:outline-none print:border-none dark:border-slate-500"
                 />
               </div>
             ))}
           </div>
           <div className="rounded-lg border border-neutral-200 p-4 dark:border-slate-600">
-            <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400">
+            <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-brand-bronze dark:text-brand-navy">
               Client (The Insured / Policyholder)
             </h4>
             {[
@@ -582,7 +582,7 @@ export default function RestorationInvoiceForm({
                   type="text"
                   value={data.client[key]}
                   onChange={(e) => updateClient(key, e.target.value)}
-                  className="flex-1 border-b border-dashed border-neutral-300 bg-transparent py-0.5 focus:border-teal-500 focus:outline-none print:border-none dark:border-slate-500"
+                  className="flex-1 border-b border-dashed border-neutral-300 bg-transparent py-0.5 focus:border-brand-bronze focus:outline-none print:border-none dark:border-slate-500"
                 />
               </div>
             ))}
@@ -590,7 +590,7 @@ export default function RestorationInvoiceForm({
         </div>
 
         {/* Insured Event Details */}
-        <h3 className="border-b-2 border-teal-500 pb-1.5 text-sm font-bold uppercase tracking-wide text-teal-600 dark:text-teal-400">
+        <h3 className="border-b-2 border-brand-bronze pb-1.5 text-sm font-bold uppercase tracking-wide text-brand-bronze dark:text-brand-navy">
           Insured Event Details
         </h3>
         <div className="mb-6 mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -602,7 +602,7 @@ export default function RestorationInvoiceForm({
               type="date"
               value={data.event.lossDate}
               onChange={(e) => updateEvent("lossDate", e.target.value)}
-              className="mt-0.5 w-full border-b border-dashed border-neutral-300 bg-transparent py-1 text-sm focus:border-teal-500 focus:outline-none print:border-none dark:border-slate-500"
+              className="mt-0.5 w-full border-b border-dashed border-neutral-300 bg-transparent py-1 text-sm focus:border-brand-bronze focus:outline-none print:border-none dark:border-slate-500"
             />
           </div>
           <div>
@@ -613,7 +613,7 @@ export default function RestorationInvoiceForm({
               type="text"
               value={data.event.lossCause}
               onChange={(e) => updateEvent("lossCause", e.target.value)}
-              className="mt-0.5 w-full border-b border-dashed border-neutral-300 bg-transparent py-1 text-sm focus:border-teal-500 focus:outline-none print:border-none dark:border-slate-500"
+              className="mt-0.5 w-full border-b border-dashed border-neutral-300 bg-transparent py-1 text-sm focus:border-brand-bronze focus:outline-none print:border-none dark:border-slate-500"
             />
           </div>
           <div>
@@ -624,7 +624,7 @@ export default function RestorationInvoiceForm({
               type="text"
               value={data.event.pdsEvent}
               onChange={(e) => updateEvent("pdsEvent", e.target.value)}
-              className="mt-0.5 w-full border-b border-dashed border-neutral-300 bg-transparent py-1 text-sm focus:border-teal-500 focus:outline-none print:border-none dark:border-slate-500"
+              className="mt-0.5 w-full border-b border-dashed border-neutral-300 bg-transparent py-1 text-sm focus:border-brand-bronze focus:outline-none print:border-none dark:border-slate-500"
             />
           </div>
           <div>
@@ -664,13 +664,13 @@ export default function RestorationInvoiceForm({
               type="text"
               value={data.event.affectedArea}
               onChange={(e) => updateEvent("affectedArea", e.target.value)}
-              className="mt-0.5 w-full border-b border-dashed border-neutral-300 bg-transparent py-1 text-sm focus:border-teal-500 focus:outline-none print:border-none dark:border-slate-500"
+              className="mt-0.5 w-full border-b border-dashed border-neutral-300 bg-transparent py-1 text-sm focus:border-brand-bronze focus:outline-none print:border-none dark:border-slate-500"
             />
           </div>
         </div>
 
         {/* Scope of Works — Line Items */}
-        <h3 className="border-b-2 border-teal-500 pb-1.5 text-sm font-bold uppercase tracking-wide text-teal-600 dark:text-teal-400">
+        <h3 className="border-b-2 border-brand-bronze pb-1.5 text-sm font-bold uppercase tracking-wide text-brand-bronze dark:text-brand-navy">
           Scope of Works — Itemised Costs
         </h3>
         <div className="mt-3 overflow-x-auto">
@@ -718,7 +718,7 @@ export default function RestorationInvoiceForm({
                             description: e.target.value,
                           })
                         }
-                        className="w-full border-0 border-b border-dashed bg-transparent focus:border-teal-500 focus:outline-none print:border-none dark:border-slate-500"
+                        className="w-full border-0 border-b border-dashed bg-transparent focus:border-brand-bronze focus:outline-none print:border-none dark:border-slate-500"
                       />
                     </td>
                     <td className="border border-neutral-200 px-2 py-1.5 text-right dark:border-slate-600">
@@ -728,7 +728,7 @@ export default function RestorationInvoiceForm({
                         onChange={(e) =>
                           setLineItem(idx, { ...item, qty: e.target.value })
                         }
-                        className="w-14 border-0 border-b border-dashed bg-transparent text-right focus:border-teal-500 focus:outline-none print:border-none dark:border-slate-500"
+                        className="w-14 border-0 border-b border-dashed bg-transparent text-right focus:border-brand-bronze focus:outline-none print:border-none dark:border-slate-500"
                       />
                     </td>
                     <td className="border border-neutral-200 px-2 py-1.5 dark:border-slate-600">
@@ -738,7 +738,7 @@ export default function RestorationInvoiceForm({
                         onChange={(e) =>
                           setLineItem(idx, { ...item, unit: e.target.value })
                         }
-                        className="w-full border-0 border-b border-dashed bg-transparent text-center focus:border-teal-500 focus:outline-none print:border-none dark:border-slate-500"
+                        className="w-full border-0 border-b border-dashed bg-transparent text-center focus:border-brand-bronze focus:outline-none print:border-none dark:border-slate-500"
                       />
                     </td>
                     <td className="border border-neutral-200 px-2 py-1.5 text-right dark:border-slate-600">
@@ -748,7 +748,7 @@ export default function RestorationInvoiceForm({
                         onChange={(e) =>
                           setLineItem(idx, { ...item, rate: e.target.value })
                         }
-                        className="w-20 border-0 border-b border-dashed bg-transparent text-right focus:border-teal-500 focus:outline-none print:border-none dark:border-slate-500"
+                        className="w-20 border-0 border-b border-dashed bg-transparent text-right focus:border-brand-bronze focus:outline-none print:border-none dark:border-slate-500"
                       />
                     </td>
                     <td className="border border-neutral-200 px-2 py-1.5 text-right font-medium dark:border-slate-600">
@@ -772,7 +772,7 @@ export default function RestorationInvoiceForm({
         <button
           type="button"
           onClick={addLineItem}
-          className="mt-2 border border-dashed border-teal-500 bg-transparent px-3 py-1.5 text-xs font-medium text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-900/20 print:hidden"
+          className="mt-2 border border-dashed border-brand-bronze bg-transparent px-3 py-1.5 text-xs font-medium text-brand-bronze hover:bg-teal-50 dark:hover:bg-teal-900/20 print:hidden"
         >
           + Add Line Item
         </button>
@@ -801,7 +801,7 @@ export default function RestorationInvoiceForm({
                 className="w-16 border-0 border-b border-dashed bg-transparent text-right print:border-none dark:border-slate-500"
               />
             </div>
-            <div className="flex justify-between border-b-2 border-teal-500 py-2 font-semibold">
+            <div className="flex justify-between border-b-2 border-brand-bronze py-2 font-semibold">
               <span>Net Reimbursable by Insurer:</span>
               <span>${netReimburse.toFixed(2)}</span>
             </div>
@@ -844,7 +844,7 @@ export default function RestorationInvoiceForm({
 
         {/* Technical Certification */}
         <div className="mt-6 rounded-lg border border-neutral-200 p-4 dark:border-slate-600">
-          <h4 className="mb-3 text-xs font-bold uppercase tracking-wide text-teal-600 dark:text-teal-400">
+          <h4 className="mb-3 text-xs font-bold uppercase tracking-wide text-brand-bronze dark:text-brand-navy">
             🔬 Technical Certification &amp; Compliance
           </h4>
           <div className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
@@ -869,7 +869,7 @@ export default function RestorationInvoiceForm({
                   type="text"
                   value={data.cert[key]}
                   onChange={(e) => updateCert(key, e.target.value)}
-                  className="flex-1 border-b border-dashed border-neutral-300 bg-transparent py-0.5 focus:border-teal-500 focus:outline-none print:border-none dark:border-slate-500"
+                  className="flex-1 border-b border-dashed border-neutral-300 bg-transparent py-0.5 focus:border-brand-bronze focus:outline-none print:border-none dark:border-slate-500"
                 />
               </div>
             ))}
@@ -883,8 +883,8 @@ export default function RestorationInvoiceForm({
         </div>
 
         {/* Payment Terms */}
-        <div className="mt-6 rounded-lg border-2 border-teal-500 p-4">
-          <h4 className="mb-2 text-sm font-bold text-teal-600 dark:text-teal-400">
+        <div className="mt-6 rounded-lg border-2 border-brand-bronze p-4">
+          <h4 className="mb-2 text-sm font-bold text-brand-bronze dark:text-brand-navy">
             💳 Payment Terms
           </h4>
           <p className="text-xs leading-relaxed">
@@ -909,7 +909,7 @@ export default function RestorationInvoiceForm({
                   type="text"
                   value={data.payment[key]}
                   onChange={(e) => updatePayment(key, e.target.value)}
-                  className="flex-1 border-b border-dashed border-neutral-300 bg-transparent py-0.5 focus:border-teal-500 focus:outline-none print:border-none dark:border-slate-500"
+                  className="flex-1 border-b border-dashed border-neutral-300 bg-transparent py-0.5 focus:border-brand-bronze focus:outline-none print:border-none dark:border-slate-500"
                 />
               </div>
             ))}

@@ -49,7 +49,7 @@ export default function CompletenessChecker({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-4">
-        <RefreshCw className="w-4 h-4 animate-spin text-cyan-500" />
+        <RefreshCw className="w-4 h-4 animate-spin text-brand-bronze" />
       </div>
     );
   }
@@ -59,13 +59,13 @@ export default function CompletenessChecker({
   }
 
   const getScoreColor = (score: number) => {
-    if (score >= 80) return "text-green-400";
+    if (score >= 80) return "text-brand-navy";
     if (score >= 50) return "text-yellow-400";
     return "text-red-400";
   };
 
   const getScoreBgColor = (score: number) => {
-    if (score >= 80) return "bg-green-500/20";
+    if (score >= 80) return "bg-brand-bronze/20";
     if (score >= 50) return "bg-yellow-500/20";
     return "bg-red-500/20";
   };
@@ -74,12 +74,12 @@ export default function CompletenessChecker({
     <div className="space-y-4">
       {/* Overall Completeness Score */}
       <div
-        className={`p-4 rounded-lg border-2 ${completeness.canGenerate ? "border-green-500/50 bg-green-500/10" : "border-amber-500/50 bg-amber-500/10"}`}
+        className={`p-4 rounded-lg border-2 ${completeness.canGenerate ? "border-brand-bronze/50 bg-brand-bronze/10" : "border-amber-500/50 bg-amber-500/10"}`}
       >
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             {completeness.canGenerate ? (
-              <CheckCircle className="w-5 h-5 text-green-400" />
+              <CheckCircle className="w-5 h-5 text-brand-navy" />
             ) : (
               <AlertCircle className="w-5 h-5 text-amber-400" />
             )}
@@ -98,7 +98,7 @@ export default function CompletenessChecker({
           <div
             className={`h-2 rounded-full transition-all ${
               completeness.completenessScore >= 80
-                ? "bg-green-500"
+                ? "bg-brand-bronze"
                 : completeness.completenessScore >= 50
                   ? "bg-yellow-500"
                   : "bg-red-500"
@@ -121,7 +121,7 @@ export default function CompletenessChecker({
                   {section.label}
                 </span>
                 {section.completed ? (
-                  <CheckCircle className="w-4 h-4 text-green-400" />
+                  <CheckCircle className="w-4 h-4 text-brand-navy" />
                 ) : (
                   <XCircle className="w-4 h-4 text-red-400" />
                 )}
@@ -132,7 +132,7 @@ export default function CompletenessChecker({
               </div>
               <div className="mt-2 w-full bg-slate-700 rounded-full h-1">
                 <div
-                  className={`h-1 rounded-full ${section.completed ? "bg-green-500" : "bg-slate-600"}`}
+                  className={`h-1 rounded-full ${section.completed ? "bg-brand-bronze" : "bg-slate-600"}`}
                   style={{ width: `${section.percentage}%` }}
                 />
               </div>
@@ -187,10 +187,10 @@ export default function CompletenessChecker({
 
       {/* RA-5038 — Senior PM Quality Review (rendered when the API returns qualityScore) */}
       {completeness.qualityScore && (
-        <div className="p-4 rounded-lg border-2 border-cyan-500/40 bg-cyan-500/5">
+        <div className="p-4 rounded-lg border-2 border-brand-bronze/40 bg-brand-bronze/5">
           <div className="flex items-center justify-between mb-3">
-            <h4 className="font-semibold text-cyan-300 flex items-center gap-2">
-              <Info className="w-5 h-5 text-cyan-400" />
+            <h4 className="font-semibold text-brand-navy flex items-center gap-2">
+              <Info className="w-5 h-5 text-brand-navy" />
               Senior PM Quality Review
             </h4>
             <div
@@ -214,7 +214,7 @@ export default function CompletenessChecker({
                     <div
                       className={`h-1 rounded-full ${
                         d.score >= 80
-                          ? "bg-green-500"
+                          ? "bg-brand-bronze"
                           : d.score >= 50
                             ? "bg-yellow-500"
                             : "bg-red-500"
@@ -240,7 +240,7 @@ export default function CompletenessChecker({
                       key={idx}
                       className="text-sm text-slate-300 flex items-start gap-2"
                     >
-                      <span className="text-cyan-400 mt-0.5">→</span>
+                      <span className="text-brand-navy mt-0.5">→</span>
                       {item}
                     </li>
                   ),

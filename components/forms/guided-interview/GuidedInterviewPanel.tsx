@@ -1041,7 +1041,7 @@ export function GuidedInterviewPanel({
         <CardHeader className="pb-2">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
-              <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
+              <CheckCircle2 className="h-6 w-6 text-brand-bronze dark:text-brand-navy" />
             </div>
             <div>
               <CardTitle className="text-xl text-gray-900 dark:text-white">
@@ -1083,7 +1083,7 @@ export function GuidedInterviewPanel({
               <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Progress
               </p>
-              <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+              <p className="text-2xl font-bold text-brand-bronze dark:text-brand-navy">
                 100%
               </p>
               <p className="text-xs text-muted-foreground">complete</p>
@@ -1161,7 +1161,7 @@ export function GuidedInterviewPanel({
               <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="space-y-1.5">
                   <div className="inline-flex items-center gap-2 rounded-full bg-sky-100/80 px-3 py-1 text-xs font-semibold text-sky-800 dark:bg-sky-900/60 dark:text-sky-200">
-                    <span className="inline-flex h-2 w-2 rounded-full bg-sky-500" />
+                    <span className="inline-flex h-2 w-2 rounded-full bg-brand-bronze" />
                     Tier {interviewState.currentTier} · Essential flow
                   </div>
                   <div>
@@ -1268,7 +1268,7 @@ export function GuidedInterviewPanel({
                 <div>
                   <p className="text-xs text-muted-foreground">Tier</p>
                   <p className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-800 dark:bg-slate-800/70 dark:text-slate-100">
-                    <span className="inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    <span className="inline-flex h-1.5 w-1.5 rounded-full bg-brand-bronze" />
                     Tier {interviewState.currentTier}
                   </p>
                 </div>

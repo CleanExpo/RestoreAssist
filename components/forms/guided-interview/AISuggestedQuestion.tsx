@@ -154,11 +154,11 @@ export function AISuggestedQuestion({
     >
       <div className="flex items-start gap-2">
         <Sparkles
-          className="mt-0.5 h-4 w-4 flex-shrink-0 text-sky-600 dark:text-sky-300"
+          className="mt-0.5 h-4 w-4 flex-shrink-0 text-brand-bronze dark:text-brand-navy"
           aria-hidden="true"
         />
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-300">
+          <p className="text-xs font-semibold uppercase tracking-wide text-sky-700 dark:text-brand-navy">
             AI suggests
           </p>
           <p className="mt-0.5 text-sm font-medium text-gray-900 dark:text-gray-100">
@@ -181,7 +181,7 @@ export function AISuggestedQuestion({
                 onChange={(e) => setAddendum(e.target.value)}
                 rows={2}
                 placeholder="Type your answer…"
-                className="w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 dark:border-slate-700 dark:bg-slate-900 dark:text-gray-100"
+                className="w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 focus:border-brand-bronze focus:outline-none focus:ring-1 focus:ring-brand-bronze dark:border-slate-700 dark:bg-slate-900 dark:text-gray-100"
               />
             </div>
           )}

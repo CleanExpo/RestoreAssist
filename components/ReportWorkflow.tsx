@@ -302,7 +302,7 @@ export default function ReportWorkflow({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-bronze"></div>
       </div>
     );
   }
@@ -325,9 +325,9 @@ export default function ReportWorkflow({
                   className={cn(
                     "w-10 h-10 rounded-full flex items-center justify-center transition-colors",
                     stage.completed
-                      ? "bg-green-500 text-white"
+                      ? "bg-brand-bronze text-white"
                       : currentStage === stage.id
-                        ? "bg-cyan-500 text-white"
+                        ? "bg-brand-bronze text-white"
                         : cn(
                             "bg-neutral-300 dark:bg-slate-700",
                             "text-neutral-600 dark:text-slate-400",
@@ -344,7 +344,7 @@ export default function ReportWorkflow({
                   className={cn(
                     "text-xs mt-2 text-center",
                     currentStage === stage.id
-                      ? "text-cyan-600 dark:text-cyan-400 font-medium"
+                      ? "text-brand-bronze dark:text-brand-navy font-medium"
                       : cn("text-neutral-600 dark:text-slate-400"),
                   )}
                 >
@@ -356,7 +356,7 @@ export default function ReportWorkflow({
                   className={cn(
                     "flex-1 h-1 mx-2",
                     stage.completed
-                      ? "bg-green-500"
+                      ? "bg-brand-bronze"
                       : cn("bg-neutral-300 dark:bg-slate-700"),
                   )}
                 />
@@ -406,10 +406,10 @@ export default function ReportWorkflow({
           {showTier3 &&
             currentStage === "report-generation" &&
             !report?.tier3Responses && (
-              <div className="p-4 rounded-lg border border-green-500/50 bg-green-500/10">
+              <div className="p-4 rounded-lg border border-brand-bronze/50 bg-brand-bronze/10">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-lg font-semibold text-green-400 mb-2">
+                    <h3 className="text-lg font-semibold text-brand-navy mb-2">
                       Tier 3 Questions Available
                     </h3>
                     <p
@@ -424,7 +424,7 @@ export default function ReportWorkflow({
                   </div>
                   <button
                     onClick={handleTier3Start}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-brand-bronze hover:bg-green-700 text-white rounded-lg transition-colors"
                   >
                     Complete Tier 3
                     <ArrowRight className="w-4 h-4" />

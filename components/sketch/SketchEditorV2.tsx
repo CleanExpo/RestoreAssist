@@ -715,7 +715,7 @@ export function SketchEditorV2({
             RestoreAssist Sketch
           </span>
           {activeFloor?.scaleConfig && (
-            <span className="text-xs text-cyan-400/70">
+            <span className="text-xs text-brand-navy/70">
               {activeFloor.scaleConfig.description}
             </span>
           )}
@@ -759,7 +759,7 @@ export function SketchEditorV2({
                   <Save size={11} /> Offline: {offlinePending} pending
                 </span>
               ) : savedAt ? (
-                <span className="flex items-center gap-1 justify-end text-emerald-400">
+                <span className="flex items-center gap-1 justify-end text-brand-navy">
                   <Check size={11} />
                   Saved{" "}
                   {savedAt.toLocaleTimeString("en-AU", {

@@ -164,7 +164,7 @@ export function WorkspaceOnboardingChecklist({
                 onClick={() => toggle(step.id)}
                 className={`shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
                   done
-                    ? "bg-emerald-500 border-emerald-500 text-white"
+                    ? "bg-brand-bronze border-brand-bronze text-white"
                     : "border-neutral-300 dark:border-slate-600 hover:border-[#1C2E47]"
                 }`}
                 aria-label={
@@ -209,7 +209,7 @@ export function WorkspaceOnboardingChecklist({
 
       {/* All done celebration */}
       {allDone && (
-        <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-lg px-3 py-2 text-sm">
+        <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-brand-navy rounded-lg px-3 py-2 text-sm">
           <Check size={14} />
           <span>You&apos;re all set! Your workspace is ready to use.</span>
           <button onClick={handleDismiss} className="ml-auto text-xs underline">

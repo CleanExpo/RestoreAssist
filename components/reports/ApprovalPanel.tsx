@@ -57,7 +57,7 @@ function StatusBadge({ status }: { status: ApprovalStatus }) {
       );
     case "APPROVED":
       return (
-        <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+        <Badge className="bg-brand-bronze/20 text-brand-navy border-brand-bronze/30">
           Approved
         </Badge>
       );
@@ -172,7 +172,7 @@ export default function ApprovalPanel({ reportId }: ApprovalPanelProps) {
           <Button
             size="sm"
             onClick={() => setDialogOpen(true)}
-            className="bg-cyan-600 hover:bg-cyan-700 text-white h-8 gap-1"
+            className="bg-brand-bronze hover:bg-cyan-700 text-white h-8 gap-1"
           >
             <Plus size={14} />
             Request Approval
@@ -201,7 +201,7 @@ export default function ApprovalPanel({ reportId }: ApprovalPanelProps) {
                       {approval.status === "APPROVED" && (
                         <CheckCircle
                           size={15}
-                          className="text-green-400 shrink-0"
+                          className="text-brand-navy shrink-0"
                         />
                       )}
                       {approval.status === "REJECTED" && (
@@ -238,7 +238,7 @@ export default function ApprovalPanel({ reportId }: ApprovalPanelProps) {
                           size="sm"
                           disabled={respondingId === approval.id}
                           onClick={() => handleRespond(approval.id, "APPROVED")}
-                          className="h-7 text-xs bg-green-600 hover:bg-green-700 text-white"
+                          className="h-7 text-xs bg-brand-bronze hover:bg-green-700 text-white"
                         >
                           Approve
                         </Button>
@@ -335,7 +335,7 @@ export default function ApprovalPanel({ reportId }: ApprovalPanelProps) {
             <Button
               disabled={!newType || submitting}
               onClick={handleCreate}
-              className="bg-cyan-600 hover:bg-cyan-700 text-white"
+              className="bg-brand-bronze hover:bg-cyan-700 text-white"
             >
               {submitting ? "Submitting..." : "Submit"}
             </Button>

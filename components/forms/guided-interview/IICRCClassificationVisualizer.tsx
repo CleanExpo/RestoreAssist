@@ -45,9 +45,9 @@ const getCategoryInfo = (category: number) => {
   > = {
     1: {
       name: "Clean Water (Category 1)",
-      color: "bg-green-100 border-green-300",
+      color: "bg-green-100 border-brand-navy",
       bgColor: "bg-green-50",
-      icon: <CheckCircle2 className="h-8 w-8 text-green-600" />,
+      icon: <CheckCircle2 className="h-8 w-8 text-brand-bronze" />,
       description:
         "Water from clean sources such as broken water supply lines, falling rainwater, melted snow/ice. Presents minimal health hazard.",
       sources: [

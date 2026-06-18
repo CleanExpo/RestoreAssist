@@ -33,7 +33,7 @@ export function ScoreRing({
       return {
         stroke: "#22c55e",
         bg: "bg-green-50 dark:bg-green-950/20",
-        text: "text-green-600 dark:text-green-400",
+        text: "text-brand-bronze dark:text-brand-navy",
       };
     if (s >= 60)
       return {

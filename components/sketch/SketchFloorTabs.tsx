@@ -70,7 +70,7 @@ export function SketchFloorTabs({
             className={cn(
               "px-3 py-1.5 text-xs font-medium rounded-lg transition-all",
               idx === activeFloorIdx
-                ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
+                ? "bg-brand-bronze/20 text-brand-navy border border-brand-bronze/30"
                 : "text-white/50 hover:text-white/80 hover:bg-white/5",
             )}
           >
@@ -95,7 +95,7 @@ export function SketchFloorTabs({
           type="button"
           onClick={onAdd}
           aria-label="Add floor"
-          className="flex items-center gap-1 ml-1 px-2 py-1.5 text-xs text-white/40 hover:text-cyan-400 hover:bg-white/5 rounded-lg transition-colors flex-shrink-0"
+          className="flex items-center gap-1 ml-1 px-2 py-1.5 text-xs text-white/40 hover:text-brand-navy hover:bg-white/5 rounded-lg transition-colors flex-shrink-0"
         >
           <Plus size={12} />
           Add floor

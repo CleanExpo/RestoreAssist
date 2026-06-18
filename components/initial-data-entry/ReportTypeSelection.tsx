@@ -14,8 +14,8 @@ export function ReportTypeSelection({ isTrial, loading, onChoose }: Props) {
     <div
       className={cn(
         "p-6 rounded-lg border-2 space-y-6 mt-6",
-        "border-cyan-500/50 dark:border-cyan-500/50",
-        "bg-cyan-500/10 dark:bg-cyan-500/10",
+        "border-brand-bronze/50 dark:border-brand-bronze/50",
+        "bg-brand-bronze/10 dark:bg-brand-bronze/10",
       )}
     >
       <h3
@@ -109,21 +109,21 @@ export function ReportTypeSelection({ isTrial, loading, onChoose }: Props) {
           onClick={() => onChoose("enhanced")}
           disabled={loading || isTrial}
           className={cn(
-            "p-6 rounded-lg border-2 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 hover:from-cyan-500/20 hover:to-blue-500/20 transition-all text-left group relative disabled:opacity-50",
+            "p-6 rounded-lg border-2 bg-gradient-to-br from-brand-bronze/10 to-blue-500/10 hover:from-brand-bronze/20 hover:to-blue-500/20 transition-all text-left group relative disabled:opacity-50",
             isTrial
               ? "border-neutral-300 dark:border-neutral-700 cursor-not-allowed"
-              : "border-cyan-500",
+              : "border-brand-bronze",
           )}
         >
           <div className="absolute top-4 right-4">
-            <span className="px-3 py-1 bg-cyan-500 text-white text-xs font-semibold rounded-full">
+            <span className="px-3 py-1 bg-brand-bronze text-white text-xs font-semibold rounded-full">
               RECOMMENDED
             </span>
           </div>
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-lg bg-cyan-500/30 flex items-center justify-center group-hover:bg-cyan-500/40 transition-colors">
-                <Sparkles className="w-6 h-6 text-cyan-300" />
+              <div className="w-12 h-12 rounded-lg bg-brand-bronze/30 flex items-center justify-center group-hover:bg-brand-bronze/40 transition-colors">
+                <Sparkles className="w-6 h-6 text-brand-navy" />
               </div>
               <div>
                 <h4
@@ -148,7 +148,7 @@ export function ReportTypeSelection({ isTrial, loading, onChoose }: Props) {
               className={cn(
                 "w-5 h-5 transition-colors",
                 "text-neutral-700 dark:text-primary-400",
-                "group-hover:text-cyan-600 dark:group-hover:text-cyan-300",
+                "group-hover:text-brand-bronze dark:group-hover:text-brand-navy",
               )}
             />
           </div>
@@ -187,21 +187,21 @@ export function ReportTypeSelection({ isTrial, loading, onChoose }: Props) {
           onClick={() => onChoose("optimised")}
           disabled={loading || isTrial}
           className={cn(
-            "p-6 rounded-lg border-2 bg-gradient-to-br from-green-500/10 to-emerald-500/10 hover:from-green-500/20 hover:to-emerald-500/20 transition-all text-left group relative disabled:opacity-50",
+            "p-6 rounded-lg border-2 bg-gradient-to-br from-brand-bronze/10 to-brand-bronze/10 hover:from-brand-bronze/20 hover:to-brand-bronze/20 transition-all text-left group relative disabled:opacity-50",
             isTrial
               ? "border-neutral-300 dark:border-neutral-700 cursor-not-allowed"
-              : "border-green-500",
+              : "border-brand-bronze",
           )}
         >
           <div className="absolute top-4 right-4">
-            <span className="px-3 py-1 bg-green-500 text-white text-xs font-semibold rounded-full">
+            <span className="px-3 py-1 bg-brand-bronze text-white text-xs font-semibold rounded-full">
               COMPREHENSIVE
             </span>
           </div>
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-lg bg-green-500/30 flex items-center justify-center group-hover:bg-green-500/40 transition-colors">
-                <CheckCircle className="w-6 h-6 text-green-300" />
+              <div className="w-12 h-12 rounded-lg bg-brand-bronze/30 flex items-center justify-center group-hover:bg-brand-bronze/40 transition-colors">
+                <CheckCircle className="w-6 h-6 text-brand-navy" />
               </div>
               <div>
                 <h4
@@ -215,7 +215,7 @@ export function ReportTypeSelection({ isTrial, loading, onChoose }: Props) {
                 <p
                   className={cn(
                     "text-sm",
-                    "text-neutral-700 dark:text-green-400",
+                    "text-neutral-700 dark:text-brand-navy",
                   )}
                 >
                   Enhanced + Tier 2 + Tier 3
@@ -225,8 +225,8 @@ export function ReportTypeSelection({ isTrial, loading, onChoose }: Props) {
             <ArrowRight
               className={cn(
                 "w-5 h-5 transition-colors",
-                "text-neutral-700 dark:text-green-400",
-                "group-hover:text-green-600 dark:group-hover:text-green-300",
+                "text-neutral-700 dark:text-brand-navy",
+                "group-hover:text-brand-bronze dark:group-hover:text-brand-navy",
               )}
             />
           </div>
@@ -250,7 +250,7 @@ export function ReportTypeSelection({ isTrial, loading, onChoose }: Props) {
                 <CheckCircle
                   className={cn(
                     "w-4 h-4",
-                    "text-neutral-700 dark:text-green-400",
+                    "text-neutral-700 dark:text-brand-navy",
                   )}
                 />
                 <span>{feature}</span>

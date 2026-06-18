@@ -64,7 +64,7 @@ export function UseCaseModal<T extends UseCaseItem>({
                 "w-full p-4 rounded-lg border-2 text-left transition-all",
                 "border-neutral-200 dark:border-neutral-700",
                 "bg-white dark:bg-neutral-800",
-                "hover:border-green-500 dark:hover:border-green-500",
+                "hover:border-brand-bronze dark:hover:border-brand-bronze",
                 "hover:bg-green-50 dark:hover:bg-green-900/20",
               )}
             >

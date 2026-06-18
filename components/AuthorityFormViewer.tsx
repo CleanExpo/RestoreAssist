@@ -227,7 +227,7 @@ export default function AuthorityFormViewer({
       },
       COMPLETED: {
         label: "Completed",
-        color: "bg-green-500",
+        color: "bg-brand-bronze",
         icon: CheckCircle,
       },
       CANCELLED: { label: "Cancelled", color: "bg-red-500", icon: X },
@@ -259,7 +259,7 @@ export default function AuthorityFormViewer({
           "bg-neutral-50 dark:bg-slate-900",
         )}
       >
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-bronze"></div>
       </div>
     );
   }
@@ -315,7 +315,7 @@ export default function AuthorityFormViewer({
               {canSign && (
                 <button
                   onClick={openSignDialog}
-                  className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 bg-brand-bronze hover:bg-brand-bronze text-white rounded-lg transition-colors"
                 >
                   <PenTool size={18} />
                   Sign Form
@@ -337,7 +337,7 @@ export default function AuthorityFormViewer({
               )}
               <button
                 onClick={handleDownloadPDF}
-                className="flex items-center gap-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-brand-bronze hover:bg-brand-bronze text-white rounded-lg transition-colors"
               >
                 <Download size={18} />
                 Download PDF
@@ -567,7 +567,7 @@ export default function AuthorityFormViewer({
                 type="checkbox"
                 checked={agreedToTerms}
                 onChange={(e) => setAgreedToTerms(e.target.checked)}
-                className="mt-1 h-4 w-4 rounded border-gray-300 text-cyan-500 focus:ring-cyan-500"
+                className="mt-1 h-4 w-4 rounded border-gray-300 text-brand-bronze focus:ring-brand-bronze"
               />
               <span className="text-sm">
                 I have read and agree to the authority described above. I
@@ -584,7 +584,7 @@ export default function AuthorityFormViewer({
                 value={signatoryName}
                 onChange={(e) => setSignatoryName(e.target.value)}
                 placeholder="Enter your full name"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-md text-sm bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-md text-sm bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-bronze"
               />
             </div>
 
@@ -609,7 +609,7 @@ export default function AuthorityFormViewer({
                 !signatureData ||
                 !signatoryName.trim()
               }
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium text-white bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium text-white bg-brand-bronze hover:bg-brand-bronze disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {signing ? (
                 <>

@@ -242,7 +242,7 @@ export function InterviewCompletionSummary({
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
                 New Fields Added
               </p>
-              <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+              <p className="text-2xl font-bold text-brand-bronze dark:text-brand-navy">
                 {statistics.newFieldsAdded}
               </p>
             </div>
@@ -258,7 +258,7 @@ export function InterviewCompletionSummary({
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
                 Avg. Confidence
               </p>
-              <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+              <p className="text-2xl font-bold text-brand-bronze dark:text-brand-navy">
                 {formatConfidence(statistics.averageConfidence)}
               </p>
             </div>
@@ -454,7 +454,7 @@ export function InterviewCompletionSummary({
               onContinue ||
               (() => console.warn("Continue handler not provided"))
             }
-            className="gap-2 h-12 text-base font-semibold flex-1 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95"
+            className="gap-2 h-12 text-base font-semibold flex-1 bg-gradient-to-r from-brand-bronze to-brand-bronze hover:from-emerald-700 hover:to-green-700 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95"
             disabled={!onContinue || isLoading}
           >
             {isLoading ? (

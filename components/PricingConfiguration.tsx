@@ -338,7 +338,7 @@ export default function PricingConfiguration({
                       })
                     }
                     disabled={!canEdit}
-                    className="w-full px-3 py-2 bg-gray-100 dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
+                    className="w-full px-3 py-2 bg-gray-100 dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
                   />
                 </div>
                 <div className="w-32">
@@ -357,7 +357,7 @@ export default function PricingConfiguration({
                         })
                       }
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-3 py-2 bg-gray-100 dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
+                      className="w-full pl-8 pr-3 py-2 bg-gray-100 dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
                     />
                   </div>
                 </div>
@@ -380,7 +380,7 @@ export default function PricingConfiguration({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-bronze"></div>
       </div>
     );
   }
@@ -424,7 +424,7 @@ export default function PricingConfiguration({
           <button
             onClick={handleSave}
             disabled={saving || !canEdit}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-brand-bronze rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save className="w-4 h-4" />
             {saving ? "Saving..." : "Save Configuration"}
@@ -456,7 +456,7 @@ export default function PricingConfiguration({
 
           <div className="space-y-4">
             {/* Master Qualified Technician */}
-            <div className="border-l-4 border-cyan-500 pl-4">
+            <div className="border-l-4 border-brand-bronze pl-4">
               <h4 className="font-medium mb-3 text-gray-800 dark:text-white">
                 Master Qualified Technician
               </h4>
@@ -480,7 +480,7 @@ export default function PricingConfiguration({
                         )
                       }
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                     />
                   </div>
                 </div>
@@ -503,7 +503,7 @@ export default function PricingConfiguration({
                         )
                       }
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                     />
                   </div>
                 </div>
@@ -526,7 +526,7 @@ export default function PricingConfiguration({
                         )
                       }
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                     />
                   </div>
                 </div>
@@ -558,7 +558,7 @@ export default function PricingConfiguration({
                         )
                       }
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                     />
                   </div>
                 </div>
@@ -581,7 +581,7 @@ export default function PricingConfiguration({
                         )
                       }
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                     />
                   </div>
                 </div>
@@ -604,7 +604,7 @@ export default function PricingConfiguration({
                         )
                       }
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                     />
                   </div>
                 </div>
@@ -612,7 +612,7 @@ export default function PricingConfiguration({
             </div>
 
             {/* Labourer */}
-            <div className="border-l-4 border-green-500 pl-4">
+            <div className="border-l-4 border-brand-bronze pl-4">
               <h4 className="font-medium mb-3 text-gray-800 dark:text-white">
                 Labourer
               </h4>
@@ -633,7 +633,7 @@ export default function PricingConfiguration({
                         handleInputChange("labourerNormalHours", e.target.value)
                       }
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                     />
                   </div>
                 </div>
@@ -653,7 +653,7 @@ export default function PricingConfiguration({
                         handleInputChange("labourerSaturday", e.target.value)
                       }
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                     />
                   </div>
                 </div>
@@ -673,7 +673,7 @@ export default function PricingConfiguration({
                         handleInputChange("labourerSunday", e.target.value)
                       }
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                     />
                   </div>
                 </div>
@@ -706,7 +706,7 @@ export default function PricingConfiguration({
                     handleInputChange("airMoverAxialDailyRate", e.target.value)
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                 />
               </div>
             </div>
@@ -729,7 +729,7 @@ export default function PricingConfiguration({
                     )
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                 />
               </div>
             </div>
@@ -752,7 +752,7 @@ export default function PricingConfiguration({
                     )
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                 />
               </div>
             </div>
@@ -775,7 +775,7 @@ export default function PricingConfiguration({
                     )
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                 />
               </div>
             </div>
@@ -795,7 +795,7 @@ export default function PricingConfiguration({
                     handleInputChange("afdUnitLargeDailyRate", e.target.value)
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                 />
               </div>
             </div>
@@ -818,7 +818,7 @@ export default function PricingConfiguration({
                     )
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                 />
               </div>
             </div>
@@ -841,7 +841,7 @@ export default function PricingConfiguration({
                     )
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                 />
               </div>
             </div>
@@ -864,7 +864,7 @@ export default function PricingConfiguration({
                     )
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                 />
               </div>
             </div>
@@ -898,7 +898,7 @@ export default function PricingConfiguration({
                     )
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                 />
               </div>
             </div>
@@ -921,7 +921,7 @@ export default function PricingConfiguration({
                     )
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                 />
               </div>
             </div>
@@ -941,7 +941,7 @@ export default function PricingConfiguration({
                     handleInputChange("biohazardTreatmentRate", e.target.value)
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                 />
               </div>
             </div>
@@ -972,7 +972,7 @@ export default function PricingConfiguration({
                     handleInputChange("administrationFee", e.target.value)
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                 />
               </div>
             </div>
@@ -992,7 +992,7 @@ export default function PricingConfiguration({
                     handleInputChange("callOutFee", e.target.value)
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                 />
               </div>
             </div>
@@ -1015,7 +1015,7 @@ export default function PricingConfiguration({
                     )
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
                 />
               </div>
             </div>

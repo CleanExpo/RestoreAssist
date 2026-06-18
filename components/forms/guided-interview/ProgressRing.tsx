@@ -71,11 +71,11 @@ export function ProgressRing({
       case 1:
         return "from-blue-500 to-blue-600";
       case 2:
-        return "from-green-500 to-green-600";
+        return "from-brand-bronze to-brand-bronze";
       case 3:
         return "from-amber-500 to-amber-600";
       case 4:
-        return "from-purple-500 to-purple-600";
+        return "from-brand-bronze to-brand-bronze";
       default:
         return "from-gray-500 to-gray-600";
     }

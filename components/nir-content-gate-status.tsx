@@ -238,7 +238,7 @@ export function NirContentGateDashboard() {
           <div
             className={`text-2xl font-bold tabular-nums ${
               openCount === totalCount
-                ? "text-green-600"
+                ? "text-brand-bronze"
                 : openCount > 0
                   ? "text-amber-600"
                   : "text-red-600"

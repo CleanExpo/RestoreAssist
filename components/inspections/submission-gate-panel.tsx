@@ -130,7 +130,7 @@ export function SubmissionGatePanel({
           )}
         >
           {canSubmit ? (
-            <CheckCircle2 className="h-5 w-5 text-green-600" />
+            <CheckCircle2 className="h-5 w-5 text-brand-bronze" />
           ) : (
             <Shield className="h-5 w-5 text-red-600" />
           )}
@@ -140,7 +140,7 @@ export function SubmissionGatePanel({
             className={cn(
               "text-sm font-semibold",
               canSubmit
-                ? "text-green-800 dark:text-green-300"
+                ? "text-green-800 dark:text-brand-navy"
                 : "text-red-800 dark:text-red-300",
             )}
           >
@@ -152,7 +152,7 @@ export function SubmissionGatePanel({
             className={cn(
               "text-xs mt-0.5",
               canSubmit
-                ? "text-green-700 dark:text-green-400"
+                ? "text-green-700 dark:text-brand-navy"
                 : "text-red-700 dark:text-red-400",
             )}
           >
@@ -184,7 +184,7 @@ export function SubmissionGatePanel({
             <Button
               onClick={onSubmit}
               disabled={submitting}
-              className="bg-green-600 hover:bg-green-700"
+              className="bg-brand-bronze hover:bg-green-700"
             >
               {submitting ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />

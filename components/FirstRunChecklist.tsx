@@ -72,13 +72,13 @@ export default function FirstRunChecklist({
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1.5">
-          <Sparkles size={14} className="text-cyan-500 flex-shrink-0" />
+          <Sparkles size={14} className="text-brand-bronze flex-shrink-0" />
           <span className="font-semibold text-neutral-800 dark:text-slate-100 text-xs leading-tight">
             Get started
           </span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-medium text-cyan-600 dark:text-cyan-400">
+          <span className="text-[10px] font-medium text-brand-bronze dark:text-brand-navy">
             {completedCount}/{totalCount}
           </span>
           {allComplete && (
@@ -101,7 +101,7 @@ export default function FirstRunChecklist({
       {/* Progress bar */}
       <div className="w-full h-1 rounded-full bg-cyan-200/60 dark:bg-cyan-800/40 mb-3">
         <div
-          className="h-1 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 transition-all duration-500"
+          className="h-1 rounded-full bg-gradient-to-r from-blue-500 to-brand-bronze transition-all duration-500"
           style={{ width: `${progressPct}%` }}
         />
       </div>
@@ -121,11 +121,11 @@ export default function FirstRunChecklist({
             >
               <div className="flex-shrink-0 mt-px">
                 {step.completed ? (
-                  <CheckCircle2 size={14} className="text-emerald-500" />
+                  <CheckCircle2 size={14} className="text-brand-bronze" />
                 ) : (
                   <Circle
                     size={14}
-                    className="text-cyan-400 dark:text-cyan-600"
+                    className="text-brand-navy dark:text-brand-bronze"
                   />
                 )}
               </div>
@@ -149,7 +149,7 @@ export default function FirstRunChecklist({
               {!step.completed && (
                 <ChevronRight
                   size={12}
-                  className="flex-shrink-0 mt-1 text-cyan-400 dark:text-cyan-600"
+                  className="flex-shrink-0 mt-1 text-brand-navy dark:text-brand-bronze"
                 />
               )}
             </Link>
@@ -163,10 +163,10 @@ export default function FirstRunChecklist({
         className={cn(
           "w-full flex items-center justify-center gap-1.5 rounded-lg px-2 py-1.5",
           "text-[10px] font-medium transition-all duration-150",
-          "border border-cyan-300 dark:border-cyan-700",
-          "text-cyan-700 dark:text-cyan-300",
+          "border border-brand-navy dark:border-cyan-700",
+          "text-cyan-700 dark:text-brand-navy",
           "hover:bg-cyan-100 dark:hover:bg-cyan-900/40",
-          "hover:border-cyan-400 dark:hover:border-cyan-600",
+          "hover:border-brand-navy dark:hover:border-brand-bronze",
         )}
       >
         <PlayCircle size={11} className="flex-shrink-0" />

@@ -341,10 +341,10 @@ export default function EquipmentSizingGuidelines({
           className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4"
         >
           <div className="flex items-center gap-2 mb-2">
-            <Wind className="text-cyan-400" size={20} />
+            <Wind className="text-brand-navy" size={20} />
             <span className="font-medium text-white">Airmovers</span>
           </div>
-          <div className="text-2xl font-bold text-cyan-400">
+          <div className="text-2xl font-bold text-brand-navy">
             {sizingData.airmovers.count}
           </div>
           <div className="text-sm text-slate-400">
@@ -393,10 +393,10 @@ export default function EquipmentSizingGuidelines({
           className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4"
         >
           <div className="flex items-center gap-2 mb-2">
-            <Zap className="text-emerald-400" size={20} />
+            <Zap className="text-brand-navy" size={20} />
             <span className="font-medium text-white">Air Changes</span>
           </div>
-          <div className="text-2xl font-bold text-emerald-400">
+          <div className="text-2xl font-bold text-brand-navy">
             {airflowRequirements.airChanges}
           </div>
           <div className="text-sm text-slate-400">per hour</div>
@@ -406,7 +406,7 @@ export default function EquipmentSizingGuidelines({
       {/* Airmover Configuration */}
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
         <h4 className="font-medium text-white mb-4 flex items-center gap-2">
-          <Wind className="text-cyan-400" size={20} />
+          <Wind className="text-brand-navy" size={20} />
           Airmover Configuration
         </h4>
 
@@ -420,7 +420,7 @@ export default function EquipmentSizingGuidelines({
               onChange={(e) =>
                 handleInputChange("airmovers", "type", e.target.value)
               }
-              className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+              className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze"
             >
               {airmoverTypes.map((type) => (
                 <option key={type.id} value={type.id}>
@@ -434,7 +434,7 @@ export default function EquipmentSizingGuidelines({
             <label className="block text-sm font-medium mb-2">
               Total Airflow
             </label>
-            <div className="text-2xl font-bold text-cyan-400">
+            <div className="text-2xl font-bold text-brand-navy">
               {sizingData.airmovers.airflow.toLocaleString()} CFM
             </div>
             <div className="text-sm text-slate-400">
@@ -446,11 +446,11 @@ export default function EquipmentSizingGuidelines({
         <div className="mt-4">
           <h5 className="font-medium text-white mb-3">Airflow Requirements</h5>
           <div className="grid md:grid-cols-2 gap-4">
-            <div className="bg-cyan-500/20 border border-cyan-500/30 rounded-lg p-4">
-              <h6 className="font-medium text-cyan-400 mb-2">
+            <div className="bg-brand-bronze/20 border border-brand-bronze/30 rounded-lg p-4">
+              <h6 className="font-medium text-brand-navy mb-2">
                 Constant Rate Phase
               </h6>
-              <p className="text-sm text-cyan-300">
+              <p className="text-sm text-brand-navy">
                 <strong>{airflowRequirements.constantRate.velocity}</strong> -{" "}
                 {airflowRequirements.constantRate.description}
               </p>
@@ -492,7 +492,7 @@ export default function EquipmentSizingGuidelines({
               onChange={(e) =>
                 handleInputChange("dehumidifiers", "type", e.target.value)
               }
-              className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+              className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze"
             >
               {dehumidifierTypes.map((type) => (
                 <option key={type.id} value={type.id}>
@@ -579,28 +579,28 @@ export default function EquipmentSizingGuidelines({
                 <li className="flex items-center gap-2">
                   <CheckCircle
                     size={16}
-                    className="text-emerald-400 flex-shrink-0"
+                    className="text-brand-navy flex-shrink-0"
                   />
                   Containment barriers
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle
                     size={16}
-                    className="text-emerald-400 flex-shrink-0"
+                    className="text-brand-navy flex-shrink-0"
                   />
                   Negative pressure setup
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle
                     size={16}
-                    className="text-emerald-400 flex-shrink-0"
+                    className="text-brand-navy flex-shrink-0"
                   />
                   HEPA filtration
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle
                     size={16}
-                    className="text-emerald-400 flex-shrink-0"
+                    className="text-brand-navy flex-shrink-0"
                   />
                   Air monitoring
                 </li>
@@ -613,7 +613,7 @@ export default function EquipmentSizingGuidelines({
       {/* Placement Guidelines */}
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
         <h4 className="font-medium text-white mb-4 flex items-center gap-2">
-          <Settings className="text-cyan-400" size={20} />
+          <Settings className="text-brand-navy" size={20} />
           Equipment Placement Guidelines
         </h4>
 
@@ -623,7 +623,7 @@ export default function EquipmentSizingGuidelines({
             <ul className="space-y-2 text-sm text-slate-300">
               {placementGuidelines.airmovers.map((guideline, index) => (
                 <li key={index} className="flex items-start gap-2">
-                  <span className="bg-cyan-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                  <span className="bg-brand-bronze text-white rounded-full w-4 h-4 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
                     {index + 1}
                   </span>
                   {guideline}
@@ -651,7 +651,7 @@ export default function EquipmentSizingGuidelines({
             <ul className="space-y-2 text-sm text-slate-300">
               {placementGuidelines.monitoring.map((guideline, index) => (
                 <li key={index} className="flex items-start gap-2">
-                  <span className="bg-emerald-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                  <span className="bg-brand-bronze text-white rounded-full w-4 h-4 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
                     {index + 1}
                   </span>
                   {guideline}
@@ -665,7 +665,7 @@ export default function EquipmentSizingGuidelines({
       {/* Monitoring Requirements */}
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
         <h4 className="font-medium text-white mb-4 flex items-center gap-2">
-          <BarChart3 className="text-emerald-400" size={20} />
+          <BarChart3 className="text-brand-navy" size={20} />
           Monitoring Requirements
         </h4>
 
@@ -675,19 +675,19 @@ export default function EquipmentSizingGuidelines({
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-slate-300">Psychrometers:</span>
-                <span className="text-lg font-bold text-emerald-400">
+                <span className="text-lg font-bold text-brand-navy">
                   {monitoringRequirements.psychrometers}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-300">Moisture Meters:</span>
-                <span className="text-lg font-bold text-emerald-400">
+                <span className="text-lg font-bold text-brand-navy">
                   {monitoringRequirements.moistureMeters}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-300">Monitoring Frequency:</span>
-                <span className="text-lg font-bold text-emerald-400">
+                <span className="text-lg font-bold text-brand-navy">
                   {monitoringRequirements.frequency}
                 </span>
               </div>
@@ -703,7 +703,7 @@ export default function EquipmentSizingGuidelines({
                 <li key={index} className="flex items-center gap-2">
                   <CheckCircle
                     size={16}
-                    className="text-emerald-400 flex-shrink-0"
+                    className="text-brand-navy flex-shrink-0"
                   />
                   {location}
                 </li>
@@ -724,7 +724,7 @@ export default function EquipmentSizingGuidelines({
             onChange={(e) =>
               handleInputChange("airmovers", "placement", e.target.value)
             }
-            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze"
             rows={3}
             placeholder="Specific airmover placement instructions, room layouts, airflow patterns"
           />
@@ -739,7 +739,7 @@ export default function EquipmentSizingGuidelines({
             onChange={(e) =>
               handleInputChange("dehumidifiers", "placement", e.target.value)
             }
-            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze"
             rows={3}
             placeholder="Specific dehumidifier placement instructions, spacing requirements, air circulation"
           />
@@ -754,7 +754,7 @@ export default function EquipmentSizingGuidelines({
             onChange={(e) =>
               handleInputChange("monitoring", "placement", e.target.value)
             }
-            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500"
+            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-brand-bronze"
             rows={3}
             placeholder="Specific monitoring equipment placement, reading locations, documentation requirements"
           />

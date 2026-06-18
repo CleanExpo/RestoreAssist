@@ -141,7 +141,7 @@ export function EvidenceCaptureForm({
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-cyan-400" />
+              <FileText className="h-5 w-5 text-brand-navy" />
               <CardTitle className="text-lg text-white">
                 {classMeta.displayName}
               </CardTitle>
@@ -163,8 +163,8 @@ export function EvidenceCaptureForm({
           {/* Guidance — always show in apprentice mode; compact in experienced */}
           {isApprentice ? (
             <>
-              <div className="flex gap-2 rounded-md border border-cyan-500/20 bg-cyan-500/5 p-3">
-                <Info className="mt-0.5 h-4 w-4 shrink-0 text-cyan-400" />
+              <div className="flex gap-2 rounded-md border border-brand-bronze/20 bg-brand-bronze/5 p-3">
+                <Info className="mt-0.5 h-4 w-4 shrink-0 text-brand-navy" />
                 <p className="text-sm text-zinc-300">{rule.guidance}</p>
               </div>
               <div className="flex gap-2 rounded-md border border-[#8A6B4E]/20 bg-[#8A6B4E]/5 p-3">
@@ -201,7 +201,7 @@ export function EvidenceCaptureForm({
         onClick={() => fileInputRef.current?.click()}
         className={`flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 transition-colors ${
           dragActive
-            ? "border-cyan-400 bg-cyan-500/10"
+            ? "border-brand-navy bg-brand-bronze/10"
             : "border-white/20 bg-white/5 hover:border-white/30"
         }`}
       >
@@ -382,7 +382,7 @@ export function EvidenceCaptureForm({
       <Button
         onClick={handleSubmit}
         disabled={isUploading}
-        className="w-full bg-cyan-600 text-white hover:bg-cyan-700"
+        className="w-full bg-brand-bronze text-white hover:bg-cyan-700"
       >
         {isUploading ? (
           <>

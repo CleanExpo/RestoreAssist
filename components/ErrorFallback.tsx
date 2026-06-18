@@ -37,7 +37,7 @@ export function ErrorFallback({
       <div className="flex items-center gap-3 mt-4">
         <button
           onClick={reset}
-          className="flex items-center gap-2 px-5 py-2.5 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg font-medium transition-colors"
+          className="flex items-center gap-2 px-5 py-2.5 bg-brand-bronze hover:bg-brand-bronze text-white rounded-lg font-medium transition-colors"
         >
           <RotateCcw className="h-4 w-4" />
           Try Again

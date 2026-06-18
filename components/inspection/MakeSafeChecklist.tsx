@@ -198,7 +198,7 @@ export function MakeSafeChecklist({ inspectionId }: MakeSafeChecklistProps) {
         <Badge
           className={
             complianceStatus === "PASS"
-              ? "bg-green-600 text-white hover:bg-green-600"
+              ? "bg-brand-bronze text-white hover:bg-brand-bronze"
               : "bg-amber-500 text-white hover:bg-amber-500"
           }
           aria-label={`Compliance status: ${complianceStatus}`}

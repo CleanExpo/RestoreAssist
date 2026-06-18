@@ -43,7 +43,7 @@ export function StandardsBadge({
         type: "NCC",
         icon: Shield,
         color:
-          "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400 border-purple-300 dark:border-purple-700",
+          "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-brand-navy border-brand-navy dark:border-purple-700",
         label: ref.match(/NCC\s+\d{4}/i)?.[0] || ref,
       };
     }
@@ -57,7 +57,7 @@ export function StandardsBadge({
         type: "AS_NZS",
         icon: Scale,
         color:
-          "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700",
+          "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-brand-navy border-brand-navy dark:border-emerald-700",
         label:
           ref.match(/AS\/NZS\s+[\d.:]+/i)?.[0] ||
           ref.match(/AS\s+\d+/i)?.[0] ||

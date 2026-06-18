@@ -78,7 +78,7 @@ const STATUS_CONFIG: Record<
   SYNCED: {
     label: "Synced",
     className: "bg-green-50 text-green-700 border-green-200",
-    dot: "bg-green-500",
+    dot: "bg-brand-bronze",
   },
   PENDING_SYNC: {
     label: "Pending sync",

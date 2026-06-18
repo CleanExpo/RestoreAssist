@@ -259,7 +259,7 @@ export default function VisualDashboardReport({
                 Total Cost
               </span>
             </div>
-            <p className="text-2xl font-bold text-green-600">
+            <p className="text-2xl font-bold text-brand-bronze">
               ${safeSummaryMetrics.totalCost.toLocaleString()}
             </p>
           </div>
@@ -342,7 +342,7 @@ export default function VisualDashboardReport({
                     className={`w-8 h-8 rounded-full ${safeSafety.trafficLight === "occupied" ? "bg-orange-500" : "bg-slate-300"}`}
                   ></div>
                   <div
-                    className={`w-8 h-8 rounded-full ${safeSafety.hasChildren ? "bg-teal-500" : "bg-slate-300"}`}
+                    className={`w-8 h-8 rounded-full ${safeSafety.hasChildren ? "bg-brand-bronze" : "bg-slate-300"}`}
                   ></div>
                 </div>
                 <p className="text-xs text-slate-600 text-center">
@@ -506,10 +506,10 @@ export default function VisualDashboardReport({
                       <td className="py-2 px-2 text-slate-900">
                         {cost.type} ({cost.qty})
                       </td>
-                      <td className="py-2 px-2 text-green-600 font-semibold">
+                      <td className="py-2 px-2 text-brand-bronze font-semibold">
                         ${cost.ratePerDay.toFixed(2)}
                       </td>
-                      <td className="py-2 px-2 text-green-600 font-semibold">
+                      <td className="py-2 px-2 text-brand-bronze font-semibold">
                         ${cost.total.toFixed(2)}
                       </td>
                     </tr>
@@ -590,7 +590,7 @@ function DetailedReportPages({
       <div className="print:page-break-before-always bg-white p-8 rounded-lg shadow-lg print:shadow-none">
         <div className="border-b-2 border-slate-300 pb-4 mb-6">
           <h2 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
-            <Building2 className="w-8 h-8 text-cyan-600" />
+            <Building2 className="w-8 h-8 text-brand-bronze" />
             Property & Incident Information
           </h2>
         </div>
@@ -730,7 +730,7 @@ function DetailedReportPages({
       <div className="print:page-break-before-always bg-white p-8 rounded-lg shadow-lg print:shadow-none">
         <div className="border-b-2 border-slate-300 pb-4 mb-6">
           <h2 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
-            <Thermometer className="w-8 h-8 text-cyan-600" />
+            <Thermometer className="w-8 h-8 text-brand-bronze" />
             Environmental Conditions & Classification
           </h2>
         </div>
@@ -788,7 +788,7 @@ function DetailedReportPages({
                 )}
                 <div className="bg-white rounded-lg p-4 text-center border border-blue-100">
                   <CheckCircle
-                    className={`w-8 h-8 mx-auto mb-2 ${fullData.environmental.airCirculation ? "text-green-600" : "text-slate-400"}`}
+                    className={`w-8 h-8 mx-auto mb-2 ${fullData.environmental.airCirculation ? "text-brand-bronze" : "text-slate-400"}`}
                   />
                   <p className="text-xs text-slate-600 mb-1 font-medium">
                     Air Circulation
@@ -816,7 +816,7 @@ function DetailedReportPages({
           {/* {fullData.classification ? (
               <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-6 border-2 border-green-200 shadow-sm">
                 <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
-                  <Shield className="w-6 h-6 text-green-600" />
+                  <Shield className="w-6 h-6 text-brand-bronze" />
                   IICRC Classification
                 </h3>
                 <div className="space-y-4">
@@ -828,7 +828,7 @@ function DetailedReportPages({
                   </div>
                   <div>
                     <p className="text-sm text-slate-600 mb-2 font-medium">Class</p>
-                    <span className="inline-block px-4 py-2 rounded-lg text-base font-bold bg-green-100 text-green-800 border border-green-300">
+                    <span className="inline-block px-4 py-2 rounded-lg text-base font-bold bg-green-100 text-green-800 border border-brand-navy">
                       Class {fullData.classification.class || 'Not classified'}
                     </span>
                   </div>
@@ -849,7 +849,7 @@ function DetailedReportPages({
           ) : (
             <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-6 border-2 border-green-200 shadow-sm">
               <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
-                <Shield className="w-6 h-6 text-green-600" />
+                <Shield className="w-6 h-6 text-brand-bronze" />
                 IICRC Classification
               </h3>
               <p className="text-slate-600 italic">No classification data available.</p>
@@ -936,7 +936,7 @@ function DetailedReportPages({
           <div className="print:page-break-before-always bg-white p-8 rounded-lg shadow-lg print:shadow-none">
             <div className="border-b-2 border-slate-300 pb-4 mb-6">
               <h2 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
-                <MapPin className="w-8 h-8 text-cyan-600" />
+                <MapPin className="w-8 h-8 text-brand-bronze" />
                 Affected Areas
               </h2>
             </div>
@@ -1042,7 +1042,7 @@ function DetailedReportPages({
           <div className="print:page-break-before-always bg-white p-8 rounded-lg shadow-lg print:shadow-none">
             <div className="border-b-2 border-slate-300 pb-4 mb-6">
               <h2 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
-                <Droplet className="w-8 h-8 text-cyan-600" />
+                <Droplet className="w-8 h-8 text-brand-bronze" />
                 Moisture Readings
               </h2>
             </div>
@@ -1100,7 +1100,7 @@ function DetailedReportPages({
           <div className="print:page-break-before-always bg-white p-8 rounded-lg shadow-lg print:shadow-none">
             <div className="border-b-2 border-slate-300 pb-4 mb-6">
               <h2 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
-                <FileText className="w-8 h-8 text-cyan-600" />
+                <FileText className="w-8 h-8 text-brand-bronze" />
                 Scope of Works
               </h2>
             </div>
@@ -1161,7 +1161,7 @@ function DetailedReportPages({
           <div className="print:page-break-before-always bg-white p-8 rounded-lg shadow-lg print:shadow-none">
             <div className="border-b-2 border-slate-300 pb-4 mb-6">
               <h2 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
-                <Wind className="w-8 h-8 text-cyan-600" />
+                <Wind className="w-8 h-8 text-brand-bronze" />
                 Equipment Deployment & Costs
               </h2>
             </div>
@@ -1314,7 +1314,7 @@ function DetailedReportPages({
           <div className="print:page-break-before-always bg-white p-8 rounded-lg shadow-lg print:shadow-none">
             <div className="border-b-2 border-slate-300 pb-4 mb-6">
               <h2 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
-                <ImageIcon className="w-8 h-8 text-cyan-600" />
+                <ImageIcon className="w-8 h-8 text-brand-bronze" />
                 Photographic Documentation
               </h2>
               <p className="text-slate-600 mt-2">All inspection photographs</p>
@@ -1361,7 +1361,7 @@ function DetailedReportPages({
           <div className="print:page-break-before-always bg-white p-8 rounded-lg shadow-lg print:shadow-none">
             <div className="border-b-2 border-slate-300 pb-4 mb-6">
               <h2 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
-                <Shield className="w-8 h-8 text-cyan-600" />
+                <Shield className="w-8 h-8 text-brand-bronze" />
                 Hazards & Compliance
               </h2>
             </div>
@@ -1428,7 +1428,7 @@ function DetailedReportPages({
             {fullData.compliance && (
               <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-6 border-2 border-green-200 shadow-sm">
                 <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
-                  <Shield className="w-6 h-6 text-green-600" />
+                  <Shield className="w-6 h-6 text-brand-bronze" />
                   Compliance Standards
                 </h3>
                 <ul className="space-y-3">
@@ -1438,7 +1438,7 @@ function DetailedReportPages({
                         key={idx}
                         className="flex items-start gap-3 bg-white rounded-lg p-3 border border-green-200"
                       >
-                        <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+                        <CheckCircle className="w-5 h-5 text-brand-bronze mt-0.5 flex-shrink-0" />
                         <span className="text-slate-900 font-medium">
                           {standard}
                         </span>
@@ -1456,7 +1456,7 @@ function DetailedReportPages({
           <div className="print:page-break-before-always bg-white p-8 rounded-lg shadow-lg print:shadow-none">
             <div className="border-b-2 border-slate-300 pb-4 mb-6">
               <h2 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
-                <FileText className="w-8 h-8 text-cyan-600" />
+                <FileText className="w-8 h-8 text-brand-bronze" />
                 Technician Field Notes
               </h2>
             </div>

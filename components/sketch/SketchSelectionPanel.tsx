@@ -102,7 +102,7 @@ export function SketchSelectionPanel({
                 );
               }
             }}
-            className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white placeholder:text-white/30 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-400"
+            className="w-full px-2 py-1.5 rounded-lg bg-white/10 border border-white/10 text-white placeholder:text-white/30 text-sm focus:outline-none focus:ring-1 focus:ring-brand-navy"
             placeholder="Room name…"
           />
         </div>
@@ -153,7 +153,7 @@ export function SketchSelectionPanel({
                 parseFloat((e.target as HTMLInputElement).value),
               )
             }
-            className="w-full accent-cyan-400"
+            className="w-full accent-brand-navy"
           />
         </div>
       )}
