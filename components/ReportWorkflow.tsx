@@ -9,6 +9,7 @@ import Tier3Questions from "./Tier3Questions";
 import InspectionReportViewer from "./InspectionReportViewer";
 import { ArrowRight, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { resolveWorkflowStage } from "@/lib/reports/resolve-workflow-stage";
 
 type WorkflowStage =
   | "initial-entry"
@@ -54,22 +55,24 @@ export default function ReportWorkflow({
   const [loading, setLoading] = useState(!!initialReportId);
   const [report, setReport] = useState<any>(null);
 
-  // Load report data and determine current stage
+  // On mount / when resuming an existing report, determine the stage from data.
   useEffect(() => {
     if (initialReportId) {
-      loadReportState(initialReportId);
+      loadReportState(initialReportId, true);
     }
   }, [initialReportId]);
 
-  // Fetch report data when in report-generation stage to check Tier 3 completion
+  // While in report-generation, refresh report DATA only (e.g. for the Tier 3
+  // banner). RA-6799: this must NOT re-derive or reset the stage — doing so
+  // bounced the user back to "initial-entry" and re-created reports in an
+  // infinite loop that never reached PDF/export.
   useEffect(() => {
     if (currentStage === "report-generation" && reportId) {
-      // Always refresh report data when entering report-generation stage
-      loadReportState(reportId);
+      loadReportState(reportId, false);
     }
   }, [currentStage, reportId]);
 
-  const loadReportState = async (id: string) => {
+  const loadReportState = async (id: string, applyStage = true) => {
     try {
       setLoading(true);
       const response = await fetch(`/api/reports/${id}`);
@@ -77,70 +80,17 @@ export default function ReportWorkflow({
         const reportData = await response.json();
         setReport(reportData);
 
-        // Determine report type
-        if (reportData.reportDepthLevel) {
-          const depthLevel = reportData.reportDepthLevel.toLowerCase();
-          if (depthLevel === "optimised" || depthLevel === "optimized") {
-            setReportType("optimised");
-            // Only show Tier 3 option if not already completed
-            if (!reportData.tier3Responses) {
-              setShowTier3(true);
-            } else {
-              setShowTier3(false);
-            }
-          } else {
-            setReportType(depthLevel as "basic" | "enhanced");
-          }
+        // Data-only refresh: never touch the workflow stage (RA-6799).
+        if (!applyStage) {
+          return;
         }
 
-        // Determine current stage based on what data exists
-        const depthLevel = reportData.reportDepthLevel?.toLowerCase();
-        const isBasic = depthLevel === "basic";
-        const isEnhanced = depthLevel === "enhanced";
-        const isOptimised =
-          depthLevel === "optimised" || depthLevel === "optimized";
-
-        if (reportData.detailedReport) {
-          setCurrentStage("report-generation");
-        } else if (reportData.tier3Responses) {
-          setCurrentStage("report-generation");
-          setShowTier3(false); // Tier 3 is completed, hide the banner
-        } else if (reportData.tier2Responses) {
-          setCurrentStage("report-generation");
-          // Only show Tier 3 option if not already completed and report type is optimised
-          if (!reportData.tier3Responses && isOptimised) {
-            setShowTier3(true);
-          } else {
-            setShowTier3(false);
-          }
-        } else if (reportData.tier1Responses) {
-          // If Tier 1 is complete, check report type
-          if (isEnhanced) {
-            // Enhanced: can generate report or continue to Tier 2
-            setCurrentStage("report-generation");
-          } else if (isOptimised) {
-            // Optimised: must continue to Tier 2
-            setCurrentStage("tier2");
-          } else {
-            // Basic: should not have Tier 1, but if it does, go to report generation
-            setCurrentStage("report-generation");
-          }
-        } else if (
-          reportData.technicianReportAnalysis ||
-          reportData.reportDepthLevel
-        ) {
-          // Check if basic report - skip Tier 1
-          if (isBasic) {
-            setCurrentStage("report-generation");
-          } else {
-            // Enhanced or Optimised need Tier 1
-            setCurrentStage("tier1");
-          }
-        } else if (reportData.technicianFieldReport) {
-          setCurrentStage("initial-entry");
-        } else {
-          setCurrentStage("initial-entry");
-        }
+        // A report fetched by id already exists, so it is in-progress
+        // (hasReportId=true) and must never resolve back to "initial-entry".
+        const resolved = resolveWorkflowStage(reportData, true);
+        setReportType(resolved.reportType);
+        setShowTier3(resolved.showTier3);
+        setCurrentStage(resolved.stage);
 
         // Store reportId in localStorage for persistence
         if (typeof window !== "undefined") {
