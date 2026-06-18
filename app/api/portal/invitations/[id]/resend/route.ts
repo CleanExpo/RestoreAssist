@@ -80,7 +80,7 @@ export async function POST(
     expiresAt.setDate(expiresAt.getDate() + 7);
 
     await prisma.portalInvitation.update({
-      where: { id: invitation.id },
+      where: { id: invitation.id, userId: session.user.id },
       data: {
         expiresAt,
         status: "PENDING", // Reset to pending if was expired/revoked
