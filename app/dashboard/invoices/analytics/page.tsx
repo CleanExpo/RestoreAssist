@@ -215,7 +215,7 @@ export default function InvoiceAnalyticsPage() {
       <div>
         <Link
           href="/dashboard/invoices"
-          className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-cyan-500 dark:text-slate-400 dark:hover:text-cyan-400 transition-colors mb-4"
+          className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-cyan-500 dark:text-slate-400 dark:hover:text-brand-tan transition-colors mb-4"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Invoices

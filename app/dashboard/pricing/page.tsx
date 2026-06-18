@@ -115,7 +115,7 @@ function PricingPageContent() {
                     {plan.displayName}
                   </h3>
                   <div className="mb-4">
-                    <span className="text-4xl font-bold text-cyan-400">
+                    <span className="text-4xl font-bold text-brand-tan">
                       {formatPrice(plan.amount, plan.currency)}
                     </span>
                     {"interval" in plan && plan.interval && (
@@ -150,7 +150,7 @@ function PricingPageContent() {
                       Report Limit
                     </span>
                   </div>
-                  <div className="text-2xl font-bold text-cyan-400">
+                  <div className="text-2xl font-bold text-brand-tan">
                     {plan.reportLimit}
                   </div>
                   <div className="text-sm text-slate-400">
@@ -188,7 +188,7 @@ function PricingPageContent() {
             </h2>
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
               <div className="text-center p-6 bg-slate-800/30 rounded-lg">
-                <Shield className="w-8 h-8 text-cyan-400 mx-auto mb-4" />
+                <Shield className="w-8 h-8 text-brand-tan mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-white mb-2">
                   IICRC S500 Compliant
                 </h3>
@@ -198,7 +198,7 @@ function PricingPageContent() {
                 </p>
               </div>
               <div className="text-center p-6 bg-slate-800/30 rounded-lg">
-                <Download className="w-8 h-8 text-cyan-400 mx-auto mb-4" />
+                <Download className="w-8 h-8 text-brand-tan mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-white mb-2">
                   PDF Export
                 </h3>
@@ -208,7 +208,7 @@ function PricingPageContent() {
                 </p>
               </div>
               <div className="text-center p-6 bg-slate-800/30 rounded-lg">
-                <Users className="w-8 h-8 text-cyan-400 mx-auto mb-4" />
+                <Users className="w-8 h-8 text-brand-tan mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-white mb-2">
                   Client Management
                 </h3>
@@ -217,7 +217,7 @@ function PricingPageContent() {
                 </p>
               </div>
               <div className="text-center p-6 bg-slate-800/30 rounded-lg">
-                <Clock className="w-8 h-8 text-cyan-400 mx-auto mb-4" />
+                <Clock className="w-8 h-8 text-brand-tan mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-white mb-2">
                   24/7 Access
                 </h3>

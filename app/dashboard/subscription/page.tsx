@@ -362,7 +362,7 @@ function SubscriptionPageContent() {
                         <Download className="w-4 h-4" />
                         <a
                           href="/api/user/export"
-                          className="underline hover:text-cyan-300"
+                          className="underline hover:text-brand-tan"
                           download
                         >
                           Export your data
@@ -571,7 +571,7 @@ function SubscriptionPageContent() {
                       {plan.displayName}
                     </h3>
                     <div className="mb-4">
-                      <span className="text-3xl font-bold text-cyan-400">
+                      <span className="text-3xl font-bold text-brand-tan">
                         {formatPricingAmount(plan.amount, plan.currency)}
                       </span>
                       {"interval" in plan && plan.interval && (
@@ -610,7 +610,7 @@ function SubscriptionPageContent() {
                         Report Limit
                       </span>
                     </div>
-                    <div className="text-lg font-bold text-cyan-400">
+                    <div className="text-lg font-bold text-brand-tan">
                       {plan.reportLimit}
                     </div>
                   </div>
@@ -645,7 +645,7 @@ function SubscriptionPageContent() {
               </h3>
               <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div className="text-center p-4 bg-slate-800/30 rounded-lg">
-                  <Shield className="w-6 h-6 text-cyan-400 mx-auto mb-3" />
+                  <Shield className="w-6 h-6 text-brand-tan mx-auto mb-3" />
                   <h4 className="text-lg font-semibold text-white mb-2">
                     IICRC S500 Compliant
                   </h4>
@@ -654,7 +654,7 @@ function SubscriptionPageContent() {
                   </p>
                 </div>
                 <div className="text-center p-4 bg-slate-800/30 rounded-lg">
-                  <Download className="w-6 h-6 text-cyan-400 mx-auto mb-3" />
+                  <Download className="w-6 h-6 text-brand-tan mx-auto mb-3" />
                   <h4 className="text-lg font-semibold text-white mb-2">
                     PDF Export
                   </h4>
@@ -663,7 +663,7 @@ function SubscriptionPageContent() {
                   </p>
                 </div>
                 <div className="text-center p-4 bg-slate-800/30 rounded-lg">
-                  <Users className="w-6 h-6 text-cyan-400 mx-auto mb-3" />
+                  <Users className="w-6 h-6 text-brand-tan mx-auto mb-3" />
                   <h4 className="text-lg font-semibold text-white mb-2">
                     Client Management
                   </h4>
@@ -672,7 +672,7 @@ function SubscriptionPageContent() {
                   </p>
                 </div>
                 <div className="text-center p-4 bg-slate-800/30 rounded-lg">
-                  <Clock className="w-6 h-6 text-cyan-400 mx-auto mb-3" />
+                  <Clock className="w-6 h-6 text-brand-tan mx-auto mb-3" />
                   <h4 className="text-lg font-semibold text-white mb-2">
                     24/7 Access
                   </h4>

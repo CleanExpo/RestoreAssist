@@ -352,7 +352,7 @@ export default function ContractorProfileDashboard() {
         <div className="mb-6 p-4 bg-slate-800/30 border border-slate-700 rounded-lg flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Shield
-              className={`h-6 w-6 ${profile.isVerified ? "text-cyan-400" : "text-slate-500"}`}
+              className={`h-6 w-6 ${profile.isVerified ? "text-brand-tan" : "text-slate-500"}`}
             />
             <div>
               <div className="text-white font-medium">
@@ -619,7 +619,7 @@ export default function ContractorProfileDashboard() {
                 className="flex items-start justify-between p-4 bg-slate-700/30 border border-slate-600 rounded-lg"
               >
                 <div className="flex items-start gap-3">
-                  <Award className="h-6 w-6 text-cyan-400 flex-shrink-0 mt-1" />
+                  <Award className="h-6 w-6 text-brand-tan flex-shrink-0 mt-1" />
                   <div>
                     <div className="font-medium text-white">
                       {cert.certificationName}
@@ -771,7 +771,7 @@ export default function ContractorProfileDashboard() {
                 className="flex items-center justify-between p-4 bg-slate-700/30 border border-slate-600 rounded-lg"
               >
                 <div className="flex items-center gap-3">
-                  <MapPin className="h-5 w-5 text-cyan-400" />
+                  <MapPin className="h-5 w-5 text-brand-tan" />
                   <div>
                     <div className="font-medium text-white">
                       {area.suburb ? `${area.suburb}, ` : ""}

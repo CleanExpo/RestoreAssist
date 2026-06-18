@@ -209,7 +209,7 @@ export default function AdminUsersPage() {
   if (status === "loading") {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="w-8 h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-brand-navy/30 border-t-brand-navy rounded-full animate-spin" />
       </div>
     );
   }
@@ -247,7 +247,7 @@ export default function AdminUsersPage() {
             <h1 className="text-2xl font-semibold text-neutral-900 dark:text-white flex items-center gap-2">
               Users
               {!loading && (
-                <Badge className="ml-1 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+                <Badge className="ml-1 bg-cyan-500/10 text-cyan-600 dark:text-brand-tan">
                   {total}
                 </Badge>
               )}

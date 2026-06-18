@@ -108,7 +108,7 @@ function StatusIcon({ status }: { status: DryingStatus }) {
 }
 
 function moistureColor(level: number, target: number): string {
-  if (level <= target) return "text-emerald-600 dark:text-emerald-400";
+  if (level <= target) return "text-emerald-600 dark:text-brand-bronze";
   if (level <= target * 1.5) return "text-amber-600 dark:text-amber-400";
   return "text-red-600 dark:text-red-400";
 }
@@ -202,7 +202,7 @@ export default function MonitoringPage({
             </h1>
             <Badge
               variant="outline"
-              className="text-xs font-mono border-cyan-300 text-cyan-700 dark:text-cyan-400"
+              className="text-xs font-mono border-brand-tan text-cyan-700 dark:text-brand-tan"
             >
               {report.iicrcReference}
             </Badge>
@@ -427,7 +427,7 @@ export default function MonitoringPage({
                                   <AlertTriangle size={11} /> Above target
                                 </span>
                               ) : (
-                                <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 text-xs">
+                                <span className="flex items-center gap-1 text-emerald-600 dark:text-brand-bronze text-xs">
                                   <CheckCircle2 size={11} /> At target
                                 </span>
                               )}

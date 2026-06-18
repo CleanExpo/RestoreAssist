@@ -80,7 +80,7 @@ const STATUS_CONFIG: Record<
   },
   COMPLETED: {
     label: "Completed",
-    color: "text-emerald-600 dark:text-emerald-400",
+    color: "text-emerald-600 dark:text-brand-bronze",
     bg: "bg-emerald-50 dark:bg-emerald-900/30",
   },
   REJECTED: {
@@ -471,8 +471,8 @@ export default function InspectionsPage() {
                 className={cn(
                   "w-full text-left p-4 rounded-xl border cursor-pointer transition-all duration-200 group flex items-start gap-3",
                   selectedIds.has(insp.id)
-                    ? "border-cyan-400 dark:border-cyan-600 bg-cyan-50/50 dark:bg-cyan-900/20"
-                    : "border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 hover:bg-neutral-50 dark:hover:bg-slate-800/50 hover:border-cyan-300 dark:hover:border-cyan-800 hover:shadow-md",
+                    ? "border-brand-navy dark:border-cyan-600 bg-cyan-50/50 dark:bg-cyan-900/20"
+                    : "border-neutral-200 dark:border-slate-700/50 bg-white dark:bg-slate-900/50 hover:bg-neutral-50 dark:hover:bg-slate-800/50 hover:border-brand-tan dark:hover:border-cyan-800 hover:shadow-md",
                 )}
               >
                 <input
@@ -484,7 +484,7 @@ export default function InspectionsPage() {
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-1">
-                    <span className="font-mono text-sm font-semibold text-cyan-600 dark:text-cyan-400">
+                    <span className="font-mono text-sm font-semibold text-cyan-600 dark:text-brand-tan">
                       {insp.inspectionNumber}
                     </span>
                     <span
@@ -561,7 +561,7 @@ export default function InspectionsPage() {
                           `/dashboard/reports/new?inspectionId=${insp.id}`,
                         );
                       }}
-                      className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-cyan-50 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 transition-colors"
+                      className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-cyan-50 dark:bg-cyan-900/30 text-cyan-700 dark:text-brand-tan hover:bg-cyan-100 dark:hover:bg-cyan-900/50 transition-colors"
                       title={`Generate report from ${insp.inspectionNumber}`}
                     >
                       <FileText size={14} />

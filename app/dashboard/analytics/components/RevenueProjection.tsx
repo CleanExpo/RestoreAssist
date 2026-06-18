@@ -221,7 +221,7 @@ export default function RevenueProjection({
           >
             30-Day Projection
           </p>
-          <p className="text-lg font-semibold text-cyan-600 dark:text-cyan-400">
+          <p className="text-lg font-semibold text-cyan-600 dark:text-brand-tan">
             $
             {(
               projected.slice(0, 30).reduce((sum, p) => sum + p.revenue, 0) || 0
@@ -237,7 +237,7 @@ export default function RevenueProjection({
           >
             60-Day Projection
           </p>
-          <p className="text-lg font-semibold text-cyan-600 dark:text-cyan-400">
+          <p className="text-lg font-semibold text-cyan-600 dark:text-brand-tan">
             $
             {(
               projected.slice(0, 60).reduce((sum, p) => sum + p.revenue, 0) || 0
@@ -253,7 +253,7 @@ export default function RevenueProjection({
           >
             90-Day Projection
           </p>
-          <p className="text-lg font-semibold text-cyan-600 dark:text-cyan-400">
+          <p className="text-lg font-semibold text-cyan-600 dark:text-brand-tan">
             $
             {(
               projected.slice(0, 90).reduce((sum, p) => sum + p.revenue, 0) || 0

@@ -82,7 +82,7 @@ interface LogsResponse {
 function providerColor(provider: IntegrationProvider): string {
   switch (provider) {
     case "XERO":
-      return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400";
+      return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-brand-bronze";
     case "QUICKBOOKS":
       return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
     case "MYOB":
@@ -90,7 +90,7 @@ function providerColor(provider: IntegrationProvider): string {
     case "SERVICEM8":
       return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400";
     case "ASCORA":
-      return "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-400";
+      return "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-brand-tan";
     default:
       return "bg-neutral-100 text-neutral-700 dark:bg-slate-800 dark:text-slate-300";
   }

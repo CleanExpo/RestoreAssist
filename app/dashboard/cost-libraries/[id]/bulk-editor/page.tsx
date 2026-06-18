@@ -495,7 +495,7 @@ export default function CostLibraryBulkEditorPage({
               </span>
             )}
             {selected.size > 0 && (
-              <span className="px-2 py-0.5 text-xs rounded-full bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+              <span className="px-2 py-0.5 text-xs rounded-full bg-cyan-500/20 text-brand-tan border border-cyan-500/30">
                 {selected.size} selected
               </span>
             )}

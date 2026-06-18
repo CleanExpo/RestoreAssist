@@ -119,7 +119,7 @@ export default function DashboardPage() {
   if (status === "loading") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-brand-navy/30 border-t-brand-navy rounded-full animate-spin" />
       </div>
     );
   }
@@ -131,7 +131,7 @@ export default function DashboardPage() {
         ? "..."
         : dashboardData.totalReports.toString(),
       icon: FileText,
-      color: "text-cyan-400",
+      color: "text-brand-tan",
     },
     {
       label: "Total Clients",
@@ -139,7 +139,7 @@ export default function DashboardPage() {
         ? "..."
         : dashboardData.totalClients.toString(),
       icon: Users,
-      color: "text-emerald-400",
+      color: "text-brand-bronze",
     },
     {
       label: "Total Revenue",
@@ -294,7 +294,7 @@ export default function DashboardPage() {
               >
                 <div className="flex items-center justify-between mb-4">
                   <stat.icon size={24} className={`${stat.color} opacity-80`} />
-                  <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+                  <div className="w-2 h-2 bg-brand-bronze rounded-full animate-pulse" />
                 </div>
                 <div className="space-y-1">
                   <p className={`text-3xl font-bold ${stat.color}`}>
@@ -341,7 +341,7 @@ export default function DashboardPage() {
                           <action.icon size={20} className="text-white" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-medium text-white group-hover:text-cyan-400 transition-colors">
+                          <h3 className="font-medium text-white group-hover:text-brand-tan transition-colors">
                             {action.title}
                           </h3>
                           <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
@@ -350,7 +350,7 @@ export default function DashboardPage() {
                         </div>
                         <ArrowRight
                           size={16}
-                          className="text-slate-500 dark:text-slate-400 group-hover:text-cyan-400 transition-colors flex-shrink-0"
+                          className="text-slate-500 dark:text-slate-400 group-hover:text-brand-tan transition-colors flex-shrink-0"
                         />
                       </div>
                     </motion.a>
@@ -376,7 +376,7 @@ export default function DashboardPage() {
                 <div className="space-y-3">
                   {dashboardData.loading ? (
                     <div className="flex items-center justify-center py-4">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-cyan-400"></div>
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-navy"></div>
                     </div>
                   ) : getRecentActivity().length > 0 ? (
                     getRecentActivity().map((activity, index) => (
@@ -390,7 +390,7 @@ export default function DashboardPage() {
                         <div
                           className={`w-2 h-2 rounded-full ${
                             activity.status === "success"
-                              ? "bg-emerald-400"
+                              ? "bg-brand-bronze"
                               : "bg-orange-400"
                           }`}
                         />
@@ -429,22 +429,22 @@ export default function DashboardPage() {
                   <div
                     className={`flex items-center gap-3 p-3 rounded-lg ${
                       dashboardData.totalReports > 0
-                        ? "bg-emerald-500/20 border border-emerald-500/30"
+                        ? "bg-brand-bronze/20 border border-brand-bronze/30"
                         : "bg-slate-700/30"
                     }`}
                   >
                     <div
                       className={`w-6 h-6 rounded-full flex items-center justify-center ${
                         dashboardData.totalReports > 0
-                          ? "bg-emerald-500/20"
+                          ? "bg-brand-bronze/20"
                           : "bg-cyan-500/20"
                       }`}
                     >
                       <span
                         className={`text-xs font-bold ${
                           dashboardData.totalReports > 0
-                            ? "text-emerald-400"
-                            : "text-cyan-400"
+                            ? "text-brand-bronze"
+                            : "text-brand-tan"
                         }`}
                       >
                         1
@@ -466,21 +466,21 @@ export default function DashboardPage() {
                   <div
                     className={`flex items-center gap-3 p-3 rounded-lg ${
                       dashboardData.totalClients > 0
-                        ? "bg-emerald-500/20 border border-emerald-500/30"
+                        ? "bg-brand-bronze/20 border border-brand-bronze/30"
                         : "bg-slate-700/30"
                     }`}
                   >
                     <div
                       className={`w-6 h-6 rounded-full flex items-center justify-center ${
                         dashboardData.totalClients > 0
-                          ? "bg-emerald-500/20"
+                          ? "bg-brand-bronze/20"
                           : "bg-slate-600/50"
                       }`}
                     >
                       <span
                         className={`text-xs font-bold ${
                           dashboardData.totalClients > 0
-                            ? "text-emerald-400"
+                            ? "text-brand-bronze"
                             : "text-slate-500 dark:text-slate-400"
                         }`}
                       >
@@ -540,7 +540,7 @@ export default function DashboardPage() {
                 <div className="w-16 h-16 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-3">
                   <TrendingUp size={24} className="text-white" />
                 </div>
-                <h3 className="text-2xl font-bold text-cyan-400 mb-1 tabular-nums">
+                <h3 className="text-2xl font-bold text-brand-tan mb-1 tabular-nums">
                   {dashboardData.loading
                     ? "..."
                     : `${Math.round((dashboardData.totalReports / Math.max(dashboardData.totalClients, 1)) * 100)}%`}
@@ -554,7 +554,7 @@ export default function DashboardPage() {
                 <div className="w-16 h-16 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-3">
                   <CheckCircle size={24} className="text-white" />
                 </div>
-                <h3 className="text-2xl font-bold text-emerald-400 mb-1 tabular-nums">
+                <h3 className="text-2xl font-bold text-brand-bronze mb-1 tabular-nums">
                   {dashboardData.loading
                     ? "..."
                     : `${dashboardData.recentReports.filter((r: any) => r.status !== "Draft").length}/${dashboardData.totalReports || 1}`}
@@ -596,7 +596,7 @@ export default function DashboardPage() {
               </h2>
               <Link
                 href="/dashboard/reports"
-                className="flex items-center gap-1.5 text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
+                className="flex items-center gap-1.5 text-sm text-brand-tan hover:text-brand-tan transition-colors"
               >
                 View all
                 <ArrowRight size={14} />
@@ -605,7 +605,7 @@ export default function DashboardPage() {
 
             {dashboardData.loading ? (
               <div className="flex items-center justify-center py-8">
-                <div className="w-6 h-6 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
+                <div className="w-6 h-6 border-2 border-brand-navy/30 border-t-brand-navy rounded-full animate-spin" />
               </div>
             ) : dashboardData.recentReports.length === 0 ? (
               <div className="text-center py-8">
@@ -615,7 +615,7 @@ export default function DashboardPage() {
                 </p>
                 <Link
                   href="/dashboard/reports/new"
-                  className="inline-flex items-center gap-1.5 mt-3 text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
+                  className="inline-flex items-center gap-1.5 mt-3 text-sm text-brand-tan hover:text-brand-tan transition-colors"
                 >
                   <Plus size={14} />
                   Create your first report
@@ -640,7 +640,7 @@ export default function DashboardPage() {
                       {/* Report header */}
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <div className="flex-1 min-w-0">
-                          <p className="text-white text-sm font-medium truncate group-hover:text-cyan-400 transition-colors">
+                          <p className="text-white text-sm font-medium truncate group-hover:text-brand-tan transition-colors">
                             {report.title}
                           </p>
                           <p className="text-slate-500 dark:text-slate-400 text-xs truncate mt-0.5">
@@ -651,7 +651,7 @@ export default function DashboardPage() {
                           className={`flex-shrink-0 px-2 py-0.5 rounded text-xs font-medium ${
                             report.status === "COMPLETED" ||
                             report.status === "APPROVED"
-                              ? "bg-emerald-500/20 text-emerald-400"
+                              ? "bg-brand-bronze/20 text-brand-bronze"
                               : report.status === "PENDING"
                                 ? "bg-amber-500/20 text-amber-400"
                                 : "bg-slate-500/20 text-slate-500 dark:text-slate-400"

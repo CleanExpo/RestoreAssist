@@ -151,7 +151,7 @@ export default function SecurityPage() {
     <div className="max-w-2xl space-y-6">
       <div>
         <h1 className="text-2xl font-semibold flex items-center gap-2">
-          <Shield className="h-6 w-6 text-cyan-400" aria-hidden />
+          <Shield className="h-6 w-6 text-brand-tan" aria-hidden />
           Security
         </h1>
         <p className="text-sm text-slate-400 mt-1">
@@ -166,7 +166,7 @@ export default function SecurityPage() {
               {twoFactorEnabled ? (
                 <>
                   <ShieldCheck
-                    className="h-5 w-5 text-emerald-400"
+                    className="h-5 w-5 text-brand-bronze"
                     aria-hidden
                   />
                   Two-factor authentication is on
@@ -225,7 +225,7 @@ export default function SecurityPage() {
                   </code>
                   <button
                     onClick={handleCopyKey}
-                    className="text-cyan-400 hover:text-cyan-300"
+                    className="text-brand-tan hover:text-brand-tan"
                     aria-label="Copy key"
                   >
                     {copied ? (

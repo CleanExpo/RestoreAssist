@@ -56,7 +56,7 @@ const TYPE_LABELS: Record<string, string> = {
 
 const TYPE_COLORS: Record<string, string> = {
   report: "bg-blue-500/10 text-blue-400 border border-blue-500/20",
-  client: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+  client: "bg-brand-bronze/10 text-brand-bronze border border-brand-bronze/20",
   inspection: "bg-purple-500/10 text-purple-400 border border-purple-500/20",
 };
 

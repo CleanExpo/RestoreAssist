@@ -177,7 +177,7 @@ export default function ContractorReviewsPage() {
       case "PENDING_REVIEW":
         return "text-amber-400";
       case "UNDER_INVESTIGATION":
-        return "text-cyan-400";
+        return "text-brand-tan";
       case "RESOLVED_KEPT":
         return "text-green-400";
       case "RESOLVED_AMENDED":
@@ -384,8 +384,8 @@ export default function ContractorReviewsPage() {
               {review.contractorResponse && (
                 <div className="mb-4 pl-4 border-l-2 border-cyan-500/30 bg-slate-700/20 p-4 rounded">
                   <div className="flex items-center gap-2 mb-2">
-                    <MessageSquare className="h-4 w-4 text-cyan-400" />
-                    <span className="text-sm font-medium text-cyan-400">
+                    <MessageSquare className="h-4 w-4 text-brand-tan" />
+                    <span className="text-sm font-medium text-brand-tan">
                       Your Response
                     </span>
                     {review.respondedAt && (
@@ -470,7 +470,7 @@ export default function ContractorReviewsPage() {
                 {!review.contractorResponse && selectedReview !== review.id && (
                   <button
                     onClick={() => setSelectedReview(review.id)}
-                    className="flex items-center gap-2 text-cyan-400 hover:text-cyan-300"
+                    className="flex items-center gap-2 text-brand-tan hover:text-brand-tan"
                   >
                     <MessageSquare className="h-4 w-4" />
                     Respond to Review

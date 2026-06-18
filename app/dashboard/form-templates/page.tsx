@@ -26,7 +26,7 @@ interface FormTemplate {
 }
 
 const BADGE_COLORS: Record<string, string> = {
-  INTERVIEW: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400",
+  INTERVIEW: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-brand-tan",
   SURVEY:
     "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
   ONBOARDING:

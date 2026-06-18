@@ -182,7 +182,7 @@ export default function InterviewAnalyticsDashboard() {
             <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider">
               Finished
             </div>
-            <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+            <div className="text-xl font-bold text-emerald-600 dark:text-brand-bronze mt-1">
               {Math.round(aggregateStats.completionRate ?? 0)}%
             </div>
           </div>

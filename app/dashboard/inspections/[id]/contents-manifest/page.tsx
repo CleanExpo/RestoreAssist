@@ -64,7 +64,7 @@ interface InspectionMeta {
 
 const CONDITION_COLORS: Record<string, string> = {
   undamaged:
-    "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+    "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-brand-bronze",
   lightly_soiled:
     "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
   water_damaged:
@@ -97,7 +97,7 @@ const CONDITION_LABELS: Record<string, string> = {
 const RESTORABILITY_ICONS: Record<string, { label: string; color: string }> = {
   restorable: {
     label: "Restorable",
-    color: "text-emerald-600 dark:text-emerald-400",
+    color: "text-emerald-600 dark:text-brand-bronze",
   },
   questionable: {
     label: "Questionable",
@@ -728,7 +728,7 @@ export default function ContentsManifestPage({
               className={cn(
                 "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
                 viewMode === "room"
-                  ? "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400"
+                  ? "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-brand-tan"
                   : "text-neutral-500 hover:text-neutral-700 dark:text-slate-400",
               )}
             >
@@ -739,7 +739,7 @@ export default function ContentsManifestPage({
               className={cn(
                 "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
                 viewMode === "category"
-                  ? "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400"
+                  ? "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-brand-tan"
                   : "text-neutral-500 hover:text-neutral-700 dark:text-slate-400",
               )}
             >

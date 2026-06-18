@@ -67,7 +67,7 @@ export default async function ContentGatePage() {
             href="https://github.com/CleanExpo/RestoreAssist/blob/main/docs/CONTENT-GATE.md"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 transition-colors flex-shrink-0"
+            className="inline-flex items-center gap-1.5 text-xs text-cyan-600 dark:text-brand-tan hover:text-cyan-700 dark:hover:text-brand-tan transition-colors flex-shrink-0"
           >
             docs/CONTENT-GATE.md <ExternalLink size={11} />
           </a>

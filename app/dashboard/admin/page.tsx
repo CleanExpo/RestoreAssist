@@ -127,7 +127,7 @@ export default function AdminDashboardPage() {
   if (status === "loading" || loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="w-8 h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-brand-navy/30 border-t-brand-navy rounded-full animate-spin" />
       </div>
     );
   }
@@ -326,7 +326,7 @@ export default function AdminDashboardPage() {
             </Button>
             <Button
               variant="outline"
-              className="flex-col h-auto py-4 gap-2 border-cyan-200 dark:border-cyan-800/60 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/30"
+              className="flex-col h-auto py-4 gap-2 border-cyan-200 dark:border-cyan-800/60 text-cyan-600 dark:text-brand-tan hover:bg-cyan-50 dark:hover:bg-cyan-950/30"
               onClick={() => router.push("/dashboard/admin/pilot")}
             >
               <BarChart2 className="h-5 w-5" />

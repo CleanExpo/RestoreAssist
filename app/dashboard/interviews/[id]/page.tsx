@@ -244,7 +244,7 @@ export default function InterviewDetailPage() {
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <Link
           href="/dashboard/interviews"
-          className="inline-flex items-center gap-1.5 text-sm text-neutral-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-neutral-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-brand-tan transition-colors"
         >
           <ArrowLeft size={16} />
           Interviews
@@ -260,7 +260,7 @@ export default function InterviewDetailPage() {
           variant={statusCfg.variant}
           className={
             interview.status === "COMPLETED"
-              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
+              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-brand-bronze border-emerald-200 dark:border-emerald-800"
               : interview.status === "IN_PROGRESS"
                 ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800"
                 : interview.status === "ABANDONED"
@@ -340,7 +340,7 @@ export default function InterviewDetailPage() {
             <div className="mt-4 pt-4 border-t border-neutral-100 dark:border-slate-800">
               <Link
                 href={`/dashboard/reports/${interview.reportId}`}
-                className="inline-flex items-center gap-2 text-sm font-medium text-cyan-600 dark:text-cyan-400 hover:underline"
+                className="inline-flex items-center gap-2 text-sm font-medium text-cyan-600 dark:text-brand-tan hover:underline"
               >
                 <FileText size={14} />
                 View Linked Inspection Report

@@ -236,7 +236,7 @@ export default function ReportDetailPage({
             onClick={() => setActiveTab("inspection")}
             className={`px-4 py-3 border-b-2 transition-colors flex items-center gap-2 ${
               activeTab === "inspection"
-                ? "border-cyan-500 text-cyan-400"
+                ? "border-cyan-500 text-brand-tan"
                 : "border-transparent text-slate-400 hover:text-slate-300"
             }`}
           >
@@ -247,7 +247,7 @@ export default function ReportDetailPage({
             onClick={() => setActiveTab("scope")}
             className={`px-4 py-3 border-b-2 transition-colors flex items-center gap-2 ${
               activeTab === "scope"
-                ? "border-cyan-500 text-cyan-400"
+                ? "border-cyan-500 text-brand-tan"
                 : "border-transparent text-slate-400 hover:text-slate-300"
             }`}
           >
@@ -258,7 +258,7 @@ export default function ReportDetailPage({
             onClick={() => setActiveTab("cost")}
             className={`px-4 py-3 border-b-2 transition-colors flex items-center gap-2 ${
               activeTab === "cost"
-                ? "border-cyan-500 text-cyan-400"
+                ? "border-cyan-500 text-brand-tan"
                 : "border-transparent text-slate-400 hover:text-slate-300"
             }`}
           >
@@ -269,7 +269,7 @@ export default function ReportDetailPage({
             onClick={() => setActiveTab("authority")}
             className={`px-4 py-3 border-b-2 transition-colors flex items-center gap-2 ${
               activeTab === "authority"
-                ? "border-cyan-500 text-cyan-400"
+                ? "border-cyan-500 text-brand-tan"
                 : "border-transparent text-slate-400 hover:text-slate-300"
             }`}
           >
@@ -280,7 +280,7 @@ export default function ReportDetailPage({
             onClick={() => setActiveTab("approvals")}
             className={`px-4 py-3 border-b-2 transition-colors flex items-center gap-2 ${
               activeTab === "approvals"
-                ? "border-cyan-500 text-cyan-400"
+                ? "border-cyan-500 text-brand-tan"
                 : "border-transparent text-slate-400 hover:text-slate-300"
             }`}
           >

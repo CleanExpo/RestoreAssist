@@ -245,7 +245,7 @@ export default function OnboardingClient() {
               <p
                 className={cn(
                   "text-lg font-semibold",
-                  "text-emerald-600 dark:text-emerald-400",
+                  "text-emerald-600 dark:text-brand-bronze",
                 )}
               >
                 You&apos;re all set!
@@ -307,7 +307,7 @@ export default function OnboardingClient() {
             You&apos;re all set!
           </h2>
           <p
-            className={cn("text-sm", "text-emerald-600 dark:text-emerald-400")}
+            className={cn("text-sm", "text-emerald-600 dark:text-brand-bronze")}
           >
             Your account is fully configured. You&apos;re ready to create
             reports and manage your restoration business.

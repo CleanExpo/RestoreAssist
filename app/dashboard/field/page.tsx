@@ -42,7 +42,7 @@ const STATUS_COLOR: Record<string, string> = {
   SUBMITTED: "text-amber-400",
   PROCESSING: "text-blue-400",
   CLASSIFIED: "text-purple-400",
-  SCOPED: "text-cyan-400",
+  SCOPED: "text-brand-tan",
   COMPLETED: "text-green-400",
 };
 

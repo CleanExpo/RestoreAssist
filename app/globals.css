@@ -87,7 +87,14 @@
      since the Portal is brand-themed in a single palette. */
   --color-brand-navy: #1c2e47; /* primary — headings, accents, strong text */
   --color-brand-bronze: #8a6b4e; /* secondary — CTAs, highlights, borders */
+  --color-brand-tan: #d4a574; /* tertiary — accent text on dark backgrounds (RA-6689) */
   --color-brand-slate: #5a6a7b; /* muted — body copy, meta text */
+  /* Margot sub-brand (app/dashboard/margot/*) — intentional cream/charcoal palette,
+     formally separate from the RestoreAssist brand. See RA-6689 for reconciliation context.
+     These tokens are registered for future migration but inline styles remain authoritative. */
+  --color-margot-cream: #f5f0e8;
+  --color-margot-charcoal: #141413;
+  --color-margot-divider: #e7e0d3;
 
   /* Primary Colors */
   --color-slate-950: #0f172a;
@@ -228,7 +235,7 @@ body {
 
 /* Gradient text */
 .gradient-text {
-  @apply bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent;
+  @apply bg-gradient-to-r from-brand-tan via-brand-bronze to-brand-tan bg-clip-text text-transparent;
 }
 
 /* Smooth hover effects */

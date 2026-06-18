@@ -426,8 +426,8 @@ export default function NewReportPage() {
       description:
         "Add your Anthropic API key to enable AI-powered report generation",
       impact: "High Impact",
-      impactColor: "text-emerald-600 dark:text-emerald-400",
-      impactBg: "bg-emerald-50 dark:bg-emerald-500/10",
+      impactColor: "text-emerald-600 dark:text-brand-bronze",
+      impactBg: "bg-emerald-50 dark:bg-brand-bronze/10",
       details:
         "Personalizes report generation, enables advanced AI features, and improves report quality",
       route: "/dashboard/integrations?onboarding=true",
@@ -440,8 +440,8 @@ export default function NewReportPage() {
       description:
         "Set up your business rates for labour, equipment, and services",
       impact: "High Impact",
-      impactColor: "text-emerald-600 dark:text-emerald-400",
-      impactBg: "bg-emerald-50 dark:bg-emerald-500/10",
+      impactColor: "text-emerald-600 dark:text-brand-bronze",
+      impactBg: "bg-emerald-50 dark:bg-brand-bronze/10",
       details:
         "Ensures accurate cost estimations and professional quotes for your clients",
       route: "/dashboard/pricing-config?onboarding=true",
@@ -505,9 +505,9 @@ export default function NewReportPage() {
           <div className="mb-6 p-6 rounded-lg border border-cyan-500/50 dark:border-cyan-500/30 bg-cyan-500/10 dark:bg-cyan-500/5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Upload className="w-6 h-6 text-cyan-400 dark:text-cyan-300" />
+                <Upload className="w-6 h-6 text-brand-tan dark:text-brand-tan" />
                 <div>
-                  <h3 className="text-lg font-semibold text-cyan-400 dark:text-cyan-300">
+                  <h3 className="text-lg font-semibold text-brand-tan dark:text-brand-tan">
                     Upload Existing Report
                   </h3>
                   <p
@@ -611,7 +611,7 @@ export default function NewReportPage() {
 
         {/* Interview Data Notification */}
         {uploadedData && !fileName && searchParams.get("interviewData") && (
-          <div className="mb-6 p-6 rounded-xl border-2 border-emerald-500/60 bg-gradient-to-r from-emerald-500/10 to-green-500/10 shadow-lg animate-in fade-in slide-in-from-top-4">
+          <div className="mb-6 p-6 rounded-xl border-2 border-brand-bronze/60 bg-gradient-to-r from-emerald-500/10 to-green-500/10 shadow-lg animate-in fade-in slide-in-from-top-4">
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-start gap-4 flex-1">
                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-green-500 flex items-center justify-center shadow-lg flex-shrink-0">

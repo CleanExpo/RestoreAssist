@@ -1024,7 +1024,7 @@ export default function ClaimsAnalysisPage() {
                     <div className="text-xs text-muted-foreground">IICRC</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mb-1">
+                    <div className="text-2xl font-bold text-emerald-600 dark:text-brand-bronze mb-1">
                       {(summary.totalMissingElements as MissingElementsSummary)
                         .australianStandards || 0}
                     </div>
@@ -1074,7 +1074,7 @@ export default function ClaimsAnalysisPage() {
                     </div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-cyan-600 dark:text-cyan-400 mb-1">
+                    <div className="text-2xl font-bold text-cyan-600 dark:text-brand-tan mb-1">
                       {(summary.totalMissingElements as MissingElementsSummary)
                         .monitoring || 0}
                     </div>

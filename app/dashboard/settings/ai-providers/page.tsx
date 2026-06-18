@@ -87,7 +87,7 @@ const STATUS_LABEL: Record<ConnectionStatus, string> = {
 
 const STATUS_COLOUR: Record<ConnectionStatus, string> = {
   ACTIVE:
-    "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+    "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-brand-bronze",
   DISABLED:
     "bg-neutral-100 text-neutral-500 dark:bg-slate-800 dark:text-slate-400",
   ERROR: "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",

@@ -1119,7 +1119,7 @@ export default function CaptureWorkflowPage({
                         <CheckCircle2 className="h-4 w-4 mr-2" /> Mark Complete
                       </Button>
                       {isApprentice && !confirmationsComplete && (
-                        <span className="text-xs text-violet-600 dark:text-violet-400">
+                        <span className="text-xs text-violet-600 dark:text-brand-slate">
                           Answer required questions above to complete
                         </span>
                       )}

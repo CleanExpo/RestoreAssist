@@ -76,7 +76,7 @@ export default function CompletionMetrics({
 
   const trendColor =
     trend === "improving"
-      ? "text-emerald-600 dark:text-emerald-400"
+      ? "text-emerald-600 dark:text-brand-bronze"
       : trend === "declining"
         ? "text-red-600 dark:text-red-400"
         : "text-neutral-600 dark:text-slate-400";
@@ -245,7 +245,7 @@ export default function CompletionMetrics({
               <p
                 className={cn(
                   "text-2xl font-semibold",
-                  "text-emerald-600 dark:text-emerald-400",
+                  "text-emerald-600 dark:text-brand-bronze",
                 )}
               >
                 {overall.completionRate !== undefined
@@ -405,7 +405,7 @@ export default function CompletionMetrics({
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold text-cyan-600 dark:text-cyan-400">
+                    <p className="font-semibold text-cyan-600 dark:text-brand-tan">
                       {hazard.avgDays.toFixed(1)} days
                     </p>
                   </div>
@@ -488,7 +488,7 @@ export default function CompletionMetrics({
               className={cn(
                 "mt-4 p-3 rounded-lg flex gap-2 border",
                 trend === "improving"
-                  ? "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20"
+                  ? "bg-emerald-50 dark:bg-brand-bronze/10 border-emerald-200 dark:border-brand-bronze/20"
                   : "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20",
               )}
             >
@@ -496,7 +496,7 @@ export default function CompletionMetrics({
                 size={16}
                 className={
                   trend === "improving"
-                    ? "text-emerald-600 dark:text-emerald-400"
+                    ? "text-emerald-600 dark:text-brand-bronze"
                     : "text-red-600 dark:text-red-400"
                 }
               />

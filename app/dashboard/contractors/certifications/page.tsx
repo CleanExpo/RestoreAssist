@@ -461,7 +461,7 @@ export default function ContractorCertificationsPage() {
                 className="bg-slate-800/30 border border-slate-700 rounded-lg p-5 flex items-start justify-between gap-4"
               >
                 <div className="flex items-start gap-4 min-w-0">
-                  <Award className="h-6 w-6 text-cyan-400 flex-shrink-0 mt-0.5" />
+                  <Award className="h-6 w-6 text-brand-tan flex-shrink-0 mt-0.5" />
                   <div className="min-w-0">
                     <div className="font-semibold text-white truncate">
                       {cert.certificationName}
@@ -513,7 +513,7 @@ export default function ContractorCertificationsPage() {
                       <button
                         onClick={() => openEditDialog(cert)}
                         title="Edit"
-                        className="p-2 text-slate-400 hover:text-cyan-400 transition-colors"
+                        className="p-2 text-slate-400 hover:text-brand-tan transition-colors"
                       >
                         <Pencil className="h-4 w-4" />
                       </button>

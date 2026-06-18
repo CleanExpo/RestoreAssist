@@ -87,7 +87,7 @@ function ChangeDiff({ changes }: { changes: VersionChange[] }) {
             <div key={change.field} className="flex items-center gap-2 text-sm">
               <FileText size={14} className="text-slate-400 shrink-0" />
               <span className="text-slate-400">{label}:</span>
-              <span className="text-cyan-400">Scope document updated</span>
+              <span className="text-brand-tan">Scope document updated</span>
             </div>
           );
         }
@@ -145,7 +145,7 @@ function TimelineEntryCard({
         <div
           className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 z-10 ${
             isCurrent
-              ? "bg-cyan-500 border-cyan-400 text-white"
+              ? "bg-cyan-500 border-brand-navy text-white"
               : "bg-slate-800 border-slate-600 text-slate-300"
           }`}
         >
@@ -163,7 +163,7 @@ function TimelineEntryCard({
                   {entry.action}
                 </span>
                 {isCurrent && (
-                  <Badge className="bg-cyan-500/20 text-cyan-400 border-cyan-500/30 text-xs">
+                  <Badge className="bg-cyan-500/20 text-brand-tan border-cyan-500/30 text-xs">
                     Current Version
                   </Badge>
                 )}
@@ -295,7 +295,7 @@ export default function ReportVersionHistoryPage({
       {/* Back link */}
       <Link
         href={`/dashboard/reports/${id}`}
-        className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-cyan-400 transition-colors"
+        className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-brand-tan transition-colors"
       >
         <ArrowLeft size={16} />
         Back to Report
@@ -304,7 +304,7 @@ export default function ReportVersionHistoryPage({
       {/* Title block */}
       <div>
         <div className="flex items-center gap-3 mb-1">
-          <History size={22} className="text-cyan-400" />
+          <History size={22} className="text-brand-tan" />
           <h1 className="text-2xl font-semibold text-slate-100">
             Version History
           </h1>
