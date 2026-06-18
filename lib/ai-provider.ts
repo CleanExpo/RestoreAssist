@@ -135,6 +135,42 @@ export async function getLatestAIIntegration(
  * @returns The Anthropic API key to use
  * @throws Error if no API key is available
  */
+/**
+ * Pure key-precedence resolver (RA-6799 follow-up). A user-supplied (BYOK)
+ * Anthropic key wins; otherwise free/trial users fall back to the platform key
+ * from the secure ANTHROPIC_API_KEY env var. Throws only when neither exists.
+ * Key prefix is authoritative — a non-Anthropic key is refused either way.
+ */
+export function selectAnthropicApiKey(
+  integrationKey: string | null | undefined,
+  envKey: string | null | undefined,
+): string {
+  if (integrationKey) {
+    const p = providerForKey(integrationKey);
+    if (p && p !== "anthropic") {
+      throw new Error(
+        "The configured Anthropic integration holds a non-Anthropic API key; refusing to use it. Re-add your Anthropic key in Settings → Integrations.",
+      );
+    }
+    return integrationKey;
+  }
+
+  const env = envKey?.trim();
+  if (env) {
+    const p = providerForKey(env);
+    if (p && p !== "anthropic") {
+      throw new Error(
+        "ANTHROPIC_API_KEY is set but does not look like an Anthropic key; refusing to use it.",
+      );
+    }
+    return env;
+  }
+
+  throw new Error(
+    "No Anthropic API key available. Set ANTHROPIC_API_KEY in the environment, or add your Anthropic key in Settings → Integrations.",
+  );
+}
+
 export async function getAnthropicApiKey(userId: string): Promise<string> {
   const integrations = await getIntegrationsForUser(userId, {
     status: "CONNECTED",
@@ -148,21 +184,11 @@ export async function getAnthropicApiKey(userId: string): Promise<string> {
       i.name.toLowerCase().includes("anthropic"),
   );
 
-  if (!integration?.apiKey) {
-    throw new Error(
-      "Please add your Anthropic API key in Settings → Integrations to use AI features.",
-    );
-  }
-
-  // Refuse to return a non-Anthropic key for Anthropic use (key prefix is authoritative).
-  const keyProvider = providerForKey(integration.apiKey);
-  if (keyProvider && keyProvider !== "anthropic") {
-    throw new Error(
-      "The configured Anthropic integration holds a non-Anthropic API key; refusing to use it. Re-add your Anthropic key in Settings → Integrations.",
-    );
-  }
-
-  return integration.apiKey;
+  // BYOK integration key first, then the platform ANTHROPIC_API_KEY env var.
+  return selectAnthropicApiKey(
+    integration?.apiKey,
+    process.env.ANTHROPIC_API_KEY,
+  );
 }
 
 /**
