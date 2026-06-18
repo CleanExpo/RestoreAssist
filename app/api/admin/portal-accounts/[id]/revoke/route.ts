@@ -36,8 +36,10 @@ export async function POST(
 
   const { id } = await params;
 
-  const existing = await prisma.clientPortalAccount.findUnique({
-    where: { id },
+  // Scope to the admin's own user to prevent cross-tenant IDOR.
+  // ClientPortalAccount → Client → userId is the ownership chain.
+  const existing = await prisma.clientPortalAccount.findFirst({
+    where: { id, client: { userId: adminUserId } },
     select: { id: true, clientId: true, revokedAt: true },
   });
   if (!existing) {
