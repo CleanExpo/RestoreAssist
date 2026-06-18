@@ -175,7 +175,7 @@ export async function PATCH(
       }
 
       const updated = await prisma.estimate.update({
-        where: { id },
+        where: { id, userId: session.user.id },
         data: { status: body.status, updatedBy: session.user.id },
       });
 
@@ -201,7 +201,7 @@ export async function PATCH(
 
     // Non-gated transitions — update and return
     const updated = await prisma.estimate.update({
-      where: { id },
+      where: { id, userId: session.user.id },
       data: { status: body.status, updatedBy: session.user.id },
     });
 

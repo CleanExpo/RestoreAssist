@@ -48,7 +48,7 @@ export async function PATCH(
     }
 
     const updated = await prisma.contractorReview.update({
-      where: { id },
+      where: { id, profileId: review.profileId },
       data: {
         contractorResponse,
         respondedAt: new Date(),

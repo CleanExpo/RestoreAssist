@@ -130,7 +130,7 @@ export async function POST(
 
       // Update invoice sync status to PENDING
       await prisma.invoice.update({
-        where: { id },
+        where: { id, userId },
         data: {
           externalSyncStatus: "PENDING",
           externalSyncProvider: provider.toLowerCase(),
@@ -178,7 +178,7 @@ export async function POST(
 
         // Update invoice with external reference and success status
         await prisma.invoice.update({
-          where: { id },
+          where: { id, userId },
           data: {
             externalInvoiceId,
             externalSyncStatus: "SYNCED",
@@ -234,7 +234,7 @@ export async function POST(
 
         // Update invoice with error status
         await prisma.invoice.update({
-          where: { id },
+          where: { id, userId },
           data: {
             externalSyncStatus: "FAILED",
             externalSyncError: syncError.message || "Unknown error",
@@ -277,10 +277,7 @@ export async function POST(
         });
 
         return NextResponse.json(
-          {
-            error: `Failed to sync to ${provider}: ${syncError.message}`,
-            details: syncError.response?.data || syncError.message,
-          },
+          { error: `Failed to sync invoice to ${provider}` },
           { status: 500 },
         );
       }
