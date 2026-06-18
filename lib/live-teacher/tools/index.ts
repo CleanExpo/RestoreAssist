@@ -22,6 +22,7 @@ import {
   flagWhsHazard,
   flagWhsHazardDefinition,
   flagWhsHazardSchema,
+  type FlagWhsHazardContext,
 } from "./flag-whs-hazard";
 import {
   checkReportGaps,
@@ -48,16 +49,29 @@ export type ToolName = (typeof TOOL_DEFINITIONS)[number]["name"];
 // ─── Handler map ─────────────────────────────────────────────────────────────
 
 type AnySchema = z.ZodTypeAny;
-type Handler<S extends AnySchema> = (args: z.infer<S>) => Promise<unknown>;
+
+// RA-6798: Owning-user context threaded from the authenticated turn route.
+// Required on every handler — dispatch without auth context is not permitted.
+// The turn route passes { userId: session.user.id } when wiring tool dispatch.
+export interface ToolDispatchContext extends FlagWhsHazardContext {}
+
+type Handler<S extends AnySchema> = (
+  args: z.infer<S>,
+  context: ToolDispatchContext,
+) => Promise<unknown>;
 
 export const TOOL_HANDLERS: Record<ToolName, Handler<AnySchema>> = {
-  take_reading: (args) => takeReading(takeReadingSchema.parse(args)),
-  capture_photo: (args) => capturePhoto(capturePhotoSchema.parse(args)),
-  start_lidar_scan: (args) => startLidarScan(startLidarScanSchema.parse(args)),
-  fill_scope_item: (args) => fillScopeItem(fillScopeItemSchema.parse(args)),
-  flag_whs_hazard: (args) => flagWhsHazard(flagWhsHazardSchema.parse(args)),
-  check_report_gaps: (args) =>
-    checkReportGaps(checkReportGapsSchema.parse(args)),
+  take_reading: (args, ctx) => takeReading(takeReadingSchema.parse(args), ctx),
+  capture_photo: (args, ctx) =>
+    capturePhoto(capturePhotoSchema.parse(args), ctx),
+  start_lidar_scan: (args, ctx) =>
+    startLidarScan(startLidarScanSchema.parse(args), ctx),
+  fill_scope_item: (args, ctx) =>
+    fillScopeItem(fillScopeItemSchema.parse(args), ctx),
+  flag_whs_hazard: (args, ctx) =>
+    flagWhsHazard(flagWhsHazardSchema.parse(args), ctx),
+  check_report_gaps: (args, ctx) =>
+    checkReportGaps(checkReportGapsSchema.parse(args), ctx),
 };
 
 // Re-export individual tools for direct import

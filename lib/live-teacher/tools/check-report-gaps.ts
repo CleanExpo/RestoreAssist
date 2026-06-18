@@ -15,11 +15,14 @@ export interface ReportGap {
 
 export async function checkReportGaps(
   args: CheckReportGapsArgs,
+  ctx: { userId: string },
 ): Promise<{ gaps: ReportGap[] }> {
   const { inspectionId } = checkReportGapsSchema.parse(args);
 
-  const inspection = await prisma.inspection.findUnique({
-    where: { id: inspectionId },
+  // RA-6798: Scope to the authenticated user — a non-owned inspectionId falls
+  // through to the "not found" gap, avoiding cross-tenant read leakage.
+  const inspection = await prisma.inspection.findFirst({
+    where: { id: inspectionId, userId: ctx.userId },
     select: {
       id: true,
       moistureReadings: { take: 1, select: { id: true } },
@@ -76,7 +79,8 @@ export async function checkReportGaps(
 
   // Make-safe: water_stopped applicable but not completed
   const waterStopped = inspection.makeSafeActions.find(
-    (a) => a.action === "water_stopped",
+    (a: { action: string; applicable: boolean; completed: boolean }) =>
+      a.action === "water_stopped",
   );
   if (waterStopped && waterStopped.applicable && !waterStopped.completed) {
     gaps.push({
