@@ -193,6 +193,7 @@ export async function POST(request: NextRequest) {
         // analytics must never block the user flow
       }
 
+      // Pre-check credits (read-only) before the expensive AI + DB write.
       const { canCreateReport, deductCreditsAndTrackUsage } =
         await import("@/lib/report-limits");
       const canCreate = await canCreateReport(userId);
@@ -206,24 +207,6 @@ export async function POST(request: NextRequest) {
           },
           { status: 402 },
         );
-      }
-
-      try {
-        await deductCreditsAndTrackUsage(userId);
-      } catch (creditError) {
-        if (
-          creditError instanceof Error &&
-          creditError.message === "INSUFFICIENT_CREDITS"
-        ) {
-          return NextResponse.json(
-            {
-              error: "No credits remaining. Please subscribe to continue.",
-              upgradeRequired: true,
-            },
-            { status: 402 },
-          );
-        }
-        throw creditError;
       }
 
       // Generate report number if not provided
@@ -373,6 +356,28 @@ export async function POST(request: NextRequest) {
           },
         },
       });
+
+      // Deduct credits AFTER successful DB write.
+      // RA-6800: previously deducted then created — if the create threw, the
+      // idempotency layer did not cache the 500, so a retry double-deducted.
+      try {
+        await deductCreditsAndTrackUsage(userId);
+      } catch (creditError) {
+        if (
+          creditError instanceof Error &&
+          creditError.message === "INSUFFICIENT_CREDITS"
+        ) {
+          console.error("[reports POST] INSUFFICIENT_CREDITS after create", {
+            reportId: report.id,
+            userId,
+          });
+        } else {
+          console.error("[reports POST] Credit deduction failed after create", {
+            reportId: report.id,
+            error: creditError,
+          });
+        }
+      }
 
       // RA-1246 — first_report_saved (first-time only, AFTER persist)
       if (await isFirstTime(userId, "first_report_saved")) {
