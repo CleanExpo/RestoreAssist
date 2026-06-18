@@ -79,7 +79,8 @@ export async function GET(request: NextRequest) {
       id: true,
       email: true,
       role: true,
-      token: true,
+      // token is intentionally excluded — it is a bearer credential and
+      // must never be returned to the client after creation.
       expiresAt: true,
       usedAt: true,
       createdAt: true,
@@ -103,7 +104,15 @@ export async function POST(req: NextRequest) {
       message: "Unauthorized",
       status: 401,
     });
-  if (!canInvite(session.user.role))
+  // Re-fetch role from DB — JWT role claim can be stale (CLAUDE.md rule 3)
+  const callerDb = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { role: true },
+  });
+  if (!callerDb) return apiError(req, { code: "NOT_FOUND", message: "User not found", status: 404 });
+  const callerRole = callerDb.role;
+
+  if (!canInvite(callerRole))
     return apiError(req, {
       code: "FORBIDDEN",
       message: "Forbidden",
@@ -129,7 +138,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Managers can only invite technicians (USER)
-  if (session.user.role === "MANAGER" && role !== "USER") {
+  if (callerRole === "MANAGER" && role !== "USER") {
     return apiError(req, {
       code: "FORBIDDEN",
       message: "Managers can only invite technicians",
@@ -199,7 +208,7 @@ export async function POST(req: NextRequest) {
           role,
           organizationId: orgId,
           createdById: session.user.id,
-          managedById: session.user.role === "MANAGER" ? session.user.id : null,
+          managedById: callerRole === "MANAGER" ? session.user.id : null,
           expiresAt,
           usedAt: new Date(),
         },
@@ -270,7 +279,7 @@ export async function POST(req: NextRequest) {
       data: {
         organizationId: orgId,
         role: role, // Update role as requested
-        managedById: session.user.role === "MANAGER" ? session.user.id : null,
+        managedById: callerRole === "MANAGER" ? session.user.id : null,
         // Don't update password - keep their existing password
         // Don't update mustChangePassword - keep their existing setting
       },
@@ -287,7 +296,7 @@ export async function POST(req: NextRequest) {
         role,
         organizationId: orgId,
         createdById: session.user.id,
-        managedById: session.user.role === "MANAGER" ? session.user.id : null,
+        managedById: callerRole === "MANAGER" ? session.user.id : null,
         expiresAt,
         usedAt: new Date(), // Mark as used since user already exists
       },
@@ -391,7 +400,7 @@ export async function POST(req: NextRequest) {
         role,
         organizationId: orgId,
         createdById: session.user.id,
-        managedById: session.user.role === "MANAGER" ? session.user.id : null,
+        managedById: callerRole === "MANAGER" ? session.user.id : null,
         expiresAt,
         usedAt: null,
       },
