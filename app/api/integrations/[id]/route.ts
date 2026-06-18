@@ -98,6 +98,17 @@ export async function PUT(
         config: config ? JSON.stringify(config) : null,
         status: status || (apiKey ? "CONNECTED" : "DISCONNECTED"),
       },
+      // Never return secrets (apiKey, accessToken, refreshToken, config) — match GET select.
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        icon: true,
+        provider: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
 
     await recordMutationAudit({

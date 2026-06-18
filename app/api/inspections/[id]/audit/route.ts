@@ -58,10 +58,16 @@ export async function GET(request: NextRequest, context: RouteContext) {
       }
     }
 
+    const limitParam = searchParams.get("limit");
+    const cursorParam = searchParams.get("cursor");
+    const take = Math.min(Math.max(parseInt(limitParam ?? "100"), 1), 500);
+
     const [logs, total] = await Promise.all([
       prisma.auditLog.findMany({
         where,
         orderBy: { timestamp: "desc" },
+        take,
+        ...(cursorParam ? { cursor: { id: cursorParam }, skip: 1 } : {}),
       }),
       prisma.auditLog.count({ where }),
     ]);

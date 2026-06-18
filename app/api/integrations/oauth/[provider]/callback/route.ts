@@ -162,10 +162,9 @@ export async function GET(
   } catch (error) {
     console.error("OAuth callback error:", error);
     const { provider: providerParam } = await params;
-    return redirectWithError(
-      error instanceof Error ? error.message : "Token exchange failed",
-      providerParam,
-    );
+    // Never expose internal error.message — it can contain HTTP status codes,
+    // rate-limit headers, or OAuth error payloads that belong in server logs only.
+    return redirectWithError("Integration connection failed. Please try again.", providerParam);
   }
 }
 
