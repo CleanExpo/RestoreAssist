@@ -71,9 +71,18 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Verify the report belongs to this user before upserting
+      const ownedReport = await prisma.report.findFirst({
+        where: { id: reportId, userId },
+        select: { id: true },
+      });
+      if (!ownedReport) {
+        return NextResponse.json({ error: "Report not found" }, { status: 404 });
+      }
+
       // Check if scope already exists - using findFirst for better compatibility
       const existingScope = await prisma.scope.findFirst({
-        where: { reportId },
+        where: { reportId, userId },
       });
 
       const scopeData = {
@@ -206,9 +215,9 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      // Get scope for specific report
+      // Get scope for specific report — userId enforces tenancy
       const scope = await prisma.scope.findFirst({
-        where: { reportId },
+        where: { reportId, userId: session.user.id },
       });
 
       if (!scope) {

@@ -76,7 +76,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Payment not found" }, { status: 404 });
 
     const updated = await prisma.invoicePayment.update({
-      where: { id },
+      where: { id, invoice: { userId: session.user.id } },
       data: {
         reconciled: reconciled ?? true,
         reconciledAt: reconciled !== false ? new Date() : null,
