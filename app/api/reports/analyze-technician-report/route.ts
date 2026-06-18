@@ -195,9 +195,10 @@ Be thorough and extract all relevant information. If information is not explicit
         };
       }
 
-      // Save analysis to report
+      // Save analysis to report — userId in WHERE closes the TOCTOU between
+      // the ownership check above and this write (race window spans the AI call).
       await prisma.report.update({
-        where: { id: reportId },
+        where: { id: reportId, userId: user.id },
         data: {
           technicianReportAnalysis: JSON.stringify(analysis),
         },

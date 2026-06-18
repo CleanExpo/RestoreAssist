@@ -23,6 +23,7 @@ export async function GET(
         id,
         userId: session.user.id,
       },
+      select: { id: true },
     });
 
     if (!report) {
@@ -107,6 +108,7 @@ export async function POST(
           id,
           userId,
         },
+        select: { id: true },
       });
 
       if (!report) {

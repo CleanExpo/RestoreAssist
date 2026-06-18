@@ -57,13 +57,26 @@ export async function POST(
         );
       }
 
-      const updated = await prisma.reportApproval.update({
-        where: { id: approvalId },
+      // Atomic updateMany scopes by reportId — closes the TOCTOU window between
+      // the findFirst ownership check above and this write.
+      const result = await prisma.reportApproval.updateMany({
+        where: { id: approvalId, reportId: id },
         data: {
           status,
           clientComments: clientComments ?? null,
           respondedAt: new Date(),
         },
+      });
+
+      if (result.count === 0) {
+        return NextResponse.json(
+          { error: "Approval not found" },
+          { status: 404 },
+        );
+      }
+
+      const updated = await prisma.reportApproval.findUnique({
+        where: { id: approvalId },
       });
 
       return NextResponse.json({ approval: updated });
