@@ -56,6 +56,14 @@ export async function GET(request: NextRequest) {
     let where = `"userId" = $1 AND search_vector @@ to_tsquery('english', $2)`;
 
     if (status && status !== "all") {
+      const VALID_CLIENT_STATUSES = new Set(["ACTIVE", "INACTIVE", "PROSPECT", "ARCHIVED"]);
+      if (!VALID_CLIENT_STATUSES.has(status)) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid status value",
+          status: 400,
+        });
+      }
       where += ` AND "status" = $${++pIdx}`;
       whereParams.push(status);
     }

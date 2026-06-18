@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError, fromException } from "@/lib/api-errors";
 
-const prisma = new PrismaClient();
+const VALID_CLIENT_STATUSES = new Set(["ACTIVE", "INACTIVE", "PROSPECT", "ARCHIVED"]);
 
 export async function GET(request: NextRequest) {
   try {
@@ -45,6 +45,13 @@ export async function GET(request: NextRequest) {
     }
 
     if (status) {
+      if (!VALID_CLIENT_STATUSES.has(status)) {
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid status value",
+          status: 400,
+        });
+      }
       where.status = status;
     }
 
