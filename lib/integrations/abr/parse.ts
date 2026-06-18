@@ -21,7 +21,7 @@ export interface AbrLookupResult {
 
 export type ParseResult =
   | { ok: true; data: AbrLookupResult }
-  | { ok: false; reason: "NO_RECORD" | "MALFORMED" };
+  | { ok: false; reason: "NO_RECORD" | "MALFORMED" | "CONFIG_ERROR" };
 
 const ENTITY_TYPE_MAP: Record<string, AbrEntityType> = {
   IND: "SOLE_TRADER",
