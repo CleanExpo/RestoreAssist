@@ -170,6 +170,22 @@ export async function GET() {
     // ready") and never count them as blocking incomplete steps for trials.
     // Paid users still see them as required.
     const steps = {
+      // RA-6801 / RA-6799: Surface the AI key requirement early in onboarding.
+      // Trial users have platform-key coverage; paid users without BYOK are
+      // blocked on report generation. Required = true for paid users only.
+      ai_provider: {
+        completed: isTrial || hasApiKey,
+        required: !isTrial && !hasApiKey,
+        title: isTrial
+          ? "AI reports active — platform key (trial)"
+          : hasApiKey
+            ? "Anthropic API key configured"
+            : "Add your Anthropic API key",
+        description: isTrial
+          ? "Your trial uses our platform AI key. To keep generating reports after your trial, add your own key in Settings → Integrations."
+          : "AI report generation requires an Anthropic API key. Add yours in Settings → Integrations.",
+        route: "/dashboard/integrations",
+      },
       first_inspection: {
         completed: inspectionCount > 0,
         required: false, // Self-serve first value, not a hard gate
