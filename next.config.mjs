@@ -26,9 +26,11 @@ const sentryWebpackPluginOptions = {
 const nextConfig = {
   typescript: {
     // RA-5193: baseline cleared 2026-05-25 (type-check at 0 errors).
-    // Build now type-checks — any new TS error fails the Vercel build
-    // instead of leaking to runtime.
-    ignoreBuildErrors: false,
+    // Full type-check still runs in GitHub Actions Quality Checks (pnpm type-check).
+    // Preview builds skip it here because the sandbox Vercel container OOMs during
+    // the TypeScript pass on cold starts (SIGKILL — insufficient RAM, no build cache).
+    // Production builds always type-check so errors can't reach prod without CI catch.
+    ignoreBuildErrors: process.env.VERCEL_ENV === "preview",
   },
   eslint: {
     // Same — build now runs ESLint. Intentional rule omissions use
