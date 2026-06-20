@@ -3,9 +3,15 @@
     "Stop": [
       {
         "hooks": [
-          { "type": "command", "command": ".claude/hooks/stop-verifier.sh" }
+          {
+            "type": "command",
+            "command": ".claude/hooks/stop-verifier.sh"
+          }
         ]
       }
     ]
+  },
+  "attribution": {
+    "sessionUrl": false
   }
 }
