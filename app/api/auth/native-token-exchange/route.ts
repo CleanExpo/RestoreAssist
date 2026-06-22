@@ -182,8 +182,10 @@ async function verifyAndNormaliseToken(
       .update(noncePlaintext)
       .digest("hex");
     if (payload.nonce !== noncePlaintext && payload.nonce !== sha256Hex) {
+      // Do not embed nonce material (even truncated) in the error — it can
+      // reach logs/aggregators. The length is enough to debug a mismatch.
       throw new Error(
-        `Nonce mismatch (claim=${payload.nonce.slice(0, 12)}…, plaintext=${noncePlaintext.slice(0, 12)}…, sha256=${sha256Hex.slice(0, 12)}…)`,
+        `Nonce mismatch (claim length=${payload.nonce.length}, nonce present but neither exact nor SHA-256 match)`,
       );
     }
   }

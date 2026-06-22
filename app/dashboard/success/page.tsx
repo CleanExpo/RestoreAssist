@@ -446,11 +446,6 @@ export default function SuccessPage() {
     }
   }, [isAddonPurchase, router]);
 
-  // For add-ons, don't show any UI - redirect immediately
-  if (isAddonPurchase) {
-    return null;
-  }
-
   // Auto-show setup guide after verification completes
   useEffect(() => {
     if (!loading && !checking && !isAddonPurchase && !isCompletedRef.current) {
@@ -485,6 +480,13 @@ export default function SuccessPage() {
       };
     }
   }, [loading, checking, isAddonPurchase, router, update]);
+
+  // For add-ons, don't show any UI - redirect immediately.
+  // NOTE: must come AFTER all hooks above — an early return before a hook
+  // violates rules-of-hooks and crashes when isAddonPurchase toggles.
+  if (isAddonPurchase) {
+    return null;
+  }
 
   const handleStartSetup = async () => {
     if (isRedirecting) return;

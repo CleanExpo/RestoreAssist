@@ -327,11 +327,6 @@ function AdjusterReviewContent() {
   const token = searchParams.get("token") ?? "";
   const inspectionId = searchParams.get("inspectionId") ?? "";
 
-  // RA-1131: If inspectionId param present, show AI analysis panel instead of survey
-  if (inspectionId) {
-    return <AdjusterAnalysisPanel inspectionId={inspectionId} />;
-  }
-
   const [reportFormat, setReportFormat] = useState<"nir" | "existing" | "">("");
   const [hours, setHours] = useState("");
   const [minutes, setMinutes] = useState("");
@@ -341,10 +336,18 @@ function AdjusterReviewContent() {
   const [formState, setFormState] = useState<FormState>("idle");
   const [errors, setErrors] = useState<string[]>([]);
 
-  // Validate token on mount (just check it's non-empty — actual validation is server-side)
+  // Validate token on mount (just check it's non-empty — actual validation is server-side).
+  // Skip when inspectionId is present (AI-analysis path doesn't use the token).
   useEffect(() => {
-    if (!token) setFormState("invalid-token");
-  }, [token]);
+    if (!inspectionId && !token) setFormState("invalid-token");
+  }, [inspectionId, token]);
+
+  // RA-1131: If inspectionId param present, show AI analysis panel instead of survey.
+  // NOTE: must come AFTER all hooks above — an early return before a hook
+  // violates rules-of-hooks and crashes when inspectionId toggles.
+  if (inspectionId) {
+    return <AdjusterAnalysisPanel inspectionId={inspectionId} />;
+  }
 
   const totalMinutes = () => {
     const h = parseInt(hours || "0", 10);
