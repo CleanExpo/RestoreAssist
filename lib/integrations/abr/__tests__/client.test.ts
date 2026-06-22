@@ -41,4 +41,15 @@ describe('lookupAbn', () => {
     if (result.ok) return;
     expect(result.reason).toBe('MALFORMED');
   });
+
+  it('returns CONFIG_ERROR when ABR_API_GUID is missing', async () => {
+    delete process.env.ABR_API_GUID;
+    const spy = vi.fn();
+    global.fetch = spy;
+    const result = await lookupAbn('53004085616');
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe('CONFIG_ERROR');
+    expect(spy).not.toHaveBeenCalled();
+  });
 });
