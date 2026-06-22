@@ -82,10 +82,12 @@ export default [
       // `no-undef` is unhelpful in TS (TS's own checker catches undefined refs);
       // turning it off prevents thousands of false positives on globals.
       "no-undef": "off",
-      // react-hooks rules of Hooks (critical correctness). Keep legacy findings
-      // visible as warnings until the dedicated cleanup lane can burn them down;
-      // this ship lane must not convert old app debt into a hard block.
-      "react-hooks/rules-of-hooks": "warn",
+      // react-hooks rules of Hooks (critical correctness). Promoted warn → error
+      // 2026-06-23: 3 conditional-hook crashes had shipped to prod under "warn"
+      // (PR #1445 — /dashboard/success, /pilot/adjuster-review,
+      // /dashboard/admin/usage). Repo is now at 0 violations; this keeps the
+      // whole crash class from ever regressing.
+      "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "warn",
       // Keep this interim gate focused on high-signal correctness checks. These
       // rules produce broad legacy noise across files that TypeScript already

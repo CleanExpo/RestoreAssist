@@ -100,14 +100,11 @@ export function VideoExplainer({
     return () => observer.disconnect();
   }, []);
 
-  if (!entry) return null;
-  const { youtubeId, localPath, cloudinaryUrl, title, durationSec } = entry;
+  // durationSec must be available to the hooks below; entry may be undefined
+  // here and is handled by the early-return AFTER all hooks.
+  const durationSec = entry?.durationSec ?? 0;
 
-  const wrapperClass =
-    className ??
-    "relative aspect-video w-full overflow-hidden rounded-xl border-2 border-[#8A6B4E]/30 shadow-2xl bg-[#050505]";
-
-  // ─── Video event handlers ───
+  // ─── Video event handlers (must precede any early-return — rules-of-hooks) ───
   const handlePlay = useCallback(() => {
     setIsPlaying(true);
     if (trackEngagement) {
@@ -155,6 +152,14 @@ export function VideoExplainer({
       });
     }
   }, [slug, durationSec, trackEngagement]);
+
+  // Early-return AFTER all hooks above — rules-of-hooks compliant.
+  if (!entry) return null;
+  const { youtubeId, localPath, cloudinaryUrl, title } = entry;
+
+  const wrapperClass =
+    className ??
+    "relative aspect-video w-full overflow-hidden rounded-xl border-2 border-[#8A6B4E]/30 shadow-2xl bg-[#050505]";
 
   // ─── Video element with captions + mobile optimisation ───
   const renderVideo = (src: string) => {
