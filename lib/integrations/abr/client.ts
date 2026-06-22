@@ -7,7 +7,7 @@ export async function lookupAbn(input: string): Promise<ParseResult> {
 
   const guid = process.env.ABR_API_GUID;
   const base = process.env.ABR_BASE_URL || 'https://abr.business.gov.au/json/';
-  if (!guid) return { ok: false, reason: 'MALFORMED' };
+  if (!guid) return { ok: false, reason: 'CONFIG_ERROR' };
 
   const url = `${base}AbnDetails.aspx?abn=${abn}&guid=${guid}`;
 
