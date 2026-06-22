@@ -38,6 +38,28 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
       dependencies: ["setup"],
     },
+    // Responsive coverage: run the @smoke subset across phone + tablet
+    // viewports so critical flows are verified at mobile/tablet/desktop.
+    // Chromium-based emulation keeps CI to a single browser binary.
+    {
+      name: "mobile-chrome",
+      testIgnore: /auth\.setup\.ts/,
+      grep: /@smoke/,
+      use: { ...devices["Pixel 5"] },
+      dependencies: ["setup"],
+    },
+    {
+      name: "tablet-chrome",
+      testIgnore: /auth\.setup\.ts/,
+      grep: /@smoke/,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 820, height: 1180 }, // iPad Air portrait
+        isMobile: true,
+        hasTouch: true,
+      },
+      dependencies: ["setup"],
+    },
   ],
 
   /* Start a local dev server unless an external target is supplied.
