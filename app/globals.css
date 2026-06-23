@@ -117,6 +117,20 @@
   --color-brand-cloud: #f4f5f6; /* off-white section surface (light pages) */
   --color-brand-canvas: #050505; /* near-black full-bleed canvas (DESIGN.md §2) */
 
+  /* Dark-surface palette — previously hardcoded off-palette hex in the help
+     centre, sketch editor, capture flow and inspection panels. Tokenised so
+     no component carries a raw dark-hex literal (DESIGN.md §2). These are the
+     branded dark backgrounds layered above brand-canvas. */
+  --color-brand-surface: #0e1320; /* help-centre card / panel surface */
+  --color-brand-surface-2: #11172a; /* help-centre card hover surface */
+  --color-brand-deep: #0d1b2e; /* sketch editor / capture-flow surface */
+  --color-brand-ink: #0a0a0a; /* near-black drawer / sidebar surface */
+  --color-brand-abyss: #02040b; /* webgl hero deep background */
+  --color-brand-navy-hover: #263d5f; /* brand-navy button hover */
+  --color-brand-gold-hover: #e6bb8e; /* brand-gold link hover */
+  --color-brand-cream: #e7dfca; /* margot thread hover surface */
+  --color-brand-cream-2: #e1d6be; /* margot active thread surface */
+
   /* Primary Colors */
   --color-slate-950: #0f172a;
   --color-slate-900: #0f172a;

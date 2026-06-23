@@ -245,7 +245,7 @@ function PinMarker({
                 onChange={(e) =>
                   onUpdate({ material: e.target.value as MaterialTypeId })
                 }
-                className="w-full px-2 py-1.5 rounded-lg bg-[#0d1b2e] border border-white/10 text-white focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                className="w-full px-2 py-1.5 rounded-lg bg-brand-deep border border-white/10 text-white focus:outline-none focus:ring-1 focus:ring-cyan-400"
               >
                 {MATERIAL_TYPES.map((m) => (
                   <option key={m.id} value={m.id}>

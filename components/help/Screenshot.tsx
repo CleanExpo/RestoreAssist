@@ -11,7 +11,7 @@ export type ScreenshotProps = {
 export default function Screenshot({ src, alt, caption, width = 1200 }: ScreenshotProps) {
   const url = cloudinaryUrl(src, { width, quality: "auto", format: "auto" });
   return (
-    <figure className="my-8 overflow-hidden rounded-lg border border-white/10 bg-[#0E1320]">
+    <figure className="my-8 overflow-hidden rounded-lg border border-white/10 bg-brand-surface">
       <Image
         src={url}
         alt={alt}

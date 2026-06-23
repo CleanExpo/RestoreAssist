@@ -55,7 +55,7 @@ export function SketchFloorTabs({
     <div
       className={cn(
         "flex items-center gap-0.5 px-2 py-1",
-        "border-b border-white/10 bg-[#0d1b2e]",
+        "border-b border-white/10 bg-brand-deep",
         "overflow-x-auto scrollbar-none",
         className,
       )}

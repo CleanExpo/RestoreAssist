@@ -49,7 +49,7 @@ export default function HomeownerCapturePage() {
 
   if (state === "loading") {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-[#0d1b2e] text-white/60">
+      <main className="min-h-screen flex items-center justify-center bg-brand-deep text-white/60">
         Loading…
       </main>
     );
@@ -57,7 +57,7 @@ export default function HomeownerCapturePage() {
 
   if (state === "invalid") {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-[#0d1b2e] px-6 text-center">
+      <main className="min-h-screen flex items-center justify-center bg-brand-deep px-6 text-center">
         <div className="max-w-sm space-y-2">
           <h1 className="text-lg font-semibold text-white">
             This capture link isn’t valid
@@ -72,7 +72,7 @@ export default function HomeownerCapturePage() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col bg-[#0d1b2e] text-white">
+    <main className="min-h-screen flex flex-col bg-brand-deep text-white">
       <header className="px-4 py-3 border-b border-white/10">
         <h1 className="text-base font-semibold">Capture your property</h1>
         {address && <p className="text-sm text-white/60">{address}</p>}

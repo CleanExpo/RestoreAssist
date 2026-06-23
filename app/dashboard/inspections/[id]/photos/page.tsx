@@ -400,7 +400,7 @@ function PhotoPanel({
       onClick={onClose}
     >
       <div
-        className="relative ml-auto flex h-full w-full max-w-lg flex-col overflow-y-auto bg-[#0a0a0a] shadow-2xl"
+        className="relative ml-auto flex h-full w-full max-w-lg flex-col overflow-y-auto bg-brand-ink shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close button */}

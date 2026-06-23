@@ -183,7 +183,7 @@ export default function MargotDashboardPage() {
               key={t.id}
               onClick={() => setActiveThreadId(t.id)}
               className={`w-full rounded-md px-3 py-2 text-left text-sm transition ${
-                activeThreadId === t.id ? "bg-[#E1D6BE]" : "hover:bg-[#E7DFCA]"
+                activeThreadId === t.id ? "bg-brand-cream-2" : "hover:bg-brand-cream"
               }`}
             >
               <div className="truncate font-medium">{t.title}</div>
