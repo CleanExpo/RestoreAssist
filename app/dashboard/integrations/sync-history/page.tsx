@@ -128,21 +128,21 @@ function StatusBadge({ status }: { status: string }) {
   switch (status) {
     case "SUCCESS":
       return (
-        <Badge className="bg-green-100 text-green-800 border-green-200 hover:bg-green-100">
+        <Badge className="bg-green-100 text-success border-green-200 hover:bg-green-100">
           <CheckCircle2 className="w-3 h-3 mr-1" />
           Success
         </Badge>
       );
     case "FAILED":
       return (
-        <Badge className="bg-red-100 text-red-800 border-red-200 hover:bg-red-100">
+        <Badge className="bg-red-100 text-destructive border-red-200 hover:bg-red-100">
           <XCircle className="w-3 h-3 mr-1" />
           Failed
         </Badge>
       );
     case "PARTIAL":
       return (
-        <Badge className="bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100">
+        <Badge className="bg-amber-100 text-warning border-amber-200 hover:bg-amber-100">
           <AlertCircle className="w-3 h-3 mr-1" />
           Partial
         </Badge>
@@ -213,12 +213,12 @@ function ExpandableError({ message }: { message: string }) {
   const isLong = message.length > 80;
 
   if (!isLong) {
-    return <span className="text-red-600 text-xs">{message}</span>;
+    return <span className="text-destructive text-xs">{message}</span>;
   }
 
   return (
     <span>
-      <span className="text-red-600 text-xs">
+      <span className="text-destructive text-xs">
         {expanded ? message : `${message.slice(0, 80)}…`}
       </span>
       <button
@@ -300,14 +300,14 @@ function HealthSummaryRow({
               <p className="text-xs text-muted-foreground">
                 {data.totalSyncs} sync{data.totalSyncs !== 1 ? "s" : ""}{" "}
                 &middot;{" "}
-                <span className="text-green-700">
+                <span className="text-success">
                   {data.successfulSyncs} ok
                 </span>
                 {data.failedSyncs > 0 && (
                   <>
                     {" "}
                     &middot;{" "}
-                    <span className="text-red-600">
+                    <span className="text-destructive">
                       {data.failedSyncs} failed
                     </span>
                   </>
@@ -416,7 +416,7 @@ function SyncEventFeed({
               </TableCell>
               <TableCell className="text-right tabular-nums">
                 {entry.recordsFailed > 0 ? (
-                  <span className="text-red-600">{entry.recordsFailed}</span>
+                  <span className="text-destructive">{entry.recordsFailed}</span>
                 ) : (
                   <span className="text-muted-foreground">0</span>
                 )}
@@ -508,17 +508,17 @@ export default function SyncHistoryPage() {
 
   const overallBadge =
     overallStatus === "healthy" ? (
-      <Badge className="bg-green-100 text-green-800 border-green-200 hover:bg-green-100">
+      <Badge className="bg-green-100 text-success border-green-200 hover:bg-green-100">
         <CheckCircle2 className="w-3 h-3 mr-1" />
         Healthy
       </Badge>
     ) : overallStatus === "degraded" ? (
-      <Badge className="bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100">
+      <Badge className="bg-amber-100 text-warning border-amber-200 hover:bg-amber-100">
         <AlertCircle className="w-3 h-3 mr-1" />
         Degraded
       </Badge>
     ) : overallStatus === "unhealthy" ? (
-      <Badge className="bg-red-100 text-red-800 border-red-200 hover:bg-red-100">
+      <Badge className="bg-red-100 text-destructive border-red-200 hover:bg-red-100">
         <XCircle className="w-3 h-3 mr-1" />
         Unhealthy
       </Badge>
@@ -588,10 +588,10 @@ export default function SyncHistoryPage() {
             <span
               className={`font-medium ${
                 metrics.syncs.successRate >= 95
-                  ? "text-green-700"
+                  ? "text-success"
                   : metrics.syncs.successRate >= 80
-                    ? "text-amber-700"
-                    : "text-red-700"
+                    ? "text-warning"
+                    : "text-destructive"
               }`}
             >
               {metrics.syncs.successRate.toFixed(1)}%
@@ -639,7 +639,7 @@ export default function SyncHistoryPage() {
             <TabsTrigger value="success">
               Success
               {!feedLoading && tabCounts.success > 0 && (
-                <span className="ml-1.5 text-xs bg-green-100 text-green-800 rounded-full px-1.5">
+                <span className="ml-1.5 text-xs bg-green-100 text-success rounded-full px-1.5">
                   {tabCounts.success}
                 </span>
               )}
@@ -647,7 +647,7 @@ export default function SyncHistoryPage() {
             <TabsTrigger value="failed">
               Failed
               {!feedLoading && tabCounts.failed > 0 && (
-                <span className="ml-1.5 text-xs bg-red-100 text-red-800 rounded-full px-1.5">
+                <span className="ml-1.5 text-xs bg-red-100 text-destructive rounded-full px-1.5">
                   {tabCounts.failed}
                 </span>
               )}
@@ -655,7 +655,7 @@ export default function SyncHistoryPage() {
             <TabsTrigger value="partial">
               Partial
               {!feedLoading && tabCounts.partial > 0 && (
-                <span className="ml-1.5 text-xs bg-amber-100 text-amber-800 rounded-full px-1.5">
+                <span className="ml-1.5 text-xs bg-amber-100 text-warning rounded-full px-1.5">
                   {tabCounts.partial}
                 </span>
               )}

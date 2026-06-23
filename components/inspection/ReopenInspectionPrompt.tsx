@@ -85,15 +85,15 @@ export default function ReopenInspectionPrompt({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-3">
           {reopenIcon ? (
-            <span className="text-amber-700 dark:text-amber-400 mt-0.5 shrink-0">
+            <span className="text-warning dark:text-warning mt-0.5 shrink-0">
               {reopenIcon}
             </span>
           ) : null}
           <div>
-            <p className="font-semibold text-amber-800 dark:text-amber-300">
+            <p className="font-semibold text-warning dark:text-warning">
               Reopen inspection {inspectionNumber}
             </p>
-            <p className="text-sm text-amber-800/80 dark:text-amber-300/80 mt-0.5">
+            <p className="text-sm text-warning/80 dark:text-warning/80 mt-0.5">
               Admins can move this {status.toLowerCase()} job back to billing
               when finance, audit, or dispute corrections are required.
             </p>
@@ -104,7 +104,7 @@ export default function ReopenInspectionPrompt({
           variant="outline"
           size="sm"
           onClick={() => setDialogOpen(true)}
-          className="border-amber-500 text-amber-800 hover:bg-amber-100 dark:text-amber-300 dark:hover:bg-amber-900/20"
+          className="border-amber-500 text-warning hover:bg-amber-100 dark:text-warning dark:hover:bg-amber-900/20"
         >
           {reopenIcon ? <span className="mr-1.5">{reopenIcon}</span> : null}
           Reopen job
@@ -142,7 +142,7 @@ export default function ReopenInspectionPrompt({
             {error ? (
               <p
                 role="alert"
-                className="text-sm text-red-700 dark:text-red-400 flex items-start gap-1"
+                className="text-sm text-destructive dark:text-destructive flex items-start gap-1"
               >
                 {errorIcon ? (
                   <span className="mt-0.5 shrink-0">{errorIcon}</span>

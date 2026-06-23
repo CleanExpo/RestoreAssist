@@ -45,7 +45,7 @@ export function InterviewQuestionAnswerSummary({
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+            <CheckCircle2 className="h-5 w-5 text-success dark:text-success" />
             <CardTitle className="text-slate-900 dark:text-white">
               Interview Summary
             </CardTitle>

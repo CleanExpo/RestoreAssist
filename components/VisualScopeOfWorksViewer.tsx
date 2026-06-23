@@ -89,7 +89,7 @@ export default function VisualScopeOfWorksViewer({
   if (!data) {
     return (
       <div className="p-8 text-center">
-        <div className="text-red-600 mb-4">
+        <div className="text-destructive mb-4">
           Error: No scope of works data provided
         </div>
       </div>
@@ -462,12 +462,12 @@ export default function VisualScopeOfWorksViewer({
 
                       <div className="bg-green-50 border border-green-200 rounded p-3">
                         <div className="flex items-start gap-2">
-                          <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                          <CheckCircle className="w-5 h-5 text-success flex-shrink-0 mt-0.5" />
                           <div>
-                            <span className="font-semibold text-green-900">
+                            <span className="font-semibold text-success">
                               Deliverable:
                             </span>
-                            <span className="ml-2 text-green-800">
+                            <span className="ml-2 text-success">
                               {phase.deliverable}
                             </span>
                           </div>
@@ -550,7 +550,7 @@ export default function VisualScopeOfWorksViewer({
                 </div>
               ) : (
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                  <p className="text-amber-800">
+                  <p className="text-warning">
                     No restoration works line items available.
                   </p>
                 </div>
@@ -621,7 +621,7 @@ export default function VisualScopeOfWorksViewer({
                 </div>
               ) : (
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <p className="text-green-800">
+                  <p className="text-success">
                     No licensed trades required for this scope.
                   </p>
                 </div>

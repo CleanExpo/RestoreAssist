@@ -94,10 +94,10 @@ function ScoreBar({
           className={cn(
             "font-semibold",
             pct >= 80
-              ? "text-emerald-500"
+              ? "text-success"
               : pct >= 60
-                ? "text-amber-500"
-                : "text-red-500",
+                ? "text-warning"
+                : "text-destructive",
           )}
         >
           {pct}
@@ -133,10 +133,10 @@ function CaseCard({ c }: { c: EvaluationCaseResult }) {
             className={cn(
               "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold",
               c.compositeScore >= 80
-                ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
+                ? "bg-emerald-100 text-success dark:bg-emerald-900/30 dark:text-success"
                 : c.compositeScore >= 60
-                  ? "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400"
-                  : "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
+                  ? "bg-amber-100 text-warning dark:bg-amber-900/30 dark:text-warning"
+                  : "bg-red-100 text-destructive dark:bg-red-900/30 dark:text-destructive",
             )}
           >
             {Math.round(c.compositeScore)}
@@ -324,7 +324,7 @@ export default function AILabPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Database size={16} className="text-emerald-500" />
+            <Database size={16} className="text-success" />
             Ascora Job Vectorisation
           </CardTitle>
           <CardDescription>
@@ -354,7 +354,7 @@ export default function AILabPage() {
           </div>
 
           {vectoriseError && (
-            <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg p-3 border border-red-200 dark:border-red-800/40">
+            <div className="flex items-center gap-2 text-sm text-destructive dark:text-destructive bg-red-50 dark:bg-red-900/20 rounded-lg p-3 border border-red-200 dark:border-red-800/40">
               <XCircle size={14} /> {vectoriseError}
             </div>
           )}
@@ -365,7 +365,7 @@ export default function AILabPage() {
                 {
                   label: "Embedded",
                   value: vectoriseResult.embedded,
-                  color: "text-emerald-500",
+                  color: "text-success",
                 },
                 {
                   label: "Skipped",
@@ -377,8 +377,8 @@ export default function AILabPage() {
                   value: vectoriseResult.remaining,
                   color:
                     vectoriseResult.remaining > 0
-                      ? "text-amber-500"
-                      : "text-emerald-500",
+                      ? "text-warning"
+                      : "text-success",
                 },
                 {
                   label: "Duration",
@@ -470,7 +470,7 @@ export default function AILabPage() {
           </div>
 
           {evalError && (
-            <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg p-3 border border-red-200 dark:border-red-800/40">
+            <div className="flex items-center gap-2 text-sm text-destructive dark:text-destructive bg-red-50 dark:bg-red-900/20 rounded-lg p-3 border border-red-200 dark:border-red-800/40">
               <XCircle size={14} /> {evalError}
             </div>
           )}
@@ -641,7 +641,7 @@ export default function AILabPage() {
           </div>
 
           {optError && (
-            <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg p-3 border border-red-200 dark:border-red-800/40">
+            <div className="flex items-center gap-2 text-sm text-destructive dark:text-destructive bg-red-50 dark:bg-red-900/20 rounded-lg p-3 border border-red-200 dark:border-red-800/40">
               <XCircle size={14} /> {optError}
             </div>
           )}
@@ -650,9 +650,9 @@ export default function AILabPage() {
             <div className="rounded-lg border border-neutral-200 dark:border-slate-700/50 bg-neutral-50 dark:bg-slate-800/50 p-4 space-y-3">
               <div className="flex items-center gap-2">
                 {optResult.promoted ? (
-                  <CheckCircle2 size={16} className="text-emerald-500" />
+                  <CheckCircle2 size={16} className="text-success" />
                 ) : (
-                  <XCircle size={16} className="text-amber-500" />
+                  <XCircle size={16} className="text-warning" />
                 )}
                 <span className="font-semibold text-sm text-neutral-900 dark:text-white">
                   {optResult.promoted
@@ -672,7 +672,7 @@ export default function AILabPage() {
                     className={cn(
                       "text-lg font-bold",
                       optResult.improvement > 0
-                        ? "text-emerald-500"
+                        ? "text-success"
                         : "text-neutral-400",
                     )}
                   >

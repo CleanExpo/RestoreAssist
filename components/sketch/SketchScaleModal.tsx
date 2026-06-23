@@ -178,7 +178,7 @@ export function SketchScaleModal({
               className="w-full px-3 py-2 rounded-lg bg-white/10 border border-white/10 text-white focus:outline-none focus:ring-1 focus:ring-cyan-400"
               autoFocus
             />
-            {error && <p className="text-xs text-rose-400 mt-1">{error}</p>}
+            {error && <p className="text-xs text-destructive mt-1">{error}</p>}
           </div>
         )}
 

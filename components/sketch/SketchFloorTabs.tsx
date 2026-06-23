@@ -82,7 +82,7 @@ export function SketchFloorTabs({
               type="button"
               onClick={() => onRemove?.(idx)}
               aria-label={`Remove ${floor.floorLabel}`}
-              className="ml-0.5 p-1 text-white/20 hover:text-rose-400 hover:bg-rose-500/10 rounded-md transition-colors"
+              className="ml-0.5 p-1 text-white/20 hover:text-destructive hover:bg-rose-500/10 rounded-md transition-colors"
             >
               <Trash2 size={10} />
             </button>

@@ -227,11 +227,11 @@ export function ProgressRing({
                       transition-all duration-200 cursor-pointer
                       ${
                         isLocked
-                          ? "bg-amber-100 text-amber-500 border border-amber-300 cursor-pointer hover:bg-amber-200"
+                          ? "bg-amber-100 text-warning border border-amber-300 cursor-pointer hover:bg-amber-200"
                           : tierNum === tier
                             ? `bg-gradient-to-r ${getTierColor(tierNum)} text-white shadow-lg scale-110`
                             : tierNum < tier
-                              ? "bg-green-100 text-green-700 hover:bg-green-200"
+                              ? "bg-green-100 text-success hover:bg-green-200"
                               : "bg-muted text-muted-foreground cursor-default"
                       }
                       ${onQuestionSelect && !isLocked ? "hover:shadow-md" : ""}
@@ -246,7 +246,7 @@ export function ProgressRing({
                       Tier {tierNum}: {getTierLabel(tierNum)}
                     </p>
                     {isLocked ? (
-                      <p className="text-xs text-amber-600">
+                      <p className="text-xs text-warning">
                         Upgrade to {tierNum <= 3 ? "Premium" : "Enterprise"} to
                         unlock
                       </p>

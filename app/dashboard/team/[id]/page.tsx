@@ -68,12 +68,12 @@ const roleConfig = {
 };
 
 const statusConfig: Record<string, { bg: string; text: string }> = {
-  completed: { bg: "bg-emerald-500/20", text: "text-emerald-400" },
-  COMPLETED: { bg: "bg-emerald-500/20", text: "text-emerald-400" },
+  completed: { bg: "bg-emerald-500/20", text: "text-success" },
+  COMPLETED: { bg: "bg-emerald-500/20", text: "text-success" },
   submitted: { bg: "bg-blue-500/20", text: "text-blue-400" },
   SUBMITTED: { bg: "bg-blue-500/20", text: "text-blue-400" },
-  in_progress: { bg: "bg-amber-500/20", text: "text-amber-400" },
-  IN_PROGRESS: { bg: "bg-amber-500/20", text: "text-amber-400" },
+  in_progress: { bg: "bg-amber-500/20", text: "text-warning" },
+  IN_PROGRESS: { bg: "bg-amber-500/20", text: "text-warning" },
   draft: { bg: "bg-slate-500/20", text: "text-slate-400" },
   DRAFT: { bg: "bg-slate-500/20", text: "text-slate-400" },
 };
@@ -526,7 +526,7 @@ export default function TeamMemberDetailPage({
                   <User size={14} />
                   Status
                 </span>
-                <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-xs">
+                <Badge className="bg-emerald-500/20 text-success border-emerald-500/30 text-xs">
                   Active
                 </Badge>
               </div>

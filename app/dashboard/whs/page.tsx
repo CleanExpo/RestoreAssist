@@ -120,7 +120,7 @@ function SeverityBadge({ severity }: { severity: WHSSeverity }) {
     },
     MEDIUM: {
       label: "Medium",
-      className: "bg-amber-500/10 text-amber-400 border-amber-500/30",
+      className: "bg-amber-500/10 text-warning border-amber-500/30",
     },
     HIGH: {
       label: "High",
@@ -128,7 +128,7 @@ function SeverityBadge({ severity }: { severity: WHSSeverity }) {
     },
     CRITICAL: {
       label: "Critical",
-      className: "bg-red-500/10 text-red-400 border-red-500/30",
+      className: "bg-red-500/10 text-destructive border-red-500/30",
     },
   };
   const { label, className } = config[severity];
@@ -149,15 +149,15 @@ function StatusBadge({ status }: { status: WHSStatus }) {
     },
     UNDER_REVIEW: {
       label: "Under Review",
-      className: "bg-amber-500/10 text-amber-400 border-amber-500/30",
+      className: "bg-amber-500/10 text-warning border-amber-500/30",
     },
     CLOSED: {
       label: "Closed",
-      className: "bg-green-500/10 text-green-400 border-green-500/30",
+      className: "bg-green-500/10 text-success border-green-500/30",
     },
     REQUIRES_ESCALATION: {
       label: "Escalation",
-      className: "bg-red-500/10 text-red-400 border-red-500/30",
+      className: "bg-red-500/10 text-destructive border-red-500/30",
     },
   };
   const { label, className } = config[status];
@@ -265,7 +265,7 @@ function CorrectiveActionsRow({
                       }`}
                     >
                       {action.completedAt && (
-                        <CheckCircle className="h-3 w-3 text-green-400" />
+                        <CheckCircle className="h-3 w-3 text-success" />
                       )}
                     </div>
 
@@ -289,7 +289,7 @@ function CorrectiveActionsRow({
                           <span
                             className={
                               overdue
-                                ? "text-red-400 font-medium"
+                                ? "text-destructive font-medium"
                                 : "text-slate-400"
                             }
                           >
@@ -298,7 +298,7 @@ function CorrectiveActionsRow({
                           </span>
                         )}
                         {action.completedAt && (
-                          <span className="text-green-400">
+                          <span className="text-success">
                             Completed: {formatDate(action.completedAt)}
                           </span>
                         )}
@@ -377,7 +377,7 @@ function NewIncidentFormPanel({
         {/* Incident Type */}
         <div className="space-y-1.5">
           <Label htmlFor="incidentType" className="text-slate-300">
-            Incident Type <span className="text-red-400">*</span>
+            Incident Type <span className="text-destructive">*</span>
           </Label>
           <Input
             id="incidentType"
@@ -387,14 +387,14 @@ function NewIncidentFormPanel({
             className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400"
           />
           {errors.incidentType && (
-            <p className="text-xs text-red-400">{errors.incidentType}</p>
+            <p className="text-xs text-destructive">{errors.incidentType}</p>
           )}
         </div>
 
         {/* Severity */}
         <div className="space-y-1.5">
           <Label htmlFor="severity" className="text-slate-300">
-            Severity <span className="text-red-400">*</span>
+            Severity <span className="text-destructive">*</span>
           </Label>
           <select
             id="severity"
@@ -409,14 +409,14 @@ function NewIncidentFormPanel({
             <option value="CRITICAL">Critical</option>
           </select>
           {errors.severity && (
-            <p className="text-xs text-red-400">{errors.severity}</p>
+            <p className="text-xs text-destructive">{errors.severity}</p>
           )}
         </div>
 
         {/* Status */}
         <div className="space-y-1.5">
           <Label htmlFor="status" className="text-slate-300">
-            Status <span className="text-red-400">*</span>
+            Status <span className="text-destructive">*</span>
           </Label>
           <select
             id="status"
@@ -431,14 +431,14 @@ function NewIncidentFormPanel({
             <option value="REQUIRES_ESCALATION">Requires Escalation</option>
           </select>
           {errors.status && (
-            <p className="text-xs text-red-400">{errors.status}</p>
+            <p className="text-xs text-destructive">{errors.status}</p>
           )}
         </div>
 
         {/* Incident Date */}
         <div className="space-y-1.5">
           <Label htmlFor="incidentDate" className="text-slate-300">
-            Incident Date <span className="text-red-400">*</span>
+            Incident Date <span className="text-destructive">*</span>
           </Label>
           <Input
             id="incidentDate"
@@ -448,7 +448,7 @@ function NewIncidentFormPanel({
             className="bg-slate-700/50 border-slate-600 text-white"
           />
           {errors.incidentDate && (
-            <p className="text-xs text-red-400">{errors.incidentDate}</p>
+            <p className="text-xs text-destructive">{errors.incidentDate}</p>
           )}
         </div>
 
@@ -700,8 +700,8 @@ export default function WHSPage() {
         <div
           className={`flex items-center gap-3 px-4 py-3 rounded-lg border text-sm ${
             message.type === "success"
-              ? "bg-green-500/10 border-green-500/30 text-green-400"
-              : "bg-red-500/10 border-red-500/30 text-red-400"
+              ? "bg-green-500/10 border-green-500/30 text-success"
+              : "bg-red-500/10 border-red-500/30 text-destructive"
           }`}
         >
           {message.type === "success" ? (
@@ -721,7 +721,7 @@ export default function WHSPage() {
 
       {/* ── API unavailable banner ── */}
       {apiUnavailable && (
-        <div className="flex items-start gap-3 px-4 py-4 rounded-lg border bg-amber-500/10 border-amber-500/30 text-amber-300">
+        <div className="flex items-start gap-3 px-4 py-4 rounded-lg border bg-amber-500/10 border-amber-500/30 text-warning">
           <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
           <div className="text-sm">
             <span className="font-semibold">WHS API not yet active.</span> The
@@ -735,7 +735,7 @@ export default function WHSPage() {
 
       {/* ── Overdue actions warning ── */}
       {overdueCount > 0 && (
-        <div className="flex items-start gap-3 px-4 py-4 rounded-lg border bg-red-500/10 border-red-500/30 text-red-300">
+        <div className="flex items-start gap-3 px-4 py-4 rounded-lg border bg-red-500/10 border-red-500/30 text-destructive">
           <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
           <p className="text-sm">
             <span className="font-semibold">
@@ -793,7 +793,7 @@ export default function WHSPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
-            <p className="text-3xl font-bold text-amber-400">
+            <p className="text-3xl font-bold text-warning">
               {underReviewCount}
             </p>
           </CardContent>
@@ -806,7 +806,7 @@ export default function WHSPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
-            <p className="text-3xl font-bold text-green-400">
+            <p className="text-3xl font-bold text-success">
               {closedThisMonth}
             </p>
           </CardContent>
@@ -820,7 +820,7 @@ export default function WHSPage() {
           </CardHeader>
           <CardContent className="px-4 pb-4">
             <p
-              className={`text-3xl font-bold ${overdueCount > 0 ? "text-red-400" : "text-slate-400"}`}
+              className={`text-3xl font-bold ${overdueCount > 0 ? "text-destructive" : "text-slate-400"}`}
             >
               {overdueCount}
             </p>

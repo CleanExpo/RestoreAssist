@@ -235,8 +235,8 @@ export default function Tier3Questions({
     <div className="space-y-6">
       <div className="p-4 rounded-lg border-2 border-green-500/50 bg-green-50 dark:bg-green-500/10">
         <div className="flex items-center gap-2 mb-2">
-          <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
-          <h2 className="text-xl font-semibold text-green-700 dark:text-green-400">
+          <CheckCircle className="w-5 h-5 text-success dark:text-success" />
+          <h2 className="text-xl font-semibold text-success dark:text-success">
             TIER 3: OPTIMISATION QUESTIONS
           </h2>
         </div>
@@ -250,7 +250,7 @@ export default function Tier3Questions({
       <div className="p-4 rounded-lg border-2 border-green-500/50 bg-green-50 dark:bg-green-500/10 mb-6">
         <div className="flex items-center justify-between mb-2">
           <div>
-            <h3 className="text-lg font-semibold text-green-700 dark:text-green-400 mb-2">
+            <h3 className="text-lg font-semibold text-success dark:text-success mb-2">
               Advanced Optimisation Questions
             </h3>
             <p className="text-sm text-slate-700 dark:text-slate-300">
@@ -477,8 +477,8 @@ export default function Tier3Questions({
       {/* Photo Uploads Section (Optimised Only) */}
       <div className="p-6 rounded-lg border-2 border-green-500/50 bg-green-50 dark:bg-green-500/10">
         <div className="flex items-center gap-2 mb-4">
-          <Camera className="w-5 h-5 text-green-600 dark:text-green-400" />
-          <h3 className="text-lg font-semibold text-green-700 dark:text-green-400">
+          <Camera className="w-5 h-5 text-success dark:text-success" />
+          <h3 className="text-lg font-semibold text-success dark:text-success">
             Photo Uploads
           </h3>
         </div>

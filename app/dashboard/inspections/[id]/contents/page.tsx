@@ -65,12 +65,12 @@ function restorableBadge(status: ContentsManifestItem["restorableStatus"]) {
   const map: Record<typeof status, { label: string; className: string }> = {
     restorable: {
       label: "Restorable",
-      className: "bg-green-100 text-green-800",
+      className: "bg-green-100 text-success",
     },
-    replace: { label: "Replace", className: "bg-red-100 text-red-800" },
+    replace: { label: "Replace", className: "bg-red-100 text-destructive" },
     uncertain: {
       label: "Uncertain",
-      className: "bg-yellow-100 text-yellow-800",
+      className: "bg-yellow-100 text-warning",
     },
   };
   const { label, className } = map[status];
@@ -267,7 +267,7 @@ export default function ContentsManifestPage() {
 
       {/* Disclaimer */}
       {draft && (
-        <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+        <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-50 border border-amber-200 text-warning text-sm">
           <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
           <span>{draft.disclaimer}</span>
         </div>
@@ -293,7 +293,7 @@ export default function ContentsManifestPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-4">
-              <span className="text-2xl font-bold text-amber-600">
+              <span className="text-2xl font-bold text-warning">
                 {draft.flaggedForReviewCount}
               </span>
             </CardContent>
@@ -305,7 +305,7 @@ export default function ContentsManifestPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-4">
-              <span className="text-2xl font-bold text-red-500">
+              <span className="text-2xl font-bold text-destructive">
                 {draft.lowConfidenceCount}
               </span>
             </CardContent>
@@ -374,7 +374,7 @@ export default function ContentsManifestPage() {
                   <TableCell>
                     {item.flagForReview && (
                       <Flag
-                        className="w-3.5 h-3.5 text-amber-500"
+                        className="w-3.5 h-3.5 text-warning"
                         aria-label="Flagged for review"
                       />
                     )}
@@ -456,7 +456,7 @@ export default function ContentsManifestPage() {
                   </TableCell>
                   <TableCell>
                     <span
-                      className={`text-sm font-medium ${item.confidence < 70 ? "text-red-500" : "text-muted-foreground"}`}
+                      className={`text-sm font-medium ${item.confidence < 70 ? "text-destructive" : "text-muted-foreground"}`}
                     >
                       {item.confidence}%
                     </span>

@@ -86,7 +86,7 @@ export function EquipmentCostCalculatorComponent({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <DollarSign className="h-5 w-5 text-green-600" />
+            <DollarSign className="h-5 w-5 text-success" />
             Estimated Cost
           </CardTitle>
         </CardHeader>
@@ -95,7 +95,7 @@ export function EquipmentCostCalculatorComponent({
             <p className="text-sm font-medium text-slate-600 mb-2">
               Total Estimated Cost
             </p>
-            <p className="text-4xl font-bold text-green-600">
+            <p className="text-4xl font-bold text-success">
               {EquipmentCostCalculator.formatCost(estimate.total)}
             </p>
             <p className="text-sm text-slate-500 mt-2">
@@ -261,7 +261,7 @@ export function EquipmentCostCalculatorComponent({
                   <p className="text-sm font-medium text-slate-600 mb-1">
                     Total Estimated Cost
                   </p>
-                  <p className="text-3xl font-bold text-green-600">
+                  <p className="text-3xl font-bold text-success">
                     {EquipmentCostCalculator.formatCost(estimate.total)}
                   </p>
                 </div>
@@ -404,7 +404,7 @@ export function EquipmentCostCalculatorComponent({
                 </div>
                 <div className="flex justify-between text-lg font-bold text-slate-900 bg-yellow-50 p-3 rounded-lg">
                   <span>Total Estimated Cost</span>
-                  <span className="text-green-600">
+                  <span className="text-success">
                     {EquipmentCostCalculator.formatCost(estimate.total)}
                   </span>
                 </div>

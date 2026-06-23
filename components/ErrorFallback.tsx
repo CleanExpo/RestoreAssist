@@ -21,7 +21,7 @@ export function ErrorFallback({
   return (
     <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
       <div className="w-16 h-16 bg-red-100 dark:bg-red-950/30 rounded-full flex items-center justify-center mb-6">
-        <AlertTriangle className="h-8 w-8 text-red-500" />
+        <AlertTriangle className="h-8 w-8 text-destructive" />
       </div>
       <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
         {title}

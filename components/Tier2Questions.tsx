@@ -229,8 +229,8 @@ export default function Tier2Questions({
       <div className="p-4 rounded-lg border-2 border-amber-500/50 bg-amber-50 dark:bg-amber-500/10">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-            <h2 className="text-xl font-semibold text-amber-700 dark:text-amber-400">
+            <AlertTriangle className="w-5 h-5 text-warning dark:text-warning" />
+            <h2 className="text-xl font-semibold text-warning dark:text-warning">
               TIER 2: ENHANCEMENT QUESTIONS
             </h2>
           </div>
@@ -252,7 +252,7 @@ export default function Tier2Questions({
 
       {/* Initial Data Entry Form Fields - For Refinement */}
       <div className="p-6 rounded-lg border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4 text-amber-600 dark:text-amber-400">
+        <h3 className="text-lg font-semibold mb-4 text-warning dark:text-warning">
           Additional Information Review
         </h3>
         <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
@@ -564,7 +564,7 @@ export default function Tier2Questions({
 
       {/* Advanced Tier 2 Questions */}
       <div className="p-4 rounded-lg border-2 border-amber-500/50 bg-amber-50 dark:bg-amber-500/10">
-        <h3 className="text-lg font-semibold text-amber-700 dark:text-amber-400 mb-2">
+        <h3 className="text-lg font-semibold text-warning dark:text-warning mb-2">
           Advanced Enhancement Questions
         </h3>
         <p className="text-sm text-slate-700 dark:text-slate-300">
@@ -822,7 +822,7 @@ export default function Tier2Questions({
           (onGenerateOptimised || onContinueToTier3) ? (
           <div className="p-6 rounded-lg border-2 border-green-500/50 bg-green-50 dark:bg-green-500/10 space-y-4">
             <div className="text-center">
-              <h3 className="text-xl font-semibold text-green-700 dark:text-green-400 mb-2">
+              <h3 className="text-xl font-semibold text-success dark:text-success mb-2">
                 Tier 2 Completed Successfully!
               </h3>
               <p className="text-sm text-slate-700 dark:text-slate-300 mb-6">
@@ -838,7 +838,7 @@ export default function Tier2Questions({
                   className="flex flex-col items-center justify-center gap-3 p-6 rounded-lg border-2 border-green-500 bg-gradient-to-br from-green-500/20 to-emerald-500/20 hover:from-green-500/30 hover:to-emerald-500/30 transition-all group"
                 >
                   <div className="w-12 h-12 rounded-full bg-green-500/30 flex items-center justify-center group-hover:bg-green-500/40 transition-colors">
-                    <Save className="w-6 h-6 text-green-600 dark:text-green-300" />
+                    <Save className="w-6 h-6 text-success dark:text-success" />
                   </div>
                   <div className="text-center">
                     <h4 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">

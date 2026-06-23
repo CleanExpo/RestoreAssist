@@ -64,7 +64,7 @@ function StatusBadge({ status }: { status: InvitationStatus }) {
     },
     ACCEPTED: {
       label: "Accepted",
-      variant: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+      variant: "bg-emerald-500/20 text-success border-emerald-500/30",
       icon: <CheckCircle size={12} />,
     },
     EXPIRED: {
@@ -74,7 +74,7 @@ function StatusBadge({ status }: { status: InvitationStatus }) {
     },
     REVOKED: {
       label: "Revoked",
-      variant: "bg-red-500/20 text-red-400 border-red-500/30",
+      variant: "bg-red-500/20 text-destructive border-red-500/30",
       icon: <ShieldOff size={12} />,
     },
   };
@@ -287,10 +287,10 @@ export default function ClientPortalPage({
             <div className="flex items-start gap-3">
               <CheckCircle
                 size={22}
-                className="text-emerald-400 mt-0.5 shrink-0"
+                className="text-success mt-0.5 shrink-0"
               />
               <div>
-                <p className="font-medium text-emerald-400">Portal Active</p>
+                <p className="font-medium text-success">Portal Active</p>
                 <p className="text-sm text-slate-400 mt-0.5">
                   {client?.name ?? "Client"} accepted the invitation on{" "}
                   {fmt(acceptedInvitation.acceptedAt)}.
@@ -502,7 +502,7 @@ export default function ClientPortalPage({
                                   variant="ghost"
                                   disabled={revoking}
                                   onClick={handleRevoke}
-                                  className="text-red-400 hover:text-red-300 hover:bg-red-500/10 h-7 px-2 text-xs"
+                                  className="text-destructive hover:text-destructive hover:bg-red-500/10 h-7 px-2 text-xs"
                                 >
                                   {revoking ? (
                                     <RefreshCw
@@ -528,7 +528,7 @@ export default function ClientPortalPage({
                                 size="sm"
                                 variant="ghost"
                                 onClick={() => confirmRevoke(inv.id)}
-                                className="text-red-400 hover:text-red-300 hover:bg-red-500/10 h-7 px-2 text-xs"
+                                className="text-destructive hover:text-destructive hover:bg-red-500/10 h-7 px-2 text-xs"
                               >
                                 <ShieldOff size={13} className="mr-1" />
                                 Revoke

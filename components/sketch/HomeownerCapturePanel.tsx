@@ -109,7 +109,7 @@ export function HomeownerCapturePanel({
           onClick={review}
           disabled={busy !== null}
           aria-label="Review homeowner submission"
-          className={`${btn} border-emerald-400/40 bg-emerald-500/15 text-emerald-100 hover:bg-emerald-500/25`}
+          className={`${btn} border-emerald-400/40 bg-emerald-500/15 text-success hover:bg-emerald-500/25`}
         >
           {busy === "review" ? "Reviewing…" : "Review submission"}
         </button>
@@ -118,7 +118,7 @@ export function HomeownerCapturePanel({
           onClick={revoke}
           disabled={busy !== null}
           aria-label="Revoke capture links"
-          className={`${btn} border-rose-400/30 text-rose-200 hover:bg-rose-500/15`}
+          className={`${btn} border-rose-400/30 text-destructive hover:bg-rose-500/15`}
         >
           {busy === "revoke" ? "Revoking…" : "Revoke links"}
         </button>

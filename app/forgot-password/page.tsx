@@ -221,7 +221,7 @@ function ForgotPasswordForm() {
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-400 text-sm"
+                  className="p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-destructive text-sm"
                 >
                   {error}
                 </motion.div>
@@ -298,7 +298,7 @@ function ForgotPasswordForm() {
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-400 text-sm"
+                  className="p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-destructive text-sm"
                 >
                   {error}
                 </motion.div>
@@ -331,8 +331,8 @@ function ForgotPasswordForm() {
           ) : (
             <form onSubmit={handlePasswordSubmit} className="space-y-6">
               <div className="mb-4 p-3 bg-green-500/20 border border-green-500/30 rounded-lg flex items-center gap-2">
-                <CheckCircle size={20} className="text-green-400" />
-                <span className="text-green-400 text-sm">
+                <CheckCircle size={20} className="text-success" />
+                <span className="text-success text-sm">
                   Code verified. Set your new password.
                 </span>
               </div>
@@ -412,7 +412,7 @@ function ForgotPasswordForm() {
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-400 text-sm"
+                  className="p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-destructive text-sm"
                 >
                   {error}
                 </motion.div>

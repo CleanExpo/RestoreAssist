@@ -157,7 +157,7 @@ export default function NewCreditNotePage() {
 
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
-                Invoice <span className="text-red-400">*</span>
+                Invoice <span className="text-destructive">*</span>
               </label>
               <select
                 value={form.invoiceId}
@@ -181,7 +181,7 @@ export default function NewCreditNotePage() {
 
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
-                Reason <span className="text-red-400">*</span>
+                Reason <span className="text-destructive">*</span>
               </label>
               <select
                 value={form.reason}
@@ -319,7 +319,7 @@ export default function NewCreditNotePage() {
                     <button
                       type="button"
                       onClick={() => removeLineItem(idx)}
-                      className="p-1.5 hover:bg-red-500/20 rounded text-slate-500 hover:text-red-400 transition-colors"
+                      className="p-1.5 hover:bg-red-500/20 rounded text-slate-500 hover:text-destructive transition-colors"
                     >
                       <Trash2 size={14} />
                     </button>

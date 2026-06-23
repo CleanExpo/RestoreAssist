@@ -201,7 +201,7 @@ export function ReportTypeSelection({ isTrial, loading, onChoose }: Props) {
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-lg bg-green-500/30 flex items-center justify-center group-hover:bg-green-500/40 transition-colors">
-                <CheckCircle className="w-6 h-6 text-green-300" />
+                <CheckCircle className="w-6 h-6 text-success" />
               </div>
               <div>
                 <h4
@@ -215,7 +215,7 @@ export function ReportTypeSelection({ isTrial, loading, onChoose }: Props) {
                 <p
                   className={cn(
                     "text-sm",
-                    "text-neutral-700 dark:text-green-400",
+                    "text-neutral-700 dark:text-success",
                   )}
                 >
                   Enhanced + Tier 2 + Tier 3
@@ -225,8 +225,8 @@ export function ReportTypeSelection({ isTrial, loading, onChoose }: Props) {
             <ArrowRight
               className={cn(
                 "w-5 h-5 transition-colors",
-                "text-neutral-700 dark:text-green-400",
-                "group-hover:text-green-600 dark:group-hover:text-green-300",
+                "text-neutral-700 dark:text-success",
+                "group-hover:text-success dark:group-hover:text-success",
               )}
             />
           </div>
@@ -250,7 +250,7 @@ export function ReportTypeSelection({ isTrial, loading, onChoose }: Props) {
                 <CheckCircle
                   className={cn(
                     "w-4 h-4",
-                    "text-neutral-700 dark:text-green-400",
+                    "text-neutral-700 dark:text-success",
                   )}
                 />
                 <span>{feature}</span>

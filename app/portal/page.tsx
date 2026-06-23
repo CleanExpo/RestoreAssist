@@ -68,8 +68,8 @@ export default function PortalDashboard() {
   const getStatusBadge = (status: string) => {
     const styles = {
       DRAFT: "bg-slate-100 text-slate-700",
-      PENDING: "bg-yellow-100 text-yellow-700",
-      APPROVED: "bg-green-100 text-green-700",
+      PENDING: "bg-yellow-100 text-warning",
+      APPROVED: "bg-green-100 text-success",
       COMPLETED: "bg-blue-100 text-blue-700",
       ARCHIVED: "bg-slate-100 text-slate-500",
     };

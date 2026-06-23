@@ -375,7 +375,7 @@ function ToolBtn({
         active
           ? "bg-cyan-500 text-white shadow-md shadow-cyan-500/30"
           : danger
-            ? "text-rose-400 hover:bg-rose-500/20 hover:text-rose-300"
+            ? "text-destructive hover:bg-rose-500/20 hover:text-destructive"
             : "text-white/60 hover:bg-white/10 hover:text-white",
         disabled && "opacity-30 cursor-not-allowed",
       )}

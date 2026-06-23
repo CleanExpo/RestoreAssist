@@ -84,7 +84,7 @@ function StatusBadge({ status }: { status: Equipment["status"] }) {
   const config = {
     ACTIVE: {
       label: "Active",
-      className: "bg-green-500/10 text-green-400 border-green-500/30",
+      className: "bg-green-500/10 text-success border-green-500/30",
     },
     INACTIVE: {
       label: "Inactive",
@@ -92,11 +92,11 @@ function StatusBadge({ status }: { status: Equipment["status"] }) {
     },
     IN_SERVICE: {
       label: "In Service",
-      className: "bg-amber-500/10 text-amber-400 border-amber-500/30",
+      className: "bg-amber-500/10 text-warning border-amber-500/30",
     },
     DECOMMISSIONED: {
       label: "Decommissioned",
-      className: "bg-red-500/10 text-red-400 border-red-500/30",
+      className: "bg-red-500/10 text-destructive border-red-500/30",
     },
   }[status];
 
@@ -121,7 +121,7 @@ function CalibrationBadge({ nextDate }: { nextDate: string | null }) {
   }
   if (cs === "overdue") {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border bg-red-500/10 text-red-400 border-red-500/30">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border bg-red-500/10 text-destructive border-red-500/30">
         <XCircle className="h-3 w-3" />
         Overdue — due {formatDate(nextDate)}
       </span>
@@ -129,14 +129,14 @@ function CalibrationBadge({ nextDate }: { nextDate: string | null }) {
   }
   if (cs === "due-soon") {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border bg-amber-500/10 text-amber-400 border-amber-500/30">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border bg-amber-500/10 text-warning border-amber-500/30">
         <AlertTriangle className="h-3 w-3" />
         Due soon — {formatDate(nextDate)}
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border bg-green-500/10 text-green-400 border-green-500/30">
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border bg-green-500/10 text-success border-green-500/30">
       <CheckCircle className="h-3 w-3" />
       Current — due {formatDate(nextDate)}
     </span>
@@ -393,8 +393,8 @@ export default function EquipmentPage() {
                 getCalibrationStatus(e.nextCalibrationDate ?? null) ===
                 "overdue",
             )
-              ? "bg-red-500/10 border-red-500/30 text-red-400"
-              : "bg-amber-500/10 border-amber-500/30 text-amber-400"
+              ? "bg-red-500/10 border-red-500/30 text-destructive"
+              : "bg-amber-500/10 border-amber-500/30 text-warning"
           }`}
         >
           <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" />
@@ -426,8 +426,8 @@ export default function EquipmentPage() {
         <div
           className={`mb-6 p-4 rounded-lg flex items-center gap-3 border ${
             message.type === "success"
-              ? "bg-green-500/10 border-green-500/30 text-green-400"
-              : "bg-red-500/10 border-red-500/30 text-red-400"
+              ? "bg-green-500/10 border-green-500/30 text-success"
+              : "bg-red-500/10 border-red-500/30 text-destructive"
           }`}
         >
           {message.type === "success" ? (

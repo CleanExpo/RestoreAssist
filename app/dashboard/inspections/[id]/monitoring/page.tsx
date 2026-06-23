@@ -97,20 +97,20 @@ function statusLabel(status: DryingStatus): string {
 function StatusIcon({ status }: { status: DryingStatus }) {
   switch (status) {
     case "ACHIEVED":
-      return <CheckCircle2 size={14} className="text-emerald-600" />;
+      return <CheckCircle2 size={14} className="text-success" />;
     case "PROGRESSING":
       return <TrendingDown size={14} className="text-cyan-600" />;
     case "PLATEAU":
-      return <Minus size={14} className="text-amber-600" />;
+      return <Minus size={14} className="text-warning" />;
     default:
       return <TrendingUp size={14} className="text-neutral-400" />;
   }
 }
 
 function moistureColor(level: number, target: number): string {
-  if (level <= target) return "text-emerald-600 dark:text-emerald-400";
-  if (level <= target * 1.5) return "text-amber-600 dark:text-amber-400";
-  return "text-red-600 dark:text-red-400";
+  if (level <= target) return "text-success dark:text-success";
+  if (level <= target * 1.5) return "text-warning dark:text-warning";
+  return "text-destructive dark:text-destructive";
 }
 
 function formatDate(dateStr: string): string {
@@ -176,7 +176,7 @@ export default function MonitoringPage({
         >
           <ArrowLeft size={16} /> Back to Inspection
         </button>
-        <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-6 text-red-700 dark:text-red-400">
+        <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-6 text-destructive dark:text-destructive">
           {error ?? "Report unavailable"}
         </div>
       </div>
@@ -328,7 +328,7 @@ export default function MonitoringPage({
                         {statusLabel(log.dryingStatus)}
                       </Badge>
                       {log.aboveTargetCount > 0 && (
-                        <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+                        <span className="flex items-center gap-1 text-xs text-warning dark:text-warning">
                           <AlertTriangle size={11} />
                           {log.aboveTargetCount} above target
                         </span>
@@ -423,11 +423,11 @@ export default function MonitoringPage({
                             </td>
                             <td className="px-3 py-2">
                               {r.aboveTarget ? (
-                                <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 text-xs">
+                                <span className="flex items-center gap-1 text-warning dark:text-warning text-xs">
                                   <AlertTriangle size={11} /> Above target
                                 </span>
                               ) : (
-                                <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 text-xs">
+                                <span className="flex items-center gap-1 text-success dark:text-success text-xs">
                                   <CheckCircle2 size={11} /> At target
                                 </span>
                               )}

@@ -462,11 +462,11 @@ export default function ClaimsAnalysisPage() {
   const getSeverityColor = (severity: string) => {
     switch (severity) {
       case "CRITICAL":
-        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border border-red-200 dark:border-red-800";
+        return "bg-red-100 text-destructive dark:bg-red-900/30 dark:text-destructive border border-red-200 dark:border-red-800";
       case "HIGH":
         return "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200 dark:border-orange-800";
       case "MEDIUM":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800";
+        return "bg-yellow-100 text-warning dark:bg-yellow-900/30 dark:text-warning border border-yellow-200 dark:border-yellow-800";
       case "LOW":
         return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800";
       default:
@@ -490,9 +490,9 @@ export default function ClaimsAnalysisPage() {
   };
 
   const getScoreColor = (score: number) => {
-    if (score >= 80) return "text-green-600 dark:text-green-400";
-    if (score >= 60) return "text-yellow-600 dark:text-yellow-400";
-    return "text-red-600 dark:text-red-400";
+    if (score >= 80) return "text-success dark:text-success";
+    if (score >= 60) return "text-warning dark:text-warning";
+    return "text-destructive dark:text-destructive";
   };
 
   const resetAnalysis = () => {
@@ -600,7 +600,7 @@ export default function ClaimsAnalysisPage() {
                   <Label htmlFor="folderId">Google Drive Folder</Label>
                   {folderId ? (
                     <div className="flex items-center gap-2 px-3 py-2 border rounded-md bg-muted/50">
-                      <FolderOpen className="h-4 w-4 text-amber-500 shrink-0" />
+                      <FolderOpen className="h-4 w-4 text-warning shrink-0" />
                       <span className="text-sm font-medium truncate">
                         {folderName || folderId}
                       </span>
@@ -758,13 +758,13 @@ export default function ClaimsAnalysisPage() {
             {/* Permission Error Alert */}
             {permissionError && (
               <Alert className="border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20">
-                <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                <AlertTriangle className="h-4 w-4 text-warning" />
                 <AlertDescription className="space-y-2">
-                  <div className="font-semibold text-yellow-800 dark:text-yellow-200">
+                  <div className="font-semibold text-warning dark:text-warning">
                     {permissionError.message}
                   </div>
                   {permissionError.serviceAccountEmail && (
-                    <div className="text-sm text-yellow-700 dark:text-yellow-300">
+                    <div className="text-sm text-warning dark:text-warning">
                       <p className="font-medium mb-2">
                         To fix this, share the Google Drive folder with the
                         service account:
@@ -1028,7 +1028,7 @@ export default function ClaimsAnalysisPage() {
                     <div className="text-xs text-muted-foreground">IICRC</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mb-1">
+                    <div className="text-2xl font-bold text-success dark:text-success mb-1">
                       {(summary.totalMissingElements as MissingElementsSummary)
                         .australianStandards || 0}
                     </div>
@@ -1037,7 +1037,7 @@ export default function ClaimsAnalysisPage() {
                     </div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-red-600 dark:text-red-400 mb-1">
+                    <div className="text-2xl font-bold text-destructive dark:text-destructive mb-1">
                       {(summary.totalMissingElements.ohs || 0) +
                         ((
                           summary.totalMissingElements as MissingElementsSummary
@@ -1055,7 +1055,7 @@ export default function ClaimsAnalysisPage() {
                     <div className="text-xs text-muted-foreground">Scope</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-green-600 dark:text-green-400 mb-1">
+                    <div className="text-2xl font-bold text-success dark:text-success mb-1">
                       {summary.totalMissingElements.billing || 0}
                     </div>
                     <div className="text-xs text-muted-foreground">Billing</div>
@@ -1069,7 +1069,7 @@ export default function ClaimsAnalysisPage() {
                     </div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-amber-600 dark:text-amber-400 mb-1">
+                    <div className="text-2xl font-bold text-warning dark:text-warning mb-1">
                       {(summary.totalMissingElements as MissingElementsSummary)
                         .equipment || 0}
                     </div>
@@ -1240,7 +1240,7 @@ export default function ClaimsAnalysisPage() {
                                   {issue.isBillable && issue.estimatedCost && (
                                     <Badge
                                       variant="outline"
-                                      className="text-green-600"
+                                      className="text-success"
                                     >
                                       ${issue.estimatedCost.toFixed(2)}
                                     </Badge>
@@ -1350,8 +1350,8 @@ export default function ClaimsAnalysisPage() {
                         Estimated Billable Revenue
                       </span>
                       <div className="flex items-center gap-2">
-                        <DollarSign className="h-5 w-5 text-green-600 dark:text-green-400" />
-                        <span className="text-xl font-bold text-green-600 dark:text-green-400">
+                        <DollarSign className="h-5 w-5 text-success dark:text-success" />
+                        <span className="text-xl font-bold text-success dark:text-success">
                           $
                           {selectedDocument.issues
                             .filter((i) => i.isBillable && i.estimatedCost)
@@ -1544,7 +1544,7 @@ export default function ClaimsAnalysisPage() {
                                                   </p>
                                                   {issue.severity ===
                                                     "CRITICAL" && (
-                                                    <p className="text-red-600 dark:text-red-400">
+                                                    <p className="text-destructive dark:text-destructive">
                                                       Non-compliance may void
                                                       insurance claim or create
                                                       liability exposure.
@@ -1560,7 +1560,7 @@ export default function ClaimsAnalysisPage() {
                                                   )}
                                                   {issue.severity ===
                                                     "MEDIUM" && (
-                                                    <p className="text-yellow-600 dark:text-yellow-400">
+                                                    <p className="text-warning dark:text-warning">
                                                       Recommended per industry
                                                       standards. Improves report
                                                       quality.
@@ -1581,7 +1581,7 @@ export default function ClaimsAnalysisPage() {
                                           {issue.isBillable && (
                                             <div className="text-right shrink-0">
                                               {issue.estimatedCost && (
-                                                <div className="text-2xl font-bold text-green-600">
+                                                <div className="text-2xl font-bold text-success">
                                                   $
                                                   {issue.estimatedCost.toFixed(
                                                     2,
@@ -1715,7 +1715,7 @@ export default function ClaimsAnalysisPage() {
                                               {issue.standardReference}
                                             </p>
                                             {issue.severity === "CRITICAL" && (
-                                              <p className="text-red-600 dark:text-red-400">
+                                              <p className="text-destructive dark:text-destructive">
                                                 Non-compliance may void
                                                 insurance claim or create
                                                 liability exposure.
@@ -1729,7 +1729,7 @@ export default function ClaimsAnalysisPage() {
                                               </p>
                                             )}
                                             {issue.severity === "MEDIUM" && (
-                                              <p className="text-yellow-600 dark:text-yellow-400">
+                                              <p className="text-warning dark:text-warning">
                                                 Recommended per industry
                                                 standards. Improves report
                                                 quality.
@@ -1748,7 +1748,7 @@ export default function ClaimsAnalysisPage() {
                                     {issue.isBillable && (
                                       <div className="text-right shrink-0">
                                         {issue.estimatedCost && (
-                                          <div className="text-2xl font-bold text-green-600">
+                                          <div className="text-2xl font-bold text-success">
                                             ${issue.estimatedCost.toFixed(2)}
                                           </div>
                                         )}
@@ -1791,7 +1791,7 @@ export default function ClaimsAnalysisPage() {
                       {selectedDocument.reportStructure.missingSections.length >
                         0 && (
                         <div>
-                          <h4 className="font-semibold mb-2 text-red-600">
+                          <h4 className="font-semibold mb-2 text-destructive">
                             Missing Sections:
                           </h4>
                           <div className="flex flex-wrap gap-2">
@@ -1808,7 +1808,7 @@ export default function ClaimsAnalysisPage() {
                       {selectedDocument.reportStructure.flowIssues.length >
                         0 && (
                         <div>
-                          <h4 className="font-semibold mb-2 text-yellow-600">
+                          <h4 className="font-semibold mb-2 text-warning">
                             Flow Issues:
                           </h4>
                           <ul className="list-disc list-inside space-y-1">
@@ -1863,7 +1863,7 @@ export default function ClaimsAnalysisPage() {
                       {selectedDocument.technicianPattern.strengths.length >
                         0 && (
                         <div>
-                          <h4 className="font-semibold mb-2 text-green-600">
+                          <h4 className="font-semibold mb-2 text-success">
                             Strengths:
                           </h4>
                           <ul className="list-disc list-inside space-y-1">
@@ -1880,7 +1880,7 @@ export default function ClaimsAnalysisPage() {
                       {selectedDocument.technicianPattern.commonOmissions
                         .length > 0 && (
                         <div>
-                          <h4 className="font-semibold mb-2 text-red-600">
+                          <h4 className="font-semibold mb-2 text-destructive">
                             Common Omissions:
                           </h4>
                           <ul className="list-disc list-inside space-y-1">
@@ -1960,7 +1960,7 @@ export default function ClaimsAnalysisPage() {
                   variant="outline"
                   size="sm"
                   onClick={cancelAnalysis}
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+                  className="text-destructive hover:text-destructive hover:bg-red-50 dark:text-destructive dark:hover:bg-red-950/30"
                 >
                   <X className="h-4 w-4 mr-1" />
                   Cancel
@@ -2026,10 +2026,10 @@ export default function ClaimsAnalysisPage() {
                         <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
                       )}
                       {file.status === "done" && (
-                        <FileCheck className="h-4 w-4 text-green-500" />
+                        <FileCheck className="h-4 w-4 text-success" />
                       )}
                       {file.status === "failed" && (
-                        <X className="h-4 w-4 text-red-500" />
+                        <X className="h-4 w-4 text-destructive" />
                       )}
                       <span
                         className={
@@ -2039,7 +2039,7 @@ export default function ClaimsAnalysisPage() {
                         {file.name}
                       </span>
                       {file.status === "failed" && file.error && (
-                        <span className="text-xs text-red-500 ml-auto truncate max-w-[200px]">
+                        <span className="text-xs text-destructive ml-auto truncate max-w-[200px]">
                           {file.error}
                         </span>
                       )}

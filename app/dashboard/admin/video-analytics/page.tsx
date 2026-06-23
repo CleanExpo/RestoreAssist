@@ -67,9 +67,9 @@ export default function VideoAnalyticsPage() {
     : 0;
 
   const colorForRate = (rate: number) => {
-    if (rate >= 70) return "text-green-400";
-    if (rate >= 40) return "text-amber-400";
-    return "text-red-400";
+    if (rate >= 70) return "text-success";
+    if (rate >= 40) return "text-warning";
+    return "text-destructive";
   };
 
   return (
@@ -114,7 +114,7 @@ export default function VideoAnalyticsPage() {
         </div>
         <div className="rounded-lg border bg-card p-4">
           <div className="flex items-center gap-3">
-            <CheckMark className="h-5 w-5 text-green-400" />
+            <CheckMark className="h-5 w-5 text-success" />
             <div>
               <p className="text-sm text-muted-foreground">Avg Completion</p>
               <p className={`text-2xl font-bold ${colorForRate(avgCompletion)}`}>
@@ -139,7 +139,7 @@ export default function VideoAnalyticsPage() {
       )}
 
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-destructive">
           <p className="font-medium">Error loading analytics</p>
           <p className="text-sm">{error}</p>
         </div>

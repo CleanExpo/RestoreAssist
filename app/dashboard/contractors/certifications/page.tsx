@@ -135,18 +135,18 @@ function getExpiryBadge(expiryDate: string | null): {
   if (diffDays < 0) {
     return {
       label: "Expired",
-      className: "bg-red-500/10 text-red-400 border border-red-500/30",
+      className: "bg-red-500/10 text-destructive border border-red-500/30",
     };
   }
   if (diffDays <= 90) {
     return {
       label: "Expiring Soon",
-      className: "bg-amber-500/10 text-amber-400 border border-amber-500/30",
+      className: "bg-amber-500/10 text-warning border border-amber-500/30",
     };
   }
   return {
     label: "Valid",
-    className: "bg-green-500/10 text-green-400 border border-green-500/30",
+    className: "bg-green-500/10 text-success border border-green-500/30",
   };
 }
 
@@ -158,17 +158,17 @@ function getVerificationBadge(status: VerificationStatus): {
     case "VERIFIED":
       return {
         label: "Verified",
-        className: "bg-green-500/10 text-green-400 border border-green-500/30",
+        className: "bg-green-500/10 text-success border border-green-500/30",
       };
     case "REJECTED":
       return {
         label: "Rejected",
-        className: "bg-red-500/10 text-red-400 border border-red-500/30",
+        className: "bg-red-500/10 text-destructive border border-red-500/30",
       };
     default:
       return {
         label: "Pending",
-        className: "bg-amber-500/10 text-amber-400 border border-amber-500/30",
+        className: "bg-amber-500/10 text-warning border border-amber-500/30",
       };
   }
 }
@@ -380,7 +380,7 @@ export default function ContractorCertificationsPage() {
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col items-center justify-center py-24 text-center">
-          <AlertCircle className="h-12 w-12 text-amber-400 mb-4" />
+          <AlertCircle className="h-12 w-12 text-warning mb-4" />
           <h2 className="text-xl font-semibold text-white mb-2">
             Contractor Profile Not Found
           </h2>
@@ -418,8 +418,8 @@ export default function ContractorCertificationsPage() {
         <div
           className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${
             message.type === "success"
-              ? "bg-green-500/10 border border-green-500/30 text-green-400"
-              : "bg-red-500/10 border border-red-500/30 text-red-400"
+              ? "bg-green-500/10 border border-green-500/30 text-success"
+              : "bg-red-500/10 border border-red-500/30 text-destructive"
           }`}
         >
           {message.type === "success" ? (
@@ -520,7 +520,7 @@ export default function ContractorCertificationsPage() {
                       <button
                         onClick={() => setDeleteTargetId(cert.id)}
                         title="Delete"
-                        className="p-2 text-slate-400 hover:text-red-400 transition-colors"
+                        className="p-2 text-slate-400 hover:text-destructive transition-colors"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -551,7 +551,7 @@ export default function ContractorCertificationsPage() {
             {/* Type */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                Certification Type <span className="text-red-400">*</span>
+                Certification Type <span className="text-destructive">*</span>
               </label>
               <Select
                 value={form.certificationType}
@@ -582,7 +582,7 @@ export default function ContractorCertificationsPage() {
             {/* Name */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                Certification Name <span className="text-red-400">*</span>
+                Certification Name <span className="text-destructive">*</span>
               </label>
               <input
                 type="text"
@@ -598,7 +598,7 @@ export default function ContractorCertificationsPage() {
             {/* Issuing Body */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                Issuing Body <span className="text-red-400">*</span>
+                Issuing Body <span className="text-destructive">*</span>
               </label>
               <input
                 type="text"
@@ -634,7 +634,7 @@ export default function ContractorCertificationsPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                  Issue Date <span className="text-red-400">*</span>
+                  Issue Date <span className="text-destructive">*</span>
                 </label>
                 <input
                   type="date"

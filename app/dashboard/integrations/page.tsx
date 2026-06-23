@@ -825,7 +825,7 @@ export default function IntegrationsPage() {
                               {integration.name}
                             </CardTitle>
                             {integration.status === "CONNECTED" ? (
-                              <Badge className="shrink-0 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-xs">
+                              <Badge className="shrink-0 bg-emerald-500/15 text-success dark:text-success border-emerald-500/20 text-xs">
                                 Connected
                               </Badge>
                             ) : (
@@ -857,7 +857,7 @@ export default function IntegrationsPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-500/30 hover:bg-rose-50 dark:hover:bg-rose-500/10"
+                            className="text-destructive dark:text-destructive border-rose-200 dark:border-rose-500/30 hover:bg-rose-50 dark:hover:bg-rose-500/10"
                             onClick={() => handleDisconnect(integration.id)}
                           >
                             Disconnect
@@ -869,7 +869,7 @@ export default function IntegrationsPage() {
                               handleDeleteIntegration(integration.id)
                             }
                           >
-                            <Trash2 className="text-rose-400 size-3.5" />
+                            <Trash2 className="text-destructive size-3.5" />
                           </Button>
                         </>
                       ) : (
@@ -888,7 +888,7 @@ export default function IntegrationsPage() {
                               handleDeleteIntegration(integration.id)
                             }
                           >
-                            <Trash2 className="text-rose-400 size-3.5" />
+                            <Trash2 className="text-destructive size-3.5" />
                           </Button>
                         </>
                       )}
@@ -950,7 +950,7 @@ export default function IntegrationsPage() {
                               {integration.name}
                             </CardTitle>
                             {isConnected && (
-                              <Badge className="shrink-0 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-xs">
+                              <Badge className="shrink-0 bg-emerald-500/15 text-success dark:text-success border-emerald-500/20 text-xs">
                                 Connected
                               </Badge>
                             )}
@@ -973,7 +973,7 @@ export default function IntegrationsPage() {
                             {integration.betaUnverified && !isConnected && (
                               <Badge
                                 variant="outline"
-                                className="shrink-0 text-xs border-amber-400/50 text-amber-600 dark:text-amber-400"
+                                className="shrink-0 text-xs border-amber-400/50 text-warning dark:text-warning"
                                 title="OAuth implemented but not yet verified against production. Connect at your own risk — please report issues."
                               >
                                 Beta
@@ -1009,7 +1009,7 @@ export default function IntegrationsPage() {
                     )}
                     {hasError && status?.syncError && (
                       <CardContent className="pt-0 pb-3">
-                        <div className="p-2 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-md text-xs text-rose-600 dark:text-rose-400">
+                        <div className="p-2 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-md text-xs text-destructive dark:text-destructive">
                           {status.syncError}
                         </div>
                       </CardContent>
@@ -1033,7 +1033,7 @@ export default function IntegrationsPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-500/30 hover:bg-rose-50 dark:hover:bg-rose-500/10"
+                            className="text-destructive dark:text-destructive border-rose-200 dark:border-rose-500/30 hover:bg-rose-50 dark:hover:bg-rose-500/10"
                             onClick={() =>
                               handleDisconnectExternal(integration.slug)
                             }
@@ -1120,7 +1120,7 @@ export default function IntegrationsPage() {
                               {integration.name}
                             </CardTitle>
                             {isConnected && (
-                              <Badge className="shrink-0 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-xs">
+                              <Badge className="shrink-0 bg-emerald-500/15 text-success dark:text-success border-emerald-500/20 text-xs">
                                 Connected
                               </Badge>
                             )}
@@ -1143,7 +1143,7 @@ export default function IntegrationsPage() {
                             {integration.betaUnverified && !isConnected && (
                               <Badge
                                 variant="outline"
-                                className="shrink-0 text-xs border-amber-400/50 text-amber-600 dark:text-amber-400"
+                                className="shrink-0 text-xs border-amber-400/50 text-warning dark:text-warning"
                                 title="OAuth implemented but not yet verified against production. Connect at your own risk — please report issues."
                               >
                                 Beta
@@ -1179,7 +1179,7 @@ export default function IntegrationsPage() {
                     )}
                     {hasError && status?.syncError && (
                       <CardContent className="pt-0 pb-3">
-                        <div className="p-2 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-md text-xs text-rose-600 dark:text-rose-400">
+                        <div className="p-2 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-md text-xs text-destructive dark:text-destructive">
                           {status.syncError}
                         </div>
                       </CardContent>
@@ -1203,7 +1203,7 @@ export default function IntegrationsPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-500/30 hover:bg-rose-50 dark:hover:bg-rose-500/10"
+                            className="text-destructive dark:text-destructive border-rose-200 dark:border-rose-500/30 hover:bg-rose-50 dark:hover:bg-rose-500/10"
                             onClick={() =>
                               handleDisconnectExternal(integration.slug)
                             }
@@ -1301,7 +1301,7 @@ export default function IntegrationsPage() {
                       <div className="flex items-center justify-between gap-2 flex-wrap">
                         <CardTitle className="text-sm">DR-NRPG</CardTitle>
                         {drNrpg.connected ? (
-                          <Badge className="shrink-0 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-xs">
+                          <Badge className="shrink-0 bg-emerald-500/15 text-success dark:text-success border-emerald-500/20 text-xs">
                             Connected
                           </Badge>
                         ) : (
@@ -1347,7 +1347,7 @@ export default function IntegrationsPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-500/30 hover:bg-rose-50 dark:hover:bg-rose-500/10"
+                      className="text-destructive dark:text-destructive border-rose-200 dark:border-rose-500/30 hover:bg-rose-50 dark:hover:bg-rose-500/10"
                       onClick={handleDisconnectDrNrpg}
                     >
                       Disconnect
@@ -1430,7 +1430,7 @@ export default function IntegrationsPage() {
                       }
                     >
                       {drNrpgCopied === "url" ? (
-                        <Check size={13} className="text-emerald-500" />
+                        <Check size={13} className="text-success" />
                       ) : (
                         <Copy size={13} />
                       )}
@@ -1441,7 +1441,7 @@ export default function IntegrationsPage() {
                   <div className="space-y-1.5">
                     <p className="text-xs text-muted-foreground">
                       Webhook Secret{" "}
-                      <span className="text-amber-600 dark:text-amber-400">
+                      <span className="text-warning dark:text-warning">
                         (save this now — not shown again)
                       </span>
                     </p>
@@ -1457,7 +1457,7 @@ export default function IntegrationsPage() {
                         }
                       >
                         {drNrpgCopied === "secret" ? (
-                          <Check size={13} className="text-emerald-500" />
+                          <Check size={13} className="text-success" />
                         ) : (
                           <Copy size={13} />
                         )}

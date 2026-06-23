@@ -296,7 +296,7 @@ export default function AuthorityFormsViewer({
           >
             <AlertCircle
               size={20}
-              className="text-yellow-500 dark:text-yellow-400"
+              className="text-warning dark:text-warning"
             />
             Suggested Forms
           </h3>
@@ -327,7 +327,7 @@ export default function AuthorityFormsViewer({
                         <span
                           className={cn(
                             "px-2 py-1 rounded-full text-xs",
-                            "bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400",
+                            "bg-green-100 dark:bg-green-500/20 text-success dark:text-success",
                           )}
                         >
                           Already Created
@@ -631,7 +631,7 @@ export default function AuthorityFormsViewer({
                                 <div
                                   className={cn(
                                     "text-xs mt-1",
-                                    "text-yellow-600 dark:text-yellow-400",
+                                    "text-warning dark:text-warning",
                                   )}
                                 >
                                   {suggestion.reason}
@@ -642,7 +642,7 @@ export default function AuthorityFormsViewer({
                               <span
                                 className={cn(
                                   "text-xs ml-2",
-                                  "text-green-700 dark:text-green-400",
+                                  "text-success dark:text-success",
                                 )}
                               >
                                 Created

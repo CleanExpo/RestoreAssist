@@ -112,17 +112,17 @@ export default function PortalInvitationSection({
     const config = {
       PENDING: {
         bg: "bg-amber-500/20",
-        text: "text-amber-400",
+        text: "text-warning",
         icon: <Clock size={14} />,
       },
       ACCEPTED: {
         bg: "bg-emerald-500/20",
-        text: "text-emerald-400",
+        text: "text-success",
         icon: <CheckCircle size={14} />,
       },
       EXPIRED: {
         bg: "bg-red-500/20",
-        text: "text-red-400",
+        text: "text-destructive",
         icon: <XCircle size={14} />,
       },
       REVOKED: {
@@ -161,7 +161,7 @@ export default function PortalInvitationSection({
         </div>
       ) : hasActiveInvitation ? (
         <div className="space-y-3">
-          <div className="flex items-center gap-2 text-emerald-400">
+          <div className="flex items-center gap-2 text-success">
             <CheckCircle size={18} />
             <span className="font-medium">Client has portal access</span>
           </div>

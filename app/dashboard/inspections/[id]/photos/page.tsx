@@ -101,8 +101,8 @@ const DAMAGE_CATEGORY_LABELS: Record<DamageCategory, string> = {
 };
 const DAMAGE_CATEGORY_COLORS: Record<DamageCategory, string> = {
   CAT_1: "bg-blue-900 text-blue-200 border-blue-700",
-  CAT_2: "bg-yellow-900 text-yellow-200 border-yellow-700",
-  CAT_3: "bg-red-900 text-red-300 border-red-700",
+  CAT_2: "bg-yellow-900 text-warning border-yellow-700",
+  CAT_3: "bg-red-900 text-destructive border-red-700",
 };
 const PHOTO_STAGE_LABELS: Record<PhotoStage, string> = {
   PRE_WORK: "Pre-work",
@@ -128,12 +128,12 @@ function AsbestosStopWorkBanner({ count }: { count: number }) {
   return (
     <div className="mx-4 mb-4 rounded-lg border-2 border-red-500 bg-red-950 p-4">
       <div className="flex items-start gap-3">
-        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-400" />
+        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
         <div>
-          <p className="font-semibold text-red-300">
+          <p className="font-semibold text-destructive">
             STOP WORK — Possible Asbestos-Containing Material
           </p>
-          <p className="mt-1 text-sm text-red-400">
+          <p className="mt-1 text-sm text-destructive">
             {count} photo{count > 1 ? "s" : ""} flagged with possible asbestos
             (ACM). Do not proceed with demolition or disturbance. Contact a
             licensed asbestos assessor. Refer to Safe Work Australia guidance.
@@ -414,7 +414,7 @@ function PhotoPanel({
         {/* Asbestos stop-work warning */}
         {(hasAsbestos || asbestosWarning) && (
           <div className="border-b border-red-800 bg-red-950 p-3">
-            <div className="flex items-center gap-2 text-sm font-semibold text-red-300">
+            <div className="flex items-center gap-2 text-sm font-semibold text-destructive">
               <AlertTriangle className="h-4 w-4 shrink-0" />
               STOP WORK — Possible ACM. Do not disturb material.
             </div>
@@ -521,7 +521,7 @@ function PhotoPanel({
                       label={s.replace(/_/g, " ")}
                       className={
                         s === "ASBESTOS_SUSPECT"
-                          ? "border-red-700 bg-red-950 text-red-300"
+                          ? "border-red-700 bg-red-950 text-destructive"
                           : ""
                       }
                     />
@@ -924,9 +924,9 @@ function PhotoPanel({
                       className={cn(
                         "rounded-full border px-2 py-0.5 text-xs transition",
                         selected && isAcm
-                          ? "border-red-500 bg-red-900 text-red-200 font-semibold"
+                          ? "border-red-500 bg-red-900 text-destructive font-semibold"
                           : selected
-                            ? "border-amber-500 bg-amber-900 text-amber-200"
+                            ? "border-amber-500 bg-amber-900 text-warning"
                             : "border-neutral-700 bg-neutral-900 text-neutral-400 hover:border-neutral-500",
                       )}
                     >
@@ -999,7 +999,7 @@ function PhotoPanel({
 
             {/* Error */}
             {saveError && (
-              <div className="rounded-md border border-red-800 bg-red-950 px-3 py-2 text-xs text-red-300">
+              <div className="rounded-md border border-red-800 bg-red-950 px-3 py-2 text-xs text-destructive">
                 {saveError}
               </div>
             )}
@@ -1168,7 +1168,7 @@ export default function InspectionPhotosPage({ params }: PageProps) {
           </label>
         </div>
         {uploadError && (
-          <p className="mt-2 text-xs text-red-400">{uploadError}</p>
+          <p className="mt-2 text-xs text-destructive">{uploadError}</p>
         )}
       </div>
 

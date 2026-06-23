@@ -260,11 +260,11 @@ export default function InterviewDetailPage() {
           variant={statusCfg.variant}
           className={
             interview.status === "COMPLETED"
-              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
+              ? "bg-emerald-100 text-success dark:bg-emerald-900/30 dark:text-success border-emerald-200 dark:border-emerald-800"
               : interview.status === "IN_PROGRESS"
-                ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800"
+                ? "bg-amber-100 text-warning dark:bg-amber-900/30 dark:text-warning border-amber-200 dark:border-amber-800"
                 : interview.status === "ABANDONED"
-                  ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800"
+                  ? "bg-red-100 text-destructive dark:bg-red-900/30 dark:text-destructive border-red-200 dark:border-red-800"
                   : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800"
           }
         >

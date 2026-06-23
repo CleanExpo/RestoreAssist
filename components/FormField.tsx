@@ -72,7 +72,7 @@ export function FormField({
       <Label htmlFor={id} className="text-sm">
         {label}
         {required ? (
-          <span className="ml-0.5 text-rose-600" aria-hidden>
+          <span className="ml-0.5 text-destructive" aria-hidden>
             *
           </span>
         ) : null}
@@ -87,7 +87,7 @@ export function FormField({
         <p
           id={errorId}
           role="alert"
-          className="text-xs text-rose-600 dark:text-rose-400"
+          className="text-xs text-destructive dark:text-destructive"
         >
           {error}
         </p>

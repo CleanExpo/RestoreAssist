@@ -36,21 +36,21 @@ const GATE_STATUS_STYLES: Record<
   }
 > = {
   open: {
-    pill: "bg-green-100 text-green-800 border border-green-200",
+    pill: "bg-green-100 text-success border border-green-200",
     label: "Open",
     icon: "[ra:success]",
     border: "border-green-200",
     headerBg: "bg-green-50",
   },
   partial: {
-    pill: "bg-amber-100 text-amber-800 border border-amber-200",
+    pill: "bg-amber-100 text-warning border border-amber-200",
     label: "Partial",
     icon: "[ra:warning]",
     border: "border-amber-200",
     headerBg: "bg-amber-50",
   },
   blocked: {
-    pill: "bg-red-100 text-red-800 border border-red-200",
+    pill: "bg-red-100 text-destructive border border-red-200",
     label: "Blocked",
     icon: "[ra:critical]",
     border: "border-red-200",
@@ -82,8 +82,8 @@ function CertificationRow({ result }: { result: GateCheckResult }) {
         <span
           className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
             result.certificationMet
-              ? "bg-green-100 text-green-700"
-              : "bg-red-100 text-red-700"
+              ? "bg-green-100 text-success"
+              : "bg-red-100 text-destructive"
           }`}
         >
           {result.certificationMet ? "Obtained" : "Not yet obtained"}
@@ -114,7 +114,7 @@ function ClaimRow({
 }) {
   return (
     <li
-      className={`flex items-start gap-2 py-1.5 text-xs ${blocked ? "text-red-700" : "text-green-700"}`}
+      className={`flex items-start gap-2 py-1.5 text-xs ${blocked ? "text-destructive" : "text-success"}`}
     >
       <span className="mt-0.5 shrink-0 font-mono font-bold">{claim.id}</span>
       <span
@@ -174,7 +174,7 @@ export function NirDomainGateCard({ domain }: NirDomainGateCardProps) {
         {/* Blocked claims */}
         {result.blockedClaims.length > 0 && (
           <div>
-            <p className="text-xs font-medium text-red-600 uppercase tracking-wide mb-1">
+            <p className="text-xs font-medium text-destructive uppercase tracking-wide mb-1">
               Blocked claims ({result.blockedClaims.length}) — not publishable
             </p>
             <ul className="divide-y divide-red-50">
@@ -239,10 +239,10 @@ export function NirContentGateDashboard() {
           <div
             className={`text-2xl font-bold tabular-nums ${
               openCount === totalCount
-                ? "text-green-600"
+                ? "text-success"
                 : openCount > 0
-                  ? "text-amber-600"
-                  : "text-red-600"
+                  ? "text-warning"
+                  : "text-destructive"
             }`}
           >
             {openCount}/{totalCount}
@@ -255,7 +255,7 @@ export function NirContentGateDashboard() {
       {openCount === 0 && (
         <div
           role="alert"
-          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-destructive"
         >
           <strong>All content gates blocked.</strong> No customer-facing content
           referencing NIR capabilities, IICRC standards, or cost savings claims

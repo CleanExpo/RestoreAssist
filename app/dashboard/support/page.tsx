@@ -69,12 +69,12 @@ function StatusBadge({ status }: { status: SupportStatus }) {
     in_progress: {
       label: "In Progress",
       className:
-        "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+        "bg-yellow-100 text-warning dark:bg-yellow-900 dark:text-warning",
     },
     resolved: {
       label: "Resolved",
       className:
-        "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+        "bg-green-100 text-success dark:bg-green-900 dark:text-success",
     },
     closed: {
       label: "Closed",
@@ -114,7 +114,7 @@ function PriorityBadge({ priority }: { priority: SupportPriority }) {
     },
     urgent: {
       label: "Urgent",
-      className: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+      className: "bg-red-100 text-destructive dark:bg-red-900 dark:text-destructive",
     },
   };
   const { label, className } = map[priority] ?? map.normal;

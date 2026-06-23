@@ -190,9 +190,9 @@ function StatusBadge({ status }: { status: FormStatus }) {
   const colourMap: Record<FormStatus, string> = {
     DRAFT: "border-transparent bg-slate-100 text-slate-700",
     IN_PROGRESS: "border-transparent bg-blue-100 text-blue-700",
-    AWAITING_SIGNATURE: "border-transparent bg-amber-100 text-amber-700",
-    COMPLETED: "border-transparent bg-green-100 text-green-700",
-    CANCELLED: "border-transparent bg-red-100 text-red-700",
+    AWAITING_SIGNATURE: "border-transparent bg-amber-100 text-warning",
+    COMPLETED: "border-transparent bg-green-100 text-success",
+    CANCELLED: "border-transparent bg-red-100 text-destructive",
   };
   return <Badge className={colourMap[status]}>{STATUS_LABELS[status]}</Badge>;
 }
@@ -229,8 +229,8 @@ function SignatureBadge({
     <Badge
       className={
         allSigned
-          ? "border-transparent bg-green-100 text-green-700"
-          : "border-transparent bg-amber-100 text-amber-700"
+          ? "border-transparent bg-green-100 text-success"
+          : "border-transparent bg-amber-100 text-warning"
       }
     >
       {completed}/{required} signed
@@ -454,7 +454,7 @@ export default function FormSubmissionsPage() {
           Form Submissions
         </h1>
         {isMock && (
-          <p className="text-xs text-amber-600">
+          <p className="text-xs text-warning">
             Showing sample data — couldn&apos;t reach the API
           </p>
         )}
@@ -493,17 +493,17 @@ export default function FormSubmissionsPage() {
             AWAITING_SIGNATURE: {
               active: "border-amber-600 bg-amber-600 text-white",
               inactive:
-                "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100",
+                "border-amber-200 bg-amber-50 text-warning hover:bg-amber-100",
             },
             COMPLETED: {
               active: "border-green-600 bg-green-600 text-white",
               inactive:
-                "border-green-200 bg-green-50 text-green-700 hover:bg-green-100",
+                "border-green-200 bg-green-50 text-success hover:bg-green-100",
             },
             CANCELLED: {
               active: "border-red-600 bg-red-600 text-white",
               inactive:
-                "border-red-200 bg-red-50 text-red-700 hover:bg-red-100",
+                "border-red-200 bg-red-50 text-destructive hover:bg-red-100",
             },
           };
           const isActive = activeStatusChip === status;

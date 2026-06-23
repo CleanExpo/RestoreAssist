@@ -613,19 +613,19 @@ export default function IICRCReportBuilder({
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => handleAutoFill("category1")}
-                  className="px-4 py-2 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg hover:bg-emerald-500/30 transition-colors text-sm"
+                  className="px-4 py-2 bg-emerald-500/20 text-success border border-emerald-500/30 rounded-lg hover:bg-emerald-500/30 transition-colors text-sm"
                 >
                   Clean Water Scenario
                 </button>
                 <button
                   onClick={() => handleAutoFill("category2")}
-                  className="px-4 py-2 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg hover:bg-amber-500/30 transition-colors text-sm"
+                  className="px-4 py-2 bg-amber-500/20 text-warning border border-amber-500/30 rounded-lg hover:bg-amber-500/30 transition-colors text-sm"
                 >
                   Gray Water Scenario
                 </button>
                 <button
                   onClick={() => handleAutoFill("category3")}
-                  className="px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors text-sm"
+                  className="px-4 py-2 bg-red-500/20 text-destructive border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors text-sm"
                 >
                   Black Water Scenario
                 </button>
@@ -811,19 +811,19 @@ export default function IICRCReportBuilder({
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => handleAutoFill("category1")}
-                  className="px-4 py-2 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg hover:bg-emerald-500/30 transition-colors text-sm"
+                  className="px-4 py-2 bg-emerald-500/20 text-success border border-emerald-500/30 rounded-lg hover:bg-emerald-500/30 transition-colors text-sm"
                 >
                   Clean Water (Category 1)
                 </button>
                 <button
                   onClick={() => handleAutoFill("category2")}
-                  className="px-4 py-2 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg hover:bg-amber-500/30 transition-colors text-sm"
+                  className="px-4 py-2 bg-amber-500/20 text-warning border border-amber-500/30 rounded-lg hover:bg-amber-500/30 transition-colors text-sm"
                 >
                   Gray Water (Category 2)
                 </button>
                 <button
                   onClick={() => handleAutoFill("category3")}
-                  className="px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors text-sm"
+                  className="px-4 py-2 bg-red-500/20 text-destructive border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors text-sm"
                 >
                   Black Water (Category 3)
                 </button>
@@ -1000,19 +1000,19 @@ export default function IICRCReportBuilder({
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => handleAutoFill("category1")}
-                  className="px-4 py-2 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg hover:bg-emerald-500/30 transition-colors text-sm"
+                  className="px-4 py-2 bg-emerald-500/20 text-success border border-emerald-500/30 rounded-lg hover:bg-emerald-500/30 transition-colors text-sm"
                 >
                   Clean Water Damage
                 </button>
                 <button
                   onClick={() => handleAutoFill("category2")}
-                  className="px-4 py-2 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg hover:bg-amber-500/30 transition-colors text-sm"
+                  className="px-4 py-2 bg-amber-500/20 text-warning border border-amber-500/30 rounded-lg hover:bg-amber-500/30 transition-colors text-sm"
                 >
                   Gray Water Damage
                 </button>
                 <button
                   onClick={() => handleAutoFill("category3")}
-                  className="px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors text-sm"
+                  className="px-4 py-2 bg-red-500/20 text-destructive border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors text-sm"
                 >
                   Black Water Damage
                 </button>
@@ -1122,13 +1122,13 @@ export default function IICRCReportBuilder({
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => handleAutoFill("category2")}
-                  className="px-4 py-2 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg hover:bg-amber-500/30 transition-colors text-sm"
+                  className="px-4 py-2 bg-amber-500/20 text-warning border border-amber-500/30 rounded-lg hover:bg-amber-500/30 transition-colors text-sm"
                 >
                   Category 2 Remediation
                 </button>
                 <button
                   onClick={() => handleAutoFill("category3")}
-                  className="px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors text-sm"
+                  className="px-4 py-2 bg-red-500/20 text-destructive border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors text-sm"
                 >
                   Category 3 Remediation
                 </button>
@@ -1169,19 +1169,19 @@ export default function IICRCReportBuilder({
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => handleAutoFill("category1")}
-                  className="px-4 py-2 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg hover:bg-emerald-500/30 transition-colors text-sm"
+                  className="px-4 py-2 bg-emerald-500/20 text-success border border-emerald-500/30 rounded-lg hover:bg-emerald-500/30 transition-colors text-sm"
                 >
                   Clean Water Drying
                 </button>
                 <button
                   onClick={() => handleAutoFill("category2")}
-                  className="px-4 py-2 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg hover:bg-amber-500/30 transition-colors text-sm"
+                  className="px-4 py-2 bg-amber-500/20 text-warning border border-amber-500/30 rounded-lg hover:bg-amber-500/30 transition-colors text-sm"
                 >
                   Gray Water Drying
                 </button>
                 <button
                   onClick={() => handleAutoFill("category3")}
-                  className="px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors text-sm"
+                  className="px-4 py-2 bg-red-500/20 text-destructive border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors text-sm"
                 >
                   Black Water Drying
                 </button>
@@ -1217,19 +1217,19 @@ export default function IICRCReportBuilder({
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => handleAutoFill("category1")}
-                  className="px-4 py-2 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg hover:bg-emerald-500/30 transition-colors text-sm"
+                  className="px-4 py-2 bg-emerald-500/20 text-success border border-emerald-500/30 rounded-lg hover:bg-emerald-500/30 transition-colors text-sm"
                 >
                   Clean Water Equipment
                 </button>
                 <button
                   onClick={() => handleAutoFill("category2")}
-                  className="px-4 py-2 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg hover:bg-amber-500/30 transition-colors text-sm"
+                  className="px-4 py-2 bg-amber-500/20 text-warning border border-amber-500/30 rounded-lg hover:bg-amber-500/30 transition-colors text-sm"
                 >
                   Gray Water Equipment
                 </button>
                 <button
                   onClick={() => handleAutoFill("category3")}
-                  className="px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors text-sm"
+                  className="px-4 py-2 bg-red-500/20 text-destructive border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors text-sm"
                 >
                   Black Water Equipment
                 </button>
@@ -1267,19 +1267,19 @@ export default function IICRCReportBuilder({
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => handleAutoFill("category1")}
-                  className="px-4 py-2 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg hover:bg-emerald-500/30 transition-colors text-sm"
+                  className="px-4 py-2 bg-emerald-500/20 text-success border border-emerald-500/30 rounded-lg hover:bg-emerald-500/30 transition-colors text-sm"
                 >
                   Clean Water Monitoring
                 </button>
                 <button
                   onClick={() => handleAutoFill("category2")}
-                  className="px-4 py-2 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg hover:bg-amber-500/30 transition-colors text-sm"
+                  className="px-4 py-2 bg-amber-500/20 text-warning border border-amber-500/30 rounded-lg hover:bg-amber-500/30 transition-colors text-sm"
                 >
                   Gray Water Monitoring
                 </button>
                 <button
                   onClick={() => handleAutoFill("category3")}
-                  className="px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors text-sm"
+                  className="px-4 py-2 bg-red-500/20 text-destructive border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors text-sm"
                 >
                   Black Water Monitoring
                 </button>
@@ -1352,12 +1352,12 @@ export default function IICRCReportBuilder({
           <div className="space-y-6">
             <div className="bg-emerald-500/20 border border-emerald-500/30 rounded-lg p-6">
               <div className="flex items-center gap-2 mb-4">
-                <CheckCircle className="text-emerald-400" size={24} />
-                <h3 className="text-xl font-medium text-emerald-400">
+                <CheckCircle className="text-success" size={24} />
+                <h3 className="text-xl font-medium text-success">
                   IICRC S500 Compliance Review
                 </h3>
               </div>
-              <p className="text-emerald-300">
+              <p className="text-success">
                 This report has been generated following ANSI/IICRC S500: 2021
                 Standard for Professional Water Damage Restoration procedures.
               </p>
@@ -1400,19 +1400,19 @@ export default function IICRCReportBuilder({
                 </h4>
                 <div className="space-y-2 text-sm text-slate-300">
                   <div className="flex items-center gap-2">
-                    <CheckCircle size={16} className="text-emerald-400" />
+                    <CheckCircle size={16} className="text-success" />
                     <span>IICRC S500 Standards</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <CheckCircle size={16} className="text-emerald-400" />
+                    <CheckCircle size={16} className="text-success" />
                     <span>Safety Protocols</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <CheckCircle size={16} className="text-emerald-400" />
+                    <CheckCircle size={16} className="text-success" />
                     <span>Equipment Sizing</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <CheckCircle size={16} className="text-emerald-400" />
+                    <CheckCircle size={16} className="text-success" />
                     <span>Monitoring Procedures</span>
                   </div>
                 </div>

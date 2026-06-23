@@ -243,7 +243,7 @@ function CloseJobPromptActive({
           )}
 
           {draftError ? (
-            <p className="mt-2 text-sm text-amber-700 dark:text-amber-400 flex items-start gap-1">
+            <p className="mt-2 text-sm text-warning dark:text-warning flex items-start gap-1">
               <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
               <span>{draftError}</span>
             </p>
@@ -254,7 +254,7 @@ function CloseJobPromptActive({
           ) : null}
 
           {submitError && missingPreconditions.length === 0 ? (
-            <p className="mt-2 text-sm text-red-700 dark:text-red-400 flex items-start gap-1">
+            <p className="mt-2 text-sm text-destructive dark:text-destructive flex items-start gap-1">
               <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
               <span>{submitError}</span>
             </p>
@@ -344,10 +344,10 @@ function MissingPreconditionsBanner({ items }: { items: string[] }) {
       data-testid="missing-preconditions"
       className="mt-3 p-3 rounded-lg border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-950/20"
     >
-      <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+      <p className="text-sm font-semibold text-warning dark:text-warning">
         Can&apos;t close yet — these need to clear first:
       </p>
-      <ul className="mt-1 text-sm text-amber-700 dark:text-amber-400 list-disc list-inside">
+      <ul className="mt-1 text-sm text-warning dark:text-warning list-disc list-inside">
         {items.map((it) => (
           <li key={it}>{labelFor(it)}</li>
         ))}

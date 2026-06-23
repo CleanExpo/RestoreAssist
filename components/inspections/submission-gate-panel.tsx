@@ -93,8 +93,8 @@ export function SubmissionGatePanel({
     return (
       <div className="bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800 p-5 mb-6">
         <div className="flex items-center gap-3">
-          <XCircle className="h-5 w-5 text-red-500" />
-          <span className="text-sm text-red-700 dark:text-red-400">
+          <XCircle className="h-5 w-5 text-destructive" />
+          <span className="text-sm text-destructive dark:text-destructive">
             {error}
           </span>
           <Button variant="outline" size="sm" onClick={runValidation}>
@@ -130,9 +130,9 @@ export function SubmissionGatePanel({
           )}
         >
           {canSubmit ? (
-            <CheckCircle2 className="h-5 w-5 text-green-600" />
+            <CheckCircle2 className="h-5 w-5 text-success" />
           ) : (
-            <Shield className="h-5 w-5 text-red-600" />
+            <Shield className="h-5 w-5 text-destructive" />
           )}
         </div>
         <div className="flex-1">
@@ -140,8 +140,8 @@ export function SubmissionGatePanel({
             className={cn(
               "text-sm font-semibold",
               canSubmit
-                ? "text-green-800 dark:text-green-300"
-                : "text-red-800 dark:text-red-300",
+                ? "text-success dark:text-success"
+                : "text-destructive dark:text-destructive",
             )}
           >
             {canSubmit
@@ -152,8 +152,8 @@ export function SubmissionGatePanel({
             className={cn(
               "text-xs mt-0.5",
               canSubmit
-                ? "text-green-700 dark:text-green-400"
-                : "text-red-700 dark:text-red-400",
+                ? "text-success dark:text-success"
+                : "text-destructive dark:text-destructive",
             )}
           >
             Evidence score: {validation.score}% · {validation.completedSteps}/
@@ -203,7 +203,7 @@ export function SubmissionGatePanel({
           {/* Blocking gaps */}
           {validation.blockingGaps.length > 0 && (
             <div>
-              <h4 className="text-xs font-semibold text-red-700 dark:text-red-400 uppercase tracking-wide mb-2">
+              <h4 className="text-xs font-semibold text-destructive dark:text-destructive uppercase tracking-wide mb-2">
                 Must Resolve ({validation.blockingGaps.length})
               </h4>
               <div className="space-y-2">
@@ -217,7 +217,7 @@ export function SubmissionGatePanel({
           {/* Warning gaps */}
           {validation.warningGaps.length > 0 && (
             <div>
-              <h4 className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wide mb-2">
+              <h4 className="text-xs font-semibold text-warning dark:text-warning uppercase tracking-wide mb-2">
                 Warnings ({validation.warningGaps.length})
               </h4>
               <div className="space-y-2">
@@ -251,9 +251,9 @@ function GapRow({
       )}
     >
       {severity === "blocking" ? (
-        <XCircle className="h-3.5 w-3.5 text-red-500 mt-0.5 flex-shrink-0" />
+        <XCircle className="h-3.5 w-3.5 text-destructive mt-0.5 flex-shrink-0" />
       ) : (
-        <AlertTriangle className="h-3.5 w-3.5 text-amber-500 mt-0.5 flex-shrink-0" />
+        <AlertTriangle className="h-3.5 w-3.5 text-warning mt-0.5 flex-shrink-0" />
       )}
       <div className="flex-1">
         <span className="font-medium text-slate-800 dark:text-slate-200">
@@ -269,7 +269,7 @@ function GapRow({
         )}
       </div>
       {gap.riskTier >= 2 && (
-        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 flex-shrink-0">
+        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 dark:bg-red-900/30 text-destructive dark:text-destructive flex-shrink-0">
           <Shield className="h-2.5 w-2.5" /> T{gap.riskTier}
         </span>
       )}

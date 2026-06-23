@@ -75,15 +75,15 @@ const STATUS_CONFIG: Record<
   },
   PARTIALLY_SIGNED: {
     label: "Partially Signed",
-    className: "bg-amber-100 text-amber-700 border-amber-200",
+    className: "bg-amber-100 text-warning border-amber-200",
   },
   COMPLETED: {
     label: "Completed",
-    className: "bg-green-100 text-green-700 border-green-200",
+    className: "bg-green-100 text-success border-green-200",
   },
   CANCELLED: {
     label: "Cancelled",
-    className: "bg-red-100 text-red-700 border-red-200",
+    className: "bg-red-100 text-destructive border-red-200",
   },
 };
 

@@ -112,7 +112,7 @@ export default function CronJobsPage() {
   const getStatusBadge = (state: JobRunState) => {
     if (state.status === "success") {
       return (
-        <Badge className="gap-1 bg-green-500/10 text-green-600 dark:text-green-400">
+        <Badge className="gap-1 bg-green-500/10 text-success dark:text-success">
           <CheckCircle className="h-3 w-3" />
           {state.message ?? "Success"}
         </Badge>
@@ -120,7 +120,7 @@ export default function CronJobsPage() {
     }
     if (state.status === "error") {
       return (
-        <Badge className="gap-1 bg-red-500/10 text-red-600 dark:text-red-400">
+        <Badge className="gap-1 bg-red-500/10 text-destructive dark:text-destructive">
           <AlertCircle className="h-3 w-3" />
           {state.message ?? "Error"}
         </Badge>
@@ -172,7 +172,7 @@ export default function CronJobsPage() {
             Monitor and manually trigger scheduled background jobs
           </p>
         </div>
-        <Badge className="gap-1 bg-amber-500/10 text-amber-600 dark:text-amber-400">
+        <Badge className="gap-1 bg-amber-500/10 text-warning dark:text-warning">
           <Shield className="h-3 w-3" />
           Admin Only
         </Badge>

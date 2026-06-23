@@ -476,7 +476,7 @@ export default function EquipmentToolsSelection({
             {/* Right Card: Drying Potential */}
             <div className="p-6 rounded-lg border border-pink-500/50 bg-pink-500/10">
               <div className="flex items-center justify-center mb-4">
-                <Zap className="w-8 h-8 text-red-400" />
+                <Zap className="w-8 h-8 text-destructive" />
               </div>
               <h3 className="text-2xl font-bold text-center mb-2">
                 DRYING POTENTIAL
@@ -650,7 +650,7 @@ export default function EquipmentToolsSelection({
                         <h4 className="font-semibold">{area.name}</h4>
                         <button
                           onClick={() => handleRemoveArea(area.id)}
-                          className="text-red-400 hover:text-red-300"
+                          className="text-destructive hover:text-destructive"
                         >
                           <Minus className="w-4 h-4" />
                         </button>
@@ -703,9 +703,9 @@ export default function EquipmentToolsSelection({
         <div className="space-y-6">
           <div className="p-4 rounded-lg border border-green-500/50 bg-green-500/10">
             <div className="flex items-start gap-3">
-              <Wrench className="w-5 h-5 text-green-400 mt-0.5" />
+              <Wrench className="w-5 h-5 text-success mt-0.5" />
               <div>
-                <h3 className="font-semibold text-green-400 mb-1">
+                <h3 className="font-semibold text-success mb-1">
                   How to pick the right gear?
                 </h3>
                 <p className="text-sm text-slate-300">

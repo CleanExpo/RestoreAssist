@@ -216,7 +216,7 @@ function ScopeRow({ item, onToggleSelected, onPatchField }: ScopeRowProps) {
             {item.isRequired && (
               <Badge
                 variant="secondary"
-                className="text-xs px-1.5 py-0 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 border-0"
+                className="text-xs px-1.5 py-0 bg-red-100 dark:bg-red-900/30 text-destructive dark:text-destructive border-0"
               >
                 Required
               </Badge>
@@ -604,7 +604,7 @@ export default function ScopeItemsPage({
           <Separator />
           <div className="flex flex-wrap items-center gap-6 text-sm text-neutral-600 dark:text-slate-400">
             <div className="flex items-center gap-1.5">
-              <CheckCircle2 size={15} className="text-emerald-500" />
+              <CheckCircle2 size={15} className="text-success" />
               <span>
                 <strong className="text-neutral-900 dark:text-white">
                   {selectedCount}

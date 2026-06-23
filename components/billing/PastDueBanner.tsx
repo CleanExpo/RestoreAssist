@@ -58,7 +58,7 @@ export function PastDueBanner({ status }: Props) {
           <AlertCircle className="shrink-0" size={20} />
           <div className="min-w-0">
             <p className="font-semibold text-sm">Payment failed</p>
-            <p className="text-xs text-red-100 truncate">
+            <p className="text-xs text-destructive truncate">
               Your last charge didn't go through. Access to AI features is
               paused until you update your payment method.
             </p>
@@ -67,7 +67,7 @@ export function PastDueBanner({ status }: Props) {
         <button
           onClick={openPortal}
           disabled={loading}
-          className="shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-red-700 text-sm font-semibold hover:bg-red-50 disabled:opacity-60 disabled:cursor-not-allowed"
+          className="shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-destructive text-sm font-semibold hover:bg-red-50 disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {loading ? (
             <>

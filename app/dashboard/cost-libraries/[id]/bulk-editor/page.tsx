@@ -490,7 +490,7 @@ export default function CostLibraryBulkEditorPage({
               {visibleRows.length} item{visibleRows.length !== 1 ? "s" : ""}
             </span>
             {dirtyCount > 0 && (
-              <span className="px-2 py-0.5 text-xs rounded-full bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
+              <span className="px-2 py-0.5 text-xs rounded-full bg-yellow-500/20 text-warning border border-yellow-500/30">
                 {dirtyCount} unsaved change{dirtyCount !== 1 ? "s" : ""}
               </span>
             )}
@@ -515,7 +515,7 @@ export default function CostLibraryBulkEditorPage({
           <button
             onClick={markSelectedForDeletion}
             disabled={selected.size === 0}
-            className="inline-flex items-center gap-2 px-3 py-2 border border-rose-500/40 text-rose-400 rounded-lg hover:bg-rose-500/10 transition-colors text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-2 px-3 py-2 border border-rose-500/40 text-destructive rounded-lg hover:bg-rose-500/10 transition-colors text-sm disabled:opacity-40 disabled:cursor-not-allowed"
             title="Delete selected rows"
           >
             <Trash2 size={15} />
@@ -680,7 +680,7 @@ export default function CostLibraryBulkEditorPage({
               {selected.size > 0 ? ` · ${selected.size} selected` : ""}
             </span>
             {dirtyCount > 0 && (
-              <span className="text-yellow-400">
+              <span className="text-warning">
                 {dirtyCount} unsaved change{dirtyCount !== 1 ? "s" : ""} — click
                 &ldquo;Save Changes&rdquo; to persist
               </span>

@@ -174,7 +174,7 @@ export default function ClientEditPage() {
               htmlFor="name"
               className="block text-sm font-medium text-slate-300"
             >
-              Name <span className="text-red-400">*</span>
+              Name <span className="text-destructive">*</span>
             </label>
             <input
               id="name"
@@ -194,7 +194,7 @@ export default function ClientEditPage() {
               htmlFor="email"
               className="block text-sm font-medium text-slate-300"
             >
-              Email <span className="text-red-400">*</span>
+              Email <span className="text-destructive">*</span>
             </label>
             <input
               id="email"
@@ -328,7 +328,7 @@ export default function ClientEditPage() {
 
           {/* Save error */}
           {saveError && (
-            <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
+            <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-destructive text-sm">
               <AlertTriangle size={16} className="flex-shrink-0" />
               {saveError}
             </div>

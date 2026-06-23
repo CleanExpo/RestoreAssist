@@ -97,8 +97,8 @@ export default function MissionControlPage() {
           <span
             className={
               online
-                ? "text-emerald-600 text-sm font-medium"
-                : "text-amber-600 text-sm font-medium"
+                ? "text-success text-sm font-medium"
+                : "text-warning text-sm font-medium"
             }
           >
             {health === null
@@ -129,7 +129,7 @@ export default function MissionControlPage() {
       <div className="rounded-lg border p-4 space-y-4">
         <h2 className="font-medium">Nexus context bundle</h2>
         {contextError && (
-          <p className="text-sm text-amber-600">{contextError}</p>
+          <p className="text-sm text-warning">{contextError}</p>
         )}
         {context ? (
           <>

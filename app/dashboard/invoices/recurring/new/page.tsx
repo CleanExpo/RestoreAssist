@@ -175,7 +175,7 @@ export default function NewRecurringInvoicePage() {
 
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
-                Template Name <span className="text-red-400">*</span>
+                Template Name <span className="text-destructive">*</span>
               </label>
               <input
                 type="text"
@@ -207,7 +207,7 @@ export default function NewRecurringInvoicePage() {
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Frequency <span className="text-red-400">*</span>
+                  Frequency <span className="text-destructive">*</span>
                 </label>
                 <select
                   value={form.frequency}
@@ -225,7 +225,7 @@ export default function NewRecurringInvoicePage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Start Date <span className="text-red-400">*</span>
+                  Start Date <span className="text-destructive">*</span>
                 </label>
                 <input
                   type="date"
@@ -305,7 +305,7 @@ export default function NewRecurringInvoicePage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Customer Name <span className="text-red-400">*</span>
+                  Customer Name <span className="text-destructive">*</span>
                 </label>
                 <input
                   type="text"
@@ -320,7 +320,7 @@ export default function NewRecurringInvoicePage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Email <span className="text-red-400">*</span>
+                  Email <span className="text-destructive">*</span>
                 </label>
                 <input
                   type="email"
@@ -438,7 +438,7 @@ export default function NewRecurringInvoicePage() {
                     <button
                       type="button"
                       onClick={() => removeLineItem(idx)}
-                      className="p-1.5 hover:bg-red-500/20 rounded text-slate-500 hover:text-red-400 transition-colors"
+                      className="p-1.5 hover:bg-red-500/20 rounded text-slate-500 hover:text-destructive transition-colors"
                     >
                       <Trash2 size={14} />
                     </button>

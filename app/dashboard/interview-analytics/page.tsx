@@ -187,7 +187,7 @@ export default function InterviewAnalyticsDashboard() {
             <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider">
               Finished
             </div>
-            <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+            <div className="text-xl font-bold text-success dark:text-success mt-1">
               {Math.round(aggregateStats.completionRate ?? 0)}%
             </div>
           </div>
@@ -245,7 +245,7 @@ export default function InterviewAnalyticsDashboard() {
                     <div className="space-y-3">
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-slate-600">Completed</span>
-                        <Badge className="bg-green-100 text-green-800">
+                        <Badge className="bg-green-100 text-success">
                           {aggregateStats.completedSessions}
                         </Badge>
                       </div>
@@ -332,7 +332,7 @@ export default function InterviewAnalyticsDashboard() {
                                 {template.sessionCount} sessions
                               </p>
                             </div>
-                            <Badge className="bg-green-100 text-green-800">
+                            <Badge className="bg-green-100 text-success">
                               {formatPercentage(template.completionRate)}
                             </Badge>
                           </div>
@@ -394,10 +394,10 @@ export default function InterviewAnalyticsDashboard() {
                             <Badge
                               className={
                                 (tpl.completionRate ?? 0) >= 80
-                                  ? "bg-green-100 text-green-800"
+                                  ? "bg-green-100 text-success"
                                   : (tpl.completionRate ?? 0) >= 60
-                                    ? "bg-yellow-100 text-yellow-800"
-                                    : "bg-red-100 text-red-800"
+                                    ? "bg-yellow-100 text-warning"
+                                    : "bg-red-100 text-destructive"
                               }
                             >
                               {formatPercentage(tpl.completionRate ?? 0)}
@@ -472,10 +472,10 @@ export default function InterviewAnalyticsDashboard() {
                             <Badge
                               className={
                                 (user.completionRate ?? 0) >= 80
-                                  ? "bg-green-100 text-green-800"
+                                  ? "bg-green-100 text-success"
                                   : (user.completionRate ?? 0) >= 60
-                                    ? "bg-yellow-100 text-yellow-800"
-                                    : "bg-red-100 text-red-800"
+                                    ? "bg-yellow-100 text-warning"
+                                    : "bg-red-100 text-destructive"
                               }
                             >
                               {formatPercentage(user.completionRate ?? 0)}
@@ -515,39 +515,39 @@ export default function InterviewAnalyticsDashboard() {
           <CardContent>
             <div className="space-y-2 text-sm">
               {aggregateStats.completionRate >= 80 ? (
-                <p className="text-green-700">
+                <p className="text-success">
                   ✓ Excellent completion rate - users are successfully
                   completing interviews
                 </p>
               ) : aggregateStats.completionRate >= 60 ? (
-                <p className="text-yellow-700">
+                <p className="text-warning">
                   ⚠ Completion rate could be improved - consider simplifying
                   questions or providing better guidance
                 </p>
               ) : (
-                <p className="text-red-700">
+                <p className="text-destructive">
                   ✗ Low completion rate - urgent review needed for interview
                   flow and questions
                 </p>
               )}
 
               {aggregateStats.averageFieldConfidence >= 80 ? (
-                <p className="text-green-700">
+                <p className="text-success">
                   ✓ High field confidence - auto-population is working well
                 </p>
               ) : (
-                <p className="text-yellow-700">
+                <p className="text-warning">
                   ⚠ Field mapping confidence could be improved - review
                   answer-to-field mappings
                 </p>
               )}
 
               {aggregateStats.averageSessionDuration < 600 ? (
-                <p className="text-green-700">
+                <p className="text-success">
                   ✓ Fast average completion - interview flow is efficient
                 </p>
               ) : (
-                <p className="text-yellow-700">
+                <p className="text-warning">
                   ⚠ Average session duration is high - consider streamlining the
                   interview
                 </p>

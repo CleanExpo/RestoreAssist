@@ -192,7 +192,7 @@ export default function ReportSharePage() {
   if (notFound || !report) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
-        <AlertTriangle className="h-12 w-12 text-red-400 mb-4" />
+        <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
         <h2 className="text-xl font-semibold text-slate-800 mb-2">
           Report Not Found
         </h2>
@@ -274,7 +274,7 @@ export default function ReportSharePage() {
                     year: "numeric",
                   })}
                 </span>
-                <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
+                <span className="bg-green-100 text-success px-2 py-0.5 rounded-full font-medium">
                   Active
                 </span>
               </div>
@@ -282,18 +282,18 @@ export default function ReportSharePage() {
           ) : (
             <div className="text-center py-4">
               {isExpired && (
-                <p className="text-sm text-amber-600 mb-3">
+                <p className="text-sm text-warning mb-3">
                   Your previous share link has expired.
                 </p>
               )}
               {!report.clientId ? (
                 <div className="flex items-start gap-3 p-4 bg-amber-50 rounded-lg text-left">
-                  <Info size={16} className="text-amber-600 mt-0.5 shrink-0" />
+                  <Info size={16} className="text-warning mt-0.5 shrink-0" />
                   <div>
-                    <p className="text-sm font-medium text-amber-800">
+                    <p className="text-sm font-medium text-warning">
                       No client linked
                     </p>
-                    <p className="text-xs text-amber-600 mt-0.5">
+                    <p className="text-xs text-warning mt-0.5">
                       Link a client to this report before generating a share
                       link. You can do this from the report detail page.
                     </p>

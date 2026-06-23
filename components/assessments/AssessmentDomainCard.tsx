@@ -331,7 +331,7 @@ export default function AssessmentDomainCard({
           >
             {submitting ? "Generating…" : result ? "Re-generate" : "Generate"}
           </button>
-          {error ? <span className="text-xs text-red-600">{error}</span> : null}
+          {error ? <span className="text-xs text-destructive">{error}</span> : null}
         </div>
       </form>
 

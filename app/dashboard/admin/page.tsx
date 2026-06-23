@@ -106,9 +106,9 @@ export default function AdminDashboardPage() {
 
   const getHealthBadge = (status: "healthy" | "degraded" | "down") => {
     const variants = {
-      healthy: "bg-green-500/10 text-green-600 dark:text-green-400",
-      degraded: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-      down: "bg-red-500/10 text-red-600 dark:text-red-400",
+      healthy: "bg-green-500/10 text-success dark:text-success",
+      degraded: "bg-amber-500/10 text-warning dark:text-warning",
+      down: "bg-red-500/10 text-destructive dark:text-destructive",
     };
     const icons = {
       healthy: CheckCircle,
@@ -221,7 +221,7 @@ export default function AdminDashboardPage() {
                   {stats?.totalUsers ?? "-"}
                 </p>
                 <p className="text-sm text-neutral-500">Total Users</p>
-                <p className="text-xs text-green-500">
+                <p className="text-xs text-success">
                   {stats?.activeUsers ?? 0} active
                 </p>
               </div>
@@ -249,7 +249,7 @@ export default function AdminDashboardPage() {
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
               <div className="p-3 rounded-lg bg-green-500/10">
-                <CreditCard className="h-6 w-6 text-green-500" />
+                <CreditCard className="h-6 w-6 text-success" />
               </div>
               <div>
                 <p className="text-2xl font-semibold text-neutral-900 dark:text-white">
@@ -265,7 +265,7 @@ export default function AdminDashboardPage() {
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
               <div className="p-3 rounded-lg bg-amber-500/10">
-                <TrendingUp className="h-6 w-6 text-amber-500" />
+                <TrendingUp className="h-6 w-6 text-warning" />
               </div>
               <div>
                 <p className="text-2xl font-semibold text-neutral-900 dark:text-white">
@@ -342,7 +342,7 @@ export default function AdminDashboardPage() {
             </Button>
             <Button
               variant="outline"
-              className="flex-col h-auto py-4 gap-2 border-amber-200 dark:border-amber-800/60 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+              className="flex-col h-auto py-4 gap-2 border-amber-200 dark:border-amber-800/60 text-warning dark:text-warning hover:bg-amber-50 dark:hover:bg-amber-950/30"
               onClick={handleSeedDemo}
               disabled={seeding}
             >

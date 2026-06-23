@@ -120,7 +120,7 @@ export function HelpButton({
                       key={index}
                       className="flex gap-2 text-sm text-neutral-600 dark:text-neutral-400"
                     >
-                      <span className="text-amber-500">•</span>
+                      <span className="text-warning">•</span>
                       {tip}
                     </li>
                   ))}

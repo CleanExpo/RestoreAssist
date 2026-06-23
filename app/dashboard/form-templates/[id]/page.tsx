@@ -35,13 +35,13 @@ interface FormTemplate {
 const TYPE_COLORS: Record<string, string> = {
   TEXT: "bg-slate-100 text-slate-600",
   MULTIPLE_CHOICE: "bg-blue-100 text-blue-600",
-  YES_NO: "bg-green-100 text-green-600",
+  YES_NO: "bg-green-100 text-success",
   SCALE: "bg-purple-100 text-purple-600",
-  DATE: "bg-amber-100 text-amber-600",
+  DATE: "bg-amber-100 text-warning",
   NUMBER: "bg-orange-100 text-orange-600",
   TEXTAREA: "bg-teal-100 text-teal-600",
   SELECT: "bg-indigo-100 text-indigo-600",
-  BOOLEAN: "bg-green-100 text-green-600",
+  BOOLEAN: "bg-green-100 text-success",
   ARRAY: "bg-pink-100 text-pink-600",
 };
 
@@ -232,7 +232,7 @@ export default function FormTemplateDetailPage({
                 {formatFormType(template.formType)}
               </span>
               {template.isDefault && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-warning">
                   <CheckCircle className="h-3 w-3" />
                   Default
                 </span>
@@ -264,7 +264,7 @@ export default function FormTemplateDetailPage({
                 className="block text-sm font-medium text-slate-700"
                 htmlFor="template-name"
               >
-                Name <span className="text-red-500">*</span>
+                Name <span className="text-destructive">*</span>
               </label>
               <input
                 id="template-name"
@@ -397,7 +397,7 @@ export default function FormTemplateDetailPage({
                   </span>
                   <div className="flex justify-center">
                     {q.isRequired ? (
-                      <CheckCircle className="h-4 w-4 text-green-500" />
+                      <CheckCircle className="h-4 w-4 text-success" />
                     ) : (
                       <span className="text-xs text-slate-300">—</span>
                     )}

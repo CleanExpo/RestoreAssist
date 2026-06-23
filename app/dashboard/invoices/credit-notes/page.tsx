@@ -116,7 +116,7 @@ const STATUS_CONFIG: Record<
   APPLIED: {
     label: "Applied",
     className:
-      "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 border-0",
+      "bg-green-100 text-success dark:bg-green-900/40 dark:text-success border-0",
   },
   REFUNDED: {
     label: "Refunded",
@@ -126,7 +126,7 @@ const STATUS_CONFIG: Record<
   CANCELLED: {
     label: "Voided",
     className:
-      "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 border-0",
+      "bg-red-100 text-destructive dark:bg-red-900/40 dark:text-destructive border-0",
   },
 };
 
@@ -143,7 +143,7 @@ const REASON_CONFIG: Record<
   PRICING_ERROR: {
     label: "Pricing Error",
     className:
-      "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border-0",
+      "bg-amber-100 text-warning dark:bg-amber-900/40 dark:text-warning border-0",
   },
   DUPLICATE_INVOICE: {
     label: "Duplicate Invoice",
@@ -153,7 +153,7 @@ const REASON_CONFIG: Record<
   SERVICE_ISSUE: {
     label: "Service Issue",
     className:
-      "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 border-0",
+      "bg-rose-100 text-destructive dark:bg-rose-900/40 dark:text-destructive border-0",
   },
   GOODWILL: {
     label: "Goodwill",

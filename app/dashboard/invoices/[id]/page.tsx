@@ -401,7 +401,7 @@ export default function InvoiceDetailPage({
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <AlertCircle className="mx-auto h-12 w-12 text-red-400 mb-4" />
+          <AlertCircle className="mx-auto h-12 w-12 text-destructive mb-4" />
           <h1 className="text-xl font-semibold mb-2">Invoice Not Found</h1>
           <p className="text-slate-400 mb-4">
             The requested invoice could not be found.
@@ -570,7 +570,7 @@ export default function InvoiceDetailPage({
           {canDelete && (
             <button
               onClick={() => setShowDeleteDialog(true)}
-              className="p-2 hover:bg-red-500/10 text-red-600 dark:text-red-400 rounded-lg transition-colors"
+              className="p-2 hover:bg-red-500/10 text-destructive dark:text-destructive rounded-lg transition-colors"
               title="Delete invoice"
             >
               <Trash2 className="h-5 w-5" />
@@ -589,7 +589,7 @@ export default function InvoiceDetailPage({
           </div>
         )}
         {invoice.paidDate && (
-          <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
+          <div className="flex items-center gap-2 text-sm text-success dark:text-success">
             <CheckCircle className="h-4 w-4" />
             <span>Paid {formatDate(invoice.paidDate)}</span>
           </div>
@@ -610,13 +610,13 @@ export default function InvoiceDetailPage({
             </div>
           )}
         {invoice.externalSyncStatus === "PENDING" && (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 text-warning dark:text-warning">
             <RefreshCw className="h-4 w-4 animate-spin" />
             <span className="text-sm font-medium">Syncing...</span>
           </div>
         )}
         {invoice.externalSyncStatus === "FAILED" && (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-500/10 text-red-600 dark:text-red-400">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-500/10 text-destructive dark:text-destructive">
             <AlertTriangle className="h-4 w-4" />
             <span className="text-sm font-medium">Sync Failed</span>
           </div>
@@ -627,12 +627,12 @@ export default function InvoiceDetailPage({
       {invoice.externalSyncStatus === "FAILED" && invoice.externalSyncError && (
         <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
           <div className="flex items-start gap-3">
-            <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+            <AlertTriangle className="h-5 w-5 text-destructive dark:text-destructive flex-shrink-0 mt-0.5" />
             <div>
-              <h3 className="font-medium text-red-600 dark:text-red-400 mb-1">
+              <h3 className="font-medium text-destructive dark:text-destructive mb-1">
                 Sync Error
               </h3>
-              <p className="text-sm text-red-600/80 dark:text-red-400/80">
+              <p className="text-sm text-destructive/80 dark:text-destructive/80">
                 {invoice.externalSyncError}
               </p>
             </div>
@@ -770,7 +770,7 @@ export default function InvoiceDetailPage({
                   </span>
                 </div>
                 {invoice.discountAmount && invoice.discountAmount > 0 && (
-                  <div className="flex justify-between text-sm text-emerald-600 dark:text-emerald-400">
+                  <div className="flex justify-between text-sm text-success dark:text-success">
                     <span>Discount</span>
                     <span>-${(invoice.discountAmount / 100).toFixed(2)}</span>
                   </div>
@@ -801,11 +801,11 @@ export default function InvoiceDetailPage({
                 </div>
                 {invoice.amountPaid > 0 && (
                   <>
-                    <div className="flex justify-between text-sm text-emerald-600 dark:text-emerald-400">
+                    <div className="flex justify-between text-sm text-success dark:text-success">
                       <span>Amount Paid</span>
                       <span>-${(invoice.amountPaid / 100).toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between text-lg font-bold text-amber-600 dark:text-amber-400">
+                    <div className="flex justify-between text-lg font-bold text-warning dark:text-warning">
                       <span>Amount Due</span>
                       <span>${(invoice.amountDue / 100).toFixed(2)}</span>
                     </div>
@@ -829,7 +829,7 @@ export default function InvoiceDetailPage({
                   >
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-emerald-500/10 rounded-lg">
-                        <CreditCard className="h-5 w-5 text-emerald-500" />
+                        <CreditCard className="h-5 w-5 text-success" />
                       </div>
                       <div>
                         <div className="font-medium text-slate-900 dark:text-white">
@@ -912,8 +912,8 @@ export default function InvoiceDetailPage({
                         <span
                           className={`text-sm font-semibold tabular-nums ${
                             vAmount.positive
-                              ? "text-green-600 dark:text-green-400"
-                              : "text-red-600 dark:text-red-400"
+                              ? "text-success dark:text-success"
+                              : "text-destructive dark:text-destructive"
                           }`}
                         >
                           {vAmount.value}
@@ -1127,7 +1127,7 @@ export default function InvoiceDetailPage({
             <div className="flex items-center justify-between mb-4">
               <h2
                 id="delete-dialog-title"
-                className="text-xl font-semibold text-red-600 dark:text-red-400"
+                className="text-xl font-semibold text-destructive dark:text-destructive"
               >
                 Delete invoice
               </h2>

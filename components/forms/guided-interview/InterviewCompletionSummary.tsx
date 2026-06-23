@@ -242,7 +242,7 @@ export function InterviewCompletionSummary({
               <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
                 New Fields Added
               </p>
-              <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+              <p className="text-2xl font-bold text-success dark:text-success">
                 {statistics.newFieldsAdded}
               </p>
             </div>
@@ -250,7 +250,7 @@ export function InterviewCompletionSummary({
               <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
                 Fields Updated
               </p>
-              <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+              <p className="text-2xl font-bold text-warning dark:text-warning">
                 {statistics.fieldsUpdated}
               </p>
             </div>
@@ -281,13 +281,13 @@ export function InterviewCompletionSummary({
           {conflictedFields.length > 0 && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
               <div className="flex gap-3">
-                <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <AlertCircle className="h-5 w-5 text-warning flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-medium text-amber-900">
+                  <p className="font-medium text-warning">
                     {conflictedFields.length} field conflict
                     {conflictedFields.length !== 1 ? "s" : ""}
                   </p>
-                  <p className="text-sm text-amber-700 mt-1">
+                  <p className="text-sm text-warning mt-1">
                     Existing values were preserved. Review and override if
                     needed.
                   </p>

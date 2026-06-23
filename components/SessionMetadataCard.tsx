@@ -164,8 +164,8 @@ const sessionStatusConfig: Record<
 > = {
   pending: { label: "Pending", colour: "text-slate-400", icon: Clock },
   running: { label: "Running", colour: "text-blue-400", icon: Clock },
-  completed: { label: "Done", colour: "text-emerald-400", icon: CheckCircle },
-  failed: { label: "Failed", colour: "text-red-400", icon: AlertTriangle },
+  completed: { label: "Done", colour: "text-success", icon: CheckCircle },
+  failed: { label: "Failed", colour: "text-destructive", icon: AlertTriangle },
   retrying: { label: "Retrying", colour: "text-orange-400", icon: RefreshCw },
 };
 
@@ -190,7 +190,7 @@ export function FanOutSessionList({ sessions }: FanOutSessionListProps) {
         <span className="text-slate-500">
           {completedCount}/{sessions.length} done
           {failedCount > 0 && (
-            <span className="text-red-400 ml-1">· {failedCount} failed</span>
+            <span className="text-destructive ml-1">· {failedCount} failed</span>
           )}
         </span>
       </button>

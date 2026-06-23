@@ -89,12 +89,12 @@ export default function InspectionSignOff({
     return (
       <div className="p-4 rounded-xl border border-green-200 dark:border-green-800/50 bg-green-50 dark:bg-green-950/20">
         <div className="flex items-start gap-3">
-          <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
+          <CheckCircle className="h-5 w-5 text-success mt-0.5 shrink-0" />
           <div>
-            <p className="font-semibold text-green-700 dark:text-green-400">
+            <p className="font-semibold text-success dark:text-success">
               Inspection Signed Off
             </p>
-            <p className="text-sm text-green-600 dark:text-green-500 mt-0.5">
+            <p className="text-sm text-success dark:text-success mt-0.5">
               Signed by <strong>{signedByName}</strong> on{" "}
               {signedAt.toLocaleString("en-AU", {
                 day: "2-digit",
@@ -104,7 +104,7 @@ export default function InspectionSignOff({
                 minute: "2-digit",
               })}
             </p>
-            <p className="text-xs text-green-500 dark:text-green-600 mt-1">
+            <p className="text-xs text-success dark:text-success mt-1">
               Valid under the Australian Electronic Transactions Act 1999
             </p>
           </div>
@@ -180,7 +180,7 @@ export default function InspectionSignOff({
         </div>
 
         <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50">
-          <p className="text-sm text-amber-700 dark:text-amber-400">
+          <p className="text-sm text-warning dark:text-warning">
             By signing, you certify that inspection{" "}
             <strong>{inspectionNumber}</strong> is complete and accurate to the
             best of your knowledge.
@@ -194,7 +194,7 @@ export default function InspectionSignOff({
                 htmlFor="signatoryName"
                 className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1"
               >
-                Full name <span className="text-red-500">*</span>
+                Full name <span className="text-destructive">*</span>
               </label>
               <input
                 id="signatoryName"
@@ -240,7 +240,7 @@ export default function InspectionSignOff({
         )}
 
         {error && (
-          <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
+          <div className="flex items-center gap-2 text-sm text-destructive dark:text-destructive">
             <AlertCircle className="h-4 w-4 shrink-0" />
             {error}
           </div>

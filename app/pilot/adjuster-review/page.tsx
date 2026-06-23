@@ -50,17 +50,17 @@ function RecommendationReport({ data }: { data: AdjusterRecommendation }) {
     approve: {
       label: "Approve",
       variant: "default" as const,
-      color: "text-emerald-700 dark:text-emerald-400",
+      color: "text-success dark:text-success",
     },
     "query-contractor": {
       label: "Query Contractor",
       variant: "secondary" as const,
-      color: "text-amber-700 dark:text-amber-400",
+      color: "text-warning dark:text-warning",
     },
     escalate: {
       label: "Escalate",
       variant: "destructive" as const,
-      color: "text-red-700 dark:text-red-400",
+      color: "text-destructive dark:text-destructive",
     },
   };
 
@@ -190,7 +190,7 @@ function RecommendationReport({ data }: { data: AdjusterRecommendation }) {
                 >
                   <AlertTriangle
                     size={14}
-                    className="shrink-0 mt-0.5 text-amber-500"
+                    className="shrink-0 mt-0.5 text-warning"
                     aria-hidden="true"
                   />
                   {a}
@@ -305,10 +305,10 @@ function AdjusterAnalysisPanel({ inspectionId }: { inspectionId: string }) {
 
       {state === "error" && (
         <div className="rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 px-4 py-3 space-y-3">
-          <p className="text-sm text-red-600 dark:text-red-400">{errorMsg}</p>
+          <p className="text-sm text-destructive dark:text-destructive">{errorMsg}</p>
           <button
             onClick={() => setState("idle")}
-            className="text-xs text-red-500 underline"
+            className="text-xs text-destructive underline"
           >
             Try again
           </button>
@@ -411,7 +411,7 @@ function AdjusterReviewContent() {
     return (
       <PageShell>
         <div className="text-center space-y-3">
-          <AlertTriangle className="mx-auto text-amber-500" size={40} />
+          <AlertTriangle className="mx-auto text-warning" size={40} />
           <h2 className="text-lg font-semibold text-neutral-800 dark:text-slate-200">
             Invalid or missing pilot token
           </h2>
@@ -429,7 +429,7 @@ function AdjusterReviewContent() {
     return (
       <PageShell>
         <div className="text-center space-y-3">
-          <CheckCircle2 className="mx-auto text-emerald-500" size={48} />
+          <CheckCircle2 className="mx-auto text-success" size={48} />
           <h2 className="text-xl font-semibold text-neutral-800 dark:text-slate-200">
             Thank you!
           </h2>
@@ -480,7 +480,7 @@ function AdjusterReviewContent() {
         <div className="space-y-2">
           <label className="text-sm font-medium text-neutral-700 dark:text-slate-300">
             Which report format did you review?{" "}
-            <span className="text-red-500">*</span>
+            <span className="text-destructive">*</span>
           </label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {FORMAT_OPTIONS.map((opt) => (
@@ -511,7 +511,7 @@ function AdjusterReviewContent() {
           <label className="text-sm font-medium text-neutral-700 dark:text-slate-300 flex items-center gap-1.5">
             <Clock size={14} className="text-neutral-400" />
             Time spent reviewing the report{" "}
-            <span className="text-red-500">*</span>
+            <span className="text-destructive">*</span>
           </label>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
@@ -597,7 +597,7 @@ function AdjusterReviewContent() {
         {errors.length > 0 && (
           <div className="rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 px-4 py-3 space-y-1">
             {errors.map((e, i) => (
-              <p key={i} className="text-xs text-red-600 dark:text-red-400">
+              <p key={i} className="text-xs text-destructive dark:text-destructive">
                 {e}
               </p>
             ))}
@@ -605,7 +605,7 @@ function AdjusterReviewContent() {
         )}
 
         {formState === "error" && (
-          <p className="text-xs text-red-500">
+          <p className="text-xs text-destructive">
             Something went wrong. Please try again or contact the pilot
             coordinator.
           </p>

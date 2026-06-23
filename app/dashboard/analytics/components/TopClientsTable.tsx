@@ -263,7 +263,7 @@ export default function TopClientsTable({
                   </span>
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <p className="font-semibold text-emerald-600 dark:text-emerald-400">
+                  <p className="font-semibold text-success dark:text-success">
                     {typeof client.revenue === "number"
                       ? `$${client.revenue.toLocaleString()}`
                       : client.revenue}
@@ -295,7 +295,7 @@ export default function TopClientsTable({
         <span className={cn("text-neutral-600 dark:text-slate-400")}>
           Total for top clients
         </span>
-        <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+        <span className="font-semibold text-success dark:text-success">
           $
           {sortedData
             .reduce((sum, client) => sum + parseRevenue(client.revenue), 0)

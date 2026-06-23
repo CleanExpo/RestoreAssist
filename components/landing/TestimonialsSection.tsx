@@ -69,11 +69,11 @@ export default function TestimonialsSection() {
       >
         <div className="inline-flex items-center gap-6 px-8 py-4 bg-slate-800/50 border border-slate-700/50 rounded-full">
           <div className="flex items-center gap-2">
-            <Star size={20} className="text-yellow-400 fill-current" />
-            <Star size={20} className="text-yellow-400 fill-current" />
-            <Star size={20} className="text-yellow-400 fill-current" />
-            <Star size={20} className="text-yellow-400 fill-current" />
-            <Star size={20} className="text-yellow-400 fill-current" />
+            <Star size={20} className="text-warning fill-current" />
+            <Star size={20} className="text-warning fill-current" />
+            <Star size={20} className="text-warning fill-current" />
+            <Star size={20} className="text-warning fill-current" />
+            <Star size={20} className="text-warning fill-current" />
           </div>
           <span className="text-slate-300 font-medium">
             Rated 4.9/5 by Australian restoration professionals

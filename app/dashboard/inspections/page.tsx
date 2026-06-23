@@ -60,7 +60,7 @@ const STATUS_CONFIG: Record<
   },
   PROCESSING: {
     label: "Processing",
-    color: "text-amber-600 dark:text-amber-400",
+    color: "text-warning dark:text-warning",
     bg: "bg-amber-50 dark:bg-amber-900/30",
   },
   CLASSIFIED: {
@@ -80,12 +80,12 @@ const STATUS_CONFIG: Record<
   },
   COMPLETED: {
     label: "Completed",
-    color: "text-emerald-600 dark:text-emerald-400",
+    color: "text-success dark:text-success",
     bg: "bg-emerald-50 dark:bg-emerald-900/30",
   },
   REJECTED: {
     label: "Rejected",
-    color: "text-red-600 dark:text-red-400",
+    color: "text-destructive dark:text-destructive",
     bg: "bg-red-50 dark:bg-red-900/30",
   },
 };
@@ -392,7 +392,7 @@ export default function InspectionsPage() {
               type="button"
               onClick={handleDeleteSelected}
               disabled={deleting}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-red-50 dark:bg-red-900/20 text-destructive dark:text-destructive hover:bg-red-100 dark:hover:bg-red-900/30 disabled:opacity-50"
             >
               {deleting ? (
                 <Loader2 size={14} className="animate-spin" />
@@ -407,7 +407,7 @@ export default function InspectionsPage() {
 
       {/* Fetch error */}
       {fetchError && !loading && (
-        <div className="flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-300">
+        <div className="flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-destructive">
           <span className="text-sm">Failed to load inspections — {fetchError}</span>
           <button
             type="button"
@@ -484,7 +484,7 @@ export default function InspectionsPage() {
                       {status.label}
                     </span>
                     {classification && (
-                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
+                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 dark:bg-amber-900/30 text-warning dark:text-warning">
                         Cat {classification.category} / Class{" "}
                         {classification.class}
                       </span>
@@ -561,7 +561,7 @@ export default function InspectionsPage() {
                     </span>
                   )}
                   {insp.status === "SUBMITTED" && (
-                    <span className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800/40">
+                    <span className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-warning dark:text-warning border border-amber-200 dark:border-amber-800/40">
                       Awaiting classification
                     </span>
                   )}
@@ -569,7 +569,7 @@ export default function InspectionsPage() {
                     type="button"
                     onClick={(e) => handleDeleteOne(e, insp.id)}
                     disabled={deleting}
-                    className="p-2 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
+                    className="p-2 rounded-lg text-neutral-400 hover:text-destructive hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
                     title="Delete inspection"
                   >
                     <Trash2 size={18} />

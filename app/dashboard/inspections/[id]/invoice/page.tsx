@@ -52,8 +52,8 @@ function StatusBadge({ status }: { status: string }) {
     DRAFT:
       "bg-neutral-100 dark:bg-slate-800 text-neutral-600 dark:text-slate-300",
     SENT: "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400",
-    PAID: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400",
-    OVERDUE: "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400",
+    PAID: "bg-emerald-100 dark:bg-emerald-900/30 text-success dark:text-success",
+    OVERDUE: "bg-red-100 dark:bg-red-900/30 text-destructive dark:text-destructive",
     CANCELLED: "bg-neutral-100 dark:bg-slate-800 text-neutral-400",
   };
   return (
@@ -230,7 +230,7 @@ export default function InspectionInvoicePage({
                 <p className="text-xs text-neutral-400 uppercase tracking-wider mb-0.5">
                   Total inc. GST
                 </p>
-                <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                <p className="text-2xl font-bold text-success dark:text-success">
                   {centsToAud(invoice.totalIncGST)}
                 </p>
               </div>
@@ -332,7 +332,7 @@ export default function InspectionInvoicePage({
                     >
                       Total inc. GST
                     </td>
-                    <td className="px-4 py-3 text-right font-bold text-emerald-600 dark:text-emerald-400">
+                    <td className="px-4 py-3 text-right font-bold text-success dark:text-success">
                       {centsToAud(invoice.totalIncGST)}
                     </td>
                   </tr>

@@ -109,7 +109,7 @@ export default function DocumentExportPackage({
           <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30 hover:border-cyan-500/50 transition-colors">
             <div className="flex items-center gap-3 mb-3">
               <div className="p-2 rounded-lg bg-red-500/20">
-                <FileText className="w-5 h-5 text-red-400" />
+                <FileText className="w-5 h-5 text-destructive" />
               </div>
               <div>
                 <h4 className="font-semibold">PDF Format</h4>
@@ -145,7 +145,7 @@ export default function DocumentExportPackage({
           <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30 hover:border-cyan-500/50 transition-colors">
             <div className="flex items-center gap-3 mb-3">
               <div className="p-2 rounded-lg bg-amber-500/20">
-                <FileArchive className="w-5 h-5 text-amber-400" />
+                <FileArchive className="w-5 h-5 text-warning" />
               </div>
               <div>
                 <h4 className="font-semibold">ZIP Package</h4>
@@ -179,7 +179,7 @@ export default function DocumentExportPackage({
           <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-800/30 hover:border-cyan-500/50 transition-colors">
             <div className="flex items-center gap-3 mb-3">
               <div className="p-2 rounded-lg bg-green-500/20">
-                <FileJson className="w-5 h-5 text-green-400" />
+                <FileJson className="w-5 h-5 text-success" />
               </div>
               <div>
                 <h4 className="font-semibold">JSON Format</h4>
@@ -241,8 +241,8 @@ export default function DocumentExportPackage({
           {/* Direct Download */}
           <div className="p-4 rounded-lg border border-green-500/50 bg-green-500/10">
             <div className="flex items-center gap-3 mb-2">
-              <CheckCircle className="w-5 h-5 text-green-400" />
-              <h4 className="font-semibold text-green-400">Direct Download</h4>
+              <CheckCircle className="w-5 h-5 text-success" />
+              <h4 className="font-semibold text-success">Direct Download</h4>
             </div>
             <p className="text-sm text-slate-300">
               Download all documents directly from the application. Immediate
@@ -277,23 +277,23 @@ export default function DocumentExportPackage({
         <h4 className="font-semibold mb-3">Package Contents</h4>
         <ul className="space-y-2 text-sm">
           <li className="flex items-center gap-2">
-            <CheckCircle className="w-4 h-4 text-green-400" />
+            <CheckCircle className="w-4 h-4 text-success" />
             <span>Professional Inspection Report (with watermark)</span>
           </li>
           <li className="flex items-center gap-2">
-            <CheckCircle className="w-4 h-4 text-green-400" />
+            <CheckCircle className="w-4 h-4 text-success" />
             <span>Scope of Works (with watermark)</span>
           </li>
           <li className="flex items-center gap-2">
-            <CheckCircle className="w-4 h-4 text-green-400" />
+            <CheckCircle className="w-4 h-4 text-success" />
             <span>Cost Estimation (with watermark)</span>
           </li>
           <li className="flex items-center gap-2">
-            <CheckCircle className="w-4 h-4 text-green-400" />
+            <CheckCircle className="w-4 h-4 text-success" />
             <span>Version history & change log</span>
           </li>
           <li className="flex items-center gap-2">
-            <CheckCircle className="w-4 h-4 text-green-400" />
+            <CheckCircle className="w-4 h-4 text-success" />
             <span>Raw data export (all Q&A responses)</span>
           </li>
         </ul>

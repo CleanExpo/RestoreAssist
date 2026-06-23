@@ -40,11 +40,11 @@ import { isCapacitor } from "@/lib/capacitor";
 
 const STATUS_COLOR: Record<string, string> = {
   DRAFT: "text-white/50",
-  SUBMITTED: "text-amber-400",
+  SUBMITTED: "text-warning",
   PROCESSING: "text-blue-400",
   CLASSIFIED: "text-purple-400",
   SCOPED: "text-cyan-400",
-  COMPLETED: "text-green-400",
+  COMPLETED: "text-success",
 };
 
 function formatInspectionDate(dateStr: string): string {
@@ -181,7 +181,7 @@ export default function FieldDashboardPage() {
     <div className="min-h-screen bg-[#050505] text-white pb-24">
       {/* Offline / cached-data banner */}
       {(isOffline || fromCache) && (
-        <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-500/15 border-b border-amber-500/20 text-amber-300 text-xs">
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-500/15 border-b border-amber-500/20 text-warning text-xs">
           <WifiOff className="h-3.5 w-3.5 shrink-0" />
           <span className="flex-1">
             {isOffline
@@ -196,7 +196,7 @@ export default function FieldDashboardPage() {
             <button
               type="button"
               onClick={loadInspections}
-              className="text-amber-300/70 hover:text-amber-200"
+              className="text-warning/70 hover:text-warning"
               aria-label="Refresh job list"
             >
               <RefreshCw className="h-3.5 w-3.5" />
@@ -336,9 +336,9 @@ export default function FieldDashboardPage() {
                   </div>
                   <div className="flex flex-col items-end gap-2 shrink-0">
                     {insp.readyToLeave ? (
-                      <CheckCircle2 className="h-5 w-5 text-green-400" />
+                      <CheckCircle2 className="h-5 w-5 text-success" />
                     ) : insp.criticalMissing > 0 ? (
-                      <div className="flex items-center gap-1 text-amber-400">
+                      <div className="flex items-center gap-1 text-warning">
                         <AlertTriangle className="h-4 w-4" />
                         <span className="text-xs font-bold">
                           {insp.criticalMissing}

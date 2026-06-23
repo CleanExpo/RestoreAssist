@@ -32,11 +32,11 @@ export function EvidenceQABadge({ score, size = "md" }: EvidenceQABadgeProps) {
 
   const tierStyles: Record<typeof tier, string> = {
     acceptable:
-      "bg-green-100 text-green-800 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700",
+      "bg-green-100 text-success border-green-300 dark:bg-green-900/30 dark:text-success dark:border-green-700",
     marginal:
-      "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700",
+      "bg-amber-100 text-warning border-amber-300 dark:bg-amber-900/30 dark:text-warning dark:border-amber-700",
     rejected:
-      "bg-red-100 text-red-800 border-red-300 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700",
+      "bg-red-100 text-destructive border-red-300 dark:bg-red-900/30 dark:text-destructive dark:border-red-700",
   };
 
   const sizeStyles: Record<"sm" | "md", string> = {

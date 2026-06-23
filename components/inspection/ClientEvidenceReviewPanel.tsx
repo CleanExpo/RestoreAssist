@@ -75,7 +75,7 @@ export function ClientEvidenceReviewPanel({
   if (submissions.length === 0) {
     // Show a brief confirmation after a successful accept, else hide entirely.
     return message ? (
-      <p role="status" className="text-xs text-emerald-600">
+      <p role="status" className="text-xs text-success">
         {message}
       </p>
     ) : null;
@@ -86,7 +86,7 @@ export function ClientEvidenceReviewPanel({
       <div>
         <h2 className="text-sm font-semibold text-slate-900">
           Client photos awaiting your review
-          <span className="ml-2 text-xs font-normal text-amber-600">
+          <span className="ml-2 text-xs font-normal text-warning">
             ({submissions.length})
           </span>
         </h2>
@@ -138,7 +138,7 @@ export function ClientEvidenceReviewPanel({
       </button>
 
       {message && (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role="alert" className="text-xs text-destructive">
           {message}
         </p>
       )}

@@ -390,19 +390,19 @@ export default function DryingProgressChart({
       {/* Status summary */}
       <div className="flex flex-wrap gap-2">
         {dryCount > 0 && (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-50 dark:bg-emerald-500/10 text-success dark:text-success border border-emerald-200 dark:border-emerald-500/30">
             <CheckCircle2 size={12} />
             {dryCount} location{dryCount > 1 ? "s" : ""} dry
           </span>
         )}
         {dryingCount > 0 && (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-50 dark:bg-amber-500/10 text-warning dark:text-warning border border-amber-200 dark:border-amber-500/30">
             <TrendingDown size={12} />
             {dryingCount} drying
           </span>
         )}
         {wetCount > 0 && (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-500/30">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-rose-50 dark:bg-rose-500/10 text-destructive dark:text-destructive border border-rose-200 dark:border-rose-500/30">
             <AlertTriangle size={12} />
             {wetCount} still wet
           </span>
@@ -418,7 +418,7 @@ export default function DryingProgressChart({
 
         {/* On-track indicator */}
         {trackingStatus === "ahead" && (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-50 dark:bg-emerald-500/10 text-success dark:text-success border border-emerald-200 dark:border-emerald-500/30">
             <TrendingDown size={12} />
             Ahead of schedule
           </span>
@@ -430,7 +430,7 @@ export default function DryingProgressChart({
           </span>
         )}
         {trackingStatus === "behind" && (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-50 dark:bg-amber-500/10 text-warning dark:text-warning border border-amber-200 dark:border-amber-500/30">
             <AlertTriangle size={12} />
             Behind schedule
           </span>

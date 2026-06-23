@@ -84,7 +84,7 @@ export default function VisualDashboardReport({
   if (!data) {
     return (
       <div className="p-8 text-center">
-        <div className="text-red-600 mb-4">Error: No data provided</div>
+        <div className="text-destructive mb-4">Error: No data provided</div>
         <pre className="text-xs bg-slate-100 p-4 rounded overflow-auto text-left max-w-4xl mx-auto">
           {JSON.stringify(data, null, 2)}
         </pre>
@@ -262,7 +262,7 @@ export default function VisualDashboardReport({
                 Total Cost
               </span>
             </div>
-            <p className="text-2xl font-bold text-green-600">
+            <p className="text-2xl font-bold text-success">
               ${safeSummaryMetrics.totalCost.toLocaleString()}
             </p>
           </div>
@@ -470,8 +470,8 @@ export default function VisualDashboardReport({
                 safeSafety.hasChildren && (
                   <div className="mt-4 bg-amber-100 border-2 border-amber-400 rounded-lg p-3 w-full">
                     <div className="flex items-center gap-2">
-                      <AlertTriangle className="w-5 h-5 text-amber-600" />
-                      <p className="text-sm font-semibold text-amber-900">
+                      <AlertTriangle className="w-5 h-5 text-warning" />
+                      <p className="text-sm font-semibold text-warning">
                         Amber: Occupied: Children Present
                       </p>
                     </div>
@@ -509,10 +509,10 @@ export default function VisualDashboardReport({
                       <td className="py-2 px-2 text-slate-900">
                         {cost.type} ({cost.qty})
                       </td>
-                      <td className="py-2 px-2 text-green-600 font-semibold">
+                      <td className="py-2 px-2 text-success font-semibold">
                         ${cost.ratePerDay.toFixed(2)}
                       </td>
-                      <td className="py-2 px-2 text-green-600 font-semibold">
+                      <td className="py-2 px-2 text-success font-semibold">
                         ${cost.total.toFixed(2)}
                       </td>
                     </tr>
@@ -546,7 +546,7 @@ export default function VisualDashboardReport({
     console.error("Error rendering VisualDashboardReport:", error);
     return (
       <div className="p-8 text-center">
-        <div className="text-red-600 mb-4">Error rendering report</div>
+        <div className="text-destructive mb-4">Error rendering report</div>
         <pre className="text-xs bg-slate-100 p-4 rounded overflow-auto text-left">
           {JSON.stringify(data, null, 2)}
         </pre>
@@ -717,12 +717,12 @@ function DetailedReportPages({
         {fullData.property?.accessNotes && (
           <div className="bg-gradient-to-r from-amber-50 to-yellow-50 rounded-lg p-5 border-2 border-amber-300 shadow-sm">
             <div className="flex items-start gap-2 mb-2">
-              <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5" />
-              <p className="text-sm font-bold text-amber-900 uppercase tracking-wide">
+              <AlertTriangle className="w-5 h-5 text-warning mt-0.5" />
+              <p className="text-sm font-bold text-warning uppercase tracking-wide">
                 Access Notes
               </p>
             </div>
-            <p className="text-amber-900 leading-relaxed pl-8">
+            <p className="text-warning leading-relaxed pl-8">
               {fullData.property.accessNotes}
             </p>
           </div>
@@ -791,13 +791,13 @@ function DetailedReportPages({
                 )}
                 <div className="bg-white rounded-lg p-4 text-center border border-blue-100">
                   <CheckCircle
-                    className={`w-8 h-8 mx-auto mb-2 ${fullData.environmental.airCirculation ? "text-green-600" : "text-slate-400"}`}
+                    className={`w-8 h-8 mx-auto mb-2 ${fullData.environmental.airCirculation ? "text-success" : "text-slate-400"}`}
                   />
                   <p className="text-xs text-slate-600 mb-1 font-medium">
                     Air Circulation
                   </p>
                   <p
-                    className={`text-lg font-bold ${fullData.environmental.airCirculation ? "text-green-700" : "text-slate-600"}`}
+                    className={`text-lg font-bold ${fullData.environmental.airCirculation ? "text-success" : "text-slate-600"}`}
                   >
                     {fullData.environmental.airCirculation ? "Yes" : "No"}
                   </p>
@@ -819,7 +819,7 @@ function DetailedReportPages({
           {/* {fullData.classification ? (
               <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-6 border-2 border-green-200 shadow-sm">
                 <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
-                  <Shield className="w-6 h-6 text-green-600" />
+                  <Shield className="w-6 h-6 text-success" />
                   IICRC Classification
                 </h3>
                 <div className="space-y-4">
@@ -831,7 +831,7 @@ function DetailedReportPages({
                   </div>
                   <div>
                     <p className="text-sm text-slate-600 mb-2 font-medium">Class</p>
-                    <span className="inline-block px-4 py-2 rounded-lg text-base font-bold bg-green-100 text-green-800 border border-green-300">
+                    <span className="inline-block px-4 py-2 rounded-lg text-base font-bold bg-green-100 text-success border border-green-300">
                       Class {fullData.classification.class || 'Not classified'}
                     </span>
                   </div>
@@ -852,7 +852,7 @@ function DetailedReportPages({
           ) : (
             <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-6 border-2 border-green-200 shadow-sm">
               <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
-                <Shield className="w-6 h-6 text-green-600" />
+                <Shield className="w-6 h-6 text-success" />
                 IICRC Classification
               </h3>
               <p className="text-slate-600 italic">No classification data available.</p>
@@ -882,7 +882,7 @@ function DetailedReportPages({
                     <p className="text-xs text-slate-600 mb-1 font-medium">
                       Drying Status
                     </p>
-                    <span className="inline-block px-4 py-2 rounded-lg text-base font-bold bg-yellow-100 text-yellow-800 border border-yellow-300">
+                    <span className="inline-block px-4 py-2 rounded-lg text-base font-bold bg-yellow-100 text-warning border border-yellow-300">
                       {fullData.psychrometric.dryingStatus.toUpperCase()}
                     </span>
                   </div>
@@ -1139,7 +1139,7 @@ function DetailedReportPages({
                         {item.description}
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <span className="inline-block px-3 py-1 rounded-full text-sm font-bold bg-green-100 text-green-800">
+                        <span className="inline-block px-3 py-1 rounded-full text-sm font-bold bg-green-100 text-success">
                           {item.quantity}
                         </span>
                       </td>
@@ -1209,7 +1209,7 @@ function DetailedReportPages({
                       <td className="px-6 py-4 text-right text-slate-700">
                         {item.estimatedDuration} days
                       </td>
-                      <td className="px-6 py-4 text-right font-bold text-green-700">
+                      <td className="px-6 py-4 text-right font-bold text-success">
                         {formatCurrency(item.totalCost)}
                       </td>
                     </tr>
@@ -1223,7 +1223,7 @@ function DetailedReportPages({
                     >
                       Total Equipment Cost
                     </td>
-                    <td className="px-6 py-4 text-right font-bold text-2xl text-green-700">
+                    <td className="px-6 py-4 text-right font-bold text-2xl text-success">
                       {formatCurrency(
                         fullData.equipment.reduce(
                           (sum: number, item: any) =>
@@ -1282,7 +1282,7 @@ function DetailedReportPages({
                         <td className="px-6 py-4 text-right text-slate-700 font-medium">
                           {formatCurrency(item.rate)}
                         </td>
-                        <td className="px-6 py-4 text-right font-bold text-green-700">
+                        <td className="px-6 py-4 text-right font-bold text-success">
                           {formatCurrency(item.total)}
                         </td>
                       </tr>
@@ -1296,7 +1296,7 @@ function DetailedReportPages({
                       >
                         Total Project Cost
                       </td>
-                      <td className="px-6 py-4 text-right font-bold text-2xl text-green-700">
+                      <td className="px-6 py-4 text-right font-bold text-2xl text-success">
                         {formatCurrency(
                           fullData.costEstimates.reduce(
                             (sum: number, item: any) => sum + (item.total || 0),
@@ -1371,21 +1371,21 @@ function DetailedReportPages({
 
             {fullData.hazards && (
               <div className="mb-6 bg-gradient-to-br from-amber-50 to-yellow-50 rounded-lg p-6 border-2 border-amber-300 shadow-sm">
-                <h3 className="text-xl font-bold text-amber-900 mb-4 flex items-center gap-2">
-                  <AlertTriangle className="w-6 h-6 text-amber-600" />
+                <h3 className="text-xl font-bold text-warning mb-4 flex items-center gap-2">
+                  <AlertTriangle className="w-6 h-6 text-warning" />
                   Hazard Assessment
                 </h3>
                 <div className="space-y-3">
                   {fullData.hazards.methamphetamineScreen && (
                     <div className="flex items-center gap-2">
-                      <AlertTriangle className="w-5 h-5 text-amber-600" />
+                      <AlertTriangle className="w-5 h-5 text-warning" />
                       <div>
-                        <p className="font-semibold text-amber-900">
+                        <p className="font-semibold text-warning">
                           Methamphetamine Screen:{" "}
                           {fullData.hazards.methamphetamineScreen}
                         </p>
                         {fullData.hazards.methamphetamineTestCount && (
-                          <p className="text-sm text-amber-700">
+                          <p className="text-sm text-warning">
                             Test Count:{" "}
                             {fullData.hazards.methamphetamineTestCount}
                           </p>
@@ -1395,13 +1395,13 @@ function DetailedReportPages({
                   )}
                   {fullData.hazards.biologicalMouldDetected && (
                     <div className="flex items-center gap-2">
-                      <AlertTriangle className="w-5 h-5 text-amber-600" />
+                      <AlertTriangle className="w-5 h-5 text-warning" />
                       <div>
-                        <p className="font-semibold text-amber-900">
+                        <p className="font-semibold text-warning">
                           Biological Mould Detected: Yes
                         </p>
                         {fullData.hazards.biologicalMouldCategory && (
-                          <p className="text-sm text-amber-700">
+                          <p className="text-sm text-warning">
                             Category: {fullData.hazards.biologicalMouldCategory}
                           </p>
                         )}
@@ -1410,16 +1410,16 @@ function DetailedReportPages({
                   )}
                   {fullData.hazards.asbestosRisk && (
                     <div className="flex items-center gap-2">
-                      <AlertTriangle className="w-5 h-5 text-amber-600" />
-                      <p className="font-semibold text-amber-900">
+                      <AlertTriangle className="w-5 h-5 text-warning" />
+                      <p className="font-semibold text-warning">
                         Asbestos Risk: Pre-1990 building identified
                       </p>
                     </div>
                   )}
                   {fullData.hazards.leadRisk && (
                     <div className="flex items-center gap-2">
-                      <AlertTriangle className="w-5 h-5 text-amber-600" />
-                      <p className="font-semibold text-amber-900">
+                      <AlertTriangle className="w-5 h-5 text-warning" />
+                      <p className="font-semibold text-warning">
                         Lead Risk: Pre-1990 building identified
                       </p>
                     </div>
@@ -1431,7 +1431,7 @@ function DetailedReportPages({
             {fullData.compliance && (
               <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-6 border-2 border-green-200 shadow-sm">
                 <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
-                  <Shield className="w-6 h-6 text-green-600" />
+                  <Shield className="w-6 h-6 text-success" />
                   Compliance Standards
                 </h3>
                 <ul className="space-y-3">
@@ -1441,7 +1441,7 @@ function DetailedReportPages({
                         key={idx}
                         className="flex items-start gap-3 bg-white rounded-lg p-3 border border-green-200"
                       >
-                        <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+                        <CheckCircle className="w-5 h-5 text-success mt-0.5 flex-shrink-0" />
                         <span className="text-slate-900 font-medium">
                           {standard}
                         </span>

@@ -243,7 +243,7 @@ export default function ContractorDirectoryPage() {
                     {contractor.totalReviews > 0 && (
                       <div className="flex items-center gap-2 mb-3">
                         <div className="flex items-center gap-1">
-                          <Star className="h-5 w-5 text-amber-400 fill-amber-400" />
+                          <Star className="h-5 w-5 text-warning fill-amber-400" />
                           <span className="text-white font-medium">
                             {contractor.averageRating.toFixed(1)}
                           </span>

@@ -210,7 +210,7 @@ export default function InvoicesPage() {
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-6">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-green-500/10 rounded-lg">
-              <DollarSign className="h-6 w-6 text-green-500" />
+              <DollarSign className="h-6 w-6 text-success" />
             </div>
             <div>
               <div className="text-2xl font-bold text-slate-900 dark:text-white">
@@ -242,7 +242,7 @@ export default function InvoicesPage() {
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-6">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-amber-500/10 rounded-lg">
-              <Clock className="h-6 w-6 text-amber-500" />
+              <Clock className="h-6 w-6 text-warning" />
             </div>
             <div>
               <div className="text-2xl font-bold text-slate-900 dark:text-white">
@@ -258,7 +258,7 @@ export default function InvoicesPage() {
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-6">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-red-500/10 rounded-lg">
-              <AlertCircle className="h-6 w-6 text-red-500" />
+              <AlertCircle className="h-6 w-6 text-destructive" />
             </div>
             <div>
               <div className="text-2xl font-bold text-slate-900 dark:text-white">
@@ -340,7 +340,7 @@ export default function InvoicesPage() {
 
       {/* Fetch error */}
       {fetchError && !loading && (
-        <div className="flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-300 mb-4">
+        <div className="flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-destructive mb-4">
           <span className="text-sm">Failed to load invoices — {fetchError}</span>
           <button
             type="button"
@@ -404,7 +404,7 @@ export default function InvoicesPage() {
                     {formatCurrencyCents(invoice.totalIncGST)}
                   </div>
                   {invoice.amountPaid > 0 && (
-                    <div className="text-xs text-green-600 dark:text-green-400">
+                    <div className="text-xs text-success dark:text-success">
                       {formatCurrencyCents(invoice.amountPaid)} paid
                     </div>
                   )}
@@ -499,7 +499,7 @@ export default function InvoicesPage() {
                         {formatCurrencyCents(invoice.totalIncGST)}
                       </div>
                       {invoice.amountPaid > 0 && (
-                        <div className="text-xs text-green-600 dark:text-green-400">
+                        <div className="text-xs text-success dark:text-success">
                           {formatCurrencyCents(invoice.amountPaid)} paid
                         </div>
                       )}
@@ -512,7 +512,7 @@ export default function InvoicesPage() {
                       })}
                       {invoice.externalSyncStatus === "FAILED" && (
                         <div
-                          className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+                          className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-warning dark:bg-amber-900/40 dark:text-warning"
                           title={invoice.externalSyncError ?? "Sync failed"}
                         >
                           <span aria-hidden>⚠</span>

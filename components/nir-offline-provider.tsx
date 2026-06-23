@@ -77,17 +77,17 @@ const STATUS_CONFIG: Record<
 > = {
   SYNCED: {
     label: "Synced",
-    className: "bg-green-50 text-green-700 border-green-200",
+    className: "bg-green-50 text-success border-green-200",
     dot: "bg-green-500",
   },
   PENDING_SYNC: {
     label: "Pending sync",
-    className: "bg-amber-50 text-amber-700 border-amber-200",
+    className: "bg-amber-50 text-warning border-amber-200",
     dot: "bg-amber-400 animate-pulse",
   },
   SYNC_CONFLICT: {
     label: "Sync conflict",
-    className: "bg-red-50 text-red-700 border-red-200",
+    className: "bg-red-50 text-destructive border-red-200",
     dot: "bg-red-500",
   },
   OFFLINE: {

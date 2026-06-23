@@ -213,7 +213,7 @@ export function QuickMoistureEntry({
       </div>
 
       {/* Error */}
-      {error && <p className="text-red-400 text-sm text-center">{error}</p>}
+      {error && <p className="text-destructive text-sm text-center">{error}</p>}
 
       {/* Save button */}
       <button

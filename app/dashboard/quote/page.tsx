@@ -62,7 +62,7 @@ const JOB_TYPES = [
     label: "Mould Remediation",
     icon: FlaskConical,
     standard: "IICRC S520",
-    color: "text-green-500",
+    color: "text-success",
   },
   {
     id: "fire",
@@ -83,7 +83,7 @@ const JOB_TYPES = [
     label: "Biohazard",
     icon: Bug,
     standard: "IICRC S540",
-    color: "text-red-500",
+    color: "text-destructive",
   },
 ] as const;
 
@@ -627,7 +627,7 @@ export default function QuotePage() {
 
             {/* Minimum charge notice */}
             {quoteResult.minimumApplied && (
-              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-sm text-amber-800 dark:text-amber-300">
+              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-sm text-warning dark:text-warning">
                 A minimum charge of {fmt(quoteResult.minimumChargeAmount)} (ex
                 GST) has been applied in accordance with industry minimum
                 engagement standards.

@@ -129,9 +129,9 @@ export function EvidenceCaptureForm({
 
   const requirementColor =
     rule.requirement === "required"
-      ? "bg-red-500/20 text-red-400 border-red-500/30"
+      ? "bg-red-500/20 text-destructive border-red-500/30"
       : rule.requirement === "recommended"
-        ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
+        ? "bg-amber-500/20 text-warning border-amber-500/30"
         : "bg-zinc-500/20 text-zinc-400 border-zinc-500/30";
 
   return (

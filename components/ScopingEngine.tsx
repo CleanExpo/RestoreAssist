@@ -903,7 +903,7 @@ export default function ScopingEngine({
                               equipmentParameters: { equipment: newEquip },
                             }));
                           }}
-                          className="text-red-400 hover:text-red-300"
+                          className="text-destructive hover:text-destructive"
                         >
                           Remove
                         </Button>
@@ -1032,7 +1032,7 @@ export default function ScopingEngine({
                               chemicalApplication: { chemicals: newChems },
                             }));
                           }}
-                          className="text-red-400 hover:text-red-300"
+                          className="text-destructive hover:text-destructive"
                         >
                           Remove
                         </Button>
@@ -1323,12 +1323,12 @@ export default function ScopingEngine({
         {scopeData.summary.anomalies.length > 0 && (
           <div className="mt-6 p-4 bg-yellow-900/20 border border-yellow-700 rounded-lg">
             <div className="flex items-center space-x-2 mb-2">
-              <AlertCircle className="text-yellow-400" size={20} />
-              <h4 className="text-yellow-400 font-semibold">
+              <AlertCircle className="text-warning" size={20} />
+              <h4 className="text-warning font-semibold">
                 Anomalies Detected
               </h4>
             </div>
-            <ul className="list-disc list-inside text-yellow-300 space-y-1">
+            <ul className="list-disc list-inside text-warning space-y-1">
               {scopeData.summary.anomalies.map(
                 (anomaly: string, index: number) => (
                   <li key={index}>{anomaly}</li>

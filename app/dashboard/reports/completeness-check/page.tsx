@@ -62,18 +62,18 @@ function ScoreRing({ score }: { score: number }) {
     if (s >= 80)
       return {
         stroke: "#22c55e",
-        text: "text-green-600 dark:text-green-400",
+        text: "text-success dark:text-success",
         bg: "bg-green-50 dark:bg-green-950/20",
       };
     if (s >= 50)
       return {
         stroke: "#f59e0b",
-        text: "text-amber-600 dark:text-amber-400",
+        text: "text-warning dark:text-warning",
         bg: "bg-amber-50 dark:bg-amber-950/20",
       };
     return {
       stroke: "#ef4444",
-      text: "text-red-600 dark:text-red-400",
+      text: "text-destructive dark:text-destructive",
       bg: "bg-red-50 dark:bg-red-950/20",
     };
   };
@@ -127,22 +127,22 @@ function SectionCard({
   const statusConfig = {
     complete: {
       icon: CheckCircle2,
-      color: "text-green-600 dark:text-green-400",
+      color: "text-success dark:text-success",
       badge:
-        "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+        "bg-green-100 text-success dark:bg-green-900/30 dark:text-success",
       label: "Complete",
     },
     partial: {
       icon: AlertTriangle,
-      color: "text-amber-600 dark:text-amber-400",
+      color: "text-warning dark:text-warning",
       badge:
-        "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
+        "bg-amber-100 text-warning dark:bg-amber-900/30 dark:text-warning",
       label: "Partial",
     },
     missing: {
       icon: XCircle,
-      color: "text-red-600 dark:text-red-400",
-      badge: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+      color: "text-destructive dark:text-destructive",
+      badge: "bg-red-100 text-destructive dark:bg-red-900/30 dark:text-destructive",
       label: "Missing",
     },
   };
@@ -204,13 +204,13 @@ function SectionCard({
                 key={i}
                 className="flex items-start gap-1.5 text-xs text-slate-600 dark:text-slate-400"
               >
-                <span className="mt-0.5 shrink-0 text-red-400">•</span>
+                <span className="mt-0.5 shrink-0 text-destructive">•</span>
                 {issue}
               </li>
             ))}
           </ul>
         ) : (
-          <p className="text-xs text-green-600 dark:text-green-400 flex-1">
+          <p className="text-xs text-success dark:text-success flex-1">
             All checks passed
           </p>
         )}
@@ -447,18 +447,18 @@ export default function CompletenessCheckPage() {
                 </span>
               </p>
               {result.overallScore >= 80 && (
-                <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-0">
+                <Badge className="bg-green-100 text-success dark:bg-green-900/30 dark:text-success border-0">
                   <CheckCircle2 className="mr-1 h-3 w-3" /> Ready to submit
                 </Badge>
               )}
               {result.overallScore >= 50 && result.overallScore < 80 && (
-                <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-0">
+                <Badge className="bg-amber-100 text-warning dark:bg-amber-900/30 dark:text-warning border-0">
                   <AlertTriangle className="mr-1 h-3 w-3" /> Some sections need
                   attention
                 </Badge>
               )}
               {result.overallScore < 50 && (
-                <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-0">
+                <Badge className="bg-red-100 text-destructive dark:bg-red-900/30 dark:text-destructive border-0">
                   <XCircle className="mr-1 h-3 w-3" /> Significant gaps found
                 </Badge>
               )}

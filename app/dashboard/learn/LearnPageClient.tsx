@@ -196,7 +196,7 @@ export function LearnPageClient() {
                 <div className="flex items-center gap-2">
                   <h2 className="text-base font-semibold">{entry.title}</h2>
                   {isWatched ? (
-                    <span className="h-4 w-4 text-green-600" aria-hidden="true">✓</span>
+                    <span className="h-4 w-4 text-success" aria-hidden="true">✓</span>
                   ) : (
                     <span className="h-4 w-4 text-[#8A6B4E]" aria-hidden="true">▶</span>
                   )}

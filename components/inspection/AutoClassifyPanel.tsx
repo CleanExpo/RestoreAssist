@@ -44,10 +44,10 @@ const CLASS_LABEL: Record<ClassifySuggestion["waterClass"], string> = {
 };
 
 function confidenceTone(c: number): string {
-  if (c >= 85) return "text-emerald-600 dark:text-emerald-400";
+  if (c >= 85) return "text-success dark:text-success";
   if (c >= 65) return "text-cyan-600 dark:text-cyan-400";
-  if (c >= 40) return "text-amber-600 dark:text-amber-400";
-  return "text-red-600 dark:text-red-400";
+  if (c >= 40) return "text-warning dark:text-warning";
+  return "text-destructive dark:text-destructive";
 }
 
 export default function AutoClassifyPanel({ inspectionId, onApply }: Props) {
@@ -141,7 +141,7 @@ export default function AutoClassifyPanel({ inspectionId, onApply }: Props) {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-800/50 dark:bg-amber-900/10">
-                <div className="text-xs font-semibold uppercase text-amber-600 dark:text-amber-400">
+                <div className="text-xs font-semibold uppercase text-warning dark:text-warning">
                   Water Category
                 </div>
                 <div className="mt-1 text-sm font-medium text-neutral-800 dark:text-slate-200">

@@ -135,7 +135,7 @@ export default function ContractorProfilePage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-400 text-lg mb-4">
+          <p className="text-destructive text-lg mb-4">
             {error || "Contractor not found"}
           </p>
           <Link
@@ -208,7 +208,7 @@ export default function ContractorProfilePage() {
                         key={i}
                         className={`h-6 w-6 ${
                           i < Math.floor(contractor.averageRating)
-                            ? "text-amber-400 fill-amber-400"
+                            ? "text-warning fill-amber-400"
                             : "text-slate-600"
                         }`}
                       />
@@ -300,7 +300,7 @@ export default function ContractorProfilePage() {
                           Quality
                         </div>
                         <div className="flex items-center gap-2">
-                          <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
+                          <Star className="h-4 w-4 text-warning fill-amber-400" />
                           <span className="text-white font-medium">
                             {subRatings.quality.toFixed(1)}
                           </span>
@@ -313,7 +313,7 @@ export default function ContractorProfilePage() {
                           Timeliness
                         </div>
                         <div className="flex items-center gap-2">
-                          <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
+                          <Star className="h-4 w-4 text-warning fill-amber-400" />
                           <span className="text-white font-medium">
                             {subRatings.timeliness.toFixed(1)}
                           </span>
@@ -326,7 +326,7 @@ export default function ContractorProfilePage() {
                           Communication
                         </div>
                         <div className="flex items-center gap-2">
-                          <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
+                          <Star className="h-4 w-4 text-warning fill-amber-400" />
                           <span className="text-white font-medium">
                             {subRatings.communication.toFixed(1)}
                           </span>
@@ -337,7 +337,7 @@ export default function ContractorProfilePage() {
                       <div>
                         <div className="text-sm text-slate-400 mb-1">Value</div>
                         <div className="flex items-center gap-2">
-                          <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
+                          <Star className="h-4 w-4 text-warning fill-amber-400" />
                           <span className="text-white font-medium">
                             {subRatings.value.toFixed(1)}
                           </span>
@@ -361,7 +361,7 @@ export default function ContractorProfilePage() {
                               {review.clientName}
                             </span>
                             {review.isVerifiedJob && (
-                              <span className="text-xs px-2 py-1 bg-green-500/10 border border-green-500/30 rounded text-green-400">
+                              <span className="text-xs px-2 py-1 bg-green-500/10 border border-green-500/30 rounded text-success">
                                 Verified Job
                               </span>
                             )}
@@ -372,7 +372,7 @@ export default function ContractorProfilePage() {
                                 key={i}
                                 className={`h-4 w-4 ${
                                   i < review.overallRating
-                                    ? "text-amber-400 fill-amber-400"
+                                    ? "text-warning fill-amber-400"
                                     : "text-slate-600"
                                 }`}
                               />
@@ -419,7 +419,7 @@ export default function ContractorProfilePage() {
                           <ThumbsUp className="h-4 w-4" />
                           <span>{review.helpfulCount}</span>
                         </button>
-                        <button className="flex items-center gap-1 hover:text-red-400">
+                        <button className="flex items-center gap-1 hover:text-destructive">
                           <ThumbsDown className="h-4 w-4" />
                           <span>{review.notHelpfulCount}</span>
                         </button>

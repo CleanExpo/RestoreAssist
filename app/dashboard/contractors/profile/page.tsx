@@ -333,8 +333,8 @@ export default function ContractorProfileDashboard() {
         <div
           className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${
             message.type === "success"
-              ? "bg-green-500/10 border border-green-500/30 text-green-400"
-              : "bg-red-500/10 border border-red-500/30 text-red-400"
+              ? "bg-green-500/10 border border-green-500/30 text-success"
+              : "bg-red-500/10 border border-red-500/30 text-destructive"
           }`}
         >
           {message.type === "success" ? (
@@ -644,10 +644,10 @@ export default function ContractorProfileDashboard() {
                       <span
                         className={`px-2 py-1 rounded text-xs ${
                           cert.verificationStatus === "VERIFIED"
-                            ? "bg-green-500/10 text-green-400 border border-green-500/30"
+                            ? "bg-green-500/10 text-success border border-green-500/30"
                             : cert.verificationStatus === "PENDING"
-                              ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
-                              : "bg-red-500/10 text-red-400 border border-red-500/30"
+                              ? "bg-amber-500/10 text-warning border border-amber-500/30"
+                              : "bg-red-500/10 text-destructive border border-red-500/30"
                         }`}
                       >
                         {cert.verificationStatus}
@@ -658,7 +658,7 @@ export default function ContractorProfileDashboard() {
                 {cert.verificationStatus !== "VERIFIED" && (
                   <button
                     onClick={() => deleteCertification(cert.id)}
-                    className="text-red-400 hover:text-red-300"
+                    className="text-destructive hover:text-destructive"
                   >
                     <Trash2 className="h-5 w-5" />
                   </button>
@@ -781,7 +781,7 @@ export default function ContractorProfileDashboard() {
                 </div>
                 <button
                   onClick={() => deleteServiceArea(area.id)}
-                  className="text-red-400 hover:text-red-300"
+                  className="text-destructive hover:text-destructive"
                 >
                   <Trash2 className="h-5 w-5" />
                 </button>

@@ -85,7 +85,7 @@ export default function PortalInvitePanel({
       </p>
 
       {inviteStatus === "sent" && (
-        <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
+        <div className="flex items-center gap-2 text-sm text-success dark:text-success">
           <CheckCircle size={14} /> Invite sent to {selectedClient?.name}
         </div>
       )}
@@ -95,7 +95,7 @@ export default function PortalInvitePanel({
         </div>
       )}
       {inviteStatus === "pending" && (
-        <div className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400">
+        <div className="flex items-center gap-2 text-sm text-warning dark:text-warning">
           <Info size={14} /> An invitation is already pending for this client
         </div>
       )}

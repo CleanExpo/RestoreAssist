@@ -77,7 +77,7 @@ const FREQUENCY_CONFIG: Record<
   MONTHLY: {
     label: "Monthly",
     className:
-      "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
+      "bg-green-100 text-success dark:bg-green-900/40 dark:text-success",
   },
   QUARTERLY: {
     label: "Quarterly",
@@ -119,12 +119,12 @@ const STATUS_CONFIG: Record<
   ACTIVE: {
     label: "Active",
     className:
-      "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
+      "bg-green-100 text-success dark:bg-green-900/40 dark:text-success",
   },
   PAUSED: {
     label: "Paused",
     className:
-      "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
+      "bg-amber-100 text-warning dark:bg-amber-900/40 dark:text-warning",
   },
   COMPLETED: {
     label: "Completed",
@@ -133,7 +133,7 @@ const STATUS_CONFIG: Record<
   },
   CANCELLED: {
     label: "Cancelled",
-    className: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400",
+    className: "bg-red-100 text-destructive dark:bg-red-900/40 dark:text-destructive",
   },
 };
 
@@ -166,8 +166,8 @@ function NextDateCell({ dateStr }: { dateStr: string }) {
     <span
       className={
         isPast
-          ? "text-red-600 dark:text-red-400 font-medium"
-          : "text-green-700 dark:text-green-400"
+          ? "text-destructive dark:text-destructive font-medium"
+          : "text-success dark:text-success"
       }
     >
       {label}
@@ -400,7 +400,7 @@ export default function RecurringInvoicesPage() {
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-slate-500 dark:text-slate-400 flex items-center gap-2">
-                  <CalendarClock className="h-4 w-4 text-green-500" />
+                  <CalendarClock className="h-4 w-4 text-success" />
                   Active Schedules
                 </CardTitle>
               </CardHeader>
@@ -414,7 +414,7 @@ export default function RecurringInvoicesPage() {
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-slate-500 dark:text-slate-400 flex items-center gap-2">
-                  <PauseCircle className="h-4 w-4 text-amber-500" />
+                  <PauseCircle className="h-4 w-4 text-warning" />
                   Paused
                 </CardTitle>
               </CardHeader>
@@ -551,7 +551,7 @@ export default function RecurringInvoicesPage() {
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    className="h-8 px-3 text-xs text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                                    className="h-8 px-3 text-xs text-warning dark:text-warning border-amber-300 dark:border-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20"
                                     onClick={() => handlePause(schedule.id)}
                                     disabled={isActioning}
                                     title="Pause this schedule"
@@ -571,7 +571,7 @@ export default function RecurringInvoicesPage() {
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    className="h-8 px-3 text-xs text-green-700 dark:text-green-400 border-green-300 dark:border-green-700 hover:bg-green-50 dark:hover:bg-green-900/20"
+                                    className="h-8 px-3 text-xs text-success dark:text-success border-green-300 dark:border-green-700 hover:bg-green-50 dark:hover:bg-green-900/20"
                                     onClick={() => handleResume(schedule.id)}
                                     disabled={isActioning}
                                     title="Resume this schedule"
@@ -592,7 +592,7 @@ export default function RecurringInvoicesPage() {
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    className="h-8 px-3 text-xs text-red-600 dark:text-red-400 border-red-300 dark:border-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                    className="h-8 px-3 text-xs text-destructive dark:text-destructive border-red-300 dark:border-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
                                     onClick={() =>
                                       openCancelConfirm(schedule.id)
                                     }

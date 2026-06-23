@@ -517,7 +517,7 @@ export default function CostLibrariesPage() {
                     </Link>
                     <p className="text-xs text-slate-400 mt-1">{lib.region}</p>
                     {lib.isDefault && (
-                      <span className="inline-block mt-2 px-2 py-1 text-xs bg-emerald-500/20 text-emerald-400 rounded">
+                      <span className="inline-block mt-2 px-2 py-1 text-xs bg-emerald-500/20 text-success rounded">
                         Default
                       </span>
                     )}
@@ -554,7 +554,7 @@ export default function CostLibrariesPage() {
                       className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
                       title="Delete Library"
                     >
-                      <Trash2 size={20} className="text-rose-400" />
+                      <Trash2 size={20} className="text-destructive" />
                     </button>
                   </div>
                 </div>
@@ -613,7 +613,7 @@ export default function CostLibrariesPage() {
                               className="p-1 hover:bg-slate-600 rounded transition-colors"
                               title="Delete Item"
                             >
-                              <Trash2 size={16} className="text-rose-400" />
+                              <Trash2 size={16} className="text-destructive" />
                             </button>
                           </div>
                         </div>
@@ -1027,7 +1027,7 @@ export default function CostLibrariesPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
           <div className="bg-slate-800 rounded-lg border border-slate-700 max-w-md w-full p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-rose-400">
+              <h2 className="text-xl font-semibold text-destructive">
                 Delete Cost Library
               </h2>
               <button
@@ -1085,7 +1085,7 @@ export default function CostLibrariesPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
           <div className="bg-slate-800 rounded-lg border border-slate-700 max-w-md w-full p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-rose-400">
+              <h2 className="text-xl font-semibold text-destructive">
                 Delete Cost Item
               </h2>
               <button

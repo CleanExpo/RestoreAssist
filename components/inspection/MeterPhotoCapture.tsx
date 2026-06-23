@@ -71,11 +71,11 @@ function ConfidenceBadge({
       className={cn(
         "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
         confidence === "high" &&
-          "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+          "bg-emerald-100 text-success dark:bg-emerald-900/30 dark:text-success",
         confidence === "medium" &&
-          "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+          "bg-amber-100 text-warning dark:bg-amber-900/30 dark:text-warning",
         confidence === "low" &&
-          "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+          "bg-red-100 text-destructive dark:bg-red-900/30 dark:text-destructive",
       )}
     >
       {confidence === "high"
@@ -113,7 +113,7 @@ function Field({
   return (
     <div>
       <label className="text-xs text-neutral-500 dark:text-slate-400 uppercase tracking-wide">
-        {label} {required && <span className="text-red-500">*</span>}
+        {label} {required && <span className="text-destructive">*</span>}
       </label>
       <input
         type={type}
@@ -715,16 +715,16 @@ export function MeterPhotoCapture({
             <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50">
               <AlertTriangle
                 size={14}
-                className="text-red-500 mt-0.5 flex-shrink-0"
+                className="text-destructive mt-0.5 flex-shrink-0"
               />
               <div className="min-w-0">
-                <p className="text-xs text-red-600 dark:text-red-400">
+                <p className="text-xs text-destructive dark:text-destructive">
                   {error}
                 </p>
                 {error.includes("Integrations") && (
                   <a
                     href="/dashboard/integrations"
-                    className="text-xs text-red-700 dark:text-red-300 underline mt-1 inline-block"
+                    className="text-xs text-destructive dark:text-destructive underline mt-1 inline-block"
                   >
                     Go to Settings → Integrations →
                   </a>

@@ -95,7 +95,7 @@ export function PropertyLookupPanel({ className }: { className?: string }) {
       </button>
 
       {error && (
-        <p role="alert" className="mt-2 text-xs text-rose-600">
+        <p role="alert" className="mt-2 text-xs text-destructive">
           {error}
         </p>
       )}
