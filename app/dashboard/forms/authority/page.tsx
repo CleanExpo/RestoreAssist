@@ -67,7 +67,7 @@ const STATUS_CONFIG: Record<
 > = {
   DRAFT: {
     label: "Draft",
-    className: "bg-gray-100 text-gray-700 border-gray-200",
+    className: "bg-slate-100 text-slate-700 border-slate-200",
   },
   PENDING_SIGNATURES: {
     label: "Sent",

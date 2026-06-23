@@ -187,7 +187,7 @@ function StatusBadge({
       },
       NOT_CONNECTED: {
         label: "Not Connected",
-        className: "bg-gray-100 text-gray-600 border-gray-200",
+        className: "bg-slate-100 text-slate-600 border-slate-200",
       },
     };
   const v = variants[status];
@@ -220,7 +220,7 @@ function CircuitBadge({
   };
   const v = map[state] ?? {
     label: state,
-    className: "bg-gray-100 text-gray-600 border-gray-200",
+    className: "bg-slate-100 text-slate-600 border-slate-200",
   };
   return (
     <Badge className={`text-xs font-medium border ${v.className}`}>
@@ -277,7 +277,7 @@ function RateLimiterBar({ rl }: { rl: RateLimiterStat | undefined }) {
       <p className="text-xs text-muted-foreground">
         {rl.availableTokens} / {rl.maxBurst} tokens remaining
       </p>
-      <div className="h-1.5 w-full rounded-full bg-gray-200 overflow-hidden">
+      <div className="h-1.5 w-full rounded-full bg-slate-200 overflow-hidden">
         <div
           className={`h-full rounded-full transition-all ${barColor}`}
           style={{ width: `${pct}%` }}

@@ -101,7 +101,7 @@ export function InterviewValidationPanel({
 
   return (
     <div
-      className="rounded-lg border border-gray-200 dark:border-slate-700 bg-gradient-to-br from-[#1C2E47]/5 via-[#8A6B4E]/5 to-[#D4A574]/5 dark:from-[#1C2E47]/30 dark:via-[#8A6B4E]/20 dark:to-[#D4A574]/10 p-4"
+      className="rounded-lg border border-slate-200 dark:border-slate-700 bg-gradient-to-br from-[#1C2E47]/5 via-[#8A6B4E]/5 to-[#D4A574]/5 dark:from-[#1C2E47]/30 dark:via-[#8A6B4E]/20 dark:to-[#D4A574]/10 p-4"
       aria-labelledby="iicrc-validation-heading"
     >
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -113,11 +113,11 @@ export function InterviewValidationPanel({
           <div>
             <h3
               id="iicrc-validation-heading"
-              className="text-sm font-semibold text-gray-900 dark:text-white"
+              className="text-sm font-semibold text-slate-900 dark:text-white"
             >
               IICRC S500:2025 compliance check
             </h3>
-            <p className="text-xs text-gray-600 dark:text-slate-400">
+            <p className="text-xs text-slate-600 dark:text-slate-400">
               Advisory only — does not block report generation.
             </p>
           </div>
@@ -179,7 +179,7 @@ export function InterviewValidationPanel({
           aria-label="Validation findings"
         >
           <p
-            className="text-xs text-gray-600 dark:text-slate-400"
+            className="text-xs text-slate-600 dark:text-slate-400"
             aria-live="polite"
           >
             {errorCount > 0 && (

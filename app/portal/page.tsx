@@ -67,11 +67,11 @@ export default function PortalDashboard() {
 
   const getStatusBadge = (status: string) => {
     const styles = {
-      DRAFT: "bg-gray-100 text-gray-700",
+      DRAFT: "bg-slate-100 text-slate-700",
       PENDING: "bg-yellow-100 text-yellow-700",
       APPROVED: "bg-green-100 text-green-700",
       COMPLETED: "bg-blue-100 text-blue-700",
-      ARCHIVED: "bg-gray-100 text-gray-500",
+      ARCHIVED: "bg-slate-100 text-slate-500",
     };
     return styles[status as keyof typeof styles] || styles.DRAFT;
   };

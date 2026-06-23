@@ -220,15 +220,15 @@ export default function InterviewPage() {
 
   return (
     <div className="min-h-screen h-full w-full flex flex-col bg-white dark:bg-slate-900">
-      <div className="px-6 pt-6 pb-4 border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+      <div className="px-6 pt-6 pb-4 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
           Guided Interview
         </h1>
-        <p className="mt-2 text-gray-600 dark:text-slate-400">
+        <p className="mt-2 text-slate-600 dark:text-slate-400">
           Answer questions to capture details for this report
         </p>
         {reportId && (
-          <p className="mt-1 text-sm text-gray-500 dark:text-slate-500">
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-500">
             Linked to Report: <span className="font-medium">{reportId}</span>
           </p>
         )}
@@ -264,12 +264,12 @@ export default function InterviewPage() {
               />
             </div>
           </div>
-          <div className="px-6 py-4 border-t border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+          <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
             <div className="max-w-6xl mx-auto flex justify-center">
               <button
                 type="button"
                 onClick={handleSkipInterview}
-                className="text-sm text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white underline"
+                className="text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white underline"
               >
                 Skip interview
               </button>
@@ -308,7 +308,7 @@ export default function InterviewPage() {
         <div className="flex-1 flex items-center justify-center px-6 py-6">
           <div className="flex flex-col items-center gap-3">
             <Loader2 className="h-8 w-8 animate-spin text-cyan-500" />
-            <p className="text-sm text-gray-600 dark:text-slate-400">
+            <p className="text-sm text-slate-600 dark:text-slate-400">
               Loading interview summary...
             </p>
           </div>
@@ -366,7 +366,7 @@ function AutosaveIndicator({
   if (status === "saving") {
     return (
       <p
-        className="mt-2 inline-flex items-center gap-1.5 text-xs text-gray-500 dark:text-slate-400"
+        className="mt-2 inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400"
         role="status"
         aria-live="polite"
       >

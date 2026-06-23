@@ -18,8 +18,8 @@ const CATEGORY_COLOURS: Record<string, string> = {
 };
 
 function categoryBadge(category: string | null): string {
-  if (!category) return "bg-gray-100 text-gray-600";
-  return CATEGORY_COLOURS[category] ?? "bg-gray-100 text-gray-600";
+  if (!category) return "bg-slate-100 text-slate-600";
+  return CATEGORY_COLOURS[category] ?? "bg-slate-100 text-slate-600";
 }
 
 interface PageProps {
@@ -81,12 +81,12 @@ export default async function ClientPortalPage({ params }: PageProps) {
 
   if (!inspection) {
     return (
-      <main className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center">
-          <h1 className="text-xl font-semibold text-gray-900 mb-2">
+      <main className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-sm border border-slate-200 p-8 text-center">
+          <h1 className="text-xl font-semibold text-slate-900 mb-2">
             Link Expired
           </h1>
-          <p className="text-gray-500 text-sm">
+          <p className="text-slate-500 text-sm">
             This link has expired. Please contact your technician for a fresh
             link.
           </p>
@@ -118,30 +118,30 @@ export default async function ClientPortalPage({ params }: PageProps) {
   );
 
   return (
-    <main className="min-h-screen bg-gray-50">
+    <main className="min-h-screen bg-slate-50">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200">
+      <header className="bg-white border-b border-slate-200">
         <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
           <div>
             <span className="text-lg font-bold text-cyan-600 tracking-tight">
               RestoreAssist
             </span>
-            <p className="text-xs text-gray-400 mt-0.5">
+            <p className="text-xs text-slate-400 mt-0.5">
               Client Job Status Portal
             </p>
           </div>
           <div className="text-right">
-            <p className="text-sm font-semibold text-gray-900">
+            <p className="text-sm font-semibold text-slate-900">
               {inspection.inspectionNumber}
             </p>
-            <p className="text-xs text-gray-400">{inspectionDate}</p>
+            <p className="text-xs text-slate-400">{inspectionDate}</p>
           </div>
         </div>
       </header>
 
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
         {/* Address card */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
           <div className="flex items-start gap-3">
             <div className="w-8 h-8 bg-cyan-50 rounded-lg flex items-center justify-center flex-shrink-0">
               <svg
@@ -165,11 +165,11 @@ export default async function ClientPortalPage({ params }: PageProps) {
               </svg>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-900">
+              <p className="text-sm font-medium text-slate-900">
                 {inspection.propertyAddress}
               </p>
               {inspection.technicianName && (
-                <p className="text-xs text-gray-500 mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5">
                   Technician: {inspection.technicianName}
                 </p>
               )}
@@ -185,10 +185,10 @@ export default async function ClientPortalPage({ params }: PageProps) {
 
         {/* Affected areas */}
         {inspection.affectedAreas.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <h2 className="text-sm font-semibold text-gray-700 mb-3">
+          <div className="bg-white rounded-xl border border-slate-200 p-4">
+            <h2 className="text-sm font-semibold text-slate-700 mb-3">
               Affected Areas
-              <span className="ml-2 text-xs font-normal text-gray-400">
+              <span className="ml-2 text-xs font-normal text-slate-400">
                 ({inspection.affectedAreas.length})
               </span>
             </h2>
@@ -196,9 +196,9 @@ export default async function ClientPortalPage({ params }: PageProps) {
               {inspection.affectedAreas.map((area) => (
                 <li
                   key={area.id}
-                  className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0"
+                  className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0"
                 >
-                  <span className="text-sm text-gray-700">
+                  <span className="text-sm text-slate-700">
                     {area.roomZoneId}
                   </span>
                   <div className="flex items-center gap-2">
@@ -210,11 +210,11 @@ export default async function ClientPortalPage({ params }: PageProps) {
                       </span>
                     )}
                     {area.class && (
-                      <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-gray-100 text-gray-600">
+                      <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-slate-100 text-slate-600">
                         Class {area.class}
                       </span>
                     )}
-                    <span className="text-xs text-gray-400">
+                    <span className="text-xs text-slate-400">
                       {area.affectedSquareFootage} m²
                     </span>
                   </div>
@@ -226,10 +226,10 @@ export default async function ClientPortalPage({ params }: PageProps) {
 
         {/* Scope summary */}
         {inspection.scopeItems.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <h2 className="text-sm font-semibold text-gray-700 mb-3">
+          <div className="bg-white rounded-xl border border-slate-200 p-4">
+            <h2 className="text-sm font-semibold text-slate-700 mb-3">
               Scope of Works
-              <span className="ml-2 text-xs font-normal text-gray-400">
+              <span className="ml-2 text-xs font-normal text-slate-400">
                 ({inspection.scopeItems.length} items)
               </span>
             </h2>
@@ -237,7 +237,7 @@ export default async function ClientPortalPage({ params }: PageProps) {
               {inspection.scopeItems.map((item) => (
                 <li
                   key={item.id}
-                  className="flex items-start gap-2 text-sm text-gray-700"
+                  className="flex items-start gap-2 text-sm text-slate-700"
                 >
                   <svg
                     className="w-3.5 h-3.5 text-cyan-500 mt-0.5 flex-shrink-0"
@@ -259,17 +259,17 @@ export default async function ClientPortalPage({ params }: PageProps) {
 
         {/* Moisture overview */}
         {readings.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <h2 className="text-sm font-semibold text-gray-700 mb-3">
+          <div className="bg-white rounded-xl border border-slate-200 p-4">
+            <h2 className="text-sm font-semibold text-slate-700 mb-3">
               Moisture Overview
             </h2>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-2xl font-bold text-slate-900">
                   {avgMoisture ?? "—"}
-                  <span className="text-sm font-normal text-gray-400">%</span>
+                  <span className="text-sm font-normal text-slate-400">%</span>
                 </p>
-                <p className="text-xs text-gray-400 mt-0.5">
+                <p className="text-xs text-slate-400 mt-0.5">
                   Average current moisture
                 </p>
               </div>
@@ -285,7 +285,7 @@ export default async function ClientPortalPage({ params }: PageProps) {
               </div>
             </div>
             {/* Simple bar */}
-            <div className="mt-3 h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div className="mt-3 h-2 bg-slate-100 rounded-full overflow-hidden">
               <div
                 className={[
                   "h-full rounded-full transition-all",
@@ -331,12 +331,12 @@ export default async function ClientPortalPage({ params }: PageProps) {
       </div>
 
       {/* Footer */}
-      <footer className="max-w-2xl mx-auto px-4 py-6 text-center border-t border-gray-100 mt-4">
-        <p className="text-xs text-gray-400">
+      <footer className="max-w-2xl mx-auto px-4 py-6 text-center border-t border-slate-100 mt-4">
+        <p className="text-xs text-slate-400">
           Powered by{" "}
           <span className="font-semibold text-cyan-600">RestoreAssist</span>
         </p>
-        <p className="text-xs text-gray-400 mt-1">
+        <p className="text-xs text-slate-400 mt-1">
           For queries about your job, please contact your technician directly.
         </p>
       </footer>

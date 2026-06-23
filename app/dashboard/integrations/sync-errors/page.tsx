@@ -139,7 +139,7 @@ function SyncErrorRow({ error, onRetry, retryingId }: SyncErrorRowProps) {
       <TableCell>
         <Badge
           variant="outline"
-          className={`text-xs font-medium ${PROVIDER_COLOURS[providerKey] ?? "bg-gray-100 text-gray-800 border-gray-200"}`}
+          className={`text-xs font-medium ${PROVIDER_COLOURS[providerKey] ?? "bg-slate-100 text-slate-800 border-slate-200"}`}
         >
           {providerLabel(error.integration.provider)}
         </Badge>
@@ -147,7 +147,7 @@ function SyncErrorRow({ error, onRetry, retryingId }: SyncErrorRowProps) {
 
       {/* Error message */}
       <TableCell className="max-w-xs">
-        <span className="text-sm text-gray-700">
+        <span className="text-sm text-slate-700">
           {expanded || !isTruncated ? (msg ?? "—") : truncate(msg)}
         </span>
         {isTruncated && (
@@ -171,14 +171,14 @@ function SyncErrorRow({ error, onRetry, retryingId }: SyncErrorRowProps) {
 
       {/* Sync type */}
       <TableCell>
-        <span className="text-xs font-mono text-gray-600">
+        <span className="text-xs font-mono text-slate-600">
           {error.syncType}
         </span>
       </TableCell>
 
       {/* Timestamp */}
       <TableCell>
-        <span className="text-xs text-gray-500 whitespace-nowrap">
+        <span className="text-xs text-slate-500 whitespace-nowrap">
           {formatDate(error.startedAt)}
         </span>
       </TableCell>
@@ -188,7 +188,7 @@ function SyncErrorRow({ error, onRetry, retryingId }: SyncErrorRowProps) {
         <span className="text-sm font-medium text-red-700">
           {error.recordsFailed}
         </span>
-        <span className="text-xs text-gray-400">
+        <span className="text-xs text-slate-400">
           {" "}
           / {error.recordsProcessed}
         </span>
@@ -198,7 +198,7 @@ function SyncErrorRow({ error, onRetry, retryingId }: SyncErrorRowProps) {
       <TableCell>
         <Badge
           variant="outline"
-          className={`text-xs ${STATUS_STYLES[error.status] ?? "bg-gray-100 text-gray-600 border-gray-200"}`}
+          className={`text-xs ${STATUS_STYLES[error.status] ?? "bg-slate-100 text-slate-600 border-slate-200"}`}
         >
           {error.status}
         </Badge>
@@ -246,7 +246,7 @@ function WebhookErrorRow({ error }: WebhookErrorRowProps) {
         <div className="flex flex-col gap-1">
           <Badge
             variant="outline"
-            className={`text-xs font-medium w-fit ${PROVIDER_COLOURS[providerKey] ?? "bg-gray-100 text-gray-800 border-gray-200"}`}
+            className={`text-xs font-medium w-fit ${PROVIDER_COLOURS[providerKey] ?? "bg-slate-100 text-slate-800 border-slate-200"}`}
           >
             {providerLabel(error.integration.provider)}
           </Badge>
@@ -257,7 +257,7 @@ function WebhookErrorRow({ error }: WebhookErrorRowProps) {
       </TableCell>
 
       <TableCell className="max-w-xs">
-        <span className="text-sm text-gray-700">
+        <span className="text-sm text-slate-700">
           {expanded || !isTruncated ? (msg ?? "—") : truncate(msg)}
         </span>
         {isTruncated && (
@@ -279,13 +279,13 @@ function WebhookErrorRow({ error }: WebhookErrorRowProps) {
       </TableCell>
 
       <TableCell>
-        <span className="text-xs font-mono text-gray-600">
+        <span className="text-xs font-mono text-slate-600">
           {error.eventType}
         </span>
       </TableCell>
 
       <TableCell>
-        <span className="text-xs text-gray-500 whitespace-nowrap">
+        <span className="text-xs text-slate-500 whitespace-nowrap">
           {formatDate(error.createdAt)}
         </span>
       </TableCell>
@@ -294,13 +294,13 @@ function WebhookErrorRow({ error }: WebhookErrorRowProps) {
         <span className="text-sm font-medium text-amber-700">
           {error.retryCount}
         </span>
-        <span className="text-xs text-gray-400"> / 5</span>
+        <span className="text-xs text-slate-400"> / 5</span>
       </TableCell>
 
       <TableCell>
         <Badge
           variant="outline"
-          className={`text-xs ${STATUS_STYLES[error.status] ?? "bg-gray-100 text-gray-600 border-gray-200"}`}
+          className={`text-xs ${STATUS_STYLES[error.status] ?? "bg-slate-100 text-slate-600 border-slate-200"}`}
         >
           {error.status}
         </Badge>
@@ -469,12 +469,12 @@ export default function SyncErrorsPage() {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50">
       <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
         {/* Back link */}
         <button
           onClick={() => router.push("/dashboard/integrations")}
-          className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-6 transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 mb-6 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Integrations
@@ -483,7 +483,7 @@ export default function SyncErrorsPage() {
         {/* Header row */}
         <div className="flex items-start justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold text-gray-900">
+            <h1 className="text-2xl font-semibold text-slate-900">
               Sync Errors
             </h1>
             {!loading && (
@@ -533,15 +533,15 @@ export default function SyncErrorsPage() {
         <Separator className="mb-6" />
 
         {/* Filter tabs */}
-        <div className="flex gap-1 mb-6 bg-white border border-gray-200 rounded-lg p-1 w-fit">
+        <div className="flex gap-1 mb-6 bg-white border border-slate-200 rounded-lg p-1 w-fit">
           {FILTER_TABS.map((tab) => (
             <button
               key={tab.value}
               onClick={() => setActiveTab(tab.value)}
               className={`px-3 py-1.5 text-sm rounded-md font-medium transition-colors ${
                 activeTab === tab.value
-                  ? "bg-gray-900 text-white"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                  ? "bg-slate-900 text-white"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
               }`}
             >
               {tab.label}
@@ -564,10 +564,10 @@ export default function SyncErrorsPage() {
         )}
 
         {/* Main table */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
           <Table>
             <TableHeader>
-              <TableRow className="bg-gray-50">
+              <TableRow className="bg-slate-50">
                 <TableHead className="w-32">Provider</TableHead>
                 <TableHead>Error</TableHead>
                 <TableHead className="w-28">Sync Type</TableHead>
@@ -584,12 +584,12 @@ export default function SyncErrorsPage() {
                 (!showWebhooks || webhookErrors.length === 0) ? (
                 <TableRow>
                   <TableCell colSpan={7} className="py-16 text-center">
-                    <div className="flex flex-col items-center gap-3 text-gray-500">
+                    <div className="flex flex-col items-center gap-3 text-slate-500">
                       <CheckCircle2 className="h-10 w-10 text-green-500" />
-                      <p className="text-base font-medium text-gray-700">
+                      <p className="text-base font-medium text-slate-700">
                         No sync errors — all integrations healthy
                       </p>
-                      <p className="text-sm text-gray-400">
+                      <p className="text-sm text-slate-400">
                         Sync logs will appear here when errors occur.
                       </p>
                     </div>
@@ -617,7 +617,7 @@ export default function SyncErrorsPage() {
 
         {/* Footer count */}
         {!loading && (syncErrors.length > 0 || webhookErrors.length > 0) && (
-          <p className="mt-3 text-xs text-gray-400 text-right">
+          <p className="mt-3 text-xs text-slate-400 text-right">
             {syncErrors.length} sync log{syncErrors.length !== 1 ? "s" : ""}{" "}
             &middot; {webhookErrors.length} webhook error
             {webhookErrors.length !== 1 ? "s" : ""}

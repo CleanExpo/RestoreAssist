@@ -243,7 +243,7 @@ export default function Tier2Questions({
             Quick Fill Tier 2
           </button>
         </div>
-        <p className="text-sm text-gray-700 dark:text-slate-300">
+        <p className="text-sm text-slate-700 dark:text-slate-300">
           Review and refine additional information, then answer the advanced
           enhancement questions. All questions are optional but improve report
           quality.
@@ -251,11 +251,11 @@ export default function Tier2Questions({
       </div>
 
       {/* Initial Data Entry Form Fields - For Refinement */}
-      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
+      <div className="p-6 rounded-lg border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30">
         <h3 className="text-lg font-semibold mb-4 text-amber-600 dark:text-amber-400">
           Additional Information Review
         </h3>
-        <p className="text-sm text-gray-600 dark:text-slate-400 mb-4">
+        <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
           Review and refine the hazard profile, contacts, and maintenance
           history.
         </p>
@@ -263,7 +263,7 @@ export default function Tier2Questions({
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+              <label className="block text-sm font-medium mb-1 text-slate-700 dark:text-slate-300">
                 Insurer Name
               </label>
               <input
@@ -275,7 +275,7 @@ export default function Tier2Questions({
                     insurerName: e.target.value,
                   }))
                 }
-                className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
+                className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-white"
               />
             </div>
             <div>
@@ -290,7 +290,7 @@ export default function Tier2Questions({
                     methamphetamineScreen: e.target.value,
                   }))
                 }
-                className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
+                className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-white"
               >
                 <option value="NEGATIVE">NEGATIVE</option>
                 <option value="POSITIVE">POSITIVE</option>
@@ -309,7 +309,7 @@ export default function Tier2Questions({
                     methamphetamineTestCount: e.target.value,
                   }))
                 }
-                className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
+                className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-white"
               />
             </div>
             <div>
@@ -324,7 +324,7 @@ export default function Tier2Questions({
                     biologicalMouldDetected: e.target.value === "true",
                   }))
                 }
-                className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
+                className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-white"
               >
                 <option value="false">No</option>
                 <option value="true">Yes</option>
@@ -344,14 +344,14 @@ export default function Tier2Questions({
                       biologicalMouldCategory: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-white"
                 />
               </div>
             )}
           </div>
 
-          <div className="border-t border-gray-200 dark:border-slate-600 pt-4">
-            <h4 className="text-md font-semibold mb-3 text-gray-900 dark:text-white">
+          <div className="border-t border-slate-200 dark:border-slate-600 pt-4">
+            <h4 className="text-md font-semibold mb-3 text-slate-900 dark:text-white">
               Builder/Developer Information
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -368,7 +368,7 @@ export default function Tier2Questions({
                       builderDeveloperCompanyName: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-white"
                 />
               </div>
               <div>
@@ -384,7 +384,7 @@ export default function Tier2Questions({
                       builderDeveloperContact: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-white"
                 />
               </div>
               <div>
@@ -400,7 +400,7 @@ export default function Tier2Questions({
                       builderDeveloperAddress: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-white"
                 />
               </div>
               <div>
@@ -414,14 +414,14 @@ export default function Tier2Questions({
                       builderDeveloperPhone: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-white"
                 />
               </div>
             </div>
           </div>
 
-          <div className="border-t border-gray-200 dark:border-slate-600 pt-4">
-            <h4 className="text-md font-semibold mb-3 text-gray-900 dark:text-white">
+          <div className="border-t border-slate-200 dark:border-slate-600 pt-4">
+            <h4 className="text-md font-semibold mb-3 text-slate-900 dark:text-white">
               Owner/Management Information
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -438,7 +438,7 @@ export default function Tier2Questions({
                       ownerManagementContactName: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-white"
                 />
               </div>
               <div>
@@ -452,7 +452,7 @@ export default function Tier2Questions({
                       ownerManagementPhone: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-white"
                 />
               </div>
               <div>
@@ -466,14 +466,14 @@ export default function Tier2Questions({
                       ownerManagementEmail: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-white"
                 />
               </div>
             </div>
           </div>
 
-          <div className="border-t border-gray-200 dark:border-slate-600 pt-4">
-            <h4 className="text-md font-semibold mb-3 text-gray-900 dark:text-white">
+          <div className="border-t border-slate-200 dark:border-slate-600 pt-4">
+            <h4 className="text-md font-semibold mb-3 text-slate-900 dark:text-white">
               Previous Maintenance & Repair History
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -490,7 +490,7 @@ export default function Tier2Questions({
                       lastInspectionDate: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-white"
                 />
               </div>
               <div>
@@ -506,7 +506,7 @@ export default function Tier2Questions({
                       buildingChangedSinceLastInspection: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-white"
                 />
               </div>
               <div>
@@ -522,7 +522,7 @@ export default function Tier2Questions({
                       structureChangesSinceLastInspection: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-white"
                 />
               </div>
               <div>
@@ -538,7 +538,7 @@ export default function Tier2Questions({
                       previousLeakage: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-white"
                 />
               </div>
               <div>
@@ -554,7 +554,7 @@ export default function Tier2Questions({
                       emergencyRepairPerformed: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-white"
                 />
               </div>
             </div>
@@ -567,18 +567,18 @@ export default function Tier2Questions({
         <h3 className="text-lg font-semibold text-amber-700 dark:text-amber-400 mb-2">
           Advanced Enhancement Questions
         </h3>
-        <p className="text-sm text-gray-700 dark:text-slate-300">
+        <p className="text-sm text-slate-700 dark:text-slate-300">
           These advanced questions enhance scope detail and remediation
           sequencing.
         </p>
       </div>
 
       {/* T2_Q1: Moisture Readings */}
-      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+      <div className="p-6 rounded-lg border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30">
+        <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">
           T2_Q1: Moisture Readings
         </h3>
-        <p className="text-sm text-gray-600 dark:text-slate-400 mb-4">
+        <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
           Enter moisture readings in %MC (moisture content) for each
           material/location. Example: 'Kitchen tile subfloor 8% MC, Master
           Bedroom carpet 32% MC, Hallway yellow tongue 22% MC'. Include thermal
@@ -594,16 +594,16 @@ export default function Tier2Questions({
           }
           rows={6}
           placeholder="Enter moisture readings here..."
-          className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
+          className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400"
         />
       </div>
 
       {/* T2_Q2: Water Migration Pattern */}
-      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+      <div className="p-6 rounded-lg border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30">
+        <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">
           T2_Q2: Water Migration Pattern
         </h3>
-        <p className="text-sm text-gray-600 dark:text-slate-400 mb-4">
+        <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
           Example: 'Water emerged from kitchen sink burst pipe, soaked through
           yellow tongue subfloor, saturated insulation in cavity, dripped
           through ceiling into two bedrooms below. Wall cavities also saturated
@@ -620,16 +620,16 @@ export default function Tier2Questions({
           }
           rows={6}
           placeholder="Describe water migration pattern..."
-          className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
+          className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400"
         />
       </div>
 
       {/* T2_Q3: Equipment Deployed */}
-      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+      <div className="p-6 rounded-lg border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30">
+        <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">
           T2_Q3: Equipment Deployed
         </h3>
-        <p className="text-sm text-gray-600 dark:text-slate-400 mb-4">
+        <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
           Equipment already deployed: 18 air movers (type?), 4 dehumidifiers
           (LGR or desiccant?), 2 AFD units. If different numbers/types, please
           specify. Power consumed/available circuits?
@@ -644,16 +644,16 @@ export default function Tier2Questions({
           }
           rows={6}
           placeholder="Describe equipment deployed..."
-          className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
+          className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400"
         />
       </div>
 
       {/* T2_Q4: Affected Contents */}
-      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+      <div className="p-6 rounded-lg border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30">
+        <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">
           T2_Q4: Affected Contents
         </h3>
-        <p className="text-sm text-gray-600 dark:text-slate-400 mb-4">
+        <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
           Example: 'Kitchen: wooden cabinets (swollen, door misalignment), tile
           grout saturated. Lounge: sofa (fabric absorbed water, requires
           cleaning), coffee table (timber veneer swollen). Bedrooms: beds (wet
@@ -670,16 +670,16 @@ export default function Tier2Questions({
           }
           rows={6}
           placeholder="Describe affected contents..."
-          className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
+          className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400"
         />
       </div>
 
       {/* T2_Q5: Structural Concerns */}
-      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+      <div className="p-6 rounded-lg border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30">
+        <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">
           T2_Q5: Structural Concerns
         </h3>
-        <p className="text-sm text-gray-600 dark:text-slate-400 mb-4">
+        <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
           Select all that apply
         </p>
         <div className="space-y-2">
@@ -697,7 +697,7 @@ export default function Tier2Questions({
           ].map((option) => (
             <label
               key={option}
-              className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/30 cursor-pointer border border-transparent hover:border-gray-300 dark:hover:border-slate-600"
+              className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/30 cursor-pointer border border-transparent hover:border-slate-300 dark:hover:border-slate-600"
             >
               <input
                 type="checkbox"
@@ -707,7 +707,7 @@ export default function Tier2Questions({
                 }
                 className="w-4 h-4 text-cyan-500 rounded"
               />
-              <span className="text-gray-700 dark:text-slate-300">
+              <span className="text-slate-700 dark:text-slate-300">
                 {option}
               </span>
             </label>
@@ -723,18 +723,18 @@ export default function Tier2Questions({
                 }))
               }
               placeholder="Please specify"
-              className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg mt-2 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
+              className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg mt-2 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400"
             />
           )}
         </div>
       </div>
 
       {/* T2_Q6: Building Services Affected */}
-      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+      <div className="p-6 rounded-lg border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30">
+        <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">
           T2_Q6: Building Services Affected
         </h3>
-        <p className="text-sm text-gray-600 dark:text-slate-400 mb-4">
+        <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
           Select all that apply
         </p>
         <div className="space-y-2">
@@ -751,7 +751,7 @@ export default function Tier2Questions({
           ].map((option) => (
             <label
               key={option}
-              className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/30 cursor-pointer border border-transparent hover:border-gray-300 dark:hover:border-slate-600"
+              className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/30 cursor-pointer border border-transparent hover:border-slate-300 dark:hover:border-slate-600"
             >
               <input
                 type="checkbox"
@@ -763,7 +763,7 @@ export default function Tier2Questions({
                 }
                 className="w-4 h-4 text-cyan-500 rounded"
               />
-              <span className="text-gray-700 dark:text-slate-300">
+              <span className="text-slate-700 dark:text-slate-300">
                 {option}
               </span>
             </label>
@@ -772,11 +772,11 @@ export default function Tier2Questions({
       </div>
 
       {/* T2_Q7: Insurance Coverage Considerations */}
-      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+      <div className="p-6 rounded-lg border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30">
+        <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">
           T2_Q7: Insurance Coverage Considerations
         </h3>
-        <p className="text-sm text-gray-600 dark:text-slate-400 mb-4">
+        <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
           Example: 'Client mentioned 'gradual leak exclusion' in their policy,
           but this is sudden burst. Confirm with insurer.' Or 'Contents policy
           has $50K limit; estimated contents damage $60K — may exceed coverage.'
@@ -792,7 +792,7 @@ export default function Tier2Questions({
           }
           rows={6}
           placeholder="Enter insurance considerations..."
-          className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
+          className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400"
         />
       </div>
 
@@ -803,7 +803,7 @@ export default function Tier2Questions({
             {onSkip && (
               <button
                 onClick={onSkip}
-                className="flex items-center gap-2 px-6 py-3 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/50 transition-colors text-gray-700 dark:text-slate-300"
+                className="flex items-center gap-2 px-6 py-3 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors text-slate-700 dark:text-slate-300"
               >
                 <SkipForward className="w-4 h-4" />
                 Skip Tier 2
@@ -825,7 +825,7 @@ export default function Tier2Questions({
               <h3 className="text-xl font-semibold text-green-700 dark:text-green-400 mb-2">
                 Tier 2 Completed Successfully!
               </h3>
-              <p className="text-sm text-gray-700 dark:text-slate-300 mb-6">
+              <p className="text-sm text-slate-700 dark:text-slate-300 mb-6">
                 You can now generate an Optimised report with Tier 1 & Tier 2
                 data, or continue to Tier 3 for photo uploads and final
                 optimization.
@@ -841,10 +841,10 @@ export default function Tier2Questions({
                     <Save className="w-6 h-6 text-green-600 dark:text-green-300" />
                   </div>
                   <div className="text-center">
-                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+                    <h4 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">
                       Generate Optimised Report
                     </h4>
-                    <p className="text-sm text-gray-600 dark:text-slate-300">
+                    <p className="text-sm text-slate-600 dark:text-slate-300">
                       Generate report with Tier 1 & Tier 2 data
                     </p>
                   </div>
@@ -859,10 +859,10 @@ export default function Tier2Questions({
                     <ArrowRight className="w-6 h-6 text-cyan-600 dark:text-cyan-300" />
                   </div>
                   <div className="text-center">
-                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+                    <h4 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">
                       Continue to Tier 3
                     </h4>
-                    <p className="text-sm text-gray-600 dark:text-slate-300">
+                    <p className="text-sm text-slate-600 dark:text-slate-300">
                       Add photos and final optimization
                     </p>
                   </div>

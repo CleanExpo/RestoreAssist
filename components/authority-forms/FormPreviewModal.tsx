@@ -99,7 +99,7 @@ export function FormPreviewModal({
         <ScrollArea className="h-[calc(90vh-180px)]">
           <div className="px-6 py-6">
             {/* Company Header */}
-            <div className="border-b-2 border-gray-300 dark:border-slate-700 pb-6 mb-6">
+            <div className="border-b-2 border-slate-300 dark:border-slate-700 pb-6 mb-6">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   {form.companyLogo && (
@@ -208,7 +208,7 @@ export function FormPreviewModal({
             </div>
 
             {/* Signatures Section */}
-            <div className="border-t-2 border-gray-300 dark:border-slate-700 pt-6">
+            <div className="border-t-2 border-slate-300 dark:border-slate-700 pt-6">
               <h4 className="text-base font-semibold mb-4 text-slate-900 dark:text-white">
                 Required Signatures (
                 {form.signatures.filter((s) => s.signedAt).length} of{" "}

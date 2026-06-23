@@ -190,7 +190,7 @@ export function SignatureCanvas({
 
   return (
     <div ref={containerRef} className="w-full">
-      <div className="border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-lg overflow-hidden bg-white">
+      <div className="border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg overflow-hidden bg-white">
         <canvas
           ref={canvasRef}
           width={canvasSize.width}
@@ -216,7 +216,7 @@ export function SignatureCanvas({
             type="button"
             onClick={handleClear}
             disabled={disabled || !hasSignature}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             <Eraser className="h-3.5 w-3.5" />
             Clear
@@ -225,7 +225,7 @@ export function SignatureCanvas({
             type="button"
             onClick={handleUndo}
             disabled={disabled || strokeHistory.length === 0}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             <Undo2 className="h-3.5 w-3.5" />
             Undo
@@ -233,7 +233,7 @@ export function SignatureCanvas({
 
           {/* Color picker */}
           {showColorPicker && (
-            <div className="flex items-center gap-1 border border-gray-300 dark:border-slate-600 rounded-md p-1">
+            <div className="flex items-center gap-1 border border-slate-300 dark:border-slate-600 rounded-md p-1">
               <button
                 type="button"
                 onClick={() => setLineColor("#000000")}
@@ -241,7 +241,7 @@ export function SignatureCanvas({
                 className={`w-7 h-7 rounded border-2 ${
                   lineColor === "#000000"
                     ? "border-cyan-500 ring-2 ring-cyan-200 dark:ring-cyan-800"
-                    : "border-gray-300 dark:border-slate-600"
+                    : "border-slate-300 dark:border-slate-600"
                 } bg-black transition-all`}
                 title="Black ink"
               />
@@ -252,7 +252,7 @@ export function SignatureCanvas({
                 className={`w-7 h-7 rounded border-2 ${
                   lineColor === "#0000FF"
                     ? "border-cyan-500 ring-2 ring-cyan-200 dark:ring-cyan-800"
-                    : "border-gray-300 dark:border-slate-600"
+                    : "border-slate-300 dark:border-slate-600"
                 } bg-blue-600 transition-all`}
                 title="Blue ink"
               />
@@ -261,7 +261,7 @@ export function SignatureCanvas({
 
           {/* Line width picker */}
           {showLineWidthPicker && (
-            <div className="flex items-center gap-1 border border-gray-300 dark:border-slate-600 rounded-md p-1">
+            <div className="flex items-center gap-1 border border-slate-300 dark:border-slate-600 rounded-md p-1">
               <button
                 type="button"
                 onClick={() => setLineWidth(1.5)}
@@ -269,7 +269,7 @@ export function SignatureCanvas({
                 className={`w-7 h-7 rounded flex items-center justify-center ${
                   lineWidth === 1.5
                     ? "bg-cyan-100 dark:bg-cyan-950/30 border-cyan-500"
-                    : "hover:bg-gray-100 dark:hover:bg-slate-800"
+                    : "hover:bg-slate-100 dark:hover:bg-slate-800"
                 } border transition-all`}
                 title="Thin line"
               >
@@ -282,7 +282,7 @@ export function SignatureCanvas({
                 className={`w-7 h-7 rounded flex items-center justify-center ${
                   lineWidth === 2.5
                     ? "bg-cyan-100 dark:bg-cyan-950/30 border-cyan-500"
-                    : "hover:bg-gray-100 dark:hover:bg-slate-800"
+                    : "hover:bg-slate-100 dark:hover:bg-slate-800"
                 } border transition-all`}
                 title="Medium line"
               >
@@ -295,7 +295,7 @@ export function SignatureCanvas({
                 className={`w-7 h-7 rounded flex items-center justify-center ${
                   lineWidth === 3.5
                     ? "bg-cyan-100 dark:bg-cyan-950/30 border-cyan-500"
-                    : "hover:bg-gray-100 dark:hover:bg-slate-800"
+                    : "hover:bg-slate-100 dark:hover:bg-slate-800"
                 } border transition-all`}
                 title="Thick line"
               >

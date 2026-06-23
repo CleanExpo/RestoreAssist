@@ -72,21 +72,21 @@ export function ClientPortalAuthorities({ token }: { token: string }) {
   if (authorities.length === 0) return null; // nothing to approve
 
   return (
-    <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 space-y-3">
+    <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-3">
       <div>
-        <h2 className="text-sm font-semibold text-gray-900">
+        <h2 className="text-sm font-semibold text-slate-900">
           Approvals needed from you
         </h2>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-slate-500">
           Please review and approve the authorities below by typing your full
           name to sign.
         </p>
       </div>
       <ul className="space-y-3">
         {authorities.map((a) => (
-          <li key={a.id} className="rounded-lg border border-gray-200 p-3">
-            <p className="text-sm font-medium text-gray-900">{a.name}</p>
-            <p className="text-xs text-gray-500 mt-0.5">{a.description}</p>
+          <li key={a.id} className="rounded-lg border border-slate-200 p-3">
+            <p className="text-sm font-medium text-slate-900">{a.name}</p>
+            <p className="text-xs text-slate-500 mt-0.5">{a.description}</p>
             {signed[a.id] ? (
               <p
                 role="status"
@@ -104,7 +104,7 @@ export function ClientPortalAuthorities({ token }: { token: string }) {
                   }
                   placeholder="Type your full name to sign"
                   aria-label={`Your full name to approve ${a.name}`}
-                  className="flex-1 min-w-[180px] px-2 py-1.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                  className="flex-1 min-w-[180px] px-2 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-400"
                 />
                 <button
                   type="button"

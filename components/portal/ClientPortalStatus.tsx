@@ -46,16 +46,16 @@ export function ClientPortalStatus({ token }: { token: string }) {
   if (!feed) return null;
 
   return (
-    <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 space-y-3">
+    <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-gray-900">Claim status</h2>
+        <h2 className="text-sm font-semibold text-slate-900">Claim status</h2>
         <span className="text-xs font-medium text-cyan-700">
           {feed.currentStep}
         </span>
       </div>
 
       <div
-        className="h-2 w-full rounded-full bg-gray-100 overflow-hidden"
+        className="h-2 w-full rounded-full bg-slate-100 overflow-hidden"
         role="progressbar"
         aria-valuenow={feed.progressPct}
         aria-valuemin={0}
@@ -72,7 +72,7 @@ export function ClientPortalStatus({ token }: { token: string }) {
         {feed.steps.map((s) => (
           <li
             key={s.key}
-            className={s.done ? "text-cyan-700 font-medium" : "text-gray-400"}
+            className={s.done ? "text-cyan-700 font-medium" : "text-slate-400"}
           >
             {s.done ? "✓" : "○"} {s.label}
           </li>

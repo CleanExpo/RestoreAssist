@@ -60,10 +60,10 @@ export function PropertyLookupPanel({ className }: { className?: string }) {
 
   return (
     <div className={className}>
-      <h2 className="text-sm font-semibold text-gray-900 mb-2">
+      <h2 className="text-sm font-semibold text-slate-900 mb-2">
         Property lookup (paste page)
       </h2>
-      <label htmlFor="prop-url" className="block text-xs text-gray-500 mb-1">
+      <label htmlFor="prop-url" className="block text-xs text-slate-500 mb-1">
         Source URL
       </label>
       <input
@@ -72,9 +72,9 @@ export function PropertyLookupPanel({ className }: { className?: string }) {
         value={sourceUrl}
         onChange={(e) => setSourceUrl(e.target.value)}
         placeholder="https://www.onthehouse.com.au/property/…"
-        className="w-full px-2 py-1.5 mb-2 rounded-lg border border-gray-200 text-sm"
+        className="w-full px-2 py-1.5 mb-2 rounded-lg border border-slate-200 text-sm"
       />
-      <label htmlFor="prop-html" className="block text-xs text-gray-500 mb-1">
+      <label htmlFor="prop-html" className="block text-xs text-slate-500 mb-1">
         Page HTML
       </label>
       <textarea
@@ -83,7 +83,7 @@ export function PropertyLookupPanel({ className }: { className?: string }) {
         onChange={(e) => setHtml(e.target.value)}
         rows={4}
         placeholder="Paste the property page's HTML source here…"
-        className="w-full px-2 py-1.5 mb-2 rounded-lg border border-gray-200 text-sm font-mono"
+        className="w-full px-2 py-1.5 mb-2 rounded-lg border border-slate-200 text-sm font-mono"
       />
       <button
         type="button"
@@ -102,18 +102,18 @@ export function PropertyLookupPanel({ className }: { className?: string }) {
 
       {result && (
         <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-          <dt className="text-gray-500">Address</dt>
-          <dd className="text-gray-900">{result.address || "—"}</dd>
-          <dt className="text-gray-500">Beds</dt>
-          <dd className="text-gray-900">{fmt(result.beds)}</dd>
-          <dt className="text-gray-500">Baths</dt>
-          <dd className="text-gray-900">{fmt(result.baths)}</dd>
-          <dt className="text-gray-500">Car spaces</dt>
-          <dd className="text-gray-900">{fmt(result.carSpaces)}</dd>
-          <dt className="text-gray-500">Land size</dt>
-          <dd className="text-gray-900">{fmt(result.landSizeM2, " m²")}</dd>
-          <dt className="text-gray-500">Floor area</dt>
-          <dd className="text-gray-900">{fmt(result.floorAreaM2, " m²")}</dd>
+          <dt className="text-slate-500">Address</dt>
+          <dd className="text-slate-900">{result.address || "—"}</dd>
+          <dt className="text-slate-500">Beds</dt>
+          <dd className="text-slate-900">{fmt(result.beds)}</dd>
+          <dt className="text-slate-500">Baths</dt>
+          <dd className="text-slate-900">{fmt(result.baths)}</dd>
+          <dt className="text-slate-500">Car spaces</dt>
+          <dd className="text-slate-900">{fmt(result.carSpaces)}</dd>
+          <dt className="text-slate-500">Land size</dt>
+          <dd className="text-slate-900">{fmt(result.landSizeM2, " m²")}</dd>
+          <dt className="text-slate-500">Floor area</dt>
+          <dd className="text-slate-900">{fmt(result.floorAreaM2, " m²")}</dd>
         </dl>
       )}
     </div>

@@ -3311,7 +3311,7 @@ export default function InitialDataEntryForm({
             </h3>
             <div className="space-y-4">
               {/* Builder/Developer Information */}
-              <div className="p-3 rounded-lg border border-neutral-300 dark:border-neutral-700/50 bg-gray-50 dark:bg-slate-900/30">
+              <div className="p-3 rounded-lg border border-neutral-300 dark:border-neutral-700/50 bg-slate-50 dark:bg-slate-900/30">
                 <h4 className="text-sm font-semibold mb-3 text-neutral-700 dark:text-neutral-300">
                   Builder/Developer Information
                 </h4>
@@ -3408,7 +3408,7 @@ export default function InitialDataEntryForm({
               </div>
 
               {/* Owner/Management Information */}
-              <div className="p-3 rounded-lg border border-neutral-300 dark:border-neutral-700/50 bg-gray-50 dark:bg-slate-900/30">
+              <div className="p-3 rounded-lg border border-neutral-300 dark:border-neutral-700/50 bg-slate-50 dark:bg-slate-900/30">
                 <h4 className="text-sm font-semibold mb-3 text-neutral-700 dark:text-neutral-300">
                   Owner/Management Information
                 </h4>
@@ -4484,8 +4484,8 @@ export default function InitialDataEntryForm({
               </div>
 
               <div className="grid md:grid-cols-2 gap-6">
-                <div className="p-6 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-gray-50 dark:bg-slate-900/30">
-                  <h4 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+                <div className="p-6 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-slate-50 dark:bg-slate-900/30">
+                  <h4 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">
                     Water Loss Class
                   </h4>
                   <div className="grid grid-cols-4 gap-2 mb-4">
@@ -4513,7 +4513,7 @@ export default function InitialDataEntryForm({
                     <div>
                       <div className="flex items-center gap-2 mb-2">
                         <Thermometer className="w-5 h-5 text-orange-500 dark:text-orange-400" />
-                        <label className="font-medium text-gray-900 dark:text-white">
+                        <label className="font-medium text-slate-900 dark:text-white">
                           Temperature: {temperature}°C
                         </label>
                       </div>
@@ -4532,7 +4532,7 @@ export default function InitialDataEntryForm({
                     <div>
                       <div className="flex items-center gap-2 mb-2">
                         <Droplets className="w-5 h-5 text-blue-500 dark:text-blue-400" />
-                        <label className="font-medium text-gray-900 dark:text-white">
+                        <label className="font-medium text-slate-900 dark:text-white">
                           Humidity: {humidity}%
                         </label>
                       </div>
@@ -4596,24 +4596,24 @@ export default function InitialDataEntryForm({
               </div>
 
               <div className="grid md:grid-cols-2 gap-6">
-                <div className="p-6 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-gray-50 dark:bg-slate-900/30">
-                  <h4 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white">
+                <div className="p-6 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-slate-50 dark:bg-slate-900/30">
+                  <h4 className="text-lg font-semibold mb-2 text-slate-900 dark:text-white">
                     Job Manifest
                   </h4>
-                  <div className="p-4 bg-white dark:bg-slate-800/50 rounded-lg mb-4 border border-gray-200 dark:border-slate-700">
-                    <h5 className="font-semibold mb-3 text-gray-900 dark:text-white">
+                  <div className="p-4 bg-white dark:bg-slate-800/50 rounded-lg mb-4 border border-slate-200 dark:border-slate-700">
+                    <h5 className="font-semibold mb-3 text-slate-900 dark:text-white">
                       Efficiency Targets
                     </h5>
                     <div className="space-y-3">
                       <div>
-                        <div className="flex justify-between text-sm mb-1 text-gray-700 dark:text-gray-300">
+                        <div className="flex justify-between text-sm mb-1 text-slate-700 dark:text-slate-300">
                           <span>Water Removal</span>
                           <span>
                             {totalEquipmentCapacity} / {waterRemovalTarget}{" "}
                             L/Day
                           </span>
                         </div>
-                        <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2">
+                        <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
                           <div
                             className="bg-cyan-500 h-2 rounded-full"
                             style={{
@@ -4630,13 +4630,13 @@ export default function InitialDataEntryForm({
                         </div>
                       </div>
                       <div>
-                        <div className="flex justify-between text-sm mb-1 text-gray-700 dark:text-gray-300">
+                        <div className="flex justify-between text-sm mb-1 text-slate-700 dark:text-slate-300">
                           <span>Air Movement</span>
                           <span>
                             {totalAirMoverUnits} / {airMoversRequired} Units
                           </span>
                         </div>
-                        <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2">
+                        <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
                           <div
                             className="bg-cyan-500 h-2 rounded-full"
                             style={{
@@ -4653,13 +4653,13 @@ export default function InitialDataEntryForm({
                       </div>
                       {requiresAFD && (
                         <div>
-                          <div className="flex justify-between text-sm mb-1 text-gray-700 dark:text-gray-300">
+                          <div className="flex justify-between text-sm mb-1 text-slate-700 dark:text-slate-300">
                             <span>Air Filtration (AFD)</span>
                             <span>
                               {totalAFDUnits} / {afdUnitsRequired} Units
                             </span>
                           </div>
-                          <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2">
+                          <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
                             <div
                               className="bg-cyan-500 h-2 rounded-full"
                               style={{
@@ -4676,11 +4676,11 @@ export default function InitialDataEntryForm({
                       )}
                     </div>
                   </div>
-                  <div className="p-4 bg-white dark:bg-slate-800/50 rounded-lg border border-gray-200 dark:border-slate-700">
-                    <h5 className="font-semibold mb-3 text-gray-900 dark:text-white">
+                  <div className="p-4 bg-white dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <h5 className="font-semibold mb-3 text-slate-900 dark:text-white">
                       ESTIMATED CONSUMPTION
                     </h5>
-                    <div className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">
+                    <div className="text-2xl font-bold mb-2 text-slate-900 dark:text-white">
                       ${totalCost.toFixed(2)}
                     </div>
                     <div className="flex items-center gap-2 mb-2">
@@ -4711,8 +4711,8 @@ export default function InitialDataEntryForm({
                     Auto-Select Best Fit
                   </button>
 
-                  <div className="p-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-gray-50 dark:bg-slate-900/30 max-h-96 overflow-y-auto">
-                    <h5 className="font-semibold mb-3 text-gray-900 dark:text-white">
+                  <div className="p-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-slate-50 dark:bg-slate-900/30 max-h-96 overflow-y-auto">
+                    <h5 className="font-semibold mb-3 text-slate-900 dark:text-white">
                       LGR DEHUMIDIFIERS
                     </h5>
                     <div className="space-y-2">
@@ -4727,15 +4727,15 @@ export default function InitialDataEntryForm({
                             className={`p-3 rounded-lg border ${
                               quantity > 0
                                 ? "border-cyan-500/50 bg-cyan-500/10"
-                                : "border-gray-300 dark:border-slate-700 bg-gray-100 dark:bg-slate-800/50"
+                                : "border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/50"
                             }`}
                           >
                             <div className="flex items-center justify-between">
                               <div className="flex-1">
-                                <div className="font-medium text-sm text-gray-900 dark:text-white">
+                                <div className="font-medium text-sm text-slate-900 dark:text-white">
                                   {group.capacity}
                                 </div>
-                                <div className="text-xs text-gray-600 dark:text-neutral-400">
+                                <div className="text-xs text-slate-600 dark:text-neutral-400">
                                   $
                                   {(
                                     selection?.dailyRate ||
@@ -4760,7 +4760,7 @@ export default function InitialDataEntryForm({
                                   onClick={() =>
                                     handleEquipmentQuantityChange(group.id, -1)
                                   }
-                                  className="w-8 h-8 flex items-center justify-center bg-gray-200 dark:bg-slate-700 hover:bg-gray-300 dark:hover:bg-slate-600 rounded text-gray-700 dark:text-white"
+                                  className="w-8 h-8 flex items-center justify-center bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded text-slate-700 dark:text-white"
                                 >
                                   <Minus className="w-4 h-4" />
                                 </button>
@@ -4769,7 +4769,7 @@ export default function InitialDataEntryForm({
                                   onClick={() =>
                                     handleEquipmentQuantityChange(group.id, 1)
                                   }
-                                  className="w-8 h-8 flex items-center justify-center bg-gray-200 dark:bg-slate-700 hover:bg-gray-300 dark:hover:bg-slate-600 rounded text-gray-700 dark:text-white"
+                                  className="w-8 h-8 flex items-center justify-center bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded text-slate-700 dark:text-white"
                                 >
                                   <Plus className="w-4 h-4" />
                                 </button>
@@ -4780,7 +4780,7 @@ export default function InitialDataEntryForm({
                       })}
                     </div>
 
-                    <h5 className="font-semibold mb-3 mt-4 text-gray-900 dark:text-white">
+                    <h5 className="font-semibold mb-3 mt-4 text-slate-900 dark:text-white">
                       AIR MOVERS
                     </h5>
                     <div className="space-y-2">
@@ -4795,15 +4795,15 @@ export default function InitialDataEntryForm({
                             className={`p-3 rounded-lg border ${
                               quantity > 0
                                 ? "border-cyan-500/50 bg-cyan-500/10"
-                                : "border-gray-300 dark:border-slate-700 bg-gray-100 dark:bg-slate-800/50"
+                                : "border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/50"
                             }`}
                           >
                             <div className="flex items-center justify-between">
                               <div className="flex-1">
-                                <div className="font-medium text-sm text-gray-900 dark:text-white">
+                                <div className="font-medium text-sm text-slate-900 dark:text-white">
                                   {group.capacity}
                                 </div>
-                                <div className="text-xs text-gray-600 dark:text-neutral-400">
+                                <div className="text-xs text-slate-600 dark:text-neutral-400">
                                   $
                                   {(
                                     selection?.dailyRate ||
@@ -4828,7 +4828,7 @@ export default function InitialDataEntryForm({
                                   onClick={() =>
                                     handleEquipmentQuantityChange(group.id, -1)
                                   }
-                                  className="w-8 h-8 flex items-center justify-center bg-gray-200 dark:bg-slate-700 hover:bg-gray-300 dark:hover:bg-slate-600 rounded text-gray-700 dark:text-white"
+                                  className="w-8 h-8 flex items-center justify-center bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded text-slate-700 dark:text-white"
                                 >
                                   <Minus className="w-4 h-4" />
                                 </button>
@@ -4837,7 +4837,7 @@ export default function InitialDataEntryForm({
                                   onClick={() =>
                                     handleEquipmentQuantityChange(group.id, 1)
                                   }
-                                  className="w-8 h-8 flex items-center justify-center bg-gray-200 dark:bg-slate-700 hover:bg-gray-300 dark:hover:bg-slate-600 rounded text-gray-700 dark:text-white"
+                                  className="w-8 h-8 flex items-center justify-center bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded text-slate-700 dark:text-white"
                                 >
                                   <Plus className="w-4 h-4" />
                                 </button>
@@ -4848,10 +4848,10 @@ export default function InitialDataEntryForm({
                       })}
                     </div>
 
-                    <h5 className="font-semibold mb-3 mt-4 text-gray-900 dark:text-white">
+                    <h5 className="font-semibold mb-3 mt-4 text-slate-900 dark:text-white">
                       AFD / AIR FILTRATION (HEPA)
                     </h5>
-                    <p className="text-xs text-gray-600 dark:text-neutral-400 mb-3">
+                    <p className="text-xs text-slate-600 dark:text-neutral-400 mb-3">
                       Use for containment/filtration scenarios (e.g., mould,
                       Category 2/3 contamination, demolition dust).
                     </p>
@@ -4867,7 +4867,7 @@ export default function InitialDataEntryForm({
                             className={`p-3 rounded-lg border ${
                               quantity > 0
                                 ? "border-cyan-500/50 bg-cyan-500/10"
-                                : "border-gray-300 dark:border-slate-700 bg-gray-100 dark:bg-slate-800/50"
+                                : "border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/50"
                             }`}
                           >
                             <div className="flex items-center justify-between">
@@ -4900,7 +4900,7 @@ export default function InitialDataEntryForm({
                                   onClick={() =>
                                     handleEquipmentQuantityChange(group.id, -1)
                                   }
-                                  className="w-8 h-8 flex items-center justify-center bg-gray-200 dark:bg-slate-700 hover:bg-gray-300 dark:hover:bg-slate-600 rounded text-gray-700 dark:text-white"
+                                  className="w-8 h-8 flex items-center justify-center bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded text-slate-700 dark:text-white"
                                 >
                                   <Minus className="w-4 h-4" />
                                 </button>
@@ -4909,7 +4909,7 @@ export default function InitialDataEntryForm({
                                   onClick={() =>
                                     handleEquipmentQuantityChange(group.id, 1)
                                   }
-                                  className="w-8 h-8 flex items-center justify-center bg-gray-200 dark:bg-slate-700 hover:bg-gray-300 dark:hover:bg-slate-600 rounded text-gray-700 dark:text-white"
+                                  className="w-8 h-8 flex items-center justify-center bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded text-slate-700 dark:text-white"
                                 >
                                   <Plus className="w-4 h-4" />
                                 </button>

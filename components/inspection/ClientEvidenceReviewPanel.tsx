@@ -84,13 +84,13 @@ export function ClientEvidenceReviewPanel({
   return (
     <section className="bg-white rounded-2xl shadow-sm border border-amber-200 p-5 space-y-3">
       <div>
-        <h2 className="text-sm font-semibold text-gray-900">
+        <h2 className="text-sm font-semibold text-slate-900">
           Client photos awaiting your review
           <span className="ml-2 text-xs font-normal text-amber-600">
             ({submissions.length})
           </span>
         </h2>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-slate-500">
           Your client sent these through their portal link. Review them, then
           add them to the report’s evidence record.
         </p>
@@ -98,7 +98,7 @@ export function ClientEvidenceReviewPanel({
 
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {submissions.map((s) => (
-          <li key={s.id} className="rounded-lg border border-gray-200 p-2">
+          <li key={s.id} className="rounded-lg border border-slate-200 p-2">
             {s.viewUrl ? (
               <a
                 href={s.viewUrl}
@@ -114,12 +114,12 @@ export function ClientEvidenceReviewPanel({
                 />
               </a>
             ) : (
-              <div className="w-full h-24 rounded bg-gray-50 flex items-center justify-center text-center text-xs text-gray-500 p-2">
+              <div className="w-full h-24 rounded bg-slate-50 flex items-center justify-center text-center text-xs text-slate-500 p-2">
                 {s.description ?? "Note"}
               </div>
             )}
             {s.viewUrl && s.description && (
-              <p className="text-xs text-gray-500 mt-1 line-clamp-2">
+              <p className="text-xs text-slate-500 mt-1 line-clamp-2">
                 {s.description}
               </p>
             )}

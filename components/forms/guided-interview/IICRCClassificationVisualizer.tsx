@@ -384,7 +384,7 @@ export function IICRCClassificationVisualizer({
               </div>
 
               {/* Affected Materials */}
-              <div className="space-y-2 p-3 bg-gray-50 border border-gray-200 rounded">
+              <div className="space-y-2 p-3 bg-slate-50 border border-slate-200 rounded">
                 <h4 className="font-semibold text-sm">
                   Typically Affected Materials
                 </h4>
