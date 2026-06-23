@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { RAIcon } from "@/src/components/brand/RAIcon";
 
 export interface CaptureSubmitPayload {
   file: File;
@@ -73,15 +74,21 @@ export function CapturePhotoTagModal({
         )}
         <div className="text-xs text-muted-foreground space-y-1">
           <p>
-            📍{" "}
+            <RAIcon name="map" size={13} decorative className="mr-1" />
             {gps
               ? `${gps.lat.toFixed(4)}, ${gps.lng.toFixed(4)}`
               : "GPS unavailable"}
           </p>
           <p>
-            🕐 {new Date().toISOString().replace("T", " ").slice(0, 16)} UTC
+            <RAIcon name="calendar" size={13} decorative className="mr-1" />
+            {new Date().toISOString().replace("T", " ").slice(0, 16)} UTC
           </p>
-          {sha256 && <p>🔒 SHA-256: {sha256.slice(0, 16)}…</p>}
+          {sha256 && (
+            <p>
+              <RAIcon name="shield" size={13} decorative className="mr-1" />
+              SHA-256: {sha256.slice(0, 16)}…
+            </p>
+          )}
         </div>
         <Input
           placeholder="Description (optional, e.g. 'moisture in north wall behind dishwasher')"

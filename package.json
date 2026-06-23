@@ -50,6 +50,7 @@
     "start": "next start",
     "lint": "eslint . --max-warnings 851",
     "type-check": "NODE_OPTIONS=\"--max-old-space-size=8192\" tsc --noEmit",
+    "check:no-emoji": "node scripts/check-no-emoji.mjs",
     "audit:ai": "tsx scripts/audit-ai-call-sites.ts --gate",
     "audit:rls": "tsx scripts/audit-rls.ts",
     "audit:api": "tsx scripts/audit-api-routes.ts",

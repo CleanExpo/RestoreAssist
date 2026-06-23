@@ -1,0 +1,2 @@
+# PNG exports are generated from the SVG masters in ../svg.
+# Run a raster export step (e.g. sharp/resvg) to populate this folder.
