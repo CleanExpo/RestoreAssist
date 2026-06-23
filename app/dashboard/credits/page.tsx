@@ -368,10 +368,10 @@ function CreditsPageContent() {
                 className={cn(
                   "font-medium",
                   usagePct >= 90
-                    ? "text-red-600 dark:text-red-400"
+                    ? "text-destructive"
                     : usagePct >= 70
                       ? "text-amber-600 dark:text-amber-400"
-                      : "text-emerald-600 dark:text-emerald-400",
+                      : "text-success",
                 )}
               >
                 {monthlyUsed} / {totalLimit} ({usagePct}%)
@@ -589,7 +589,7 @@ function CreditsPageContent() {
                     isTrial
                       ? "text-indigo-600 dark:text-indigo-400"
                       : isExpiredOrCanceled
-                        ? "text-red-600 dark:text-red-400"
+                        ? "text-destructive"
                         : "text-amber-600 dark:text-amber-400"
                   }
                 />
@@ -601,7 +601,7 @@ function CreditsPageContent() {
                     isTrial
                       ? "text-indigo-900 dark:text-indigo-200"
                       : isExpiredOrCanceled
-                        ? "text-red-900 dark:text-red-200"
+                        ? "text-destructive"
                         : "text-amber-900 dark:text-amber-200",
                   )}
                 >
@@ -619,7 +619,7 @@ function CreditsPageContent() {
                     isTrial
                       ? "text-indigo-700 dark:text-indigo-300"
                       : isExpiredOrCanceled
-                        ? "text-red-700 dark:text-red-300"
+                        ? "text-destructive"
                         : "text-amber-700 dark:text-amber-300",
                   )}
                 >

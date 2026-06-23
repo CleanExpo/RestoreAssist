@@ -86,7 +86,7 @@ const EVENT_COLORS: Record<
   },
   LIDAR_SCAN: {
     bg: "bg-green-500/10",
-    text: "text-green-600 dark:text-green-400",
+    text: "text-success",
     bar: "bg-green-500",
   },
   AI_ASSISTANT_QUERY: {
@@ -470,7 +470,7 @@ export default function AiUsageDashboardPage() {
         <Card className="w-full max-w-sm bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800">
           <CardContent className="flex flex-col items-center gap-4 pt-8 pb-8">
             <div className="p-4 rounded-full bg-red-500/10">
-              <Lock className="h-8 w-8 text-red-500" />
+              <Lock className="h-8 w-8 text-destructive" />
             </div>
             <div className="text-center">
               <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">

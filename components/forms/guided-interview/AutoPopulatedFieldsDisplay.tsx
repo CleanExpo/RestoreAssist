@@ -119,7 +119,7 @@ export function AutoPopulatedFieldsDisplay({
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <CardTitle className="text-base flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-green-600" />
+              <CheckCircle2 className="h-5 w-5 text-success" />
               Auto-Populated Fields
             </CardTitle>
             <CardDescription>
@@ -149,10 +149,10 @@ export function AutoPopulatedFieldsDisplay({
           {/* Confidence summary */}
           <div className="grid grid-cols-3 gap-3">
             <div className="text-center p-3 bg-green-50 border border-green-200 rounded">
-              <p className="text-2xl font-bold text-green-700">
+              <p className="text-2xl font-bold text-success">
                 {stats.highConfidence}
               </p>
-              <p className="text-xs text-green-600">High (≥90%)</p>
+              <p className="text-xs text-success">High (≥90%)</p>
             </div>
             <div className="text-center p-3 bg-blue-50 border border-blue-200 rounded">
               <p className="text-2xl font-bold text-blue-700">

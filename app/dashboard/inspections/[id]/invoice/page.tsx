@@ -230,7 +230,7 @@ export default function InspectionInvoicePage({
                 <p className="text-xs text-neutral-400 uppercase tracking-wider mb-0.5">
                   Total inc. GST
                 </p>
-                <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                <p className="text-2xl font-bold text-success">
                   {centsToAud(invoice.totalIncGST)}
                 </p>
               </div>
@@ -332,7 +332,7 @@ export default function InspectionInvoicePage({
                     >
                       Total inc. GST
                     </td>
-                    <td className="px-4 py-3 text-right font-bold text-emerald-600 dark:text-emerald-400">
+                    <td className="px-4 py-3 text-right font-bold text-success">
                       {centsToAud(invoice.totalIncGST)}
                     </td>
                   </tr>

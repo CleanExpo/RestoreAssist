@@ -157,7 +157,7 @@ export default function NewCreditNotePage() {
 
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
-                Invoice <span className="text-red-400">*</span>
+                Invoice <span className="text-destructive">*</span>
               </label>
               <select
                 value={form.invoiceId}
@@ -181,7 +181,7 @@ export default function NewCreditNotePage() {
 
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
-                Reason <span className="text-red-400">*</span>
+                Reason <span className="text-destructive">*</span>
               </label>
               <select
                 value={form.reason}

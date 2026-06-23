@@ -426,7 +426,7 @@ export default function NewReportPage() {
       description:
         "Add your Anthropic API key to enable AI-powered report generation",
       impact: "High Impact",
-      impactColor: "text-emerald-600 dark:text-emerald-400",
+      impactColor: "text-success",
       impactBg: "bg-emerald-50 dark:bg-emerald-500/10",
       details:
         "Personalizes report generation, enables advanced AI features, and improves report quality",
@@ -440,7 +440,7 @@ export default function NewReportPage() {
       description:
         "Set up your business rates for labour, equipment, and services",
       impact: "High Impact",
-      impactColor: "text-emerald-600 dark:text-emerald-400",
+      impactColor: "text-success",
       impactBg: "bg-emerald-50 dark:bg-emerald-500/10",
       details:
         "Ensures accurate cost estimations and professional quotes for your clients",
@@ -578,9 +578,9 @@ export default function NewReportPage() {
           <div className="mb-6 p-6 rounded-lg border border-green-500/50 dark:border-green-500/30 bg-green-500/10 dark:bg-green-500/5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <CheckCircle className="w-6 h-6 text-green-400 dark:text-green-300" />
+                <CheckCircle className="w-6 h-6 text-success" />
                 <div>
-                  <h3 className="text-lg font-semibold text-green-400 dark:text-green-300">
+                  <h3 className="text-lg font-semibold text-success">
                     PDF Data Extracted
                   </h3>
                   <p
@@ -618,7 +618,7 @@ export default function NewReportPage() {
                   <Sparkles className="w-6 h-6 text-white" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-xl font-bold text-emerald-700 dark:text-emerald-300 mb-1">
+                  <h3 className="text-xl font-bold text-success mb-1">
                     Interview Data Loaded Successfully! ✨
                   </h3>
                   <p

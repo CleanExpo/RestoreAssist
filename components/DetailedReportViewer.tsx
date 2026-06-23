@@ -327,7 +327,7 @@ export default function DetailedReportViewer({
                     </h3>
                   ),
                   h4: ({ children }) => (
-                    <h4 className="text-lg font-bold text-emerald-400 mb-2 mt-4">
+                    <h4 className="text-lg font-bold text-success mb-2 mt-4">
                       {children}
                     </h4>
                   ),

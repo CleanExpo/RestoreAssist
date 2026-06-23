@@ -62,7 +62,7 @@ const JOB_TYPES = [
     label: "Mould Remediation",
     icon: FlaskConical,
     standard: "IICRC S520",
-    color: "text-green-500",
+    color: "text-success",
   },
   {
     id: "fire",
@@ -83,7 +83,7 @@ const JOB_TYPES = [
     label: "Biohazard",
     icon: Bug,
     standard: "IICRC S540",
-    color: "text-red-500",
+    color: "text-destructive",
   },
 ] as const;
 

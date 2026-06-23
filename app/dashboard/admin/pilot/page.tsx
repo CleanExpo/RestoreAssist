@@ -213,7 +213,7 @@ function ClaimCard({ result }: { result: ClaimReadinessResult }) {
           </div>
           {ready && (
             <CheckCircle2
-              className="flex-shrink-0 text-emerald-500"
+              className="flex-shrink-0 text-success"
               size={20}
             />
           )}
@@ -239,7 +239,7 @@ function ClaimCard({ result }: { result: ClaimReadinessResult }) {
                 className={cn(
                   "font-medium tabular-nums",
                   nirObservationCount >= criteria.minNirSampleSize
-                    ? "text-emerald-600 dark:text-emerald-400"
+                    ? "text-success"
                     : "text-neutral-600 dark:text-slate-400",
                 )}
               >
@@ -269,7 +269,7 @@ function ClaimCard({ result }: { result: ClaimReadinessResult }) {
                   className={cn(
                     "font-medium tabular-nums",
                     controlObservationCount >= criteria.minControlSampleSize
-                      ? "text-emerald-600 dark:text-emerald-400"
+                      ? "text-success"
                       : "text-neutral-600 dark:text-slate-400",
                   )}
                 >
@@ -318,7 +318,7 @@ function ClaimCard({ result }: { result: ClaimReadinessResult }) {
               className={cn(
                 "leading-relaxed",
                 evaluation.met
-                  ? "text-emerald-700 dark:text-emerald-400"
+                  ? "text-success"
                   : "text-amber-700 dark:text-amber-400",
               )}
             >
@@ -497,12 +497,12 @@ export default function PilotReadinessDashboard() {
       {/* ── Overall status banner ────────────────────────────────────────────── */}
       {report.pilotComplete ? (
         <div className="rounded-xl border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-950/20 px-5 py-4 flex items-center gap-3">
-          <CheckCircle2 className="text-emerald-500 flex-shrink-0" size={24} />
+          <CheckCircle2 className="text-success flex-shrink-0" size={24} />
           <div>
-            <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+            <p className="text-sm font-semibold text-success">
               Pilot complete — all HYPOTHESIS claims are ready for promotion
             </p>
-            <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">
+            <p className="text-xs text-success mt-0.5">
               Open one PR per claim in{" "}
               <code className="font-mono">
                 lib/nir-evidence-architecture.ts
@@ -518,7 +518,7 @@ export default function PilotReadinessDashboard() {
           <div>
             <p className="text-sm font-semibold text-neutral-800 dark:text-slate-200">
               Pilot in progress —{" "}
-              <span className="text-emerald-600 dark:text-emerald-400">
+              <span className="text-success">
                 {report.readyToPromote.length}
               </span>{" "}
               of {allClaims.length} claims ready
@@ -694,7 +694,7 @@ function StatTile({
         className={cn(
           "flex items-center gap-1.5 text-xs",
           highlight
-            ? "text-emerald-600 dark:text-emerald-400"
+            ? "text-success"
             : "text-neutral-500 dark:text-slate-400",
         )}
       >
@@ -705,7 +705,7 @@ function StatTile({
         className={cn(
           "text-2xl font-bold tabular-nums",
           highlight
-            ? "text-emerald-700 dark:text-emerald-300"
+            ? "text-success"
             : "text-neutral-900 dark:text-slate-100",
         )}
       >

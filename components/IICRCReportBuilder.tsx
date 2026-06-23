@@ -1352,12 +1352,12 @@ export default function IICRCReportBuilder({
           <div className="space-y-6">
             <div className="bg-emerald-500/20 border border-emerald-500/30 rounded-lg p-6">
               <div className="flex items-center gap-2 mb-4">
-                <CheckCircle className="text-emerald-400" size={24} />
-                <h3 className="text-xl font-medium text-emerald-400">
+                <CheckCircle className="text-success" size={24} />
+                <h3 className="text-xl font-medium text-success">
                   IICRC S500 Compliance Review
                 </h3>
               </div>
-              <p className="text-emerald-300">
+              <p className="text-success">
                 This report has been generated following ANSI/IICRC S500: 2021
                 Standard for Professional Water Damage Restoration procedures.
               </p>
@@ -1400,19 +1400,19 @@ export default function IICRCReportBuilder({
                 </h4>
                 <div className="space-y-2 text-sm text-slate-300">
                   <div className="flex items-center gap-2">
-                    <CheckCircle size={16} className="text-emerald-400" />
+                    <CheckCircle size={16} className="text-success" />
                     <span>IICRC S500 Standards</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <CheckCircle size={16} className="text-emerald-400" />
+                    <CheckCircle size={16} className="text-success" />
                     <span>Safety Protocols</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <CheckCircle size={16} className="text-emerald-400" />
+                    <CheckCircle size={16} className="text-success" />
                     <span>Equipment Sizing</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <CheckCircle size={16} className="text-emerald-400" />
+                    <CheckCircle size={16} className="text-success" />
                     <span>Monitoring Procedures</span>
                   </div>
                 </div>

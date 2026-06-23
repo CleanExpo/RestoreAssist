@@ -281,7 +281,7 @@ export default function HeroSection() {
               <span className="font-medium">10-15s Generation</span>
             </div>
             <div className="flex items-center gap-3">
-              <CheckCircle size={20} className="text-emerald-400" />
+              <CheckCircle size={20} className="text-success" />
               <span className="font-medium">100% NCC Compliant</span>
             </div>
             <div className="flex items-center gap-3">
@@ -397,7 +397,7 @@ export default function HeroSection() {
                     >
                       Australian First
                     </h3>
-                    <p className="text-emerald-400 text-sm font-medium">
+                    <p className="text-success text-sm font-medium">
                       Uniformed Reporting System
                     </p>
                   </div>

@@ -58,7 +58,7 @@ export function PastDueBanner({ status }: Props) {
           <AlertCircle className="shrink-0" size={20} />
           <div className="min-w-0">
             <p className="font-semibold text-sm">Payment failed</p>
-            <p className="text-xs text-red-100 truncate">
+            <p className="text-xs text-destructive truncate">
               Your last charge didn't go through. Access to AI features is
               paused until you update your payment method.
             </p>

@@ -1314,7 +1314,7 @@ export default function AnalyticsPage() {
 
                     <div className="text-center">
                       <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-500/10 mb-3">
-                        <DollarSign className="w-6 h-6 text-emerald-400" />
+                        <DollarSign className="w-6 h-6 text-success" />
                       </div>
                       <p
                         className={cn(

@@ -242,7 +242,7 @@ export function InterviewCompletionSummary({
               <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
                 New Fields Added
               </p>
-              <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+              <p className="text-2xl font-bold text-success">
                 {statistics.newFieldsAdded}
               </p>
             </div>

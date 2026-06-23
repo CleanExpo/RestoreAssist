@@ -44,7 +44,7 @@ const STATUS_COLOR: Record<string, string> = {
   PROCESSING: "text-blue-400",
   CLASSIFIED: "text-purple-400",
   SCOPED: "text-cyan-400",
-  COMPLETED: "text-green-400",
+  COMPLETED: "text-success",
 };
 
 function formatInspectionDate(dateStr: string): string {
@@ -336,7 +336,7 @@ export default function FieldDashboardPage() {
                   </div>
                   <div className="flex flex-col items-end gap-2 shrink-0">
                     {insp.readyToLeave ? (
-                      <CheckCircle2 className="h-5 w-5 text-green-400" />
+                      <CheckCircle2 className="h-5 w-5 text-success" />
                     ) : insp.criticalMissing > 0 ? (
                       <div className="flex items-center gap-1 text-amber-400">
                         <AlertTriangle className="h-4 w-4" />

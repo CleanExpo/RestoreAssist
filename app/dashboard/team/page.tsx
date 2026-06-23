@@ -1118,7 +1118,7 @@ export default function TeamPage() {
                 "text-neutral-900 dark:text-neutral-100",
               )}
             >
-              <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+              <CheckCircle2 className="w-5 h-5 text-success" />
               {credentials?.password
                 ? "User Account Created"
                 : "User Added to Organization"}
@@ -1163,7 +1163,7 @@ export default function TeamPage() {
                   className="shrink-0"
                 >
                   {copiedField === "email" ? (
-                    <Check className="w-4 h-4 text-green-600" />
+                    <Check className="w-4 h-4 text-success" />
                   ) : (
                     <Copy className="w-4 h-4" />
                   )}
@@ -1197,7 +1197,7 @@ export default function TeamPage() {
                     className="shrink-0"
                   >
                     {copiedField === "password" ? (
-                      <Check className="w-4 h-4 text-green-600" />
+                      <Check className="w-4 h-4 text-success" />
                     ) : (
                       <Copy className="w-4 h-4" />
                     )}
@@ -1286,7 +1286,7 @@ export default function TeamPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <Trash2 className="w-5 h-5 text-rose-600" />
+              <Trash2 className="w-5 h-5 text-destructive" />
               Remove Team Member
             </AlertDialogTitle>
             <AlertDialogDescription>

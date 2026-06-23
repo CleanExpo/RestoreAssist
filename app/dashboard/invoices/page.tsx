@@ -210,7 +210,7 @@ export default function InvoicesPage() {
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-6">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-green-500/10 rounded-lg">
-              <DollarSign className="h-6 w-6 text-green-500" />
+              <DollarSign className="h-6 w-6 text-success" />
             </div>
             <div>
               <div className="text-2xl font-bold text-slate-900 dark:text-white">
@@ -258,7 +258,7 @@ export default function InvoicesPage() {
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-6">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-red-500/10 rounded-lg">
-              <AlertCircle className="h-6 w-6 text-red-500" />
+              <AlertCircle className="h-6 w-6 text-destructive" />
             </div>
             <div>
               <div className="text-2xl font-bold text-slate-900 dark:text-white">
@@ -404,7 +404,7 @@ export default function InvoicesPage() {
                     {formatCurrencyCents(invoice.totalIncGST)}
                   </div>
                   {invoice.amountPaid > 0 && (
-                    <div className="text-xs text-green-600 dark:text-green-400">
+                    <div className="text-xs text-success">
                       {formatCurrencyCents(invoice.amountPaid)} paid
                     </div>
                   )}
@@ -499,7 +499,7 @@ export default function InvoicesPage() {
                         {formatCurrencyCents(invoice.totalIncGST)}
                       </div>
                       {invoice.amountPaid > 0 && (
-                        <div className="text-xs text-green-600 dark:text-green-400">
+                        <div className="text-xs text-success">
                           {formatCurrencyCents(invoice.amountPaid)} paid
                         </div>
                       )}

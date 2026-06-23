@@ -654,7 +654,7 @@ export function SketchEditor({
                   "px-1.5 py-1.5 rounded-r-lg text-xs border-y border-r transition-all",
                   idx === activeFloorIdx
                     ? "bg-cyan-600 text-white border-cyan-600 hover:bg-cyan-700"
-                    : "bg-white dark:bg-slate-800 text-neutral-400 border-neutral-200 dark:border-slate-700 hover:text-rose-500",
+                    : "bg-white dark:bg-slate-800 text-neutral-400 border-neutral-200 dark:border-slate-700 hover:text-destructive",
                 )}
               >
                 ×
@@ -682,7 +682,7 @@ export function SketchEditor({
                 </>
               ) : savedAt ? (
                 <>
-                  <Check size={12} className="text-emerald-500" /> Saved
+                  <Check size={12} className="text-success" /> Saved
                 </>
               ) : null}
             </span>

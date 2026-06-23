@@ -87,7 +87,7 @@ export default function ActivityFeed({
   const getActivityIcon = (type: string) => {
     switch (type) {
       case "completed":
-        return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
+        return <CheckCircle2 className="w-4 h-4 text-success" />;
       case "updated":
         return <Edit className="w-4 h-4 text-blue-500" />;
       case "created":

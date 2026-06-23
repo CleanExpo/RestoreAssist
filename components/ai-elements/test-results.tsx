@@ -221,8 +221,8 @@ const TestSuiteContext = createContext<TestSuiteContextType>({
 });
 
 const statusStyles: Record<TestStatusValue, string> = {
-  failed: "text-red-600 dark:text-red-400",
-  passed: "text-green-600 dark:text-green-400",
+  failed: "text-destructive",
+  passed: "text-success",
   running: "text-blue-600 dark:text-blue-400",
   skipped: "text-yellow-600 dark:text-yellow-400",
 };
@@ -308,12 +308,12 @@ export const TestSuiteStats = ({
     {children ?? (
       <>
         {passed > 0 && (
-          <span className="text-green-600 dark:text-green-400">
+          <span className="text-success">
             {passed} passed
           </span>
         )}
         {failed > 0 && (
-          <span className="text-red-600 dark:text-red-400">
+          <span className="text-destructive">
             {failed} failed
           </span>
         )}
@@ -468,7 +468,7 @@ export const TestErrorMessage = ({
 }: TestErrorMessageProps) => (
   <p
     className={cn(
-      "font-medium text-red-700 text-sm dark:text-red-400",
+      "font-medium text-destructive text-sm",
       className,
     )}
     {...props}
@@ -486,7 +486,7 @@ export const TestErrorStack = ({
 }: TestErrorStackProps) => (
   <pre
     className={cn(
-      "mt-2 overflow-auto font-mono text-red-600 text-xs dark:text-red-400",
+      "mt-2 overflow-auto font-mono text-destructive text-xs",
       className,
     )}
     {...props}

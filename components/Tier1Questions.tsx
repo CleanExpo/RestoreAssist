@@ -259,8 +259,8 @@ export default function Tier1Questions({
       <div className="p-4 rounded-lg border-2 border-red-500/50 bg-red-50 dark:bg-red-500/10">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
-            <h2 className="text-xl font-semibold text-red-700 dark:text-red-400">
+            <AlertCircle className="w-5 h-5 text-destructive" />
+            <h2 className="text-xl font-semibold text-destructive">
               TIER 1: CRITICAL QUESTIONS
             </h2>
           </div>
@@ -528,7 +528,7 @@ export default function Tier1Questions({
 
       {/* Advanced Tier 1 Questions */}
       <div className="p-4 rounded-lg border-2 border-red-500/50 bg-red-50 dark:bg-red-500/10">
-        <h3 className="text-lg font-semibold text-red-700 dark:text-red-400 mb-2">
+        <h3 className="text-lg font-semibold text-destructive mb-2">
           Advanced Critical Questions
         </h3>
         <p className="text-sm text-slate-700 dark:text-slate-300">
@@ -541,7 +541,7 @@ export default function Tier1Questions({
       <div className="p-6 rounded-lg border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30">
         <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">
           T1_Q1: Property Type{" "}
-          <span className="text-red-600 dark:text-red-400">*</span>
+          <span className="text-destructive">*</span>
         </h3>
         <div className="space-y-2">
           {[
@@ -598,7 +598,7 @@ export default function Tier1Questions({
       <div className="p-6 rounded-lg border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30">
         <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">
           T1_Q2: Construction Year{" "}
-          <span className="text-red-600 dark:text-red-400">*</span>
+          <span className="text-destructive">*</span>
         </h3>
         <div className="space-y-2">
           {[
@@ -638,7 +638,7 @@ export default function Tier1Questions({
       <div className="p-6 rounded-lg border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30">
         <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">
           T1_Q3: Water Source{" "}
-          <span className="text-red-600 dark:text-red-400">*</span>
+          <span className="text-destructive">*</span>
         </h3>
         <div className="space-y-2">
           {[
@@ -695,7 +695,7 @@ export default function Tier1Questions({
       <div className="p-6 rounded-lg border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30">
         <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">
           T1_Q4: Occupancy Status{" "}
-          <span className="text-red-600 dark:text-red-400">*</span>
+          <span className="text-destructive">*</span>
         </h3>
         <div className="space-y-2">
           {[
@@ -757,7 +757,7 @@ export default function Tier1Questions({
       <div className="p-6 rounded-lg border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30">
         <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">
           T1_Q5: Rooms/Areas Affected{" "}
-          <span className="text-red-600 dark:text-red-400">*</span>
+          <span className="text-destructive">*</span>
         </h3>
         <textarea
           value={responses.T1_Q5_roomsAffected}
@@ -777,7 +777,7 @@ export default function Tier1Questions({
       <div className="p-6 rounded-lg border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30">
         <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">
           T1_Q6: Materials Affected{" "}
-          <span className="text-red-600 dark:text-red-400">*</span>
+          <span className="text-destructive">*</span>
         </h3>
         <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
           Select all that apply
@@ -834,9 +834,9 @@ export default function Tier1Questions({
 
       {/* T1_Q7: Hazard Assessment */}
       <div className="p-6 rounded-lg border-2 border-red-500/50 bg-red-50 dark:bg-red-500/10">
-        <h3 className="text-lg font-semibold mb-4 text-red-700 dark:text-red-400">
+        <h3 className="text-lg font-semibold mb-4 text-destructive">
           T1_Q7: Hazard Assessment (CRITICAL){" "}
-          <span className="text-red-600 dark:text-red-400">*</span>
+          <span className="text-destructive">*</span>
         </h3>
         <p className="text-sm text-slate-700 dark:text-slate-300 mb-4">
           Select all that apply
@@ -863,7 +863,7 @@ export default function Tier1Questions({
                 type="checkbox"
                 checked={responses.T1_Q7_hazards.includes(option)}
                 onChange={() => handleMultiSelect("T1_Q7_hazards", option)}
-                className="w-4 h-4 text-red-500 rounded"
+                className="w-4 h-4 text-destructive rounded"
               />
               <span className="text-slate-700 dark:text-slate-300">
                 {option}
@@ -891,7 +891,7 @@ export default function Tier1Questions({
       <div className="p-6 rounded-lg border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30">
         <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">
           T1_Q8: Water Duration{" "}
-          <span className="text-red-600 dark:text-red-400">*</span>
+          <span className="text-destructive">*</span>
         </h3>
         <div className="space-y-2">
           {[
@@ -959,7 +959,7 @@ export default function Tier1Questions({
                 className="flex flex-col items-center justify-center gap-3 p-6 rounded-lg border-2 border-green-500 bg-gradient-to-br from-green-500/20 to-emerald-500/20 hover:from-green-500/30 hover:to-emerald-500/30 transition-all group"
               >
                 <div className="w-12 h-12 rounded-full bg-green-500/30 flex items-center justify-center group-hover:bg-green-500/40 transition-colors">
-                  <Save className="w-6 h-6 text-green-600 dark:text-green-300" />
+                  <Save className="w-6 h-6 text-success" />
                 </div>
                 <div className="text-center">
                   <h4 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">

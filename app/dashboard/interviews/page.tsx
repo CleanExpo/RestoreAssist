@@ -61,13 +61,13 @@ const STATUS_CONFIG: Record<
   },
   COMPLETED: {
     label: "Completed",
-    color: "text-emerald-600 dark:text-emerald-400",
+    color: "text-success",
     bg: "bg-emerald-50 dark:bg-emerald-900/30",
     icon: CheckCircle2,
   },
   ABANDONED: {
     label: "Abandoned",
-    color: "text-red-600 dark:text-red-400",
+    color: "text-destructive",
     bg: "bg-red-50 dark:bg-red-900/30",
     icon: XCircle,
   },
@@ -260,14 +260,14 @@ export default function InterviewsPage() {
         <div className="p-4 rounded-xl border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50/50 dark:bg-emerald-900/10">
           <div className="flex items-start gap-3">
             <FileText
-              className="text-emerald-600 dark:text-emerald-400 mt-0.5"
+              className="text-success mt-0.5"
               size={20}
             />
             <div className="flex-1">
-              <h3 className="text-sm font-semibold text-emerald-900 dark:text-emerald-300 mb-1">
+              <h3 className="text-sm font-semibold text-success mb-1">
                 Form Templates ({templates.length} available)
               </h3>
-              <p className="text-sm text-emerald-700 dark:text-emerald-400">
+              <p className="text-sm text-success">
                 {templates.length} form template
                 {templates.length !== 1 ? "s" : ""} available for interviews.
                 Select a template when starting a new interview.
@@ -299,7 +299,7 @@ export default function InterviewsPage() {
         {[
           {
             label: "Finished",
-            colour: "text-emerald-600 dark:text-emerald-400",
+            colour: "text-success",
             value:
               stats != null
                 ? `${Math.round(stats.completionRate ?? 0)}%`
@@ -331,7 +331,7 @@ export default function InterviewsPage() {
               <Skeleton className="h-7 w-16 mt-1" />
             ) : statsError ? (
               <div
-                className="text-xl font-bold text-rose-500 mt-1"
+                className="text-xl font-bold text-destructive mt-1"
                 title={statsError}
               >
                 —

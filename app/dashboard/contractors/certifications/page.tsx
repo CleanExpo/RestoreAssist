@@ -520,7 +520,7 @@ export default function ContractorCertificationsPage() {
                       <button
                         onClick={() => setDeleteTargetId(cert.id)}
                         title="Delete"
-                        className="p-2 text-slate-400 hover:text-red-400 transition-colors"
+                        className="p-2 text-slate-400 hover:text-destructive transition-colors"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -551,7 +551,7 @@ export default function ContractorCertificationsPage() {
             {/* Type */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                Certification Type <span className="text-red-400">*</span>
+                Certification Type <span className="text-destructive">*</span>
               </label>
               <Select
                 value={form.certificationType}
@@ -582,7 +582,7 @@ export default function ContractorCertificationsPage() {
             {/* Name */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                Certification Name <span className="text-red-400">*</span>
+                Certification Name <span className="text-destructive">*</span>
               </label>
               <input
                 type="text"
@@ -598,7 +598,7 @@ export default function ContractorCertificationsPage() {
             {/* Issuing Body */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                Issuing Body <span className="text-red-400">*</span>
+                Issuing Body <span className="text-destructive">*</span>
               </label>
               <input
                 type="text"
@@ -634,7 +634,7 @@ export default function ContractorCertificationsPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                  Issue Date <span className="text-red-400">*</span>
+                  Issue Date <span className="text-destructive">*</span>
                 </label>
                 <input
                   type="date"

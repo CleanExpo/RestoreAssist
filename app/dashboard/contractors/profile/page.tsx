@@ -658,7 +658,7 @@ export default function ContractorProfileDashboard() {
                 {cert.verificationStatus !== "VERIFIED" && (
                   <button
                     onClick={() => deleteCertification(cert.id)}
-                    className="text-red-400 hover:text-red-300"
+                    className="text-destructive hover:text-destructive"
                   >
                     <Trash2 className="h-5 w-5" />
                   </button>
@@ -781,7 +781,7 @@ export default function ContractorProfileDashboard() {
                 </div>
                 <button
                   onClick={() => deleteServiceArea(area.id)}
-                  className="text-red-400 hover:text-red-300"
+                  className="text-destructive hover:text-destructive"
                 >
                   <Trash2 className="h-5 w-5" />
                 </button>

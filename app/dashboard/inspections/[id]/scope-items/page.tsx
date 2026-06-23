@@ -604,7 +604,7 @@ export default function ScopeItemsPage({
           <Separator />
           <div className="flex flex-wrap items-center gap-6 text-sm text-neutral-600 dark:text-slate-400">
             <div className="flex items-center gap-1.5">
-              <CheckCircle2 size={15} className="text-emerald-500" />
+              <CheckCircle2 size={15} className="text-success" />
               <span>
                 <strong className="text-neutral-900 dark:text-white">
                   {selectedCount}

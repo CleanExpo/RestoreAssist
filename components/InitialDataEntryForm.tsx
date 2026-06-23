@@ -3726,7 +3726,7 @@ export default function InitialDataEntryForm({
             <h3
               className={cn(
                 "text-xl font-semibold mb-4 flex items-center gap-2",
-                "text-neutral-900 dark:text-green-300",
+                "text-neutral-900",
               )}
             >
               <CheckCircle className="w-5 h-5" />
@@ -3916,7 +3916,7 @@ export default function InitialDataEntryForm({
                           );
                           toast.success("Removed");
                         }}
-                        className="text-error-500 dark:text-error-400 hover:text-red-300"
+                        className="text-error-500 dark:text-error-400 hover:text-destructive"
                       >
                         <X className="w-3 h-3" />
                       </button>
@@ -4101,7 +4101,7 @@ export default function InitialDataEntryForm({
                           );
                           toast.success("Removed");
                         }}
-                        className="text-error-500 dark:text-error-400 hover:text-red-300"
+                        className="text-error-500 dark:text-error-400 hover:text-destructive"
                       >
                         <X className="w-3 h-3" />
                       </button>
@@ -4154,7 +4154,7 @@ export default function InitialDataEntryForm({
                         "w-3 h-3 rounded focus:ring-green-500",
                         "border-neutral-300 dark:border-neutral-700",
                         "bg-white dark:bg-slate-700",
-                        "text-green-500",
+                        "text-success",
                       )}
                     />
                     <span
@@ -4582,9 +4582,9 @@ export default function InitialDataEntryForm({
             <div className="space-y-4">
               <div className="p-4 rounded-lg border border-green-500/50 bg-green-500/10">
                 <div className="flex items-start gap-3">
-                  <Wrench className="w-5 h-5 text-green-400 mt-0.5" />
+                  <Wrench className="w-5 h-5 text-success mt-0.5" />
                   <div>
-                    <h4 className="font-semibold text-green-400 mb-1">
+                    <h4 className="font-semibold text-success mb-1">
                       Equipment Selection
                     </h4>
                     <p className="text-sm text-neutral-700 dark:text-neutral-300">

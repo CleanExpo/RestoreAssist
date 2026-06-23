@@ -201,12 +201,12 @@ export default function PortalReportDetail({
     const config = {
       APPROVED: {
         bg: "bg-green-100",
-        text: "text-green-700",
+        text: "text-success",
         icon: <CheckCircle size={16} />,
       },
       REJECTED: {
         bg: "bg-red-100",
-        text: "text-red-700",
+        text: "text-destructive",
         icon: <XCircle size={16} />,
       },
       CHANGES_REQUESTED: {

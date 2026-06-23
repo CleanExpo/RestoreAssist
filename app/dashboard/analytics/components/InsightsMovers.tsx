@@ -60,7 +60,7 @@ export default function InsightsMovers({
         )}
       >
         <div className="flex items-center gap-3 mb-4">
-          <Target className="w-5 h-5 text-rose-500" />
+          <Target className="w-5 h-5 text-destructive" />
           <h3
             className={cn(
               "text-lg font-semibold",
@@ -88,7 +88,7 @@ export default function InsightsMovers({
       )}
     >
       <div className="flex items-center gap-3 mb-6">
-        <Target className="w-5 h-5 text-rose-500" />
+        <Target className="w-5 h-5 text-destructive" />
         <h3
           className={cn(
             "text-lg font-semibold",
@@ -102,7 +102,7 @@ export default function InsightsMovers({
         {/* Top growing clients */}
         <div>
           <div className="flex items-center gap-2 mb-3">
-            <TrendingUp className="w-4 h-4 text-emerald-500" />
+            <TrendingUp className="w-4 h-4 text-success" />
             <span
               className={cn(
                 "text-sm font-medium",
@@ -134,8 +134,8 @@ export default function InsightsMovers({
                   className={cn(
                     "font-semibold shrink-0",
                     c.revenueChangePct >= 0
-                      ? "text-emerald-500"
-                      : "text-red-500",
+                      ? "text-success"
+                      : "text-destructive",
                   )}
                 >
                   {c.revenueChangePct >= 0 ? "+" : ""}

@@ -903,7 +903,7 @@ export default function ScopingEngine({
                               equipmentParameters: { equipment: newEquip },
                             }));
                           }}
-                          className="text-red-400 hover:text-red-300"
+                          className="text-destructive hover:text-destructive"
                         >
                           Remove
                         </Button>
@@ -1032,7 +1032,7 @@ export default function ScopingEngine({
                               chemicalApplication: { chemicals: newChems },
                             }));
                           }}
-                          className="text-red-400 hover:text-red-300"
+                          className="text-destructive hover:text-destructive"
                         >
                           Remove
                         </Button>

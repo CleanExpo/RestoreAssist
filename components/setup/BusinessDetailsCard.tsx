@@ -147,7 +147,7 @@ export function BusinessDetailsCard() {
             <dd>{org.state || '—'}</dd>
             <dt className="text-muted-foreground">Status</dt>
             <dd>
-              <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
+              <span className="inline-flex items-center gap-1 text-success">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                 Active
               </span>

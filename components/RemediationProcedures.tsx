@@ -312,7 +312,7 @@ export default function RemediationProcedures({
                   >
                     <CheckCircle
                       size={16}
-                      className="text-emerald-400 flex-shrink-0"
+                      className="text-success flex-shrink-0"
                     />
                     {ppe}
                   </li>
@@ -327,12 +327,12 @@ export default function RemediationProcedures({
           <div className="space-y-6">
             <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
-                <AlertTriangle className="text-red-400" size={20} />
-                <h4 className="font-medium text-red-400">
+                <AlertTriangle className="text-destructive" size={20} />
+                <h4 className="font-medium text-destructive">
                   Contamination Control Required
                 </h4>
               </div>
-              <p className="text-sm text-red-300">
+              <p className="text-sm text-destructive">
                 {isCategory2Or3
                   ? "Contamination controls are mandatory for Category 2/3 water damage."
                   : "No contamination controls required for Category 1 water."}
@@ -588,19 +588,19 @@ export default function RemediationProcedures({
               <div className="flex items-center gap-2 mb-2">
                 <Users
                   className={
-                    iepRequirements.required ? "text-red-400" : "text-amber-400"
+                    iepRequirements.required ? "text-destructive" : "text-amber-400"
                   }
                   size={20}
                 />
                 <h4
-                  className={`font-medium ${iepRequirements.required ? "text-red-400" : "text-amber-400"}`}
+                  className={`font-medium ${iepRequirements.required ? "text-destructive" : "text-amber-400"}`}
                 >
                   IEP Assessment{" "}
                   {iepRequirements.required ? "Required" : "Recommended"}
                 </h4>
               </div>
               <p
-                className={`text-sm ${iepRequirements.required ? "text-red-300" : "text-amber-300"}`}
+                className={`text-sm ${iepRequirements.required ? "text-destructive" : "text-amber-300"}`}
               >
                 {iepRequirements.required
                   ? "Independent Environmental Professional assessment is mandatory for Category 3 water damage."
@@ -681,12 +681,12 @@ export default function RemediationProcedures({
           <div className="space-y-6">
             <div className="bg-emerald-500/20 border border-emerald-500/30 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
-                <CheckCircle className="text-emerald-400" size={20} />
-                <h4 className="font-medium text-emerald-400">
+                <CheckCircle className="text-success" size={20} />
+                <h4 className="font-medium text-success">
                   Post-Remediation Verification
                 </h4>
               </div>
-              <p className="text-sm text-emerald-300">
+              <p className="text-sm text-success">
                 Final verification ensures all contamination has been properly
                 addressed and the environment is safe for occupancy.
               </p>
@@ -719,28 +719,28 @@ export default function RemediationProcedures({
                   <li className="flex items-center gap-2">
                     <CheckCircle
                       size={16}
-                      className="text-emerald-400 flex-shrink-0"
+                      className="text-success flex-shrink-0"
                     />
                     Visual inspection completed
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle
                       size={16}
-                      className="text-emerald-400 flex-shrink-0"
+                      className="text-success flex-shrink-0"
                     />
                     Air quality testing
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle
                       size={16}
-                      className="text-emerald-400 flex-shrink-0"
+                      className="text-success flex-shrink-0"
                     />
                     Surface sampling (if required)
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle
                       size={16}
-                      className="text-emerald-400 flex-shrink-0"
+                      className="text-success flex-shrink-0"
                     />
                     Odor elimination confirmed
                   </li>
@@ -870,7 +870,7 @@ export default function RemediationProcedures({
               Next Step
             </button>
           ) : (
-            <div className="flex items-center gap-2 text-emerald-400">
+            <div className="flex items-center gap-2 text-success">
               <CheckCircle size={20} />
               <span className="font-medium">Remediation Plan Complete</span>
             </div>

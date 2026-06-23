@@ -213,12 +213,12 @@ function ExpandableError({ message }: { message: string }) {
   const isLong = message.length > 80;
 
   if (!isLong) {
-    return <span className="text-red-600 text-xs">{message}</span>;
+    return <span className="text-destructive text-xs">{message}</span>;
   }
 
   return (
     <span>
-      <span className="text-red-600 text-xs">
+      <span className="text-destructive text-xs">
         {expanded ? message : `${message.slice(0, 80)}…`}
       </span>
       <button
@@ -300,14 +300,14 @@ function HealthSummaryRow({
               <p className="text-xs text-muted-foreground">
                 {data.totalSyncs} sync{data.totalSyncs !== 1 ? "s" : ""}{" "}
                 &middot;{" "}
-                <span className="text-green-700">
+                <span className="text-success">
                   {data.successfulSyncs} ok
                 </span>
                 {data.failedSyncs > 0 && (
                   <>
                     {" "}
                     &middot;{" "}
-                    <span className="text-red-600">
+                    <span className="text-destructive">
                       {data.failedSyncs} failed
                     </span>
                   </>
@@ -416,7 +416,7 @@ function SyncEventFeed({
               </TableCell>
               <TableCell className="text-right tabular-nums">
                 {entry.recordsFailed > 0 ? (
-                  <span className="text-red-600">{entry.recordsFailed}</span>
+                  <span className="text-destructive">{entry.recordsFailed}</span>
                 ) : (
                   <span className="text-muted-foreground">0</span>
                 )}
@@ -588,10 +588,10 @@ export default function SyncHistoryPage() {
             <span
               className={`font-medium ${
                 metrics.syncs.successRate >= 95
-                  ? "text-green-700"
+                  ? "text-success"
                   : metrics.syncs.successRate >= 80
                     ? "text-amber-700"
-                    : "text-red-700"
+                    : "text-destructive"
               }`}
             >
               {metrics.syncs.successRate.toFixed(1)}%

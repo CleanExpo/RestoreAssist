@@ -261,10 +261,10 @@ export default function FieldModePage({ params }: PageProps) {
                               className={cn(
                                 "text-lg font-bold tabular-nums",
                                 r.moistureLevel > 25
-                                  ? "text-red-400"
+                                  ? "text-destructive"
                                   : r.moistureLevel > 15
                                     ? "text-amber-400"
-                                    : "text-green-400",
+                                    : "text-success",
                               )}
                             >
                               {r.moistureLevel}%
@@ -305,7 +305,7 @@ export default function FieldModePage({ params }: PageProps) {
                     />
                   </div>
                   {readyToLeave && (
-                    <p className="text-green-400 text-xs mt-2 font-medium">
+                    <p className="text-success text-xs mt-2 font-medium">
                       ✓ All critical items complete — safe to leave site
                     </p>
                   )}
@@ -341,7 +341,7 @@ export default function FieldModePage({ params }: PageProps) {
                           >
                             <div className="mt-0.5 shrink-0">
                               {item.complete ? (
-                                <CheckCircle2 className="h-5 w-5 text-green-400" />
+                                <CheckCircle2 className="h-5 w-5 text-success" />
                               ) : priority === 1 ? (
                                 <AlertCircle className="h-5 w-5 text-amber-400" />
                               ) : (

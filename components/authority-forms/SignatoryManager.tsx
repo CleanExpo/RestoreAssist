@@ -159,7 +159,7 @@ export function SignatoryManager({
           >
             {/* Status icon */}
             {sig.signedAt ? (
-              <CheckCircle className="h-5 w-5 text-emerald-500 shrink-0" />
+              <CheckCircle className="h-5 w-5 text-success shrink-0" />
             ) : sig.signatureRequestSent ? (
               <Mail className="h-5 w-5 text-blue-500 shrink-0" />
             ) : (
@@ -182,7 +182,7 @@ export function SignatoryManager({
                 </p>
               )}
               {sig.signedAt && (
-                <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                <p className="text-xs text-success">
                   Signed {new Date(sig.signedAt).toLocaleDateString("en-AU")}
                 </p>
               )}

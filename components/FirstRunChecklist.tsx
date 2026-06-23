@@ -121,7 +121,7 @@ export default function FirstRunChecklist({
             >
               <div className="flex-shrink-0 mt-px">
                 {step.completed ? (
-                  <CheckCircle2 size={14} className="text-emerald-500" />
+                  <CheckCircle2 size={14} className="text-success" />
                 ) : (
                   <Circle
                     size={14}

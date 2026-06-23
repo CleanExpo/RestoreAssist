@@ -52,11 +52,11 @@ const getEquipmentIcon = (type: string) => {
     case "dehumidifier":
       return <Droplets className="h-5 w-5 text-blue-600" />;
     case "air_mover":
-      return <Wind className="h-5 w-5 text-green-600" />;
+      return <Wind className="h-5 w-5 text-success" />;
     case "air_scrubber":
       return <Zap className="h-5 w-5 text-amber-600" />;
     case "heater":
-      return <Thermometer className="h-5 w-5 text-red-600" />;
+      return <Thermometer className="h-5 w-5 text-destructive" />;
     case "monitor":
       return <AlertCircle className="h-5 w-5 text-purple-600" />;
     default:
@@ -273,8 +273,8 @@ export function EquipmentRecommendations({
         {/* Urgent Alert */}
         {isUrgent && (
           <Alert className="bg-red-50 border-red-200">
-            <AlertCircle className="h-4 w-4 text-red-600" />
-            <AlertDescription className="text-red-700">
+            <AlertCircle className="h-4 w-4 text-destructive" />
+            <AlertDescription className="text-destructive">
               Urgent situation detected. Consider expedited equipment delivery
               and increased crew deployment.
             </AlertDescription>

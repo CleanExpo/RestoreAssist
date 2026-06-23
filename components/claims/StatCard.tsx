@@ -47,8 +47,8 @@ export function StatCard({
     success: {
       card: "border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/20",
       icon: "text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30",
-      value: "text-green-700 dark:text-green-400",
-      title: "text-green-600 dark:text-green-400",
+      value: "text-success",
+      title: "text-success",
     },
     warning: {
       card: "border-yellow-200 dark:border-yellow-800 bg-yellow-50/50 dark:bg-yellow-950/20",
@@ -59,8 +59,8 @@ export function StatCard({
     danger: {
       card: "border-red-200 dark:border-red-800 bg-red-50/50 dark:bg-red-950/20",
       icon: "text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30",
-      value: "text-red-700 dark:text-red-400",
-      title: "text-red-600 dark:text-red-400",
+      value: "text-destructive",
+      title: "text-destructive",
     },
     info: {
       card: "border-cyan-200 dark:border-cyan-800 bg-cyan-50/50 dark:bg-cyan-950/20",
@@ -143,8 +143,8 @@ export function StatCard({
                   className={cn(
                     "text-xs font-medium",
                     trend.isPositive
-                      ? "text-green-600 dark:text-green-400"
-                      : "text-red-600 dark:text-red-400",
+                      ? "text-success"
+                      : "text-destructive",
                   )}
                 >
                   {trend.isPositive ? "↑" : "↓"} {Math.abs(trend.value)}%

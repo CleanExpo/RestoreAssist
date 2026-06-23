@@ -61,7 +61,7 @@ export default function ProfessionalDocumentViewer({
     // Use $$$1 where $$ = literal $ and $1 = capture group (the number)
     html = html.replace(
       /\$(\d+[\d,]*\.?\d*)/g,
-      '<span class="text-green-600 font-semibold">$$$1</span>',
+      '<span class="text-success font-semibold">$$$1</span>',
     );
 
     // Format tables - handle pipe-delimited tables

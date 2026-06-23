@@ -1041,7 +1041,7 @@ export function GuidedInterviewPanel({
         <CardHeader className="pb-2">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
-              <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
+              <CheckCircle2 className="h-6 w-6 text-success" />
             </div>
             <div>
               <CardTitle className="text-xl text-slate-900 dark:text-white">
@@ -1083,7 +1083,7 @@ export function GuidedInterviewPanel({
               <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Progress
               </p>
-              <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+              <p className="text-2xl font-bold text-success">
                 100%
               </p>
               <p className="text-xs text-muted-foreground">complete</p>

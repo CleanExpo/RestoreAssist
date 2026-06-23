@@ -239,7 +239,7 @@ export default function ChangePasswordPage() {
                 </button>
               </div>
               {errors.currentPassword && (
-                <p className="mt-1 text-sm text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                <p className="mt-1 text-sm text-destructive flex items-center gap-1">
                   <AlertCircle size={14} />
                   {errors.currentPassword}
                 </p>
@@ -295,14 +295,14 @@ export default function ChangePasswordPage() {
                   {passwordValidationErrors.map((error, idx) => (
                     <p
                       key={idx}
-                      className="text-xs text-rose-600 dark:text-rose-400 flex items-center gap-1"
+                      className="text-xs text-destructive flex items-center gap-1"
                     >
                       <AlertCircle size={12} />
                       {error}
                     </p>
                   ))}
                   {passwordMeetsRequirements && (
-                    <p className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                    <p className="text-xs text-success flex items-center gap-1">
                       <CheckCircle size={12} />
                       Password meets all requirements
                     </p>
@@ -310,7 +310,7 @@ export default function ChangePasswordPage() {
                 </div>
               )}
               {errors.newPassword && (
-                <p className="mt-1 text-sm text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                <p className="mt-1 text-sm text-destructive flex items-center gap-1">
                   <AlertCircle size={14} />
                   {errors.newPassword}
                 </p>
@@ -369,13 +369,13 @@ export default function ChangePasswordPage() {
                 </button>
               </div>
               {passwordsMatch && (
-                <p className="mt-1 text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
+                <p className="mt-1 text-sm text-success flex items-center gap-1">
                   <CheckCircle size={14} />
                   Passwords match
                 </p>
               )}
               {errors.confirmPassword && (
-                <p className="mt-1 text-sm text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                <p className="mt-1 text-sm text-destructive flex items-center gap-1">
                   <AlertCircle size={14} />
                   {errors.confirmPassword}
                 </p>

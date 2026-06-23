@@ -93,8 +93,8 @@ export function SubmissionGatePanel({
     return (
       <div className="bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800 p-5 mb-6">
         <div className="flex items-center gap-3">
-          <XCircle className="h-5 w-5 text-red-500" />
-          <span className="text-sm text-red-700 dark:text-red-400">
+          <XCircle className="h-5 w-5 text-destructive" />
+          <span className="text-sm text-destructive">
             {error}
           </span>
           <Button variant="outline" size="sm" onClick={runValidation}>
@@ -130,9 +130,9 @@ export function SubmissionGatePanel({
           )}
         >
           {canSubmit ? (
-            <CheckCircle2 className="h-5 w-5 text-green-600" />
+            <CheckCircle2 className="h-5 w-5 text-success" />
           ) : (
-            <Shield className="h-5 w-5 text-red-600" />
+            <Shield className="h-5 w-5 text-destructive" />
           )}
         </div>
         <div className="flex-1">
@@ -140,8 +140,8 @@ export function SubmissionGatePanel({
             className={cn(
               "text-sm font-semibold",
               canSubmit
-                ? "text-green-800 dark:text-green-300"
-                : "text-red-800 dark:text-red-300",
+                ? "text-success"
+                : "text-destructive",
             )}
           >
             {canSubmit
@@ -152,8 +152,8 @@ export function SubmissionGatePanel({
             className={cn(
               "text-xs mt-0.5",
               canSubmit
-                ? "text-green-700 dark:text-green-400"
-                : "text-red-700 dark:text-red-400",
+                ? "text-success"
+                : "text-destructive",
             )}
           >
             Evidence score: {validation.score}% · {validation.completedSteps}/
@@ -203,7 +203,7 @@ export function SubmissionGatePanel({
           {/* Blocking gaps */}
           {validation.blockingGaps.length > 0 && (
             <div>
-              <h4 className="text-xs font-semibold text-red-700 dark:text-red-400 uppercase tracking-wide mb-2">
+              <h4 className="text-xs font-semibold text-destructive uppercase tracking-wide mb-2">
                 Must Resolve ({validation.blockingGaps.length})
               </h4>
               <div className="space-y-2">
@@ -251,7 +251,7 @@ function GapRow({
       )}
     >
       {severity === "blocking" ? (
-        <XCircle className="h-3.5 w-3.5 text-red-500 mt-0.5 flex-shrink-0" />
+        <XCircle className="h-3.5 w-3.5 text-destructive mt-0.5 flex-shrink-0" />
       ) : (
         <AlertTriangle className="h-3.5 w-3.5 text-amber-500 mt-0.5 flex-shrink-0" />
       )}

@@ -267,7 +267,7 @@ export default function CostLibraryDetailPage({
                         className="p-1.5 hover:bg-slate-600 rounded transition-colors"
                         title="Delete item"
                       >
-                        <Trash2 size={16} className="text-rose-400" />
+                        <Trash2 size={16} className="text-destructive" />
                       </button>
                     </td>
                   </tr>

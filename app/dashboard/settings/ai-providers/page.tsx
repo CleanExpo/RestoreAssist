@@ -320,7 +320,7 @@ export default function AiProvidersPage() {
                       </p>
                     )}
                     {conn?.lastError && (
-                      <p className="text-xs text-red-500">
+                      <p className="text-xs text-destructive">
                         Last error: {conn.lastError}
                       </p>
                     )}
@@ -446,12 +446,12 @@ export default function AiProvidersPage() {
       {/* Info footer */}
       <div className="text-xs text-neutral-400 border-t pt-4 space-y-1 dark:border-slate-700">
         <p>
-          <Check size={11} className="inline mr-1 text-emerald-500" />
+          <Check size={11} className="inline mr-1 text-success" />
           Keys are encrypted with AES-256-GCM before storage — RestoreAssist
           never logs or transmits plaintext keys.
         </p>
         <p>
-          <Check size={11} className="inline mr-1 text-emerald-500" />
+          <Check size={11} className="inline mr-1 text-success" />
           Your keys are used only for AI calls made within your workspace.
         </p>
       </div>

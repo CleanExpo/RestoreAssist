@@ -62,7 +62,7 @@ function ScoreRing({ score }: { score: number }) {
     if (s >= 80)
       return {
         stroke: "#22c55e",
-        text: "text-green-600 dark:text-green-400",
+        text: "text-success",
         bg: "bg-green-50 dark:bg-green-950/20",
       };
     if (s >= 50)
@@ -73,7 +73,7 @@ function ScoreRing({ score }: { score: number }) {
       };
     return {
       stroke: "#ef4444",
-      text: "text-red-600 dark:text-red-400",
+      text: "text-destructive",
       bg: "bg-red-50 dark:bg-red-950/20",
     };
   };
@@ -127,7 +127,7 @@ function SectionCard({
   const statusConfig = {
     complete: {
       icon: CheckCircle2,
-      color: "text-green-600 dark:text-green-400",
+      color: "text-success",
       badge:
         "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
       label: "Complete",
@@ -141,7 +141,7 @@ function SectionCard({
     },
     missing: {
       icon: XCircle,
-      color: "text-red-600 dark:text-red-400",
+      color: "text-destructive",
       badge: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
       label: "Missing",
     },
@@ -204,13 +204,13 @@ function SectionCard({
                 key={i}
                 className="flex items-start gap-1.5 text-xs text-slate-600 dark:text-slate-400"
               >
-                <span className="mt-0.5 shrink-0 text-red-400">•</span>
+                <span className="mt-0.5 shrink-0 text-destructive">•</span>
                 {issue}
               </li>
             ))}
           </ul>
         ) : (
-          <p className="text-xs text-green-600 dark:text-green-400 flex-1">
+          <p className="text-xs text-success flex-1">
             All checks passed
           </p>
         )}

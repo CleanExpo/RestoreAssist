@@ -255,7 +255,7 @@ export default function ClientQnA({
         {/* Complete Status */}
         {isComplete && (
           <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
-            <p className="text-sm text-green-400 flex items-center gap-2">
+            <p className="text-sm text-success flex items-center gap-2">
               <MessageCircle className="h-4 w-4" />
               Conversation complete. All information has been collected.
             </p>

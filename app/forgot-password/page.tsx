@@ -331,8 +331,8 @@ function ForgotPasswordForm() {
           ) : (
             <form onSubmit={handlePasswordSubmit} className="space-y-6">
               <div className="mb-4 p-3 bg-green-500/20 border border-green-500/30 rounded-lg flex items-center gap-2">
-                <CheckCircle size={20} className="text-green-400" />
-                <span className="text-green-400 text-sm">
+                <CheckCircle size={20} className="text-success" />
+                <span className="text-success text-sm">
                   Code verified. Set your new password.
                 </span>
               </div>

@@ -221,7 +221,7 @@ export default function AdminDashboardPage() {
                   {stats?.totalUsers ?? "-"}
                 </p>
                 <p className="text-sm text-neutral-500">Total Users</p>
-                <p className="text-xs text-green-500">
+                <p className="text-xs text-success">
                   {stats?.activeUsers ?? 0} active
                 </p>
               </div>
@@ -249,7 +249,7 @@ export default function AdminDashboardPage() {
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
               <div className="p-3 rounded-lg bg-green-500/10">
-                <CreditCard className="h-6 w-6 text-green-500" />
+                <CreditCard className="h-6 w-6 text-success" />
               </div>
               <div>
                 <p className="text-2xl font-semibold text-neutral-900 dark:text-white">

@@ -264,7 +264,7 @@ export default function FormTemplateDetailPage({
                 className="block text-sm font-medium text-slate-700"
                 htmlFor="template-name"
               >
-                Name <span className="text-red-500">*</span>
+                Name <span className="text-destructive">*</span>
               </label>
               <input
                 id="template-name"
@@ -397,7 +397,7 @@ export default function FormTemplateDetailPage({
                   </span>
                   <div className="flex justify-center">
                     {q.isRequired ? (
-                      <CheckCircle className="h-4 w-4 text-green-500" />
+                      <CheckCircle className="h-4 w-4 text-success" />
                     ) : (
                       <span className="text-xs text-slate-300">—</span>
                     )}

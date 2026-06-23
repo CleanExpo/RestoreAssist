@@ -274,7 +274,7 @@ export default function InvoiceAnalyticsPage() {
             <Card className="py-5">
               <CardContent className="flex items-center gap-4">
                 <div className="p-3 bg-green-500/10 rounded-lg flex-shrink-0">
-                  <DollarSign className="h-6 w-6 text-green-500" />
+                  <DollarSign className="h-6 w-6 text-success" />
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-slate-900 dark:text-white">
@@ -308,7 +308,7 @@ export default function InvoiceAnalyticsPage() {
             <Card className="py-5">
               <CardContent className="flex items-center gap-4">
                 <div className="p-3 bg-red-500/10 rounded-lg flex-shrink-0">
-                  <AlertCircle className="h-6 w-6 text-red-500" />
+                  <AlertCircle className="h-6 w-6 text-destructive" />
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-slate-900 dark:text-white">
@@ -489,7 +489,7 @@ export default function InvoiceAnalyticsPage() {
                       ) : (
                         <Badge
                           variant="secondary"
-                          className="flex-shrink-0 text-xs text-green-600 dark:text-green-400"
+                          className="flex-shrink-0 text-xs text-success"
                         >
                           Paid up
                         </Badge>

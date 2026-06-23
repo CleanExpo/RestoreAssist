@@ -686,7 +686,7 @@ export default function InspectionPrintPage({
                     >
                       Grand Total (inc. GST)
                     </td>
-                    <td className="px-3 py-3 text-right font-bold text-lg text-emerald-700">
+                    <td className="px-3 py-3 text-right font-bold text-lg text-success">
                       ${fmtCurrency(grandTotal)}
                     </td>
                   </tr>

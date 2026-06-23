@@ -322,7 +322,7 @@ export default function InsurerProfilePage({
                   {gapAnalysis.isComplete ? (
                     <CheckCircle2
                       size={20}
-                      className="text-emerald-600 dark:text-emerald-400"
+                      className="text-success"
                     />
                   ) : (
                     <AlertTriangle
@@ -334,7 +334,7 @@ export default function InsurerProfilePage({
                     className={cn(
                       "text-sm font-semibold",
                       gapAnalysis.isComplete
-                        ? "text-emerald-700 dark:text-emerald-400"
+                        ? "text-success"
                         : "text-amber-700 dark:text-amber-400",
                     )}
                   >

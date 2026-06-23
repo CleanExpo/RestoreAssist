@@ -869,7 +869,7 @@ export default function IntegrationsPage() {
                               handleDeleteIntegration(integration.id)
                             }
                           >
-                            <Trash2 className="text-rose-400 size-3.5" />
+                            <Trash2 className="text-destructive size-3.5" />
                           </Button>
                         </>
                       ) : (
@@ -888,7 +888,7 @@ export default function IntegrationsPage() {
                               handleDeleteIntegration(integration.id)
                             }
                           >
-                            <Trash2 className="text-rose-400 size-3.5" />
+                            <Trash2 className="text-destructive size-3.5" />
                           </Button>
                         </>
                       )}
@@ -1430,7 +1430,7 @@ export default function IntegrationsPage() {
                       }
                     >
                       {drNrpgCopied === "url" ? (
-                        <Check size={13} className="text-emerald-500" />
+                        <Check size={13} className="text-success" />
                       ) : (
                         <Copy size={13} />
                       )}
@@ -1457,7 +1457,7 @@ export default function IntegrationsPage() {
                         }
                       >
                         {drNrpgCopied === "secret" ? (
-                          <Check size={13} className="text-emerald-500" />
+                          <Check size={13} className="text-success" />
                         ) : (
                           <Copy size={13} />
                         )}

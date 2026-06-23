@@ -132,7 +132,7 @@ export default function OnboardingStepModal({
                           isCurrent
                             ? "text-cyan-400 font-semibold"
                             : isCompleted
-                              ? "text-green-400"
+                              ? "text-success"
                               : "text-slate-500"
                         }`}
                       >

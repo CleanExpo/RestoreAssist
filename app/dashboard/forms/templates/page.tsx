@@ -204,14 +204,14 @@ function CreateTemplateForm({ onCreated, onCancel }: CreateTemplateFormProps) {
       </div>
 
       {error && (
-        <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
+        <p className="text-xs text-destructive">{error}</p>
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Name */}
         <div className="space-y-1.5">
           <Label htmlFor="tpl-name" className="text-xs">
-            Name <span className="text-red-500">*</span>
+            Name <span className="text-destructive">*</span>
           </Label>
           <Input
             id="tpl-name"
@@ -225,7 +225,7 @@ function CreateTemplateForm({ onCreated, onCancel }: CreateTemplateFormProps) {
         {/* Form Type */}
         <div className="space-y-1.5">
           <Label htmlFor="tpl-type" className="text-xs">
-            Form Type <span className="text-red-500">*</span>
+            Form Type <span className="text-destructive">*</span>
           </Label>
           <Select
             value={form.formType}

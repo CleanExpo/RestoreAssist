@@ -122,7 +122,7 @@ export default function MonthlyVolumeChart({
       >
         <div className="flex items-center gap-3">
           <AlertCircle className="w-5 h-5 text-destructive" />
-          <p className={cn("text-sm", "text-red-700 dark:text-red-300")}>
+          <p className={cn("text-sm", "text-destructive")}>
             {error}
           </p>
         </div>

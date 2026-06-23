@@ -128,12 +128,12 @@ function AsbestosStopWorkBanner({ count }: { count: number }) {
   return (
     <div className="mx-4 mb-4 rounded-lg border-2 border-red-500 bg-red-950 p-4">
       <div className="flex items-start gap-3">
-        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-400" />
+        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
         <div>
-          <p className="font-semibold text-red-300">
+          <p className="font-semibold text-destructive">
             STOP WORK — Possible Asbestos-Containing Material
           </p>
-          <p className="mt-1 text-sm text-red-400">
+          <p className="mt-1 text-sm text-destructive">
             {count} photo{count > 1 ? "s" : ""} flagged with possible asbestos
             (ACM). Do not proceed with demolition or disturbance. Contact a
             licensed asbestos assessor. Refer to Safe Work Australia guidance.
@@ -414,7 +414,7 @@ function PhotoPanel({
         {/* Asbestos stop-work warning */}
         {(hasAsbestos || asbestosWarning) && (
           <div className="border-b border-red-800 bg-red-950 p-3">
-            <div className="flex items-center gap-2 text-sm font-semibold text-red-300">
+            <div className="flex items-center gap-2 text-sm font-semibold text-destructive">
               <AlertTriangle className="h-4 w-4 shrink-0" />
               STOP WORK — Possible ACM. Do not disturb material.
             </div>
@@ -1168,7 +1168,7 @@ export default function InspectionPhotosPage({ params }: PageProps) {
           </label>
         </div>
         {uploadError && (
-          <p className="mt-2 text-xs text-red-400">{uploadError}</p>
+          <p className="mt-2 text-xs text-destructive">{uploadError}</p>
         )}
       </div>
 

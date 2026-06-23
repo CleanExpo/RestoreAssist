@@ -210,7 +210,7 @@ export default function EditReportPage({
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
         <div className="text-center">
-          <AlertTriangle className="mx-auto h-12 w-12 text-red-400 mb-4" />
+          <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
           <h2 className="text-xl font-semibold mb-2 text-white">
             Report Not Found
           </h2>

@@ -149,7 +149,7 @@ function stepStatusBadge(status: WorkflowStepStatus) {
   switch (status) {
     case "COMPLETED":
       return (
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 dark:text-green-400">
+        <span className="inline-flex items-center gap-1 text-xs font-medium text-success">
           <CheckCircle2 className="h-3.5 w-3.5" /> Done
         </span>
       );
@@ -167,7 +167,7 @@ function stepStatusBadge(status: WorkflowStepStatus) {
       );
     case "BLOCKED":
       return (
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700 dark:text-red-400">
+        <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive">
           <Lock className="h-3.5 w-3.5" /> Blocked
         </span>
       );
@@ -725,7 +725,7 @@ export default function CaptureWorkflowPage({
               />
             </div>
             {workflow.isReadyToSubmit && (
-              <div className="mt-2 flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
+              <div className="mt-2 flex items-center gap-1.5 text-xs text-success">
                 <CheckCircle2 className="h-3.5 w-3.5" />
                 Ready to submit
               </div>
@@ -769,7 +769,7 @@ export default function CaptureWorkflowPage({
                 <div className="flex items-start gap-2">
                   <div className="mt-0.5 flex-shrink-0">
                     {isDone ? (
-                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      <CheckCircle2 className="h-4 w-4 text-success" />
                     ) : isSkipped ? (
                       <SkipForward className="h-4 w-4 text-amber-500" />
                     ) : isActive ? (
@@ -793,7 +793,7 @@ export default function CaptureWorkflowPage({
                         {idx + 1}. {step.stepTitle}
                       </span>
                       {step.isMandatory && (
-                        <Shield className="h-3 w-3 text-red-400 flex-shrink-0" />
+                        <Shield className="h-3 w-3 text-destructive flex-shrink-0" />
                       )}
                     </div>
                     <div className="flex items-center gap-2 mt-0.5">
@@ -807,7 +807,7 @@ export default function CaptureWorkflowPage({
                           className={cn(
                             "text-[10px] font-medium",
                             step.riskTier === 3
-                              ? "text-red-500"
+                              ? "text-destructive"
                               : "text-amber-500",
                           )}
                         >
@@ -862,7 +862,7 @@ export default function CaptureWorkflowPage({
                 <div className="flex items-center gap-3 mt-0.5">
                   {stepStatusBadge(activeStep.status)}
                   {activeStep.isMandatory && (
-                    <span className="text-xs text-red-500 font-medium flex items-center gap-1">
+                    <span className="text-xs text-destructive font-medium flex items-center gap-1">
                       <Shield className="h-3 w-3" /> Mandatory
                     </span>
                   )}
@@ -871,7 +871,7 @@ export default function CaptureWorkflowPage({
                       className={cn(
                         "text-xs font-medium flex items-center gap-1",
                         activeStep.riskTier === 3
-                          ? "text-red-600 dark:text-red-400"
+                          ? "text-destructive"
                           : "text-amber-600 dark:text-amber-400",
                       )}
                     >
@@ -980,7 +980,7 @@ export default function CaptureWorkflowPage({
                         </div>
                       </div>
                       {hasCaptured ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
+                        <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
                       ) : (
                         <Button
                           variant="outline"
@@ -1037,7 +1037,7 @@ export default function CaptureWorkflowPage({
                             </div>
                             <button
                               onClick={() => handleDeleteEvidence(ev.id)}
-                              className="text-red-400 hover:text-red-600 p-0.5"
+                              className="text-destructive hover:text-destructive p-0.5"
                             >
                               <X className="h-3 w-3" />
                             </button>
@@ -1144,7 +1144,7 @@ export default function CaptureWorkflowPage({
 
             {/* Auto-advance hint */}
             {activeStep.status === "COMPLETED" && (
-              <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+              <span className="text-xs text-success flex items-center gap-1">
                 <CheckCircle2 className="h-3.5 w-3.5" /> Step complete
               </span>
             )}
@@ -1191,7 +1191,7 @@ export default function CaptureWorkflowPage({
             <p className="text-sm text-slate-600 dark:text-slate-400">
               Skipping a step requires a reason for audit trail compliance.
               {activeStep?.isMandatory && (
-                <span className="block mt-1 text-red-600 dark:text-red-400 font-medium">
+                <span className="block mt-1 text-destructive font-medium">
                   Warning: This is a mandatory step. An admin will be notified.
                 </span>
               )}

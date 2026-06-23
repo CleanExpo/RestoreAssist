@@ -45,7 +45,7 @@ function DefaultFallback({
         <CardHeader>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
-              <AlertTriangle className="h-5 w-5 text-red-400" />
+              <AlertTriangle className="h-5 w-5 text-destructive" />
             </div>
             <CardTitle className="text-white text-lg leading-tight">
               Something went wrong

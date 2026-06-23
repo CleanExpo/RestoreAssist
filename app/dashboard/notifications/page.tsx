@@ -410,7 +410,7 @@ export default function NotificationsPage() {
           </div>
         ) : error ? (
           <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-            <XCircle className="h-10 w-10 text-red-400 mb-3" />
+            <XCircle className="h-10 w-10 text-destructive mb-3" />
             <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
               {error}
             </p>
@@ -425,7 +425,7 @@ export default function NotificationsPage() {
           </div>
         ) : !hasAnyNotification ? (
           <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-            <CheckCircle2 className="h-10 w-10 text-green-400 mb-3" />
+            <CheckCircle2 className="h-10 w-10 text-success mb-3" />
             <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
               You&apos;re all set — no notifications
             </p>

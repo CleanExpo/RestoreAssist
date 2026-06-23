@@ -305,7 +305,7 @@ export default async function ClientPortalPage({ params }: PageProps) {
         {reportReady && (
           <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center gap-3">
             <svg
-              className="w-5 h-5 text-emerald-500 flex-shrink-0"
+              className="w-5 h-5 text-success flex-shrink-0"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -317,7 +317,7 @@ export default async function ClientPortalPage({ params }: PageProps) {
                 d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
-            <p className="text-sm text-emerald-700 font-medium">
+            <p className="text-sm text-success font-medium">
               Your restoration report is ready.
             </p>
           </div>

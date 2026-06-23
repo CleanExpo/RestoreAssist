@@ -416,7 +416,7 @@ export default function ClientDetailPage({
         {/* Statistics */}
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
           <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
-            <DollarSign className="text-emerald-400" size={20} />
+            <DollarSign className="text-success" size={20} />
             Statistics
           </h2>
           <div className="space-y-3">
@@ -428,7 +428,7 @@ export default function ClientDetailPage({
             </div>
             <div className="flex items-center justify-between">
               <span className="text-slate-400">Total Revenue</span>
-              <span className="text-2xl font-bold text-emerald-400">
+              <span className="text-2xl font-bold text-success">
                 ${client.totalRevenue.toLocaleString()}
               </span>
             </div>
@@ -635,7 +635,7 @@ export default function ClientDetailPage({
       {/* Restoration Invoices */}
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
         <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
-          <Receipt className="text-emerald-400" size={20} />
+          <Receipt className="text-success" size={20} />
           Restoration Invoices
           {!invoicesLoading && !invoicesError && (
             <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-600/60 text-slate-300">

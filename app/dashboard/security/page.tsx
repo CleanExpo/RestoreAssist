@@ -166,7 +166,7 @@ export default function SecurityPage() {
               {twoFactorEnabled ? (
                 <>
                   <ShieldCheck
-                    className="h-5 w-5 text-emerald-400"
+                    className="h-5 w-5 text-success"
                     aria-hidden
                   />
                   Two-factor authentication is on

@@ -182,7 +182,7 @@ export function NotificationBell({ className }: NotificationBellProps) {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 text-neutral-500 hover:text-red-500"
+                        className="h-7 w-7 text-neutral-500 hover:text-destructive"
                         onClick={() => deleteNotification(notification.id)}
                         aria-label="Delete notification"
                       >

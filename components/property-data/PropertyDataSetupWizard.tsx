@@ -251,9 +251,9 @@ export function PropertyDataSetupWizard({
                 {testing ? (
                   <Loader2 size={32} className="animate-spin text-blue-500" />
                 ) : testResult === "success" ? (
-                  <CheckCircle2 size={32} className="text-emerald-500" />
+                  <CheckCircle2 size={32} className="text-success" />
                 ) : testResult === "fail" ? (
-                  <WifiOff size={32} className="text-rose-500" />
+                  <WifiOff size={32} className="text-destructive" />
                 ) : (
                   <Wifi
                     size={32}
@@ -263,9 +263,9 @@ export function PropertyDataSetupWizard({
                 <p
                   className={`text-sm font-medium ${
                     testResult === "success"
-                      ? "text-emerald-700 dark:text-emerald-400"
+                      ? "text-success"
                       : testResult === "fail"
-                        ? "text-rose-700 dark:text-rose-400"
+                        ? "text-destructive"
                         : "text-slate-600 dark:text-slate-400"
                   }`}
                 >
@@ -280,7 +280,7 @@ export function PropertyDataSetupWizard({
                 {testResult === "fail" && testError && (
                   <p
                     role="alert"
-                    className="text-xs text-rose-600 dark:text-rose-400 text-center px-2"
+                    className="text-xs text-destructive text-center px-2"
                   >
                     {testError}
                   </p>
@@ -309,7 +309,7 @@ export function PropertyDataSetupWizard({
           {step === 4 && (
             <div className="flex flex-col items-center text-center space-y-4 py-4">
               <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center">
-                <CheckCircle2 size={36} className="text-emerald-500" />
+                <CheckCircle2 size={36} className="text-success" />
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-slate-900 dark:text-white">

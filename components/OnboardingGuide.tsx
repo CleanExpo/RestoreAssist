@@ -185,7 +185,7 @@ export default function OnboardingGuide({
                         <currentStepData.icon
                           className={`w-5 h-5 ${
                             completedSteps.includes(step)
-                              ? "text-green-400"
+                              ? "text-success"
                               : "text-cyan-400"
                           }`}
                         />
@@ -259,7 +259,7 @@ export default function OnboardingGuide({
                                 isCurrent
                                   ? "text-cyan-400"
                                   : isCompleted
-                                    ? "text-green-400"
+                                    ? "text-success"
                                     : "text-slate-400"
                               }`}
                             >

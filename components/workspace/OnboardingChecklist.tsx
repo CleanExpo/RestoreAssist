@@ -123,7 +123,7 @@ export default function OnboardingChecklist() {
               )}
             >
               {done ? (
-                <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
+                <CheckCircle2 className="h-5 w-5 text-success shrink-0" />
               ) : (
                 <Circle className="h-5 w-5 text-neutral-300 dark:text-slate-600 shrink-0" />
               )}
@@ -132,7 +132,7 @@ export default function OnboardingChecklist() {
                   className={cn(
                     "text-sm font-medium",
                     done
-                      ? "text-emerald-700 dark:text-emerald-400 line-through"
+                      ? "text-success line-through"
                       : "text-neutral-900 dark:text-white",
                   )}
                 >

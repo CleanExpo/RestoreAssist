@@ -34,7 +34,7 @@ export default function CheckoutCTA({ tier }: { tier: "STANDARD" | "PREMIUM" | "
       >
         {loading ? "Redirecting…" : `Continue with ${tier}`}
       </button>
-      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+      {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
     </div>
   );
 }
