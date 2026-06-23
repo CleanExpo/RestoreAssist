@@ -515,7 +515,7 @@ export default function RestorationInvoiceForm({
         {/* Legal banner */}
         <div className="mb-7 border-l-4 border-teal-500 bg-teal-50/80 py-3 px-4 rounded-r-lg dark:bg-teal-900/20">
           <p className="text-sm font-semibold text-neutral-900 dark:text-white">
-            ⚖️ Invoice Settlement Basis — &quot;Reasonable Costs You Actually
+            Invoice Settlement Basis — &quot;Reasonable Costs You Actually
             Incur&quot;
           </p>
           <p className="mt-1 text-xs leading-relaxed text-neutral-700 dark:text-slate-300">
@@ -810,7 +810,7 @@ export default function RestorationInvoiceForm({
         {/* Policy wording - fixed legal text */}
         <div className="mt-8 rounded-lg border border-neutral-200 bg-neutral-50 p-5 text-xs leading-relaxed text-neutral-700 dark:border-slate-600 dark:bg-slate-800/50 dark:text-slate-300">
           <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-neutral-900 dark:text-white">
-            📋 Insurance Policy Wording Reference — Basis of Claim
+            Insurance Policy Wording Reference — Basis of Claim
           </h4>
           <p className="mb-2">
             This invoice is issued in accordance with the settlement provisions
@@ -844,7 +844,7 @@ export default function RestorationInvoiceForm({
         {/* Technical Certification */}
         <div className="mt-6 rounded-lg border border-neutral-200 p-4 dark:border-slate-600">
           <h4 className="mb-3 text-xs font-bold uppercase tracking-wide text-teal-600 dark:text-teal-400">
-            🔬 Technical Certification &amp; Compliance
+            Technical Certification &amp; Compliance
           </h4>
           <div className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
             {[
@@ -884,7 +884,7 @@ export default function RestorationInvoiceForm({
         {/* Payment Terms */}
         <div className="mt-6 rounded-lg border-2 border-teal-500 p-4">
           <h4 className="mb-2 text-sm font-bold text-teal-600 dark:text-teal-400">
-            💳 Payment Terms
+            Payment Terms
           </h4>
           <p className="text-xs leading-relaxed">
             <strong>Payment Due:</strong> Within 7 days of invoice date. Payment
@@ -925,7 +925,7 @@ export default function RestorationInvoiceForm({
         {/* Client Acknowledgement - fixed legal text */}
         <div className="mt-6 rounded-lg border border-neutral-200 p-4 dark:border-slate-600">
           <h4 className="mb-3 text-sm font-bold text-neutral-900 dark:text-white">
-            ✍️ Client Acknowledgement &amp; Authorisation
+            Client Acknowledgement &amp; Authorisation
           </h4>
           <p className="mb-2 text-xs leading-relaxed text-neutral-600 dark:text-slate-300">
             I, the undersigned Client (the Insured / Policyholder), acknowledge

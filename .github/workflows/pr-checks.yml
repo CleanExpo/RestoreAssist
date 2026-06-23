@@ -122,6 +122,14 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      # Branded-icon guard (RA-icon-system). Ratchet mode: fails if a PR adds
+      # generic Unicode emojis beyond the recorded baseline
+      # (scripts/emoji-baseline.json). Use [ra:*] tokens instead — see
+      # docs/RESTOREASSIST_ICON_SYSTEM.md. The historical backlog burns down as
+      # files are migrated; regenerate the baseline to ratchet the limit lower.
+      - name: Emoji guard
+        run: pnpm check:no-emoji
+
       # Phase 2 AI guardrail gate. Static only: no provider calls, no DB
       # writes, and no runtime routing changes. Fails if a new AI/provider/RAG
       # surface cannot be classified into a known task class.

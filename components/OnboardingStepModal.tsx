@@ -163,7 +163,7 @@ export default function OnboardingStepModal({
           {/* Footer Note */}
           <div className="relative border-t border-cyan-500/10 bg-slate-800/30 px-8 py-4">
             <p className="text-xs text-center text-slate-400">
-              💡 Complete this step to automatically proceed to the next one
+              Complete this step to automatically proceed to the next one
             </p>
           </div>
         </motion.div>

@@ -152,7 +152,7 @@ export default function InspectionReportViewer({
             try {
               const parsed = JSON.parse(data.detailedReport);
               console.log(
-                "[InspectionReportViewer] 📊 Parsed structured report data:",
+                "[InspectionReportViewer] Parsed structured report data:",
                 {
                   type: parsed.type,
                   hasEnvironmental: !!parsed.environmental,
@@ -234,7 +234,7 @@ export default function InspectionReportViewer({
 
       if (response.ok) {
         const data = await response.json();
-        console.log("[InspectionReportViewer] ✅ Report generation response:", {
+        console.log("[InspectionReportViewer] Report generation response:", {
           hasReport: !!data.report,
           hasStructuredData: !!data.report?.structuredData,
           hasDetailedReport: !!data.report?.detailedReport,
@@ -244,7 +244,7 @@ export default function InspectionReportViewer({
           // Check if it's structured data (new Basic Report format)
           if (data.report.structuredData) {
             console.log(
-              "[InspectionReportViewer] 📊 Setting structured data from response:",
+              "[InspectionReportViewer] Setting structured data from response:",
               {
                 hasEnvironmental: !!data.report.structuredData.environmental,
                 environmental: data.report.structuredData.environmental,

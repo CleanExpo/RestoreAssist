@@ -122,16 +122,29 @@ const segments = parseRATokens("[ra:warning] Room 2 above dry standard");
 
 ## Enforcement and migration
 
-`pnpm check:no-emoji` fails the build-local check if generic emojis appear in
-the scanned directories. To migrate existing copy:
+`pnpm check:no-emoji` runs in the **PR Quality Checks** workflow and is
+enforcing. It has three modes:
+
+- **ratchet** (default, used by CI): compares each file to
+  `scripts/emoji-baseline.json` and fails only when a PR adds emojis **beyond**
+  the recorded backlog (or introduces a new file with emojis). New emojis are
+  blocked immediately; the historical backlog is allowed while it burns down.
+- `--strict`: fails on **any** emoji (the end goal once the baseline reaches 0).
+- `--update-baseline`: rewrites the baseline from the current tree. Run this
+  after removing emojis to **ratchet the limit lower** (never higher).
+
+To migrate existing copy:
 
 1. **React UI text / AI output** -> replace the emoji with the matching
    `[ra:name]` token and render through `RAIconText` (or drop in `RAIcon`).
 2. **Plain-text surfaces that are NOT rendered as React** (server logs, email
    bodies, generated report strings, JSON) -> do **not** use `[ra:*]` tokens
    there (they would show literally). Remove the emoji or use a plain word.
-3. A line that genuinely needs an emoji (e.g. a test fixture asserting emoji
-   handling) may opt out with the trailing marker `ra-allow-emoji`.
+3. After a batch, run `node scripts/check-no-emoji.mjs --update-baseline` so the
+   gate locks in the lower count.
+4. A line that genuinely needs an emoji (e.g. a functional language flag or a
+   test fixture asserting emoji handling) may opt out with the trailing marker
+   `ra-allow-emoji`.
 
 Adding a new icon: drop `svg/<name>.svg` in the brand palette, add the name to
 `RA_ICON_NAMES` and `RA_ICONS` in `icon-registry.ts`, and document it here.
