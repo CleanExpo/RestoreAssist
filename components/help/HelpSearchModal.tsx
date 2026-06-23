@@ -69,7 +69,7 @@ export default function HelpSearchModal() {
         if (e.target === e.currentTarget) setOpen(false);
       }}
     >
-      <div className="w-full max-w-2xl rounded-lg border border-white/10 bg-[#0E1320] shadow-2xl">
+      <div className="w-full max-w-2xl rounded-lg border border-white/10 bg-brand-surface shadow-2xl">
         <input
           autoFocus
           type="search"

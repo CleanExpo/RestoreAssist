@@ -84,7 +84,7 @@ export default async function HelpArticlePage({
               <li key={s}>
                 <Link
                   href={`/dashboard/help/${category}/${s}`}
-                  className="text-sm text-brand-gold hover:text-[#E6BB8E]"
+                  className="text-sm text-brand-gold hover:text-brand-gold-hover"
                 >
                   {s.replace(/-/g, " ")}
                 </Link>
@@ -94,7 +94,7 @@ export default async function HelpArticlePage({
         </section>
       )}
 
-      <section className="mt-12 rounded-lg border border-white/10 bg-[#0E1320] p-6 text-center">
+      <section className="mt-12 rounded-lg border border-white/10 bg-brand-surface p-6 text-center">
         <p className="text-sm text-white/70">Still stuck?</p>
         <Link
           href="/dashboard/support"

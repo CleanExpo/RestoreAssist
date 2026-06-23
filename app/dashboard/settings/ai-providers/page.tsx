@@ -367,7 +367,7 @@ export default function AiProvidersPage() {
                             disabled={
                               saving === p.id || !inputKey[p.id]?.trim()
                             }
-                            className="flex items-center gap-1.5 px-4 py-2 bg-brand-navy hover:bg-[#263d5f] disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+                            className="flex items-center gap-1.5 px-4 py-2 bg-brand-navy hover:bg-brand-navy-hover disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
                           >
                             {saving === p.id ? (
                               <Loader2 size={14} className="animate-spin" />

@@ -81,7 +81,7 @@ export default function HowToDropdown() {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full mt-2 w-[640px] rounded-lg border border-white/10 bg-[#0E1320] p-4 shadow-xl shadow-black/50"
+          className="absolute right-0 top-full mt-2 w-[640px] rounded-lg border border-white/10 bg-brand-surface p-4 shadow-xl shadow-black/50"
         >
           {/* Two-column layout: Categories + Videos */}
           <div className="grid grid-cols-5 gap-4">
@@ -139,7 +139,7 @@ export default function HowToDropdown() {
                     <Link
                       href={`/dashboard/help/${categoryToShow}`}
                       onClick={() => setOpen(false)}
-                      className="block text-center text-xs text-brand-gold hover:text-[#E6BB8E] pt-1"
+                      className="block text-center text-xs text-brand-gold hover:text-brand-gold-hover pt-1"
                     >
                       +{categoryVideos.length - 4} more videos →
                     </Link>
@@ -153,7 +153,7 @@ export default function HowToDropdown() {
             <Link
               href="/dashboard/help"
               onClick={() => setOpen(false)}
-              className="text-sm text-brand-gold hover:text-[#E6BB8E]"
+              className="text-sm text-brand-gold hover:text-brand-gold-hover"
             >
               Browse all articles →
             </Link>

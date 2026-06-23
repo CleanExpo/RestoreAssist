@@ -21,7 +21,7 @@ export default function HelpArticleCard({
   return (
     <Link
       href={`/dashboard/help/${category}/${slug}`}
-      className="group block rounded-lg border border-white/10 bg-[#0E1320] p-6 transition hover:-translate-y-0.5 hover:border-white/20 hover:bg-[#11172A]"
+      className="group block rounded-lg border border-white/10 bg-brand-surface p-6 transition hover:-translate-y-0.5 hover:border-white/20 hover:bg-brand-surface-2"
     >
       <div className="flex items-center gap-2 text-xs text-white/60">
         <span className="rounded bg-white/5 px-2 py-0.5">{HELP_CATEGORY_LABELS[category]}</span>

@@ -64,7 +64,7 @@ export function PhaseSidebar({
   onJumpToPhase,
 }: PhaseSidebarProps) {
   return (
-    <div className="flex h-full w-72 flex-col border-r border-white/10 bg-[#0a0a0a]">
+    <div className="flex h-full w-72 flex-col border-r border-white/10 bg-brand-ink">
       {/* Header */}
       <div className="border-b border-white/10 p-4">
         <p className="text-sm font-medium text-white">{inspectionNumber}</p>

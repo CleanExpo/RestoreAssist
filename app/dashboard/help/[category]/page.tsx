@@ -59,7 +59,7 @@ export default async function HelpCategoryPage({
               <Link
                 key={video.slug}
                 href={`/dashboard/learn?video=${video.slug}`}
-                className="group relative overflow-hidden rounded-xl border border-white/10 bg-[#0E1320] p-4 hover:border-brand-bronze/50 transition-colors"
+                className="group relative overflow-hidden rounded-xl border border-white/10 bg-brand-surface p-4 hover:border-brand-bronze/50 transition-colors"
               >
                 <div className="flex items-start gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-navy group-hover:bg-brand-bronze/20">

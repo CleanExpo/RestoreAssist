@@ -28,7 +28,7 @@ export default async function PublicHelpIndex() {
                   <li key={a.frontmatter.slug}>
                     <Link
                       href={`/help/${a.frontmatter.category}/${a.frontmatter.slug}`}
-                      className="text-brand-gold hover:text-[#E6BB8E]"
+                      className="text-brand-gold hover:text-brand-gold-hover"
                     >
                       {a.frontmatter.title}
                     </Link>
