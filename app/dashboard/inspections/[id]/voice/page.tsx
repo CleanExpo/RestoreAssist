@@ -211,9 +211,9 @@ export default function VoiceSessionPage({ params }: PageProps) {
         /* ── Pre-session: mode selection ── */
         <div className="flex-1 flex flex-col items-center justify-center gap-6 px-6">
           <div className="text-center">
-            <h2 className="text-2xl font-bold text-white mb-2">
+            <h1 className="text-2xl font-bold text-white mb-2">
               Voice Copilot
-            </h2>
+            </h1>
             <p className="text-white/60 text-sm max-w-xs">
               Captures S500:2025 evidence hands-free while you work on site.
             </p>

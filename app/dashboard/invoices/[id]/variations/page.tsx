@@ -285,7 +285,7 @@ export default function InvoiceVariationsPage({
       {/* Create variation section */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold">Variations</h2>
+          <h1 className="text-base font-semibold">Variations</h1>
           {!showForm && (
             <Button size="sm" onClick={() => setShowForm(true)}>
               <Plus className="h-4 w-4 mr-1.5" />
