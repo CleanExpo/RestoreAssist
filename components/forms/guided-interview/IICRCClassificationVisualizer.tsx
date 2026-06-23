@@ -47,7 +47,7 @@ const getCategoryInfo = (category: number) => {
       name: "Clean Water (Category 1)",
       color: "bg-green-100 border-green-300",
       bgColor: "bg-green-50",
-      icon: <CheckCircle2 className="h-8 w-8 text-green-600" />,
+      icon: <CheckCircle2 className="h-8 w-8 text-success" />,
       description:
         "Water from clean sources such as broken water supply lines, falling rainwater, melted snow/ice. Presents minimal health hazard.",
       sources: [
@@ -71,7 +71,7 @@ const getCategoryInfo = (category: number) => {
       name: "Grey Water (Category 2)",
       color: "bg-yellow-100 border-yellow-300",
       bgColor: "bg-yellow-50",
-      icon: <AlertTriangle className="h-8 w-8 text-yellow-600" />,
+      icon: <AlertTriangle className="h-8 w-8 text-warning" />,
       description:
         "Water containing some level of contamination. May include soap/detergent residue or other organic matter. Presents moderate health hazard.",
       sources: [
@@ -101,7 +101,7 @@ const getCategoryInfo = (category: number) => {
       name: "Black Water (Category 3)",
       color: "bg-red-100 border-red-300",
       bgColor: "bg-red-50",
-      icon: <AlertCircle className="h-8 w-8 text-red-600" />,
+      icon: <AlertCircle className="h-8 w-8 text-destructive" />,
       description:
         "Highly contaminated water presenting serious health hazard. Contains pathogenic agents, toxic substances, and fecal matter. Requires professional remediation.",
       sources: [
@@ -157,7 +157,7 @@ const getClassInfo = (waterClass: number) => {
     1: {
       name: "Class 1: Smallest",
       percentage: "0-10%",
-      color: "text-green-700",
+      color: "text-success",
       description:
         "Affects only small areas with minimum structural damage. Minimal wet materials. Evaporation is rapid.",
       dryingTime: "2-3 days",
@@ -170,7 +170,7 @@ const getClassInfo = (waterClass: number) => {
     2: {
       name: "Class 2: Large",
       percentage: "10-30%",
-      color: "text-yellow-700",
+      color: "text-warning",
       description:
         "Affects large areas including entire rooms or multiple rooms. Moderate structural involvement. Carpeting may be wet.",
       dryingTime: "3-5 days",
@@ -201,7 +201,7 @@ const getClassInfo = (waterClass: number) => {
     4: {
       name: "Class 4: Specialty",
       percentage: ">50%",
-      color: "text-red-700",
+      color: "text-destructive",
       description:
         "Involves materials that take extended time to dry due to high porosity and capillary action. Requires specialized drying equipment and techniques.",
       dryingTime: "7-30+ days",
@@ -414,7 +414,7 @@ export function IICRCClassificationVisualizer({
                   <p className="text-xs text-muted-foreground">
                     Dehumidification
                   </p>
-                  <p className="text-sm font-semibold text-green-700">
+                  <p className="text-sm font-semibold text-success">
                     {classInfo.dehumidificationMethod}
                   </p>
                 </div>
@@ -444,10 +444,10 @@ export function IICRCClassificationVisualizer({
                       key={idx}
                       className="flex items-start gap-3 p-3 bg-gradient-to-r from-green-50 to-transparent border border-green-200 rounded"
                     >
-                      <span className="font-bold text-green-700 text-sm">
+                      <span className="font-bold text-success text-sm">
                         {idx + 1}
                       </span>
-                      <span className="text-sm text-green-800">{step}</span>
+                      <span className="text-sm text-success">{step}</span>
                     </div>
                   ))}
                 </div>
@@ -455,20 +455,20 @@ export function IICRCClassificationVisualizer({
 
               {/* Standards Reference */}
               <div className="p-3 bg-amber-50 border border-amber-200 rounded">
-                <h4 className="font-semibold text-sm text-amber-900 mb-2">
+                <h4 className="font-semibold text-sm text-warning mb-2">
                   Standards Compliance
                 </h4>
                 <div className="space-y-1 text-sm">
-                  <p className="text-amber-800">
+                  <p className="text-warning">
                     ✓ IICRC S500 Standard & Reference Guide Section 2-3
                   </p>
-                  <p className="text-amber-800">
+                  <p className="text-warning">
                     ✓ NCC 2025 Building Code Section 3
                   </p>
-                  <p className="text-amber-800">
+                  <p className="text-warning">
                     ✓ WHS Act 2011 Safety Requirements
                   </p>
-                  <p className="text-amber-800">
+                  <p className="text-warning">
                     ✓ AS/NZS 3000 Electrical Safety (if electrical involved)
                   </p>
                 </div>
@@ -480,10 +480,10 @@ export function IICRCClassificationVisualizer({
         {/* Time Analysis */}
         {timeElapsedHours && (
           <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-            <h4 className="font-semibold text-sm text-amber-900 mb-2">
+            <h4 className="font-semibold text-sm text-warning mb-2">
               Time Since Loss
             </h4>
-            <p className="text-sm text-amber-800">
+            <p className="text-sm text-warning">
               {timeElapsedHours} hours elapsed
               {timeElapsedHours > 72 ? (
                 <span className="block mt-1 text-orange-700 font-semibold">
@@ -491,12 +491,12 @@ export function IICRCClassificationVisualizer({
                   required.
                 </span>
               ) : timeElapsedHours > 48 ? (
-                <span className="block mt-1 text-yellow-700 font-semibold">
+                <span className="block mt-1 text-warning font-semibold">
                   ⚠ 48-72 hours - Mold growth risk increasing. Urgent action
                   needed.
                 </span>
               ) : (
-                <span className="block mt-1 text-green-700 font-semibold">
+                <span className="block mt-1 text-success font-semibold">
                   ✓ Under 48 hours - Optimal time for mitigation. Act now.
                 </span>
               )}

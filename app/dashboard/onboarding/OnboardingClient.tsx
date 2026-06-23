@@ -245,7 +245,7 @@ export default function OnboardingClient() {
               <p
                 className={cn(
                   "text-lg font-semibold",
-                  "text-emerald-600 dark:text-emerald-400",
+                  "text-success dark:text-success",
                 )}
               >
                 You&apos;re all set!
@@ -296,18 +296,18 @@ export default function OnboardingClient() {
           )}
         >
           <div className="flex justify-center">
-            <Sparkles className="w-10 h-10 text-emerald-500" />
+            <Sparkles className="w-10 h-10 text-success" />
           </div>
           <h2
             className={cn(
               "text-xl font-bold",
-              "text-emerald-700 dark:text-emerald-300",
+              "text-success dark:text-success",
             )}
           >
             You&apos;re all set!
           </h2>
           <p
-            className={cn("text-sm", "text-emerald-600 dark:text-emerald-400")}
+            className={cn("text-sm", "text-success dark:text-success")}
           >
             Your account is fully configured. You&apos;re ready to create
             reports and manage your restoration business.
@@ -342,13 +342,13 @@ export default function OnboardingClient() {
             {/* Icon */}
             <div className="shrink-0">
               {step.completed ? (
-                <CheckCircle2 className="w-6 h-6 text-emerald-500" />
+                <CheckCircle2 className="w-6 h-6 text-success" />
               ) : (
                 <Circle
                   className={cn(
                     "w-6 h-6",
                     step.required
-                      ? "text-amber-400"
+                      ? "text-warning"
                       : "text-neutral-400 dark:text-slate-500",
                   )}
                 />
@@ -372,7 +372,7 @@ export default function OnboardingClient() {
                   <span
                     className={cn(
                       "text-xs px-2 py-0.5 rounded-full font-medium",
-                      "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+                      "bg-amber-100 text-warning dark:bg-amber-900/30 dark:text-warning",
                     )}
                   >
                     Required

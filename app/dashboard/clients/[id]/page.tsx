@@ -261,13 +261,13 @@ export default function ClientDetailPage({
   const getInspectionStatusColor = (status: string) => {
     switch (status) {
       case "PENDING":
-        return "bg-amber-500/20 text-amber-400";
+        return "bg-amber-500/20 text-warning";
       case "SUBMITTED":
         return "bg-blue-500/20 text-blue-400";
       case "PROCESSED":
-        return "bg-emerald-500/20 text-emerald-400";
+        return "bg-emerald-500/20 text-success";
       case "CANCELLED":
-        return "bg-red-500/20 text-red-400";
+        return "bg-red-500/20 text-destructive";
       case "DRAFT":
         return "bg-slate-500/20 text-slate-400";
       default:
@@ -283,7 +283,7 @@ export default function ClientDetailPage({
   const getDocTypeBadgeColor = (type: string) => {
     if (type === "RESTORATION_INVOICE") return "bg-cyan-500/20 text-cyan-400";
     if (type === "QUOTE" || type === "ESTIMATE")
-      return "bg-amber-500/20 text-amber-400";
+      return "bg-amber-500/20 text-warning";
     return "bg-slate-500/20 text-slate-400";
   };
 
@@ -416,7 +416,7 @@ export default function ClientDetailPage({
         {/* Statistics */}
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
           <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
-            <DollarSign className="text-emerald-400" size={20} />
+            <DollarSign className="text-success" size={20} />
             Statistics
           </h2>
           <div className="space-y-3">
@@ -428,7 +428,7 @@ export default function ClientDetailPage({
             </div>
             <div className="flex items-center justify-between">
               <span className="text-slate-400">Total Revenue</span>
-              <span className="text-2xl font-bold text-emerald-400">
+              <span className="text-2xl font-bold text-success">
                 ${client.totalRevenue.toLocaleString()}
               </span>
             </div>
@@ -455,7 +455,7 @@ export default function ClientDetailPage({
       {client.notes && (
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
           <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
-            <FileText className="text-amber-400" size={20} />
+            <FileText className="text-warning" size={20} />
             Notes
           </h2>
           <p className="text-slate-300">{client.notes}</p>
@@ -490,7 +490,7 @@ export default function ClientDetailPage({
             ))}
           </div>
         ) : inspectionsError ? (
-          <div className="flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-300">
+          <div className="flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-destructive">
             <span className="text-sm flex items-center gap-2">
               <AlertTriangle size={16} />
               {inspectionsError}
@@ -635,7 +635,7 @@ export default function ClientDetailPage({
       {/* Restoration Invoices */}
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
         <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
-          <Receipt className="text-emerald-400" size={20} />
+          <Receipt className="text-success" size={20} />
           Restoration Invoices
           {!invoicesLoading && !invoicesError && (
             <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-600/60 text-slate-300">
@@ -654,7 +654,7 @@ export default function ClientDetailPage({
             ))}
           </div>
         ) : invoicesError ? (
-          <div className="flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-300">
+          <div className="flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-destructive">
             <span className="text-sm flex items-center gap-2">
               <AlertTriangle size={16} />
               {invoicesError}

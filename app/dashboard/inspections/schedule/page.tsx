@@ -36,7 +36,7 @@ const STATUS_CHIP: Record<string, { label: string; bg: string; text: string }> =
     PROCESSING: {
       label: "Processing",
       bg: "bg-amber-100 dark:bg-amber-900/40",
-      text: "text-amber-700 dark:text-amber-300",
+      text: "text-warning dark:text-warning",
     },
     CLASSIFIED: {
       label: "Classified",
@@ -56,12 +56,12 @@ const STATUS_CHIP: Record<string, { label: string; bg: string; text: string }> =
     COMPLETED: {
       label: "Completed",
       bg: "bg-emerald-100 dark:bg-emerald-900/40",
-      text: "text-emerald-700 dark:text-emerald-300",
+      text: "text-success dark:text-success",
     },
     REJECTED: {
       label: "Rejected",
       bg: "bg-red-100 dark:bg-red-900/40",
-      text: "text-red-700 dark:text-red-300",
+      text: "text-destructive dark:text-destructive",
     },
   };
 

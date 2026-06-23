@@ -426,16 +426,16 @@ export default function MonitoringVerificationProcedures({
           className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4"
         >
           <div className="flex items-center gap-2 mb-2">
-            <CheckCircle className="text-emerald-400" size={20} />
+            <CheckCircle className="text-success" size={20} />
             <span className="font-medium text-white">Compliance</span>
           </div>
           <div
             className={`text-2xl font-bold ${
               complianceStatus === "compliant"
-                ? "text-emerald-400"
+                ? "text-success"
                 : complianceStatus === "partial"
-                  ? "text-amber-400"
-                  : "text-red-400"
+                  ? "text-warning"
+                  : "text-destructive"
             }`}
           >
             {complianceStatus === "compliant"
@@ -601,19 +601,19 @@ export default function MonitoringVerificationProcedures({
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-slate-300">Wood:</span>
-                <span className="font-bold text-emerald-400">
+                <span className="font-bold text-success">
                   {moistureTargets.wood}%
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-300">Drywall:</span>
-                <span className="font-bold text-emerald-400">
+                <span className="font-bold text-success">
                   {moistureTargets.drywall}%
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-300">Carpet:</span>
-                <span className="font-bold text-emerald-400">
+                <span className="font-bold text-success">
                   {moistureTargets.carpet}%
                 </span>
               </div>
@@ -722,8 +722,8 @@ export default function MonitoringVerificationProcedures({
                           className={`text-xs ${
                             parseFloat(reading.moistureContent) <=
                             parseFloat(reading.targetLevel)
-                              ? "text-emerald-400"
-                              : "text-red-400"
+                              ? "text-success"
+                              : "text-destructive"
                           }`}
                         >
                           {parseFloat(reading.moistureContent) <=
@@ -757,7 +757,7 @@ export default function MonitoringVerificationProcedures({
                 <li key={index} className="flex items-center gap-2">
                   <CheckCircle
                     size={14}
-                    className="text-emerald-400 flex-shrink-0"
+                    className="text-success flex-shrink-0"
                   />
                   {reading}
                 </li>
@@ -805,7 +805,7 @@ export default function MonitoringVerificationProcedures({
       {/* Verification Criteria */}
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
         <h4 className="font-medium text-white mb-4 flex items-center gap-2">
-          <CheckCircle className="text-emerald-400" size={20} />
+          <CheckCircle className="text-success" size={20} />
           Verification Criteria
         </h4>
 
@@ -819,7 +819,7 @@ export default function MonitoringVerificationProcedures({
                 <li key={index} className="flex items-center gap-2">
                   <CheckCircle
                     size={14}
-                    className="text-emerald-400 flex-shrink-0"
+                    className="text-success flex-shrink-0"
                   />
                   {criterion}
                 </li>
@@ -897,7 +897,7 @@ export default function MonitoringVerificationProcedures({
                 <li key={index} className="flex items-center gap-2">
                   <CheckCircle
                     size={14}
-                    className="text-emerald-400 flex-shrink-0"
+                    className="text-success flex-shrink-0"
                   />
                   {location}
                 </li>

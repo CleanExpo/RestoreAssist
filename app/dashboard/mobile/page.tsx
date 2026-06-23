@@ -227,14 +227,14 @@ const V2_FEATURES = [
 function FeatureStatusBadge({ status }: { status: FeatureStatus }) {
   if (status === "done") {
     return (
-      <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-0 text-xs">
+      <Badge className="bg-emerald-100 text-success dark:bg-emerald-900/30 dark:text-success border-0 text-xs">
         Complete
       </Badge>
     );
   }
   if (status === "blocked") {
     return (
-      <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-0 text-xs">
+      <Badge className="bg-amber-100 text-warning dark:bg-amber-900/30 dark:text-warning border-0 text-xs">
         Blocked
       </Badge>
     );
@@ -259,9 +259,9 @@ function FeatureRow({ feature }: { feature: MobileFeature }) {
         className={cn(
           "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5",
           feature.status === "done"
-            ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400"
+            ? "bg-emerald-100 dark:bg-emerald-900/30 text-success dark:text-success"
             : feature.status === "blocked"
-              ? "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
+              ? "bg-amber-100 dark:bg-amber-900/30 text-warning dark:text-warning"
               : "bg-neutral-100 dark:bg-slate-800 text-neutral-500 dark:text-slate-500",
         )}
       >
@@ -289,7 +289,7 @@ function FeatureRow({ feature }: { feature: MobileFeature }) {
           {feature.description}
         </p>
         {feature.blockedReason && (
-          <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 font-medium">
+          <p className="text-xs text-warning dark:text-warning mt-1 font-medium">
             {feature.blockedReason}
           </p>
         )}
@@ -360,7 +360,7 @@ function BetaSignupCard() {
             <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
               <CheckCircle2
                 size={24}
-                className="text-emerald-600 dark:text-emerald-400"
+                className="text-success dark:text-success"
               />
             </div>
             <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
@@ -497,7 +497,7 @@ export default function MobileDashboardPage() {
       >
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Zap size={18} className="text-amber-500" />
+            <Zap size={18} className="text-warning" />
             Build Status
           </CardTitle>
         </CardHeader>
@@ -512,7 +512,7 @@ export default function MobileDashboardPage() {
                 configuration (RA-246) before the first build can be submitted.
               </p>
             </div>
-            <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-0 shrink-0">
+            <Badge className="bg-amber-100 text-warning dark:bg-amber-900/30 dark:text-warning border-0 shrink-0">
               Awaiting EAS Setup
             </Badge>
           </div>
@@ -669,10 +669,10 @@ export default function MobileDashboardPage() {
         >
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <AlertTriangle size={18} className="text-amber-500" />
+              <AlertTriangle size={18} className="text-warning" />
               EAS Setup Required — RA-246
             </CardTitle>
-            <CardDescription className="text-amber-700 dark:text-amber-400">
+            <CardDescription className="text-warning dark:text-warning">
               These steps require human action before the first build can be
               submitted to TestFlight.
             </CardDescription>
@@ -709,14 +709,14 @@ export default function MobileDashboardPage() {
               },
             ].map((item) => (
               <div key={item.step} className="flex gap-3">
-                <div className="w-6 h-6 rounded-full bg-amber-200 dark:bg-amber-800/50 text-amber-700 dark:text-amber-300 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
+                <div className="w-6 h-6 rounded-full bg-amber-200 dark:bg-amber-800/50 text-warning dark:text-warning text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
                   {item.step}
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+                  <p className="text-sm font-medium text-warning dark:text-warning">
                     {item.title}
                   </p>
-                  <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5 leading-relaxed">
+                  <p className="text-xs text-warning dark:text-warning mt-0.5 leading-relaxed">
                     {item.detail}
                   </p>
                   {item.link && (
@@ -724,7 +724,7 @@ export default function MobileDashboardPage() {
                       href={item.link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 hover:underline mt-1"
+                      className="inline-flex items-center gap-1 text-xs text-warning dark:text-warning hover:underline mt-1"
                     >
                       {item.linkLabel}
                       <ExternalLink size={10} />
@@ -747,7 +747,7 @@ export default function MobileDashboardPage() {
       >
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <CheckCircle2 size={18} className="text-emerald-500" />
+            <CheckCircle2 size={18} className="text-success" />
             V1 Feature Status
           </CardTitle>
           <CardDescription>

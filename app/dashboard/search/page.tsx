@@ -56,7 +56,7 @@ const TYPE_LABELS: Record<string, string> = {
 
 const TYPE_COLORS: Record<string, string> = {
   report: "bg-blue-500/10 text-blue-400 border border-blue-500/20",
-  client: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+  client: "bg-emerald-500/10 text-success border border-emerald-500/20",
   inspection: "bg-purple-500/10 text-purple-400 border border-purple-500/20",
 };
 
@@ -64,10 +64,10 @@ function StatusBadge({ status }: { status?: string }) {
   if (!status) return null;
   const colourMap: Record<string, string> = {
     draft: "bg-slate-500/10 text-slate-400 border border-slate-500/20",
-    complete: "bg-green-500/10 text-green-400 border border-green-500/20",
-    completed: "bg-green-500/10 text-green-400 border border-green-500/20",
+    complete: "bg-green-500/10 text-success border border-green-500/20",
+    completed: "bg-green-500/10 text-success border border-green-500/20",
     submitted: "bg-blue-500/10 text-blue-400 border border-blue-500/20",
-    pending: "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20",
+    pending: "bg-yellow-500/10 text-warning border border-yellow-500/20",
     "in-progress":
       "bg-orange-500/10 text-orange-400 border border-orange-500/20",
   };
@@ -297,7 +297,7 @@ function SearchPageInner() {
           {!loading && error && (
             <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
               <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
-                <Search className="w-5 h-5 text-red-400" />
+                <Search className="w-5 h-5 text-destructive" />
               </div>
               <p className="text-sm font-medium text-white mb-1">
                 Search error

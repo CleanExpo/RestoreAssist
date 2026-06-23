@@ -803,7 +803,7 @@ export default function AnalyticsPage() {
                     >
                       Performance by State
                     </h3>
-                    <Activity className="w-5 h-5 text-amber-400" />
+                    <Activity className="w-5 h-5 text-warning" />
                   </div>
 
                   <ResponsiveContainer width="100%" height={250}>
@@ -1018,7 +1018,7 @@ export default function AnalyticsPage() {
                         >
                           {state.state || "Unknown"}
                         </span>
-                        <span className="text-amber-400 font-semibold">
+                        <span className="text-warning font-semibold">
                           {state.value} reports
                         </span>
                       </div>
@@ -1314,7 +1314,7 @@ export default function AnalyticsPage() {
 
                     <div className="text-center">
                       <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-500/10 mb-3">
-                        <DollarSign className="w-6 h-6 text-emerald-400" />
+                        <DollarSign className="w-6 h-6 text-success" />
                       </div>
                       <p
                         className={cn(

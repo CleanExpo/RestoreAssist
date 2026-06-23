@@ -103,7 +103,7 @@ export function PhaseSidebar({
                   >
                     {phase.displayName}
                   </span>
-                  {complete && <Check className="h-4 w-4 text-emerald-400" />}
+                  {complete && <Check className="h-4 w-4 text-success" />}
                 </div>
                 <div className="mt-1 flex items-center gap-2">
                   <div className="h-1 flex-1 rounded-full bg-white/10">

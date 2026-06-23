@@ -102,9 +102,9 @@ function formatShortDate(iso: string | null): string {
 
 function scoreColor(score: number | null): string {
   if (score === null) return "text-neutral-400";
-  if (score >= 80) return "text-green-600 dark:text-green-400";
-  if (score >= 50) return "text-amber-600 dark:text-amber-400";
-  return "text-red-600 dark:text-red-400";
+  if (score >= 80) return "text-success dark:text-success";
+  if (score >= 50) return "text-warning dark:text-warning";
+  return "text-destructive dark:text-destructive";
 }
 
 function scoreBg(score: number | null): string {
@@ -118,12 +118,12 @@ function riskBadge(tier: number): { label: string; className: string } {
   if (tier === 3)
     return {
       label: "Critical",
-      className: "bg-red-500/10 text-red-600 dark:text-red-400",
+      className: "bg-red-500/10 text-destructive dark:text-destructive",
     };
   if (tier === 2)
     return {
       label: "Elevated",
-      className: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+      className: "bg-amber-500/10 text-warning dark:text-warning",
     };
   return {
     label: "Standard",
@@ -217,7 +217,7 @@ export default function AdminEvidenceReviewPage() {
   if (session?.user?.role !== "ADMIN") {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-3">
-        <Shield className="h-10 w-10 text-red-400" />
+        <Shield className="h-10 w-10 text-destructive" />
         <p className="text-neutral-600 dark:text-neutral-400">
           Admin access required
         </p>
@@ -312,7 +312,7 @@ export default function AdminEvidenceReviewPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+            <p className="text-2xl font-bold text-warning dark:text-warning">
               {summary?.totalIncomplete ?? "—"}
             </p>
             <p className="text-xs text-neutral-400 mt-1">
@@ -327,7 +327,7 @@ export default function AdminEvidenceReviewPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+            <p className="text-2xl font-bold text-destructive dark:text-destructive">
               {summary?.totalStale ?? "—"}
             </p>
             <p className="text-xs text-neutral-400 mt-1">
@@ -415,9 +415,9 @@ export default function AdminEvidenceReviewPage() {
       {error && (
         <Card className="border-red-200 dark:border-red-900">
           <CardContent className="pt-4 flex items-center gap-3">
-            <AlertTriangle className="h-5 w-5 text-red-500 shrink-0" />
+            <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
             <div>
-              <p className="font-medium text-red-600 dark:text-red-400">
+              <p className="font-medium text-destructive dark:text-destructive">
                 Failed to load evidence data
               </p>
               <p className="text-sm text-neutral-500">{error}</p>
@@ -513,17 +513,17 @@ export default function AdminEvidenceReviewPage() {
                         {jobLabel}
                       </Badge>
                       {insp.isStale && (
-                        <Badge className="bg-red-500/10 text-red-600 dark:text-red-400 text-xs">
+                        <Badge className="bg-red-500/10 text-destructive dark:text-destructive text-xs">
                           Stale
                         </Badge>
                       )}
                       {insp.isIncomplete && !insp.isStale && (
-                        <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs">
+                        <Badge className="bg-amber-500/10 text-warning dark:text-warning text-xs">
                           Incomplete
                         </Badge>
                       )}
                       {wf?.isReadyToSubmit && (
-                        <Badge className="bg-green-500/10 text-green-600 dark:text-green-400 text-xs">
+                        <Badge className="bg-green-500/10 text-success dark:text-success text-xs">
                           Ready
                         </Badge>
                       )}
@@ -550,7 +550,7 @@ export default function AdminEvidenceReviewPage() {
                       </p>
                     </div>
                     {insp.stepGaps.length > 0 && (
-                      <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                      <div className="flex items-center gap-1 text-warning dark:text-warning">
                         <FileWarning className="h-3.5 w-3.5" />
                         <span>{insp.stepGaps.length} gaps</span>
                       </div>
@@ -593,7 +593,7 @@ export default function AdminEvidenceReviewPage() {
                     {insp.stepGaps.length > 0 ? (
                       <div>
                         <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
-                          <AlertTriangle className="h-4 w-4 text-amber-500" />
+                          <AlertTriangle className="h-4 w-4 text-warning" />
                           Evidence Gaps ({insp.stepGaps.length})
                         </h4>
                         <div className="overflow-x-auto">
@@ -626,7 +626,7 @@ export default function AdminEvidenceReviewPage() {
                                       <div className="flex items-center gap-1.5">
                                         {gap.isMandatory && (
                                           <span
-                                            className="text-red-500 text-xs font-bold"
+                                            className="text-destructive text-xs font-bold"
                                             title="Mandatory"
                                           >
                                             *
@@ -658,8 +658,8 @@ export default function AdminEvidenceReviewPage() {
                                           "text-xs font-mono",
                                           gap.evidenceCount <
                                             gap.minimumRequired
-                                            ? "text-red-600 dark:text-red-400"
-                                            : "text-green-600 dark:text-green-400",
+                                            ? "text-destructive dark:text-destructive"
+                                            : "text-success dark:text-success",
                                         )}
                                       >
                                         {gap.evidenceCount}/
@@ -674,7 +674,7 @@ export default function AdminEvidenceReviewPage() {
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                      <div className="flex items-center gap-2 text-sm text-success dark:text-success">
                         <CheckCircle className="h-4 w-4" />
                         All evidence requirements met
                       </div>

@@ -137,7 +137,7 @@ export default function XeroMappingPage() {
 
       {!loading && error && (
         <Card>
-          <CardContent className="p-6 text-sm text-red-600">
+          <CardContent className="p-6 text-sm text-destructive">
             Failed to load mappings: {error}
           </CardContent>
         </Card>
@@ -354,7 +354,7 @@ function MappingRowEditor({
         {fieldError && (
           <div
             id={`err-${category ?? "default"}`}
-            className="mt-1 text-xs text-red-600"
+            className="mt-1 text-xs text-destructive"
           >
             {fieldError}
           </div>

@@ -147,7 +147,7 @@ export default function DashboardPage() {
         ? "..."
         : dashboardData.totalClients.toString(),
       icon: Users,
-      color: "text-emerald-400",
+      color: "text-success",
     },
     {
       label: "Total Revenue",
@@ -451,7 +451,7 @@ export default function DashboardPage() {
                       <span
                         className={`text-xs font-bold ${
                           dashboardData.totalReports > 0
-                            ? "text-emerald-400"
+                            ? "text-success"
                             : "text-cyan-400"
                         }`}
                       >
@@ -461,7 +461,7 @@ export default function DashboardPage() {
                     <p
                       className={`text-sm ${
                         dashboardData.totalReports > 0
-                          ? "text-emerald-300"
+                          ? "text-success"
                           : "text-slate-300"
                       }`}
                     >
@@ -488,7 +488,7 @@ export default function DashboardPage() {
                       <span
                         className={`text-xs font-bold ${
                           dashboardData.totalClients > 0
-                            ? "text-emerald-400"
+                            ? "text-success"
                             : "text-slate-500 dark:text-slate-400"
                         }`}
                       >
@@ -498,7 +498,7 @@ export default function DashboardPage() {
                     <p
                       className={`text-sm ${
                         dashboardData.totalClients > 0
-                          ? "text-emerald-300"
+                          ? "text-success"
                           : "text-slate-500 dark:text-slate-400"
                       }`}
                     >
@@ -562,7 +562,7 @@ export default function DashboardPage() {
                 <div className="w-16 h-16 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-3">
                   <CheckCircle size={24} className="text-white" />
                 </div>
-                <h3 className="text-2xl font-bold text-emerald-400 mb-1 tabular-nums">
+                <h3 className="text-2xl font-bold text-success mb-1 tabular-nums">
                   {dashboardData.loading
                     ? "..."
                     : `${dashboardData.recentReports.filter((r: any) => r.status !== "Draft").length}/${dashboardData.totalReports || 1}`}
@@ -659,9 +659,9 @@ export default function DashboardPage() {
                           className={`flex-shrink-0 px-2 py-0.5 rounded text-xs font-medium ${
                             report.status === "COMPLETED" ||
                             report.status === "APPROVED"
-                              ? "bg-emerald-500/20 text-emerald-400"
+                              ? "bg-emerald-500/20 text-success"
                               : report.status === "PENDING"
-                                ? "bg-amber-500/20 text-amber-400"
+                                ? "bg-amber-500/20 text-warning"
                                 : "bg-slate-500/20 text-slate-500 dark:text-slate-400"
                           }`}
                         >

@@ -113,12 +113,12 @@ function ChangeDiff({ changes }: { changes: VersionChange[] }) {
             className="flex items-center gap-2 text-sm flex-wrap"
           >
             <span className="text-slate-400 shrink-0">{label}:</span>
-            <span className="text-red-400 line-through">{fromVal}</span>
+            <span className="text-destructive line-through">{fromVal}</span>
             <span className="text-slate-500">→</span>
-            <span className="text-green-400">{toVal}</span>
-            {costWentUp && <TrendingUp size={14} className="text-green-400" />}
+            <span className="text-success">{toVal}</span>
+            {costWentUp && <TrendingUp size={14} className="text-success" />}
             {costWentDown && (
-              <TrendingDown size={14} className="text-red-400" />
+              <TrendingDown size={14} className="text-destructive" />
             )}
           </div>
         );
@@ -320,7 +320,7 @@ export default function ReportVersionHistoryPage({
       {loading ? (
         <LoadingSkeleton />
       ) : error ? (
-        <div className="rounded-lg bg-red-900/20 border border-red-700/40 p-4 text-sm text-red-400">
+        <div className="rounded-lg bg-red-900/20 border border-red-700/40 p-4 text-sm text-destructive">
           {error}
         </div>
       ) : versions.length === 0 ? (

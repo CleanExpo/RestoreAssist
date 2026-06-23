@@ -118,7 +118,7 @@ function KpiCard({
         {title}
       </p>
       <p
-        className={`text-2xl font-semibold mt-1 ${warning ? "text-amber-600" : ""}`}
+        className={`text-2xl font-semibold mt-1 ${warning ? "text-warning" : ""}`}
       >
         {value}
       </p>

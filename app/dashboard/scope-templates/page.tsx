@@ -46,7 +46,7 @@ const CLAIM_COLORS: Record<string, string> = {
   fire_damage:
     "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
   mould_remediation:
-    "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+    "bg-green-100 text-success dark:bg-green-900/30 dark:text-success",
   storm_damage:
     "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
   general: "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300",
@@ -415,7 +415,7 @@ export default function ScopeTemplatesPage() {
                     "text-neutral-700 dark:text-slate-300",
                   )}
                 >
-                  Template Name <span className="text-red-500">*</span>
+                  Template Name <span className="text-destructive">*</span>
                 </label>
                 <input
                   type="text"
@@ -551,7 +551,7 @@ export default function ScopeTemplatesPage() {
                 <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
                   <Trash2
                     size={20}
-                    className="text-red-600 dark:text-red-400"
+                    className="text-destructive dark:text-destructive"
                   />
                 </div>
                 <div>
@@ -717,7 +717,7 @@ function TemplateCard({ template, onEdit, onDelete }: TemplateCardProps) {
           className={cn(
             "flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200",
             "border border-red-200 dark:border-red-900/50",
-            "text-red-600 dark:text-red-400",
+            "text-destructive dark:text-destructive",
             "hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-300 dark:hover:border-red-800",
           )}
         >

@@ -200,7 +200,7 @@ export default function OnboardingModal({
           ) : status && !status.isComplete ? (
             <div className="space-y-4">
               <div className="mb-6 p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                <p className="text-sm text-amber-400 font-medium">
+                <p className="text-sm text-warning font-medium">
                   ⚠️ You must complete all required steps before creating
                   reports. Please complete the following steps to continue.
                 </p>
@@ -285,7 +285,7 @@ export default function OnboardingModal({
           ) : status?.isComplete ? (
             <div className="text-center py-8">
               <div className="inline-flex p-4 bg-green-500/10 rounded-full mb-4">
-                <CheckCircle className="w-12 h-12 text-green-400" />
+                <CheckCircle className="w-12 h-12 text-success" />
               </div>
               <h3 className="text-xl font-semibold text-white mb-2">
                 All Set!
@@ -308,7 +308,7 @@ export default function OnboardingModal({
                           <h4 className="font-semibold text-white text-sm">
                             {status.steps.property_data.title}
                           </h4>
-                          <span className="text-xs px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded-full">
+                          <span className="text-xs px-2 py-0.5 bg-amber-500/20 text-warning rounded-full">
                             Optional
                           </span>
                         </div>

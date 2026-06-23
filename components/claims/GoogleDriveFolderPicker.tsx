@@ -277,7 +277,7 @@ export function GoogleDriveFolderPicker({
           </p>
           {needsGoogleSignIn ? (
             <div className="flex flex-col gap-2">
-              <p className="text-xs text-amber-600 dark:text-amber-400">
+              <p className="text-xs text-warning dark:text-warning">
                 Sign in with Google first to use this option.
               </p>
               <Button
@@ -378,8 +378,8 @@ export function GoogleDriveFolderPicker({
                   onClick={() => navigateToFolder(folder)}
                   className="flex items-center gap-3 w-full p-2.5 rounded-md hover:bg-muted transition-colors text-sm group"
                 >
-                  <Folder className="h-5 w-5 text-amber-500 group-hover:hidden" />
-                  <FolderOpen className="h-5 w-5 text-amber-500 hidden group-hover:block" />
+                  <Folder className="h-5 w-5 text-warning group-hover:hidden" />
+                  <FolderOpen className="h-5 w-5 text-warning hidden group-hover:block" />
                   <span className="truncate text-left flex-1">
                     {folder.name}
                   </span>

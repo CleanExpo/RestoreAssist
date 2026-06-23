@@ -381,7 +381,7 @@ export default function ReportsPage() {
               </span>
               <button
                 onClick={() => setShowBulkDeleteModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-red-500/20 text-destructive border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors"
               >
                 <Trash2 size={16} />
                 Delete Selected
@@ -558,7 +558,7 @@ export default function ReportsPage() {
 
       {/* Fetch error */}
       {fetchError && !loading && (
-        <div className="flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-300 mb-4">
+        <div className="flex items-center justify-between gap-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-destructive mb-4">
           <span className="text-sm">Failed to load reports — {fetchError}</span>
           <button
             type="button"

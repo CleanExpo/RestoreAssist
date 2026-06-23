@@ -88,10 +88,10 @@ const STATUS_LABEL: Record<ConnectionStatus, string> = {
 
 const STATUS_COLOUR: Record<ConnectionStatus, string> = {
   ACTIVE:
-    "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+    "bg-emerald-100 text-success dark:bg-emerald-900/30 dark:text-success",
   DISABLED:
     "bg-neutral-100 text-neutral-500 dark:bg-slate-800 dark:text-slate-400",
-  ERROR: "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
+  ERROR: "bg-red-100 text-destructive dark:bg-red-900/30 dark:text-destructive",
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -320,7 +320,7 @@ export default function AiProvidersPage() {
                       </p>
                     )}
                     {conn?.lastError && (
-                      <p className="text-xs text-red-500">
+                      <p className="text-xs text-destructive">
                         Last error: {conn.lastError}
                       </p>
                     )}
@@ -423,7 +423,7 @@ export default function AiProvidersPage() {
                           <button
                             onClick={() => handleDisable(p.id)}
                             disabled={disabling === p.id}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-red-200 text-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-40 transition-colors"
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-red-200 text-destructive rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-40 transition-colors"
                           >
                             {disabling === p.id ? (
                               <Loader2 size={12} className="animate-spin" />
@@ -446,12 +446,12 @@ export default function AiProvidersPage() {
       {/* Info footer */}
       <div className="text-xs text-neutral-400 border-t pt-4 space-y-1 dark:border-slate-700">
         <p>
-          <Check size={11} className="inline mr-1 text-emerald-500" />
+          <Check size={11} className="inline mr-1 text-success" />
           Keys are encrypted with AES-256-GCM before storage — RestoreAssist
           never logs or transmits plaintext keys.
         </p>
         <p>
-          <Check size={11} className="inline mr-1 text-emerald-500" />
+          <Check size={11} className="inline mr-1 text-success" />
           Your keys are used only for AI calls made within your workspace.
         </p>
       </div>

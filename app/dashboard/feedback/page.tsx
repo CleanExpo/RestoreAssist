@@ -119,7 +119,7 @@ export default function FeedbackPage() {
         <Card className="border-border bg-card">
           <CardContent className="pt-6 flex flex-col items-center justify-center py-12 text-center">
             <div className="w-14 h-14 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mb-4">
-              <CheckCircle className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
+              <CheckCircle className="h-8 w-8 text-success dark:text-success" />
             </div>
             <h2 className="text-xl font-semibold mb-2 text-foreground">
               Thank you for your feedback
@@ -157,8 +157,8 @@ export default function FeedbackPage() {
                       className={cn(
                         "p-2 rounded-md transition-colors",
                         rating !== null && rating >= value
-                          ? "text-amber-500 hover:text-amber-600 dark:text-amber-400 dark:hover:text-amber-300"
-                          : "text-muted-foreground/60 hover:text-amber-500 dark:hover:text-amber-400",
+                          ? "text-warning hover:text-warning dark:text-warning dark:hover:text-warning"
+                          : "text-muted-foreground/60 hover:text-warning dark:hover:text-warning",
                       )}
                       aria-pressed={rating !== null && rating >= value}
                     >
@@ -294,7 +294,7 @@ export default function FeedbackPage() {
                             className={cn(
                               "h-4 w-4",
                               v <= item.rating!
-                                ? "text-amber-500 fill-amber-500 dark:text-amber-400 dark:fill-amber-400"
+                                ? "text-warning fill-amber-500 dark:text-warning dark:fill-amber-400"
                                 : "text-muted-foreground/40",
                             )}
                           />

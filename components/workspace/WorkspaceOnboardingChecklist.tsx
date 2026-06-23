@@ -209,7 +209,7 @@ export function WorkspaceOnboardingChecklist({
 
       {/* All done celebration */}
       {allDone && (
-        <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-lg px-3 py-2 text-sm">
+        <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/20 text-success dark:text-success rounded-lg px-3 py-2 text-sm">
           <Check size={14} />
           <span>You&apos;re all set! Your workspace is ready to use.</span>
           <button onClick={handleDismiss} className="ml-auto text-xs underline">

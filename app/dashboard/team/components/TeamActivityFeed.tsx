@@ -79,7 +79,7 @@ const activityConfig: Record<
   },
   report_completed: {
     icon: CheckCircle2,
-    color: "text-emerald-500",
+    color: "text-success",
     bgColor: "bg-emerald-500/10",
     label: "Completed",
   },
@@ -97,13 +97,13 @@ const activityConfig: Record<
   },
   invite_accepted: {
     icon: UserCheck,
-    color: "text-green-500",
+    color: "text-success",
     bgColor: "bg-green-500/10",
     label: "Accepted",
   },
   inspection_started: {
     icon: ClipboardList,
-    color: "text-amber-500",
+    color: "text-warning",
     bgColor: "bg-amber-500/10",
     label: "Inspection",
   },

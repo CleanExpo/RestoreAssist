@@ -370,10 +370,10 @@ export function QuestionCard({
                 <div className="w-2 h-2 rounded-full bg-emerald-500" />
               </div>
               <div className="flex-1">
-                <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-200 mb-1">
+                <p className="text-sm font-semibold text-success dark:text-success mb-1">
                   Auto-population Preview
                 </p>
-                <p className="text-xs text-emerald-700 dark:text-emerald-300/80">
+                <p className="text-xs text-success dark:text-success/80">
                   Answering this question will automatically fill{" "}
                   {question.fieldMappings.length} field
                   {question.fieldMappings.length > 1 ? "s" : ""} in your report
@@ -384,13 +384,13 @@ export function QuestionCard({
               {question.fieldMappings.map((mapping, idx) => (
                 <div
                   key={idx}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-success dark:text-success border border-emerald-200 dark:border-emerald-800"
                 >
                   <span className="text-xs font-medium">
                     {mapping.formFieldId}
                   </span>
                   {mapping.confidence < 100 && (
-                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400">
+                    <span className="text-[10px] text-success dark:text-success">
                       {mapping.confidence}%
                     </span>
                   )}

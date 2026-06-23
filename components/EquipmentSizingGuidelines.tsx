@@ -392,10 +392,10 @@ export default function EquipmentSizingGuidelines({
           className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4"
         >
           <div className="flex items-center gap-2 mb-2">
-            <Zap className="text-emerald-400" size={20} />
+            <Zap className="text-success" size={20} />
             <span className="font-medium text-white">Air Changes</span>
           </div>
-          <div className="text-2xl font-bold text-emerald-400">
+          <div className="text-2xl font-bold text-success">
             {airflowRequirements.airChanges}
           </div>
           <div className="text-sm text-slate-400">per hour</div>
@@ -537,7 +537,7 @@ export default function EquipmentSizingGuidelines({
       {(waterCategory === "Category 2" || waterCategory === "Category 3") && (
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
           <h4 className="font-medium text-white mb-4 flex items-center gap-2">
-            <AlertTriangle className="text-amber-400" size={20} />
+            <AlertTriangle className="text-warning" size={20} />
             Special Equipment Requirements
           </h4>
 
@@ -549,19 +549,19 @@ export default function EquipmentSizingGuidelines({
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-slate-300">HEPA Vacuums:</span>
-                  <span className="text-lg font-bold text-amber-400">
+                  <span className="text-lg font-bold text-warning">
                     {sizingData.specialEquipment.hepaVacuums}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-300">Air Scrubbers:</span>
-                  <span className="text-lg font-bold text-amber-400">
+                  <span className="text-lg font-bold text-warning">
                     {sizingData.specialEquipment.airScrubbers}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-300">Negative Pressure:</span>
-                  <span className="text-lg font-bold text-amber-400">
+                  <span className="text-lg font-bold text-warning">
                     {sizingData.specialEquipment.negativePressure
                       ? "Required"
                       : "Not Required"}
@@ -578,28 +578,28 @@ export default function EquipmentSizingGuidelines({
                 <li className="flex items-center gap-2">
                   <CheckCircle
                     size={16}
-                    className="text-emerald-400 flex-shrink-0"
+                    className="text-success flex-shrink-0"
                   />
                   Containment barriers
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle
                     size={16}
-                    className="text-emerald-400 flex-shrink-0"
+                    className="text-success flex-shrink-0"
                   />
                   Negative pressure setup
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle
                     size={16}
-                    className="text-emerald-400 flex-shrink-0"
+                    className="text-success flex-shrink-0"
                   />
                   HEPA filtration
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle
                     size={16}
-                    className="text-emerald-400 flex-shrink-0"
+                    className="text-success flex-shrink-0"
                   />
                   Air monitoring
                 </li>
@@ -664,7 +664,7 @@ export default function EquipmentSizingGuidelines({
       {/* Monitoring Requirements */}
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
         <h4 className="font-medium text-white mb-4 flex items-center gap-2">
-          <BarChart3 className="text-emerald-400" size={20} />
+          <BarChart3 className="text-success" size={20} />
           Monitoring Requirements
         </h4>
 
@@ -674,19 +674,19 @@ export default function EquipmentSizingGuidelines({
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-slate-300">Psychrometers:</span>
-                <span className="text-lg font-bold text-emerald-400">
+                <span className="text-lg font-bold text-success">
                   {monitoringRequirements.psychrometers}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-300">Moisture Meters:</span>
-                <span className="text-lg font-bold text-emerald-400">
+                <span className="text-lg font-bold text-success">
                   {monitoringRequirements.moistureMeters}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-300">Monitoring Frequency:</span>
-                <span className="text-lg font-bold text-emerald-400">
+                <span className="text-lg font-bold text-success">
                   {monitoringRequirements.frequency}
                 </span>
               </div>
@@ -702,7 +702,7 @@ export default function EquipmentSizingGuidelines({
                 <li key={index} className="flex items-center gap-2">
                   <CheckCircle
                     size={16}
-                    className="text-emerald-400 flex-shrink-0"
+                    className="text-success flex-shrink-0"
                   />
                   {location}
                 </li>

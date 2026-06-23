@@ -133,15 +133,15 @@ export default function PeriodComparison({
           </p>
         </div>
         <div className="flex flex-col items-center justify-center gap-2">
-          <ArrowRight className="w-5 h-5 text-amber-500" />
+          <ArrowRight className="w-5 h-5 text-warning" />
           <div className="flex flex-col items-center gap-1">
             <span
               className={cn(
                 "text-xs font-medium",
                 reportsUp
-                  ? "text-emerald-500"
+                  ? "text-success"
                   : reportsDown
-                    ? "text-red-500"
+                    ? "text-destructive"
                     : "text-neutral-500",
               )}
             >
@@ -151,9 +151,9 @@ export default function PeriodComparison({
               className={cn(
                 "text-xs font-medium",
                 revenueUp
-                  ? "text-emerald-500"
+                  ? "text-success"
                   : revenueDown
-                    ? "text-red-500"
+                    ? "text-destructive"
                     : "text-neutral-500",
               )}
             >
@@ -189,7 +189,7 @@ export default function PeriodComparison({
           <p
             className={cn(
               "text-sm font-semibold mt-1",
-              "text-amber-600 dark:text-amber-400",
+              "text-warning dark:text-warning",
             )}
           >
             ${(data.current.revenue / 1000).toFixed(1)}K
@@ -204,9 +204,9 @@ export default function PeriodComparison({
       >
         <div className="flex items-center gap-2">
           {reportsUp ? (
-            <TrendingUp className="w-4 h-4 text-emerald-500" />
+            <TrendingUp className="w-4 h-4 text-success" />
           ) : reportsDown ? (
-            <TrendingDown className="w-4 h-4 text-red-500" />
+            <TrendingDown className="w-4 h-4 text-destructive" />
           ) : (
             <Minus className="w-4 h-4 text-neutral-500" />
           )}
@@ -218,9 +218,9 @@ export default function PeriodComparison({
         </div>
         <div className="flex items-center gap-2">
           {revenueUp ? (
-            <TrendingUp className="w-4 h-4 text-emerald-500" />
+            <TrendingUp className="w-4 h-4 text-success" />
           ) : revenueDown ? (
-            <TrendingDown className="w-4 h-4 text-red-500" />
+            <TrendingDown className="w-4 h-4 text-destructive" />
           ) : (
             <Minus className="w-4 h-4 text-neutral-500" />
           )}

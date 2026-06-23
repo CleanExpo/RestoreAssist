@@ -45,7 +45,7 @@ export function CapturedEvidenceList({
           Captured ({items.length}/{requiredCount})
         </p>
         {met && (
-          <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+          <Badge className="bg-emerald-500/20 text-success border-emerald-500/30">
             <Check className="mr-1 h-3 w-3" />
             Requirement met
           </Badge>

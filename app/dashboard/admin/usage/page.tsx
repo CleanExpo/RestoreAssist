@@ -86,12 +86,12 @@ const EVENT_COLORS: Record<
   },
   LIDAR_SCAN: {
     bg: "bg-green-500/10",
-    text: "text-green-600 dark:text-green-400",
+    text: "text-success dark:text-success",
     bar: "bg-green-500",
   },
   AI_ASSISTANT_QUERY: {
     bg: "bg-amber-500/10",
-    text: "text-amber-600 dark:text-amber-400",
+    text: "text-warning dark:text-warning",
     bar: "bg-amber-500",
   },
   FLOOR_PLAN_GENERATION: {
@@ -470,7 +470,7 @@ export default function AiUsageDashboardPage() {
         <Card className="w-full max-w-sm bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800">
           <CardContent className="flex flex-col items-center gap-4 pt-8 pb-8">
             <div className="p-4 rounded-full bg-red-500/10">
-              <Lock className="h-8 w-8 text-red-500" />
+              <Lock className="h-8 w-8 text-destructive" />
             </div>
             <div className="text-center">
               <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">
@@ -561,7 +561,7 @@ export default function AiUsageDashboardPage() {
             Monitor AI feature consumption and billing status
           </p>
           {isMock && (
-            <p className="text-xs text-amber-600 mt-0.5">
+            <p className="text-xs text-warning mt-0.5">
               Showing sample data — couldn&apos;t reach the API
             </p>
           )}
@@ -622,20 +622,20 @@ export default function AiUsageDashboardPage() {
             />
             <KpiCard
               icon={Clock}
-              iconClass="bg-amber-500/10 text-amber-600 dark:text-amber-400"
+              iconClass="bg-amber-500/10 text-warning dark:text-warning"
               title="Pending Billing"
               value={String(data.pendingBillingCount)}
               subtitle="events awaiting billing"
             />
             <KpiCard
               icon={CheckCircle}
-              iconClass="bg-green-500/10 text-green-600 dark:text-green-400"
+              iconClass="bg-green-500/10 text-success dark:text-success"
               title="Billed MTD"
               value={`$${data.billedMtd.toFixed(2)} AUD`}
             />
             <KpiCard
               icon={XCircle}
-              iconClass="bg-red-500/10 text-red-600 dark:text-red-400"
+              iconClass="bg-red-500/10 text-destructive dark:text-destructive"
               title="Failed Events"
               value={String(data.failedCount)}
               subtitle="billing failures"
@@ -905,7 +905,7 @@ export default function AiUsageDashboardPage() {
                         </td>
                         <td className="py-3 px-4 text-right tabular-nums">
                           {user.pending > 0 ? (
-                            <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">
+                            <Badge className="bg-amber-500/10 text-warning dark:text-warning border-0">
                               {user.pending}
                             </Badge>
                           ) : (
@@ -914,7 +914,7 @@ export default function AiUsageDashboardPage() {
                         </td>
                         <td className="py-3 px-4 text-right tabular-nums">
                           {user.billed > 0 ? (
-                            <Badge className="bg-green-500/10 text-green-600 dark:text-green-400 border-0">
+                            <Badge className="bg-green-500/10 text-success dark:text-success border-0">
                               {user.billed}
                             </Badge>
                           ) : (
@@ -923,7 +923,7 @@ export default function AiUsageDashboardPage() {
                         </td>
                         <td className="py-3 px-4 text-right tabular-nums">
                           {user.failed > 0 ? (
-                            <Badge className="bg-red-500/10 text-red-600 dark:text-red-400 border-0">
+                            <Badge className="bg-red-500/10 text-destructive dark:text-destructive border-0">
                               {user.failed}
                             </Badge>
                           ) : (

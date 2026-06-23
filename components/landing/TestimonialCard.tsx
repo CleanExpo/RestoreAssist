@@ -27,7 +27,7 @@ export default function TestimonialCard({
       <div className="mb-6">
         <div className="flex items-center gap-1 mb-4">
           {[...Array(5)].map((_, j) => (
-            <Star key={j} size={20} className="text-yellow-400 fill-current" />
+            <Star key={j} size={20} className="text-warning fill-current" />
           ))}
         </div>
         <p className="text-slate-300 text-lg leading-relaxed italic font-light">

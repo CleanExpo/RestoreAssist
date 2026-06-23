@@ -58,9 +58,9 @@ export default function CompletenessChecker({
   }
 
   const getScoreColor = (score: number) => {
-    if (score >= 80) return "text-green-400";
-    if (score >= 50) return "text-yellow-400";
-    return "text-red-400";
+    if (score >= 80) return "text-success";
+    if (score >= 50) return "text-warning";
+    return "text-destructive";
   };
 
   const getScoreBgColor = (score: number) => {
@@ -78,9 +78,9 @@ export default function CompletenessChecker({
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             {completeness.canGenerate ? (
-              <CheckCircle className="w-5 h-5 text-green-400" />
+              <CheckCircle className="w-5 h-5 text-success" />
             ) : (
-              <AlertCircle className="w-5 h-5 text-amber-400" />
+              <AlertCircle className="w-5 h-5 text-warning" />
             )}
             <h3 className="text-lg font-semibold">
               Report Completeness: {completeness.completenessScore}%
@@ -120,9 +120,9 @@ export default function CompletenessChecker({
                   {section.label}
                 </span>
                 {section.completed ? (
-                  <CheckCircle className="w-4 h-4 text-green-400" />
+                  <CheckCircle className="w-4 h-4 text-success" />
                 ) : (
-                  <XCircle className="w-4 h-4 text-red-400" />
+                  <XCircle className="w-4 h-4 text-destructive" />
                 )}
               </div>
               <div className="text-xs text-slate-400">
@@ -144,8 +144,8 @@ export default function CompletenessChecker({
       {completeness.missingItems && completeness.missingItems.length > 0 && (
         <div className="p-4 rounded-lg border border-red-500/50 bg-red-500/10">
           <div className="flex items-center gap-2 mb-3">
-            <XCircle className="w-5 h-5 text-red-400" />
-            <h4 className="font-semibold text-red-400">
+            <XCircle className="w-5 h-5 text-destructive" />
+            <h4 className="font-semibold text-destructive">
               Missing Required Items
             </h4>
           </div>
@@ -155,7 +155,7 @@ export default function CompletenessChecker({
                 key={idx}
                 className="text-sm text-slate-300 flex items-center gap-2"
               >
-                <span className="text-red-400">•</span>
+                <span className="text-destructive">•</span>
                 {item}
               </li>
             ))}
@@ -167,8 +167,8 @@ export default function CompletenessChecker({
       {completeness.warnings && completeness.warnings.length > 0 && (
         <div className="p-4 rounded-lg border border-amber-500/50 bg-amber-500/10">
           <div className="flex items-center gap-2 mb-3">
-            <AlertCircle className="w-5 h-5 text-amber-400" />
-            <h4 className="font-semibold text-amber-400">Warnings</h4>
+            <AlertCircle className="w-5 h-5 text-warning" />
+            <h4 className="font-semibold text-warning">Warnings</h4>
           </div>
           <ul className="space-y-1">
             {completeness.warnings.map((warning: string, idx: number) => (
@@ -176,7 +176,7 @@ export default function CompletenessChecker({
                 key={idx}
                 className="text-sm text-slate-300 flex items-center gap-2"
               >
-                <Info className="w-4 h-4 text-amber-400" />
+                <Info className="w-4 h-4 text-warning" />
                 {warning}
               </li>
             ))}

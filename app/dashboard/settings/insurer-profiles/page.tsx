@@ -117,13 +117,13 @@ function ProfileDetailModal({
             {profile.requiresSignedScope && (
               <Badge
                 variant="outline"
-                className="text-amber-700 border-amber-300"
+                className="text-warning border-amber-300"
               >
                 Signed Scope Required
               </Badge>
             )}
             {profile.requiresThirdPartyScope && (
-              <Badge variant="outline" className="text-red-700 border-red-300">
+              <Badge variant="outline" className="text-destructive border-red-300">
                 Independent Scoper Required
               </Badge>
             )}
@@ -148,7 +148,7 @@ function ProfileDetailModal({
                 {profile.requiredEvidenceClasses.map((cls) => (
                   <span
                     key={cls}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-red-50 text-red-800 border border-red-200"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-red-50 text-destructive border border-red-200"
                   >
                     <CheckCircle2 className="w-3 h-3" />
                     {formatEvidenceClass(cls)}
@@ -198,7 +198,7 @@ function ProfileDetailModal({
                 <Info className="w-4 h-4" />
                 Special Instructions
               </h3>
-              <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-900 leading-relaxed">
+              <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-warning leading-relaxed">
                 {profile.specialInstructions}
               </div>
             </div>
@@ -305,7 +305,7 @@ export default function InsurerProfilesPage() {
                     {profile.requiresThirdPartyScope && (
                       <Badge
                         variant="outline"
-                        className="hidden md:inline-flex text-red-700 border-red-300 text-xs"
+                        className="hidden md:inline-flex text-destructive border-red-300 text-xs"
                       >
                         Ind. Scoper
                       </Badge>
@@ -341,7 +341,7 @@ export default function InsurerProfilesPage() {
                           {profile.requiredEvidenceClasses.map((cls) => (
                             <span
                               key={cls}
-                              className="text-xs px-1.5 py-0.5 rounded bg-red-50 text-red-700 border border-red-200"
+                              className="text-xs px-1.5 py-0.5 rounded bg-red-50 text-destructive border border-red-200"
                             >
                               {formatEvidenceClass(cls)}
                             </span>

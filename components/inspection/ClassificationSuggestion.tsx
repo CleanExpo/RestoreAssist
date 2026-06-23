@@ -80,7 +80,7 @@ export default function ClassificationSuggestion({
     suggestion.confidence === "high"
       ? "border-cyan-500/50 bg-cyan-500/10 text-cyan-700 dark:text-cyan-400"
       : suggestion.confidence === "medium"
-        ? "border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+        ? "border-amber-500/50 bg-amber-500/10 text-warning dark:text-warning"
         : "border-neutral-300 dark:border-slate-600 bg-neutral-100 dark:bg-slate-900/50 text-neutral-700 dark:text-slate-300";
 
   function toggleExtra(type: ClaimType) {

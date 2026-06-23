@@ -140,7 +140,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
       case "report":
         return <FileText size={16} className="text-blue-500" />;
       case "client":
-        return <Users size={16} className="text-green-500" />;
+        return <Users size={16} className="text-success" />;
       case "inspection":
         return <Clipboard size={16} className="text-purple-500" />;
       default:

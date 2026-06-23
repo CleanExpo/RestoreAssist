@@ -75,8 +75,8 @@ export function TrialBanner() {
       ? {
           bg: "bg-rose-500/10 dark:bg-rose-900/30",
           border: "border-rose-500/40 dark:border-rose-700/50",
-          text: "text-rose-700 dark:text-rose-300",
-          icon: "text-rose-500",
+          text: "text-destructive dark:text-destructive",
+          icon: "text-destructive",
           cta: "bg-rose-500 hover:bg-rose-600 text-white",
         }
       : d <= 3
@@ -90,8 +90,8 @@ export function TrialBanner() {
         : {
             bg: "bg-amber-500/10 dark:bg-amber-900/30",
             border: "border-amber-500/40 dark:border-amber-700/50",
-            text: "text-amber-700 dark:text-amber-300",
-            icon: "text-amber-500",
+            text: "text-warning dark:text-warning",
+            icon: "text-warning",
             cta: "bg-amber-500 hover:bg-amber-600 text-white",
           };
 

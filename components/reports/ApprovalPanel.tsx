@@ -51,19 +51,19 @@ function StatusBadge({ status }: { status: ApprovalStatus }) {
   switch (status) {
     case "PENDING":
       return (
-        <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">
+        <Badge className="bg-amber-500/20 text-warning border-amber-500/30">
           Awaiting Response
         </Badge>
       );
     case "APPROVED":
       return (
-        <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+        <Badge className="bg-green-500/20 text-success border-green-500/30">
           Approved
         </Badge>
       );
     case "REJECTED":
       return (
-        <Badge className="bg-red-500/20 text-red-400 border-red-500/30">
+        <Badge className="bg-red-500/20 text-destructive border-red-500/30">
           Rejected
         </Badge>
       );
@@ -201,14 +201,14 @@ export default function ApprovalPanel({ reportId }: ApprovalPanelProps) {
                       {approval.status === "APPROVED" && (
                         <CheckCircle
                           size={15}
-                          className="text-green-400 shrink-0"
+                          className="text-success shrink-0"
                         />
                       )}
                       {approval.status === "REJECTED" && (
-                        <XCircle size={15} className="text-red-400 shrink-0" />
+                        <XCircle size={15} className="text-destructive shrink-0" />
                       )}
                       {approval.status === "PENDING" && (
-                        <Clock size={15} className="text-amber-400 shrink-0" />
+                        <Clock size={15} className="text-warning shrink-0" />
                       )}
                       <span className="text-sm font-medium text-slate-200 truncate">
                         {APPROVAL_TYPE_LABELS[approval.approvalType]}
@@ -247,7 +247,7 @@ export default function ApprovalPanel({ reportId }: ApprovalPanelProps) {
                           variant="outline"
                           disabled={respondingId === approval.id}
                           onClick={() => handleRespond(approval.id, "REJECTED")}
-                          className="h-7 text-xs border-red-500/50 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                          className="h-7 text-xs border-red-500/50 text-destructive hover:bg-red-500/10 hover:text-destructive"
                         >
                           Reject
                         </Button>
@@ -276,7 +276,7 @@ export default function ApprovalPanel({ reportId }: ApprovalPanelProps) {
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label htmlFor="approval-type" className="text-slate-300">
-                Approval Type <span className="text-red-400">*</span>
+                Approval Type <span className="text-destructive">*</span>
               </Label>
               <Select
                 value={newType}

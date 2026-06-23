@@ -43,18 +43,18 @@ function ScoreRing({ score }: { score: number }) {
     score >= 80
       ? {
           stroke: "#22c55e",
-          text: "text-green-600 dark:text-green-400",
+          text: "text-success dark:text-success",
           bg: "bg-green-50 dark:bg-green-950/20",
         }
       : score >= 50
         ? {
             stroke: "#f59e0b",
-            text: "text-amber-600 dark:text-amber-400",
+            text: "text-warning dark:text-warning",
             bg: "bg-amber-50 dark:bg-amber-950/20",
           }
         : {
             stroke: "#ef4444",
-            text: "text-red-600 dark:text-red-400",
+            text: "text-destructive dark:text-destructive",
             bg: "bg-red-50 dark:bg-red-950/20",
           };
 
@@ -119,22 +119,22 @@ function SectionCard({
   const cfg = {
     complete: {
       icon: CheckCircle2,
-      color: "text-green-600 dark:text-green-400",
+      color: "text-success dark:text-success",
       badge:
-        "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+        "bg-green-100 text-success dark:bg-green-900/30 dark:text-success",
       label: "Complete",
     },
     partial: {
       icon: AlertTriangle,
-      color: "text-amber-600 dark:text-amber-400",
+      color: "text-warning dark:text-warning",
       badge:
-        "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
+        "bg-amber-100 text-warning dark:bg-amber-900/30 dark:text-warning",
       label: "Partial",
     },
     missing: {
       icon: XCircle,
-      color: "text-red-600 dark:text-red-400",
-      badge: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+      color: "text-destructive dark:text-destructive",
+      badge: "bg-red-100 text-destructive dark:bg-red-900/30 dark:text-destructive",
       label: "Missing",
     },
   }[section.status];
@@ -188,13 +188,13 @@ function SectionCard({
                 key={i}
                 className="flex items-start gap-1.5 text-xs text-slate-600 dark:text-slate-400"
               >
-                <span className="mt-0.5 shrink-0 text-red-400">&#x2022;</span>
+                <span className="mt-0.5 shrink-0 text-destructive">&#x2022;</span>
                 {issue}
               </li>
             ))}
           </ul>
         ) : (
-          <p className="text-xs text-green-600 dark:text-green-400 flex-1">
+          <p className="text-xs text-success dark:text-success flex-1">
             All checks passed
           </p>
         )}
@@ -343,8 +343,8 @@ export default function ReportCompletenessPage() {
         {/* Error state */}
         {!loading && error && (
           <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-red-200 dark:border-red-800 py-16 text-center">
-            <XCircle className="h-12 w-12 text-red-300 dark:text-red-600 mb-4" />
-            <h2 className="text-base font-semibold text-red-600 dark:text-red-400">
+            <XCircle className="h-12 w-12 text-destructive dark:text-destructive mb-4" />
+            <h2 className="text-base font-semibold text-destructive dark:text-destructive">
               {error}
             </h2>
             <Button
@@ -367,18 +367,18 @@ export default function ReportCompletenessPage() {
 
               <div className="flex items-center gap-3 flex-wrap justify-center">
                 {result.overallScore >= 80 && (
-                  <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-0">
+                  <Badge className="bg-green-100 text-success dark:bg-green-900/30 dark:text-success border-0">
                     <CheckCircle2 className="mr-1 h-3 w-3" /> Ready to submit
                   </Badge>
                 )}
                 {result.overallScore >= 50 && result.overallScore < 80 && (
-                  <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-0">
+                  <Badge className="bg-amber-100 text-warning dark:bg-amber-900/30 dark:text-warning border-0">
                     <AlertTriangle className="mr-1 h-3 w-3" /> Some sections
                     need attention
                   </Badge>
                 )}{" "}
                 {result.overallScore < 50 && (
-                  <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-0">
+                  <Badge className="bg-red-100 text-destructive dark:bg-red-900/30 dark:text-destructive border-0">
                     <XCircle className="mr-1 h-3 w-3" /> Significant gaps found
                   </Badge>
                 )}
@@ -386,18 +386,18 @@ export default function ReportCompletenessPage() {
 
               {/* Quick stats row */}
               <div className="flex items-center gap-6 text-sm">
-                <span className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
+                <span className="flex items-center gap-1.5 text-success dark:text-success">
                   <CheckCircle2 className="h-4 w-4" /> {completeSections}/
                   {totalSections} complete
                 </span>
                 {partialSections > 0 && (
-                  <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                  <span className="flex items-center gap-1.5 text-warning dark:text-warning">
                     <AlertTriangle className="h-4 w-4" /> {partialSections}{" "}
                     partial
                   </span>
                 )}
                 {missingSections > 0 && (
-                  <span className="flex items-center gap-1.5 text-red-600 dark:text-red-400">
+                  <span className="flex items-center gap-1.5 text-destructive dark:text-destructive">
                     <XCircle className="h-4 w-4" /> {missingSections} missing
                   </span>
                 )}

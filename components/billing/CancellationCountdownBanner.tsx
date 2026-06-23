@@ -77,7 +77,7 @@ export function CancellationCountdownBanner() {
                 ? "today"
                 : `in ${daysLeft} day${daysLeft === 1 ? "" : "s"}`}
             </p>
-            <p className="text-xs text-amber-100 truncate">
+            <p className="text-xs text-warning truncate">
               You keep full access until {endFormatted}. Reactivate anytime to
               keep your data and reports.
             </p>
@@ -86,7 +86,7 @@ export function CancellationCountdownBanner() {
         <button
           onClick={reactivate}
           disabled={reactivating}
-          className="shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-amber-700 text-sm font-semibold hover:bg-amber-50 disabled:opacity-60 disabled:cursor-not-allowed"
+          className="shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-warning text-sm font-semibold hover:bg-amber-50 disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {reactivating ? (
             <>

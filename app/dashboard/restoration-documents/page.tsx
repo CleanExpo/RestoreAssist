@@ -246,7 +246,7 @@ export default function RestorationDocumentsPage() {
                           disabled={deletingId === doc.id}
                           className={cn(
                             "flex h-8 w-8 items-center justify-center rounded-md text-neutral-400 transition-colors",
-                            "hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400",
+                            "hover:bg-red-50 hover:text-destructive dark:hover:bg-red-900/20 dark:hover:text-destructive",
                             "focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1",
                             "disabled:cursor-not-allowed disabled:opacity-50",
                           )}

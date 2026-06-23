@@ -154,13 +154,13 @@ export function InterviewValidationPanel({
       {findings && findings.length === 0 && !error && (
         <Alert className="mt-3 border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20">
           <CheckCircle2
-            className="h-4 w-4 text-green-600 dark:text-green-400"
+            className="h-4 w-4 text-success dark:text-success"
             aria-hidden="true"
           />
-          <AlertTitle className="text-green-800 dark:text-green-300">
+          <AlertTitle className="text-success dark:text-success">
             No IICRC S500:2025 issues detected
           </AlertTitle>
-          <AlertDescription className="text-green-800/90 dark:text-green-300/90">
+          <AlertDescription className="text-success/90 dark:text-success/90">
             Your answers look consistent with IICRC S500:2025. Review remains
             advisory — final compliance is the technician&apos;s responsibility.
             {validatedAt && (
@@ -183,13 +183,13 @@ export function InterviewValidationPanel({
             aria-live="polite"
           >
             {errorCount > 0 && (
-              <span className="font-medium text-red-700 dark:text-red-400">
+              <span className="font-medium text-destructive dark:text-destructive">
                 {errorCount} error{errorCount === 1 ? "" : "s"}
               </span>
             )}
             {errorCount > 0 && warnCount > 0 && <span> · </span>}
             {warnCount > 0 && (
-              <span className="font-medium text-amber-700 dark:text-amber-400">
+              <span className="font-medium text-warning dark:text-warning">
                 {warnCount} warning{warnCount === 1 ? "" : "s"}
               </span>
             )}
@@ -230,7 +230,7 @@ function FindingItem({
       className={
         isError
           ? undefined
-          : "border-amber-300 dark:border-amber-800/70 bg-amber-50 dark:bg-amber-900/20 text-amber-900 dark:text-amber-200"
+          : "border-amber-300 dark:border-amber-800/70 bg-amber-50 dark:bg-amber-900/20 text-warning dark:text-warning"
       }
       role="listitem"
     >
@@ -238,19 +238,19 @@ function FindingItem({
         <AlertCircle className="h-4 w-4" aria-hidden="true" />
       ) : (
         <AlertTriangle
-          className="h-4 w-4 text-amber-600 dark:text-amber-400"
+          className="h-4 w-4 text-warning dark:text-warning"
           aria-hidden="true"
         />
       )}
       <AlertTitle
-        className={isError ? undefined : "text-amber-900 dark:text-amber-200"}
+        className={isError ? undefined : "text-warning dark:text-warning"}
       >
         {isError ? "Error" : "Warning"}
         {questionText ? ` — ${questionText}` : ""}
       </AlertTitle>
       <AlertDescription
         className={
-          isError ? undefined : "text-amber-900/90 dark:text-amber-200/90"
+          isError ? undefined : "text-warning/90 dark:text-warning/90"
         }
       >
         <p>{finding.message}</p>

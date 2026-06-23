@@ -78,7 +78,7 @@ const WORKFLOW_STATUS_CONFIG: Record<
 > = {
   PENDING: {
     label: "Pending",
-    className: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    className: "bg-amber-500/10 text-warning dark:text-warning",
     icon: Clock,
   },
   RUNNING: {
@@ -88,17 +88,17 @@ const WORKFLOW_STATUS_CONFIG: Record<
   },
   PAUSED: {
     label: "Paused",
-    className: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    className: "bg-amber-500/10 text-warning dark:text-warning",
     icon: Clock,
   },
   COMPLETED: {
     label: "Completed",
-    className: "bg-green-500/10 text-green-600 dark:text-green-400",
+    className: "bg-green-500/10 text-success dark:text-success",
     icon: CheckCircle,
   },
   FAILED: {
     label: "Failed",
-    className: "bg-red-500/10 text-red-600 dark:text-red-400",
+    className: "bg-red-500/10 text-destructive dark:text-destructive",
     icon: XCircle,
   },
   PARTIALLY_FAILED: {
@@ -119,7 +119,7 @@ const TASK_STATUS_CONFIG: Record<
 > = {
   PENDING: {
     label: "Pending",
-    className: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    className: "bg-amber-500/10 text-warning dark:text-warning",
   },
   READY: { label: "Ready", className: "bg-blue-500/10 text-blue-500" },
   RUNNING: {
@@ -128,11 +128,11 @@ const TASK_STATUS_CONFIG: Record<
   },
   COMPLETED: {
     label: "Completed",
-    className: "bg-green-500/10 text-green-600 dark:text-green-400",
+    className: "bg-green-500/10 text-success dark:text-success",
   },
   FAILED: {
     label: "Failed",
-    className: "bg-red-500/10 text-red-600 dark:text-red-400",
+    className: "bg-red-500/10 text-destructive dark:text-destructive",
   },
   SKIPPED: {
     label: "Skipped",
@@ -144,7 +144,7 @@ const TASK_STATUS_CONFIG: Record<
   },
   DEAD_LETTER: {
     label: "Dead Letter",
-    className: "bg-red-900/20 text-red-700 dark:text-red-400",
+    className: "bg-red-900/20 text-destructive dark:text-destructive",
   },
 };
 
@@ -243,7 +243,7 @@ function TaskRow({ task }: { task: AgentTask }) {
           <div>
             <span
               className={cn(
-                "text-red-500 dark:text-red-400 cursor-pointer",
+                "text-destructive dark:text-destructive cursor-pointer",
                 expandError ? "" : "line-clamp-1",
               )}
               onClick={() => setExpandError(!expandError)}
@@ -391,7 +391,7 @@ function WorkflowRow({
         {/* Failed tasks */}
         <td className="px-4 py-3 text-center">
           {workflow.failedTasks > 0 ? (
-            <span className="text-xs font-medium text-red-500 dark:text-red-400">
+            <span className="text-xs font-medium text-destructive dark:text-destructive">
               {workflow.failedTasks}
             </span>
           ) : (
@@ -644,7 +644,7 @@ export default function WorkflowMonitorPage() {
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
               <div className="p-3 rounded-lg bg-green-500/10">
-                <CheckCircle className="h-6 w-6 text-green-500" />
+                <CheckCircle className="h-6 w-6 text-success" />
               </div>
               <div>
                 <p className="text-2xl font-semibold text-neutral-900 dark:text-white">
@@ -660,7 +660,7 @@ export default function WorkflowMonitorPage() {
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
               <div className="p-3 rounded-lg bg-red-500/10">
-                <XCircle className="h-6 w-6 text-red-500" />
+                <XCircle className="h-6 w-6 text-destructive" />
               </div>
               <div>
                 <p className="text-2xl font-semibold text-neutral-900 dark:text-white">

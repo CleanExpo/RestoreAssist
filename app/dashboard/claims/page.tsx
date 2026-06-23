@@ -134,11 +134,11 @@ function StateBadge({ state, closed }: { state: string; closed: boolean }) {
   const tone = closed
     ? "bg-zinc-100 text-zinc-600"
     : state.includes("DISPUTED")
-      ? "bg-amber-100 text-amber-800"
+      ? "bg-amber-100 text-warning"
       : state.includes("HOLD")
-        ? "bg-amber-100 text-amber-800"
+        ? "bg-amber-100 text-warning"
         : state.includes("INVOICE_PAID")
-          ? "bg-emerald-100 text-emerald-800"
+          ? "bg-emerald-100 text-success"
           : "bg-blue-50 text-blue-700";
   return (
     <span

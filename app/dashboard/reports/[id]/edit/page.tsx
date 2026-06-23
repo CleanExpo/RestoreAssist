@@ -210,7 +210,7 @@ export default function EditReportPage({
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
         <div className="text-center">
-          <AlertTriangle className="mx-auto h-12 w-12 text-red-400 mb-4" />
+          <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
           <h2 className="text-xl font-semibold mb-2 text-white">
             Report Not Found
           </h2>
@@ -286,9 +286,9 @@ export default function EditReportPage({
                   report.status === "DRAFT"
                     ? "bg-slate-500/20 text-slate-400"
                     : report.status === "PENDING"
-                      ? "bg-amber-500/20 text-amber-400"
+                      ? "bg-amber-500/20 text-warning"
                       : report.status === "APPROVED"
-                        ? "bg-emerald-500/20 text-emerald-400"
+                        ? "bg-emerald-500/20 text-success"
                         : report.status === "COMPLETED"
                           ? "bg-blue-500/20 text-blue-400"
                           : "bg-blue-500/20 text-blue-400"

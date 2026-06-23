@@ -175,7 +175,7 @@ export default function EmailTemplatesPage() {
                     </>
                   ) : sent === t.id ? (
                     <>
-                      <CheckCircle className="h-3.5 w-3.5 mr-1.5 text-green-600" />
+                      <CheckCircle className="h-3.5 w-3.5 mr-1.5 text-success" />
                       Sent!
                     </>
                   ) : (

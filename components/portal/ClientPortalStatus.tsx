@@ -80,13 +80,13 @@ export function ClientPortalStatus({ token }: { token: string }) {
       </ol>
 
       {feed.reportReady && (
-        <p className="text-xs text-emerald-700 font-medium">
+        <p className="text-xs text-success font-medium">
           Your restoration report is ready.
         </p>
       )}
 
       {feed.pendingApprovals.length > 0 && (
-        <p role="status" className="text-xs text-amber-700">
+        <p role="status" className="text-xs text-warning">
           Action needed: {feed.pendingApprovals.map((a) => a.label).join(", ")}.
         </p>
       )}

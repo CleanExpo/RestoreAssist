@@ -100,7 +100,7 @@ export default function NewFormTemplatePage() {
             {/* Name */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
-                Template Name <span className="text-red-400">*</span>
+                Template Name <span className="text-destructive">*</span>
               </label>
               <input
                 type="text"

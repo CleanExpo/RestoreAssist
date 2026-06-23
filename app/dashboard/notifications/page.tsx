@@ -67,21 +67,21 @@ function getTypeConfig(type: NotificationType) {
       return {
         Icon: CheckCircle,
         badgeClass:
-          "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20",
+          "bg-green-500/10 text-success dark:text-success border-green-500/20",
         label: "Success",
       };
     case "warning":
       return {
         Icon: AlertTriangle,
         badgeClass:
-          "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
+          "bg-amber-500/10 text-warning dark:text-warning border-amber-500/20",
         label: "Warning",
       };
     case "error":
       return {
         Icon: XCircle,
         badgeClass:
-          "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20",
+          "bg-red-500/10 text-destructive dark:text-destructive border-red-500/20",
         label: "Error",
       };
     case "info":
@@ -410,7 +410,7 @@ export default function NotificationsPage() {
           </div>
         ) : error ? (
           <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-            <XCircle className="h-10 w-10 text-red-400 mb-3" />
+            <XCircle className="h-10 w-10 text-destructive mb-3" />
             <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
               {error}
             </p>
@@ -425,7 +425,7 @@ export default function NotificationsPage() {
           </div>
         ) : !hasAnyNotification ? (
           <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-            <CheckCircle2 className="h-10 w-10 text-green-400 mb-3" />
+            <CheckCircle2 className="h-10 w-10 text-success mb-3" />
             <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
               You&apos;re all set — no notifications
             </p>

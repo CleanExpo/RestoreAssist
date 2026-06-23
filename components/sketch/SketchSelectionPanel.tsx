@@ -172,7 +172,7 @@ export function SketchSelectionPanel({
           role="alert"
           className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-2 space-y-2"
         >
-          <div className="flex items-start gap-1.5 text-xs text-amber-200">
+          <div className="flex items-start gap-1.5 text-xs text-warning">
             <AlertTriangle size={14} className="mt-0.5 shrink-0" />
             <span>
               Reference geometry (AI / imported) — excluded from measured
@@ -182,7 +182,7 @@ export function SketchSelectionPanel({
           <button
             type="button"
             onClick={() => onConfirmProvenance?.(selected.id)}
-            className="w-full min-h-11 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-100 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors text-xs font-medium"
+            className="w-full min-h-11 py-1.5 rounded-lg bg-emerald-500/20 text-success border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors text-xs font-medium"
           >
             Confirm measurement
           </button>
@@ -331,7 +331,7 @@ export function SketchSelectionPanel({
           role="alert"
           className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-2 space-y-2"
         >
-          <div className="flex items-start gap-1.5 text-xs text-rose-200">
+          <div className="flex items-start gap-1.5 text-xs text-destructive">
             <AlertTriangle size={14} className="mt-0.5 shrink-0" />
             <span>
               Suspected asbestos (ACM) — strip-out scope is blocked until a WHS
@@ -348,14 +348,14 @@ export function SketchSelectionPanel({
           <button
             type="button"
             onClick={() => onRecordWhsPathway?.(selected.id, pathwayDraft)}
-            className="w-full min-h-11 py-1.5 rounded-lg bg-rose-500/20 text-rose-100 border border-rose-500/30 hover:bg-rose-500/30 transition-colors text-xs font-medium"
+            className="w-full min-h-11 py-1.5 rounded-lg bg-rose-500/20 text-destructive border border-rose-500/30 hover:bg-rose-500/30 transition-colors text-xs font-medium"
           >
             Record WHS pathway
           </button>
         </div>
       )}
       {!guided && whs && !whs.blocked && (
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-200 flex items-start gap-1.5">
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-warning flex items-start gap-1.5">
           <AlertTriangle size={14} className="mt-0.5 shrink-0" />
           <span>ACM pathway recorded — strip-out permitted.</span>
         </div>
@@ -414,7 +414,7 @@ export function SketchSelectionPanel({
                         Building:{" "}
                         <span
                           className={
-                            b.covered ? "text-emerald-300" : "text-amber-300"
+                            b.covered ? "text-success" : "text-warning"
                           }
                         >
                           {b.covered ? "NHCover" : "Private insurer"}
@@ -424,7 +424,7 @@ export function SketchSelectionPanel({
                         Land:{" "}
                         <span
                           className={
-                            l.covered ? "text-emerald-300" : "text-white/50"
+                            l.covered ? "text-success" : "text-white/50"
                           }
                         >
                           {l.covered ? "NHCover" : "private"}
@@ -442,7 +442,7 @@ export function SketchSelectionPanel({
       <button
         type="button"
         onClick={() => onDelete?.(selected.id)}
-        className="w-full min-h-11 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-rose-400 border border-rose-500/20 hover:bg-rose-500/10 transition-colors text-xs font-medium"
+        className="w-full min-h-11 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-destructive border border-rose-500/20 hover:bg-rose-500/10 transition-colors text-xs font-medium"
       >
         <Trash2 size={12} />
         Delete

@@ -739,11 +739,11 @@ export default function MoistureMappingCanvas({
                 Floor plan overview without moisture or equipment data.
               </p>
               {backgroundImage ? (
-                <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                <p className="text-xs text-success dark:text-success">
                   Floor plan loaded
                 </p>
               ) : (
-                <p className="text-xs text-amber-600 dark:text-amber-400">
+                <p className="text-xs text-warning dark:text-warning">
                   Upload a floor plan to get started
                 </p>
               )}
@@ -839,10 +839,10 @@ export default function MoistureMappingCanvas({
               {unplacedReadings.length === 0 && points.length > 0 && (
                 <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800/50 text-center">
                   <Droplets
-                    className="mx-auto text-emerald-500 mb-1"
+                    className="mx-auto text-success mb-1"
                     size={20}
                   />
-                  <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                  <p className="text-xs text-success dark:text-success font-medium">
                     All readings placed
                   </p>
                 </div>
@@ -931,7 +931,7 @@ export default function MoistureMappingCanvas({
                     </div>
                     <button
                       onClick={() => removeEquipment(selectedEquipment.id)}
-                      className="text-xs text-rose-500 hover:text-rose-600 font-medium"
+                      className="text-xs text-destructive hover:text-destructive font-medium"
                     >
                       Remove
                     </button>

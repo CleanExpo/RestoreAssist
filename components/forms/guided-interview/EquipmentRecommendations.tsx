@@ -52,11 +52,11 @@ const getEquipmentIcon = (type: string) => {
     case "dehumidifier":
       return <Droplets className="h-5 w-5 text-blue-600" />;
     case "air_mover":
-      return <Wind className="h-5 w-5 text-green-600" />;
+      return <Wind className="h-5 w-5 text-success" />;
     case "air_scrubber":
-      return <Zap className="h-5 w-5 text-amber-600" />;
+      return <Zap className="h-5 w-5 text-warning" />;
     case "heater":
-      return <Thermometer className="h-5 w-5 text-red-600" />;
+      return <Thermometer className="h-5 w-5 text-destructive" />;
     case "monitor":
       return <AlertCircle className="h-5 w-5 text-purple-600" />;
     default:
@@ -253,18 +253,18 @@ export function EquipmentRecommendations({
         {/* Cost Summary */}
         <div className="grid grid-cols-2 gap-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
           <div>
-            <p className="text-sm text-amber-700 font-semibold">
+            <p className="text-sm text-warning font-semibold">
               Estimated Total Cost
             </p>
-            <p className="text-2xl font-bold text-amber-900">
+            <p className="text-2xl font-bold text-warning">
               ${totalCost.toLocaleString()}
             </p>
           </div>
           <div>
-            <p className="text-sm text-amber-700 font-semibold">
+            <p className="text-sm text-warning font-semibold">
               Estimated Duration
             </p>
-            <p className="text-2xl font-bold text-amber-900">
+            <p className="text-2xl font-bold text-warning">
               {totalDays} days
             </p>
           </div>
@@ -273,8 +273,8 @@ export function EquipmentRecommendations({
         {/* Urgent Alert */}
         {isUrgent && (
           <Alert className="bg-red-50 border-red-200">
-            <AlertCircle className="h-4 w-4 text-red-600" />
-            <AlertDescription className="text-red-700">
+            <AlertCircle className="h-4 w-4 text-destructive" />
+            <AlertDescription className="text-destructive">
               Urgent situation detected. Consider expedited equipment delivery
               and increased crew deployment.
             </AlertDescription>

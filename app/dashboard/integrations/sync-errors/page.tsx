@@ -74,7 +74,7 @@ interface SyncErrorsResponse {
 
 const PROVIDER_COLOURS: Record<string, string> = {
   xero: "bg-blue-100 text-blue-800 border-blue-200",
-  quickbooks: "bg-green-100 text-green-800 border-green-200",
+  quickbooks: "bg-green-100 text-success border-green-200",
   myob: "bg-purple-100 text-purple-800 border-purple-200",
   servicem8: "bg-orange-100 text-orange-800 border-orange-200",
   ascora: "bg-indigo-100 text-indigo-800 border-indigo-200",
@@ -89,13 +89,13 @@ const PROVIDER_LABEL: Record<string, string> = {
 };
 
 const STATUS_STYLES: Record<string, string> = {
-  FAILED: "bg-red-100 text-red-800 border-red-200",
-  PARTIAL: "bg-amber-100 text-amber-800 border-amber-200",
-  SUCCESS: "bg-green-100 text-green-800 border-green-200",
+  FAILED: "bg-red-100 text-destructive border-red-200",
+  PARTIAL: "bg-amber-100 text-warning border-amber-200",
+  SUCCESS: "bg-green-100 text-success border-green-200",
   // Webhook statuses
-  PENDING: "bg-amber-100 text-amber-800 border-amber-200",
+  PENDING: "bg-amber-100 text-warning border-amber-200",
   PROCESSING: "bg-blue-100 text-blue-800 border-blue-200",
-  DELIVERED: "bg-green-100 text-green-800 border-green-200",
+  DELIVERED: "bg-green-100 text-success border-green-200",
 };
 
 function formatDate(iso: string) {
@@ -185,7 +185,7 @@ function SyncErrorRow({ error, onRetry, retryingId }: SyncErrorRowProps) {
 
       {/* Records failed / processed */}
       <TableCell className="text-center">
-        <span className="text-sm font-medium text-red-700">
+        <span className="text-sm font-medium text-destructive">
           {error.recordsFailed}
         </span>
         <span className="text-xs text-slate-400">
@@ -250,7 +250,7 @@ function WebhookErrorRow({ error }: WebhookErrorRowProps) {
           >
             {providerLabel(error.integration.provider)}
           </Badge>
-          <span className="text-[10px] text-amber-700 font-medium">
+          <span className="text-[10px] text-warning font-medium">
             WEBHOOK
           </span>
         </div>
@@ -291,7 +291,7 @@ function WebhookErrorRow({ error }: WebhookErrorRowProps) {
       </TableCell>
 
       <TableCell className="text-center">
-        <span className="text-sm font-medium text-amber-700">
+        <span className="text-sm font-medium text-warning">
           {error.retryCount}
         </span>
         <span className="text-xs text-slate-400"> / 5</span>
@@ -491,8 +491,8 @@ export default function SyncErrorsPage() {
                 variant="outline"
                 className={`text-sm font-medium px-2.5 py-0.5 ${
                   totalErrorCount > 0
-                    ? "bg-red-100 text-red-800 border-red-300"
-                    : "bg-green-100 text-green-800 border-green-300"
+                    ? "bg-red-100 text-destructive border-red-300"
+                    : "bg-green-100 text-success border-green-300"
                 }`}
               >
                 {totalErrorCount > 0
@@ -551,12 +551,12 @@ export default function SyncErrorsPage() {
 
         {/* Fetch error banner */}
         {fetchError && (
-          <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 mb-6">
+          <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-destructive mb-6">
             <AlertTriangle className="h-4 w-4 shrink-0" />
             {fetchError}
             <button
               onClick={fetchErrors}
-              className="ml-auto underline text-red-600 hover:text-red-800"
+              className="ml-auto underline text-destructive hover:text-destructive"
             >
               Retry
             </button>
@@ -585,7 +585,7 @@ export default function SyncErrorsPage() {
                 <TableRow>
                   <TableCell colSpan={7} className="py-16 text-center">
                     <div className="flex flex-col items-center gap-3 text-slate-500">
-                      <CheckCircle2 className="h-10 w-10 text-green-500" />
+                      <CheckCircle2 className="h-10 w-10 text-success" />
                       <p className="text-base font-medium text-slate-700">
                         No sync errors — all integrations healthy
                       </p>

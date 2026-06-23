@@ -85,10 +85,10 @@ const CLAIM_TYPE_OPTIONS = [
 ];
 
 const STATUS_COLOR: Record<string, string> = {
-  COMPLETED: "bg-green-100 text-green-800",
+  COMPLETED: "bg-green-100 text-success",
   PROCESSING: "bg-blue-100 text-blue-800",
-  PENDING: "bg-yellow-100 text-yellow-800",
-  FAILED: "bg-red-100 text-red-800",
+  PENDING: "bg-yellow-100 text-warning",
+  FAILED: "bg-red-100 text-destructive",
 };
 
 function getOverallScore(analysis: Analysis): number | null {
@@ -112,9 +112,9 @@ function getTotalIssues(analysis: Analysis): number {
 
 function scoreColor(score: number | null): string {
   if (score === null) return "text-slate-400";
-  if (score >= 80) return "text-green-600";
-  if (score >= 60) return "text-yellow-600";
-  return "text-red-600";
+  if (score >= 80) return "text-success";
+  if (score >= 60) return "text-warning";
+  return "text-destructive";
 }
 
 function exportToCSV(analyses: Analysis[], filename = "claims-analyses.csv") {
@@ -648,7 +648,7 @@ export default function ClaimsAnalysisExportPage() {
                             ) : (
                               <Badge
                                 variant="outline"
-                                className="text-xs border-green-200 text-green-700 bg-green-50"
+                                className="text-xs border-green-200 text-success bg-green-50"
                               >
                                 0
                               </Badge>

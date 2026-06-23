@@ -263,8 +263,8 @@ function PinMarker({
                   className={cn(
                     "flex items-center justify-between px-2 py-1.5 rounded-lg text-xs font-medium",
                     dry.dryStandardMet
-                      ? "bg-emerald-500/15 text-emerald-300"
-                      : "bg-rose-500/15 text-rose-300",
+                      ? "bg-emerald-500/15 text-success"
+                      : "bg-rose-500/15 text-destructive",
                   )}
                 >
                   <span>S500 dry standard ({dry.targetMc}% WME)</span>
@@ -305,7 +305,7 @@ function PinMarker({
             <button
               type="button"
               onClick={onRemove}
-              className="w-full min-h-11 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-rose-400 border border-rose-500/20 hover:bg-rose-500/10 transition-colors"
+              className="w-full min-h-11 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-destructive border border-rose-500/20 hover:bg-rose-500/10 transition-colors"
             >
               <X size={11} />
               Remove pin

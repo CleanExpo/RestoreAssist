@@ -473,7 +473,7 @@ export default function DashboardLayout({
           <div
             role="status"
             aria-live="polite"
-            className="w-full bg-amber-500 text-amber-950 text-sm font-medium text-center px-4 py-2"
+            className="w-full bg-amber-500 text-warning text-sm font-medium text-center px-4 py-2"
           >
             DEMO MODE — you're signed in as the sample account. Data shown is
             illustrative; changes are shared with other demo viewers.

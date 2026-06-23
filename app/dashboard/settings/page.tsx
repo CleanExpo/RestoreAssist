@@ -285,7 +285,7 @@ export default function SettingsPage() {
       {profileError && (
         <div
           role="alert"
-          className="flex items-start gap-3 p-4 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-200"
+          className="flex items-start gap-3 p-4 rounded-lg border border-amber-500/40 bg-amber-500/10 text-warning"
         >
           <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
@@ -439,7 +439,7 @@ export default function SettingsPage() {
               <button
                 type="button"
                 onClick={() => setShowDeleteModal(true)}
-                className="w-full flex items-center gap-3 px-4 py-3 border border-red-600 text-red-400 rounded-lg hover:bg-red-600/10 transition-colors touch-manipulation"
+                className="w-full flex items-center gap-3 px-4 py-3 border border-red-600 text-destructive rounded-lg hover:bg-red-600/10 transition-colors touch-manipulation"
               >
                 <Trash2 className="w-4 h-4" />
                 <span>Delete Account</span>

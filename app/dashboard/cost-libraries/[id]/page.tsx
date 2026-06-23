@@ -166,7 +166,7 @@ export default function CostLibraryDetailPage({
               {library._count.items} item{library._count.items !== 1 ? "s" : ""}
             </span>
             {library.isDefault && (
-              <span className="px-2 py-0.5 text-xs bg-emerald-500/20 text-emerald-400 rounded">
+              <span className="px-2 py-0.5 text-xs bg-emerald-500/20 text-success rounded">
                 Default
               </span>
             )}
@@ -267,7 +267,7 @@ export default function CostLibraryDetailPage({
                         className="p-1.5 hover:bg-slate-600 rounded transition-colors"
                         title="Delete item"
                       >
-                        <Trash2 size={16} className="text-rose-400" />
+                        <Trash2 size={16} className="text-destructive" />
                       </button>
                     </td>
                   </tr>

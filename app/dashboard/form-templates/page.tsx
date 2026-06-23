@@ -30,7 +30,7 @@ const BADGE_COLORS: Record<string, string> = {
   SURVEY:
     "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
   ONBOARDING:
-    "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+    "bg-amber-100 text-warning dark:bg-amber-900/30 dark:text-warning",
 };
 
 function getBadgeClass(formType: string): string {
@@ -93,7 +93,7 @@ function DeleteDialog({
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl p-6 max-w-md w-full mx-4 border border-slate-200 dark:border-slate-700">
         <div className="flex items-center gap-3 mb-4">
           <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-            <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
+            <AlertTriangle className="w-5 h-5 text-destructive dark:text-destructive" />
           </div>
           <div>
             <h3 className="text-base font-semibold text-slate-900 dark:text-white">
@@ -339,7 +339,7 @@ export default function FormTemplatesPage() {
                     </Link>
                     <button
                       onClick={() => setDeleteTarget(template)}
-                      className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                      className="p-1.5 text-slate-400 hover:text-destructive dark:hover:text-destructive hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                       title="Delete template"
                     >
                       <Trash2 className="w-4 h-4" />

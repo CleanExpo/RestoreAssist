@@ -74,11 +74,11 @@ async function fetchHealth(): Promise<HealthResponse | null> {
 function toneFor(status: string): { label: string; tint: string } {
   switch (status) {
     case "ok":
-      return { label: "Operational", tint: "bg-emerald-100 text-emerald-800" };
+      return { label: "Operational", tint: "bg-emerald-100 text-success" };
     case "degraded":
-      return { label: "Degraded", tint: "bg-amber-100 text-amber-800" };
+      return { label: "Degraded", tint: "bg-amber-100 text-warning" };
     default:
-      return { label: "Outage", tint: "bg-rose-100 text-rose-800" };
+      return { label: "Outage", tint: "bg-rose-100 text-destructive" };
   }
 }
 

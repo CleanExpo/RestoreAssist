@@ -142,10 +142,10 @@ const METHOD_LABELS: Record<string, string> = {
 
 const METHOD_COLOURS: Record<string, string> = {
   BANK_TRANSFER: "bg-blue-100 text-blue-800",
-  CHEQUE: "bg-amber-100 text-amber-800",
+  CHEQUE: "bg-amber-100 text-warning",
   STRIPE: "bg-purple-100 text-purple-800",
-  CASH: "bg-green-100 text-green-800",
-  CREDIT_CARD: "bg-rose-100 text-rose-800",
+  CASH: "bg-green-100 text-success",
+  CREDIT_CARD: "bg-rose-100 text-destructive",
   PAYPAL: "bg-sky-100 text-sky-800",
   EXTERNAL: "bg-slate-100 text-slate-800",
   EFT: "bg-teal-100 text-teal-800",
@@ -420,7 +420,7 @@ export default function PaymentRegisterPage() {
             Payment Register
           </h1>
           {isMock && (
-            <p className="text-xs text-amber-600 mt-0.5">
+            <p className="text-xs text-warning mt-0.5">
               Showing sample data — could not reach API
             </p>
           )}

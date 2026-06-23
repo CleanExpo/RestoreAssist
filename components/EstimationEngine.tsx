@@ -1160,7 +1160,7 @@ export default function EstimationEngine({
                           onClick={() => handleSaveLineItemToLibrary(index)}
                           className={
                             item.sourceCostItemId
-                              ? "text-emerald-400 hover:text-emerald-300"
+                              ? "text-success hover:text-success"
                               : "text-slate-400 hover:text-cyan-300"
                           }
                           disabled={item._savingToLibrary}
@@ -1189,7 +1189,7 @@ export default function EstimationEngine({
                           lineItems: newItems,
                         }));
                       }}
-                      className="text-red-400 hover:text-red-300"
+                      className="text-destructive hover:text-destructive"
                       disabled={item.isScopeLinked}
                     >
                       <Trash2 size={14} />

@@ -83,9 +83,9 @@ export function NotificationBell({ className }: NotificationBellProps) {
   const getTypeStyles = (type: Notification["type"]) => {
     const styles = {
       info: "bg-cyan-500/10 text-cyan-500",
-      success: "bg-green-500/10 text-green-500",
-      warning: "bg-amber-500/10 text-amber-500",
-      error: "bg-red-500/10 text-red-500",
+      success: "bg-green-500/10 text-success",
+      warning: "bg-amber-500/10 text-warning",
+      error: "bg-red-500/10 text-destructive",
     };
     return styles[type];
   };
@@ -182,7 +182,7 @@ export function NotificationBell({ className }: NotificationBellProps) {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 text-neutral-500 hover:text-red-500"
+                        className="h-7 w-7 text-neutral-500 hover:text-destructive"
                         onClick={() => deleteNotification(notification.id)}
                         aria-label="Delete notification"
                       >

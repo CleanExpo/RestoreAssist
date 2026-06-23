@@ -63,10 +63,10 @@ function getActionColor(action: string): string {
     lower.includes("add") ||
     lower.includes("submit")
   ) {
-    return "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800";
+    return "bg-emerald-100 dark:bg-emerald-900/30 text-success dark:text-success border-emerald-200 dark:border-emerald-800";
   }
   if (lower.includes("delet") || lower.includes("remov")) {
-    return "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800";
+    return "bg-red-100 dark:bg-red-900/30 text-destructive dark:text-destructive border-red-200 dark:border-red-800";
   }
   if (
     lower.includes("view") ||
@@ -141,7 +141,7 @@ function DiffView({
         <p className="text-xs font-semibold text-neutral-400 dark:text-slate-500 uppercase tracking-wider mb-1">
           Previous
         </p>
-        <pre className="text-xs bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/50 rounded-lg p-2 text-red-700 dark:text-red-300 whitespace-pre-wrap break-all max-h-32 overflow-y-auto">
+        <pre className="text-xs bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/50 rounded-lg p-2 text-destructive dark:text-destructive whitespace-pre-wrap break-all max-h-32 overflow-y-auto">
           {prevDisplay}
         </pre>
       </div>
@@ -149,7 +149,7 @@ function DiffView({
         <p className="text-xs font-semibold text-neutral-400 dark:text-slate-500 uppercase tracking-wider mb-1">
           New Value
         </p>
-        <pre className="text-xs bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800/50 rounded-lg p-2 text-emerald-700 dark:text-emerald-300 whitespace-pre-wrap break-all max-h-32 overflow-y-auto">
+        <pre className="text-xs bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800/50 rounded-lg p-2 text-success dark:text-success whitespace-pre-wrap break-all max-h-32 overflow-y-auto">
           {nextDisplay}
         </pre>
       </div>

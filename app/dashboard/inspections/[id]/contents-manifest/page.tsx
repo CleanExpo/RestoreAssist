@@ -64,20 +64,20 @@ interface InspectionMeta {
 
 const CONDITION_COLORS: Record<string, string> = {
   undamaged:
-    "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+    "bg-emerald-100 text-success dark:bg-emerald-900/30 dark:text-success",
   lightly_soiled:
-    "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
+    "bg-yellow-100 text-warning dark:bg-yellow-900/30 dark:text-warning",
   water_damaged:
     "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
   smoke_damaged:
     "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
-  fire_damaged: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+  fire_damaged: "bg-red-100 text-destructive dark:bg-red-900/30 dark:text-destructive",
   mould_affected:
     "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
   contaminated:
-    "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
+    "bg-rose-100 text-destructive dark:bg-rose-900/30 dark:text-destructive",
   structurally_damaged:
-    "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+    "bg-amber-100 text-warning dark:bg-amber-900/30 dark:text-warning",
   destroyed:
     "bg-neutral-200 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-400",
 };
@@ -97,15 +97,15 @@ const CONDITION_LABELS: Record<string, string> = {
 const RESTORABILITY_ICONS: Record<string, { label: string; color: string }> = {
   restorable: {
     label: "Restorable",
-    color: "text-emerald-600 dark:text-emerald-400",
+    color: "text-success dark:text-success",
   },
   questionable: {
     label: "Questionable",
-    color: "text-amber-600 dark:text-amber-400",
+    color: "text-warning dark:text-warning",
   },
   non_restorable: {
     label: "Non-Restorable",
-    color: "text-red-600 dark:text-red-400",
+    color: "text-destructive dark:text-destructive",
   },
 };
 
@@ -252,7 +252,7 @@ function ManifestRow({ item, index, onUpdate }: ManifestRowProps) {
                 {categoryLabel}
               </span>
               {item.verified && (
-                <CheckCircle2 size={12} className="text-emerald-500" />
+                <CheckCircle2 size={12} className="text-success" />
               )}
             </div>
           </div>
@@ -342,7 +342,7 @@ function ManifestRow({ item, index, onUpdate }: ManifestRowProps) {
               size="sm"
               variant="ghost"
               onClick={handleSave}
-              className="h-7 px-2 text-emerald-600"
+              className="h-7 px-2 text-success"
             >
               Save
             </Button>
@@ -748,7 +748,7 @@ export default function ContentsManifestPage({
           </div>
 
           {lowConfidenceCount > 0 && (
-            <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+            <div className="flex items-center gap-1.5 text-xs text-warning dark:text-warning">
               <AlertTriangle size={13} />
               {lowConfidenceCount} item{lowConfidenceCount !== 1 ? "s" : ""}{" "}
               with low confidence — review recommended
@@ -853,7 +853,7 @@ export default function ContentsManifestPage({
           <Separator />
           <div className="flex flex-wrap items-center gap-6 text-sm text-neutral-600 dark:text-slate-400">
             <div className="flex items-center gap-1.5">
-              <CheckCircle2 size={15} className="text-emerald-500" />
+              <CheckCircle2 size={15} className="text-success" />
               <span>
                 <strong className="text-neutral-900 dark:text-white">
                   {verifiedCount}

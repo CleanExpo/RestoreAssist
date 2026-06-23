@@ -121,19 +121,19 @@ function CustomTooltip({ active, payload, label }: any) {
             className={cn(
               "font-semibold",
               entry.value <= DRY_STANDARD
-                ? "text-emerald-600 dark:text-emerald-400"
+                ? "text-success dark:text-success"
                 : entry.value <= 25
-                  ? "text-amber-600 dark:text-amber-400"
-                  : "text-rose-600 dark:text-rose-400",
+                  ? "text-warning dark:text-warning"
+                  : "text-destructive dark:text-destructive",
             )}
           >
             {entry.value}%
           </span>
           {entry.value <= DRY_STANDARD && (
-            <CheckCircle2 size={11} className="text-emerald-500" />
+            <CheckCircle2 size={11} className="text-success" />
           )}
           {entry.value > DRY_STANDARD && (
-            <AlertTriangle size={11} className="text-amber-500" />
+            <AlertTriangle size={11} className="text-warning" />
           )}
         </div>
       ))}
@@ -194,14 +194,14 @@ export default function MoistureTrendChart({
         <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30">
           <AlertTriangle
             size={16}
-            className="text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5"
+            className="text-warning dark:text-warning flex-shrink-0 mt-0.5"
           />
           <div className="text-sm">
-            <p className="font-medium text-amber-700 dark:text-amber-400">
+            <p className="font-medium text-warning dark:text-warning">
               {alerts.length} location{alerts.length > 1 ? "s" : ""} above dry
               standard
             </p>
-            <p className="text-amber-600 dark:text-amber-500 text-xs mt-0.5">
+            <p className="text-warning dark:text-warning text-xs mt-0.5">
               {alerts.map((a) => a.location).join(", ")} — readings above{" "}
               {DRY_STANDARD}%
             </p>
@@ -211,9 +211,9 @@ export default function MoistureTrendChart({
         <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 text-sm">
           <CheckCircle2
             size={16}
-            className="text-emerald-600 dark:text-emerald-400"
+            className="text-success dark:text-success"
           />
-          <span className="text-emerald-700 dark:text-emerald-400 font-medium">
+          <span className="text-success dark:text-success font-medium">
             All {dryCount}/{totalLocations} locations at or below dry standard (
             {DRY_STANDARD}%)
           </span>
@@ -322,25 +322,25 @@ export default function MoistureTrendChart({
                     className={cn(
                       "px-4 py-2.5 text-right font-semibold",
                       level <= DRY_STANDARD
-                        ? "text-emerald-600 dark:text-emerald-400"
+                        ? "text-success dark:text-success"
                         : level <= 25
-                          ? "text-amber-600 dark:text-amber-400"
-                          : "text-rose-600 dark:text-rose-400",
+                          ? "text-warning dark:text-warning"
+                          : "text-destructive dark:text-destructive",
                     )}
                   >
                     {level}%
                   </td>
                   <td className="px-4 py-2.5 text-right">
                     {level <= DRY_STANDARD ? (
-                      <span className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                      <span className="inline-flex items-center gap-1 text-xs text-success dark:text-success bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-full">
                         <CheckCircle2 size={11} /> Dry
                       </span>
                     ) : level <= 25 ? (
-                      <span className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 px-2 py-0.5 rounded-full">
+                      <span className="inline-flex items-center gap-1 text-xs text-warning dark:text-warning bg-amber-50 dark:bg-amber-500/10 px-2 py-0.5 rounded-full">
                         <AlertTriangle size={11} /> Caution
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-xs text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 px-2 py-0.5 rounded-full">
+                      <span className="inline-flex items-center gap-1 text-xs text-destructive dark:text-destructive bg-rose-50 dark:bg-rose-500/10 px-2 py-0.5 rounded-full">
                         <AlertTriangle size={11} /> Wet
                       </span>
                     )}

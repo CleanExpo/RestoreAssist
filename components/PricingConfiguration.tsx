@@ -363,7 +363,7 @@ export default function PricingConfiguration({
                 {canEdit && (
                   <button
                     onClick={() => removeCustomField(category, index)}
-                    className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                    className="p-2 text-destructive hover:bg-red-500/10 rounded-lg transition-colors"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -390,9 +390,9 @@ export default function PricingConfiguration({
       <BillingGate fallback={null}>
         {subscriptionStatus === "TRIAL" && (
           <div className="p-4 rounded-lg border border-amber-500/50 bg-amber-500/10 flex items-start gap-3">
-            <Lock className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+            <Lock className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <h3 className="font-semibold text-amber-400 mb-1">
+              <h3 className="font-semibold text-warning mb-1">
                 Pricing Configuration Locked
               </h3>
               <p className="text-sm text-slate-700 dark:text-slate-300 mb-3">

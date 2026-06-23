@@ -174,15 +174,15 @@ export default function ContractorReviewsPage() {
       case "NONE":
         return "text-slate-400";
       case "PENDING_REVIEW":
-        return "text-amber-400";
+        return "text-warning";
       case "UNDER_INVESTIGATION":
         return "text-cyan-400";
       case "RESOLVED_KEPT":
-        return "text-green-400";
+        return "text-success";
       case "RESOLVED_AMENDED":
         return "text-blue-400";
       case "RESOLVED_REMOVED":
-        return "text-red-400";
+        return "text-destructive";
       default:
         return "text-slate-400";
     }
@@ -217,8 +217,8 @@ export default function ContractorReviewsPage() {
         <div
           className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${
             message.type === "success"
-              ? "bg-green-500/10 border border-green-500/30 text-green-400"
-              : "bg-red-500/10 border border-red-500/30 text-red-400"
+              ? "bg-green-500/10 border border-green-500/30 text-success"
+              : "bg-red-500/10 border border-red-500/30 text-destructive"
           }`}
         >
           {message.type === "success" ? (
@@ -240,7 +240,7 @@ export default function ContractorReviewsPage() {
         <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-6">
           <div className="text-slate-400 text-sm mb-2">Average Rating</div>
           <div className="flex items-center gap-2">
-            <Star className="h-6 w-6 text-amber-400 fill-amber-400" />
+            <Star className="h-6 w-6 text-warning fill-amber-400" />
             <div className="text-3xl font-bold text-white">
               {averageRating.toFixed(1)}
             </div>
@@ -249,14 +249,14 @@ export default function ContractorReviewsPage() {
 
         <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-6">
           <div className="text-slate-400 text-sm mb-2">Pending Responses</div>
-          <div className="text-3xl font-bold text-amber-400">
+          <div className="text-3xl font-bold text-warning">
             {pendingResponses}
           </div>
         </div>
 
         <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-6">
           <div className="text-slate-400 text-sm mb-2">Disputed Reviews</div>
-          <div className="text-3xl font-bold text-red-400">
+          <div className="text-3xl font-bold text-destructive">
             {disputedReviews}
           </div>
         </div>
@@ -282,7 +282,7 @@ export default function ContractorReviewsPage() {
                       {review.clientName}
                     </span>
                     {review.isVerifiedJob && (
-                      <span className="text-xs px-2 py-1 bg-green-500/10 border border-green-500/30 rounded text-green-400">
+                      <span className="text-xs px-2 py-1 bg-green-500/10 border border-green-500/30 rounded text-success">
                         Verified Job
                       </span>
                     )}
@@ -302,7 +302,7 @@ export default function ContractorReviewsPage() {
                         key={i}
                         className={`h-5 w-5 ${
                           i < review.overallRating
-                            ? "text-amber-400 fill-amber-400"
+                            ? "text-warning fill-amber-400"
                             : "text-slate-600"
                         }`}
                       />
@@ -332,7 +332,7 @@ export default function ContractorReviewsPage() {
                     <div>
                       <div className="text-xs text-slate-400 mb-1">Quality</div>
                       <div className="flex items-center gap-1">
-                        <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
+                        <Star className="h-4 w-4 text-warning fill-amber-400" />
                         <span className="text-white font-medium">
                           {review.qualityRating}
                         </span>
@@ -345,7 +345,7 @@ export default function ContractorReviewsPage() {
                         Timeliness
                       </div>
                       <div className="flex items-center gap-1">
-                        <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
+                        <Star className="h-4 w-4 text-warning fill-amber-400" />
                         <span className="text-white font-medium">
                           {review.timelinessRating}
                         </span>
@@ -358,7 +358,7 @@ export default function ContractorReviewsPage() {
                         Communication
                       </div>
                       <div className="flex items-center gap-1">
-                        <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
+                        <Star className="h-4 w-4 text-warning fill-amber-400" />
                         <span className="text-white font-medium">
                           {review.communicationRating}
                         </span>
@@ -369,7 +369,7 @@ export default function ContractorReviewsPage() {
                     <div>
                       <div className="text-xs text-slate-400 mb-1">Value</div>
                       <div className="flex items-center gap-1">
-                        <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
+                        <Star className="h-4 w-4 text-warning fill-amber-400" />
                         <span className="text-white font-medium">
                           {review.valueRating}
                         </span>
@@ -480,7 +480,7 @@ export default function ContractorReviewsPage() {
                   selectedReview !== `dispute-${review.id}` && (
                     <button
                       onClick={() => setSelectedReview(`dispute-${review.id}`)}
-                      className="flex items-center gap-2 text-red-400 hover:text-red-300"
+                      className="flex items-center gap-2 text-destructive hover:text-destructive"
                     >
                       <AlertTriangle className="h-4 w-4" />
                       Dispute Review

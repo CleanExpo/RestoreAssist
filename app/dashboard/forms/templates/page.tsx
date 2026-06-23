@@ -95,8 +95,8 @@ const FORM_TYPE_COLOURS: Record<FormType, string> = {
     "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
   AUTHORITY_TO_COMMENCE:
     "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
-  JSA: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
-  SDS: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+  JSA: "bg-amber-100 text-warning dark:bg-amber-900/30 dark:text-warning",
+  SDS: "bg-red-100 text-destructive dark:bg-red-900/30 dark:text-destructive",
   SWIMS:
     "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
   SITE_INDUCTION:
@@ -204,14 +204,14 @@ function CreateTemplateForm({ onCreated, onCancel }: CreateTemplateFormProps) {
       </div>
 
       {error && (
-        <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
+        <p className="text-xs text-destructive dark:text-destructive">{error}</p>
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Name */}
         <div className="space-y-1.5">
           <Label htmlFor="tpl-name" className="text-xs">
-            Name <span className="text-red-500">*</span>
+            Name <span className="text-destructive">*</span>
           </Label>
           <Input
             id="tpl-name"
@@ -225,7 +225,7 @@ function CreateTemplateForm({ onCreated, onCancel }: CreateTemplateFormProps) {
         {/* Form Type */}
         <div className="space-y-1.5">
           <Label htmlFor="tpl-type" className="text-xs">
-            Form Type <span className="text-red-500">*</span>
+            Form Type <span className="text-destructive">*</span>
           </Label>
           <Select
             value={form.formType}
@@ -560,7 +560,7 @@ export default function FormTemplatesPage() {
 
       {/* Error */}
       {error && (
-        <div className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-700 dark:text-red-400">
+        <div className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-destructive dark:text-destructive">
           {error}
         </div>
       )}
@@ -731,7 +731,7 @@ export default function FormTemplatesPage() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-7 w-7 p-0 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                            className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-red-50 dark:hover:bg-red-900/20"
                             onClick={() => setConfirmDeleteId(template.id)}
                             aria-label={`Delete ${template.name}`}
                           >

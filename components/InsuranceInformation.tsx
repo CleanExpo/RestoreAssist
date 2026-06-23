@@ -328,12 +328,12 @@ export default function InsuranceInformation({
           <div className="space-y-4">
             <div className="bg-green-500/20 border border-green-500/30 rounded-lg p-4 mb-6">
               <div className="flex items-center gap-2 mb-2">
-                <Home className="text-green-400" size={20} />
-                <h4 className="font-medium text-green-400">
+                <Home className="text-success" size={20} />
+                <h4 className="font-medium text-success">
                   Contents Insurance Coverage
                 </h4>
               </div>
-              <p className="text-sm text-green-300">
+              <p className="text-sm text-success">
                 Covers loss or damage to business furniture, machinery, plant,
                 equipment, stock, and merchandise.
               </p>
@@ -391,12 +391,12 @@ export default function InsuranceInformation({
           <div className="space-y-4">
             <div className="bg-amber-500/20 border border-amber-500/30 rounded-lg p-4 mb-6">
               <div className="flex items-center gap-2 mb-2">
-                <Shield className="text-amber-400" size={20} />
-                <h4 className="font-medium text-amber-400">
+                <Shield className="text-warning" size={20} />
+                <h4 className="font-medium text-warning">
                   Liability Insurance Coverage
                 </h4>
               </div>
-              <p className="text-sm text-amber-300">
+              <p className="text-sm text-warning">
                 Protects against claims from injured third parties and damage to
                 client property.
               </p>
@@ -681,28 +681,28 @@ export default function InsuranceInformation({
               <li className="flex items-center gap-2">
                 <CheckCircle
                   size={14}
-                  className="text-emerald-400 flex-shrink-0"
+                  className="text-success flex-shrink-0"
                 />
                 Ensure asset values are properly covered
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle
                   size={14}
-                  className="text-emerald-400 flex-shrink-0"
+                  className="text-success flex-shrink-0"
                 />
                 Review policy exclusions carefully
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle
                   size={14}
-                  className="text-emerald-400 flex-shrink-0"
+                  className="text-success flex-shrink-0"
                 />
                 Consider appropriate excess levels
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle
                   size={14}
-                  className="text-emerald-400 flex-shrink-0"
+                  className="text-success flex-shrink-0"
                 />
                 Understand claim procedures
               </li>

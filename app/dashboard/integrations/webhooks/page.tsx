@@ -82,7 +82,7 @@ interface LogsResponse {
 function providerColor(provider: IntegrationProvider): string {
   switch (provider) {
     case "XERO":
-      return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400";
+      return "bg-emerald-100 text-success dark:bg-emerald-900/30 dark:text-success";
     case "QUICKBOOKS":
       return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
     case "MYOB":
@@ -99,11 +99,11 @@ function providerColor(provider: IntegrationProvider): string {
 function statusColor(status: WebhookEventStatus): string {
   switch (status) {
     case "PROCESSED":
-      return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400";
+      return "bg-green-100 text-success dark:bg-green-900/30 dark:text-success";
     case "FAILED":
-      return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
+      return "bg-red-100 text-destructive dark:bg-red-900/30 dark:text-destructive";
     case "PENDING":
-      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400";
+      return "bg-yellow-100 text-warning dark:bg-yellow-900/30 dark:text-warning";
     case "PROCESSING":
       return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
     case "IGNORED":
@@ -234,17 +234,17 @@ export default function WebhookLogsPage() {
           {
             label: "Processed",
             value: statCounts.processed,
-            color: "text-green-600 dark:text-green-400",
+            color: "text-success dark:text-success",
           },
           {
             label: "Failed",
             value: statCounts.failed,
-            color: "text-red-600 dark:text-red-400",
+            color: "text-destructive dark:text-destructive",
           },
           {
             label: "Pending",
             value: statCounts.pending,
-            color: "text-yellow-600 dark:text-yellow-400",
+            color: "text-warning dark:text-warning",
           },
         ].map((stat) => (
           <Card
@@ -436,7 +436,7 @@ export default function WebhookLogsPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-7 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+                            className="h-7 px-2 text-xs text-destructive hover:text-destructive hover:bg-red-50 dark:text-destructive dark:hover:bg-red-950/30"
                             disabled={retryingId === event.id}
                             onClick={() => handleRetry(event)}
                           >
@@ -530,7 +530,7 @@ export default function WebhookLogsPage() {
           {payloadEvent && (
             <div className="flex-1 overflow-auto mt-2">
               {payloadEvent.errorMessage && (
-                <div className="mb-3 rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 px-3 py-2 text-xs text-red-700 dark:text-red-400">
+                <div className="mb-3 rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 px-3 py-2 text-xs text-destructive dark:text-destructive">
                   <span className="font-semibold">Error:</span>{" "}
                   {payloadEvent.errorMessage}
                 </div>

@@ -8,10 +8,10 @@ import { ClientPortalAuthorities } from "@/components/portal/ClientPortalAuthori
 import { ClientPortalStatus } from "@/components/portal/ClientPortalStatus";
 
 const CATEGORY_COLOURS: Record<string, string> = {
-  "1": "bg-green-100 text-green-800",
-  "2": "bg-yellow-100 text-yellow-800",
+  "1": "bg-green-100 text-success",
+  "2": "bg-yellow-100 text-warning",
   "3": "bg-orange-100 text-orange-800",
-  "4": "bg-red-100 text-red-800",
+  "4": "bg-red-100 text-destructive",
   A: "bg-blue-100 text-blue-800",
   B: "bg-purple-100 text-purple-800",
   C: "bg-pink-100 text-pink-800",
@@ -277,8 +277,8 @@ export default async function ClientPortalPage({ params }: PageProps) {
                 className={[
                   "px-3 py-1.5 rounded-full text-xs font-semibold",
                   isDryingComplete
-                    ? "bg-emerald-100 text-emerald-700"
-                    : "bg-amber-100 text-amber-700",
+                    ? "bg-emerald-100 text-success"
+                    : "bg-amber-100 text-warning",
                 ].join(" ")}
               >
                 {isDryingComplete ? "Drying complete" : "Drying in progress"}
@@ -305,7 +305,7 @@ export default async function ClientPortalPage({ params }: PageProps) {
         {reportReady && (
           <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center gap-3">
             <svg
-              className="w-5 h-5 text-emerald-500 flex-shrink-0"
+              className="w-5 h-5 text-success flex-shrink-0"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -317,7 +317,7 @@ export default async function ClientPortalPage({ params }: PageProps) {
                 d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
-            <p className="text-sm text-emerald-700 font-medium">
+            <p className="text-sm text-success font-medium">
               Your restoration report is ready.
             </p>
           </div>

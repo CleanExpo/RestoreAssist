@@ -402,7 +402,7 @@ function GapBadges({ soft, audit }: { soft: string[]; audit: string[] }) {
       {soft.map((k) => (
         <span
           key={`s-${k}`}
-          className="rounded bg-amber-50 text-amber-800 text-[10px] font-mono px-1.5 py-0.5"
+          className="rounded bg-amber-50 text-warning text-[10px] font-mono px-1.5 py-0.5"
         >
           soft:{k.replace(/^evidence\./, "")}
         </span>

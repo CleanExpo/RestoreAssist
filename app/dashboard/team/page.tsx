@@ -1043,7 +1043,7 @@ export default function TeamPage() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => setMemberToRemove(member)}
-                                className="text-xs text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/20 border-rose-200 dark:border-rose-800"
+                                className="text-xs text-destructive dark:text-destructive hover:text-destructive dark:hover:text-destructive hover:bg-rose-50 dark:hover:bg-rose-950/20 border-rose-200 dark:border-rose-800"
                               >
                                 <Trash2 className="w-3 h-3 mr-1" />
                                 Remove
@@ -1118,7 +1118,7 @@ export default function TeamPage() {
                 "text-neutral-900 dark:text-neutral-100",
               )}
             >
-              <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+              <CheckCircle2 className="w-5 h-5 text-success dark:text-success" />
               {credentials?.password
                 ? "User Account Created"
                 : "User Added to Organization"}
@@ -1163,7 +1163,7 @@ export default function TeamPage() {
                   className="shrink-0"
                 >
                   {copiedField === "email" ? (
-                    <Check className="w-4 h-4 text-green-600" />
+                    <Check className="w-4 h-4 text-success" />
                   ) : (
                     <Copy className="w-4 h-4" />
                   )}
@@ -1197,7 +1197,7 @@ export default function TeamPage() {
                     className="shrink-0"
                   >
                     {copiedField === "password" ? (
-                      <Check className="w-4 h-4 text-green-600" />
+                      <Check className="w-4 h-4 text-success" />
                     ) : (
                       <Copy className="w-4 h-4" />
                     )}
@@ -1220,7 +1220,7 @@ export default function TeamPage() {
                   "text-xs font-medium",
                   credentials?.password
                     ? "text-blue-900 dark:text-blue-200"
-                    : "text-amber-900 dark:text-amber-200",
+                    : "text-warning dark:text-warning",
                 )}
               >
                 {credentials?.password ? (
@@ -1286,7 +1286,7 @@ export default function TeamPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <Trash2 className="w-5 h-5 text-rose-600" />
+              <Trash2 className="w-5 h-5 text-destructive" />
               Remove Team Member
             </AlertDialogTitle>
             <AlertDialogDescription>
@@ -1430,7 +1430,7 @@ export default function TeamPage() {
                                     {isUsed ? (
                                       <Badge
                                         variant="outline"
-                                        className="text-xs text-green-600 dark:text-green-400 border-green-200 dark:border-green-800"
+                                        className="text-xs text-success dark:text-success border-green-200 dark:border-green-800"
                                       >
                                         <CheckCircle2 className="w-3 h-3 mr-1" />
                                         Account Created
@@ -1438,7 +1438,7 @@ export default function TeamPage() {
                                     ) : isExpired ? (
                                       <Badge
                                         variant="outline"
-                                        className="text-xs text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800"
+                                        className="text-xs text-destructive dark:text-destructive border-rose-200 dark:border-rose-800"
                                       >
                                         <AlertCircle className="w-3 h-3 mr-1" />
                                         Expired

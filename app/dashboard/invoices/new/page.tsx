@@ -535,7 +535,7 @@ export default function NewInvoicePage() {
                     <button
                       type="button"
                       onClick={() => removeLineItem(item.id)}
-                      className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-500/10 rounded transition-colors"
+                      className="p-1.5 text-destructive dark:text-destructive hover:bg-red-500/10 rounded transition-colors"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>

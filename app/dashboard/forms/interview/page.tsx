@@ -282,8 +282,8 @@ export default function InterviewPage() {
         <div className="flex-1 overflow-y-auto px-6 py-6">
           <div className="max-w-3xl mx-auto space-y-6">
             <Alert className="border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20">
-              <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-              <AlertDescription className="text-green-800 dark:text-green-300">
+              <CheckCircle2 className="h-4 w-4 text-success dark:text-success" />
+              <AlertDescription className="text-success dark:text-success">
                 <strong>Interview completed.</strong> Review your answers below.
               </AlertDescription>
             </Alert>
@@ -380,7 +380,7 @@ function AutosaveIndicator({
     const time = lastSavedAt ? lastSavedAt.toLocaleTimeString() : null;
     return (
       <p
-        className="mt-2 inline-flex items-center gap-1.5 text-xs text-green-700 dark:text-green-400"
+        className="mt-2 inline-flex items-center gap-1.5 text-xs text-success dark:text-success"
         role="status"
         aria-live="polite"
       >
@@ -393,7 +393,7 @@ function AutosaveIndicator({
   // error / retrying
   return (
     <p
-      className="mt-2 inline-flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400"
+      className="mt-2 inline-flex items-center gap-1.5 text-xs text-warning dark:text-warning"
       role="status"
       aria-live="polite"
     >

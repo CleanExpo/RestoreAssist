@@ -189,7 +189,7 @@ export function FloorPlanUnderlayLoader({
           Floor Plan Underlay
         </span>
         {hasBackground && !expanded && (
-          <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+          <span className="flex items-center gap-1 text-xs text-success dark:text-success">
             <CheckCircle2 size={12} /> Active
           </span>
         )}
@@ -257,7 +257,7 @@ export function FloorPlanUnderlayLoader({
 
           {/* Error state */}
           {error && (
-            <div className="flex items-start gap-2 p-2 rounded-lg bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 text-xs">
+            <div className="flex items-start gap-2 p-2 rounded-lg bg-rose-50 dark:bg-rose-900/20 text-destructive dark:text-destructive text-xs">
               <AlertCircle size={13} className="flex-shrink-0 mt-0.5" />
               {error}
             </div>
@@ -304,7 +304,7 @@ export function FloorPlanUnderlayLoader({
 
           {/* Selected from file upload indicator */}
           {selectedImage && !results && (
-            <div className="flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400">
+            <div className="flex items-center gap-2 text-xs text-success dark:text-success">
               <ImageIcon size={13} />
               Local file selected
             </div>
@@ -348,7 +348,7 @@ export function FloorPlanUnderlayLoader({
               <button
                 type="button"
                 onClick={handleClear}
-                className="flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-sm text-rose-500 border border-rose-200 dark:border-rose-800 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
+                className="flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-sm text-destructive border border-rose-200 dark:border-rose-800 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
               >
                 <X size={13} />
                 Clear

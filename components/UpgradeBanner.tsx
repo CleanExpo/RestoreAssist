@@ -105,13 +105,13 @@ function UpgradeBannerContent({
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3 flex-1">
                 <div className="p-2 bg-gradient-to-br from-amber-500/20 to-yellow-500/20 rounded-lg border border-amber-500/30">
-                  <Crown className="w-5 h-5 text-amber-400" />
+                  <Crown className="w-5 h-5 text-warning" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-amber-300">
+                  <p className="text-sm font-semibold text-warning">
                     Unlock Premium Features
                   </p>
-                  <p className="text-xs text-amber-200/80">
+                  <p className="text-xs text-warning/80">
                     Upgrade to access Quick Fill, Enhanced Reports, PDF uploads,
                     and more
                   </p>
@@ -129,7 +129,7 @@ function UpgradeBannerContent({
                   onClick={handleDismiss}
                   className="p-1.5 hover:bg-amber-500/20 rounded-lg transition-colors"
                 >
-                  <X className="w-4 h-4 text-amber-300" />
+                  <X className="w-4 h-4 text-warning" />
                 </button>
               </div>
             </div>
@@ -173,7 +173,7 @@ function UpgradeBannerContent({
               )}
             >
               <Crown
-                className={cn("w-6 h-6 text-amber-600 dark:text-amber-400")}
+                className={cn("w-6 h-6 text-warning dark:text-warning")}
               />
             </div>
             <div className="flex-1">
@@ -189,7 +189,7 @@ function UpgradeBannerContent({
               <p
                 className={cn(
                   "text-sm",
-                  "text-amber-800/80 dark:text-amber-200/80",
+                  "text-warning/80 dark:text-warning/80",
                 )}
               >
                 Upgrade to get access to powerful features that will transform
@@ -204,7 +204,7 @@ function UpgradeBannerContent({
               "hover:bg-amber-100 dark:hover:bg-amber-500/20",
             )}
           >
-            <X className={cn("w-5 h-5 text-amber-700 dark:text-amber-300")} />
+            <X className={cn("w-5 h-5 text-warning dark:text-warning")} />
           </button>
         </div>
 
@@ -230,7 +230,7 @@ function UpgradeBannerContent({
                 )}
               >
                 <feature.icon
-                  className={cn("w-5 h-5 text-amber-600 dark:text-amber-400")}
+                  className={cn("w-5 h-5 text-warning dark:text-warning")}
                 />
               </div>
               <div className="flex-1 min-w-0">
@@ -266,7 +266,7 @@ function UpgradeBannerContent({
             <p
               className={cn(
                 "text-sm font-medium mb-1",
-                "text-amber-800 dark:text-amber-200",
+                "text-warning dark:text-warning",
               )}
             >
               Ready to upgrade?
@@ -274,7 +274,7 @@ function UpgradeBannerContent({
             <p
               className={cn(
                 "text-xs",
-                "text-amber-700/80 dark:text-amber-200/70",
+                "text-warning/80 dark:text-warning/70",
               )}
             >
               Choose a plan that fits your needs and unlock all premium features

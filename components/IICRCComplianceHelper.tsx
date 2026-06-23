@@ -252,7 +252,7 @@ export default function IICRCComplianceHelper({
                         >
                           <CheckCircle
                             size={14}
-                            className="text-emerald-400 flex-shrink-0"
+                            className="text-success flex-shrink-0"
                           />
                           {procedure}
                         </li>
@@ -271,7 +271,7 @@ export default function IICRCComplianceHelper({
                         >
                           <Shield
                             size={14}
-                            className="text-amber-400 flex-shrink-0"
+                            className="text-warning flex-shrink-0"
                           />
                           {safety}
                         </li>
@@ -340,10 +340,10 @@ export default function IICRCComplianceHelper({
           <div className="space-y-4">
             <div className="bg-amber-500/20 border border-amber-500/30 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
-                <AlertTriangle className="text-amber-400" size={20} />
-                <h4 className="font-medium text-amber-400">Safety First</h4>
+                <AlertTriangle className="text-warning" size={20} />
+                <h4 className="font-medium text-warning">Safety First</h4>
               </div>
-              <p className="text-sm text-amber-300">
+              <p className="text-sm text-warning">
                 Always assess structural integrity, electrical hazards, and gas
                 leaks before entering the structure.
               </p>
@@ -356,30 +356,30 @@ export default function IICRCComplianceHelper({
                 </h5>
                 <ul className="space-y-2 text-sm text-slate-300">
                   <li className="flex items-center gap-2">
-                    <CheckCircle size={14} className="text-emerald-400" />
+                    <CheckCircle size={14} className="text-success" />
                     Safety glasses or goggles
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle size={14} className="text-emerald-400" />
+                    <CheckCircle size={14} className="text-success" />
                     Protective gloves
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle size={14} className="text-emerald-400" />
+                    <CheckCircle size={14} className="text-success" />
                     Non-slip footwear
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle size={14} className="text-emerald-400" />
+                    <CheckCircle size={14} className="text-success" />
                     Hard hat (if overhead hazards)
                   </li>
                   {waterCategory === "Category 2" ||
                   waterCategory === "Category 3" ? (
                     <>
                       <li className="flex items-center gap-2">
-                        <CheckCircle size={14} className="text-amber-400" />
+                        <CheckCircle size={14} className="text-warning" />
                         Respiratory protection
                       </li>
                       <li className="flex items-center gap-2">
-                        <CheckCircle size={14} className="text-amber-400" />
+                        <CheckCircle size={14} className="text-warning" />
                         Protective clothing
                       </li>
                     </>
@@ -393,23 +393,23 @@ export default function IICRCComplianceHelper({
                 </h5>
                 <ul className="space-y-2 text-sm text-slate-300">
                   <li className="flex items-center gap-2">
-                    <CheckCircle size={14} className="text-emerald-400" />
+                    <CheckCircle size={14} className="text-success" />
                     Turn off electrical power
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle size={14} className="text-emerald-400" />
+                    <CheckCircle size={14} className="text-success" />
                     Check for gas leaks
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle size={14} className="text-emerald-400" />
+                    <CheckCircle size={14} className="text-success" />
                     Assess structural integrity
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle size={14} className="text-emerald-400" />
+                    <CheckCircle size={14} className="text-success" />
                     Post warning signs
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle size={14} className="text-emerald-400" />
+                    <CheckCircle size={14} className="text-success" />
                     Evacuate occupants if necessary
                   </li>
                 </ul>
@@ -461,23 +461,23 @@ export default function IICRCComplianceHelper({
                 </h5>
                 <ul className="space-y-2 text-sm text-slate-300">
                   <li className="flex items-center gap-2">
-                    <CheckCircle size={14} className="text-emerald-400" />
+                    <CheckCircle size={14} className="text-success" />
                     Moisture meters
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle size={14} className="text-emerald-400" />
+                    <CheckCircle size={14} className="text-success" />
                     Psychrometers
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle size={14} className="text-emerald-400" />
+                    <CheckCircle size={14} className="text-success" />
                     Airmovers
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle size={14} className="text-emerald-400" />
+                    <CheckCircle size={14} className="text-success" />
                     Dehumidifiers
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle size={14} className="text-emerald-400" />
+                    <CheckCircle size={14} className="text-success" />
                     Air filtration devices
                   </li>
                 </ul>
@@ -584,12 +584,12 @@ export default function IICRCComplianceHelper({
 
             <div className="bg-emerald-500/20 border border-emerald-500/30 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
-                <CheckCircle className="text-emerald-400" size={20} />
-                <h4 className="font-medium text-emerald-400">
+                <CheckCircle className="text-success" size={20} />
+                <h4 className="font-medium text-success">
                   Completion Verification
                 </h4>
               </div>
-              <ul className="space-y-1 text-sm text-emerald-300">
+              <ul className="space-y-1 text-sm text-success">
                 <li>• All materials returned to pre-loss moisture content</li>
                 <li>• Psychrometric conditions stabilized</li>
                 <li>• No visible moisture or condensation</li>

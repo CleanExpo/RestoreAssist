@@ -80,14 +80,14 @@ function formatTrialEnd(dateStr?: string): string {
 function getPlanBadgeClass(status: string): string {
   switch (status) {
     case "ACTIVE":
-      return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800";
+      return "bg-emerald-100 text-success dark:bg-emerald-900/30 dark:text-success border-emerald-200 dark:border-emerald-800";
     case "TRIAL":
       return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800";
     case "EXPIRED":
     case "CANCELED":
-      return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800";
+      return "bg-red-100 text-destructive dark:bg-red-900/30 dark:text-destructive border-red-200 dark:border-red-800";
     case "PAST_DUE":
-      return "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800";
+      return "bg-amber-100 text-warning dark:bg-amber-900/30 dark:text-warning border-amber-200 dark:border-amber-800";
     default:
       return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700";
   }
@@ -248,7 +248,7 @@ function CreditsPageContent() {
         <div
           className={cn(
             "flex items-center gap-2 px-4 py-3 rounded-lg text-sm",
-            "bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800",
+            "bg-red-50 text-destructive border border-red-200 dark:bg-red-900/20 dark:text-destructive dark:border-red-800",
           )}
         >
           <AlertTriangle size={16} />
@@ -368,10 +368,10 @@ function CreditsPageContent() {
                 className={cn(
                   "font-medium",
                   usagePct >= 90
-                    ? "text-red-600 dark:text-red-400"
+                    ? "text-destructive dark:text-destructive"
                     : usagePct >= 70
-                      ? "text-amber-600 dark:text-amber-400"
-                      : "text-emerald-600 dark:text-emerald-400",
+                      ? "text-warning dark:text-warning"
+                      : "text-success dark:text-success",
                 )}
               >
                 {monthlyUsed} / {totalLimit} ({usagePct}%)
@@ -394,8 +394,8 @@ function CreditsPageContent() {
           <div
             className={cn(
               "flex items-center gap-2 px-4 py-3 rounded-lg text-sm",
-              "bg-emerald-50 text-emerald-700 border border-emerald-200",
-              "dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800",
+              "bg-emerald-50 text-success border border-emerald-200",
+              "dark:bg-emerald-900/20 dark:text-success dark:border-emerald-800",
             )}
           >
             <CheckCircle size={16} />
@@ -451,7 +451,7 @@ function CreditsPageContent() {
               )}
             >
               <div className="flex items-center gap-1.5 mb-1">
-                <Zap size={13} className="text-amber-500" />
+                <Zap size={13} className="text-warning" />
                 <p
                   className={cn(
                     "text-xs font-medium",
@@ -589,8 +589,8 @@ function CreditsPageContent() {
                     isTrial
                       ? "text-indigo-600 dark:text-indigo-400"
                       : isExpiredOrCanceled
-                        ? "text-red-600 dark:text-red-400"
-                        : "text-amber-600 dark:text-amber-400"
+                        ? "text-destructive dark:text-destructive"
+                        : "text-warning dark:text-warning"
                   }
                 />
               </div>
@@ -601,8 +601,8 @@ function CreditsPageContent() {
                     isTrial
                       ? "text-indigo-900 dark:text-indigo-200"
                       : isExpiredOrCanceled
-                        ? "text-red-900 dark:text-red-200"
-                        : "text-amber-900 dark:text-amber-200",
+                        ? "text-destructive dark:text-destructive"
+                        : "text-warning dark:text-warning",
                   )}
                 >
                   {isExpiredOrCanceled
@@ -619,8 +619,8 @@ function CreditsPageContent() {
                     isTrial
                       ? "text-indigo-700 dark:text-indigo-300"
                       : isExpiredOrCanceled
-                        ? "text-red-700 dark:text-red-300"
-                        : "text-amber-700 dark:text-amber-300",
+                        ? "text-destructive dark:text-destructive"
+                        : "text-warning dark:text-warning",
                   )}
                 >
                   {isExpiredOrCanceled

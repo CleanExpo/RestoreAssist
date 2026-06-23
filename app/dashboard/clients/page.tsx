@@ -85,7 +85,7 @@ function renderOpenJobsBadge(client: {
     return (
       <Badge
         variant="outline"
-        className="border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-300"
+        className="border-amber-500/40 bg-amber-500/15 text-warning dark:text-warning"
       >
         {open} open
       </Badge>
@@ -95,7 +95,7 @@ function renderOpenJobsBadge(client: {
     return (
       <Badge
         variant="outline"
-        className="border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+        className="border-emerald-500/40 bg-emerald-500/15 text-success dark:text-success"
       >
         No open jobs
       </Badge>
@@ -408,7 +408,7 @@ export default function ClientsPage() {
               </span>
               <button
                 onClick={() => setShowBulkDeleteModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-500/20 to-rose-500/20 text-red-600 dark:text-red-400 border border-red-500/30 rounded-lg hover:from-red-500/30 hover:to-rose-500/30 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md group"
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-500/20 to-rose-500/20 text-destructive dark:text-destructive border border-red-500/30 rounded-lg hover:from-red-500/30 hover:to-rose-500/30 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md group"
               >
                 <Trash2
                   size={16}
@@ -545,9 +545,9 @@ export default function ClientsPage() {
                     ._isFromReport;
                   const statusClass =
                     client.status === "ACTIVE"
-                      ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                      ? "bg-emerald-500/20 text-success dark:text-success"
                       : client.status === "INACTIVE"
-                        ? "bg-amber-500/20 text-amber-600 dark:text-amber-400"
+                        ? "bg-amber-500/20 text-warning dark:text-warning"
                         : client.status === "PROSPECT"
                           ? "bg-blue-500/20 text-blue-600 dark:text-blue-400"
                           : "bg-neutral-200 dark:bg-slate-500/20 text-neutral-600 dark:text-slate-400";
@@ -594,7 +594,7 @@ export default function ClientsPage() {
                             </div>
                           )}
                           {fromReport && (
-                            <div className="text-xs text-amber-500 dark:text-amber-400 mt-0.5">
+                            <div className="text-xs text-warning dark:text-warning mt-0.5">
                               From Report
                             </div>
                           )}
@@ -792,7 +792,7 @@ export default function ClientsPage() {
                             </div>
                           )}
                           {(client as ClientWithReportFlag)._isFromReport && (
-                            <div className="text-xs text-amber-400 mt-1">
+                            <div className="text-xs text-warning mt-1">
                               From Report
                             </div>
                           )}
@@ -817,9 +817,9 @@ export default function ClientsPage() {
                           <span
                             className={`px-3 py-1 rounded-full text-xs font-medium ${
                               client.status === "ACTIVE"
-                                ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                                ? "bg-emerald-500/20 text-success dark:text-success"
                                 : client.status === "INACTIVE"
-                                  ? "bg-amber-500/20 text-amber-600 dark:text-amber-400"
+                                  ? "bg-amber-500/20 text-warning dark:text-warning"
                                   : client.status === "PROSPECT"
                                     ? "bg-blue-500/20 text-blue-600 dark:text-blue-400"
                                     : cn(
@@ -889,7 +889,7 @@ export default function ClientsPage() {
                               className="p-1 hover:bg-neutral-100 dark:hover:bg-slate-700 rounded transition-colors"
                               title="Delete"
                             >
-                              <Trash2 size={16} className="text-rose-400" />
+                              <Trash2 size={16} className="text-destructive" />
                             </button>
                           </div>
                         </td>

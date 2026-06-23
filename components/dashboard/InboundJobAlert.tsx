@@ -86,7 +86,7 @@ export function InboundJobAlert() {
         </h2>
       </div>
       {error && (
-        <p className="text-xs text-red-500 mb-2" role="alert">
+        <p className="text-xs text-destructive mb-2" role="alert">
           {error}
         </p>
       )}

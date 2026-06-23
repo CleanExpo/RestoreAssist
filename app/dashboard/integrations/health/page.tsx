@@ -175,15 +175,15 @@ function StatusBadge({
     {
       HEALTHY: {
         label: "Healthy",
-        className: "bg-emerald-100 text-emerald-800 border-emerald-200",
+        className: "bg-emerald-100 text-success border-emerald-200",
       },
       DEGRADED: {
         label: "Degraded",
-        className: "bg-amber-100 text-amber-800 border-amber-200",
+        className: "bg-amber-100 text-warning border-amber-200",
       },
       DOWN: {
         label: "Down",
-        className: "bg-red-100 text-red-800 border-red-200",
+        className: "bg-red-100 text-destructive border-red-200",
       },
       NOT_CONNECTED: {
         label: "Not Connected",
@@ -207,15 +207,15 @@ function CircuitBadge({
   const map: Record<string, { label: string; className: string }> = {
     CLOSED: {
       label: "Closed",
-      className: "bg-emerald-100 text-emerald-800 border-emerald-200",
+      className: "bg-emerald-100 text-success border-emerald-200",
     },
     OPEN: {
       label: "Open",
-      className: "bg-red-100 text-red-800 border-red-200",
+      className: "bg-red-100 text-destructive border-red-200",
     },
     HALF_OPEN: {
       label: "Half-Open",
-      className: "bg-amber-100 text-amber-800 border-amber-200",
+      className: "bg-amber-100 text-warning border-amber-200",
     },
   };
   const v = map[state] ?? {
@@ -254,13 +254,13 @@ function TokenValidityRow({
 
   if (expired) {
     return (
-      <span className="flex items-center gap-1 text-xs text-red-600">
+      <span className="flex items-center gap-1 text-xs text-destructive">
         <XCircle className="h-3 w-3" /> Expired
       </span>
     );
   }
   return (
-    <span className="flex items-center gap-1 text-xs text-emerald-600">
+    <span className="flex items-center gap-1 text-xs text-success">
       <CheckCircle2 className="h-3 w-3" /> Valid
     </span>
   );
@@ -358,13 +358,13 @@ function ProviderCard({
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Success</p>
-                <p className="text-sm font-semibold text-emerald-600">
+                <p className="text-sm font-semibold text-success">
                   {metric.successfulSyncs}
                 </p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Failed</p>
-                <p className="text-sm font-semibold text-red-600">
+                <p className="text-sm font-semibold text-destructive">
                   {metric.failedSyncs}
                 </p>
               </div>
@@ -557,8 +557,8 @@ export default function IntegrationHealthPage() {
       {allFailed && !loading && (
         <Card className="border-red-200 bg-red-50">
           <CardContent className="flex items-center gap-3 py-6">
-            <WifiOff className="h-5 w-5 text-red-600 shrink-0" />
-            <p className="text-sm text-red-700">
+            <WifiOff className="h-5 w-5 text-destructive shrink-0" />
+            <p className="text-sm text-destructive">
               Unable to load integration health data. Check your connection.
             </p>
           </CardContent>
@@ -579,20 +579,20 @@ export default function IntegrationHealthPage() {
           <CardContent className="flex items-center justify-between py-4 gap-4 flex-wrap">
             <div className="flex items-center gap-3">
               {healthData.status === "healthy" ? (
-                <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+                <CheckCircle2 className="h-5 w-5 text-success shrink-0" />
               ) : healthData.status === "degraded" ? (
-                <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
+                <AlertCircle className="h-5 w-5 text-warning shrink-0" />
               ) : (
-                <XCircle className="h-5 w-5 text-red-600 shrink-0" />
+                <XCircle className="h-5 w-5 text-destructive shrink-0" />
               )}
               <div>
                 <p
                   className={`font-semibold capitalize ${
                     healthData.status === "healthy"
-                      ? "text-emerald-800"
+                      ? "text-success"
                       : healthData.status === "degraded"
-                        ? "text-amber-800"
-                        : "text-red-800"
+                        ? "text-warning"
+                        : "text-destructive"
                   }`}
                 >
                   System{" "}
@@ -669,7 +669,7 @@ export default function IntegrationHealthPage() {
               </Card>
               <Card>
                 <CardContent className="py-4 text-center">
-                  <p className="text-2xl font-bold text-emerald-600">
+                  <p className="text-2xl font-bold text-success">
                     {syncs.successRate.toFixed(1)}%
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">
@@ -679,7 +679,7 @@ export default function IntegrationHealthPage() {
               </Card>
               <Card>
                 <CardContent className="py-4 text-center">
-                  <p className="text-2xl font-bold text-red-600">
+                  <p className="text-2xl font-bold text-destructive">
                     {syncs.failed}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">
@@ -734,7 +734,7 @@ export default function IntegrationHealthPage() {
         ) : allErrors.length === 0 ? (
           <Card>
             <CardContent className="flex items-center gap-3 py-6 text-muted-foreground">
-              <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+              <CheckCircle2 className="h-5 w-5 text-success" />
               <p className="text-sm">No failed syncs — all clear.</p>
             </CardContent>
           </Card>

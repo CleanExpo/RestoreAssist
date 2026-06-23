@@ -76,10 +76,10 @@ export default async function ContentGatePage() {
 
       {/* How to open a gate */}
       <div className="rounded-lg border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-950/20 px-4 py-3 space-y-1.5">
-        <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">
+        <p className="text-xs font-semibold text-warning dark:text-warning">
           How to open a content domain
         </p>
-        <ol className="text-xs text-amber-700 dark:text-amber-400 space-y-1 list-decimal list-inside leading-relaxed">
+        <ol className="text-xs text-warning dark:text-warning space-y-1 list-decimal list-inside leading-relaxed">
           <li>
             Collect pilot observations until the claim shows{" "}
             <strong>Ready to promote</strong> on the{" "}

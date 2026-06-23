@@ -249,7 +249,7 @@ export default function VoiceSessionPage({ params }: PageProps) {
             )}
           </div>
 
-          {error && <p className="text-red-400 text-sm text-center">{error}</p>}
+          {error && <p className="text-destructive text-sm text-center">{error}</p>}
 
           <Button
             onClick={startSession}
@@ -275,7 +275,7 @@ export default function VoiceSessionPage({ params }: PageProps) {
           {/* Missing items summary */}
           {criticalMissing.length > 0 && (
             <div className="px-4 py-2 bg-amber-900/30 border-b border-amber-500/20">
-              <p className="text-xs text-amber-300">
+              <p className="text-xs text-warning">
                 {criticalMissing.length} critical item
                 {criticalMissing.length !== 1 ? "s" : ""} needed before you
                 leave site
@@ -350,9 +350,9 @@ export default function VoiceSessionPage({ params }: PageProps) {
                   title={item.label}
                 >
                   {item.complete ? (
-                    <CheckCircle2 className="h-3 w-3 text-green-400" />
+                    <CheckCircle2 className="h-3 w-3 text-success" />
                   ) : item.priority === 1 ? (
-                    <AlertCircle className="h-3 w-3 text-amber-400" />
+                    <AlertCircle className="h-3 w-3 text-warning" />
                   ) : (
                     <Circle className="h-3 w-3" />
                   )}
@@ -406,15 +406,15 @@ function ConfidenceBadge({
   stored: boolean;
 }) {
   if (stored) {
-    return <CheckCircle2 className="h-4 w-4 text-green-400 shrink-0" />;
+    return <CheckCircle2 className="h-4 w-4 text-success shrink-0" />;
   }
   return (
     <span
       className={cn(
         "text-xs px-1.5 py-0.5 rounded shrink-0",
-        confidence === "high" && "bg-green-900/40 text-green-400",
-        confidence === "medium" && "bg-amber-900/40 text-amber-400",
-        confidence === "low" && "bg-red-900/40 text-red-400",
+        confidence === "high" && "bg-green-900/40 text-success",
+        confidence === "medium" && "bg-amber-900/40 text-warning",
+        confidence === "low" && "bg-red-900/40 text-destructive",
       )}
     >
       {confidence}

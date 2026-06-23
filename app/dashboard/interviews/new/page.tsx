@@ -42,7 +42,7 @@ const JOB_TYPES = [
     value: "FIRE_DAMAGE",
     label: "Fire Damage",
     icon: Flame,
-    color: "text-red-500",
+    color: "text-destructive",
     bg: "bg-red-50 dark:bg-red-900/20",
     border: "border-red-200 dark:border-red-800",
     activeBg: "bg-red-100 dark:bg-red-900/40",
@@ -52,7 +52,7 @@ const JOB_TYPES = [
     value: "MOULD_REMEDIATION",
     label: "Mould Remediation",
     icon: Bug,
-    color: "text-emerald-500",
+    color: "text-success",
     bg: "bg-emerald-50 dark:bg-emerald-900/20",
     border: "border-emerald-200 dark:border-emerald-800",
     activeBg: "bg-emerald-100 dark:bg-emerald-900/40",
@@ -62,7 +62,7 @@ const JOB_TYPES = [
     value: "STORM_DAMAGE",
     label: "Storm Damage",
     icon: CloudLightning,
-    color: "text-amber-500",
+    color: "text-warning",
     bg: "bg-amber-50 dark:bg-amber-900/20",
     border: "border-amber-200 dark:border-amber-800",
     activeBg: "bg-amber-100 dark:bg-amber-900/40",
@@ -87,7 +87,7 @@ const EXPERIENCE_LEVELS = [
     label: "Experienced",
     description: "2+ years in restoration",
     icon: User,
-    color: "text-emerald-500",
+    color: "text-success",
     bg: "bg-emerald-50 dark:bg-emerald-900/20",
     border: "border-emerald-200 dark:border-emerald-800",
     activeBg: "bg-emerald-100 dark:bg-emerald-900/40",
@@ -357,12 +357,12 @@ export default function NewInterviewPage() {
             <Loader2 className="animate-spin text-cyan-500" size={24} />
           </div>
         ) : templates.length === 0 ? (
-          <div className="p-4 rounded-xl border border-red-200 dark:border-red-800/50 bg-red-50/50 dark:bg-red-900/10 text-sm text-red-700 dark:text-red-400 space-y-2">
+          <div className="p-4 rounded-xl border border-red-200 dark:border-red-800/50 bg-red-50/50 dark:bg-red-900/10 text-sm text-destructive dark:text-destructive space-y-2">
             <div>{fetchError ?? "No form templates available."}</div>
             <button
               type="button"
               onClick={fetchTemplates}
-              className="text-xs underline hover:text-red-600 dark:hover:text-red-300"
+              className="text-xs underline hover:text-destructive dark:hover:text-destructive"
             >
               Retry loading templates
             </button>

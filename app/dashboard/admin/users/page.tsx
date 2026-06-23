@@ -51,7 +51,7 @@ const roleBadgeConfig: Record<UserRole, { label: string; className: string }> =
     ADMIN: {
       label: "Admin",
       className:
-        "bg-red-500/10 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800",
+        "bg-red-500/10 text-destructive dark:text-destructive border-red-200 dark:border-red-800",
     },
     MANAGER: {
       label: "Manager",
@@ -257,7 +257,7 @@ export default function AdminUsersPage() {
             </p>
           </div>
         </div>
-        <Badge className="gap-1 bg-amber-500/10 text-amber-600 dark:text-amber-400">
+        <Badge className="gap-1 bg-amber-500/10 text-warning dark:text-warning">
           <Shield className="h-3 w-3" />
           Admin Only
         </Badge>

@@ -57,7 +57,7 @@ export function StandardsBadge({
         type: "AS_NZS",
         icon: Scale,
         color:
-          "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700",
+          "bg-emerald-100 text-success dark:bg-emerald-900/30 dark:text-success border-emerald-300 dark:border-emerald-700",
         label:
           ref.match(/AS\/NZS\s+[\d.:]+/i)?.[0] ||
           ref.match(/AS\s+\d+/i)?.[0] ||
@@ -74,7 +74,7 @@ export function StandardsBadge({
         type: "OHS",
         icon: Shield,
         color:
-          "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-300 dark:border-red-700",
+          "bg-red-100 text-destructive dark:bg-red-900/30 dark:text-destructive border-red-300 dark:border-red-700",
         label: ref,
       };
     }

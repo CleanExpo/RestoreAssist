@@ -322,20 +322,20 @@ export default function InsurerProfilePage({
                   {gapAnalysis.isComplete ? (
                     <CheckCircle2
                       size={20}
-                      className="text-emerald-600 dark:text-emerald-400"
+                      className="text-success dark:text-success"
                     />
                   ) : (
                     <AlertTriangle
                       size={20}
-                      className="text-amber-600 dark:text-amber-400"
+                      className="text-warning dark:text-warning"
                     />
                   )}
                   <span
                     className={cn(
                       "text-sm font-semibold",
                       gapAnalysis.isComplete
-                        ? "text-emerald-700 dark:text-emerald-400"
-                        : "text-amber-700 dark:text-amber-400",
+                        ? "text-success dark:text-success"
+                        : "text-warning dark:text-warning",
                     )}
                   >
                     {gapAnalysis.isComplete
@@ -352,7 +352,7 @@ export default function InsurerProfilePage({
                       >
                         <AlertTriangle
                           size={14}
-                          className="text-amber-500 mt-0.5 flex-shrink-0"
+                          className="text-warning mt-0.5 flex-shrink-0"
                         />
                         <div>
                           <p className="text-sm font-medium text-neutral-800 dark:text-white">
@@ -415,7 +415,7 @@ export default function InsurerProfilePage({
                           </span>
                           <Badge
                             variant="outline"
-                            className="text-xs bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800"
+                            className="text-xs bg-red-50 dark:bg-red-900/20 text-destructive dark:text-destructive border-red-200 dark:border-red-800"
                           >
                             Min: {r.minimumCount}
                           </Badge>

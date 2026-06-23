@@ -535,7 +535,7 @@ export default function SuccessPage() {
       description:
         "Add your Anthropic API key to enable AI-powered report generation",
       impact: "High Impact",
-      impactColor: "text-emerald-600 dark:text-emerald-400",
+      impactColor: "text-success dark:text-success",
       impactBg: "bg-emerald-50 dark:bg-emerald-500/10",
       details:
         "Personalizes report generation, enables advanced AI features, and improves report quality",
@@ -549,7 +549,7 @@ export default function SuccessPage() {
       description:
         "Set up your business rates for labour, equipment, and services",
       impact: "High Impact",
-      impactColor: "text-emerald-600 dark:text-emerald-400",
+      impactColor: "text-success dark:text-success",
       impactBg: "bg-emerald-50 dark:bg-emerald-500/10",
       details:
         "Ensures accurate cost estimations and professional quotes for your clients",
@@ -578,7 +578,7 @@ export default function SuccessPage() {
         <div className="max-w-lg w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-lg p-6 text-center space-y-5 shadow-lg dark:shadow-none animate-fade-in">
           <div className="flex justify-center">
             <div className="w-20 h-20 rounded-full bg-green-100 dark:bg-green-500/20 flex items-center justify-center animate-scale-in">
-              <CheckCircle className="w-12 h-12 text-green-600 dark:text-green-400" />
+              <CheckCircle className="w-12 h-12 text-success dark:text-success" />
             </div>
           </div>
 
