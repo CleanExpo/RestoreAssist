@@ -3,12 +3,9 @@
 import { useState, useEffect } from "react";
 import {
   DollarSign,
-  Users,
   TrendingUp,
   TrendingDown,
   AlertTriangle,
-  CreditCard,
-  ArrowUpRight,
   RefreshCw,
   ShieldCheck,
   UserMinus,
@@ -16,11 +13,6 @@ import {
   Package,
 } from "lucide-react";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
   Tooltip,
   ResponsiveContainer,
   PieChart,
@@ -207,19 +199,6 @@ export default function BillingOverview() {
       name: "Past Due",
       value: data.subscriptions.pastDue,
       color: STATUS_COLORS[4],
-    },
-  ].filter((d) => d.value > 0);
-
-  const planSplitData = [
-    {
-      name: "Monthly",
-      value: data.subscriptions.byPlan.monthly,
-      color: "#3b82f6",
-    },
-    {
-      name: "Yearly",
-      value: data.subscriptions.byPlan.yearly,
-      color: "#8b5cf6",
     },
   ].filter((d) => d.value > 0);
 

@@ -127,43 +127,6 @@ export function ProgressRing({
     [onQuestionSelect, allQuestions, current],
   );
 
-  /**
-   * Calculate SVG path for circular progress
-   */
-  const calculateCirclePath = (): string => {
-    const radius = 40;
-    const circumference = 2 * Math.PI * radius;
-    const strokeDashoffset = circumference - (percentage / 100) * circumference;
-
-    return `
-      <svg class="w-24 h-24 transform -rotate-90" viewBox="0 0 100 100">
-        <!-- Background circle -->
-        <circle cx="50" cy="50" r="40" fill="none" stroke="currentColor" stroke-width="3" class="text-muted" />
-
-        <!-- Progress circle -->
-        <circle
-          cx="50"
-          cy="50"
-          r="40"
-          fill="none"
-          stroke="url(#progress-gradient)"
-          stroke-width="3"
-          stroke-dasharray="${circumference}"
-          stroke-dashoffset="${strokeDashoffset}"
-          stroke-linecap="round"
-          class="transition-all duration-500"
-        />
-
-        <!-- Gradient definition -->
-        <defs>
-          <linearGradient id="progress-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
-            <stop offset="100%" style="stop-color:#2563eb;stop-opacity:1" />
-          </linearGradient>
-        </defs>
-      </svg>
-    `;
-  };
 
   return (
     <TooltipProvider>

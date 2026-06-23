@@ -6,7 +6,6 @@ import {
   Loader2,
   TrendingUp,
   TrendingDown,
-  AlertCircle,
   CheckCircle2,
   Clock,
   DollarSign,
@@ -23,12 +22,8 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  PieChart,
-  Pie,
   Cell,
   Legend,
-  LineChart,
-  Line,
   Area,
   AreaChart,
 } from "recharts";
@@ -63,7 +58,7 @@ import ActivityByDay from "./components/ActivityByDay";
 import PeriodComparison from "./components/PeriodComparison";
 import InsightsMovers from "./components/InsightsMovers";
 import AINarrativeCard from "./components/AINarrativeCard";
-import { Users, UserCog, Wrench } from "lucide-react";
+import { UserCog, Wrench } from "lucide-react";
 
 interface AnalyticsData {
   kpis: {
@@ -226,15 +221,6 @@ export default function AnalyticsPage() {
     const totalReports = data.kpis.totalReports.value;
     const totalRevenue = data.kpis.totalRevenue.value;
     const avgValue = data.kpis.avgReportValue.value;
-
-    // Calculate status distribution
-    const statusCounts = data.reportTrendData.reduce(
-      (acc, item) => {
-        // This would need status data from API, using placeholder logic
-        return acc;
-      },
-      {} as Record<string, number>,
-    );
 
     // Calculate growth rate
     const revenueChange = parseFloat(
