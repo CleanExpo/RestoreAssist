@@ -89,7 +89,7 @@ export function CapturePhotoFab({ inspectionId, onUploaded }: Props) {
         aria-label="Capture photo"
         onClick={() => fileInputRef.current?.click()}
         disabled={uploading}
-        className="fixed bottom-4 right-4 z-50 w-14 h-14 rounded-full bg-[#1C2E47] text-white shadow-lg flex items-center justify-center hover:bg-[#243a5a] disabled:opacity-50"
+        className="fixed bottom-4 right-4 z-50 w-14 h-14 rounded-full bg-brand-navy text-white shadow-lg flex items-center justify-center hover:bg-[#243a5a] disabled:opacity-50"
       >
         <Camera className="w-6 h-6" />
       </button>

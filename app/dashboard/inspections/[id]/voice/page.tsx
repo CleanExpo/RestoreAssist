@@ -181,7 +181,7 @@ export default function VoiceSessionPage({ params }: PageProps) {
 
   // ── Render ──
   return (
-    <div className="flex flex-col h-screen bg-[#050505] text-white">
+    <div className="flex flex-col h-screen bg-brand-canvas text-white">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10">
         <Button
@@ -231,7 +231,7 @@ export default function VoiceSessionPage({ params }: PageProps) {
                   className={cn(
                     "w-full px-4 py-3 rounded-xl border text-sm text-left transition-colors",
                     mode === m
-                      ? "border-[#D4A574] bg-[#D4A574]/10 text-white"
+                      ? "border-brand-gold bg-brand-gold/10 text-white"
                       : "border-white/10 text-white/60 hover:border-white/30",
                   )}
                 >
@@ -254,7 +254,7 @@ export default function VoiceSessionPage({ params }: PageProps) {
           <Button
             onClick={startSession}
             disabled={starting}
-            className="w-full max-w-xs bg-[#1C2E47] hover:bg-[#1C2E47]/80 text-white"
+            className="w-full max-w-xs bg-brand-navy hover:bg-brand-navy/80 text-white"
           >
             {starting ? "Starting…" : "Start Session"}
           </Button>
@@ -264,9 +264,9 @@ export default function VoiceSessionPage({ params }: PageProps) {
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Copilot speech bubble */}
           {copilotSpeech && (
-            <div className="px-4 py-3 bg-[#1C2E47]/60 border-b border-white/10">
+            <div className="px-4 py-3 bg-brand-navy/60 border-b border-white/10">
               <div className="flex items-start gap-2">
-                <Volume2 className="h-4 w-4 text-[#D4A574] mt-0.5 shrink-0" />
+                <Volume2 className="h-4 w-4 text-brand-gold mt-0.5 shrink-0" />
                 <p className="text-sm text-white/90">{copilotSpeech}</p>
               </div>
             </div>
@@ -313,7 +313,7 @@ export default function VoiceSessionPage({ params }: PageProps) {
                       </p>
                       {obs.parsed.value !== undefined &&
                         obs.parsed.value !== null && (
-                          <p className="text-xs text-[#D4A574] mt-0.5">
+                          <p className="text-xs text-brand-gold mt-0.5">
                             {obs.parsed.value}
                             {obs.parsed.unit === "%"
                               ? "%"
@@ -375,7 +375,7 @@ export default function VoiceSessionPage({ params }: PageProps) {
                 "w-20 h-20 rounded-full flex items-center justify-center transition-all",
                 isListening
                   ? "bg-red-500 scale-110 shadow-[0_0_30px_rgba(239,68,68,0.5)]"
-                  : "bg-[#1C2E47] hover:bg-[#1C2E47]/80",
+                  : "bg-brand-navy hover:bg-brand-navy/80",
                 loading && "opacity-50",
               )}
               aria-label={

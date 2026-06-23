@@ -199,15 +199,15 @@ export function DamageReportView({
   };
 
   return (
-    <div className="min-h-screen bg-[#F4F5F6] print:bg-white">
+    <div className="min-h-screen bg-brand-cloud print:bg-white">
       {/* Action bar — hidden on print */}
       <div className="sticky top-0 z-10 border-b bg-white shadow-sm print:hidden">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3 sm:px-6">
           <div>
-            <p className="text-xs uppercase tracking-wide text-[#5A6A7B]">
+            <p className="text-xs uppercase tracking-wide text-brand-slate">
               Damage Report
             </p>
-            <p className="text-sm font-semibold text-[#1C2E47]">
+            <p className="text-sm font-semibold text-brand-navy">
               {report.reportNumber ?? report.id.slice(0, 8)}
             </p>
           </div>
@@ -225,7 +225,7 @@ export function DamageReportView({
               size="sm"
               onClick={handleDownloadPdf}
               disabled={downloading}
-              className="gap-2 bg-[#1C2E47] hover:bg-[#1C2E47]/90"
+              className="gap-2 bg-brand-navy hover:bg-brand-navy/90"
             >
               {downloading ? (
                 <>
@@ -259,54 +259,54 @@ export function DamageReportView({
         {/* 1. Cover */}
         <Card className="print:border-0 print:shadow-none">
           <CardHeader className="border-b">
-            <p className="text-xs uppercase tracking-widest text-[#8A6B4E]">
+            <p className="text-xs uppercase tracking-widest text-brand-bronze">
               Damage Assessment Report
             </p>
-            <CardTitle className="text-3xl text-[#1C2E47]">
+            <CardTitle className="text-3xl text-brand-navy">
               {report.propertyAddress}
             </CardTitle>
-            <p className="text-sm text-[#5A6A7B]">
+            <p className="text-sm text-brand-slate">
               Prepared for {report.client?.name ?? report.clientName}
             </p>
           </CardHeader>
           <CardContent className="pt-6">
             <div className="grid gap-6 sm:grid-cols-2">
               <div>
-                <p className="text-xs uppercase text-[#5A6A7B]">Restorer</p>
-                <p className="font-medium text-[#1C2E47]">{restorer}</p>
+                <p className="text-xs uppercase text-brand-slate">Restorer</p>
+                <p className="font-medium text-brand-navy">{restorer}</p>
                 {report.user.businessABN && (
-                  <p className="text-sm text-[#5A6A7B]">
+                  <p className="text-sm text-brand-slate">
                     ABN {report.user.businessABN} · GST registered
                   </p>
                 )}
                 {report.user.businessAddress && (
-                  <p className="text-sm text-[#5A6A7B]">
+                  <p className="text-sm text-brand-slate">
                     {report.user.businessAddress}
                   </p>
                 )}
               </div>
               <div>
-                <p className="text-xs uppercase text-[#5A6A7B]">Technician</p>
-                <p className="font-medium text-[#1C2E47]">
+                <p className="text-xs uppercase text-brand-slate">Technician</p>
+                <p className="font-medium text-brand-navy">
                   {report.technicianName ?? report.user.name ?? "Not recorded"}
                 </p>
-                <p className="text-sm text-[#5A6A7B]">
+                <p className="text-sm text-brand-slate">
                   IICRC credentials verified at engagement
                 </p>
               </div>
               <div>
-                <p className="text-xs uppercase text-[#5A6A7B]">
+                <p className="text-xs uppercase text-brand-slate">
                   Inspection date
                 </p>
-                <p className="font-medium text-[#1C2E47]">
+                <p className="font-medium text-brand-navy">
                   {formatDate(report.inspectionDate ?? report.createdAt)}
                 </p>
               </div>
               <div>
-                <p className="text-xs uppercase text-[#5A6A7B]">
+                <p className="text-xs uppercase text-brand-slate">
                   Report reference
                 </p>
-                <p className="font-medium text-[#1C2E47]">
+                <p className="font-medium text-brand-navy">
                   {report.reportNumber ?? report.id.slice(0, 10)}
                 </p>
               </div>
@@ -321,7 +321,7 @@ export function DamageReportView({
               ? firstParagraph(report.detailedReport)
               : defaultSummary(report.hazardType, report.sourceOfWater)}
           </p>
-          <p className="mt-4 font-semibold text-[#1C2E47]">
+          <p className="mt-4 font-semibold text-brand-navy">
             What this means for you:
           </p>
           <p>
@@ -373,11 +373,11 @@ export function DamageReportView({
           </div>
           {scopeAreas.length > 0 && (
             <>
-              <p className="mt-6 font-medium text-[#1C2E47]">Affected rooms</p>
+              <p className="mt-6 font-medium text-brand-navy">Affected rooms</p>
               <ul className="mt-2 space-y-1">
                 {scopeAreas.map((area, i) => (
-                  <li key={i} className="text-sm text-[#5A6A7B]">
-                    <span className="font-medium text-[#1C2E47]">
+                  <li key={i} className="text-sm text-brand-slate">
+                    <span className="font-medium text-brand-navy">
                       {area.name ?? area.room ?? `Area ${i + 1}`}
                     </span>
                     {area.wetPercentage != null &&
@@ -398,7 +398,7 @@ export function DamageReportView({
             report can be verified by your insurer without any doubt about when
             or where it was taken.
           </p>
-          <p className="mt-3 text-sm text-[#5A6A7B]">
+          <p className="mt-3 text-sm text-brand-slate">
             Full photo evidence is attached to the server-generated PDF. If you
             need the raw files, ask your restorer.
           </p>
@@ -407,7 +407,7 @@ export function DamageReportView({
         {/* 6. What we're going to do */}
         <Section title="What we're going to do" number={6}>
           {report.scopeOfWorksDocument ? (
-            <div className="whitespace-pre-wrap rounded border border-[#8A6B4E]/20 bg-white p-4 text-sm leading-relaxed text-[#1C2E47]">
+            <div className="whitespace-pre-wrap rounded border border-brand-bronze/20 bg-white p-4 text-sm leading-relaxed text-brand-navy">
               {report.scopeOfWorksDocument}
             </div>
           ) : (
@@ -417,7 +417,7 @@ export function DamageReportView({
             </p>
           )}
           {report.totalCost != null && (
-            <div className="mt-4 rounded bg-[#1C2E47] p-4 text-white">
+            <div className="mt-4 rounded bg-brand-navy p-4 text-white">
               <p className="text-xs uppercase tracking-wide opacity-75">
                 Estimated total (inc. GST)
               </p>
@@ -461,8 +461,8 @@ export function DamageReportView({
         <Section title="Your contacts and next steps" number={9}>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <p className="text-xs uppercase text-[#5A6A7B]">Restorer</p>
-              <p className="font-medium text-[#1C2E47]">{restorer}</p>
+              <p className="text-xs uppercase text-brand-slate">Restorer</p>
+              <p className="font-medium text-brand-navy">{restorer}</p>
               {report.user.businessPhone && (
                 <p className="text-sm">{report.user.businessPhone}</p>
               )}
@@ -471,8 +471,8 @@ export function DamageReportView({
               )}
             </div>
             <div>
-              <p className="text-xs uppercase text-[#5A6A7B]">Property owner</p>
-              <p className="font-medium text-[#1C2E47]">
+              <p className="text-xs uppercase text-brand-slate">Property owner</p>
+              <p className="font-medium text-brand-navy">
                 {report.client?.name ?? report.clientName}
               </p>
               {report.client?.phone && (
@@ -492,10 +492,10 @@ export function DamageReportView({
         {/* 10. Attestation footer */}
         <Card className="mt-6 border-dashed print:border-solid print:shadow-none">
           <CardContent className="pt-6">
-            <p className="text-xs uppercase tracking-wide text-[#5A6A7B]">
+            <p className="text-xs uppercase tracking-wide text-brand-slate">
               Attestation
             </p>
-            <p className="mt-2 text-sm text-[#1C2E47]">
+            <p className="mt-2 text-sm text-brand-navy">
               This report was prepared by {restorer} for{" "}
               {report.client?.name ?? report.clientName} on{" "}
               {formatDate(report.createdAt)}. The information recorded here
@@ -505,7 +505,7 @@ export function DamageReportView({
           </CardContent>
         </Card>
 
-        <div className="mt-6 text-center text-xs text-[#5A6A7B] print:hidden">
+        <div className="mt-6 text-center text-xs text-brand-slate print:hidden">
           <Link href="/" className="hover:underline">
             Powered by RestoreAssist
           </Link>
@@ -545,13 +545,13 @@ function Section({
     <Card className="mt-6 print:mt-4 print:border-0 print:shadow-none">
       <CardHeader>
         <div className="flex items-baseline gap-3">
-          <Badge variant="outline" className="border-[#8A6B4E] text-[#8A6B4E]">
+          <Badge variant="outline" className="border-brand-bronze text-brand-bronze">
             {number}
           </Badge>
-          <CardTitle className="text-xl text-[#1C2E47]">{title}</CardTitle>
+          <CardTitle className="text-xl text-brand-navy">{title}</CardTitle>
         </div>
       </CardHeader>
-      <CardContent className="text-[15px] leading-relaxed text-[#1C2E47]">
+      <CardContent className="text-[15px] leading-relaxed text-brand-navy">
         {children}
       </CardContent>
     </Card>
@@ -566,11 +566,11 @@ function DetailRow({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-0.5 border-b border-dashed border-[#5A6A7B]/20 py-2 last:border-0 sm:flex-row sm:gap-4">
-      <span className="w-40 shrink-0 text-sm uppercase tracking-wide text-[#5A6A7B]">
+    <div className="flex flex-col gap-0.5 border-b border-dashed border-brand-slate/20 py-2 last:border-0 sm:flex-row sm:gap-4">
+      <span className="w-40 shrink-0 text-sm uppercase tracking-wide text-brand-slate">
         {label}
       </span>
-      <span className="text-sm text-[#1C2E47]">{children}</span>
+      <span className="text-sm text-brand-navy">{children}</span>
     </div>
   );
 }
@@ -583,9 +583,9 @@ function InfoBadge({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded border border-[#8A6B4E]/20 bg-white p-3">
-      <p className="text-xs uppercase tracking-wide text-[#5A6A7B]">{label}</p>
-      <p className="text-sm font-medium text-[#1C2E47]">{children}</p>
+    <div className="rounded border border-brand-bronze/20 bg-white p-3">
+      <p className="text-xs uppercase tracking-wide text-brand-slate">{label}</p>
+      <p className="text-sm font-medium text-brand-navy">{children}</p>
     </div>
   );
 }
@@ -596,10 +596,10 @@ function Checklist({ items }: { items: string[] }) {
       {items.map((item, i) => (
         <li key={i} className="flex items-start gap-3">
           <CheckCircle2
-            className="mt-0.5 h-5 w-5 shrink-0 text-[#8A6B4E]"
+            className="mt-0.5 h-5 w-5 shrink-0 text-brand-bronze"
             aria-hidden
           />
-          <span className="text-sm text-[#1C2E47]">{item}</span>
+          <span className="text-sm text-brand-navy">{item}</span>
         </li>
       ))}
     </ul>

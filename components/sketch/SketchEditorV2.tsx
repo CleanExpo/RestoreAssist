@@ -788,7 +788,7 @@ export function SketchEditorV2({
   return (
     <div
       className={cn(
-        "relative flex flex-col bg-[#050505] rounded-2xl overflow-hidden",
+        "relative flex flex-col bg-brand-canvas rounded-2xl overflow-hidden",
         "border border-white/10 shadow-2xl",
         className,
       )}
@@ -950,7 +950,7 @@ export function SketchEditorV2({
               type="button"
               onClick={handleExportPdf}
               disabled={exportingPdf}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-[#1C2E47] text-white/70 hover:text-white border border-white/10 hover:border-white/20 transition-colors disabled:opacity-40"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-brand-navy text-white/70 hover:text-white border border-white/10 hover:border-white/20 transition-colors disabled:opacity-40"
             >
               {exportingPdf ? (
                 <Loader2 size={12} className="animate-spin" />

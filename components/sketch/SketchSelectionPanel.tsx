@@ -144,7 +144,7 @@ export function SketchSelectionPanel({
     <div
       className={cn(
         "absolute top-4 right-4 z-20 w-56",
-        "bg-[#1C2E47]/95 backdrop-blur-sm border border-white/10 rounded-xl shadow-2xl",
+        "bg-brand-navy/95 backdrop-blur-sm border border-white/10 rounded-xl shadow-2xl",
         "p-3 space-y-2.5 text-sm text-white",
         className,
       )}

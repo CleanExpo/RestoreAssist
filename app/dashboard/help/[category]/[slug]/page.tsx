@@ -84,7 +84,7 @@ export default async function HelpArticlePage({
               <li key={s}>
                 <Link
                   href={`/dashboard/help/${category}/${s}`}
-                  className="text-sm text-[#D4A574] hover:text-[#E6BB8E]"
+                  className="text-sm text-brand-gold hover:text-[#E6BB8E]"
                 >
                   {s.replace(/-/g, " ")}
                 </Link>
@@ -98,7 +98,7 @@ export default async function HelpArticlePage({
         <p className="text-sm text-white/70">Still stuck?</p>
         <Link
           href="/dashboard/support"
-          className="mt-3 inline-block rounded bg-[#765C43] px-6 py-2 text-sm text-white hover:bg-[#634A2F] min-h-[44px]"
+          className="mt-3 inline-block rounded bg-brand-cta px-6 py-2 text-sm text-white hover:bg-brand-cta-hover min-h-[44px]"
         >
           Contact support
         </Link>

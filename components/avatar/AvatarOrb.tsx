@@ -129,7 +129,7 @@ export function AvatarOrb({
           "relative flex items-center justify-center rounded-full cursor-pointer",
           "transition-all duration-500 ease-out",
           "shadow-[0_0_30px_rgba(138,107,78,0.4)] hover:shadow-[0_0_50px_rgba(212,165,116,0.5)]",
-          "border-2 border-[#8A6B4E]/60 hover:border-[#D4A574]",
+          "border-2 border-brand-bronze/60 hover:border-brand-gold",
           entered ? "opacity-100 scale-100" : "opacity-0 scale-50",
           className,
         )}
@@ -141,10 +141,10 @@ export function AvatarOrb({
         }
       >
         {/* Pulsing ring animation */}
-        <span className="absolute inset-0 rounded-full animate-ping bg-[#8A6B4E]/20" />
+        <span className="absolute inset-0 rounded-full animate-ping bg-brand-bronze/20" />
 
         {/* Subtle glow */}
-        <span className="absolute inset-0 rounded-full bg-gradient-to-br from-[#8A6B4E]/30 to-[#D4A574]/20" />
+        <span className="absolute inset-0 rounded-full bg-gradient-to-br from-brand-bronze/30 to-brand-gold/20" />
 
         {/* Avatar image or video thumbnail */}
         {avatarImageUrl ? (
@@ -155,23 +155,23 @@ export function AvatarOrb({
             loading="eager"
           />
         ) : (
-          <div className="w-full h-full rounded-full bg-[#1C2E47] flex items-center justify-center">
-            <Video className="w-6 h-6 text-[#D4A574]" />
+          <div className="w-full h-full rounded-full bg-brand-navy flex items-center justify-center">
+            <Video className="w-6 h-6 text-brand-gold" />
           </div>
         )}
 
         {/* Play indicator */}
         {!hasPlayed && (
-          <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#D4A574] rounded-full border-2 border-[#1C2E47]" />
+          <span className="absolute -top-1 -right-1 w-4 h-4 bg-brand-gold rounded-full border-2 border-brand-navy" />
         )}
 
         {/* Tooltip */}
         {tooltipVisible && (
-          <div className="absolute bottom-full right-0 mb-3 w-48 p-3 bg-[#1C2E47] border border-[#8A6B4E]/40 rounded-lg shadow-xl animate-in fade-in slide-in-from-bottom-2">
+          <div className="absolute bottom-full right-0 mb-3 w-48 p-3 bg-brand-navy border border-brand-bronze/40 rounded-lg shadow-xl animate-in fade-in slide-in-from-bottom-2">
             <p className="text-xs text-white/90 leading-relaxed">
               {greetingText}
             </p>
-            <div className="absolute bottom-[-6px] right-5 w-3 h-3 bg-[#1C2E47] border-r border-b border-[#8A6B4E]/40 rotate-45" />
+            <div className="absolute bottom-[-6px] right-5 w-3 h-3 bg-brand-navy border-r border-b border-brand-bronze/40 rotate-45" />
           </div>
         )}
       </button>
@@ -187,13 +187,13 @@ export function AvatarOrb({
 
           {/* Modal content */}
           <div
-            className="relative w-full max-w-lg bg-[#1C2E47] border border-[#8A6B4E]/30 rounded-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-4"
+            className="relative w-full max-w-lg bg-brand-navy border border-brand-bronze/30 rounded-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-4"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#8A6B4E] to-[#D4A574] flex items-center justify-center text-white text-xs font-bold">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-bronze to-brand-gold flex items-center justify-center text-white text-xs font-bold">
                   PM
                 </div>
                 <span className="text-sm font-medium text-white/90">
@@ -254,7 +254,7 @@ export function AvatarOrb({
               </p>
               <a
                 href="/signup"
-                className="block w-full py-2.5 bg-[#765C43] hover:bg-[#634A2F] text-white text-sm font-medium rounded-lg text-center transition-colors"
+                className="block w-full py-2.5 bg-brand-cta hover:bg-brand-cta-hover text-white text-sm font-medium rounded-lg text-center transition-colors"
               >
                 Get Started Free
               </a>

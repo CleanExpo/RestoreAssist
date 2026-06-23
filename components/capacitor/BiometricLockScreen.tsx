@@ -67,7 +67,7 @@ export function BiometricLockScreen() {
   if (!locked) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] bg-[#050505] flex flex-col items-center justify-center gap-6">
+    <div className="fixed inset-0 z-[9999] bg-brand-canvas flex flex-col items-center justify-center gap-6">
       <Lock className="w-12 h-12 text-slate-400" />
       <p className="text-slate-300 text-lg font-medium">App Locked</p>
       <button

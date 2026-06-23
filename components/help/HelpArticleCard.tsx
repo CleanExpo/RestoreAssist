@@ -28,7 +28,7 @@ export default function HelpArticleCard({
         <span>·</span>
         <span>{readTimeMin} min read</span>
       </div>
-      <h3 className="mt-3 text-lg font-semibold text-white group-hover:text-[#D4A574]">{title}</h3>
+      <h3 className="mt-3 text-lg font-semibold text-white group-hover:text-brand-gold">{title}</h3>
       <p className="mt-2 text-sm text-white/70 line-clamp-2">{aiSummary}</p>
       <div className="mt-4 text-xs text-white/40">Updated {updatedAt}</div>
     </Link>

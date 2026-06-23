@@ -1123,9 +1123,9 @@ export default function InspectionPhotosPage({ params }: PageProps) {
   ).length;
 
   return (
-    <div className="min-h-screen bg-[#050505] pb-24 text-white">
+    <div className="min-h-screen bg-brand-canvas pb-24 text-white">
       {/* Header */}
-      <div className="sticky top-0 z-40 border-b border-neutral-800 bg-[#050505] px-4 py-3">
+      <div className="sticky top-0 z-40 border-b border-neutral-800 bg-brand-canvas px-4 py-3">
         <div className="flex items-center gap-3">
           <Link
             href={`/dashboard/inspections/${id}`}

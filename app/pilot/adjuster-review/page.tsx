@@ -273,7 +273,7 @@ function AdjusterAnalysisPanel({ inspectionId }: { inspectionId: string }) {
     <PageShell>
       <div className="space-y-1 mb-6">
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-[#D4A574]" />
+          <div className="w-2 h-2 rounded-full bg-brand-gold" />
           <span className="text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-slate-400">
             RA-1131 · AI Adjuster Review
           </span>

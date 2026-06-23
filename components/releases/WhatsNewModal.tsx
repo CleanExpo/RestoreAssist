@@ -56,7 +56,7 @@ export function WhatsNewModal() {
       <DialogContent className="max-w-md">
         <DialogHeader>
           <div className="flex items-center gap-2 mb-1">
-            <Sparkles className="h-5 w-5 text-[#D4A574]" />
+            <Sparkles className="h-5 w-5 text-brand-gold" />
             <Badge variant="secondary" className="text-xs font-mono">
               {release.version}
             </Badge>
@@ -73,7 +73,7 @@ export function WhatsNewModal() {
         <div className="flex justify-end pt-2">
           <Button
             onClick={dismiss}
-            className="bg-[#1C2E47] hover:bg-[#1C2E47]/90 text-white"
+            className="bg-brand-navy hover:bg-brand-navy/90 text-white"
           >
             Got it
           </Button>

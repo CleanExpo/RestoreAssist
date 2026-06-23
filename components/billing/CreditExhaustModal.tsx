@@ -24,7 +24,7 @@ export default function CreditExhaustModal() {
         <div className="mt-6 flex gap-3">
           <Link
             href="/billing/upgrade?reason=credits"
-            className="flex-1 rounded bg-[#1C2E47] px-4 py-3 text-center text-white min-h-[44px]"
+            className="flex-1 rounded bg-brand-navy px-4 py-3 text-center text-white min-h-[44px]"
           >
             Upgrade plan
           </Link>

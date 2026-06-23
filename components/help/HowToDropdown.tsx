@@ -108,7 +108,7 @@ export default function HowToDropdown() {
 
             {/* Right: Video walkthroughs (2 cols) */}
             <div className="col-span-2 border-l border-white/10 pl-4">
-              <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[#8A6B4E]">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-brand-bronze">
                 Video Walkthroughs
               </div>
               {categoryVideos.length === 0 ? (
@@ -122,8 +122,8 @@ export default function HowToDropdown() {
                       onClick={() => setOpen(false)}
                       className="flex items-center gap-2 rounded-md p-2 hover:bg-white/5 group"
                     >
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-[#1C2E47] group-hover:bg-[#8A6B4E]/20">
-                        <span className="h-3.5 w-3.5 text-[#8A6B4E] group-hover:text-white" aria-hidden="true">▶</span>
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-brand-navy group-hover:bg-brand-bronze/20">
+                        <span className="h-3.5 w-3.5 text-brand-bronze group-hover:text-white" aria-hidden="true">▶</span>
                       </div>
                       <div className="min-w-0">
                         <div className="truncate text-xs font-medium text-white/90 group-hover:text-white">
@@ -139,7 +139,7 @@ export default function HowToDropdown() {
                     <Link
                       href={`/dashboard/help/${categoryToShow}`}
                       onClick={() => setOpen(false)}
-                      className="block text-center text-xs text-[#D4A574] hover:text-[#E6BB8E] pt-1"
+                      className="block text-center text-xs text-brand-gold hover:text-[#E6BB8E] pt-1"
                     >
                       +{categoryVideos.length - 4} more videos →
                     </Link>
@@ -153,7 +153,7 @@ export default function HowToDropdown() {
             <Link
               href="/dashboard/help"
               onClick={() => setOpen(false)}
-              className="text-sm text-[#D4A574] hover:text-[#E6BB8E]"
+              className="text-sm text-brand-gold hover:text-[#E6BB8E]"
             >
               Browse all articles →
             </Link>

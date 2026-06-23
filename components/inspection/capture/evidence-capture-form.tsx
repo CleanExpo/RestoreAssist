@@ -152,7 +152,7 @@ export function EvidenceCaptureForm({
               </Badge>
               <Badge
                 variant="outline"
-                className="border-[#8A6B4E]/30 bg-[#8A6B4E]/20 text-[#D4A574]"
+                className="border-brand-bronze/30 bg-brand-bronze/20 text-brand-gold"
               >
                 {classMeta.iicrcRef}
               </Badge>
@@ -167,10 +167,10 @@ export function EvidenceCaptureForm({
                 <Info className="mt-0.5 h-4 w-4 shrink-0 text-cyan-400" />
                 <p className="text-sm text-zinc-300">{rule.guidance}</p>
               </div>
-              <div className="flex gap-2 rounded-md border border-[#8A6B4E]/20 bg-[#8A6B4E]/5 p-3">
-                <BookOpen className="mt-0.5 h-4 w-4 shrink-0 text-[#D4A574]" />
+              <div className="flex gap-2 rounded-md border border-brand-bronze/20 bg-brand-bronze/5 p-3">
+                <BookOpen className="mt-0.5 h-4 w-4 shrink-0 text-brand-gold" />
                 <div>
-                  <p className="text-xs font-medium text-[#D4A574]">
+                  <p className="text-xs font-medium text-brand-gold">
                     IICRC {classMeta.iicrcRef}
                   </p>
                   <p className="mt-0.5 text-xs text-zinc-400">

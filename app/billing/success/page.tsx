@@ -43,7 +43,7 @@ function Confirmation({ tier }: { tier: string | null }) {
     <main className="container mx-auto max-w-2xl p-8 text-center">
       <h1 className="text-2xl font-semibold">Welcome to {tier ?? "RestoreAssist"}</h1>
       <p className="mt-4 text-muted-foreground">Your subscription is active.</p>
-      <Link href="/dashboard" className="mt-8 inline-block rounded bg-[#1C2E47] px-6 py-3 text-white">
+      <Link href="/dashboard" className="mt-8 inline-block rounded bg-brand-navy px-6 py-3 text-white">
         Continue to dashboard
       </Link>
     </main>

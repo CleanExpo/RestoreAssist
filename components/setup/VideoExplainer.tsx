@@ -159,7 +159,7 @@ export function VideoExplainer({
 
   const wrapperClass =
     className ??
-    "relative aspect-video w-full overflow-hidden rounded-xl border-2 border-[#8A6B4E]/30 shadow-2xl bg-[#050505]";
+    "relative aspect-video w-full overflow-hidden rounded-xl border-2 border-brand-bronze/30 shadow-2xl bg-brand-canvas";
 
   // ─── Video element with captions + mobile optimisation ───
   const renderVideo = (src: string) => {
@@ -205,10 +205,10 @@ export function VideoExplainer({
           </video>
         )}
         {!isVisible && (
-          <div className="h-full w-full bg-[#1C2E47] flex items-center justify-center">
+          <div className="h-full w-full bg-brand-navy flex items-center justify-center">
             <div className="animate-pulse flex flex-col items-center gap-2">
-              <div className="h-12 w-12 rounded-full bg-[#8A6B4E]/30" />
-              <div className="h-3 w-24 rounded bg-[#8A6B4E]/20" />
+              <div className="h-12 w-12 rounded-full bg-brand-bronze/30" />
+              <div className="h-3 w-24 rounded bg-brand-bronze/20" />
             </div>
           </div>
         )}
@@ -245,8 +245,8 @@ export function VideoExplainer({
           />
         )}
         {!isVisible && (
-          <div className="h-full w-full bg-[#1C2E47] flex items-center justify-center">
-            <div className="animate-pulse h-12 w-12 rounded-full bg-[#8A6B4E]/30" />
+          <div className="h-full w-full bg-brand-navy flex items-center justify-center">
+            <div className="animate-pulse h-12 w-12 rounded-full bg-brand-bronze/30" />
           </div>
         )}
       </div>
@@ -281,8 +281,8 @@ export function VideoExplainer({
             `https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg`;
         }}
       />
-      <div className="absolute inset-0 flex items-center justify-center bg-[#1C2E47]/60 transition-colors group-hover:bg-[#1C2E47]/40">
-        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#8A6B4E] shadow-lg transition-transform group-hover:scale-110">
+      <div className="absolute inset-0 flex items-center justify-center bg-brand-navy/60 transition-colors group-hover:bg-brand-navy/40">
+        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-brand-bronze shadow-lg transition-transform group-hover:scale-110">
           <svg
             className="ml-1 h-8 w-8 text-white"
             fill="currentColor"

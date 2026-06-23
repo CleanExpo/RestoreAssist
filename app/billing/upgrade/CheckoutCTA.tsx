@@ -30,7 +30,7 @@ export default function CheckoutCTA({ tier }: { tier: "STANDARD" | "PREMIUM" | "
         type="button"
         onClick={go}
         disabled={loading}
-        className="rounded bg-[#1C2E47] px-8 py-3 text-white disabled:opacity-50 min-h-[44px]"
+        className="rounded bg-brand-navy px-8 py-3 text-white disabled:opacity-50 min-h-[44px]"
       >
         {loading ? "Redirecting…" : `Continue with ${tier}`}
       </button>

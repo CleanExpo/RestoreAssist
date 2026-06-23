@@ -38,7 +38,7 @@ export function TechLicenceBanner() {
   const ctaHref = firstIncomplete?.href ?? "/dashboard/settings/credentials";
 
   return (
-    <div className="border border-[#1C2E47]/30 bg-[#1C2E47]/8 dark:bg-[#1C2E47]/20 rounded-lg p-4 mb-6 flex items-center gap-4">
+    <div className="border border-brand-navy/30 bg-brand-navy/8 dark:bg-brand-navy/20 rounded-lg p-4 mb-6 flex items-center gap-4">
       <div className="flex-shrink-0">
         <RAIcon name="shield" size={28} decorative />
       </div>
@@ -73,7 +73,7 @@ export function TechLicenceBanner() {
       </div>
       <Link
         href={ctaHref}
-        className="bg-[#1C2E47] text-white px-4 py-2 rounded-md text-sm font-medium flex-shrink-0"
+        className="bg-brand-navy text-white px-4 py-2 rounded-md text-sm font-medium flex-shrink-0"
       >
         Add credentials →
       </Link>

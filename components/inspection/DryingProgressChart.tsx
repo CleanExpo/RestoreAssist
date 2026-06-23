@@ -410,7 +410,7 @@ export default function DryingProgressChart({
 
         {/* Projected completion badge — S500:2025 §12.2.2 */}
         {targetCurve && targetCurve.projectedCompletionDay > 0 && (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-[#1C2E47]/10 text-[#1C2E47] dark:bg-[#D4A574]/10 dark:text-[#D4A574] border border-[#1C2E47]/20 dark:border-[#D4A574]/30">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-brand-navy/10 text-brand-navy dark:bg-brand-gold/10 dark:text-brand-gold border border-brand-navy/20 dark:border-brand-gold/30">
             <Calendar size={12} />
             Projected complete Day {targetCurve.projectedCompletionDay}
           </span>

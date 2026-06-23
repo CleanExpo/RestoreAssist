@@ -89,10 +89,10 @@ export default function OnboardingChecklist() {
   const completedCount = CHECKLIST.filter((item) => completed[item.id]).length;
 
   return (
-    <Card className="border-[#8A6B4E]/20 bg-gradient-to-r from-[#1C2E47]/5 to-transparent dark:from-[#1C2E47]/20">
+    <Card className="border-brand-bronze/20 bg-gradient-to-r from-brand-navy/5 to-transparent dark:from-brand-navy/20">
       <CardHeader className="pb-3 flex flex-row items-center justify-between">
         <div className="flex items-center gap-2">
-          <Rocket className="h-5 w-5 text-[#8A6B4E]" />
+          <Rocket className="h-5 w-5 text-brand-bronze" />
           <CardTitle className="text-base">Getting started</CardTitle>
           <span className="text-xs text-neutral-500 ml-2">
             {completedCount}/{CHECKLIST.length} complete

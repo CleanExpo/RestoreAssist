@@ -110,16 +110,16 @@ export default function FieldModePage({ params }: PageProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+      <div className="min-h-screen bg-brand-canvas flex items-center justify-center">
         <RefreshCw className="h-6 w-6 text-white/30 animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white pb-20">
+    <div className="min-h-screen bg-brand-canvas text-white pb-20">
       {/* Header */}
-      <div className="sticky top-0 z-20 bg-[#050505]/95 backdrop-blur border-b border-white/10">
+      <div className="sticky top-0 z-20 bg-brand-canvas/95 backdrop-blur border-b border-white/10">
         <div className="flex items-center gap-3 px-4 py-3">
           <button
             onClick={() => router.back()}
@@ -191,7 +191,7 @@ export default function FieldModePage({ params }: PageProps) {
               className={cn(
                 "flex-1 py-3 text-sm font-medium transition-colors",
                 tab === t
-                  ? "text-[#D4A574] border-b-2 border-[#D4A574]"
+                  ? "text-brand-gold border-b-2 border-brand-gold"
                   : "text-white/40 hover:text-white/60",
               )}
             >
@@ -298,7 +298,7 @@ export default function FieldModePage({ params }: PageProps) {
                   </div>
                   <div className="h-2 bg-white/10 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-[#D4A574] rounded-full transition-all"
+                      className="h-full bg-brand-gold rounded-full transition-all"
                       style={{
                         width: `${(completedCount / checklist.length) * 100}%`,
                       }}
@@ -375,10 +375,10 @@ export default function FieldModePage({ params }: PageProps) {
             {/* Jump to voice */}
             <Link
               href={`/dashboard/inspections/${inspectionId}/voice`}
-              className="flex items-center justify-between w-full mt-4 p-4 rounded-xl bg-[#1C2E47]/50 border border-[#1C2E47] text-sm text-white/80 hover:bg-[#1C2E47]/80 transition-colors"
+              className="flex items-center justify-between w-full mt-4 p-4 rounded-xl bg-brand-navy/50 border border-brand-navy text-sm text-white/80 hover:bg-brand-navy/80 transition-colors"
             >
               <span className="flex items-center gap-2">
-                <Mic className="h-4 w-4 text-[#D4A574]" />
+                <Mic className="h-4 w-4 text-brand-gold" />
                 Switch to Voice Copilot
               </span>
               <ChevronRight className="h-4 w-4 text-white/40" />

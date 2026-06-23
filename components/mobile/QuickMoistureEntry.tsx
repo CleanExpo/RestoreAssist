@@ -164,7 +164,7 @@ export function QuickMoistureEntry({
             className={cn(
               "shrink-0 px-3 py-2 rounded-xl text-sm font-medium transition-colors",
               material === m.value
-                ? "bg-[#1C2E47] text-white"
+                ? "bg-brand-navy text-white"
                 : "bg-white/5 text-white/50 hover:bg-white/10",
             )}
           >
@@ -184,7 +184,7 @@ export function QuickMoistureEntry({
               className={cn(
                 "px-3 py-2 rounded-xl text-sm transition-colors",
                 location === loc
-                  ? "bg-[#D4A574] text-black font-medium"
+                  ? "bg-brand-gold text-black font-medium"
                   : "bg-white/5 text-white/60 hover:bg-white/10",
               )}
             >
@@ -224,7 +224,7 @@ export function QuickMoistureEntry({
           saved
             ? "bg-green-600 text-white"
             : isValid && location
-              ? "bg-[#1C2E47] text-white hover:bg-[#1C2E47]/80"
+              ? "bg-brand-navy text-white hover:bg-brand-navy/80"
               : "bg-white/5 text-white/30 cursor-not-allowed",
         )}
       >

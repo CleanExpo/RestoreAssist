@@ -50,7 +50,7 @@ export function ClientPortalLinkButton({
   }
 
   return (
-    <section className="rounded-xl border border-white/10 bg-[#1C2E47]/60 p-3 space-y-2 text-white">
+    <section className="rounded-xl border border-white/10 bg-brand-navy/60 p-3 space-y-2 text-white">
       <button
         type="button"
         onClick={send}
