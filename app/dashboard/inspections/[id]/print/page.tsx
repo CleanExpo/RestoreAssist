@@ -245,9 +245,9 @@ export default function InspectionPrintPage({
               </div>
             </div>
             <div className="text-right">
-              <div className="text-2xl font-bold text-neutral-900 tracking-tight">
+              <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">
                 INSPECTION SUMMARY REPORT
-              </div>
+              </h1>
               <div className="text-sm text-neutral-500 mt-1">
                 Report No: {inspection.inspectionNumber}
               </div>

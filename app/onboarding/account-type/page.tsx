@@ -131,7 +131,9 @@ export default function AccountTypeOnboardingPage() {
     <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center px-4 py-10">
       <Card className="w-full max-w-xl">
         <CardHeader>
-          <CardTitle>Finish setting up your account</CardTitle>
+          <CardTitle>
+            <h1>Finish setting up your account</h1>
+          </CardTitle>
           <CardDescription>
             We just need a few business details to activate your RestoreAssist
             workspace. This takes less than a minute.
