@@ -271,7 +271,7 @@ export default function ScopeTemplatesPage() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className={cn(
-              "w-full pl-9 pr-4 py-2 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500/50",
+              "w-full pl-10 pr-4 py-2 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500/50",
               "bg-neutral-50 dark:bg-slate-800",
               "border border-neutral-300 dark:border-slate-700",
               "text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-slate-500",

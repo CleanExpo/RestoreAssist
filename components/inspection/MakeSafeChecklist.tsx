@@ -263,7 +263,7 @@ export function MakeSafeChecklist({ inspectionId }: MakeSafeChecklistProps) {
               </div>
 
               {/* Notes */}
-              <div className="pl-7">
+              <div className="pl-8">
                 <Label
                   htmlFor={notesId}
                   className="text-xs text-muted-foreground"

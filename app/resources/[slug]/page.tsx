@@ -94,7 +94,7 @@ export default async function ResourceArticlePage({
         </div>
 
         {/* CTA */}
-        <div className="mt-14 p-8 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-center shadow-xl">
+        <div className="mt-16 p-8 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-center shadow-xl">
           <h3 className="text-xl font-bold mb-2">
             Restore smarter with RestoreAssist
           </h3>

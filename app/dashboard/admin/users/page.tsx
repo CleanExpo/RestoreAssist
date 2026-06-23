@@ -271,7 +271,7 @@ export default function AdminUsersPage() {
             placeholder="Search by name or email…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
+            className="pl-10"
           />
         </div>
 

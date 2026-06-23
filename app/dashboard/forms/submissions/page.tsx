@@ -538,7 +538,7 @@ export default function FormSubmissionsPage() {
               placeholder="Search by submission # or address…"
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
-              className="pl-9"
+              className="pl-10"
             />
           </div>
 

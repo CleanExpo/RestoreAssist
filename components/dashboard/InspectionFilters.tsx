@@ -185,7 +185,7 @@ export default function InspectionFilters({
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Search address, inspection #, or technician…"
             className={cn(
-              "w-full pl-9 pr-3 py-2.5 rounded-lg text-sm",
+              "w-full pl-10 pr-3 py-2.5 rounded-lg text-sm",
               "border border-neutral-200 dark:border-slate-700",
               "bg-white dark:bg-slate-900",
               "text-neutral-900 dark:text-white placeholder:text-neutral-400",

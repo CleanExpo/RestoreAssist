@@ -513,7 +513,7 @@ export default function RestorationInvoiceForm({
         </div>
 
         {/* Legal banner */}
-        <div className="mb-7 border-l-4 border-teal-500 bg-teal-50/80 py-3 px-4 rounded-r-lg dark:bg-teal-900/20">
+        <div className="mb-8 border-l-4 border-teal-500 bg-teal-50/80 py-3 px-4 rounded-r-lg dark:bg-teal-900/20">
           <p className="text-sm font-semibold text-neutral-900 dark:text-white">
             Invoice Settlement Basis — &quot;Reasonable Costs You Actually
             Incur&quot;
@@ -534,7 +534,7 @@ export default function RestorationInvoiceForm({
         </div>
 
         {/* Parties */}
-        <div className="mb-7 grid grid-cols-1 gap-6 md:grid-cols-2">
+        <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2">
           <div className="rounded-lg border border-neutral-200 p-4 dark:border-slate-600">
             <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400">
               Contractor (Service Provider)

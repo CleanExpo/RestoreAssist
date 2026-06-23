@@ -560,7 +560,7 @@ export default function CostLibraryBulkEditorPage({
               placeholder="e.g. 10 or -5"
               value={priceAdjust}
               onChange={(e) => setPriceAdjust(e.target.value)}
-              className="w-36 pl-7 pr-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-sm"
+              className="w-36 pl-8 pr-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-sm"
             />
           </div>
           <button

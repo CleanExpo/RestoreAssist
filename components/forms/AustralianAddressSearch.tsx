@@ -240,7 +240,7 @@ export function AustralianAddressSearch({
           placeholder={placeholder}
           autoComplete="off"
           className={cn(
-            "w-full pl-9 pr-9 py-2 rounded-lg text-sm",
+            "w-full pl-10 pr-10 py-2 rounded-lg text-sm",
             "bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700",
             "text-neutral-900 dark:text-neutral-50 placeholder:text-neutral-400 dark:placeholder:text-slate-500",
             "focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30",

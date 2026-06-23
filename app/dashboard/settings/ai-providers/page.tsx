@@ -343,7 +343,7 @@ export default function AiProvidersPage() {
                                 }))
                               }
                               placeholder={p.keyPlaceholder}
-                              className="w-full text-sm px-3 py-2 pr-9 border rounded-lg bg-white dark:bg-slate-800 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-[#1C2E47] font-mono"
+                              className="w-full text-sm px-3 py-2 pr-10 border rounded-lg bg-white dark:bg-slate-800 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-[#1C2E47] font-mono"
                             />
                             <button
                               type="button"

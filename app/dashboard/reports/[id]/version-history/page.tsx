@@ -310,7 +310,7 @@ export default function ReportVersionHistoryPage({
           </h1>
         </div>
         {reportTitle && (
-          <p className="text-slate-400 text-sm ml-9">{reportTitle}</p>
+          <p className="text-slate-400 text-sm ml-10">{reportTitle}</p>
         )}
       </div>
 
