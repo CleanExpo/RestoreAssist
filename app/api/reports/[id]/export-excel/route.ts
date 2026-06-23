@@ -123,7 +123,7 @@ export async function GET(
 
       // Update report with Excel URL
       await prisma.report.update({
-        where: { id: report.id },
+        where: { id: report.id, userId: session.user.id },
         data: { excelReportUrl: cloudinaryUrl },
       });
     } catch (cloudinaryError) {

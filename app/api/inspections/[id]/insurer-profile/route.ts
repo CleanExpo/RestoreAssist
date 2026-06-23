@@ -170,7 +170,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     };
 
     await prisma.inspection.update({
-      where: { id: inspectionId },
+      where: { id: inspectionId, userId },
       data: { metadata: updatedMetadata } as any,
     });
 

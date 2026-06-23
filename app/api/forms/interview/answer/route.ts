@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
 
       // Update session in database
       await prisma.interviewSession.update({
-        where: { id: sessionId },
+        where: { id: sessionId, userId: user.id },
         data: {
           answers: JSON.stringify(storedAnswers),
           totalAnswersGiven: Object.keys(storedAnswers).length,
