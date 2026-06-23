@@ -56,11 +56,11 @@ export function SoftwareApplicationSchema() {
       priceCurrency: "AUD",
       description: "Free trial available",
     },
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: "4.8",
-      reviewCount: "50",
-    },
+    // aggregateRating intentionally omitted: Google's structured-data policy
+    // requires ratings to reflect genuine, on-page user reviews. There is no
+    // public review system backing a rating here, so emitting one risks a
+    // manual action (and is misleading under AU consumer law). Re-add only when
+    // wired to real review data.
     description:
       "Restoration report software with AI-assisted assessment used by certified restorers, IICRC S500 alignment, and comprehensive cost estimation for Australian restoration contractors.",
     featureList: [
