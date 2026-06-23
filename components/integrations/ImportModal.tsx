@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { RAIcon } from "@/src/components/brand/RAIcon";
 import {
   Dialog,
   DialogContent,
@@ -301,11 +302,17 @@ export default function ImportModal({
                   >
                     <div className="flex items-center gap-3">
                       <span className="text-2xl">
-                        {integration.provider === "XERO" ||
-                        integration.provider === "QUICKBOOKS" ||
-                        integration.provider === "MYOB"
-                          ? "📊"
-                          : "📋"}
+                        <RAIcon
+                          name={
+                            integration.provider === "XERO" ||
+                            integration.provider === "QUICKBOOKS" ||
+                            integration.provider === "MYOB"
+                              ? "invoice"
+                              : "report"
+                          }
+                          size={24}
+                          decorative
+                        />
                       </span>
                       <span className="font-medium text-gray-900 dark:text-white">
                         {integration.name}

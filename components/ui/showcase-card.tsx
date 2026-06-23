@@ -261,7 +261,7 @@ function ShowcaseCard({
                                                 whileHover={{ rotate: 90 }}
                                                 transition={{ duration: 0.3 }}
                                             >
-                                                ✦
+                                                
                                             </motion.span>
                                         )}
                                     </React.Fragment>
@@ -479,7 +479,7 @@ function ShowcaseCardHorizontal({
                                     <React.Fragment key={service}>
                                         <span className="text-sm text-neutral-500">{service}</span>
                                         {index < services.length - 1 && (
-                                            <span className="text-neutral-600">✦</span>
+                                            <span className="text-neutral-600"></span>
                                         )}
                                     </React.Fragment>
                                 ))}

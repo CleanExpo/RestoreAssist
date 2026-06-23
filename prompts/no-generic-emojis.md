@@ -71,7 +71,10 @@ A status list:
 ## Enforcement
 
 `pnpm check:no-emoji` scans `app`, `src`, `components`, `prompts`, and `docs`
-for generic Unicode emojis and fails if any are found. Replace them with the
-tokens above. A single line may opt out with the marker `ra-allow-emoji` when an
-emoji is genuinely required (for example, test fixtures asserting emoji
-handling).
+for generic Unicode emojis and runs as an enforcing step in CI (PR Quality
+Checks). It is a **ratchet**: a PR fails if it adds emojis beyond the recorded
+baseline (`scripts/emoji-baseline.json`), so new emojis are blocked while the
+historical backlog burns down. Replace emojis with the tokens above. A single
+line may opt out with the marker `ra-allow-emoji` when an emoji is genuinely
+required (for example, a functional language flag or a test fixture asserting
+emoji handling).

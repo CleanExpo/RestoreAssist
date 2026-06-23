@@ -156,7 +156,7 @@ export function PropertyDataSetupWizard({
             <div className="space-y-4">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center text-2xl flex-shrink-0">
-                  🏠
+                  
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900 dark:text-white">
@@ -169,10 +169,10 @@ export function PropertyDataSetupWizard({
               </div>
               <div className="space-y-3 mt-2">
                 {[
-                  ["📐", "Floor plan image as canvas underlay"],
-                  ["🛏", "Bedrooms, bathrooms, land size"],
-                  ["📍", "Verified property address"],
-                  ["🔄", "24-hour cache — no repeat scraping"],
+                  ["", "Floor plan image as canvas underlay"],
+                  ["", "Bedrooms, bathrooms, land size"],
+                  ["", "Verified property address"],
+                  ["", "24-hour cache — no repeat scraping"],
                 ].map(([icon, text]) => (
                   <div
                     key={text as string}

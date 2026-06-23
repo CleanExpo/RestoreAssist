@@ -21,6 +21,7 @@ import {
   type GateCheckResult,
   type GateStatus,
 } from "@/lib/nir-content-gate";
+import { RAIconText } from "@/src/components/brand/RAIconText";
 
 // ─── STYLE MAPS ───────────────────────────────────────────────────────────────
 
@@ -37,21 +38,21 @@ const GATE_STATUS_STYLES: Record<
   open: {
     pill: "bg-green-100 text-green-800 border border-green-200",
     label: "Open",
-    icon: "✓",
+    icon: "[ra:success]",
     border: "border-green-200",
     headerBg: "bg-green-50",
   },
   partial: {
     pill: "bg-amber-100 text-amber-800 border border-amber-200",
     label: "Partial",
-    icon: "⚠",
+    icon: "[ra:warning]",
     border: "border-amber-200",
     headerBg: "bg-amber-50",
   },
   blocked: {
     pill: "bg-red-100 text-red-800 border border-red-200",
     label: "Blocked",
-    icon: "✗",
+    icon: "[ra:critical]",
     border: "border-red-200",
     headerBg: "bg-red-50",
   },
@@ -65,7 +66,7 @@ function GateStatusPill({ status }: { status: GateStatus }) {
     <span
       className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${styles.pill}`}
     >
-      <span aria-hidden="true">{styles.icon}</span>
+      <RAIconText iconSize={13}>{styles.icon}</RAIconText>
       {styles.label}
     </span>
   );

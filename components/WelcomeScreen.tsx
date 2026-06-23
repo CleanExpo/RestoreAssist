@@ -34,7 +34,7 @@ export default function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
   const slides = [
     {
       icon: Sparkles,
-      title: "Welcome to Restore Assist! 🎉",
+      title: "Welcome to Restore Assist!",
       description:
         "Your professional forensic restoration reporting platform. Let's get you set up in just 4 quick steps.",
       color: "from-cyan-500 to-blue-500",
