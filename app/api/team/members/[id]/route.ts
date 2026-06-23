@@ -124,7 +124,7 @@ export async function PATCH(
       user: updatedUser,
     });
   } catch (error: any) {
-    console.error("❌ [TEAM] Error changing member role:", error);
+    console.error("[TEAM] Error changing member role:", error);
     return fromException(request, error, { stage: "change-role" });
   }
 }
@@ -238,7 +238,7 @@ export async function DELETE(
       },
     });
   } catch (error: any) {
-    console.error("❌ [TEAM] Error removing member:", error);
+    console.error("[TEAM] Error removing member:", error);
     return fromException(request, error, { stage: "remove-member" });
   }
 }
