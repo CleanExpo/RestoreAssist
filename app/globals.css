@@ -20,6 +20,15 @@
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.577 0.245 27.325);
+  /* Semantic status tokens (DESIGN.md §2 status palette). Reserved for actual
+     status — never decorative. Enables text-success / bg-warning / text-info
+     so components stop hardcoding text-green-600 / text-amber-500 / text-blue-500. */
+  --success: #10b981;
+  --success-foreground: #ffffff;
+  --warning: #f59e0b;
+  --warning-foreground: #1c1917;
+  --info: #3b82f6;
+  --info-foreground: #ffffff;
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
@@ -56,6 +65,13 @@
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.396 0.141 25.723);
   --destructive-foreground: oklch(0.637 0.237 25.331);
+  /* Brighter status hues for legibility on the dark canvas. */
+  --success: #34d399;
+  --success-foreground: #052e2b;
+  --warning: #fbbf24;
+  --warning-foreground: #1c1917;
+  --info: #60a5fa;
+  --info-foreground: #0a1929;
   --border: oklch(0.269 0 0);
   --input: oklch(0.269 0 0);
   --ring: oklch(0.439 0 0);
@@ -88,6 +104,18 @@
   --color-brand-navy: #1c2e47; /* primary — headings, accents, strong text */
   --color-brand-bronze: #8a6b4e; /* secondary — CTAs, highlights, borders */
   --color-brand-slate: #5a6a7b; /* muted — body copy, meta text */
+  --color-brand-gold: #d4a574; /* tertiary highlight (DESIGN.md "brand light") */
+
+  /* Landing-page CTA palette — previously hardcoded hex literals in
+     app/page.tsx. Tokenised so components carry no raw hex (DESIGN.md §2).
+     These are the marketing-surface CTA shades, distinct from the core brand. */
+  --color-brand-cta: #765c43; /* primary CTA bronze */
+  --color-brand-cta-hover: #634a2f; /* primary CTA bronze — hover */
+  --color-brand-steel: #546272; /* secondary CTA steel */
+  --color-brand-steel-hover: #445163; /* secondary CTA steel — hover */
+  --color-brand-mist: #c4c8ca; /* light translucent glass surface on hero */
+  --color-brand-cloud: #f4f5f6; /* off-white section surface (light pages) */
+  --color-brand-canvas: #050505; /* near-black full-bleed canvas (DESIGN.md §2) */
 
   /* Primary Colors */
   --color-slate-950: #0f172a;
@@ -123,6 +151,12 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);

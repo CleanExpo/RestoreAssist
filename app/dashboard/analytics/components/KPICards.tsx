@@ -1,6 +1,15 @@
 "use client";
 
-import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import {
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  FileText,
+  DollarSign,
+  BarChart3,
+  Clock,
+  type LucideIcon,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface KPIData {
@@ -42,20 +51,18 @@ interface KPICardsProps {
 
 function TrendIcon({ change }: { change: string }): React.ReactNode {
   if (change.startsWith("+")) {
-    return <TrendingUp size={16} className="text-emerald-400" />;
+    return <TrendingUp size={16} className="text-success" />;
   } else if (change.startsWith("-")) {
-    return <TrendingDown size={16} className="text-red-400" />;
+    return <TrendingDown size={16} className="text-destructive" />;
   }
-  return (
-    <Minus size={16} className={cn("text-neutral-500 dark:text-slate-400")} />
-  );
+  return <Minus size={16} className="text-muted-foreground" />;
 }
 
 function getTrendColor(change: string): string {
   if (change.startsWith("+") || change === "0%") {
-    return "text-emerald-400";
+    return "text-success";
   }
-  return "text-red-400";
+  return "text-destructive";
 }
 
 export default function KPICards({ data, loading = false }: KPICardsProps) {
@@ -68,34 +75,35 @@ export default function KPICards({ data, loading = false }: KPICardsProps) {
 
   const kpis = data || defaultData;
 
-  const cards = [
+  const cards: Array<{
+    label: string;
+    value: string;
+    change: string;
+    icon: LucideIcon;
+  }> = [
     {
       label: "Total Reports",
       value: kpis.totalReports.value.toString(),
       change: kpis.totalReports.change,
-      color: "from-blue-500 to-cyan-500",
-      icon: "📊",
+      icon: FileText,
     },
     {
       label: "Total Revenue",
       value: kpis.totalRevenue.formatted,
       change: kpis.totalRevenue.change,
-      color: "from-emerald-500 to-teal-500",
-      icon: "💰",
+      icon: DollarSign,
     },
     {
       label: "Avg Report Value",
       value: kpis.avgReportValue.formatted,
       change: kpis.avgReportValue.change,
-      color: "from-purple-500 to-pink-500",
-      icon: "📈",
+      icon: BarChart3,
     },
     {
       label: "Avg Completion",
       value: kpis.avgCompletion.formatted,
       change: kpis.avgCompletion.change,
-      color: "from-orange-500 to-red-500",
-      icon: "⏱️",
+      icon: Clock,
     },
   ];
 
@@ -105,24 +113,10 @@ export default function KPICards({ data, loading = false }: KPICardsProps) {
         {cards.map((_, i) => (
           <div
             key={i}
-            className={cn(
-              "p-4 rounded-lg border animate-pulse",
-              "border-neutral-200 dark:border-slate-700/50",
-              "bg-neutral-50 dark:bg-slate-800/30",
-            )}
+            className="p-4 rounded-lg border border-border bg-card animate-pulse"
           >
-            <div
-              className={cn(
-                "h-4 rounded w-1/2 mb-3",
-                "bg-neutral-200 dark:bg-slate-700",
-              )}
-            />
-            <div
-              className={cn(
-                "h-8 rounded w-3/4",
-                "bg-neutral-200 dark:bg-slate-700",
-              )}
-            />
+            <div className="h-4 rounded w-1/2 mb-3 bg-muted" />
+            <div className="h-8 rounded w-3/4 bg-muted" />
           </div>
         ))}
       </div>
@@ -131,49 +125,33 @@ export default function KPICards({ data, loading = false }: KPICardsProps) {
 
   return (
     <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-      {cards.map((card, i) => (
-        <div
-          key={i}
-          className={cn(
-            "relative p-4 rounded-lg border overflow-hidden group transition-colors",
-            "border-neutral-200 dark:border-slate-700/50",
-            "bg-white/50 dark:bg-slate-800/30",
-            "hover:border-neutral-300 dark:hover:border-slate-600/75",
-          )}
-        >
-          {/* Gradient background */}
+      {cards.map((card, i) => {
+        const Icon = card.icon;
+        return (
           <div
-            className={`absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity bg-gradient-to-br ${card.color}`}
-          />
-
-          <div className="relative z-10">
+            key={i}
+            className="relative p-4 rounded-lg border border-border bg-card transition-colors hover:border-ring/60"
+          >
             {/* Header with label and icon */}
             <div className="flex items-center justify-between mb-3">
-              <p
-                className={cn(
-                  "text-sm font-medium",
-                  "text-neutral-600 dark:text-slate-400",
-                )}
-              >
+              <p className="text-sm font-medium text-muted-foreground">
                 {card.label}
               </p>
-              <span className="text-xl">{card.icon}</span>
+              <Icon size={18} className="text-muted-foreground" aria-hidden />
             </div>
 
             {/* Value and trend */}
             <div className="flex items-end justify-between">
-              <p
-                className={cn(
-                  "text-2xl lg:text-3xl font-semibold",
-                  "text-neutral-900 dark:text-white",
-                )}
-              >
+              <p className="text-2xl lg:text-3xl font-semibold text-foreground tabular-nums">
                 {card.value}
               </p>
               <div className="flex items-center gap-1">
                 <TrendIcon change={card.change} />
                 <span
-                  className={`text-xs font-medium ${getTrendColor(card.change)}`}
+                  className={cn(
+                    "text-xs font-medium tabular-nums",
+                    getTrendColor(card.change),
+                  )}
                 >
                   {card.change}
                 </span>
@@ -182,12 +160,7 @@ export default function KPICards({ data, loading = false }: KPICardsProps) {
 
             {/* Optional insight text */}
             {card.change !== "0%" && (
-              <p
-                className={cn(
-                  "mt-2 text-xs",
-                  "text-neutral-600 dark:text-slate-400",
-                )}
-              >
+              <p className="mt-2 text-xs text-muted-foreground">
                 {card.change.startsWith("+")
                   ? "Trending up"
                   : card.change.startsWith("-")
@@ -196,8 +169,8 @@ export default function KPICards({ data, loading = false }: KPICardsProps) {
               </p>
             )}
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

@@ -101,20 +101,20 @@ export default function MobileWorkflowCarousel({
           >
             {/* Phone Frame */}
             <div
-              className={`w-[280px] h-[560px] rounded-[3rem] p-2 shadow-2xl border-4 transition-colors ${darkMode ? "bg-[#1C2E47]" : "bg-[#F4F5F6]"} ${isActive ? "border-[#8A6B4E]" : "border-[#5A6A7B]"}`}
+              className={`w-[280px] h-[560px] rounded-[3rem] p-2 shadow-2xl border-4 transition-colors ${darkMode ? "bg-brand-navy" : "bg-brand-cloud"} ${isActive ? "border-brand-bronze" : "border-brand-slate"}`}
             >
               {/* Notch */}
               <div
-                className={`absolute top-0 left-1/2 transform -translate-x-1/2 w-32 h-6 rounded-b-2xl z-20 transition-colors ${darkMode ? "bg-[#1C2E47]" : "bg-[#F4F5F6]"}`}
+                className={`absolute top-0 left-1/2 transform -translate-x-1/2 w-32 h-6 rounded-b-2xl z-20 transition-colors ${darkMode ? "bg-brand-navy" : "bg-brand-cloud"}`}
               ></div>
 
               {/* Screen Content */}
               <div
-                className={`w-full h-full rounded-[2.5rem] overflow-hidden relative border transition-colors ${darkMode ? "bg-[#1C2E47] border-[#5A6A7B]/30" : "bg-[#F4F5F6] border-[#5A6A7B]/20"}`}
+                className={`w-full h-full rounded-[2.5rem] overflow-hidden relative border transition-colors ${darkMode ? "bg-brand-navy border-brand-slate/30" : "bg-brand-cloud border-brand-slate/20"}`}
               >
                 <div className="absolute top-4 left-0 right-0 text-center z-10 px-4">
                   <p
-                    className={`text-xs font-bold transition-colors ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+                    className={`text-xs font-bold transition-colors ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}
                     style={{ fontFamily: '"Canva Sans", Inter, sans-serif' }}
                   >
                     {screen.label}
@@ -124,7 +124,7 @@ export default function MobileWorkflowCarousel({
                   {/* Description */}
                   <div className="w-full mb-4">
                     <p
-                      className={`text-[11px] text-center mb-4 leading-tight px-2 transition-colors ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                      className={`text-[11px] text-center mb-4 leading-tight px-2 transition-colors ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
                       style={{ fontFamily: '"Canva Sans", Inter, sans-serif' }}
                     >
                       {screen.description}
@@ -135,9 +135,9 @@ export default function MobileWorkflowCarousel({
                   <div className="w-full space-y-2.5">
                     {screen.features.map((feature, idx) => (
                       <div key={idx} className="flex items-start gap-2.5 px-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-[#8A6B4E] mt-1 shrink-0"></div>
+                        <div className="w-1.5 h-1.5 rounded-full bg-brand-bronze mt-1 shrink-0"></div>
                         <p
-                          className={`text-[10px] leading-snug flex-1 transition-colors ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+                          className={`text-[10px] leading-snug flex-1 transition-colors ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}
                           style={{
                             fontFamily: '"Canva Sans", Inter, sans-serif',
                           }}

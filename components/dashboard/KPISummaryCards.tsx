@@ -37,7 +37,6 @@ interface DashboardStats {
 interface CardDef {
   key: keyof DashboardStats;
   icon: React.ReactNode;
-  gradient: string;
   iconBg: string;
 }
 
@@ -45,32 +44,27 @@ const CARDS: CardDef[] = [
   {
     key: "activeInspections",
     icon: <ClipboardCheck size={20} />,
-    gradient: "from-blue-500 to-cyan-500",
-    iconBg: "bg-blue-500/10 text-blue-500 dark:text-blue-400",
+    iconBg: "bg-info/10 text-info",
   },
   {
     key: "moistureReadings7d",
     icon: <Droplets size={20} />,
-    gradient: "from-cyan-500 to-teal-500",
-    iconBg: "bg-cyan-500/10 text-cyan-500 dark:text-cyan-400",
+    iconBg: "bg-info/10 text-info",
   },
   {
     key: "equipmentItems",
     icon: <Wrench size={20} />,
-    gradient: "from-violet-500 to-purple-500",
-    iconBg: "bg-violet-500/10 text-violet-500 dark:text-violet-400",
+    iconBg: "bg-muted text-foreground",
   },
   {
     key: "completedThisMonth",
     icon: <CheckCircle2 size={20} />,
-    gradient: "from-emerald-500 to-green-500",
-    iconBg: "bg-emerald-500/10 text-emerald-500 dark:text-emerald-400",
+    iconBg: "bg-success/10 text-success",
   },
   {
     key: "createdToday",
     icon: <PlusCircle size={20} />,
-    gradient: "from-amber-500 to-orange-500",
-    iconBg: "bg-amber-500/10 text-amber-500 dark:text-amber-400",
+    iconBg: "bg-warning/10 text-warning",
   },
 ];
 
@@ -161,27 +155,19 @@ export default function KPISummaryCards() {
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-      {CARDS.map(({ key, icon, gradient, iconBg }) => {
+      {CARDS.map(({ key, icon, iconBg }) => {
         const stat = stats[key];
         return (
           <button
             key={key}
             onClick={() => router.push(stat.href)}
             className={cn(
-              "relative text-left p-4 rounded-xl border overflow-hidden group transition-all duration-200",
-              "border-neutral-200 dark:border-slate-700/50",
-              "bg-white dark:bg-slate-900/50",
-              "hover:border-transparent hover:shadow-lg hover:scale-[1.02] active:scale-[0.99]",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500",
+              "relative text-left p-4 rounded-xl border overflow-hidden group transition-colors",
+              "border-border bg-card",
+              "hover:border-ring/60 active:scale-[0.99]",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             )}
           >
-            {/* Hover gradient overlay */}
-            <div
-              className={cn(
-                `absolute inset-0 bg-gradient-to-br ${gradient} opacity-0 group-hover:opacity-[0.08] transition-opacity duration-200`,
-              )}
-            />
-
             <div className="relative z-10">
               {/* Icon + delta row */}
               <div className="flex items-center justify-between mb-3">
@@ -190,12 +176,12 @@ export default function KPISummaryCards() {
               </div>
 
               {/* Value */}
-              <p className="text-2xl font-bold text-neutral-900 dark:text-white tabular-nums">
+              <p className="text-2xl font-bold text-foreground tabular-nums">
                 {stat.value.toLocaleString()}
               </p>
 
               {/* Label */}
-              <p className="text-xs font-medium text-neutral-700 dark:text-slate-300 mt-0.5 leading-tight">
+              <p className="text-xs font-medium text-muted-foreground mt-0.5 leading-tight">
                 {stat.label}
               </p>
 

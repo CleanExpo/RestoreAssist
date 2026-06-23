@@ -6,7 +6,6 @@ import {
   Loader2,
   TrendingUp,
   TrendingDown,
-  AlertCircle,
   CheckCircle2,
   Clock,
   DollarSign,
@@ -23,12 +22,8 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  PieChart,
-  Pie,
   Cell,
   Legend,
-  LineChart,
-  Line,
   Area,
   AreaChart,
 } from "recharts";
@@ -63,7 +58,7 @@ import ActivityByDay from "./components/ActivityByDay";
 import PeriodComparison from "./components/PeriodComparison";
 import InsightsMovers from "./components/InsightsMovers";
 import AINarrativeCard from "./components/AINarrativeCard";
-import { Users, UserCog, Wrench } from "lucide-react";
+import { UserCog, Wrench } from "lucide-react";
 
 interface AnalyticsData {
   kpis: {
@@ -226,15 +221,6 @@ export default function AnalyticsPage() {
     const totalReports = data.kpis.totalReports.value;
     const totalRevenue = data.kpis.totalRevenue.value;
     const avgValue = data.kpis.avgReportValue.value;
-
-    // Calculate status distribution
-    const statusCounts = data.reportTrendData.reduce(
-      (acc, item) => {
-        // This would need status data from API, using placeholder logic
-        return acc;
-      },
-      {} as Record<string, number>,
-    );
 
     // Calculate growth rate
     const revenueChange = parseFloat(
@@ -409,27 +395,14 @@ export default function AnalyticsPage() {
   };
 
   return (
-    <div
-      className={cn(
-        "min-h-screen",
-        "bg-gradient-to-br from-neutral-50 via-white to-neutral-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950",
-      )}
-    >
-      {/* Hero Header with Gradient */}
-      <div
-        className={cn(
-          "relative overflow-hidden p-4 rounded-md",
-          "bg-gradient-to-r from-blue-600/20 via-cyan-600/20 to-purple-600/20",
-          "border-b border-neutral-200 dark:border-slate-800/50",
-        )}
-      >
-        <div
-          className="absolute inset-0 opacity-40"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          }}
-        ></div>
-        <div className="relative">
+    <div className="min-h-screen bg-background">
+      {/* Page header */}
+      <div className="p-4 border-b border-border bg-card">
+        <h1 className="text-2xl font-bold text-foreground">Analytics</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Reports, revenue, and completion trends across your team.
+        </p>
+        <div className="mt-4">
           <AnalyticsFilters
             onFiltersChange={setFilters}
             isLoading={loading}
@@ -445,9 +418,8 @@ export default function AnalyticsPage() {
             session?.user?.role === "MANAGER") && (
             <div
               className={cn(
-                "p-4 rounded-xl border-2 backdrop-blur-sm shadow-lg animate-in slide-in-from-top-4",
-                "bg-gradient-to-r from-blue-500/10 via-cyan-500/10 to-purple-500/10",
-                "border-blue-500/30 dark:border-blue-400/30",
+                "p-4 rounded-xl border animate-in slide-in-from-top-4",
+                "bg-card border-border",
               )}
             >
               <div className="flex items-center gap-3">
@@ -496,23 +468,10 @@ export default function AnalyticsPage() {
         {/* Error Alert with Animation */}
         {error && (
           <div className="animate-in slide-in-from-top-4 duration-300">
-            <div
-              className={cn(
-                "p-4 rounded-xl backdrop-blur-sm shadow-lg",
-                "bg-gradient-to-r from-red-500/10 via-red-500/5 to-transparent",
-                "border border-red-500/30",
-              )}
-            >
+            <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/30">
               <div className="flex items-center gap-3">
-                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                <p
-                  className={cn(
-                    "font-medium",
-                    "text-red-700 dark:text-red-300",
-                  )}
-                >
-                  {error}
-                </p>
+                <div className="w-2 h-2 bg-destructive rounded-full animate-pulse"></div>
+                <p className="font-medium text-destructive">{error}</p>
               </div>
             </div>
           </div>
@@ -557,98 +516,74 @@ export default function AnalyticsPage() {
             {insights && (
               <div className="animate-in slide-in-from-bottom-4 duration-500 delay-75">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                  <div
-                    className={cn(
-                      "bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-blue-500/20 rounded-xl p-4 backdrop-blur-sm",
-                    )}
-                  >
+                  <div className="bg-card border border-border rounded-xl p-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p
-                          className={cn(
-                            "text-xs mb-1",
-                            "text-neutral-600 dark:text-slate-400",
-                          )}
-                        >
+                        <p className="text-xs mb-1 text-muted-foreground">
                           Growth Rate
                         </p>
                         <p
-                          className={`text-2xl font-bold ${insights.isGrowing ? "text-emerald-400" : "text-red-400"}`}
+                          className={cn(
+                            "text-2xl font-bold tabular-nums",
+                            insights.isGrowing
+                              ? "text-success"
+                              : "text-destructive",
+                          )}
                         >
                           {insights.revenueGrowth > 0 ? "+" : ""}
                           {insights.revenueGrowth.toFixed(1)}%
                         </p>
                       </div>
                       {insights.isGrowing ? (
-                        <TrendingUp className="w-8 h-8 text-emerald-400" />
+                        <TrendingUp className="w-8 h-8 text-success" />
                       ) : (
-                        <TrendingDown className="w-8 h-8 text-red-400" />
+                        <TrendingDown className="w-8 h-8 text-destructive" />
                       )}
                     </div>
                   </div>
 
-                  <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-xl p-4 backdrop-blur-sm">
+                  <div className="bg-card border border-border rounded-xl p-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p
-                          className={cn(
-                            "text-xs mb-1",
-                            "text-neutral-600 dark:text-slate-400",
-                          )}
-                        >
+                        <p className="text-xs mb-1 text-muted-foreground">
                           Efficiency Score
                         </p>
-                        <p className="text-2xl font-bold text-purple-400">
+                        <p className="text-2xl font-bold text-foreground tabular-nums">
                           {insights.efficiencyScore}%
                         </p>
                       </div>
-                      <Zap className="w-8 h-8 text-purple-400" />
+                      <Zap className="w-8 h-8 text-muted-foreground" />
                     </div>
                   </div>
 
-                  <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-xl p-4 backdrop-blur-sm">
+                  <div className="bg-card border border-border rounded-xl p-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p
-                          className={cn(
-                            "text-xs mb-1",
-                            "text-neutral-600 dark:text-slate-400",
-                          )}
-                        >
+                        <p className="text-xs mb-1 text-muted-foreground">
                           Top Hazard Type
                         </p>
-                        <p className="text-lg font-bold text-amber-400">
+                        <p className="text-lg font-bold text-foreground">
                           {insights.topHazard}
                         </p>
-                        <p
-                          className={cn(
-                            "text-xs",
-                            "text-neutral-500 dark:text-slate-500",
-                          )}
-                        >
+                        <p className="text-xs text-muted-foreground">
                           {insights.topHazardCount} reports
                         </p>
                       </div>
-                      <Activity className="w-8 h-8 text-amber-400" />
+                      <Activity className="w-8 h-8 text-muted-foreground" />
                     </div>
                   </div>
 
-                  <div className="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 rounded-xl p-4 backdrop-blur-sm">
+                  <div className="bg-card border border-border rounded-xl p-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p
-                          className={cn(
-                            "text-xs mb-1",
-                            "text-neutral-600 dark:text-slate-400",
-                          )}
-                        >
+                        <p className="text-xs mb-1 text-muted-foreground">
                           Avg Value/Report
                         </p>
-                        <p className="text-lg font-bold text-emerald-400">
+                        <p className="text-lg font-bold text-foreground tabular-nums">
                           ${(insights.avgValuePerReport / 1000).toFixed(1)}K
                         </p>
                       </div>
-                      <DollarSign className="w-8 h-8 text-emerald-400" />
+                      <DollarSign className="w-8 h-8 text-muted-foreground" />
                     </div>
                   </div>
                 </div>
@@ -813,7 +748,7 @@ export default function AnalyticsPage() {
                             )}
                           >
                             <div
-                              className="h-full bg-gradient-to-r from-blue-600 to-cyan-600 rounded-full transition-all duration-1000"
+                              className="h-full bg-info rounded-full transition-all duration-1000"
                               style={{ width: `${percentage}%` }}
                             />
                           </div>
@@ -967,7 +902,7 @@ export default function AnalyticsPage() {
                             )}
                           >
                             <div
-                              className="h-full bg-gradient-to-r from-orange-500 to-red-500 rounded-full transition-all duration-1000"
+                              className="h-full bg-warning rounded-full transition-all duration-1000"
                               style={{ width: `${percentage}%` }}
                             />
                           </div>
@@ -1186,13 +1121,8 @@ export default function AnalyticsPage() {
                         className={cn(
                           "px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105 active:scale-95",
                           selectedMetric === "revenue"
-                            ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md hover:shadow-lg hover:shadow-indigo-500/30"
-                            : cn(
-                                "text-neutral-700 dark:text-slate-300",
-                                "bg-neutral-100 dark:bg-slate-700/50",
-                                "hover:bg-neutral-200 dark:hover:bg-slate-700",
-                                "hover:shadow-md",
-                              ),
+                            ? "bg-primary text-primary-foreground shadow-sm"
+                            : "bg-muted text-muted-foreground hover:bg-muted/80",
                         )}
                         title="View revenue metrics"
                       >
@@ -1203,13 +1133,8 @@ export default function AnalyticsPage() {
                         className={cn(
                           "px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105 active:scale-95",
                           selectedMetric === "reports"
-                            ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md hover:shadow-lg hover:shadow-indigo-500/30"
-                            : cn(
-                                "text-neutral-700 dark:text-slate-300",
-                                "bg-neutral-100 dark:bg-slate-700/50",
-                                "hover:bg-neutral-200 dark:hover:bg-slate-700",
-                                "hover:shadow-md",
-                              ),
+                            ? "bg-primary text-primary-foreground shadow-sm"
+                            : "bg-muted text-muted-foreground hover:bg-muted/80",
                         )}
                         title="View report metrics"
                       >
@@ -1410,8 +1335,8 @@ export default function AnalyticsPage() {
                     </div>
 
                     <div className="text-center">
-                      <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-purple-500/10 mb-3">
-                        <BarChart3 className="w-6 h-6 text-purple-400" />
+                      <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-info/10 mb-3">
+                        <BarChart3 className="w-6 h-6 text-info" />
                       </div>
                       <p
                         className={cn(

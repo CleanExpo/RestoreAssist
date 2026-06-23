@@ -75,9 +75,9 @@ export function ProgressRing({
       case 3:
         return "from-amber-500 to-amber-600";
       case 4:
-        return "from-purple-500 to-purple-600";
+        return "from-teal-500 to-teal-600";
       default:
-        return "from-gray-500 to-gray-600";
+        return "from-slate-500 to-slate-600";
     }
   };
 
@@ -127,43 +127,6 @@ export function ProgressRing({
     [onQuestionSelect, allQuestions, current],
   );
 
-  /**
-   * Calculate SVG path for circular progress
-   */
-  const calculateCirclePath = (): string => {
-    const radius = 40;
-    const circumference = 2 * Math.PI * radius;
-    const strokeDashoffset = circumference - (percentage / 100) * circumference;
-
-    return `
-      <svg class="w-24 h-24 transform -rotate-90" viewBox="0 0 100 100">
-        <!-- Background circle -->
-        <circle cx="50" cy="50" r="40" fill="none" stroke="currentColor" stroke-width="3" class="text-gray-200" />
-
-        <!-- Progress circle -->
-        <circle
-          cx="50"
-          cy="50"
-          r="40"
-          fill="none"
-          stroke="url(#progress-gradient)"
-          stroke-width="3"
-          stroke-dasharray="${circumference}"
-          stroke-dashoffset="${strokeDashoffset}"
-          stroke-linecap="round"
-          class="transition-all duration-500"
-        />
-
-        <!-- Gradient definition -->
-        <defs>
-          <linearGradient id="progress-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
-            <stop offset="100%" style="stop-color:#2563eb;stop-opacity:1" />
-          </linearGradient>
-        </defs>
-      </svg>
-    `;
-  };
 
   return (
     <TooltipProvider>
@@ -185,7 +148,7 @@ export function ProgressRing({
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="2"
-                  className="text-gray-200"
+                  className="text-muted"
                 />
 
                 {/* Progress circle */}
@@ -269,7 +232,7 @@ export function ProgressRing({
                             ? `bg-gradient-to-r ${getTierColor(tierNum)} text-white shadow-lg scale-110`
                             : tierNum < tier
                               ? "bg-green-100 text-green-700 hover:bg-green-200"
-                              : "bg-gray-100 text-gray-400 cursor-default"
+                              : "bg-muted text-muted-foreground cursor-default"
                       }
                       ${onQuestionSelect && !isLocked ? "hover:shadow-md" : ""}
                     `}
@@ -302,7 +265,7 @@ export function ProgressRing({
 
         {/* Current tier label */}
         <div className="text-center text-xs">
-          <p className="font-semibold text-gray-700">Tier {tier}</p>
+          <p className="font-semibold text-foreground">Tier {tier}</p>
           <p className="text-muted-foreground">{getTierLabel(tier)}</p>
         </div>
       </div>

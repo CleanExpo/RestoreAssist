@@ -43,10 +43,10 @@ export default async function ResourceArticlePage({
   const sections = parseTranscript(resource.transcript);
 
   return (
-    <div className="min-h-screen bg-[#1C2E47]">
+    <div className="min-h-screen bg-brand-navy">
       {/* Minimal header breadcrumb */}
       <div className="max-w-4xl mx-auto px-4 pt-8 pb-2">
-        <nav className="text-sm text-[#C4C8CA]">
+        <nav className="text-sm text-brand-mist">
           <Link
             href="/resources"
             className="hover:text-white transition-colors"
@@ -65,7 +65,7 @@ export default async function ResourceArticlePage({
         </h1>
 
         {/* Meta */}
-        <div className="flex flex-wrap items-center gap-3 text-sm text-[#C4C8CA] mb-8">
+        <div className="flex flex-wrap items-center gap-3 text-sm text-brand-mist mb-8">
           <span>
             {new Date(resource.uploadDate).toLocaleDateString("en-AU", {
               day: "numeric",
@@ -87,7 +87,7 @@ export default async function ResourceArticlePage({
                 </h2>
               )}
               {section.body && (
-                <p className="text-[#C4C8CA] leading-relaxed">{section.body}</p>
+                <p className="text-brand-mist leading-relaxed">{section.body}</p>
               )}
             </div>
           ))}

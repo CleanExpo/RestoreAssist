@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import {
-  BarChart,
   Bar,
   XAxis,
   YAxis,
@@ -10,7 +9,6 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  Cell,
   ComposedChart,
   Line,
 } from "recharts";
@@ -101,7 +99,7 @@ export default function MonthlyVolumeChart({
       >
         <div className="h-[400px] flex items-center justify-center">
           <div className="text-center space-y-4">
-            <Loader2 className="w-8 h-8 text-cyan-500 animate-spin mx-auto" />
+            <Loader2 className="w-8 h-8 text-info animate-spin mx-auto" />
             <p
               className={cn("text-sm", "text-neutral-600 dark:text-slate-400")}
             >
@@ -123,7 +121,7 @@ export default function MonthlyVolumeChart({
         )}
       >
         <div className="flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 text-red-500" />
+          <AlertCircle className="w-5 h-5 text-destructive" />
           <p className={cn("text-sm", "text-red-700 dark:text-red-300")}>
             {error}
           </p>
@@ -171,7 +169,7 @@ export default function MonthlyVolumeChart({
               className={cn(
                 "px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
                 viewMode === "reports"
-                  ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-md"
+                  ? "bg-primary text-primary-foreground shadow-sm"
                   : cn(
                       "bg-neutral-100 dark:bg-slate-700/50",
                       "text-neutral-700 dark:text-slate-300",
@@ -186,7 +184,7 @@ export default function MonthlyVolumeChart({
               className={cn(
                 "px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
                 viewMode === "revenue"
-                  ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md"
+                  ? "bg-primary text-primary-foreground shadow-sm"
                   : cn(
                       "bg-neutral-100 dark:bg-slate-700/50",
                       "text-neutral-700 dark:text-slate-300",
@@ -205,12 +203,12 @@ export default function MonthlyVolumeChart({
             <div
               className={cn(
                 "p-4 rounded-lg border",
-                "bg-gradient-to-br from-cyan-500/10 to-blue-500/10",
-                "border-cyan-500/20",
+                "bg-card",
+                "border-border",
               )}
             >
               <div className="flex items-center gap-2 mb-2">
-                <Calendar className="w-4 h-4 text-cyan-500" />
+                <Calendar className="w-4 h-4 text-info" />
                 <p
                   className={cn(
                     "text-xs",
@@ -233,8 +231,8 @@ export default function MonthlyVolumeChart({
                   className={cn(
                     "text-xs mt-1",
                     currentMonth?.reports >= previousMonth.reports
-                      ? "text-emerald-600"
-                      : "text-red-600",
+                      ? "text-success"
+                      : "text-destructive",
                   )}
                 >
                   {currentMonth?.reports >= previousMonth.reports ? "+" : ""}
@@ -246,12 +244,12 @@ export default function MonthlyVolumeChart({
             <div
               className={cn(
                 "p-4 rounded-lg border",
-                "bg-gradient-to-br from-purple-500/10 to-pink-500/10",
-                "border-purple-500/20",
+                "bg-card",
+                "border-border",
               )}
             >
               <div className="flex items-center gap-2 mb-2">
-                <Target className="w-4 h-4 text-purple-500" />
+                <Target className="w-4 h-4 text-muted-foreground" />
                 <p
                   className={cn(
                     "text-xs",
@@ -283,15 +281,15 @@ export default function MonthlyVolumeChart({
               className={cn(
                 "p-4 rounded-lg border",
                 isGrowing
-                  ? "bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border-emerald-500/20"
-                  : "bg-gradient-to-br from-red-500/10 to-orange-500/10 border-red-500/20",
+                  ? "bg-success/10 border-success/30"
+                  : "bg-destructive/10 border-destructive/30",
               )}
             >
               <div className="flex items-center gap-2 mb-2">
                 {isGrowing ? (
-                  <TrendingUp className="w-4 h-4 text-emerald-500" />
+                  <TrendingUp className="w-4 h-4 text-success" />
                 ) : (
-                  <TrendingDown className="w-4 h-4 text-red-500" />
+                  <TrendingDown className="w-4 h-4 text-destructive" />
                 )}
                 <p
                   className={cn(
@@ -305,7 +303,7 @@ export default function MonthlyVolumeChart({
               <p
                 className={cn(
                   "text-2xl font-bold",
-                  isGrowing ? "text-emerald-600" : "text-red-600",
+                  isGrowing ? "text-success" : "text-destructive",
                 )}
               >
                 {isGrowing ? "+" : ""}
@@ -324,12 +322,12 @@ export default function MonthlyVolumeChart({
             <div
               className={cn(
                 "p-4 rounded-lg border",
-                "bg-gradient-to-br from-amber-500/10 to-orange-500/10",
-                "border-amber-500/20",
+                "bg-card",
+                "border-border",
               )}
             >
               <div className="flex items-center gap-2 mb-2">
-                <Award className="w-4 h-4 text-amber-500" />
+                <Award className="w-4 h-4 text-warning" />
                 <p
                   className={cn(
                     "text-xs",
@@ -507,7 +505,7 @@ export default function MonthlyVolumeChart({
               >
                 YTD Revenue
               </p>
-              <p className={cn("text-xl font-bold text-emerald-600")}>
+              <p className={cn("text-xl font-bold text-success")}>
                 ${summary.ytd.revenue.toLocaleString()}
               </p>
             </div>
@@ -538,7 +536,7 @@ export default function MonthlyVolumeChart({
               >
                 Total Revenue
               </p>
-              <p className={cn("text-xl font-bold text-emerald-600")}>
+              <p className={cn("text-xl font-bold text-success")}>
                 ${summary.totalRevenue.toLocaleString()}
               </p>
             </div>

@@ -33,7 +33,7 @@ export default function SupportPage() {
             </p>
             <a
               href={`mailto:${SUPPORT_EMAIL}`}
-              className="inline-block text-sm font-medium text-[#1C2E47] dark:text-[#D4A574] hover:underline"
+              className="inline-block text-sm font-medium text-brand-navy dark:text-brand-gold hover:underline"
             >
               {SUPPORT_EMAIL}
             </a>
@@ -50,7 +50,7 @@ export default function SupportPage() {
             </p>
             <Link
               href="/faq"
-              className="inline-block text-sm font-medium text-[#1C2E47] dark:text-[#D4A574] hover:underline"
+              className="inline-block text-sm font-medium text-brand-navy dark:text-brand-gold hover:underline"
             >
               Browse FAQs →
             </Link>
@@ -73,7 +73,7 @@ export default function SupportPage() {
               Go to the{" "}
               <Link
                 href="/forgot-password"
-                className="text-[#1C2E47] dark:text-[#D4A574] hover:underline"
+                className="text-brand-navy dark:text-brand-gold hover:underline"
               >
                 forgot password page
               </Link>{" "}
@@ -95,7 +95,7 @@ export default function SupportPage() {
               the current billing period. Email{" "}
               <a
                 href={`mailto:${SUPPORT_EMAIL}`}
-                className="text-[#1C2E47] dark:text-[#D4A574] hover:underline"
+                className="text-brand-navy dark:text-brand-gold hover:underline"
               >
                 {SUPPORT_EMAIL}
               </a>{" "}
@@ -131,7 +131,7 @@ export default function SupportPage() {
               log out and log back in. If the issue persists, contact{" "}
               <a
                 href={`mailto:${SUPPORT_EMAIL}`}
-                className="text-[#1C2E47] dark:text-[#D4A574] hover:underline"
+                className="text-brand-navy dark:text-brand-gold hover:underline"
               >
                 {SUPPORT_EMAIL}
               </a>
@@ -150,7 +150,7 @@ export default function SupportPage() {
               Email{" "}
               <a
                 href="mailto:privacy@restoreassist.app"
-                className="text-[#1C2E47] dark:text-[#D4A574] hover:underline"
+                className="text-brand-navy dark:text-brand-gold hover:underline"
               >
                 privacy@restoreassist.app
               </a>{" "}
@@ -168,7 +168,7 @@ export default function SupportPage() {
             For urgent issues outside business hours, email{" "}
             <a
               href={`mailto:${SUPPORT_EMAIL}`}
-              className="text-[#1C2E47] dark:text-[#D4A574] hover:underline"
+              className="text-brand-navy dark:text-brand-gold hover:underline"
             >
               {SUPPORT_EMAIL}
             </a>{" "}

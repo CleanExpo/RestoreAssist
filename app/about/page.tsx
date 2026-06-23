@@ -55,23 +55,23 @@ export default function AboutPage() {
 
   return (
     <div
-      className={`min-h-screen transition-colors duration-300 ${darkMode ? "bg-[#1C2E47]" : "bg-[#F4F5F6]"}`}
+      className={`min-h-screen transition-colors duration-300 ${darkMode ? "bg-brand-navy" : "bg-brand-cloud"}`}
     >
       <Header darkMode={darkMode} setDarkMode={setDarkMode} />
 
       {/* Hero Section */}
-      <section className="pt-48 pb-20 px-6 relative z-10 min-h-[60vh] flex items-center bg-[#C4C8CA]/30 overflow-hidden">
+      <section className="pt-48 pb-20 px-6 relative z-10 min-h-[60vh] flex items-center bg-brand-mist/30 overflow-hidden">
         {/* Golden Decorative Shapes */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-          <div className="absolute top-20 right-10 w-72 h-72 bg-[#8A6B4E]/10 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-20 left-10 w-96 h-96 bg-[#8A6B4E]/8 rounded-full blur-3xl"></div>
+          <div className="absolute top-20 right-10 w-72 h-72 bg-brand-bronze/10 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-20 left-10 w-96 h-96 bg-brand-bronze/8 rounded-full blur-3xl"></div>
         </div>
         <div className="max-w-7xl mx-auto w-full relative z-10">
           <motion.h1
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className={`text-5xl md:text-6xl font-bold mb-6 leading-tight ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+            className={`text-5xl md:text-6xl font-bold mb-6 leading-tight ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}
             style={{
               fontFamily:
                 '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -83,7 +83,7 @@ export default function AboutPage() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className={`text-xl md:text-2xl ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+            className={`text-xl md:text-2xl ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
             style={{
               fontFamily:
                 '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -96,10 +96,10 @@ export default function AboutPage() {
       </section>
 
       {/* About Content */}
-      <section className="py-20 px-6 relative bg-[#C4C8CA]/30 overflow-hidden">
+      <section className="py-20 px-6 relative bg-brand-mist/30 overflow-hidden">
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-          <div className="absolute top-10 left-1/4 w-80 h-80 bg-[#8A6B4E]/12 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-10 right-1/4 w-64 h-64 bg-[#8A6B4E]/10 rounded-full blur-3xl"></div>
+          <div className="absolute top-10 left-1/4 w-80 h-80 bg-brand-bronze/12 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-10 right-1/4 w-64 h-64 bg-brand-bronze/10 rounded-full blur-3xl"></div>
         </div>
         <div className="max-w-7xl mx-auto relative z-10">
           <div className="grid md:grid-cols-2 gap-12 mb-20">
@@ -110,7 +110,7 @@ export default function AboutPage() {
               transition={{ duration: 0.6 }}
             >
               <h2
-                className={`text-3xl font-bold mb-6 ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+                className={`text-3xl font-bold mb-6 ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}
                 style={{
                   fontFamily:
                     '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -119,7 +119,7 @@ export default function AboutPage() {
                 Our Mission
               </h2>
               <p
-                className={`text-lg leading-relaxed mb-4 ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                className={`text-lg leading-relaxed mb-4 ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
                 style={{
                   fontFamily:
                     '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -131,7 +131,7 @@ export default function AboutPage() {
                 shouldn't be complicated or time-consuming.
               </p>
               <p
-                className={`text-lg leading-relaxed ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                className={`text-lg leading-relaxed ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
                 style={{
                   fontFamily:
                     '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -149,7 +149,7 @@ export default function AboutPage() {
               transition={{ duration: 0.6 }}
             >
               <h2
-                className={`text-3xl font-bold mb-6 ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+                className={`text-3xl font-bold mb-6 ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}
                 style={{
                   fontFamily:
                     '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -158,7 +158,7 @@ export default function AboutPage() {
                 Our Story
               </h2>
               <p
-                className={`text-lg leading-relaxed mb-4 ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6B7B]"}`}
+                className={`text-lg leading-relaxed mb-4 ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
                 style={{
                   fontFamily:
                     '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -169,7 +169,7 @@ export default function AboutPage() {
                 with cutting-edge AI technology.
               </p>
               <p
-                className={`text-lg leading-relaxed ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                className={`text-lg leading-relaxed ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
                 style={{
                   fontFamily:
                     '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -190,7 +190,7 @@ export default function AboutPage() {
             transition={{ duration: 0.6 }}
           >
             <h2
-              className={`text-3xl font-bold mb-12 text-center ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+              className={`text-3xl font-bold mb-12 text-center ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}
               style={{
                 fontFamily:
                   '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -206,10 +206,10 @@ export default function AboutPage() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.6, delay: index * 0.1 }}
-                  className={`p-6 rounded-lg ${darkMode ? "bg-[#1C2E47]/50" : "bg-[#F4F5F6]/50"} backdrop-blur-sm border ${darkMode ? "border-[#5A6A7B]/30" : "border-[#5A6A7B]/20"}`}
+                  className={`p-6 rounded-lg ${darkMode ? "bg-brand-navy/50" : "bg-brand-cloud/50"} backdrop-blur-sm border ${darkMode ? "border-brand-slate/30" : "border-brand-slate/20"}`}
                 >
                   <h3
-                    className={`text-xl font-bold mb-3 ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+                    className={`text-xl font-bold mb-3 ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}
                     style={{
                       fontFamily:
                         '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -218,7 +218,7 @@ export default function AboutPage() {
                     {value.title}
                   </h3>
                   <p
-                    className={`text-sm ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                    className={`text-sm ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
                     style={{
                       fontFamily:
                         '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',

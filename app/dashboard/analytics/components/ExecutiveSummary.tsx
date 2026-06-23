@@ -19,8 +19,7 @@ export default function ExecutiveSummary({
       <div
         className={cn(
           "rounded-2xl p-6 animate-pulse",
-          "bg-gradient-to-br from-indigo-500/10 via-purple-500/10 to-pink-500/10",
-          "border border-indigo-500/20 dark:border-indigo-400/20",
+          "bg-card border border-border",
         )}
       >
         <div
@@ -54,15 +53,14 @@ export default function ExecutiveSummary({
   return (
     <div
       className={cn(
-        "rounded-2xl p-6 backdrop-blur-sm transition-all duration-300",
-        "bg-gradient-to-br from-indigo-500/10 via-purple-500/10 to-pink-500/10",
-        "border border-indigo-500/20 dark:border-indigo-400/20",
-        "hover:border-indigo-500/40 dark:hover:border-indigo-400/40",
+        "rounded-2xl p-6 transition-colors",
+        "bg-card border border-border",
+        "hover:border-ring/60",
       )}
     >
       <div className="flex items-center gap-3 mb-4">
-        <div className="p-2 rounded-lg bg-indigo-500/20">
-          <Sparkles className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
+        <div className="p-2 rounded-lg bg-muted">
+          <Sparkles className="w-5 h-5 text-info" />
         </div>
         <div>
           <h3
