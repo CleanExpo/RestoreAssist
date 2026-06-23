@@ -139,7 +139,7 @@ export async function POST(
         // Update invoice in transaction
         const _updatedInvoice = await prisma.$transaction([
           prisma.invoice.update({
-            where: { id },
+            where: { id, userId },
             data: {
               status: "SENT",
               sentDate: new Date(),
