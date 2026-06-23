@@ -22,7 +22,7 @@ export function DeleteClientModal({
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
       <div className="bg-slate-800 rounded-lg border border-slate-700 max-w-md w-full p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-red-400">Delete Client</h2>
+          <h2 className="text-xl font-semibold text-destructive">Delete Client</h2>
           <button
             onClick={() => onOpenChange(false)}
             className="p-1 hover:bg-slate-700 rounded"

@@ -77,9 +77,9 @@ export default function CompletionMetrics({
 
   const trendColor =
     trend === "improving"
-      ? "text-emerald-600 dark:text-emerald-400"
+      ? "text-success"
       : trend === "declining"
-        ? "text-red-600 dark:text-red-400"
+        ? "text-destructive"
         : "text-neutral-600 dark:text-slate-400";
 
   const trendIcon =
@@ -246,7 +246,7 @@ export default function CompletionMetrics({
               <p
                 className={cn(
                   "text-2xl font-semibold",
-                  "text-emerald-600 dark:text-emerald-400",
+                  "text-success",
                 )}
               >
                 {overall.completionRate !== undefined
@@ -497,16 +497,16 @@ export default function CompletionMetrics({
                 size={16}
                 className={
                   trend === "improving"
-                    ? "text-emerald-600 dark:text-emerald-400"
-                    : "text-red-600 dark:text-red-400"
+                    ? "text-success"
+                    : "text-destructive"
                 }
               />
               <p
                 className={cn(
                   "text-sm",
                   trend === "improving"
-                    ? "text-emerald-700 dark:text-emerald-300"
-                    : "text-red-700 dark:text-red-300",
+                    ? "text-success"
+                    : "text-destructive",
                 )}
               >
                 {trend === "improving"

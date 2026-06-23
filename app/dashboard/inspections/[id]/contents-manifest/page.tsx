@@ -97,7 +97,7 @@ const CONDITION_LABELS: Record<string, string> = {
 const RESTORABILITY_ICONS: Record<string, { label: string; color: string }> = {
   restorable: {
     label: "Restorable",
-    color: "text-emerald-600 dark:text-emerald-400",
+    color: "text-success",
   },
   questionable: {
     label: "Questionable",
@@ -105,7 +105,7 @@ const RESTORABILITY_ICONS: Record<string, { label: string; color: string }> = {
   },
   non_restorable: {
     label: "Non-Restorable",
-    color: "text-red-600 dark:text-red-400",
+    color: "text-destructive",
   },
 };
 
@@ -252,7 +252,7 @@ function ManifestRow({ item, index, onUpdate }: ManifestRowProps) {
                 {categoryLabel}
               </span>
               {item.verified && (
-                <CheckCircle2 size={12} className="text-emerald-500" />
+                <CheckCircle2 size={12} className="text-success" />
               )}
             </div>
           </div>
@@ -342,7 +342,7 @@ function ManifestRow({ item, index, onUpdate }: ManifestRowProps) {
               size="sm"
               variant="ghost"
               onClick={handleSave}
-              className="h-7 px-2 text-emerald-600"
+              className="h-7 px-2 text-success"
             >
               Save
             </Button>
@@ -853,7 +853,7 @@ export default function ContentsManifestPage({
           <Separator />
           <div className="flex flex-wrap items-center gap-6 text-sm text-neutral-600 dark:text-slate-400">
             <div className="flex items-center gap-1.5">
-              <CheckCircle2 size={15} className="text-emerald-500" />
+              <CheckCircle2 size={15} className="text-success" />
               <span>
                 <strong className="text-neutral-900 dark:text-white">
                   {verifiedCount}

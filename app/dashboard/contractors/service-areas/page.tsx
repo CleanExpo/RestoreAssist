@@ -375,7 +375,7 @@ export default function ServiceAreasPage() {
                         <div className="flex items-center gap-4 flex-shrink-0">
                           <div className="flex items-center gap-2">
                             <span
-                              className={`text-xs ${area.isActive ? "text-green-400" : "text-slate-500"}`}
+                              className={`text-xs ${area.isActive ? "text-success" : "text-slate-500"}`}
                             >
                               {area.isActive ? "Active" : "Inactive"}
                             </span>
@@ -387,7 +387,7 @@ export default function ServiceAreasPage() {
                           </div>
                           <button
                             onClick={() => handleDelete(area.id)}
-                            className="text-red-400 hover:text-red-300 transition-colors"
+                            className="text-destructive hover:text-destructive transition-colors"
                             aria-label={`Delete ${area.postcode}`}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -414,7 +414,7 @@ export default function ServiceAreasPage() {
             {/* Postcode */}
             <div className="space-y-1.5">
               <Label htmlFor="postcode" className="text-slate-300">
-                Postcode <span className="text-red-400">*</span>
+                Postcode <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="postcode"
@@ -447,7 +447,7 @@ export default function ServiceAreasPage() {
             {/* State */}
             <div className="space-y-1.5">
               <Label className="text-slate-300">
-                State <span className="text-red-400">*</span>
+                State <span className="text-destructive">*</span>
               </Label>
               <Select
                 value={form.state}

@@ -642,7 +642,7 @@ export default function AuthorityFormsViewer({
                               <span
                                 className={cn(
                                   "text-xs ml-2",
-                                  "text-green-700 dark:text-green-400",
+                                  "text-success",
                                 )}
                               >
                                 Created

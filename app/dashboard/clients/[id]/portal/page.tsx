@@ -287,10 +287,10 @@ export default function ClientPortalPage({
             <div className="flex items-start gap-3">
               <CheckCircle
                 size={22}
-                className="text-emerald-400 mt-0.5 shrink-0"
+                className="text-success mt-0.5 shrink-0"
               />
               <div>
-                <p className="font-medium text-emerald-400">Portal Active</p>
+                <p className="font-medium text-success">Portal Active</p>
                 <p className="text-sm text-slate-400 mt-0.5">
                   {client?.name ?? "Client"} accepted the invitation on{" "}
                   {fmt(acceptedInvitation.acceptedAt)}.

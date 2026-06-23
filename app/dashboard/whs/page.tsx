@@ -265,7 +265,7 @@ function CorrectiveActionsRow({
                       }`}
                     >
                       {action.completedAt && (
-                        <CheckCircle className="h-3 w-3 text-green-400" />
+                        <CheckCircle className="h-3 w-3 text-success" />
                       )}
                     </div>
 
@@ -289,7 +289,7 @@ function CorrectiveActionsRow({
                           <span
                             className={
                               overdue
-                                ? "text-red-400 font-medium"
+                                ? "text-destructive font-medium"
                                 : "text-slate-400"
                             }
                           >
@@ -298,7 +298,7 @@ function CorrectiveActionsRow({
                           </span>
                         )}
                         {action.completedAt && (
-                          <span className="text-green-400">
+                          <span className="text-success">
                             Completed: {formatDate(action.completedAt)}
                           </span>
                         )}
@@ -377,7 +377,7 @@ function NewIncidentFormPanel({
         {/* Incident Type */}
         <div className="space-y-1.5">
           <Label htmlFor="incidentType" className="text-slate-300">
-            Incident Type <span className="text-red-400">*</span>
+            Incident Type <span className="text-destructive">*</span>
           </Label>
           <Input
             id="incidentType"
@@ -387,14 +387,14 @@ function NewIncidentFormPanel({
             className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400"
           />
           {errors.incidentType && (
-            <p className="text-xs text-red-400">{errors.incidentType}</p>
+            <p className="text-xs text-destructive">{errors.incidentType}</p>
           )}
         </div>
 
         {/* Severity */}
         <div className="space-y-1.5">
           <Label htmlFor="severity" className="text-slate-300">
-            Severity <span className="text-red-400">*</span>
+            Severity <span className="text-destructive">*</span>
           </Label>
           <select
             id="severity"
@@ -409,14 +409,14 @@ function NewIncidentFormPanel({
             <option value="CRITICAL">Critical</option>
           </select>
           {errors.severity && (
-            <p className="text-xs text-red-400">{errors.severity}</p>
+            <p className="text-xs text-destructive">{errors.severity}</p>
           )}
         </div>
 
         {/* Status */}
         <div className="space-y-1.5">
           <Label htmlFor="status" className="text-slate-300">
-            Status <span className="text-red-400">*</span>
+            Status <span className="text-destructive">*</span>
           </Label>
           <select
             id="status"
@@ -431,14 +431,14 @@ function NewIncidentFormPanel({
             <option value="REQUIRES_ESCALATION">Requires Escalation</option>
           </select>
           {errors.status && (
-            <p className="text-xs text-red-400">{errors.status}</p>
+            <p className="text-xs text-destructive">{errors.status}</p>
           )}
         </div>
 
         {/* Incident Date */}
         <div className="space-y-1.5">
           <Label htmlFor="incidentDate" className="text-slate-300">
-            Incident Date <span className="text-red-400">*</span>
+            Incident Date <span className="text-destructive">*</span>
           </Label>
           <Input
             id="incidentDate"
@@ -448,7 +448,7 @@ function NewIncidentFormPanel({
             className="bg-slate-700/50 border-slate-600 text-white"
           />
           {errors.incidentDate && (
-            <p className="text-xs text-red-400">{errors.incidentDate}</p>
+            <p className="text-xs text-destructive">{errors.incidentDate}</p>
           )}
         </div>
 
@@ -806,7 +806,7 @@ export default function WHSPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
-            <p className="text-3xl font-bold text-green-400">
+            <p className="text-3xl font-bold text-success">
               {closedThisMonth}
             </p>
           </CardContent>
@@ -820,7 +820,7 @@ export default function WHSPage() {
           </CardHeader>
           <CardContent className="px-4 pb-4">
             <p
-              className={`text-3xl font-bold ${overdueCount > 0 ? "text-red-400" : "text-slate-400"}`}
+              className={`text-3xl font-bold ${overdueCount > 0 ? "text-destructive" : "text-slate-400"}`}
             >
               {overdueCount}
             </p>

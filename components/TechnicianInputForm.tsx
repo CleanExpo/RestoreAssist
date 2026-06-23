@@ -437,7 +437,7 @@ export default function TechnicianInputForm({
                 htmlFor="technicianNotes"
                 className="text-white font-semibold"
               >
-                Technician Notes <span className="text-red-400">*</span>
+                Technician Notes <span className="text-destructive">*</span>
               </Label>
               <Textarea
                 id="technicianNotes"

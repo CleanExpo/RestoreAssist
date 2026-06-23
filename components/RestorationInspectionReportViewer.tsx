@@ -1640,7 +1640,7 @@ export default function RestorationInspectionReportViewer({
               {data.psychrometric && (
                 <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-6 print:p-4 border-2 border-green-200">
                   <h3 className="text-lg print:text-base font-bold text-slate-900 mb-4 print:mb-3 flex items-center gap-2">
-                    <Wind className="w-5 h-5 print:w-4 print:h-4 text-green-600" />
+                    <Wind className="w-5 h-5 print:w-4 print:h-4 text-success" />
                     Psychrometric Assessment
                   </h3>
                   <div className="grid md:grid-cols-2 gap-4 print:gap-3">
@@ -1810,14 +1810,14 @@ export default function RestorationInspectionReportViewer({
             data.hazards.methamphetamineScreen) && (
             <section className="print-avoid-break mb-6 print:mb-4">
               <h2 className="text-2xl print:text-xl font-bold text-slate-900 mb-4 print:mb-3 flex items-center gap-2">
-                <AlertTriangle className="w-6 h-6 print:w-5 print:h-5 text-red-600" />
+                <AlertTriangle className="w-6 h-6 print:w-5 print:h-5 text-destructive" />
                 Hazards Assessment
               </h2>
               <div className="bg-red-50 rounded-lg p-6 print:p-4 border-2 border-red-200">
                 <div className="space-y-3 print:space-y-2">
                   {data.hazards.biologicalMouldDetected && (
                     <div className="flex items-start gap-2">
-                      <AlertTriangle className="w-5 h-5 print:w-4 print:h-4 text-red-600 mt-0.5 flex-shrink-0" />
+                      <AlertTriangle className="w-5 h-5 print:w-4 print:h-4 text-destructive mt-0.5 flex-shrink-0" />
                       <div>
                         <p className="font-semibold text-slate-900 text-base print:text-sm">
                           Biological Mould Detected
@@ -1837,7 +1837,7 @@ export default function RestorationInspectionReportViewer({
                   )}
                   {data.hazards.asbestosRisk && (
                     <div className="flex items-start gap-2">
-                      <HardHat className="w-5 h-5 print:w-4 print:h-4 text-red-600 mt-0.5 flex-shrink-0" />
+                      <HardHat className="w-5 h-5 print:w-4 print:h-4 text-destructive mt-0.5 flex-shrink-0" />
                       <div>
                         <p className="font-semibold text-slate-900 text-base print:text-sm">
                           Potential Asbestos Risk
@@ -1854,7 +1854,7 @@ export default function RestorationInspectionReportViewer({
                   )}
                   {data.hazards.leadRisk && (
                     <div className="flex items-start gap-2">
-                      <HardHat className="w-5 h-5 print:w-4 print:h-4 text-red-600 mt-0.5 flex-shrink-0" />
+                      <HardHat className="w-5 h-5 print:w-4 print:h-4 text-destructive mt-0.5 flex-shrink-0" />
                       <div>
                         <p className="font-semibold text-slate-900 text-base print:text-sm">
                           Potential Lead Risk
@@ -1870,7 +1870,7 @@ export default function RestorationInspectionReportViewer({
                   )}
                   {data.hazards.methamphetamineScreen && (
                     <div className="flex items-start gap-2">
-                      <Shield className="w-5 h-5 print:w-4 print:h-4 text-red-600 mt-0.5 flex-shrink-0" />
+                      <Shield className="w-5 h-5 print:w-4 print:h-4 text-destructive mt-0.5 flex-shrink-0" />
                       <div>
                         <p className="font-semibold text-slate-900 text-base print:text-sm">
                           Methamphetamine Screen:{" "}
@@ -1970,7 +1970,7 @@ export default function RestorationInspectionReportViewer({
               <div className="space-y-2 print:space-y-1">
                 {getComplianceStandards().map((standard, index) => (
                   <div key={index} className="flex items-start gap-2">
-                    <CheckCircle className="w-4 h-4 print:w-3 print:h-3 text-green-600 mt-0.5 flex-shrink-0" />
+                    <CheckCircle className="w-4 h-4 print:w-3 print:h-3 text-success mt-0.5 flex-shrink-0" />
                     <p className="text-sm print:text-xs text-slate-900">
                       {standard}
                     </p>

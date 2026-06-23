@@ -80,12 +80,12 @@ const STATUS_CONFIG: Record<
   },
   COMPLETED: {
     label: "Completed",
-    color: "text-emerald-600 dark:text-emerald-400",
+    color: "text-success",
     bg: "bg-emerald-50 dark:bg-emerald-900/30",
   },
   REJECTED: {
     label: "Rejected",
-    color: "text-red-600 dark:text-red-400",
+    color: "text-destructive",
     bg: "bg-red-50 dark:bg-red-900/30",
   },
 };

@@ -156,8 +156,8 @@ export function AdaptiveGuidancePanel({
         {/* Risk tier badge for high-risk steps */}
         {riskTier >= 2 && (
           <div className="mt-3 flex items-center gap-1.5">
-            <Shield className="h-3.5 w-3.5 text-red-500" />
-            <span className="text-[10px] font-medium text-red-600 dark:text-red-400">
+            <Shield className="h-3.5 w-3.5 text-destructive" />
+            <span className="text-[10px] font-medium text-destructive">
               Risk Tier {riskTier} — Additional scrutiny required
             </span>
           </div>
@@ -224,7 +224,7 @@ export function AdaptiveGuidancePanel({
                 >
                   <div className="mt-0.5 flex-shrink-0">
                     {checked ? (
-                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      <CheckCircle2 className="h-4 w-4 text-success" />
                     ) : (
                       <Circle className="h-4 w-4 text-slate-400" />
                     )}
@@ -234,7 +234,7 @@ export function AdaptiveGuidancePanel({
                       className={cn(
                         "text-sm font-medium",
                         checked
-                          ? "text-green-700 dark:text-green-400 line-through"
+                          ? "text-success line-through"
                           : "text-slate-800 dark:text-slate-200",
                       )}
                     >
@@ -292,7 +292,7 @@ export function AdaptiveGuidancePanel({
                   >
                     <div className="mt-0.5 flex-shrink-0">
                       {confirmed ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        <CheckCircle2 className="h-4 w-4 text-success" />
                       ) : (
                         <Circle
                           className={cn(
@@ -307,7 +307,7 @@ export function AdaptiveGuidancePanel({
                         className={cn(
                           "text-sm",
                           confirmed
-                            ? "text-green-700 dark:text-green-400"
+                            ? "text-success"
                             : "text-slate-800 dark:text-slate-200",
                         )}
                       >
@@ -337,15 +337,15 @@ export function AdaptiveGuidancePanel({
                 className="w-full flex items-center justify-between p-4 text-left hover:bg-emerald-50 dark:hover:bg-emerald-900/10 transition-colors"
               >
                 <div className="flex items-center gap-2">
-                  <Lightbulb className="h-4 w-4 text-emerald-500" />
-                  <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">
+                  <Lightbulb className="h-4 w-4 text-success" />
+                  <span className="text-xs font-semibold text-success uppercase tracking-wide">
                     Tips ({guidance.tips.length})
                   </span>
                 </div>
                 {showTips ? (
-                  <ChevronUp className="h-4 w-4 text-emerald-400" />
+                  <ChevronUp className="h-4 w-4 text-success" />
                 ) : (
-                  <ChevronDown className="h-4 w-4 text-emerald-400" />
+                  <ChevronDown className="h-4 w-4 text-success" />
                 )}
               </button>
               {showTips && (
@@ -353,7 +353,7 @@ export function AdaptiveGuidancePanel({
                   {guidance.tips.map((tip, i) => (
                     <p
                       key={i}
-                      className="text-xs text-emerald-800 dark:text-emerald-300 leading-relaxed pl-6"
+                      className="text-xs text-success leading-relaxed pl-6"
                     >
                       {tip}
                     </p>
@@ -371,15 +371,15 @@ export function AdaptiveGuidancePanel({
                 className="w-full flex items-center justify-between p-4 text-left hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
               >
                 <div className="flex items-center gap-2">
-                  <XCircle className="h-4 w-4 text-red-500" />
-                  <span className="text-xs font-semibold text-red-700 dark:text-red-400 uppercase tracking-wide">
+                  <XCircle className="h-4 w-4 text-destructive" />
+                  <span className="text-xs font-semibold text-destructive uppercase tracking-wide">
                     Avoid ({guidance.commonMistakes.length})
                   </span>
                 </div>
                 {showMistakes ? (
-                  <ChevronUp className="h-4 w-4 text-red-400" />
+                  <ChevronUp className="h-4 w-4 text-destructive" />
                 ) : (
-                  <ChevronDown className="h-4 w-4 text-red-400" />
+                  <ChevronDown className="h-4 w-4 text-destructive" />
                 )}
               </button>
               {showMistakes && (
@@ -387,7 +387,7 @@ export function AdaptiveGuidancePanel({
                   {guidance.commonMistakes.map((mistake, i) => (
                     <p
                       key={i}
-                      className="text-xs text-red-800 dark:text-red-300 leading-relaxed pl-6"
+                      className="text-xs text-destructive leading-relaxed pl-6"
                     >
                       {mistake}
                     </p>

@@ -468,8 +468,8 @@ export default function InvoiceVariationsPage({
                         className={
                           "text-sm font-semibold tabular-nums " +
                           (delta.positive
-                            ? "text-green-600 dark:text-green-400"
-                            : "text-red-600 dark:text-red-400")
+                            ? "text-success"
+                            : "text-destructive")
                         }
                       >
                         {delta.value}

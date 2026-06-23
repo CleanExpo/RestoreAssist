@@ -757,7 +757,7 @@ export default function RestorationInvoiceForm({
                       <button
                         type="button"
                         onClick={() => removeLineItem(idx)}
-                        className="text-red-600 hover:text-red-700 dark:text-red-400"
+                        className="text-destructive hover:text-destructive"
                       >
                         ×
                       </button>

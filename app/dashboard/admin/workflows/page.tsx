@@ -243,7 +243,7 @@ function TaskRow({ task }: { task: AgentTask }) {
           <div>
             <span
               className={cn(
-                "text-red-500 dark:text-red-400 cursor-pointer",
+                "text-destructive cursor-pointer",
                 expandError ? "" : "line-clamp-1",
               )}
               onClick={() => setExpandError(!expandError)}
@@ -391,7 +391,7 @@ function WorkflowRow({
         {/* Failed tasks */}
         <td className="px-4 py-3 text-center">
           {workflow.failedTasks > 0 ? (
-            <span className="text-xs font-medium text-red-500 dark:text-red-400">
+            <span className="text-xs font-medium text-destructive">
               {workflow.failedTasks}
             </span>
           ) : (
@@ -644,7 +644,7 @@ export default function WorkflowMonitorPage() {
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
               <div className="p-3 rounded-lg bg-green-500/10">
-                <CheckCircle className="h-6 w-6 text-green-500" />
+                <CheckCircle className="h-6 w-6 text-success" />
               </div>
               <div>
                 <p className="text-2xl font-semibold text-neutral-900 dark:text-white">
@@ -660,7 +660,7 @@ export default function WorkflowMonitorPage() {
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
               <div className="p-3 rounded-lg bg-red-500/10">
-                <XCircle className="h-6 w-6 text-red-500" />
+                <XCircle className="h-6 w-6 text-destructive" />
               </div>
               <div>
                 <p className="text-2xl font-semibold text-neutral-900 dark:text-white">

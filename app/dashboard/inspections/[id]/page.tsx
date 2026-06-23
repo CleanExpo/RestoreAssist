@@ -306,9 +306,9 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
 }
 
 function moistureColor(level: number): string {
-  if (level < 15) return "text-emerald-600 dark:text-emerald-400";
+  if (level < 15) return "text-success";
   if (level < 25) return "text-amber-600 dark:text-amber-400";
-  return "text-red-600 dark:text-red-400";
+  return "text-destructive";
 }
 
 function moistureBg(level: number): string {
@@ -796,7 +796,7 @@ export default function InspectionDetailPage({
   if (!inspection) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-        <XCircle className="text-red-500" size={40} />
+        <XCircle className="text-destructive" size={40} />
         <p className="text-slate-400 text-sm">
           {loadError
             ? "Could not load inspection. Check your connection and try again."
@@ -1186,7 +1186,7 @@ export default function InspectionDetailPage({
               <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider mb-1">
                 Estimated Cost
               </div>
-              <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+              <div className="text-2xl font-bold text-success">
                 $
                 {totalCost.toLocaleString("en-AU", {
                   minimumFractionDigits: 2,
@@ -1689,7 +1689,7 @@ export default function InspectionDetailPage({
                           <button
                             onClick={() => handleDeleteMoisture(reading.id)}
                             aria-label={`Delete moisture reading for ${reading.location}`}
-                            className="text-red-400 hover:text-red-600 transition-colors focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none rounded"
+                            className="text-destructive hover:text-destructive transition-colors focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none rounded"
                           >
                             <Trash2 size={14} aria-hidden="true" />
                           </button>
@@ -1883,7 +1883,7 @@ export default function InspectionDetailPage({
                         <button
                           onClick={() => handleDeleteArea(area.id)}
                           aria-label={`Delete area ${area.roomZoneId}`}
-                          className="p-1 text-red-400 hover:text-red-600 transition-colors focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none rounded"
+                          className="p-1 text-destructive hover:text-destructive transition-colors focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none rounded"
                         >
                           <Trash2 size={14} aria-hidden="true" />
                         </button>
@@ -2528,7 +2528,7 @@ export default function InspectionDetailPage({
                       >
                         Total
                       </td>
-                      <td className="px-4 py-3 text-sm font-bold text-right text-emerald-600 dark:text-emerald-400">
+                      <td className="px-4 py-3 text-sm font-bold text-right text-success">
                         $
                         {totalCost.toLocaleString("en-AU", {
                           minimumFractionDigits: 2,

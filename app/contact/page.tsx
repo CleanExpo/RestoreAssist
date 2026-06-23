@@ -284,7 +284,7 @@ export default function ContactPage() {
                   <p
                     role="status"
                     aria-live="polite"
-                    className="text-sm font-medium text-emerald-400"
+                    className="text-sm font-medium text-success"
                   >
                     Thanks — your message has been received. We&apos;ll respond
                     within 24 hours.
@@ -294,7 +294,7 @@ export default function ContactPage() {
                   <p
                     role="alert"
                     aria-live="assertive"
-                    className="text-sm font-medium text-red-400"
+                    className="text-sm font-medium text-destructive"
                   >
                     {errorMsg}
                   </p>

@@ -174,7 +174,7 @@ export default function ClientEditPage() {
               htmlFor="name"
               className="block text-sm font-medium text-slate-300"
             >
-              Name <span className="text-red-400">*</span>
+              Name <span className="text-destructive">*</span>
             </label>
             <input
               id="name"
@@ -194,7 +194,7 @@ export default function ClientEditPage() {
               htmlFor="email"
               className="block text-sm font-medium text-slate-300"
             >
-              Email <span className="text-red-400">*</span>
+              Email <span className="text-destructive">*</span>
             </label>
             <input
               id="email"

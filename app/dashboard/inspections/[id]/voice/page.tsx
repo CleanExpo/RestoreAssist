@@ -249,7 +249,7 @@ export default function VoiceSessionPage({ params }: PageProps) {
             )}
           </div>
 
-          {error && <p className="text-red-400 text-sm text-center">{error}</p>}
+          {error && <p className="text-destructive text-sm text-center">{error}</p>}
 
           <Button
             onClick={startSession}
@@ -350,7 +350,7 @@ export default function VoiceSessionPage({ params }: PageProps) {
                   title={item.label}
                 >
                   {item.complete ? (
-                    <CheckCircle2 className="h-3 w-3 text-green-400" />
+                    <CheckCircle2 className="h-3 w-3 text-success" />
                   ) : item.priority === 1 ? (
                     <AlertCircle className="h-3 w-3 text-amber-400" />
                   ) : (
@@ -406,7 +406,7 @@ function ConfidenceBadge({
   stored: boolean;
 }) {
   if (stored) {
-    return <CheckCircle2 className="h-4 w-4 text-green-400 shrink-0" />;
+    return <CheckCircle2 className="h-4 w-4 text-success shrink-0" />;
   }
   return (
     <span

@@ -166,7 +166,7 @@ export default function BillingOverview() {
           <p
             className={cn(
               "text-sm font-medium",
-              "text-red-700 dark:text-destructive",
+              "text-destructive dark:text-destructive",
             )}
           >
             {error}

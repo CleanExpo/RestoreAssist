@@ -142,7 +142,7 @@ export default function ReopenInspectionPrompt({
             {error ? (
               <p
                 role="alert"
-                className="text-sm text-red-700 dark:text-red-400 flex items-start gap-1"
+                className="text-sm text-destructive flex items-start gap-1"
               >
                 {errorIcon ? (
                   <span className="mt-0.5 shrink-0">{errorIcon}</span>

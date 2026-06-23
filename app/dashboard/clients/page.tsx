@@ -889,7 +889,7 @@ export default function ClientsPage() {
                               className="p-1 hover:bg-neutral-100 dark:hover:bg-slate-700 rounded transition-colors"
                               title="Delete"
                             >
-                              <Trash2 size={16} className="text-rose-400" />
+                              <Trash2 size={16} className="text-destructive" />
                             </button>
                           </div>
                         </td>

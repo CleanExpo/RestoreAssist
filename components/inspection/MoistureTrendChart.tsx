@@ -121,16 +121,16 @@ function CustomTooltip({ active, payload, label }: any) {
             className={cn(
               "font-semibold",
               entry.value <= DRY_STANDARD
-                ? "text-emerald-600 dark:text-emerald-400"
+                ? "text-success"
                 : entry.value <= 25
                   ? "text-amber-600 dark:text-amber-400"
-                  : "text-rose-600 dark:text-rose-400",
+                  : "text-destructive",
             )}
           >
             {entry.value}%
           </span>
           {entry.value <= DRY_STANDARD && (
-            <CheckCircle2 size={11} className="text-emerald-500" />
+            <CheckCircle2 size={11} className="text-success" />
           )}
           {entry.value > DRY_STANDARD && (
             <AlertTriangle size={11} className="text-amber-500" />
@@ -211,9 +211,9 @@ export default function MoistureTrendChart({
         <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 text-sm">
           <CheckCircle2
             size={16}
-            className="text-emerald-600 dark:text-emerald-400"
+            className="text-success"
           />
-          <span className="text-emerald-700 dark:text-emerald-400 font-medium">
+          <span className="text-success font-medium">
             All {dryCount}/{totalLocations} locations at or below dry standard (
             {DRY_STANDARD}%)
           </span>
@@ -322,10 +322,10 @@ export default function MoistureTrendChart({
                     className={cn(
                       "px-4 py-2.5 text-right font-semibold",
                       level <= DRY_STANDARD
-                        ? "text-emerald-600 dark:text-emerald-400"
+                        ? "text-success"
                         : level <= 25
                           ? "text-amber-600 dark:text-amber-400"
-                          : "text-rose-600 dark:text-rose-400",
+                          : "text-destructive",
                     )}
                   >
                     {level}%

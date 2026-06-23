@@ -827,7 +827,7 @@ export function SketchEditorV2({
                 <button
                   type="button"
                   onClick={() => setFailedPanelOpen((v) => !v)}
-                  className="flex items-center gap-1 justify-end text-rose-400 hover:text-rose-300 cursor-pointer"
+                  className="flex items-center gap-1 justify-end text-destructive hover:text-destructive cursor-pointer"
                   title="Click to view, retry, or export failed sketch saves"
                 >
                   <AlertTriangle size={11} />
@@ -845,7 +845,7 @@ export function SketchEditorV2({
                   <Save size={11} /> Offline: {offlinePending} pending
                 </span>
               ) : savedAt ? (
-                <span className="flex items-center gap-1 justify-end text-emerald-400">
+                <span className="flex items-center gap-1 justify-end text-success">
                   <Check size={11} />
                   Saved{" "}
                   {savedAt.toLocaleTimeString("en-AU", {
@@ -863,7 +863,7 @@ export function SketchEditorV2({
                   className="absolute right-0 top-full mt-2 w-[360px] z-50 rounded-lg border border-rose-500/40 bg-slate-900 shadow-xl p-3 text-left"
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold text-rose-300 flex items-center gap-1.5">
+                    <span className="text-xs font-semibold text-destructive flex items-center gap-1.5">
                       <AlertTriangle size={12} />
                       {failedEntries.length} stuck save
                       {failedEntries.length === 1 ? "" : "s"}

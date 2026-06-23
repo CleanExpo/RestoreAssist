@@ -97,7 +97,7 @@ function statusLabel(status: DryingStatus): string {
 function StatusIcon({ status }: { status: DryingStatus }) {
   switch (status) {
     case "ACHIEVED":
-      return <CheckCircle2 size={14} className="text-emerald-600" />;
+      return <CheckCircle2 size={14} className="text-success" />;
     case "PROGRESSING":
       return <TrendingDown size={14} className="text-cyan-600" />;
     case "PLATEAU":
@@ -108,9 +108,9 @@ function StatusIcon({ status }: { status: DryingStatus }) {
 }
 
 function moistureColor(level: number, target: number): string {
-  if (level <= target) return "text-emerald-600 dark:text-emerald-400";
+  if (level <= target) return "text-success";
   if (level <= target * 1.5) return "text-amber-600 dark:text-amber-400";
-  return "text-red-600 dark:text-red-400";
+  return "text-destructive";
 }
 
 function formatDate(dateStr: string): string {
@@ -427,7 +427,7 @@ export default function MonitoringPage({
                                   <AlertTriangle size={11} /> Above target
                                 </span>
                               ) : (
-                                <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 text-xs">
+                                <span className="flex items-center gap-1 text-success text-xs">
                                   <CheckCircle2 size={11} /> At target
                                 </span>
                               )}

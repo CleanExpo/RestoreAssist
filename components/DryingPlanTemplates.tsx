@@ -385,7 +385,7 @@ export default function DryingPlanTemplates({
                 <li key={index} className="flex items-center gap-2">
                   <CheckCircle
                     size={14}
-                    className="text-emerald-400 flex-shrink-0"
+                    className="text-success flex-shrink-0"
                   />
                   {req}
                 </li>
@@ -555,7 +555,7 @@ export default function DryingPlanTemplates({
                 <li key={index} className="flex items-start gap-2">
                   <CheckCircle
                     size={14}
-                    className="text-emerald-400 flex-shrink-0 mt-1"
+                    className="text-success flex-shrink-0 mt-1"
                   />
                   {item}
                 </li>

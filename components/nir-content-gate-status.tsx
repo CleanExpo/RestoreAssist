@@ -114,7 +114,7 @@ function ClaimRow({
 }) {
   return (
     <li
-      className={`flex items-start gap-2 py-1.5 text-xs ${blocked ? "text-red-700" : "text-green-700"}`}
+      className={`flex items-start gap-2 py-1.5 text-xs ${blocked ? "text-destructive" : "text-success"}`}
     >
       <span className="mt-0.5 shrink-0 font-mono font-bold">{claim.id}</span>
       <span
@@ -174,7 +174,7 @@ export function NirDomainGateCard({ domain }: NirDomainGateCardProps) {
         {/* Blocked claims */}
         {result.blockedClaims.length > 0 && (
           <div>
-            <p className="text-xs font-medium text-red-600 uppercase tracking-wide mb-1">
+            <p className="text-xs font-medium text-destructive uppercase tracking-wide mb-1">
               Blocked claims ({result.blockedClaims.length}) — not publishable
             </p>
             <ul className="divide-y divide-red-50">
@@ -239,10 +239,10 @@ export function NirContentGateDashboard() {
           <div
             className={`text-2xl font-bold tabular-nums ${
               openCount === totalCount
-                ? "text-green-600"
+                ? "text-success"
                 : openCount > 0
                   ? "text-amber-600"
-                  : "text-red-600"
+                  : "text-destructive"
             }`}
           >
             {openCount}/{totalCount}

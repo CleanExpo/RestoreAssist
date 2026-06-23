@@ -568,8 +568,8 @@ export default function ScopeOfWorksViewer({
           >
             <div className="p-4 rounded-lg border border-green-500/50 bg-green-500/10 print:hidden">
               <div className="flex items-center gap-2">
-                <CheckCircle className="w-5 h-5 text-green-400" />
-                <p className="text-green-400 font-medium">
+                <CheckCircle className="w-5 h-5 text-success" />
+                <p className="text-success font-medium">
                   Scope of Works Generated Successfully
                 </p>
               </div>

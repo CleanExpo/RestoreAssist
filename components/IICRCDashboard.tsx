@@ -104,7 +104,7 @@ export default function IICRCDashboard({ reports }: IICRCDashboardProps) {
         percentage: Math.round(
           (complianceStats.category1Reports / total) * 100,
         ),
-        color: "text-emerald-400",
+        color: "text-success",
         bgColor: "bg-emerald-500/20",
       },
       {
@@ -122,7 +122,7 @@ export default function IICRCDashboard({ reports }: IICRCDashboardProps) {
         percentage: Math.round(
           (complianceStats.category3Reports / total) * 100,
         ),
-        color: "text-red-400",
+        color: "text-destructive",
         bgColor: "bg-red-500/20",
       },
     ];
@@ -208,11 +208,11 @@ export default function IICRCDashboard({ reports }: IICRCDashboardProps) {
           className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6"
         >
           <div className="flex items-center justify-between mb-4">
-            <CheckCircle className="text-emerald-400" size={24} />
+            <CheckCircle className="text-success" size={24} />
             <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
           </div>
           <div className="space-y-1">
-            <p className="text-3xl font-bold text-emerald-400">
+            <p className="text-3xl font-bold text-success">
               {complianceStats.complianceRate}%
             </p>
             <p className="text-slate-400 text-sm font-medium">
@@ -400,19 +400,19 @@ export default function IICRCDashboard({ reports }: IICRCDashboardProps) {
             </h4>
             <ul className="space-y-2 text-sm text-slate-300">
               <li className="flex items-center gap-2">
-                <CheckCircle size={16} className="text-emerald-400" />
+                <CheckCircle size={16} className="text-success" />
                 Water category determination
               </li>
               <li className="flex items-center gap-2">
-                <CheckCircle size={16} className="text-emerald-400" />
+                <CheckCircle size={16} className="text-success" />
                 Water class classification
               </li>
               <li className="flex items-center gap-2">
-                <CheckCircle size={16} className="text-emerald-400" />
+                <CheckCircle size={16} className="text-success" />
                 Safety hazard identification
               </li>
               <li className="flex items-center gap-2">
-                <CheckCircle size={16} className="text-emerald-400" />
+                <CheckCircle size={16} className="text-success" />
                 Source identification and control
               </li>
             </ul>
@@ -424,19 +424,19 @@ export default function IICRCDashboard({ reports }: IICRCDashboardProps) {
             </h4>
             <ul className="space-y-2 text-sm text-slate-300">
               <li className="flex items-center gap-2">
-                <CheckCircle size={16} className="text-emerald-400" />
+                <CheckCircle size={16} className="text-success" />
                 Drying plan development
               </li>
               <li className="flex items-center gap-2">
-                <CheckCircle size={16} className="text-emerald-400" />
+                <CheckCircle size={16} className="text-success" />
                 Equipment sizing calculations
               </li>
               <li className="flex items-center gap-2">
-                <CheckCircle size={16} className="text-emerald-400" />
+                <CheckCircle size={16} className="text-success" />
                 Psychrometric monitoring
               </li>
               <li className="flex items-center gap-2">
-                <CheckCircle size={16} className="text-emerald-400" />
+                <CheckCircle size={16} className="text-success" />
                 Post-remediation verification
               </li>
             </ul>

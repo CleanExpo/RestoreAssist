@@ -285,7 +285,7 @@ export default function OnboardingModal({
           ) : status?.isComplete ? (
             <div className="text-center py-8">
               <div className="inline-flex p-4 bg-green-500/10 rounded-full mb-4">
-                <CheckCircle className="w-12 h-12 text-green-400" />
+                <CheckCircle className="w-12 h-12 text-success" />
               </div>
               <h3 className="text-xl font-semibold text-white mb-2">
                 All Set!

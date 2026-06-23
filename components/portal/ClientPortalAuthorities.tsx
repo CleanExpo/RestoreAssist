@@ -90,7 +90,7 @@ export function ClientPortalAuthorities({ token }: { token: string }) {
             {signed[a.id] ? (
               <p
                 role="status"
-                className="text-xs text-emerald-600 font-medium mt-2"
+                className="text-xs text-success font-medium mt-2"
               >
                 ✓ Approved — thank you.
               </p>
@@ -121,7 +121,7 @@ export function ClientPortalAuthorities({ token }: { token: string }) {
         ))}
       </ul>
       {error && (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role="alert" className="text-xs text-destructive">
           {error}
         </p>
       )}

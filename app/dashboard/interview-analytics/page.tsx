@@ -187,7 +187,7 @@ export default function InterviewAnalyticsDashboard() {
             <div className="text-xs font-medium text-neutral-500 dark:text-slate-400 uppercase tracking-wider">
               Finished
             </div>
-            <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+            <div className="text-xl font-bold text-success mt-1">
               {Math.round(aggregateStats.completionRate ?? 0)}%
             </div>
           </div>
@@ -515,7 +515,7 @@ export default function InterviewAnalyticsDashboard() {
           <CardContent>
             <div className="space-y-2 text-sm">
               {aggregateStats.completionRate >= 80 ? (
-                <p className="text-green-700">
+                <p className="text-success">
                   ✓ Excellent completion rate - users are successfully
                   completing interviews
                 </p>
@@ -525,14 +525,14 @@ export default function InterviewAnalyticsDashboard() {
                   questions or providing better guidance
                 </p>
               ) : (
-                <p className="text-red-700">
+                <p className="text-destructive">
                   ✗ Low completion rate - urgent review needed for interview
                   flow and questions
                 </p>
               )}
 
               {aggregateStats.averageFieldConfidence >= 80 ? (
-                <p className="text-green-700">
+                <p className="text-success">
                   ✓ High field confidence - auto-population is working well
                 </p>
               ) : (
@@ -543,7 +543,7 @@ export default function InterviewAnalyticsDashboard() {
               )}
 
               {aggregateStats.averageSessionDuration < 600 ? (
-                <p className="text-green-700">
+                <p className="text-success">
                   ✓ Fast average completion - interview flow is efficient
                 </p>
               ) : (

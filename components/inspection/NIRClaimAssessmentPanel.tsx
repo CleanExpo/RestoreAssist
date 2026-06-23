@@ -1219,9 +1219,9 @@ function AsbestosForm({
       <div className="flex items-start gap-2 p-3 rounded-lg bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800/50 mb-4">
         <AlertTriangle
           size={14}
-          className="text-rose-500 mt-0.5 flex-shrink-0"
+          className="text-destructive mt-0.5 flex-shrink-0"
         />
-        <p className="text-xs text-rose-700 dark:text-rose-300">
+        <p className="text-xs text-destructive">
           Safe Work Australia CoP 2024: for friable asbestos, Class A licence is
           mandatory. Work must halt until licensed assessor provides clearance
           certificate.

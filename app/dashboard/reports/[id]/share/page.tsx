@@ -192,7 +192,7 @@ export default function ReportSharePage() {
   if (notFound || !report) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
-        <AlertTriangle className="h-12 w-12 text-red-400 mb-4" />
+        <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
         <h2 className="text-xl font-semibold text-slate-800 mb-2">
           Report Not Found
         </h2>

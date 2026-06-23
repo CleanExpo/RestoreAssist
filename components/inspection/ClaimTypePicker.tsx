@@ -49,7 +49,7 @@ export default function ClaimTypePicker({
             "text-neutral-900 dark:text-white",
           )}
         >
-          Claim type <span className="text-red-500">*</span>
+          Claim type <span className="text-destructive">*</span>
         </Label>
       </div>
       <p
@@ -114,7 +114,7 @@ export default function ClaimTypePicker({
       </RadioGroup>
 
       {error && (
-        <p className="text-red-500 text-xs mt-3" role="alert">
+        <p className="text-destructive text-xs mt-3" role="alert">
           {error}
         </p>
       )}

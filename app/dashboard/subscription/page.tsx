@@ -451,27 +451,27 @@ function SubscriptionPageContent() {
 
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="flex items-center gap-3">
-                  <Check className="w-5 h-5 text-green-400" />
+                  <Check className="w-5 h-5 text-success" />
                   <span className="text-slate-300">Unlimited reports</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Check className="w-5 h-5 text-green-400" />
+                  <Check className="w-5 h-5 text-success" />
                   <span className="text-slate-300">PDF & Excel export</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Check className="w-5 h-5 text-green-400" />
+                  <Check className="w-5 h-5 text-success" />
                   <span className="text-slate-300">Email support</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Check className="w-5 h-5 text-green-400" />
+                  <Check className="w-5 h-5 text-success" />
                   <span className="text-slate-300">All integrations</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Check className="w-5 h-5 text-green-400" />
+                  <Check className="w-5 h-5 text-success" />
                   <span className="text-slate-300">NCC 2022 compliant</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Check className="w-5 h-5 text-green-400" />
+                  <Check className="w-5 h-5 text-success" />
                   <span className="text-slate-300">Priority processing</span>
                 </div>
               </div>
@@ -595,7 +595,7 @@ function SubscriptionPageContent() {
                   <div className="space-y-3 mb-6">
                     {plan.features.map((feature, index) => (
                       <div key={index} className="flex items-start gap-3">
-                        <Check className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
+                        <Check className="w-4 h-4 text-success mt-0.5 flex-shrink-0" />
                         <span className="text-slate-300 text-sm">
                           {feature}
                         </span>

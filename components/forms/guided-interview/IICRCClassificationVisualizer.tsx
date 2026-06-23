@@ -47,7 +47,7 @@ const getCategoryInfo = (category: number) => {
       name: "Clean Water (Category 1)",
       color: "bg-green-100 border-green-300",
       bgColor: "bg-green-50",
-      icon: <CheckCircle2 className="h-8 w-8 text-green-600" />,
+      icon: <CheckCircle2 className="h-8 w-8 text-success" />,
       description:
         "Water from clean sources such as broken water supply lines, falling rainwater, melted snow/ice. Presents minimal health hazard.",
       sources: [
@@ -101,7 +101,7 @@ const getCategoryInfo = (category: number) => {
       name: "Black Water (Category 3)",
       color: "bg-red-100 border-red-300",
       bgColor: "bg-red-50",
-      icon: <AlertCircle className="h-8 w-8 text-red-600" />,
+      icon: <AlertCircle className="h-8 w-8 text-destructive" />,
       description:
         "Highly contaminated water presenting serious health hazard. Contains pathogenic agents, toxic substances, and fecal matter. Requires professional remediation.",
       sources: [
@@ -157,7 +157,7 @@ const getClassInfo = (waterClass: number) => {
     1: {
       name: "Class 1: Smallest",
       percentage: "0-10%",
-      color: "text-green-700",
+      color: "text-success",
       description:
         "Affects only small areas with minimum structural damage. Minimal wet materials. Evaporation is rapid.",
       dryingTime: "2-3 days",
@@ -201,7 +201,7 @@ const getClassInfo = (waterClass: number) => {
     4: {
       name: "Class 4: Specialty",
       percentage: ">50%",
-      color: "text-red-700",
+      color: "text-destructive",
       description:
         "Involves materials that take extended time to dry due to high porosity and capillary action. Requires specialized drying equipment and techniques.",
       dryingTime: "7-30+ days",
@@ -414,7 +414,7 @@ export function IICRCClassificationVisualizer({
                   <p className="text-xs text-muted-foreground">
                     Dehumidification
                   </p>
-                  <p className="text-sm font-semibold text-green-700">
+                  <p className="text-sm font-semibold text-success">
                     {classInfo.dehumidificationMethod}
                   </p>
                 </div>
@@ -444,10 +444,10 @@ export function IICRCClassificationVisualizer({
                       key={idx}
                       className="flex items-start gap-3 p-3 bg-gradient-to-r from-green-50 to-transparent border border-green-200 rounded"
                     >
-                      <span className="font-bold text-green-700 text-sm">
+                      <span className="font-bold text-success text-sm">
                         {idx + 1}
                       </span>
-                      <span className="text-sm text-green-800">{step}</span>
+                      <span className="text-sm text-success">{step}</span>
                     </div>
                   ))}
                 </div>
@@ -496,7 +496,7 @@ export function IICRCClassificationVisualizer({
                   needed.
                 </span>
               ) : (
-                <span className="block mt-1 text-green-700 font-semibold">
+                <span className="block mt-1 text-success font-semibold">
                   ✓ Under 48 hours - Optimal time for mitigation. Act now.
                 </span>
               )}

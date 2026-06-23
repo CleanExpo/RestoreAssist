@@ -166,8 +166,8 @@ function NextDateCell({ dateStr }: { dateStr: string }) {
     <span
       className={
         isPast
-          ? "text-red-600 dark:text-red-400 font-medium"
-          : "text-green-700 dark:text-green-400"
+          ? "text-destructive font-medium"
+          : "text-success"
       }
     >
       {label}
@@ -400,7 +400,7 @@ export default function RecurringInvoicesPage() {
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-slate-500 dark:text-slate-400 flex items-center gap-2">
-                  <CalendarClock className="h-4 w-4 text-green-500" />
+                  <CalendarClock className="h-4 w-4 text-success" />
                   Active Schedules
                 </CardTitle>
               </CardHeader>

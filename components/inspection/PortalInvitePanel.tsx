@@ -85,7 +85,7 @@ export default function PortalInvitePanel({
       </p>
 
       {inviteStatus === "sent" && (
-        <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
+        <div className="flex items-center gap-2 text-sm text-success">
           <CheckCircle size={14} /> Invite sent to {selectedClient?.name}
         </div>
       )}

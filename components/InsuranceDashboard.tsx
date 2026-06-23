@@ -135,7 +135,7 @@ export default function InsuranceDashboard({
         type: "Contents Coverage",
         percentage: insuranceStats.contentsCoverage,
         count: Math.round((insuranceStats.contentsCoverage / 100) * total),
-        color: "text-green-400",
+        color: "text-success",
         bgColor: "bg-green-500/20",
         icon: Home,
       },
@@ -250,11 +250,11 @@ export default function InsuranceDashboard({
           className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6"
         >
           <div className="flex items-center justify-between mb-4">
-            <DollarSign className="text-emerald-400" size={24} />
+            <DollarSign className="text-success" size={24} />
             <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
           </div>
           <div className="space-y-1">
-            <p className="text-3xl font-bold text-emerald-400">
+            <p className="text-3xl font-bold text-success">
               ${summary.totalValue.toLocaleString()}
             </p>
             <p className="text-slate-400 text-sm font-medium">Total Value</p>
@@ -288,11 +288,11 @@ export default function InsuranceDashboard({
           className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6"
         >
           <div className="flex items-center justify-between mb-4">
-            <AlertTriangle className="text-red-400" size={24} />
+            <AlertTriangle className="text-destructive" size={24} />
             <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse" />
           </div>
           <div className="space-y-1">
-            <p className="text-3xl font-bold text-red-400">
+            <p className="text-3xl font-bold text-destructive">
               {summary.coverageGaps}
             </p>
             <p className="text-slate-400 text-sm font-medium">Coverage Gaps</p>
@@ -375,7 +375,7 @@ export default function InsuranceDashboard({
                     style={{ width: `${insuranceStats.contentsCoverage}%` }}
                   />
                 </div>
-                <span className="text-green-400 font-bold">
+                <span className="text-success font-bold">
                   {insuranceStats.contentsCoverage}%
                 </span>
               </div>
@@ -508,28 +508,28 @@ export default function InsuranceDashboard({
               <li className="flex items-center gap-2">
                 <CheckCircle
                   size={16}
-                  className="text-emerald-400 flex-shrink-0"
+                  className="text-success flex-shrink-0"
                 />
                 Property insurance for business buildings
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle
                   size={16}
-                  className="text-emerald-400 flex-shrink-0"
+                  className="text-success flex-shrink-0"
                 />
                 Contents insurance for equipment and stock
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle
                   size={16}
-                  className="text-emerald-400 flex-shrink-0"
+                  className="text-success flex-shrink-0"
                 />
                 Public liability insurance
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle
                   size={16}
-                  className="text-emerald-400 flex-shrink-0"
+                  className="text-success flex-shrink-0"
                 />
                 Business interruption coverage
               </li>

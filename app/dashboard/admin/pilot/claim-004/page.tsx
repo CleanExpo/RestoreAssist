@@ -336,8 +336,8 @@ export default function Claim004AdjusterSessionPage() {
       {/* Success banner */}
       {successCount !== null && (
         <div className="rounded-lg border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50 dark:bg-emerald-950/30 px-4 py-3 flex items-center gap-3">
-          <CheckCircle2 size={16} className="text-emerald-500 flex-shrink-0" />
-          <p className="text-sm text-emerald-700 dark:text-emerald-300">
+          <CheckCircle2 size={16} className="text-success flex-shrink-0" />
+          <p className="text-sm text-success">
             <strong>{successCount}</strong> adjuster session
             {successCount !== 1 ? "s" : ""} recorded for CLAIM-004.
           </p>
@@ -468,7 +468,7 @@ export default function Claim004AdjusterSessionPage() {
                 <button
                   onClick={() => removeEntry(idx)}
                   disabled={entries.length === 1}
-                  className="w-7 h-7 rounded flex items-center justify-center text-neutral-300 dark:text-slate-600 hover:text-red-400 dark:hover:text-red-400 disabled:opacity-30 transition-colors"
+                  className="w-7 h-7 rounded flex items-center justify-center text-neutral-300 dark:text-slate-600 hover:text-destructive dark:hover:text-destructive disabled:opacity-30 transition-colors"
                 >
                   <Trash2 size={13} />
                 </button>
@@ -488,7 +488,7 @@ export default function Claim004AdjusterSessionPage() {
             {errors.length > 0 && (
               <div className="rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 px-3 py-2.5 space-y-1">
                 {errors.map((e, i) => (
-                  <p key={i} className="text-xs text-red-600 dark:text-red-400">
+                  <p key={i} className="text-xs text-destructive">
                     {e}
                   </p>
                 ))}
@@ -564,7 +564,7 @@ export default function Claim004AdjusterSessionPage() {
             {batchErrors.length > 0 && (
               <div className="rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 px-3 py-2.5 space-y-1">
                 {batchErrors.map((e, i) => (
-                  <p key={i} className="text-xs text-red-600 dark:text-red-400">
+                  <p key={i} className="text-xs text-destructive">
                     {e}
                   </p>
                 ))}

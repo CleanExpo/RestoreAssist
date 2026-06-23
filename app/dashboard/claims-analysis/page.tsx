@@ -490,9 +490,9 @@ export default function ClaimsAnalysisPage() {
   };
 
   const getScoreColor = (score: number) => {
-    if (score >= 80) return "text-green-600 dark:text-green-400";
+    if (score >= 80) return "text-success";
     if (score >= 60) return "text-yellow-600 dark:text-yellow-400";
-    return "text-red-600 dark:text-red-400";
+    return "text-destructive";
   };
 
   const resetAnalysis = () => {
@@ -1028,7 +1028,7 @@ export default function ClaimsAnalysisPage() {
                     <div className="text-xs text-muted-foreground">IICRC</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mb-1">
+                    <div className="text-2xl font-bold text-success mb-1">
                       {(summary.totalMissingElements as MissingElementsSummary)
                         .australianStandards || 0}
                     </div>
@@ -1037,7 +1037,7 @@ export default function ClaimsAnalysisPage() {
                     </div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-red-600 dark:text-red-400 mb-1">
+                    <div className="text-2xl font-bold text-destructive mb-1">
                       {(summary.totalMissingElements.ohs || 0) +
                         ((
                           summary.totalMissingElements as MissingElementsSummary
@@ -1055,7 +1055,7 @@ export default function ClaimsAnalysisPage() {
                     <div className="text-xs text-muted-foreground">Scope</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-green-600 dark:text-green-400 mb-1">
+                    <div className="text-2xl font-bold text-success mb-1">
                       {summary.totalMissingElements.billing || 0}
                     </div>
                     <div className="text-xs text-muted-foreground">Billing</div>
@@ -1240,7 +1240,7 @@ export default function ClaimsAnalysisPage() {
                                   {issue.isBillable && issue.estimatedCost && (
                                     <Badge
                                       variant="outline"
-                                      className="text-green-600"
+                                      className="text-success"
                                     >
                                       ${issue.estimatedCost.toFixed(2)}
                                     </Badge>
@@ -1350,8 +1350,8 @@ export default function ClaimsAnalysisPage() {
                         Estimated Billable Revenue
                       </span>
                       <div className="flex items-center gap-2">
-                        <DollarSign className="h-5 w-5 text-green-600 dark:text-green-400" />
-                        <span className="text-xl font-bold text-green-600 dark:text-green-400">
+                        <DollarSign className="h-5 w-5 text-success" />
+                        <span className="text-xl font-bold text-success">
                           $
                           {selectedDocument.issues
                             .filter((i) => i.isBillable && i.estimatedCost)
@@ -1544,7 +1544,7 @@ export default function ClaimsAnalysisPage() {
                                                   </p>
                                                   {issue.severity ===
                                                     "CRITICAL" && (
-                                                    <p className="text-red-600 dark:text-red-400">
+                                                    <p className="text-destructive">
                                                       Non-compliance may void
                                                       insurance claim or create
                                                       liability exposure.
@@ -1581,7 +1581,7 @@ export default function ClaimsAnalysisPage() {
                                           {issue.isBillable && (
                                             <div className="text-right shrink-0">
                                               {issue.estimatedCost && (
-                                                <div className="text-2xl font-bold text-green-600">
+                                                <div className="text-2xl font-bold text-success">
                                                   $
                                                   {issue.estimatedCost.toFixed(
                                                     2,
@@ -1715,7 +1715,7 @@ export default function ClaimsAnalysisPage() {
                                               {issue.standardReference}
                                             </p>
                                             {issue.severity === "CRITICAL" && (
-                                              <p className="text-red-600 dark:text-red-400">
+                                              <p className="text-destructive">
                                                 Non-compliance may void
                                                 insurance claim or create
                                                 liability exposure.
@@ -1748,7 +1748,7 @@ export default function ClaimsAnalysisPage() {
                                     {issue.isBillable && (
                                       <div className="text-right shrink-0">
                                         {issue.estimatedCost && (
-                                          <div className="text-2xl font-bold text-green-600">
+                                          <div className="text-2xl font-bold text-success">
                                             ${issue.estimatedCost.toFixed(2)}
                                           </div>
                                         )}
@@ -1791,7 +1791,7 @@ export default function ClaimsAnalysisPage() {
                       {selectedDocument.reportStructure.missingSections.length >
                         0 && (
                         <div>
-                          <h4 className="font-semibold mb-2 text-red-600">
+                          <h4 className="font-semibold mb-2 text-destructive">
                             Missing Sections:
                           </h4>
                           <div className="flex flex-wrap gap-2">
@@ -1863,7 +1863,7 @@ export default function ClaimsAnalysisPage() {
                       {selectedDocument.technicianPattern.strengths.length >
                         0 && (
                         <div>
-                          <h4 className="font-semibold mb-2 text-green-600">
+                          <h4 className="font-semibold mb-2 text-success">
                             Strengths:
                           </h4>
                           <ul className="list-disc list-inside space-y-1">
@@ -1880,7 +1880,7 @@ export default function ClaimsAnalysisPage() {
                       {selectedDocument.technicianPattern.commonOmissions
                         .length > 0 && (
                         <div>
-                          <h4 className="font-semibold mb-2 text-red-600">
+                          <h4 className="font-semibold mb-2 text-destructive">
                             Common Omissions:
                           </h4>
                           <ul className="list-disc list-inside space-y-1">
@@ -2026,10 +2026,10 @@ export default function ClaimsAnalysisPage() {
                         <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
                       )}
                       {file.status === "done" && (
-                        <FileCheck className="h-4 w-4 text-green-500" />
+                        <FileCheck className="h-4 w-4 text-success" />
                       )}
                       {file.status === "failed" && (
-                        <X className="h-4 w-4 text-red-500" />
+                        <X className="h-4 w-4 text-destructive" />
                       )}
                       <span
                         className={
@@ -2039,7 +2039,7 @@ export default function ClaimsAnalysisPage() {
                         {file.name}
                       </span>
                       {file.status === "failed" && file.error && (
-                        <span className="text-xs text-red-500 ml-auto truncate max-w-[200px]">
+                        <span className="text-xs text-destructive ml-auto truncate max-w-[200px]">
                           {file.error}
                         </span>
                       )}

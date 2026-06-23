@@ -178,11 +178,11 @@ export default function ContractorReviewsPage() {
       case "UNDER_INVESTIGATION":
         return "text-cyan-400";
       case "RESOLVED_KEPT":
-        return "text-green-400";
+        return "text-success";
       case "RESOLVED_AMENDED":
         return "text-blue-400";
       case "RESOLVED_REMOVED":
-        return "text-red-400";
+        return "text-destructive";
       default:
         return "text-slate-400";
     }
@@ -256,7 +256,7 @@ export default function ContractorReviewsPage() {
 
         <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-6">
           <div className="text-slate-400 text-sm mb-2">Disputed Reviews</div>
-          <div className="text-3xl font-bold text-red-400">
+          <div className="text-3xl font-bold text-destructive">
             {disputedReviews}
           </div>
         </div>
@@ -480,7 +480,7 @@ export default function ContractorReviewsPage() {
                   selectedReview !== `dispute-${review.id}` && (
                     <button
                       onClick={() => setSelectedReview(`dispute-${review.id}`)}
-                      className="flex items-center gap-2 text-red-400 hover:text-red-300"
+                      className="flex items-center gap-2 text-destructive hover:text-destructive"
                     >
                       <AlertTriangle className="h-4 w-4" />
                       Dispute Review

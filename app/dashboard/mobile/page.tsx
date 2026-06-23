@@ -360,7 +360,7 @@ function BetaSignupCard() {
             <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
               <CheckCircle2
                 size={24}
-                className="text-emerald-600 dark:text-emerald-400"
+                className="text-success"
               />
             </div>
             <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
@@ -747,7 +747,7 @@ export default function MobileDashboardPage() {
       >
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <CheckCircle2 size={18} className="text-emerald-500" />
+            <CheckCircle2 size={18} className="text-success" />
             V1 Feature Status
           </CardTitle>
           <CardDescription>

@@ -147,7 +147,7 @@ export function MoistureReadingEntryForm({
           htmlFor="moisture-location"
           className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1"
         >
-          Location <span className="text-rose-500">*</span>
+          Location <span className="text-destructive">*</span>
         </label>
         <input
           id="moisture-location"
@@ -166,7 +166,7 @@ export function MoistureReadingEntryForm({
             htmlFor="moisture-material"
             className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1"
           >
-            Material Type <span className="text-rose-500">*</span>
+            Material Type <span className="text-destructive">*</span>
           </label>
           <select
             id="moisture-material"
@@ -232,7 +232,7 @@ export function MoistureReadingEntryForm({
             htmlFor="moisture-level"
             className="text-xs font-medium text-slate-700 dark:text-slate-300"
           >
-            Moisture Reading (%) <span className="text-rose-500">*</span>
+            Moisture Reading (%) <span className="text-destructive">*</span>
           </label>
           {/* RA-1611: BLE meter connect button */}
           {ble.availability === "available" && (
@@ -378,7 +378,7 @@ export function MoistureReadingEntryForm({
       {error && (
         <p
           role="alert"
-          className="text-xs text-rose-600 dark:text-rose-400 flex items-center gap-1"
+          className="text-xs text-destructive flex items-center gap-1"
         >
           <AlertTriangle size={12} />
           {error}

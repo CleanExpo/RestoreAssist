@@ -43,7 +43,7 @@ function ScoreRing({ score }: { score: number }) {
     score >= 80
       ? {
           stroke: "#22c55e",
-          text: "text-green-600 dark:text-green-400",
+          text: "text-success",
           bg: "bg-green-50 dark:bg-green-950/20",
         }
       : score >= 50
@@ -54,7 +54,7 @@ function ScoreRing({ score }: { score: number }) {
           }
         : {
             stroke: "#ef4444",
-            text: "text-red-600 dark:text-red-400",
+            text: "text-destructive",
             bg: "bg-red-50 dark:bg-red-950/20",
           };
 
@@ -119,7 +119,7 @@ function SectionCard({
   const cfg = {
     complete: {
       icon: CheckCircle2,
-      color: "text-green-600 dark:text-green-400",
+      color: "text-success",
       badge:
         "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
       label: "Complete",
@@ -133,7 +133,7 @@ function SectionCard({
     },
     missing: {
       icon: XCircle,
-      color: "text-red-600 dark:text-red-400",
+      color: "text-destructive",
       badge: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
       label: "Missing",
     },
@@ -188,13 +188,13 @@ function SectionCard({
                 key={i}
                 className="flex items-start gap-1.5 text-xs text-slate-600 dark:text-slate-400"
               >
-                <span className="mt-0.5 shrink-0 text-red-400">&#x2022;</span>
+                <span className="mt-0.5 shrink-0 text-destructive">&#x2022;</span>
                 {issue}
               </li>
             ))}
           </ul>
         ) : (
-          <p className="text-xs text-green-600 dark:text-green-400 flex-1">
+          <p className="text-xs text-success flex-1">
             All checks passed
           </p>
         )}
@@ -343,8 +343,8 @@ export default function ReportCompletenessPage() {
         {/* Error state */}
         {!loading && error && (
           <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-red-200 dark:border-red-800 py-16 text-center">
-            <XCircle className="h-12 w-12 text-red-300 dark:text-red-600 mb-4" />
-            <h2 className="text-base font-semibold text-red-600 dark:text-red-400">
+            <XCircle className="h-12 w-12 text-destructive mb-4" />
+            <h2 className="text-base font-semibold text-destructive">
               {error}
             </h2>
             <Button
@@ -386,7 +386,7 @@ export default function ReportCompletenessPage() {
 
               {/* Quick stats row */}
               <div className="flex items-center gap-6 text-sm">
-                <span className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
+                <span className="flex items-center gap-1.5 text-success">
                   <CheckCircle2 className="h-4 w-4" /> {completeSections}/
                   {totalSections} complete
                 </span>
@@ -397,7 +397,7 @@ export default function ReportCompletenessPage() {
                   </span>
                 )}
                 {missingSections > 0 && (
-                  <span className="flex items-center gap-1.5 text-red-600 dark:text-red-400">
+                  <span className="flex items-center gap-1.5 text-destructive">
                     <XCircle className="h-4 w-4" /> {missingSections} missing
                   </span>
                 )}

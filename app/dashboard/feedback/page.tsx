@@ -119,7 +119,7 @@ export default function FeedbackPage() {
         <Card className="border-border bg-card">
           <CardContent className="pt-6 flex flex-col items-center justify-center py-12 text-center">
             <div className="w-14 h-14 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mb-4">
-              <CheckCircle className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
+              <CheckCircle className="h-8 w-8 text-success" />
             </div>
             <h2 className="text-xl font-semibold mb-2 text-foreground">
               Thank you for your feedback

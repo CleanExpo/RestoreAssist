@@ -559,11 +559,11 @@ export function BulkOperationModal({
             success && (
               <div className="space-y-3">
                 <div className="bg-emerald-900/20 border border-emerald-800 rounded-lg p-3">
-                  <p className="text-sm font-medium text-emerald-300">
+                  <p className="text-sm font-medium text-success">
                     ✓ Successfully downloaded {excelReports.length} Excel
                     report(s) as ZIP file
                   </p>
-                  <p className="text-xs text-emerald-400 mt-1">
+                  <p className="text-xs text-success mt-1">
                     Files downloaded from Cloudinary and packaged into a ZIP
                     archive
                   </p>
@@ -577,7 +577,7 @@ export function BulkOperationModal({
                       key={report.id}
                       className="flex items-center gap-2 p-2 bg-slate-700/30 border border-slate-600 rounded text-xs"
                     >
-                      <FileSpreadsheet className="w-3 h-3 text-emerald-400 shrink-0" />
+                      <FileSpreadsheet className="w-3 h-3 text-success shrink-0" />
                       <span className="text-slate-300 truncate">
                         {report.reportNumber || report.id} - {report.clientName}
                       </span>
@@ -670,12 +670,12 @@ export function BulkOperationModal({
           {/* Error */}
           {error && (
             <div className="bg-red-900/20 border border-red-800 rounded-lg p-4 flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-red-400 mt-0.5 shrink-0" />
+              <AlertCircle className="w-5 h-5 text-destructive mt-0.5 shrink-0" />
               <div className="flex-1">
-                <p className="text-sm font-medium text-red-300 mb-2">
+                <p className="text-sm font-medium text-destructive mb-2">
                   Unable to Export Excel Reports
                 </p>
-                <p className="text-xs text-red-300 whitespace-pre-line leading-relaxed">
+                <p className="text-xs text-destructive whitespace-pre-line leading-relaxed">
                   {error}
                 </p>
               </div>

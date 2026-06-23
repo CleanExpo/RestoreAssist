@@ -2208,7 +2208,7 @@ export default function NIRTechnicianInputForm({
                 "text-neutral-700 dark:text-slate-300",
               )}
             >
-              Property Address <span className="text-red-500">*</span>
+              Property Address <span className="text-destructive">*</span>
             </label>
             <input
               type="text"
@@ -2242,7 +2242,7 @@ export default function NIRTechnicianInputForm({
               </button>
             )}
             {validationErrors.propertyAddress && (
-              <p className="text-red-400 text-xs mt-1">
+              <p className="text-destructive text-xs mt-1">
                 {validationErrors.propertyAddress}
               </p>
             )}
@@ -2255,7 +2255,7 @@ export default function NIRTechnicianInputForm({
                 "text-neutral-700 dark:text-slate-300",
               )}
             >
-              Postcode <span className="text-red-400">*</span>
+              Postcode <span className="text-destructive">*</span>
             </label>
             <input
               type="text"
@@ -2273,7 +2273,7 @@ export default function NIRTechnicianInputForm({
               placeholder="0000"
             />
             {validationErrors.propertyPostcode && (
-              <p className="text-red-400 text-xs mt-1">
+              <p className="text-destructive text-xs mt-1">
                 {validationErrors.propertyPostcode}
               </p>
             )}
@@ -2348,7 +2348,7 @@ export default function NIRTechnicianInputForm({
               )}
             />
             {validationErrors.temperature && (
-              <p className="text-red-400 text-xs mt-1">
+              <p className="text-destructive text-xs mt-1">
                 {validationErrors.temperature}
               </p>
             )}
@@ -2381,7 +2381,7 @@ export default function NIRTechnicianInputForm({
               )}
             />
             {validationErrors.humidity && (
-              <p className="text-red-400 text-xs mt-1">
+              <p className="text-destructive text-xs mt-1">
                 {validationErrors.humidity}
               </p>
             )}
@@ -2458,12 +2458,12 @@ export default function NIRTechnicianInputForm({
         >
           <Droplets className="w-5 h-5" />
           Moisture Readings{" "}
-          <span className="text-red-500 dark:text-red-400">*</span>
+          <span className="text-destructive">*</span>
         </h3>
 
         {validationErrors.moistureReadings && (
           <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-            <p className={cn("text-sm", "text-red-600 dark:text-red-400")}>
+            <p className={cn("text-sm", "text-destructive")}>
               {validationErrors.moistureReadings}
             </p>
           </div>
@@ -2688,7 +2688,7 @@ export default function NIRTechnicianInputForm({
                 </span>
               )}
             {inspectionId && (
-              <span className="block mt-2 text-green-400 text-xs">
+              <span className="block mt-2 text-success text-xs">
                 ✓ Inspection ready. You can upload floor plan and photos.
               </span>
             )}
@@ -2768,12 +2768,12 @@ export default function NIRTechnicianInputForm({
         >
           <MapPin className="w-5 h-5" />
           Affected Areas{" "}
-          <span className="text-red-500 dark:text-red-400">*</span>
+          <span className="text-destructive">*</span>
         </h3>
 
         {validationErrors.affectedAreas && (
           <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-            <p className={cn("text-sm", "text-red-600 dark:text-red-400")}>
+            <p className={cn("text-sm", "text-destructive")}>
               {validationErrors.affectedAreas}
             </p>
           </div>
@@ -2796,7 +2796,7 @@ export default function NIRTechnicianInputForm({
                 )}
               >
                 Room Type{" "}
-                <span className="text-red-500 dark:text-red-400">*</span>
+                <span className="text-destructive">*</span>
               </label>
               <select
                 value={newAffectedArea.roomType}
@@ -2830,7 +2830,7 @@ export default function NIRTechnicianInputForm({
                   )}
                 >
                   Custom Room Name{" "}
-                  <span className="text-red-500 dark:text-red-400">*</span>
+                  <span className="text-destructive">*</span>
                 </label>
                 <input
                   type="text"
@@ -2862,7 +2862,7 @@ export default function NIRTechnicianInputForm({
                 )}
               >
                 Length (m){" "}
-                <span className="text-red-500 dark:text-red-400">*</span>
+                <span className="text-destructive">*</span>
               </label>
               <input
                 type="number"
@@ -2892,7 +2892,7 @@ export default function NIRTechnicianInputForm({
                 )}
               >
                 Width (m){" "}
-                <span className="text-red-500 dark:text-red-400">*</span>
+                <span className="text-destructive">*</span>
               </label>
               <input
                 type="number"
@@ -2982,7 +2982,7 @@ export default function NIRTechnicianInputForm({
               )}
             >
               Affected Materials{" "}
-              <span className="text-red-500 dark:text-red-400">*</span>
+              <span className="text-destructive">*</span>
             </label>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               {MATERIAL_TYPES.map((material) => (
@@ -3657,12 +3657,12 @@ export default function NIRTechnicianInputForm({
           )}
         >
           <Camera className="w-5 h-5" />
-          Photos <span className="text-red-400">*</span>
+          Photos <span className="text-destructive">*</span>
         </h3>
 
         {validationErrors.photos && (
           <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-            <p className="text-red-400 text-sm">{validationErrors.photos}</p>
+            <p className="text-destructive text-sm">{validationErrors.photos}</p>
           </div>
         )}
 

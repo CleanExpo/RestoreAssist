@@ -189,7 +189,7 @@ export default function ReportPreviewPage() {
   if (notFound || !report) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
-        <AlertTriangle className="h-12 w-12 text-red-400 mb-4" />
+        <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
         <h2 className="text-xl font-semibold text-slate-800 mb-2">
           Report Not Found
         </h2>
@@ -354,10 +354,10 @@ export default function ReportPreviewPage() {
                   )}
                   {psychro.humidity != null && (
                     <div className="bg-green-50 rounded-lg p-3 text-center">
-                      <p className="text-xs text-green-600 font-medium">
+                      <p className="text-xs text-success font-medium">
                         Humidity
                       </p>
-                      <p className="text-xl font-bold text-green-800">
+                      <p className="text-xl font-bold text-success">
                         {psychro.humidity}%
                       </p>
                     </div>

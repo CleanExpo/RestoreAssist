@@ -80,7 +80,7 @@ export function ClientPortalStatus({ token }: { token: string }) {
       </ol>
 
       {feed.reportReady && (
-        <p className="text-xs text-emerald-700 font-medium">
+        <p className="text-xs text-success font-medium">
           Your restoration report is ready.
         </p>
       )}

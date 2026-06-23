@@ -97,21 +97,21 @@ export default function FinalCTASection() {
           viewport={{ once: true }}
         >
           <div className="flex items-center gap-2 px-4 py-2 bg-slate-800/50 border border-slate-700/50 rounded-full">
-            <CheckCircle size={20} className="text-emerald-400" />
+            <CheckCircle size={20} className="text-success" />
             <span className="text-slate-300 font-medium">Australian Owned</span>
           </div>
           <div className="flex items-center gap-2 px-4 py-2 bg-slate-800/50 border border-slate-700/50 rounded-full">
-            <CheckCircle size={20} className="text-emerald-400" />
+            <CheckCircle size={20} className="text-success" />
             <span className="text-slate-300 font-medium">IICRC Compliant</span>
           </div>
           <div className="flex items-center gap-2 px-4 py-2 bg-slate-800/50 border border-slate-700/50 rounded-full">
-            <CheckCircle size={20} className="text-emerald-400" />
+            <CheckCircle size={20} className="text-success" />
             <span className="text-slate-300 font-medium">
               NCC 2022 Verified
             </span>
           </div>
           <div className="flex items-center gap-2 px-4 py-2 bg-slate-800/50 border border-slate-700/50 rounded-full">
-            <CheckCircle size={20} className="text-emerald-400" />
+            <CheckCircle size={20} className="text-success" />
             <span className="text-slate-300 font-medium">
               ISO 27001 Security
             </span>

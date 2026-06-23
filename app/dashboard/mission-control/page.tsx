@@ -97,7 +97,7 @@ export default function MissionControlPage() {
           <span
             className={
               online
-                ? "text-emerald-600 text-sm font-medium"
+                ? "text-success text-sm font-medium"
                 : "text-amber-600 text-sm font-medium"
             }
           >

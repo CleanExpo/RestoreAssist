@@ -112,9 +112,9 @@ function getTotalIssues(analysis: Analysis): number {
 
 function scoreColor(score: number | null): string {
   if (score === null) return "text-slate-400";
-  if (score >= 80) return "text-green-600";
+  if (score >= 80) return "text-success";
   if (score >= 60) return "text-yellow-600";
-  return "text-red-600";
+  return "text-destructive";
 }
 
 function exportToCSV(analyses: Analysis[], filename = "claims-analyses.csv") {

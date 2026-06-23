@@ -94,10 +94,10 @@ function ScoreBar({
           className={cn(
             "font-semibold",
             pct >= 80
-              ? "text-emerald-500"
+              ? "text-success"
               : pct >= 60
                 ? "text-amber-500"
-                : "text-red-500",
+                : "text-destructive",
           )}
         >
           {pct}
@@ -324,7 +324,7 @@ export default function AILabPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Database size={16} className="text-emerald-500" />
+            <Database size={16} className="text-success" />
             Ascora Job Vectorisation
           </CardTitle>
           <CardDescription>
@@ -365,7 +365,7 @@ export default function AILabPage() {
                 {
                   label: "Embedded",
                   value: vectoriseResult.embedded,
-                  color: "text-emerald-500",
+                  color: "text-success",
                 },
                 {
                   label: "Skipped",
@@ -378,7 +378,7 @@ export default function AILabPage() {
                   color:
                     vectoriseResult.remaining > 0
                       ? "text-amber-500"
-                      : "text-emerald-500",
+                      : "text-success",
                 },
                 {
                   label: "Duration",
@@ -650,7 +650,7 @@ export default function AILabPage() {
             <div className="rounded-lg border border-neutral-200 dark:border-slate-700/50 bg-neutral-50 dark:bg-slate-800/50 p-4 space-y-3">
               <div className="flex items-center gap-2">
                 {optResult.promoted ? (
-                  <CheckCircle2 size={16} className="text-emerald-500" />
+                  <CheckCircle2 size={16} className="text-success" />
                 ) : (
                   <XCircle size={16} className="text-amber-500" />
                 )}
@@ -672,7 +672,7 @@ export default function AILabPage() {
                     className={cn(
                       "text-lg font-bold",
                       optResult.improvement > 0
-                        ? "text-emerald-500"
+                        ? "text-success"
                         : "text-neutral-400",
                     )}
                   >

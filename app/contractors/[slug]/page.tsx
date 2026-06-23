@@ -135,7 +135,7 @@ export default function ContractorProfilePage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-400 text-lg mb-4">
+          <p className="text-destructive text-lg mb-4">
             {error || "Contractor not found"}
           </p>
           <Link
@@ -419,7 +419,7 @@ export default function ContractorProfilePage() {
                           <ThumbsUp className="h-4 w-4" />
                           <span>{review.helpfulCount}</span>
                         </button>
-                        <button className="flex items-center gap-1 hover:text-red-400">
+                        <button className="flex items-center gap-1 hover:text-destructive">
                           <ThumbsDown className="h-4 w-4" />
                           <span>{review.notHelpfulCount}</span>
                         </button>

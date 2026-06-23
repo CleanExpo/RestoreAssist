@@ -371,7 +371,7 @@ export default function ReportWorkflow({
               <div className="p-4 rounded-lg border border-green-500/50 bg-green-500/10">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-lg font-semibold text-green-400 mb-2">
+                    <h3 className="text-lg font-semibold text-success mb-2">
                       Tier 3 Questions Available
                     </h3>
                     <p

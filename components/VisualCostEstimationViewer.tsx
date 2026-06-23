@@ -96,7 +96,7 @@ export default function VisualCostEstimationViewer({
   if (!data) {
     return (
       <div className="p-8 text-center">
-        <div className="text-red-600 mb-4">
+        <div className="text-destructive mb-4">
           Error: No cost estimation data provided
         </div>
       </div>
@@ -419,7 +419,7 @@ export default function VisualCostEstimationViewer({
                 breakdown of restoration costs based on the scope of works. The
                 estimate includes labour, equipment, chemicals, and other
                 restoration services. Total estimated cost:{" "}
-                <span className="font-bold text-green-700">
+                <span className="font-bold text-success">
                   ${totals?.totalIncGST?.toFixed(2) || "0.00"}
                 </span>{" "}
                 (including GST). All costs are subject to final site assessment
@@ -816,7 +816,7 @@ export default function VisualCostEstimationViewer({
                     <span className="text-2xl font-bold text-slate-900">
                       TOTAL (Inc GST)
                     </span>
-                    <span className="text-3xl font-bold text-green-700">
+                    <span className="text-3xl font-bold text-success">
                       ${totals?.totalIncGST?.toFixed(2) || "0.00"}
                     </span>
                   </div>
@@ -905,7 +905,7 @@ export default function VisualCostEstimationViewer({
                       key={idx}
                       className="bg-red-50 border border-red-200 rounded-lg p-6 print:p-4"
                     >
-                      <h3 className="text-lg font-bold text-red-900 mb-2">
+                      <h3 className="text-lg font-bold text-destructive mb-2">
                         {item.flag}
                       </h3>
                       <div className="space-y-2 text-slate-700">

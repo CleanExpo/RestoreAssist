@@ -68,7 +68,7 @@ export default async function StorageSettingsPage() {
             {org?.storageProvider ?? "SUPABASE"}
           </span>
           {connected ? (
-            <span className="text-green-700">
+            <span className="text-success">
               Connected as {org?.storageProviderAccountEmail}
             </span>
           ) : (

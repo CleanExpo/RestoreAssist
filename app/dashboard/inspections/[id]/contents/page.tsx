@@ -305,7 +305,7 @@ export default function ContentsManifestPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-4">
-              <span className="text-2xl font-bold text-red-500">
+              <span className="text-2xl font-bold text-destructive">
                 {draft.lowConfidenceCount}
               </span>
             </CardContent>
@@ -456,7 +456,7 @@ export default function ContentsManifestPage() {
                   </TableCell>
                   <TableCell>
                     <span
-                      className={`text-sm font-medium ${item.confidence < 70 ? "text-red-500" : "text-muted-foreground"}`}
+                      className={`text-sm font-medium ${item.confidence < 70 ? "text-destructive" : "text-muted-foreground"}`}
                     >
                       {item.confidence}%
                     </span>

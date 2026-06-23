@@ -61,10 +61,10 @@ export function SignatoryFlowTimeline({
     switch (status) {
       case "completed":
         return {
-          icon: "text-emerald-500",
+          icon: "text-success",
           bg: "bg-emerald-100 dark:bg-emerald-950/30",
           border: "border-emerald-300 dark:border-emerald-700",
-          text: "text-emerald-700 dark:text-emerald-400",
+          text: "text-success",
           line: "bg-emerald-500",
         };
       case "pending":
@@ -308,7 +308,7 @@ export function SignatoryFlowSummary({
           </span>
         )}
         {isComplete && (
-          <span className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+          <span className="text-xs text-success flex items-center gap-1">
             <CheckCircle className="h-3.5 w-3.5" />
             All signed
           </span>

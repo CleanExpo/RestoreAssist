@@ -189,7 +189,7 @@ export function FloorPlanUnderlayLoader({
           Floor Plan Underlay
         </span>
         {hasBackground && !expanded && (
-          <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+          <span className="flex items-center gap-1 text-xs text-success">
             <CheckCircle2 size={12} /> Active
           </span>
         )}
@@ -304,7 +304,7 @@ export function FloorPlanUnderlayLoader({
 
           {/* Selected from file upload indicator */}
           {selectedImage && !results && (
-            <div className="flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400">
+            <div className="flex items-center gap-2 text-xs text-success">
               <ImageIcon size={13} />
               Local file selected
             </div>

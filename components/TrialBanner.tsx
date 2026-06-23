@@ -75,8 +75,8 @@ export function TrialBanner() {
       ? {
           bg: "bg-rose-500/10 dark:bg-rose-900/30",
           border: "border-rose-500/40 dark:border-rose-700/50",
-          text: "text-rose-700 dark:text-rose-300",
-          icon: "text-rose-500",
+          text: "text-destructive",
+          icon: "text-destructive",
           cta: "bg-rose-500 hover:bg-rose-600 text-white",
         }
       : d <= 3

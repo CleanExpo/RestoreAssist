@@ -80,8 +80,8 @@ function DeltaBadge({ delta }: { delta: string | null }) {
         neutral
           ? "text-neutral-400 dark:text-slate-500"
           : positive
-            ? "text-emerald-500 dark:text-emerald-400"
-            : "text-rose-500 dark:text-rose-400",
+            ? "text-success"
+            : "text-destructive",
       )}
     >
       {neutral ? (

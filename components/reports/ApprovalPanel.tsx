@@ -201,11 +201,11 @@ export default function ApprovalPanel({ reportId }: ApprovalPanelProps) {
                       {approval.status === "APPROVED" && (
                         <CheckCircle
                           size={15}
-                          className="text-green-400 shrink-0"
+                          className="text-success shrink-0"
                         />
                       )}
                       {approval.status === "REJECTED" && (
-                        <XCircle size={15} className="text-red-400 shrink-0" />
+                        <XCircle size={15} className="text-destructive shrink-0" />
                       )}
                       {approval.status === "PENDING" && (
                         <Clock size={15} className="text-amber-400 shrink-0" />
@@ -276,7 +276,7 @@ export default function ApprovalPanel({ reportId }: ApprovalPanelProps) {
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label htmlFor="approval-type" className="text-slate-300">
-                Approval Type <span className="text-red-400">*</span>
+                Approval Type <span className="text-destructive">*</span>
               </Label>
               <Select
                 value={newType}

@@ -234,12 +234,12 @@ export default function WebhookLogsPage() {
           {
             label: "Processed",
             value: statCounts.processed,
-            color: "text-green-600 dark:text-green-400",
+            color: "text-success",
           },
           {
             label: "Failed",
             value: statCounts.failed,
-            color: "text-red-600 dark:text-red-400",
+            color: "text-destructive",
           },
           {
             label: "Pending",

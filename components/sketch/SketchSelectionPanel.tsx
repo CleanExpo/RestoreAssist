@@ -331,7 +331,7 @@ export function SketchSelectionPanel({
           role="alert"
           className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-2 space-y-2"
         >
-          <div className="flex items-start gap-1.5 text-xs text-rose-200">
+          <div className="flex items-start gap-1.5 text-xs text-destructive">
             <AlertTriangle size={14} className="mt-0.5 shrink-0" />
             <span>
               Suspected asbestos (ACM) — strip-out scope is blocked until a WHS
@@ -414,7 +414,7 @@ export function SketchSelectionPanel({
                         Building:{" "}
                         <span
                           className={
-                            b.covered ? "text-emerald-300" : "text-amber-300"
+                            b.covered ? "text-success" : "text-amber-300"
                           }
                         >
                           {b.covered ? "NHCover" : "Private insurer"}
@@ -424,7 +424,7 @@ export function SketchSelectionPanel({
                         Land:{" "}
                         <span
                           className={
-                            l.covered ? "text-emerald-300" : "text-white/50"
+                            l.covered ? "text-success" : "text-white/50"
                           }
                         >
                           {l.covered ? "NHCover" : "private"}

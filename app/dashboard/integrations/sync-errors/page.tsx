@@ -185,7 +185,7 @@ function SyncErrorRow({ error, onRetry, retryingId }: SyncErrorRowProps) {
 
       {/* Records failed / processed */}
       <TableCell className="text-center">
-        <span className="text-sm font-medium text-red-700">
+        <span className="text-sm font-medium text-destructive">
           {error.recordsFailed}
         </span>
         <span className="text-xs text-slate-400">
@@ -556,7 +556,7 @@ export default function SyncErrorsPage() {
             {fetchError}
             <button
               onClick={fetchErrors}
-              className="ml-auto underline text-red-600 hover:text-red-800"
+              className="ml-auto underline text-destructive hover:text-destructive"
             >
               Retry
             </button>
@@ -585,7 +585,7 @@ export default function SyncErrorsPage() {
                 <TableRow>
                   <TableCell colSpan={7} className="py-16 text-center">
                     <div className="flex flex-col items-center gap-3 text-slate-500">
-                      <CheckCircle2 className="h-10 w-10 text-green-500" />
+                      <CheckCircle2 className="h-10 w-10 text-success" />
                       <p className="text-base font-medium text-slate-700">
                         No sync errors — all integrations healthy
                       </p>

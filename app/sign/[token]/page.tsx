@@ -168,7 +168,7 @@ export default function PublicSigningPage() {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
-          <CheckCircle className="h-12 w-12 text-emerald-500 mx-auto" />
+          <CheckCircle className="h-12 w-12 text-success mx-auto" />
           <h1 className="mt-4 text-xl font-bold text-slate-900">
             Already Signed
           </h1>
@@ -186,7 +186,7 @@ export default function PublicSigningPage() {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
           <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto">
-            <CheckCircle className="h-10 w-10 text-emerald-500" />
+            <CheckCircle className="h-10 w-10 text-success" />
           </div>
           <h1 className="mt-4 text-xl font-bold text-slate-900">
             Signature Submitted
@@ -321,7 +321,7 @@ export default function PublicSigningPage() {
                 {form.signatures.map((sig) => (
                   <div key={sig.id} className="flex items-center gap-2 text-sm">
                     {sig.signedAt ? (
-                      <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0" />
+                      <CheckCircle className="h-4 w-4 text-success shrink-0" />
                     ) : (
                       <div className="h-4 w-4 rounded-full border-2 border-slate-300 shrink-0" />
                     )}
