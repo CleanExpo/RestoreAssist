@@ -178,7 +178,7 @@ export default function FieldDashboardPage() {
   const nextJob = activeJobs[0];
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white pb-24">
+    <div className="min-h-screen bg-brand-canvas text-white pb-24">
       {/* Offline / cached-data banner */}
       {(isOffline || fromCache) && (
         <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-500/15 border-b border-amber-500/20 text-amber-300 text-xs">
@@ -222,7 +222,7 @@ export default function FieldDashboardPage() {
           {nextJob ? (
             <Link
               href={`/dashboard/inspections/${nextJob.id}/field`}
-              className="flex items-center justify-between rounded-2xl bg-[#1C2E47] px-4 py-4 text-white transition-all active:scale-95"
+              className="flex items-center justify-between rounded-2xl bg-brand-navy px-4 py-4 text-white transition-all active:scale-95"
             >
               <span>
                 <span className="block text-sm font-semibold">
@@ -271,7 +271,7 @@ export default function FieldDashboardPage() {
             )}
             <Link
               href="/dashboard/inspections"
-              className="text-xs text-[#D4A574]"
+              className="text-xs text-brand-gold"
             >
               All jobs
             </Link>
@@ -290,7 +290,7 @@ export default function FieldDashboardPage() {
             {!isOffline && (
               <Link
                 href="/dashboard/inspections/new"
-                className="inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-[#1C2E47] text-white text-sm font-medium"
+                className="inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-brand-navy text-white text-sm font-medium"
               >
                 <Plus className="h-4 w-4" />
                 Start new inspection
@@ -354,7 +354,7 @@ export default function FieldDashboardPage() {
                   <Link
                     href={`/dashboard/inspections/${insp.id}/field`}
                     onClick={(e) => e.stopPropagation()}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1C2E47]/60 text-xs text-white/70 hover:bg-[#1C2E47] active:scale-95 transition-all"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-navy/60 text-xs text-white/70 hover:bg-brand-navy active:scale-95 transition-all"
                   >
                     <Droplets className="h-3 w-3" />
                     Readings

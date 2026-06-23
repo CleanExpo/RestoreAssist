@@ -101,13 +101,13 @@ export function InterviewValidationPanel({
 
   return (
     <div
-      className="rounded-lg border border-slate-200 dark:border-slate-700 bg-gradient-to-br from-[#1C2E47]/5 via-[#8A6B4E]/5 to-[#D4A574]/5 dark:from-[#1C2E47]/30 dark:via-[#8A6B4E]/20 dark:to-[#D4A574]/10 p-4"
+      className="rounded-lg border border-slate-200 dark:border-slate-700 bg-gradient-to-br from-brand-navy/5 via-brand-bronze/5 to-brand-gold/5 dark:from-brand-navy/30 dark:via-brand-bronze/20 dark:to-brand-gold/10 p-4"
       aria-labelledby="iicrc-validation-heading"
     >
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-start gap-2">
           <ShieldCheck
-            className="h-5 w-5 flex-shrink-0 text-[#1C2E47] dark:text-[#D4A574] mt-0.5"
+            className="h-5 w-5 flex-shrink-0 text-brand-navy dark:text-brand-gold mt-0.5"
             aria-hidden="true"
           />
           <div>

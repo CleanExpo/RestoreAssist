@@ -280,7 +280,7 @@ export default function MediaPage() {
       <div className="border-b border-border/40 bg-background/95 backdrop-blur px-6 py-4">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <Camera className="h-6 w-6 text-[#8A6B4E]" />
+            <Camera className="h-6 w-6 text-brand-bronze" />
             <div>
               <h1 className="text-xl font-semibold text-foreground">
                 Media Library
@@ -337,7 +337,7 @@ export default function MediaPage() {
                   {activeCount > 0 && (
                     <Badge
                       variant="secondary"
-                      className="h-5 min-w-5 rounded-full px-1.5 text-xs bg-[#8A6B4E] text-white"
+                      className="h-5 min-w-5 rounded-full px-1.5 text-xs bg-brand-bronze text-white"
                     >
                       {activeCount}
                     </Badge>
@@ -421,7 +421,7 @@ export default function MediaPage() {
                   <div className="flex gap-2 pt-1">
                     <Button
                       size="sm"
-                      className="flex-1 bg-[#1C2E47] hover:bg-[#1C2E47]/90"
+                      className="flex-1 bg-brand-navy hover:bg-brand-navy/90"
                       onClick={applyFilters}
                     >
                       Apply
@@ -458,7 +458,7 @@ export default function MediaPage() {
                   className={cn(
                     "px-2.5 py-1.5 transition-colors",
                     viewMode === mode
-                      ? "bg-[#1C2E47] text-white"
+                      ? "bg-brand-navy text-white"
                       : "bg-background text-muted-foreground hover:bg-muted",
                   )}
                   onClick={() => setViewMode(mode)}
@@ -509,7 +509,7 @@ export default function MediaPage() {
               className="flex items-center gap-1.5 hover:text-foreground transition-colors"
             >
               {selected.size === assets.length && assets.length > 0 ? (
-                <CheckSquare className="h-4 w-4 text-[#1C2E47]" />
+                <CheckSquare className="h-4 w-4 text-brand-navy" />
               ) : (
                 <Square className="h-4 w-4" />
               )}
@@ -570,7 +570,7 @@ function StatsSection({ stats }: { stats: MediaStats }) {
       <Card className="border-border/60">
         <CardContent className="p-4">
           <div className="flex items-center gap-2 mb-1">
-            <Camera className="h-4 w-4 text-[#8A6B4E]" />
+            <Camera className="h-4 w-4 text-brand-bronze" />
             <span className="text-xs text-muted-foreground">Total Assets</span>
           </div>
           <p className="text-2xl font-semibold text-foreground">
@@ -582,7 +582,7 @@ function StatsSection({ stats }: { stats: MediaStats }) {
       <Card className="border-border/60">
         <CardContent className="p-4">
           <div className="flex items-center gap-2 mb-1">
-            <HardDrive className="h-4 w-4 text-[#8A6B4E]" />
+            <HardDrive className="h-4 w-4 text-brand-bronze" />
             <span className="text-xs text-muted-foreground">Storage Used</span>
           </div>
           <p className="text-2xl font-semibold text-foreground">
@@ -594,7 +594,7 @@ function StatsSection({ stats }: { stats: MediaStats }) {
       <Card className="border-border/60">
         <CardContent className="p-4">
           <div className="flex items-center gap-2 mb-1">
-            <Tag className="h-4 w-4 text-[#8A6B4E]" />
+            <Tag className="h-4 w-4 text-brand-bronze" />
             <span className="text-xs text-muted-foreground">
               Top Damage Type
             </span>
@@ -618,7 +618,7 @@ function StatsSection({ stats }: { stats: MediaStats }) {
       <Card className="border-border/60">
         <CardContent className="p-4">
           <div className="flex items-center gap-2 mb-1">
-            <TrendingUp className="h-4 w-4 text-[#8A6B4E]" />
+            <TrendingUp className="h-4 w-4 text-brand-bronze" />
             <span className="text-xs text-muted-foreground">This Month</span>
           </div>
           <p className="text-2xl font-semibold text-foreground">
@@ -649,7 +649,7 @@ function StatsSection({ stats }: { stats: MediaStats }) {
                   </div>
                   <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-[#8A6B4E]"
+                      className="h-full rounded-full bg-brand-bronze"
                       style={{
                         width: `${Math.round((dt.count / stats.byDamageType[0].count) * 100)}%`,
                       }}
@@ -702,7 +702,7 @@ function MonthSparkline({
           title={`${d.month}: ${d.count}`}
         >
           <div
-            className="w-full rounded-sm bg-[#8A6B4E]/60 group-hover:bg-[#8A6B4E] transition-colors"
+            className="w-full rounded-sm bg-brand-bronze/60 group-hover:bg-brand-bronze transition-colors"
             style={{
               height: `${Math.max(4, Math.round((d.count / max) * 40))}px`,
             }}
@@ -758,7 +758,7 @@ function AssetCard({
       className={cn(
         "group overflow-hidden cursor-pointer border transition-all",
         isSelected
-          ? "border-[#1C2E47] ring-1 ring-[#1C2E47] shadow-sm"
+          ? "border-brand-navy ring-1 ring-brand-navy shadow-sm"
           : "border-border/60 hover:shadow-md",
       )}
       onClick={onToggle}
@@ -782,7 +782,7 @@ function AssetCard({
           className={cn(
             "absolute top-1.5 right-1.5 rounded-full w-5 h-5 flex items-center justify-center transition-all",
             isSelected
-              ? "bg-[#1C2E47] text-white"
+              ? "bg-brand-navy text-white"
               : "bg-white/80 opacity-0 group-hover:opacity-100",
           )}
         >
@@ -819,7 +819,7 @@ function AssetCard({
               </span>
             )}
             {damageType && (
-              <span className="rounded bg-[#8A6B4E]/10 px-1 py-0.5 text-[9px] text-[#8A6B4E]">
+              <span className="rounded bg-brand-bronze/10 px-1 py-0.5 text-[9px] text-brand-bronze">
                 {damageType}
               </span>
             )}
@@ -874,7 +874,7 @@ function AssetRow({
       className={cn(
         "flex items-center gap-4 rounded-lg border px-4 py-3 cursor-pointer transition-colors",
         isSelected
-          ? "border-[#1C2E47] bg-[#1C2E47]/5"
+          ? "border-brand-navy bg-brand-navy/5"
           : "border-border/60 bg-card hover:bg-muted/50",
       )}
       onClick={onToggle}
@@ -883,7 +883,7 @@ function AssetRow({
         className={cn(
           "h-5 w-5 rounded flex items-center justify-center flex-shrink-0 border transition-colors",
           isSelected
-            ? "bg-[#1C2E47] border-[#1C2E47] text-white"
+            ? "bg-brand-navy border-brand-navy text-white"
             : "border-border",
         )}
       >
@@ -915,7 +915,7 @@ function AssetRow({
         {damageType && (
           <Badge
             variant="outline"
-            className="text-xs font-normal border-[#8A6B4E]/30 text-[#8A6B4E]"
+            className="text-xs font-normal border-brand-bronze/30 text-brand-bronze"
           >
             {damageType}
           </Badge>

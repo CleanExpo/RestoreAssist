@@ -74,13 +74,13 @@ export default function AINarrativeCard({
     return (
       <Card
         className={cn(
-          "bg-gradient-to-br from-[#1C2E47]/10 via-[#8A6B4E]/10 to-[#D4A574]/10",
-          "border-[#D4A574]/30 dark:border-[#8A6B4E]/30",
+          "bg-gradient-to-br from-brand-navy/10 via-brand-bronze/10 to-brand-gold/10",
+          "border-brand-gold/30 dark:border-brand-bronze/30",
         )}
       >
         <CardContent className="p-6 space-y-3">
           <div className="flex items-center gap-2 mb-2">
-            <Sparkles className="w-5 h-5 text-[#D4A574]" />
+            <Sparkles className="w-5 h-5 text-brand-gold" />
             <Skeleton className="h-5 w-48" />
           </div>
           <Skeleton className="h-4 w-full" />
@@ -95,13 +95,13 @@ export default function AINarrativeCard({
     return (
       <Card
         className={cn(
-          "bg-gradient-to-br from-[#1C2E47]/5 via-[#8A6B4E]/5 to-[#D4A574]/5",
-          "border-[#D4A574]/20",
+          "bg-gradient-to-br from-brand-navy/5 via-brand-bronze/5 to-brand-gold/5",
+          "border-brand-gold/20",
         )}
       >
         <CardContent className="p-6">
           <div className="flex items-start gap-3">
-            <Sparkles className="w-5 h-5 text-[#D4A574] mt-0.5" />
+            <Sparkles className="w-5 h-5 text-brand-gold mt-0.5" />
             <p
               className={cn(
                 "text-sm",
@@ -170,8 +170,8 @@ export default function AINarrativeCard({
   return (
     <Card
       className={cn(
-        "bg-gradient-to-br from-[#1C2E47]/10 via-[#8A6B4E]/10 to-[#D4A574]/15",
-        "border-[#D4A574]/40 dark:border-[#8A6B4E]/40",
+        "bg-gradient-to-br from-brand-navy/10 via-brand-bronze/10 to-brand-gold/15",
+        "border-brand-gold/40 dark:border-brand-bronze/40",
         "shadow-lg",
       )}
     >
@@ -180,17 +180,17 @@ export default function AINarrativeCard({
           <div
             className={cn(
               "p-2 rounded-lg shrink-0",
-              "bg-gradient-to-br from-[#1C2E47] to-[#8A6B4E]",
+              "bg-gradient-to-br from-brand-navy to-brand-bronze",
             )}
           >
-            <Sparkles className="w-5 h-5 text-[#D4A574]" />
+            <Sparkles className="w-5 h-5 text-brand-gold" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-4 mb-2">
               <h3
                 className={cn(
                   "text-sm font-semibold uppercase tracking-wide",
-                  "text-[#1C2E47] dark:text-[#D4A574]",
+                  "text-brand-navy dark:text-brand-gold",
                 )}
               >
                 What changed this {period}

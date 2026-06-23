@@ -136,7 +136,7 @@ export function LearnPageClient() {
         </p>
       </header>
 
-      <div className="mb-6 rounded-lg bg-[#1C2E47]/5 p-4">
+      <div className="mb-6 rounded-lg bg-brand-navy/5 p-4">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium">
             {totalWatched} of {LIBRARY.length} watched
@@ -145,9 +145,9 @@ export function LearnPageClient() {
             {Math.round((totalWatched / LIBRARY.length) * 100)}% complete
           </span>
         </div>
-        <div className="h-2 rounded-full bg-[#1C2E47]/10 overflow-hidden">
+        <div className="h-2 rounded-full bg-brand-navy/10 overflow-hidden">
           <div
-            className="h-full rounded-full bg-[#8A6B4E] transition-all duration-500"
+            className="h-full rounded-full bg-brand-bronze transition-all duration-500"
             style={{ width: `${(totalWatched / LIBRARY.length) * 100}%` }}
           />
         </div>
@@ -170,8 +170,8 @@ export function LearnPageClient() {
             onClick={() => setActiveCategory(key)}
             className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
               activeCategory === key
-                ? "bg-[#1C2E47] text-white"
-                : "bg-[#1C2E47]/5 text-[#1C2E47] hover:bg-[#1C2E47]/10"
+                ? "bg-brand-navy text-white"
+                : "bg-brand-navy/5 text-brand-navy hover:bg-brand-navy/10"
             }`}
           >
             {label}
@@ -187,7 +187,7 @@ export function LearnPageClient() {
             <article
               key={slug}
               id={slug}
-              className="space-y-3 rounded-xl p-3 transition-colors hover:bg-[#8A6B4E]/5"
+              className="space-y-3 rounded-xl p-3 transition-colors hover:bg-brand-bronze/5"
             >
               <div onClick={() => handleVideoPlay(slug)} className="cursor-pointer">
                 <VideoExplainer slug={slug as VideoExplainerSlug} />
@@ -198,7 +198,7 @@ export function LearnPageClient() {
                   {isWatched ? (
                     <span className="h-4 w-4 text-green-600" aria-hidden="true">✓</span>
                   ) : (
-                    <span className="h-4 w-4 text-[#8A6B4E]" aria-hidden="true">▶</span>
+                    <span className="h-4 w-4 text-brand-bronze" aria-hidden="true">▶</span>
                   )}
                 </div>
                 <p className="text-sm text-muted-foreground">{subtitle}</p>

@@ -50,11 +50,11 @@ export default function TierGrid({
           type="button"
           onClick={() => setSelected(t.name)}
           className={`relative rounded-lg border p-6 text-left transition ${
-            selected === t.name ? "border-[#1C2E47] ring-2 ring-[#1C2E47]" : "border-slate-200"
+            selected === t.name ? "border-brand-navy ring-2 ring-brand-navy" : "border-slate-200"
           }`}
         >
           {t.popular && (
-            <span className="absolute -top-3 right-4 rounded bg-[#1C2E47] px-2 py-0.5 text-xs text-white">
+            <span className="absolute -top-3 right-4 rounded bg-brand-navy px-2 py-0.5 text-xs text-white">
               Most popular
             </span>
           )}

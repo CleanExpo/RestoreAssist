@@ -124,7 +124,7 @@ export default function XeroMappingPage() {
   return (
     <div className="space-y-6 p-6">
       <div>
-        <h1 className="text-2xl font-bold text-[#1C2E47]">
+        <h1 className="text-2xl font-bold text-brand-navy">
           Xero Account Code Mapping
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -148,7 +148,7 @@ export default function XeroMappingPage() {
       {!loading && !error && hasIntegration && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-[#1C2E47]">
+            <CardTitle className="text-brand-navy">
               Canonical Categories
             </CardTitle>
             <CardDescription>
@@ -160,7 +160,7 @@ export default function XeroMappingPage() {
           <CardContent>
             <Table>
               <TableHeader>
-                <TableRow className="bg-[#1C2E47]/5">
+                <TableRow className="bg-brand-navy/5">
                   <TableHead>Category</TableHead>
                   <TableHead>Default</TableHead>
                   <TableHead>Override</TableHead>
@@ -194,7 +194,7 @@ export default function XeroMappingPage() {
             {/* RA-854: Advanced per-category routing (GST-matrix XeroCategory) */}
             <Accordion type="single" collapsible className="mt-6">
               <AccordionItem value="advanced-routing">
-                <AccordionTrigger className="text-sm font-medium text-[#1C2E47]">
+                <AccordionTrigger className="text-sm font-medium text-brand-navy">
                   Advanced: per-category routing (RA-854)
                 </AccordionTrigger>
                 <AccordionContent>
@@ -207,7 +207,7 @@ export default function XeroMappingPage() {
                   </p>
                   <Table>
                     <TableHeader>
-                      <TableRow className="bg-[#1C2E47]/5">
+                      <TableRow className="bg-brand-navy/5">
                         <TableHead>Category</TableHead>
                         <TableHead>Default</TableHead>
                         <TableHead>Override</TableHead>

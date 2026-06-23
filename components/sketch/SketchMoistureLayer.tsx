@@ -205,7 +205,7 @@ function PinMarker({
           className="absolute bottom-10 left-1/2 -translate-x-1/2 z-50 w-52"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="bg-[#1C2E47] border border-white/10 rounded-xl shadow-2xl p-3 space-y-2.5 text-white text-xs">
+          <div className="bg-brand-navy border border-white/10 rounded-xl shadow-2xl p-3 space-y-2.5 text-white text-xs">
             <div className="flex items-center justify-between">
               <span className="font-semibold flex items-center gap-1.5">
                 <Droplets size={12} style={{ color: info.color }} />
@@ -312,7 +312,7 @@ function PinMarker({
             </button>
           </div>
           {/* Arrow */}
-          <div className="w-2 h-2 rotate-45 bg-[#1C2E47] border-r border-b border-white/10 mx-auto -mt-1" />
+          <div className="w-2 h-2 rotate-45 bg-brand-navy border-r border-b border-white/10 mx-auto -mt-1" />
         </div>
       )}
     </div>

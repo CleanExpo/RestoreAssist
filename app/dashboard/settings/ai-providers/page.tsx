@@ -278,7 +278,7 @@ export default function AiProvidersPage() {
                   <div className="flex items-center gap-3 min-w-0">
                     <Brain
                       size={18}
-                      className="text-[#1C2E47] dark:text-slate-300 shrink-0"
+                      className="text-brand-navy dark:text-slate-300 shrink-0"
                     />
                     <div className="min-w-0">
                       <p className="font-medium text-neutral-900 dark:text-white text-sm">
@@ -343,7 +343,7 @@ export default function AiProvidersPage() {
                                 }))
                               }
                               placeholder={p.keyPlaceholder}
-                              className="w-full text-sm px-3 py-2 pr-10 border rounded-lg bg-white dark:bg-slate-800 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-[#1C2E47] font-mono"
+                              className="w-full text-sm px-3 py-2 pr-10 border rounded-lg bg-white dark:bg-slate-800 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-brand-navy font-mono"
                             />
                             <button
                               type="button"
@@ -367,7 +367,7 @@ export default function AiProvidersPage() {
                             disabled={
                               saving === p.id || !inputKey[p.id]?.trim()
                             }
-                            className="flex items-center gap-1.5 px-4 py-2 bg-[#1C2E47] hover:bg-[#263d5f] disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+                            className="flex items-center gap-1.5 px-4 py-2 bg-brand-navy hover:bg-[#263d5f] disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
                           >
                             {saving === p.id ? (
                               <Loader2 size={14} className="animate-spin" />

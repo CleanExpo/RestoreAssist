@@ -229,7 +229,7 @@ function SearchPageInner() {
   const currentQuery = searchParams.get("q") ?? "";
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-white">
+    <div className="min-h-screen bg-slate-900 text-white">
       <div className="max-w-3xl mx-auto px-4 py-10">
         {/* Header */}
         <div className="mb-8">
@@ -373,7 +373,7 @@ export default function SearchPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#0f172a] flex items-center justify-center">
+        <div className="min-h-screen bg-slate-900 flex items-center justify-center">
           <Loader2 className="w-6 h-6 text-slate-400 animate-spin" />
         </div>
       }

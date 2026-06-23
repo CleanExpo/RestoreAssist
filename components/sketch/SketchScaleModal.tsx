@@ -115,7 +115,7 @@ export function SketchScaleModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div
-        className="w-80 bg-[#1C2E47] border border-white/10 rounded-2xl shadow-2xl p-5 space-y-4 text-white"
+        className="w-80 bg-brand-navy border border-white/10 rounded-2xl shadow-2xl p-5 space-y-4 text-white"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

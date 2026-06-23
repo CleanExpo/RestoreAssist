@@ -71,10 +71,10 @@ export default function SolutionsPage() {
 
   return (
     <div
-      className={`min-h-screen transition-colors duration-300 ${darkMode ? "bg-[#1C2E47]" : "bg-[#F4F5F6]"}`}
+      className={`min-h-screen transition-colors duration-300 ${darkMode ? "bg-brand-navy" : "bg-brand-cloud"}`}
     >
       {/* Header - Hamburger menu always visible, even on desktop */}
-      <header className="fixed top-0 w-full z-[100] bg-[#1C2E47]/60 backdrop-blur-sm">
+      <header className="fixed top-0 w-full z-[100] bg-brand-navy/60 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-6 py-2 flex items-center justify-between">
           {/* Logo - Left Side */}
           <div className="flex items-center gap-3">
@@ -131,10 +131,10 @@ export default function SolutionsPage() {
                 ease: [0.32, 0.72, 0, 1],
                 opacity: { duration: 0.2 },
               }}
-              className="fixed top-0 right-0 h-screen w-80 max-w-[85vw] bg-[#1C2E47] border-l border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] z-[160] overflow-hidden flex flex-col"
+              className="fixed top-0 right-0 h-screen w-80 max-w-[85vw] bg-brand-navy border-l border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] z-[160] overflow-hidden flex flex-col"
             >
               {/* Menu Header - Fixed at top */}
-              <div className="flex-shrink-0 bg-[#1C2E47] border-b border-white/10 px-6 py-5 flex items-center justify-between">
+              <div className="flex-shrink-0 bg-brand-navy border-b border-white/10 px-6 py-5 flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-white uppercase tracking-wider">
                   Menu
                 </h2>
@@ -185,14 +185,14 @@ export default function SolutionsPage() {
                   <div className="pt-6 mt-6 border-t border-white/10 space-y-3">
                     <Link
                       href="/pricing"
-                      className="block w-full px-6 py-3 bg-[#5A6A7B] text-white rounded-lg text-center font-medium hover:bg-[#5A6A7B]/80 transition-all duration-200 shadow-lg"
+                      className="block w-full px-6 py-3 bg-brand-slate text-white rounded-lg text-center font-medium hover:bg-brand-slate/80 transition-all duration-200 shadow-lg"
                       onClick={() => setMobileMenuOpen(false)}
                     >
                       Pricing
                     </Link>
                     <Link
                       href="/login"
-                      className="block w-full px-6 py-3 bg-[#8A6B4E] text-white rounded-lg text-center font-medium hover:bg-[#8A6B4E]/80 transition-all duration-200 shadow-lg"
+                      className="block w-full px-6 py-3 bg-brand-bronze text-white rounded-lg text-center font-medium hover:bg-brand-bronze/80 transition-all duration-200 shadow-lg"
                       onClick={() => setMobileMenuOpen(false)}
                     >
                       Log In
@@ -206,18 +206,18 @@ export default function SolutionsPage() {
       </AnimatePresence>
 
       {/* Hero Section */}
-      <section className="pt-48 pb-20 px-6 relative z-10 min-h-[60vh] flex items-center bg-[#C4C8CA]/30 overflow-hidden">
+      <section className="pt-48 pb-20 px-6 relative z-10 min-h-[60vh] flex items-center bg-brand-mist/30 overflow-hidden">
         {/* Golden Decorative Shapes */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-          <div className="absolute top-20 right-10 w-72 h-72 bg-[#8A6B4E]/10 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-20 left-10 w-96 h-96 bg-[#8A6B4E]/8 rounded-full blur-3xl"></div>
+          <div className="absolute top-20 right-10 w-72 h-72 bg-brand-bronze/10 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-20 left-10 w-96 h-96 bg-brand-bronze/8 rounded-full blur-3xl"></div>
         </div>
         <div className="max-w-7xl mx-auto w-full relative z-10">
           <motion.h1
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className={`text-5xl md:text-6xl font-bold mb-6 leading-tight ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+            className={`text-5xl md:text-6xl font-bold mb-6 leading-tight ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}
             style={{
               fontFamily:
                 '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -229,7 +229,7 @@ export default function SolutionsPage() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className={`text-xl md:text-2xl ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+            className={`text-xl md:text-2xl ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
             style={{
               fontFamily:
                 '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -241,10 +241,10 @@ export default function SolutionsPage() {
       </section>
 
       {/* Solutions Grid */}
-      <section className="py-20 px-6 relative bg-[#C4C8CA]/30 overflow-hidden">
+      <section className="py-20 px-6 relative bg-brand-mist/30 overflow-hidden">
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-          <div className="absolute top-10 left-1/4 w-80 h-80 bg-[#8A6B4E]/12 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-10 right-1/4 w-64 h-64 bg-[#8A6B4E]/10 rounded-full blur-3xl"></div>
+          <div className="absolute top-10 left-1/4 w-80 h-80 bg-brand-bronze/12 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-10 right-1/4 w-64 h-64 bg-brand-bronze/10 rounded-full blur-3xl"></div>
         </div>
         <div className="max-w-7xl mx-auto relative z-10">
           <div className="grid md:grid-cols-3 gap-8">
@@ -255,10 +255,10 @@ export default function SolutionsPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: index * 0.1 }}
-                className={`p-8 rounded-lg ${darkMode ? "bg-[#1C2E47]/50" : "bg-[#F4F5F6]/50"} backdrop-blur-sm border ${darkMode ? "border-[#5A6A7B]/30" : "border-[#5A6A7B]/20"}`}
+                className={`p-8 rounded-lg ${darkMode ? "bg-brand-navy/50" : "bg-brand-cloud/50"} backdrop-blur-sm border ${darkMode ? "border-brand-slate/30" : "border-brand-slate/20"}`}
               >
                 <h3
-                  className={`text-2xl font-bold mb-4 ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+                  className={`text-2xl font-bold mb-4 ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}
                   style={{
                     fontFamily:
                       '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -267,7 +267,7 @@ export default function SolutionsPage() {
                   {solution.title}
                 </h3>
                 <p
-                  className={`text-base mb-6 ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                  className={`text-base mb-6 ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
                   style={{
                     fontFamily:
                       '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -279,13 +279,13 @@ export default function SolutionsPage() {
                   {solution.benefits.map((benefit, idx) => (
                     <li
                       key={idx}
-                      className={`flex items-center gap-2 ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                      className={`flex items-center gap-2 ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
                       style={{
                         fontFamily:
                           '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                       }}
                     >
-                      <span className="text-[#8A6B4E]">✓</span>
+                      <span className="text-brand-bronze">✓</span>
                       {benefit}
                     </li>
                   ))}

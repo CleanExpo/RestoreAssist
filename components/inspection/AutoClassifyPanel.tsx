@@ -107,7 +107,7 @@ export default function AutoClassifyPanel({ inspectionId, onApply }: Props) {
           type="button"
           onClick={handleClassify}
           disabled={loading}
-          className="bg-gradient-to-r from-[#1C2E47] via-[#8A6B4E] to-[#D4A574] text-white hover:opacity-90 shadow-md"
+          className="bg-gradient-to-r from-brand-navy via-brand-bronze to-brand-gold text-white hover:opacity-90 shadow-md"
         >
           {loading ? (
             <>
@@ -124,10 +124,10 @@ export default function AutoClassifyPanel({ inspectionId, onApply }: Props) {
       </div>
 
       {suggestion && (
-        <Card className="border-[#D4A574]/40 bg-gradient-to-br from-[#1C2E47]/5 to-[#D4A574]/5">
+        <Card className="border-brand-gold/40 bg-gradient-to-br from-brand-navy/5 to-brand-gold/5">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
-              <Sparkles className="h-4 w-4 text-[#8A6B4E]" />
+              <Sparkles className="h-4 w-4 text-brand-bronze" />
               Suggested classification
               <span
                 className={`ml-auto text-sm font-semibold ${confidenceTone(
@@ -189,7 +189,7 @@ export default function AutoClassifyPanel({ inspectionId, onApply }: Props) {
                   type="button"
                   onClick={handleApply}
                   disabled={applying}
-                  className="bg-gradient-to-r from-[#1C2E47] to-[#8A6B4E] text-white hover:opacity-90"
+                  className="bg-gradient-to-r from-brand-navy to-brand-bronze text-white hover:opacity-90"
                 >
                   {applying ? (
                     <>

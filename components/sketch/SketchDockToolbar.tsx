@@ -189,7 +189,7 @@ export function SketchDockToolbar({
 
   const containerCls = cn(
     "absolute z-30 flex items-center gap-1 p-1.5",
-    "bg-[#1C2E47]/90 backdrop-blur-sm",
+    "bg-brand-navy/90 backdrop-blur-sm",
     "border border-white/10 shadow-2xl shadow-black/40",
     "select-none",
     isVertical ? "flex-col rounded-2xl" : "flex-row rounded-2xl",

@@ -102,7 +102,7 @@ export function CapturePhotoTagModal({
           </Button>
           <Button
             onClick={handleSubmit}
-            className="flex-1 bg-[#1C2E47] text-white"
+            className="flex-1 bg-brand-navy text-white"
           >
             Save photo
           </Button>

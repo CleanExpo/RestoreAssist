@@ -73,12 +73,12 @@ export function InboundJobAlert() {
   return (
     <div
       data-testid="inbound-job-alert"
-      className="border border-[#8A6B4E]/40 bg-[#8A6B4E]/8 dark:bg-[#8A6B4E]/15 rounded-lg p-4 mb-6"
+      className="border border-brand-bronze/40 bg-brand-bronze/8 dark:bg-brand-bronze/15 rounded-lg p-4 mb-6"
       role="region"
       aria-label="Inbound DR/NRPG jobs"
     >
       <div className="flex items-center gap-2 mb-3">
-        <AlertCircle className="w-5 h-5 text-[#D4A574]" aria-hidden="true" />
+        <AlertCircle className="w-5 h-5 text-brand-gold" aria-hidden="true" />
         <h2 className="font-semibold text-sm">
           {jobs.length === 1
             ? "1 new job from DR/NRPG"
@@ -117,7 +117,7 @@ export function InboundJobAlert() {
                 type="button"
                 onClick={() => handleAccept(job.id)}
                 disabled={accepting === job.id}
-                className="bg-[#1C2E47] text-white px-3 py-1.5 rounded-md text-xs font-medium inline-flex items-center gap-1.5 disabled:opacity-60"
+                className="bg-brand-navy text-white px-3 py-1.5 rounded-md text-xs font-medium inline-flex items-center gap-1.5 disabled:opacity-60"
                 aria-label={`Accept and start inspection ${job.inspectionNumber}`}
               >
                 {accepting === job.id ? (

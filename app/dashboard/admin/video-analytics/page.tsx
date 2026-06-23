@@ -91,8 +91,8 @@ export default function VideoAnalyticsPage() {
               onClick={() => setPeriod(p)}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 period === p
-                  ? "bg-[#8A6B4E] text-white"
-                  : "bg-[#1C2E47]/10 text-[#1C2E47] hover:bg-[#1C2E47]/20"
+                  ? "bg-brand-bronze text-white"
+                  : "bg-brand-navy/10 text-brand-navy hover:bg-brand-navy/20"
               }`}
             >
               {p === "7d" ? "7 days" : p === "30d" ? "30 days" : "90 days"}
@@ -125,7 +125,7 @@ export default function VideoAnalyticsPage() {
         </div>
         <div className="rounded-lg border bg-card p-4">
           <div className="flex items-center gap-3">
-            <UsersMark className="h-5 w-5 text-[#8A6B4E]" />
+            <UsersMark className="h-5 w-5 text-brand-bronze" />
             <div>
               <p className="text-sm text-muted-foreground">Videos Tracked</p>
               <p className="text-2xl font-bold">{data.length}</p>
@@ -155,7 +155,7 @@ export default function VideoAnalyticsPage() {
       {!loading && !error && data.length > 0 && (
         <div className="rounded-lg border overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-[#1C2E47]/5">
+            <thead className="bg-brand-navy/5">
               <tr>
                 <th className="px-4 py-3 text-left font-medium">Video</th>
                 <th className="px-4 py-3 text-right font-medium">Plays</th>
@@ -169,7 +169,7 @@ export default function VideoAnalyticsPage() {
             </thead>
             <tbody className="divide-y">
               {data.map((row) => (
-                <tr key={row.videoSlug} className="hover:bg-[#8A6B4E]/5">
+                <tr key={row.videoSlug} className="hover:bg-brand-bronze/5">
                   <td className="px-4 py-3 font-medium">{row.videoSlug}</td>
                   <td className="px-4 py-3 text-right">{row.plays}</td>
                   <td className="px-4 py-3 text-right">{row.uniqueUsers}</td>

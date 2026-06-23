@@ -88,7 +88,7 @@ export function HomeownerCapturePanel({
     "min-h-11 px-3 py-1.5 rounded-lg text-sm border transition-colors disabled:opacity-40";
 
   return (
-    <section className="rounded-xl border border-white/10 bg-[#1C2E47]/60 p-3 space-y-2 text-white">
+    <section className="rounded-xl border border-white/10 bg-brand-navy/60 p-3 space-y-2 text-white">
       <h3 className="text-sm font-semibold">Homeowner self-capture</h3>
       <p className="text-xs text-white/60">
         Invite the homeowner to draw their property. Submissions stay in review

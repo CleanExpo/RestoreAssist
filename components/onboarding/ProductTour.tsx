@@ -191,7 +191,7 @@ export function ProductTour() {
             <div
               className={cn(
                 "w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0",
-                "bg-gradient-to-br from-[#1C2E47] to-[#8A6B4E] text-white",
+                "bg-gradient-to-br from-brand-navy to-brand-bronze text-white",
               )}
               aria-hidden
             >
@@ -226,7 +226,7 @@ export function ProductTour() {
                 "h-1.5 rounded-full flex-1",
                 reducedMotion ? "" : "transition-colors duration-200",
                 i <= stepIdx
-                  ? "bg-[#D4A574]"
+                  ? "bg-brand-gold"
                   : "bg-neutral-200 dark:bg-slate-700",
               )}
             />
@@ -258,8 +258,8 @@ export function ProductTour() {
               onClick={handleNext}
               disabled={saving}
               className={cn(
-                "bg-[#1C2E47] text-white hover:bg-[#1C2E47]/90",
-                "dark:bg-[#D4A574] dark:text-[#050505] dark:hover:bg-[#D4A574]/90",
+                "bg-brand-navy text-white hover:bg-brand-navy/90",
+                "dark:bg-brand-gold dark:text-brand-canvas dark:hover:bg-brand-gold/90",
               )}
             >
               {isLast ? (

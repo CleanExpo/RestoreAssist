@@ -69,7 +69,7 @@ export function MobileNav({ inspectionId }: MobileNavProps) {
       ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-[#050505] border-t border-white/10 safe-area-bottom">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-brand-canvas border-t border-white/10 safe-area-bottom">
       <div className="flex items-stretch h-16">
         {items.map((item) => {
           const isActive = item.exact
@@ -82,7 +82,7 @@ export function MobileNav({ inspectionId }: MobileNavProps) {
               className={cn(
                 "flex-1 flex flex-col items-center justify-center gap-1 text-xs transition-colors",
                 isActive
-                  ? "text-[#D4A574]"
+                  ? "text-brand-gold"
                   : "text-white/40 hover:text-white/70",
               )}
             >

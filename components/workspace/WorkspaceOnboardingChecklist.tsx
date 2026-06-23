@@ -115,11 +115,11 @@ export function WorkspaceOnboardingChecklist({
   const allDone = completed.size === STEPS.length;
 
   return (
-    <div className="border rounded-xl bg-gradient-to-br from-[#1C2E47]/5 to-transparent dark:from-[#1C2E47]/20 dark:border-slate-700 p-5 space-y-4">
+    <div className="border rounded-xl bg-gradient-to-br from-brand-navy/5 to-transparent dark:from-brand-navy/20 dark:border-slate-700 p-5 space-y-4">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-2">
-          <Zap size={18} className="text-[#8A6B4E]" />
+          <Zap size={18} className="text-brand-bronze" />
           <div>
             <h3 className="font-semibold text-neutral-900 dark:text-white text-sm">
               Get started with {workspaceName}
@@ -141,7 +141,7 @@ export function WorkspaceOnboardingChecklist({
       {/* Progress bar */}
       <div className="h-1.5 bg-neutral-200 dark:bg-slate-700 rounded-full overflow-hidden">
         <div
-          className="h-full bg-[#1C2E47] dark:bg-slate-400 rounded-full transition-all duration-500"
+          className="h-full bg-brand-navy dark:bg-slate-400 rounded-full transition-all duration-500"
           style={{ width: `${progress}%` }}
         />
       </div>
@@ -165,7 +165,7 @@ export function WorkspaceOnboardingChecklist({
                 className={`shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
                   done
                     ? "bg-emerald-500 border-emerald-500 text-white"
-                    : "border-neutral-300 dark:border-slate-600 hover:border-[#1C2E47]"
+                    : "border-neutral-300 dark:border-slate-600 hover:border-brand-navy"
                 }`}
                 aria-label={
                   done ? `Unmark ${step.title}` : `Mark ${step.title} complete`
@@ -196,7 +196,7 @@ export function WorkspaceOnboardingChecklist({
               {!done && (
                 <a
                   href={step.href}
-                  className="shrink-0 flex items-center gap-1 text-xs text-[#1C2E47] dark:text-slate-300 font-medium hover:underline"
+                  className="shrink-0 flex items-center gap-1 text-xs text-brand-navy dark:text-slate-300 font-medium hover:underline"
                 >
                   {step.cta}
                   <ChevronRight size={12} />
