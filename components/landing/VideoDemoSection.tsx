@@ -41,7 +41,7 @@ export function VideoCard({
       className="relative group cursor-pointer"
       onClick={handlePlay}
     >
-      <div className="relative aspect-video rounded-xl overflow-hidden shadow-2xl border-2 border-[#8A6B4E]/30">
+      <div className="relative aspect-video rounded-xl overflow-hidden shadow-2xl border-2 border-brand-bronze/30">
         <video
           ref={videoRef}
           src={src}
@@ -51,8 +51,8 @@ export function VideoCard({
           controls={isPlaying}
         />
         {!isPlaying && (
-          <div className="absolute inset-0 bg-[#1C2E47]/60 flex items-center justify-center transition-all duration-300 group-hover:bg-[#1C2E47]/40">
-            <div className="w-20 h-20 rounded-full bg-[#8A6B4E] flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+          <div className="absolute inset-0 bg-brand-navy/60 flex items-center justify-center transition-all duration-300 group-hover:bg-brand-navy/40">
+            <div className="w-20 h-20 rounded-full bg-brand-bronze flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
               <svg
                 className="w-8 h-8 text-white ml-1"
                 fill="currentColor"
@@ -78,7 +78,7 @@ export function VideoCard({
 
 export default function VideoDemoSection() {
   return (
-    <section className="py-20 px-6 bg-[#1C2E47]">
+    <section className="py-20 px-6 bg-brand-navy">
       <div className="max-w-7xl mx-auto">
         <motion.h2
           initial={{ opacity: 0, y: 20 }}

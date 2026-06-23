@@ -12,12 +12,12 @@ interface FooterProps {
 export default function Footer({ darkMode }: FooterProps) {
   return (
     <footer
-      className={`py-16 px-6 border-t relative transition-colors duration-300 bg-[#C4C8CA]/30 overflow-hidden ${darkMode ? "border-[#5A6A7B]/30" : "border-[#5A6A7B]/20"}`}
+      className={`py-16 px-6 border-t relative transition-colors duration-300 bg-brand-mist/30 overflow-hidden ${darkMode ? "border-brand-slate/30" : "border-brand-slate/20"}`}
     >
       {/* Golden Decorative Shapes */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="absolute top-20 right-1/4 w-96 h-96 bg-[#8A6B4E]/10 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-20 left-1/4 w-80 h-80 bg-[#8A6B4E]/8 rounded-full blur-3xl"></div>
+        <div className="absolute top-20 right-1/4 w-96 h-96 bg-brand-bronze/10 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-20 left-1/4 w-80 h-80 bg-brand-bronze/8 rounded-full blur-3xl"></div>
         <svg
           aria-hidden="true"
           className="absolute top-1/4 left-1/3 w-60 h-60 opacity-10"
@@ -63,7 +63,7 @@ export default function Footer({ darkMode }: FooterProps) {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className={`text-4xl md:text-5xl font-bold mb-6 text-center ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+          className={`text-4xl md:text-5xl font-bold mb-6 text-center ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}
           style={{
             fontFamily:
               '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -76,7 +76,7 @@ export default function Footer({ darkMode }: FooterProps) {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.1 }}
-          className={`text-lg md:text-xl max-w-4xl mx-auto leading-relaxed text-center mb-20 ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+          className={`text-lg md:text-xl max-w-4xl mx-auto leading-relaxed text-center mb-20 ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
           style={{
             fontFamily:
               '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -99,7 +99,7 @@ export default function Footer({ darkMode }: FooterProps) {
               </Link>
               <div>
                 <h3
-                  className={`text-3xl font-bold mb-2 ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+                  className={`text-3xl font-bold mb-2 ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}
                   style={{
                     fontFamily:
                       '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -108,7 +108,7 @@ export default function Footer({ darkMode }: FooterProps) {
                   Restore Assist
                 </h3>
                 <p
-                  className={`text-sm mb-4 ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                  className={`text-sm mb-4 ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
                   style={{
                     fontFamily:
                       '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -117,7 +117,7 @@ export default function Footer({ darkMode }: FooterProps) {
                   {BRAND.shortDescription}
                 </p>
                 <div
-                  className={`text-xs space-y-1 ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                  className={`text-xs space-y-1 ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
                   style={{
                     fontFamily:
                       '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -155,7 +155,7 @@ export default function Footer({ darkMode }: FooterProps) {
             {/* PRODUCT */}
             <div>
               <h4
-                className={`font-bold mb-4 text-sm ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+                className={`font-bold mb-4 text-sm ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}
                 style={{
                   fontFamily:
                     '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -164,7 +164,7 @@ export default function Footer({ darkMode }: FooterProps) {
                 PRODUCT
               </h4>
               <ul
-                className={`space-y-2 text-sm ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                className={`space-y-2 text-sm ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
                 style={{
                   fontFamily:
                     '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -173,7 +173,7 @@ export default function Footer({ darkMode }: FooterProps) {
                 <li>
                   <Link
                     href="/features"
-                    className={`transition-colors ${darkMode ? "hover:text-[#F4F5F6]" : "hover:text-[#1C2E47]"}`}
+                    className={`transition-colors ${darkMode ? "hover:text-brand-cloud" : "hover:text-brand-navy"}`}
                   >
                     Features
                   </Link>
@@ -181,7 +181,7 @@ export default function Footer({ darkMode }: FooterProps) {
                 <li>
                   <Link
                     href="/pricing"
-                    className={`transition-colors ${darkMode ? "hover:text-[#F4F5F6]" : "hover:text-[#1C2E47]"}`}
+                    className={`transition-colors ${darkMode ? "hover:text-brand-cloud" : "hover:text-brand-navy"}`}
                   >
                     Pricing
                   </Link>
@@ -189,7 +189,7 @@ export default function Footer({ darkMode }: FooterProps) {
                 <li>
                   <Link
                     href="/dashboard/analytics"
-                    className={`transition-colors ${darkMode ? "hover:text-[#F4F5F6]" : "hover:text-[#1C2E47]"}`}
+                    className={`transition-colors ${darkMode ? "hover:text-brand-cloud" : "hover:text-brand-navy"}`}
                   >
                     Analytics
                   </Link>
@@ -200,7 +200,7 @@ export default function Footer({ darkMode }: FooterProps) {
             {/* RESOURCES */}
             <div>
               <h4
-                className={`font-bold mb-4 text-sm ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+                className={`font-bold mb-4 text-sm ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}
                 style={{
                   fontFamily:
                     '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -209,7 +209,7 @@ export default function Footer({ darkMode }: FooterProps) {
                 RESOURCES
               </h4>
               <ul
-                className={`space-y-2 text-sm ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                className={`space-y-2 text-sm ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
                 style={{
                   fontFamily:
                     '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -218,7 +218,7 @@ export default function Footer({ darkMode }: FooterProps) {
                 <li>
                   <Link
                     href="/help"
-                    className={`transition-colors ${darkMode ? "hover:text-[#F4F5F6]" : "hover:text-[#1C2E47]"}`}
+                    className={`transition-colors ${darkMode ? "hover:text-brand-cloud" : "hover:text-brand-navy"}`}
                   >
                     Help Centre
                   </Link>
@@ -226,7 +226,7 @@ export default function Footer({ darkMode }: FooterProps) {
                 <li>
                   <Link
                     href="/compliance-library"
-                    className={`transition-colors ${darkMode ? "hover:text-[#F4F5F6]" : "hover:text-[#1C2E47]"}`}
+                    className={`transition-colors ${darkMode ? "hover:text-brand-cloud" : "hover:text-brand-navy"}`}
                   >
                     Compliance Library
                   </Link>
@@ -234,7 +234,7 @@ export default function Footer({ darkMode }: FooterProps) {
                 <li>
                   <Link
                     href="/blog"
-                    className={`transition-colors ${darkMode ? "hover:text-[#F4F5F6]" : "hover:text-[#1C2E47]"}`}
+                    className={`transition-colors ${darkMode ? "hover:text-brand-cloud" : "hover:text-brand-navy"}`}
                   >
                     Blog
                   </Link>
@@ -245,7 +245,7 @@ export default function Footer({ darkMode }: FooterProps) {
             {/* COMPANY */}
             <div>
               <h4
-                className={`font-bold mb-4 text-sm ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+                className={`font-bold mb-4 text-sm ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}
                 style={{
                   fontFamily:
                     '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -254,7 +254,7 @@ export default function Footer({ darkMode }: FooterProps) {
                 COMPANY
               </h4>
               <ul
-                className={`space-y-2 text-sm ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                className={`space-y-2 text-sm ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
                 style={{
                   fontFamily:
                     '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -263,7 +263,7 @@ export default function Footer({ darkMode }: FooterProps) {
                 <li>
                   <Link
                     href="/about"
-                    className={`transition-colors ${darkMode ? "hover:text-[#F4F5F6]" : "hover:text-[#1C2E47]"}`}
+                    className={`transition-colors ${darkMode ? "hover:text-brand-cloud" : "hover:text-brand-navy"}`}
                   >
                     About
                   </Link>
@@ -271,7 +271,7 @@ export default function Footer({ darkMode }: FooterProps) {
                 <li>
                   <Link
                     href="/how-it-works"
-                    className={`transition-colors ${darkMode ? "hover:text-[#F4F5F6]" : "hover:text-[#1C2E47]"}`}
+                    className={`transition-colors ${darkMode ? "hover:text-brand-cloud" : "hover:text-brand-navy"}`}
                   >
                     How it Works
                   </Link>
@@ -279,7 +279,7 @@ export default function Footer({ darkMode }: FooterProps) {
                 <li>
                   <Link
                     href="/compliance"
-                    className={`transition-colors ${darkMode ? "hover:text-[#F4F5F6]" : "hover:text-[#1C2E47]"}`}
+                    className={`transition-colors ${darkMode ? "hover:text-brand-cloud" : "hover:text-brand-navy"}`}
                   >
                     Compliance
                   </Link>
@@ -287,7 +287,7 @@ export default function Footer({ darkMode }: FooterProps) {
                 <li>
                   <Link
                     href="/contact"
-                    className={`transition-colors ${darkMode ? "hover:text-[#F4F5F6]" : "hover:text-[#1C2E47]"}`}
+                    className={`transition-colors ${darkMode ? "hover:text-brand-cloud" : "hover:text-brand-navy"}`}
                   >
                     Contact
                   </Link>
@@ -295,7 +295,7 @@ export default function Footer({ darkMode }: FooterProps) {
                 <li>
                   <Link
                     href="/faq"
-                    className={`transition-colors ${darkMode ? "hover:text-[#F4F5F6]" : "hover:text-[#1C2E47]"}`}
+                    className={`transition-colors ${darkMode ? "hover:text-brand-cloud" : "hover:text-brand-navy"}`}
                   >
                     FAQ
                   </Link>
@@ -305,7 +305,7 @@ export default function Footer({ darkMode }: FooterProps) {
                 <li>
                   <Link
                     href="/privacy"
-                    className={`transition-colors ${darkMode ? "hover:text-[#F4F5F6]" : "hover:text-[#1C2E47]"}`}
+                    className={`transition-colors ${darkMode ? "hover:text-brand-cloud" : "hover:text-brand-navy"}`}
                   >
                     Privacy Policy
                   </Link>
@@ -313,7 +313,7 @@ export default function Footer({ darkMode }: FooterProps) {
                 <li>
                   <Link
                     href="/terms"
-                    className={`transition-colors ${darkMode ? "hover:text-[#F4F5F6]" : "hover:text-[#1C2E47]"}`}
+                    className={`transition-colors ${darkMode ? "hover:text-brand-cloud" : "hover:text-brand-navy"}`}
                   >
                     Terms of Service
                   </Link>

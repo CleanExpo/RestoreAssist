@@ -70,7 +70,7 @@ export default async function InsurerPortalPage({ params }: PageProps) {
   return (
     <main className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-[#1C2E47] text-white">
+      <header className="bg-brand-navy text-white">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
           <div>
             <span className="text-lg font-bold tracking-tight text-cyan-400">
@@ -180,7 +180,7 @@ export default async function InsurerPortalPage({ params }: PageProps) {
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="bg-[#1C2E47] text-white">
+                  <tr className="bg-brand-navy text-white">
                     {[
                       "Room / Area",
                       "Material",
@@ -239,7 +239,7 @@ export default async function InsurerPortalPage({ params }: PageProps) {
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="bg-[#1C2E47] text-white">
+                  <tr className="bg-brand-navy text-white">
                     {[
                       "Location",
                       "Material",
@@ -315,7 +315,7 @@ export default async function InsurerPortalPage({ params }: PageProps) {
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="bg-[#1C2E47] text-white">
+                  <tr className="bg-brand-navy text-white">
                     {[
                       "Equipment Type",
                       "Brand / Model",
@@ -368,7 +368,7 @@ export default async function InsurerPortalPage({ params }: PageProps) {
         )}
 
         {/* PDF CTA */}
-        <div className="bg-[#1C2E47] rounded-xl p-5 flex items-center justify-between gap-4">
+        <div className="bg-brand-navy rounded-xl p-5 flex items-center justify-between gap-4">
           <div>
             <p className="text-sm font-semibold text-white">
               Full PDF Report Available

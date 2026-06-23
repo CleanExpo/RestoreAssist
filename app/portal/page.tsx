@@ -92,12 +92,12 @@ export default function PortalDashboard() {
 
   if (status === "loading" || loading) {
     return (
-      <div className="min-h-screen bg-[#F4F5F6]">
+      <div className="min-h-screen bg-brand-cloud">
         <PortalNav />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#8A6B4E] mx-auto mb-4"></div>
-            <p className="text-[#5A6A7B]">Loading your reports...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-bronze mx-auto mb-4"></div>
+            <p className="text-brand-slate">Loading your reports...</p>
           </div>
         </div>
       </div>
@@ -105,15 +105,15 @@ export default function PortalDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F4F5F6]">
+    <div className="min-h-screen bg-brand-cloud">
       <PortalNav />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-[#1C2E47] mb-2">
+          <h1 className="text-3xl font-bold text-brand-navy mb-2">
             My Restoration Reports
           </h1>
-          <p className="text-[#5A6A7B]">
+          <p className="text-brand-slate">
             View your restoration project reports, track progress, and approve
             work.
           </p>
@@ -121,11 +121,11 @@ export default function PortalDashboard() {
 
         {reports.length === 0 ? (
           <div className="bg-white rounded-lg shadow p-12 text-center">
-            <FileText className="mx-auto mb-4 text-[#5A6A7B]" size={48} />
-            <h2 className="text-xl font-semibold text-[#1C2E47] mb-2">
+            <FileText className="mx-auto mb-4 text-brand-slate" size={48} />
+            <h2 className="text-xl font-semibold text-brand-navy mb-2">
               No Reports Yet
             </h2>
-            <p className="text-[#5A6A7B]">
+            <p className="text-brand-slate">
               Your restoration contractor will create reports for your projects.
               They will appear here.
             </p>
@@ -136,7 +136,7 @@ export default function PortalDashboard() {
               <Link
                 key={report.id}
                 href={`/portal/reports/${report.id}`}
-                className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow p-6 border border-transparent hover:border-[#8A6B4E]/30"
+                className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow p-6 border border-transparent hover:border-brand-bronze/30"
               >
                 <div className="flex items-start justify-between mb-4">
                   <div
@@ -153,11 +153,11 @@ export default function PortalDashboard() {
                   )}
                 </div>
 
-                <h3 className="text-lg font-semibold text-[#1C2E47] mb-2 line-clamp-2">
+                <h3 className="text-lg font-semibold text-brand-navy mb-2 line-clamp-2">
                   {report.title}
                 </h3>
 
-                <div className="space-y-2 text-sm text-[#5A6A7B]">
+                <div className="space-y-2 text-sm text-brand-slate">
                   <p className="flex items-start gap-2">
                     <span className="font-medium">Address:</span>
                     <span className="line-clamp-2">
@@ -176,13 +176,13 @@ export default function PortalDashboard() {
                     </p>
                   )}
                   {report.totalCost && (
-                    <p className="text-[#1C2E47] font-semibold mt-3">
+                    <p className="text-brand-navy font-semibold mt-3">
                       Estimated Cost: ${report.totalCost.toLocaleString()}
                     </p>
                   )}
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-[#5A6A7B]/10 flex justify-between items-center text-xs text-[#5A6A7B]">
+                <div className="mt-4 pt-4 border-t border-brand-slate/10 flex justify-between items-center text-xs text-brand-slate">
                   <span>
                     Created {new Date(report.createdAt).toLocaleDateString()}
                   </span>

@@ -101,10 +101,10 @@ export default function ResourcesClientPage() {
 
   return (
     <div
-      className={`min-h-screen transition-colors duration-300 ${darkMode ? "bg-[#1C2E47]" : "bg-[#F4F5F6]"}`}
+      className={`min-h-screen transition-colors duration-300 ${darkMode ? "bg-brand-navy" : "bg-brand-cloud"}`}
     >
       {/* Header */}
-      <header className="fixed top-0 w-full z-[100] bg-[#1C2E47]/60 backdrop-blur-sm">
+      <header className="fixed top-0 w-full z-[100] bg-brand-navy/60 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-6 py-2 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link href="/" className="flex items-center gap-2">
@@ -154,9 +154,9 @@ export default function ResourcesClientPage() {
                 ease: [0.32, 0.72, 0, 1],
                 opacity: { duration: 0.2 },
               }}
-              className="fixed top-0 right-0 h-screen w-80 max-w-[85vw] bg-[#1C2E47] border-l border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] z-[160] overflow-hidden flex flex-col"
+              className="fixed top-0 right-0 h-screen w-80 max-w-[85vw] bg-brand-navy border-l border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] z-[160] overflow-hidden flex flex-col"
             >
-              <div className="flex-shrink-0 bg-[#1C2E47] border-b border-white/10 px-6 py-5 flex items-center justify-between">
+              <div className="flex-shrink-0 bg-brand-navy border-b border-white/10 px-6 py-5 flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-white uppercase tracking-wider">
                   Menu
                 </h2>
@@ -190,14 +190,14 @@ export default function ResourcesClientPage() {
                   <div className="pt-6 mt-6 border-t border-white/10 space-y-3">
                     <Link
                       href="/pricing"
-                      className="block w-full px-6 py-3 bg-[#5A6A7B] text-white rounded-lg text-center font-medium hover:bg-[#5A6A7B]/80 transition-all duration-200 shadow-lg"
+                      className="block w-full px-6 py-3 bg-brand-slate text-white rounded-lg text-center font-medium hover:bg-brand-slate/80 transition-all duration-200 shadow-lg"
                       onClick={() => setMobileMenuOpen(false)}
                     >
                       Pricing
                     </Link>
                     <Link
                       href="/login"
-                      className="block w-full px-6 py-3 bg-[#8A6B4E] text-white rounded-lg text-center font-medium hover:bg-[#8A6B4E]/80 transition-all duration-200 shadow-lg"
+                      className="block w-full px-6 py-3 bg-brand-bronze text-white rounded-lg text-center font-medium hover:bg-brand-bronze/80 transition-all duration-200 shadow-lg"
                       onClick={() => setMobileMenuOpen(false)}
                     >
                       Log In
@@ -211,17 +211,17 @@ export default function ResourcesClientPage() {
       </AnimatePresence>
 
       {/* Hero */}
-      <section className="pt-48 pb-20 px-6 relative z-10 min-h-[60vh] flex items-center bg-[#C4C8CA]/30 overflow-hidden">
+      <section className="pt-48 pb-20 px-6 relative z-10 min-h-[60vh] flex items-center bg-brand-mist/30 overflow-hidden">
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-          <div className="absolute top-20 right-10 w-72 h-72 bg-[#8A6B4E]/10 rounded-full blur-3xl" />
-          <div className="absolute bottom-20 left-10 w-96 h-96 bg-[#8A6B4E]/8 rounded-full blur-3xl" />
+          <div className="absolute top-20 right-10 w-72 h-72 bg-brand-bronze/10 rounded-full blur-3xl" />
+          <div className="absolute bottom-20 left-10 w-96 h-96 bg-brand-bronze/8 rounded-full blur-3xl" />
         </div>
         <div className="max-w-7xl mx-auto w-full relative z-10">
           <motion.h1
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className="text-5xl md:text-6xl font-bold mb-6 leading-tight text-[#F4F5F6]"
+            className="text-5xl md:text-6xl font-bold mb-6 leading-tight text-brand-cloud"
             style={{
               fontFamily:
                 '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -233,7 +233,7 @@ export default function ResourcesClientPage() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className="text-xl md:text-2xl text-[#C4C8CA]"
+            className="text-xl md:text-2xl text-brand-mist"
             style={{
               fontFamily:
                 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -245,10 +245,10 @@ export default function ResourcesClientPage() {
       </section>
 
       {/* Resources Grid */}
-      <section className="py-20 px-6 relative bg-[#C4C8CA]/30 overflow-hidden">
+      <section className="py-20 px-6 relative bg-brand-mist/30 overflow-hidden">
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-          <div className="absolute top-10 left-1/4 w-80 h-80 bg-[#8A6B4E]/12 rounded-full blur-3xl" />
-          <div className="absolute bottom-10 right-1/4 w-64 h-64 bg-[#8A6B4E]/10 rounded-full blur-3xl" />
+          <div className="absolute top-10 left-1/4 w-80 h-80 bg-brand-bronze/12 rounded-full blur-3xl" />
+          <div className="absolute bottom-10 right-1/4 w-64 h-64 bg-brand-bronze/10 rounded-full blur-3xl" />
         </div>
         <div className="max-w-7xl mx-auto relative z-10">
           <div className="grid md:grid-cols-3 gap-8">
@@ -259,10 +259,10 @@ export default function ResourcesClientPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: index * 0.1 }}
-                className="p-6 rounded-lg bg-[#1C2E47]/50 backdrop-blur-sm border border-[#5A6A7B]/30"
+                className="p-6 rounded-lg bg-brand-navy/50 backdrop-blur-sm border border-brand-slate/30"
               >
                 <h3
-                  className="text-2xl font-bold mb-6 text-[#F4F5F6]"
+                  className="text-2xl font-bold mb-6 text-brand-cloud"
                   style={{
                     fontFamily:
                       '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -276,7 +276,7 @@ export default function ResourcesClientPage() {
                       <>
                         <div className="flex items-center gap-2 mb-2">
                           <h4
-                            className="text-lg font-semibold text-[#F4F5F6]"
+                            className="text-lg font-semibold text-brand-cloud"
                             style={{
                               fontFamily:
                                 '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -285,12 +285,12 @@ export default function ResourcesClientPage() {
                             {item.title}
                           </h4>
                           {item.comingSoon && (
-                            <span className="px-2 py-1 text-xs font-semibold rounded-full bg-[#8A6B4E]/20 text-[#8A6B4E] border border-[#8A6B4E]/30">
+                            <span className="px-2 py-1 text-xs font-semibold rounded-full bg-brand-bronze/20 text-brand-bronze border border-brand-bronze/30">
                               Coming Soon
                             </span>
                           )}
                         </div>
-                        <p className="text-sm text-[#C4C8CA]">
+                        <p className="text-sm text-brand-mist">
                           {item.description}
                         </p>
                       </>
@@ -303,7 +303,7 @@ export default function ResourcesClientPage() {
                       <Link
                         key={idx}
                         href={item.link}
-                        className="block p-4 rounded-lg transition-colors hover:bg-[#1C2E47]/70"
+                        className="block p-4 rounded-lg transition-colors hover:bg-brand-navy/70"
                       >
                         {cardInner}
                       </Link>

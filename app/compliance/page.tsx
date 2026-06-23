@@ -147,20 +147,20 @@ const reportSections = [
 export default function CompliancePage() {
   const [darkMode, setDarkMode] = useState(true);
 
-  const bg = darkMode ? "bg-[#050505]" : "bg-[#F4F5F6]";
-  const text = darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]";
-  const muted = darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]";
+  const bg = darkMode ? "bg-brand-canvas" : "bg-brand-cloud";
+  const text = darkMode ? "text-brand-cloud" : "text-brand-navy";
+  const muted = darkMode ? "text-brand-mist" : "text-brand-slate";
   const card = darkMode
-    ? "bg-[#1C2E47]/60 border-[#5A6A7B]/30"
-    : "bg-white border-[#5A6A7B]/20";
+    ? "bg-brand-navy/60 border-brand-slate/30"
+    : "bg-white border-brand-slate/20";
   const tableHead = darkMode
-    ? "bg-[#1C2E47] text-[#D4A574]"
-    : "bg-[#1C2E47] text-[#D4A574]";
+    ? "bg-brand-navy text-brand-gold"
+    : "bg-brand-navy text-brand-gold";
   const tableRow = darkMode
-    ? "border-[#5A6A7B]/20 hover:bg-[#1C2E47]/40"
+    ? "border-brand-slate/20 hover:bg-brand-navy/40"
     : "border-gray-200 hover:bg-gray-50";
   const badge =
-    "inline-block rounded px-2 py-0.5 text-xs font-medium bg-[#8A6B4E]/20 text-[#D4A574]";
+    "inline-block rounded px-2 py-0.5 text-xs font-medium bg-brand-bronze/20 text-brand-gold";
 
   return (
     <div className={`min-h-screen transition-colors duration-300 ${bg}`}>
@@ -169,8 +169,8 @@ export default function CompliancePage() {
       {/* Hero */}
       <section className="pt-48 pb-20 px-6 relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-24 right-16 w-96 h-96 bg-[#8A6B4E]/10 rounded-full blur-3xl" />
-          <div className="absolute bottom-8 left-8 w-72 h-72 bg-[#1C2E47]/20 rounded-full blur-3xl" />
+          <div className="absolute top-24 right-16 w-96 h-96 bg-brand-bronze/10 rounded-full blur-3xl" />
+          <div className="absolute bottom-8 left-8 w-72 h-72 bg-brand-navy/20 rounded-full blur-3xl" />
         </div>
         <div className="max-w-5xl mx-auto relative">
           <span className={`${badge} mb-4 inline-block`}>
@@ -182,7 +182,7 @@ export default function CompliancePage() {
           >
             IICRC S500:2025
             <br />
-            <span className="text-[#D4A574]">Compliance in RestoreAssist</span>
+            <span className="text-brand-gold">Compliance in RestoreAssist</span>
           </h1>
           <p className={`text-xl max-w-3xl leading-relaxed ${muted}`}>
             A field-by-field reference showing how RestoreAssist maps to the
@@ -245,7 +245,7 @@ export default function CompliancePage() {
             Each row shows a standard requirement, the RestoreAssist feature
             that captures it, and the report section where it appears.
           </p>
-          <div className="overflow-x-auto rounded-xl border border-[#5A6A7B]/30">
+          <div className="overflow-x-auto rounded-xl border border-brand-slate/30">
             <table className="w-full text-sm">
               <thead>
                 <tr className={tableHead}>
@@ -304,7 +304,7 @@ export default function CompliancePage() {
                 key={s.num}
                 className={`flex items-start gap-4 rounded-lg border p-4 ${card}`}
               >
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#1C2E47] flex items-center justify-center text-[#D4A574] font-bold text-sm">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-brand-navy flex items-center justify-center text-brand-gold font-bold text-sm">
                   {s.num}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -338,7 +338,7 @@ export default function CompliancePage() {
               <BillingGate fallback={null}>
                 <Link
                   href="/signup"
-                  className="inline-block rounded-lg bg-[#D4A574] px-8 py-3 font-semibold text-[#050505] hover:bg-[#8A6B4E] transition-colors"
+                  className="inline-block rounded-lg bg-brand-gold px-8 py-3 font-semibold text-brand-canvas hover:bg-brand-bronze transition-colors"
                 >
                   Start free trial
                 </Link>
@@ -347,8 +347,8 @@ export default function CompliancePage() {
                 href="/how-it-works"
                 className={`inline-block rounded-lg border px-8 py-3 font-semibold transition-colors ${
                   darkMode
-                    ? "border-[#5A6A7B]/50 text-[#C4C8CA] hover:border-[#D4A574] hover:text-[#D4A574]"
-                    : "border-[#5A6A7B]/30 text-[#5A6A7B] hover:border-[#1C2E47] hover:text-[#1C2E47]"
+                    ? "border-brand-slate/50 text-brand-mist hover:border-brand-gold hover:text-brand-gold"
+                    : "border-brand-slate/30 text-brand-slate hover:border-brand-navy hover:text-brand-navy"
                 }`}
               >
                 See how it works

@@ -43,7 +43,7 @@ export default function PortalLoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F4F5F6] px-4">
+    <div className="min-h-screen flex items-center justify-center bg-brand-cloud px-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -57,10 +57,10 @@ export default function PortalLoginPage() {
             height={80}
             className="mx-auto mb-4"
           />
-          <h1 className="text-2xl font-bold text-[#1C2E47] mb-2">
+          <h1 className="text-2xl font-bold text-brand-navy mb-2">
             Client Portal
           </h1>
-          <p className="text-[#5A6A7B] text-sm">
+          <p className="text-brand-slate text-sm">
             Sign in to view your restoration projects
           </p>
         </div>
@@ -73,7 +73,7 @@ export default function PortalLoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-[#1C2E47] mb-1">
+            <label className="block text-sm font-medium text-brand-navy mb-1">
               Email
             </label>
             <input
@@ -81,13 +81,13 @@ export default function PortalLoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-4 py-2 border border-[#5A6A7B]/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8A6B4E] focus:border-transparent"
+              className="w-full px-4 py-2 border border-brand-slate/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-bronze focus:border-transparent"
               placeholder="your@email.com"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#1C2E47] mb-1">
+            <label className="block text-sm font-medium text-brand-navy mb-1">
               Password
             </label>
             <input
@@ -95,7 +95,7 @@ export default function PortalLoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full px-4 py-2 border border-[#5A6A7B]/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8A6B4E] focus:border-transparent"
+              className="w-full px-4 py-2 border border-brand-slate/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-bronze focus:border-transparent"
               placeholder="••••••••"
             />
           </div>
@@ -103,22 +103,22 @@ export default function PortalLoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-[#8A6B4E] text-white rounded-lg font-medium hover:bg-[#8A6B4E]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-3 bg-brand-bronze text-white rounded-lg font-medium hover:bg-brand-bronze/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Signing in..." : "Sign In"}
           </button>
         </form>
 
         <div className="mt-6 text-center space-y-2">
-          <p className="text-sm text-[#5A6A7B]">
+          <p className="text-sm text-brand-slate">
             Don't have an account?{" "}
-            <span className="text-[#5A6A7B]">
+            <span className="text-brand-slate">
               Contact your restoration contractor for an invitation.
             </span>
           </p>
           <Link
             href="/"
-            className="block text-sm text-[#8A6B4E] hover:underline"
+            className="block text-sm text-brand-bronze hover:underline"
           >
             Return to Home
           </Link>

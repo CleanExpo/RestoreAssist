@@ -97,10 +97,10 @@ function PricingPageContent() {
 
   return (
     <div
-      className={`min-h-screen transition-colors duration-300 ${darkMode ? "bg-[#1C2E47]" : "bg-[#F4F5F6]"}`}
+      className={`min-h-screen transition-colors duration-300 ${darkMode ? "bg-brand-navy" : "bg-brand-cloud"}`}
     >
       {/* Header - Hamburger menu always visible, even on desktop */}
-      <header className="fixed top-0 w-full z-[100] bg-[#1C2E47]/60 backdrop-blur-sm">
+      <header className="fixed top-0 w-full z-[100] bg-brand-navy/60 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-6 py-2 flex items-center justify-between">
           {/* Logo - Left Side */}
           <div className="flex items-center gap-3">
@@ -157,10 +157,10 @@ function PricingPageContent() {
                 ease: [0.32, 0.72, 0, 1],
                 opacity: { duration: 0.2 },
               }}
-              className="fixed top-0 right-0 h-screen w-80 max-w-[85vw] bg-[#1C2E47] border-l border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] z-[160] overflow-hidden flex flex-col"
+              className="fixed top-0 right-0 h-screen w-80 max-w-[85vw] bg-brand-navy border-l border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] z-[160] overflow-hidden flex flex-col"
             >
               {/* Menu Header - Fixed at top */}
-              <div className="flex-shrink-0 bg-[#1C2E47] border-b border-white/10 px-6 py-5 flex items-center justify-between">
+              <div className="flex-shrink-0 bg-brand-navy border-b border-white/10 px-6 py-5 flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-white uppercase tracking-wider">
                   Menu
                 </h2>
@@ -211,14 +211,14 @@ function PricingPageContent() {
                   <div className="pt-6 mt-6 border-t border-white/10 space-y-3">
                     <Link
                       href="/pricing"
-                      className="block w-full px-6 py-3 bg-[#546272] text-white rounded-lg text-center font-medium hover:bg-[#445163] transition-all duration-200 shadow-lg"
+                      className="block w-full px-6 py-3 bg-brand-steel text-white rounded-lg text-center font-medium hover:bg-brand-steel-hover transition-all duration-200 shadow-lg"
                       onClick={() => setMobileMenuOpen(false)}
                     >
                       Pricing
                     </Link>
                     <Link
                       href="/login"
-                      className="block w-full px-6 py-3 bg-[#765C43] text-white rounded-lg text-center font-medium hover:bg-[#634A2F] transition-all duration-200 shadow-lg"
+                      className="block w-full px-6 py-3 bg-brand-cta text-white rounded-lg text-center font-medium hover:bg-brand-cta-hover transition-all duration-200 shadow-lg"
                       onClick={() => setMobileMenuOpen(false)}
                     >
                       Log In
@@ -232,18 +232,18 @@ function PricingPageContent() {
       </AnimatePresence>
 
       {/* Hero Section */}
-      <section className="pt-48 pb-20 px-6 relative z-10 min-h-[60vh] flex items-center bg-[#C4C8CA]/30 overflow-hidden">
+      <section className="pt-48 pb-20 px-6 relative z-10 min-h-[60vh] flex items-center bg-brand-mist/30 overflow-hidden">
         {/* Golden Decorative Shapes */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-          <div className="absolute top-20 right-10 w-72 h-72 bg-[#8A6B4E]/10 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-20 left-10 w-96 h-96 bg-[#8A6B4E]/8 rounded-full blur-3xl"></div>
+          <div className="absolute top-20 right-10 w-72 h-72 bg-brand-bronze/10 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-20 left-10 w-96 h-96 bg-brand-bronze/8 rounded-full blur-3xl"></div>
         </div>
         <div className="max-w-7xl mx-auto w-full relative z-10 text-center">
           <motion.h1
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className={`text-5xl md:text-6xl font-bold mb-6 leading-tight ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+            className={`text-5xl md:text-6xl font-bold mb-6 leading-tight ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}
             style={{
               fontFamily:
                 '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -255,7 +255,7 @@ function PricingPageContent() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className={`text-xl md:text-2xl ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+            className={`text-xl md:text-2xl ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
             style={{
               fontFamily:
                 '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -271,10 +271,10 @@ function PricingPageContent() {
       </section>
 
       {/* Pricing Cards */}
-      <section className="py-20 px-6 relative bg-[#C4C8CA]/30 overflow-hidden">
+      <section className="py-20 px-6 relative bg-brand-mist/30 overflow-hidden">
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-          <div className="absolute top-10 left-1/4 w-80 h-80 bg-[#8A6B4E]/12 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-10 right-1/4 w-64 h-64 bg-[#8A6B4E]/10 rounded-full blur-3xl"></div>
+          <div className="absolute top-10 left-1/4 w-80 h-80 bg-brand-bronze/12 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-10 right-1/4 w-64 h-64 bg-brand-bronze/10 rounded-full blur-3xl"></div>
         </div>
         <div className="max-w-7xl mx-auto relative z-10">
           <div className="grid md:grid-cols-3 gap-8">
@@ -285,11 +285,11 @@ function PricingPageContent() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: index * 0.1 }}
-                className={`p-8 rounded-lg relative ${plan.popular ? "border-2 border-[#8A6B4E]" : plan.isFree ? "border-2 border-[#5A6A7B]" : ""} ${darkMode ? "bg-[#1C2E47]/50 border-[#5A6A7B]/30" : "bg-[#F4F5F6]/50 border-[#5A6A7B]/20"} backdrop-blur-sm border`}
+                className={`p-8 rounded-lg relative ${plan.popular ? "border-2 border-brand-bronze" : plan.isFree ? "border-2 border-brand-slate" : ""} ${darkMode ? "bg-brand-navy/50 border-brand-slate/30" : "bg-brand-cloud/50 border-brand-slate/20"} backdrop-blur-sm border`}
               >
                 {plan.isFree && (
                   <div
-                    className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-[#546272] text-[#F4F5F6] rounded-full text-sm font-medium"
+                    className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-brand-steel text-brand-cloud rounded-full text-sm font-medium"
                     style={{
                       fontFamily:
                         '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -300,7 +300,7 @@ function PricingPageContent() {
                 )}
                 {plan.popular && !plan.isFree && (
                   <div
-                    className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-[#765C43] text-[#F4F5F6] rounded-full text-sm font-medium"
+                    className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-brand-cta text-brand-cloud rounded-full text-sm font-medium"
                     style={{
                       fontFamily:
                         '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -311,7 +311,7 @@ function PricingPageContent() {
                 )}
                 {plan.badge && !plan.popular && !plan.isFree && (
                   <div
-                    className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-[#765C43] text-[#F4F5F6] rounded-full text-sm font-medium"
+                    className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-brand-cta text-brand-cloud rounded-full text-sm font-medium"
                     style={{
                       fontFamily:
                         '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -321,7 +321,7 @@ function PricingPageContent() {
                   </div>
                 )}
                 <h3
-                  className={`text-2xl font-bold mb-2 ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+                  className={`text-2xl font-bold mb-2 ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}
                   style={{
                     fontFamily:
                       '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -330,7 +330,7 @@ function PricingPageContent() {
                   {plan.name}
                 </h3>
                 <p
-                  className={`text-sm mb-6 ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                  className={`text-sm mb-6 ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
                   style={{
                     fontFamily:
                       '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -340,7 +340,7 @@ function PricingPageContent() {
                 </p>
                 <div className="mb-6">
                   <span
-                    className={`text-4xl font-bold ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+                    className={`text-4xl font-bold ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}
                     style={{
                       fontFamily:
                         '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -350,7 +350,7 @@ function PricingPageContent() {
                   </span>
                   {plan.period && (
                     <span
-                      className={`text-lg ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                      className={`text-lg ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
                       style={{
                         fontFamily:
                           '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -363,7 +363,7 @@ function PricingPageContent() {
                       labelling; pair with Tax Invoice promise from RA-1559. */}
                   {!plan.isFree && (
                     <p
-                      className={`text-xs mt-1 ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                      className={`text-xs mt-1 ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
                     >
                       AUD, incl. GST. Tax invoices issued monthly. Cancel any
                       time.
@@ -371,7 +371,7 @@ function PricingPageContent() {
                   )}
                   {plan.monthlyEquivalent && (
                     <p
-                      className={`text-sm mt-1 ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                      className={`text-sm mt-1 ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
                       style={{
                         fontFamily:
                           '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -382,10 +382,10 @@ function PricingPageContent() {
                   )}
                   {plan.reportLimit && typeof plan.reportLimit === "number" && (
                     <div
-                      className={`mt-2 p-3 rounded-lg ${plan.isFree ? (darkMode ? "bg-[#5A6A7B]/20" : "bg-[#5A6A7B]/10") : darkMode ? "bg-[#8A6B4E]/20" : "bg-[#8A6B4E]/10"}`}
+                      className={`mt-2 p-3 rounded-lg ${plan.isFree ? (darkMode ? "bg-brand-slate/20" : "bg-brand-slate/10") : darkMode ? "bg-brand-bronze/20" : "bg-brand-bronze/10"}`}
                     >
                       <p
-                        className={`text-sm font-semibold ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+                        className={`text-sm font-semibold ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}
                       >
                         {plan.reportLimit} Inspection Reports
                         {plan.period === "/month"
@@ -396,7 +396,7 @@ function PricingPageContent() {
                       </p>
                       {plan.signupBonus && !plan.isFree && (
                         <p
-                          className={`text-xs mt-1 ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                          className={`text-xs mt-1 ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
                         >
                           +{plan.signupBonus} bonus reports on first month
                         </p>
@@ -408,14 +408,14 @@ function PricingPageContent() {
                   {plan.features.map((feature, idx) => (
                     <li
                       key={idx}
-                      className={`flex items-start gap-2 ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                      className={`flex items-start gap-2 ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
                       style={{
                         fontFamily:
                           '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                       }}
                     >
                       <span
-                        className={`mt-1 ${plan.isFree ? "text-[#5A6A7B]" : "text-[#8A6B4E]"}`}
+                        className={`mt-1 ${plan.isFree ? "text-brand-slate" : "text-brand-bronze"}`}
                       >
                         ✓
                       </span>
@@ -425,55 +425,55 @@ function PricingPageContent() {
                   {!plan.isFree && (
                     <>
                       <li
-                        className={`flex items-start gap-2 ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                        className={`flex items-start gap-2 ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
                         style={{
                           fontFamily:
                             '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                         }}
                       >
-                        <span className="text-[#8A6B4E] mt-1">✓</span>
+                        <span className="text-brand-bronze mt-1">✓</span>
                         <span>
                           Unlimited Quick Fill (AI-powered form auto-fill)
                         </span>
                       </li>
                       <li
-                        className={`flex items-start gap-2 ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                        className={`flex items-start gap-2 ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
                         style={{
                           fontFamily:
                             '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                         }}
                       >
-                        <span className="text-[#8A6B4E] mt-1">✓</span>
+                        <span className="text-brand-bronze mt-1">✓</span>
                         <span>Enhanced & Optimized report types</span>
                       </li>
                       <li
-                        className={`flex items-start gap-2 ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                        className={`flex items-start gap-2 ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
                         style={{
                           fontFamily:
                             '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                         }}
                       >
-                        <span className="text-[#8A6B4E] mt-1">✓</span>
+                        <span className="text-brand-bronze mt-1">✓</span>
                         <span>PDF upload & processing</span>
                       </li>
                       <li
-                        className={`flex items-start gap-2 ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                        className={`flex items-start gap-2 ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
                         style={{
                           fontFamily:
                             '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                         }}
                       >
-                        <span className="text-[#8A6B4E] mt-1">✓</span>
+                        <span className="text-brand-bronze mt-1">✓</span>
                         <span>Full profile & pricing configuration</span>
                       </li>
                       <li
-                        className={`flex items-start gap-2 ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                        className={`flex items-start gap-2 ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
                         style={{
                           fontFamily:
                             '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                         }}
                       >
-                        <span className="text-[#8A6B4E] mt-1">✓</span>
+                        <span className="text-brand-bronze mt-1">✓</span>
                         <span>
                           Premium API integrations (Claude, GPT, etc.)
                         </span>
@@ -483,7 +483,7 @@ function PricingPageContent() {
                 </ul>
                 <Link
                   href="/signup"
-                  className={`block w-full px-6 py-3 rounded-lg text-center font-medium transition-colors ${plan.isFree ? "bg-[#546272] text-[#F4F5F6] hover:bg-[#445163]" : plan.popular ? "bg-[#765C43] text-[#F4F5F6] hover:bg-[#634A2F]" : "bg-[#546272] text-[#F4F5F6] hover:bg-[#445163]"}`}
+                  className={`block w-full px-6 py-3 rounded-lg text-center font-medium transition-colors ${plan.isFree ? "bg-brand-steel text-brand-cloud hover:bg-brand-steel-hover" : plan.popular ? "bg-brand-cta text-brand-cloud hover:bg-brand-cta-hover" : "bg-brand-steel text-brand-cloud hover:bg-brand-steel-hover"}`}
                   style={{
                     fontFamily:
                       '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -506,7 +506,7 @@ function PricingPageContent() {
             className="text-center mb-12"
           >
             <h2
-              className={`text-3xl md:text-4xl font-bold mb-4 ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+              className={`text-3xl md:text-4xl font-bold mb-4 ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}
               style={{
                 fontFamily:
                   '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -515,7 +515,7 @@ function PricingPageContent() {
               Add More Reports
             </h2>
             <p
-              className={`text-lg ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+              className={`text-lg ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
               style={{
                 fontFamily:
                   '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -534,11 +534,11 @@ function PricingPageContent() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: index * 0.1 }}
-                className={`p-6 rounded-lg relative ${addon.popular ? "border-2 border-[#8A6B4E]" : ""} ${darkMode ? "bg-[#1C2E47]/50 border-[#5A6A7B]/30" : "bg-[#F4F5F6]/50 border-[#5A6A7B]/20"} backdrop-blur-sm border`}
+                className={`p-6 rounded-lg relative ${addon.popular ? "border-2 border-brand-bronze" : ""} ${darkMode ? "bg-brand-navy/50 border-brand-slate/30" : "bg-brand-cloud/50 border-brand-slate/20"} backdrop-blur-sm border`}
               >
                 {addon.popular && (
                   <div
-                    className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-[#765C43] text-[#F4F5F6] rounded-full text-sm font-medium"
+                    className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-brand-cta text-brand-cloud rounded-full text-sm font-medium"
                     style={{
                       fontFamily:
                         '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -549,7 +549,7 @@ function PricingPageContent() {
                 )}
                 {addon.badge && !addon.popular && (
                   <div
-                    className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-[#765C43] text-[#F4F5F6] rounded-full text-sm font-medium"
+                    className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-brand-cta text-brand-cloud rounded-full text-sm font-medium"
                     style={{
                       fontFamily:
                         '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -559,7 +559,7 @@ function PricingPageContent() {
                   </div>
                 )}
                 <h3
-                  className={`text-xl font-bold mb-2 ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+                  className={`text-xl font-bold mb-2 ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}
                   style={{
                     fontFamily:
                       '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -568,7 +568,7 @@ function PricingPageContent() {
                   {addon.name}
                 </h3>
                 <p
-                  className={`text-sm mb-4 ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                  className={`text-sm mb-4 ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
                   style={{
                     fontFamily:
                       '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -578,7 +578,7 @@ function PricingPageContent() {
                 </p>
                 <div className="mb-6">
                   <span
-                    className={`text-3xl font-bold ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+                    className={`text-3xl font-bold ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}
                     style={{
                       fontFamily:
                         '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -587,10 +587,10 @@ function PricingPageContent() {
                     {addon.price}
                   </span>
                   <div
-                    className={`mt-2 p-3 rounded-lg ${darkMode ? "bg-[#8A6B4E]/20" : "bg-[#8A6B4E]/10"}`}
+                    className={`mt-2 p-3 rounded-lg ${darkMode ? "bg-brand-bronze/20" : "bg-brand-bronze/10"}`}
                   >
                     <p
-                      className={`text-sm font-semibold ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+                      className={`text-sm font-semibold ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}
                     >
                       {addon.reportLimit} Additional Reports
                     </p>
@@ -598,7 +598,7 @@ function PricingPageContent() {
                 </div>
                 <Link
                   href="/signup"
-                  className={`block w-full px-6 py-3 rounded-lg text-center font-medium transition-colors ${addon.popular ? "bg-[#765C43] text-[#F4F5F6] hover:bg-[#634A2F]" : "bg-[#546272] text-[#F4F5F6] hover:bg-[#445163]"}`}
+                  className={`block w-full px-6 py-3 rounded-lg text-center font-medium transition-colors ${addon.popular ? "bg-brand-cta text-brand-cloud hover:bg-brand-cta-hover" : "bg-brand-steel text-brand-cloud hover:bg-brand-steel-hover"}`}
                   style={{
                     fontFamily:
                       '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',

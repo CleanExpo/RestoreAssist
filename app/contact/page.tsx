@@ -82,23 +82,23 @@ export default function ContactPage() {
 
   return (
     <div
-      className={`min-h-screen transition-colors duration-300 ${darkMode ? "bg-[#1C2E47]" : "bg-[#F4F5F6]"}`}
+      className={`min-h-screen transition-colors duration-300 ${darkMode ? "bg-brand-navy" : "bg-brand-cloud"}`}
     >
       <Header darkMode={darkMode} setDarkMode={setDarkMode} />
 
       {/* Hero Section */}
-      <section className="pt-48 pb-20 px-6 relative z-10 min-h-[60vh] flex items-center bg-[#C4C8CA]/30 overflow-hidden">
+      <section className="pt-48 pb-20 px-6 relative z-10 min-h-[60vh] flex items-center bg-brand-mist/30 overflow-hidden">
         {/* Golden Decorative Shapes */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-          <div className="absolute top-20 right-10 w-72 h-72 bg-[#8A6B4E]/10 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-20 left-10 w-96 h-96 bg-[#8A6B4E]/8 rounded-full blur-3xl"></div>
+          <div className="absolute top-20 right-10 w-72 h-72 bg-brand-bronze/10 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-20 left-10 w-96 h-96 bg-brand-bronze/8 rounded-full blur-3xl"></div>
         </div>
         <div className="max-w-7xl mx-auto w-full relative z-10 text-center">
           <motion.h1
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className={`text-5xl md:text-6xl font-bold mb-6 leading-tight ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+            className={`text-5xl md:text-6xl font-bold mb-6 leading-tight ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}
             style={{
               fontFamily:
                 '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -110,7 +110,7 @@ export default function ContactPage() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className={`text-xl md:text-2xl ${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+            className={`text-xl md:text-2xl ${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
             style={{
               fontFamily:
                 '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -122,10 +122,10 @@ export default function ContactPage() {
       </section>
 
       {/* Contact Section */}
-      <section className="py-20 px-6 relative bg-[#C4C8CA]/30 overflow-hidden">
+      <section className="py-20 px-6 relative bg-brand-mist/30 overflow-hidden">
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-          <div className="absolute top-10 left-1/4 w-80 h-80 bg-[#8A6B4E]/12 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-10 right-1/4 w-64 h-64 bg-[#8A6B4E]/10 rounded-full blur-3xl"></div>
+          <div className="absolute top-10 left-1/4 w-80 h-80 bg-brand-bronze/12 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-10 right-1/4 w-64 h-64 bg-brand-bronze/10 rounded-full blur-3xl"></div>
         </div>
         <div className="max-w-4xl mx-auto relative z-10">
           <div className="grid md:grid-cols-2 gap-12 mb-12">
@@ -136,7 +136,7 @@ export default function ContactPage() {
               transition={{ duration: 0.6 }}
             >
               <h2
-                className={`text-2xl font-bold mb-6 ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+                className={`text-2xl font-bold mb-6 ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}
                 style={{
                   fontFamily:
                     '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -147,7 +147,7 @@ export default function ContactPage() {
               <div className="space-y-4">
                 <div>
                   <h3
-                    className={`text-lg font-semibold mb-2 ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+                    className={`text-lg font-semibold mb-2 ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}
                     style={{
                       fontFamily:
                         '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -156,7 +156,7 @@ export default function ContactPage() {
                     Email
                   </h3>
                   <p
-                    className={`${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                    className={`${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
                     style={{
                       fontFamily:
                         '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -168,7 +168,7 @@ export default function ContactPage() {
 
                 <div>
                   <h3
-                    className={`text-lg font-semibold mb-2 ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+                    className={`text-lg font-semibold mb-2 ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}
                     style={{
                       fontFamily:
                         '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -177,7 +177,7 @@ export default function ContactPage() {
                     Office Hours
                   </h3>
                   <p
-                    className={`${darkMode ? "text-[#C4C8CA]" : "text-[#5A6A7B]"}`}
+                    className={`${darkMode ? "text-brand-mist" : "text-brand-slate"}`}
                     style={{
                       fontFamily:
                         '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -195,7 +195,7 @@ export default function ContactPage() {
               transition={{ duration: 0.6 }}
             >
               <h2
-                className={`text-2xl font-bold mb-6 ${darkMode ? "text-[#F4F5F6]" : "text-[#1C2E47]"}`}
+                className={`text-2xl font-bold mb-6 ${darkMode ? "text-brand-cloud" : "text-brand-navy"}`}
                 style={{
                   fontFamily:
                     '"Open Sauce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -221,7 +221,7 @@ export default function ContactPage() {
                     value={form.name}
                     onChange={handleChange}
                     disabled={status === "submitting"}
-                    className={`w-full px-4 py-3 rounded-lg border ${darkMode ? "bg-[#1C2E47]/50 border-[#5A6A7B]/30 text-[#F4F5F6] placeholder-[#5A6A7B]" : "bg-[#F4F5F6]/50 border-[#5A6A7B]/20 text-[#1C2E47] placeholder-[#5A6A7B]"} focus:outline-none focus:border-[#8A6B4E] transition-colors disabled:opacity-60`}
+                    className={`w-full px-4 py-3 rounded-lg border ${darkMode ? "bg-brand-navy/50 border-brand-slate/30 text-brand-cloud placeholder-brand-slate" : "bg-brand-cloud/50 border-brand-slate/20 text-brand-navy placeholder-brand-slate"} focus:outline-none focus:border-brand-bronze transition-colors disabled:opacity-60`}
                     style={{
                       fontFamily:
                         '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -239,7 +239,7 @@ export default function ContactPage() {
                     value={form.email}
                     onChange={handleChange}
                     disabled={status === "submitting"}
-                    className={`w-full px-4 py-3 rounded-lg border ${darkMode ? "bg-[#1C2E47]/50 border-[#5A6A7B]/30 text-[#F4F5F6] placeholder-[#5A6A7B]" : "bg-[#F4F5F6]/50 border-[#5A6A7B]/20 text-[#1C2E47] placeholder-[#5A6A7B]"} focus:outline-none focus:border-[#8A6B4E] transition-colors disabled:opacity-60`}
+                    className={`w-full px-4 py-3 rounded-lg border ${darkMode ? "bg-brand-navy/50 border-brand-slate/30 text-brand-cloud placeholder-brand-slate" : "bg-brand-cloud/50 border-brand-slate/20 text-brand-navy placeholder-brand-slate"} focus:outline-none focus:border-brand-bronze transition-colors disabled:opacity-60`}
                     style={{
                       fontFamily:
                         '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -259,7 +259,7 @@ export default function ContactPage() {
                     value={form.message}
                     onChange={handleChange}
                     disabled={status === "submitting"}
-                    className={`w-full px-4 py-3 rounded-lg border ${darkMode ? "bg-[#1C2E47]/50 border-[#5A6A7B]/30 text-[#F4F5F6] placeholder-[#5A6A7B]" : "bg-[#F4F5F6]/50 border-[#5A6A7B]/20 text-[#1C2E47] placeholder-[#5A6A7B]"} focus:outline-none focus:border-[#8A6B4E] transition-colors resize-none disabled:opacity-60`}
+                    className={`w-full px-4 py-3 rounded-lg border ${darkMode ? "bg-brand-navy/50 border-brand-slate/30 text-brand-cloud placeholder-brand-slate" : "bg-brand-cloud/50 border-brand-slate/20 text-brand-navy placeholder-brand-slate"} focus:outline-none focus:border-brand-bronze transition-colors resize-none disabled:opacity-60`}
                     style={{
                       fontFamily:
                         '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -271,7 +271,7 @@ export default function ContactPage() {
                 <button
                   type="submit"
                   disabled={status === "submitting"}
-                  className={`w-full px-6 py-3 rounded-lg font-medium transition-colors bg-[#8A6B4E] text-[#F4F5F6] hover:bg-[#8A6B4E]/90 disabled:opacity-60 disabled:cursor-not-allowed`}
+                  className={`w-full px-6 py-3 rounded-lg font-medium transition-colors bg-brand-bronze text-brand-cloud hover:bg-brand-bronze/90 disabled:opacity-60 disabled:cursor-not-allowed`}
                   style={{
                     fontFamily:
                       '"Canva Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',

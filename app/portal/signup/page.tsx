@@ -136,10 +136,10 @@ function SignupForm() {
 
   if (loading || verifying) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F4F5F6]">
+      <div className="min-h-screen flex items-center justify-center bg-brand-cloud">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#8A6B4E] mx-auto mb-4"></div>
-          <p className="text-[#5A6A7B]">Verifying invitation...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-bronze mx-auto mb-4"></div>
+          <p className="text-brand-slate">Verifying invitation...</p>
         </div>
       </div>
     );
@@ -147,7 +147,7 @@ function SignupForm() {
 
   if (!invitationValid) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F4F5F6] px-4">
+      <div className="min-h-screen flex items-center justify-center bg-brand-cloud px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -162,13 +162,13 @@ function SignupForm() {
               className="mx-auto"
             />
           </div>
-          <h1 className="text-2xl font-bold text-[#1C2E47] mb-4">
+          <h1 className="text-2xl font-bold text-brand-navy mb-4">
             Invalid Invitation
           </h1>
-          <p className="text-[#5A6A7B] mb-6">{error}</p>
+          <p className="text-brand-slate mb-6">{error}</p>
           <Link
             href="/"
-            className="inline-block px-6 py-3 bg-[#8A6B4E] text-white rounded-lg hover:bg-[#8A6B4E]/90 transition-colors"
+            className="inline-block px-6 py-3 bg-brand-bronze text-white rounded-lg hover:bg-brand-bronze/90 transition-colors"
           >
             Return to Home
           </Link>
@@ -178,7 +178,7 @@ function SignupForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F4F5F6] px-4 py-12">
+    <div className="min-h-screen flex items-center justify-center bg-brand-cloud px-4 py-12">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -192,10 +192,10 @@ function SignupForm() {
             height={80}
             className="mx-auto mb-4"
           />
-          <h1 className="text-2xl font-bold text-[#1C2E47] mb-2">
+          <h1 className="text-2xl font-bold text-brand-navy mb-2">
             Create Your Portal Account
           </h1>
-          <p className="text-[#5A6A7B] text-sm">
+          <p className="text-brand-slate text-sm">
             {invitationData.contractorName} has invited you to access the Client
             Portal
           </p>
@@ -209,19 +209,19 @@ function SignupForm() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-[#1C2E47] mb-1">
+            <label className="block text-sm font-medium text-brand-navy mb-1">
               Email
             </label>
             <input
               type="email"
               value={invitationData.email}
               disabled
-              className="w-full px-4 py-2 border border-[#5A6A7B]/30 rounded-lg bg-[#F4F5F6] text-[#5A6A7B]"
+              className="w-full px-4 py-2 border border-brand-slate/30 rounded-lg bg-brand-cloud text-brand-slate"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#1C2E47] mb-1">
+            <label className="block text-sm font-medium text-brand-navy mb-1">
               Full Name *
             </label>
             <input
@@ -231,13 +231,13 @@ function SignupForm() {
                 setFormData({ ...formData, name: e.target.value })
               }
               required
-              className="w-full px-4 py-2 border border-[#5A6A7B]/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8A6B4E] focus:border-transparent"
+              className="w-full px-4 py-2 border border-brand-slate/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-bronze focus:border-transparent"
               placeholder="John Smith"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#1C2E47] mb-1">
+            <label className="block text-sm font-medium text-brand-navy mb-1">
               Phone (Optional)
             </label>
             <input
@@ -246,13 +246,13 @@ function SignupForm() {
               onChange={(e) =>
                 setFormData({ ...formData, phone: e.target.value })
               }
-              className="w-full px-4 py-2 border border-[#5A6A7B]/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8A6B4E] focus:border-transparent"
+              className="w-full px-4 py-2 border border-brand-slate/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-bronze focus:border-transparent"
               placeholder="+61 400 000 000"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#1C2E47] mb-1">
+            <label className="block text-sm font-medium text-brand-navy mb-1">
               Password *
             </label>
             <input
@@ -263,14 +263,14 @@ function SignupForm() {
               }
               required
               minLength={8}
-              className="w-full px-4 py-2 border border-[#5A6A7B]/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8A6B4E] focus:border-transparent"
+              className="w-full px-4 py-2 border border-brand-slate/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-bronze focus:border-transparent"
               placeholder="At least 8 characters"
             />
-            <p className="text-xs text-[#5A6A7B] mt-1">Minimum 8 characters</p>
+            <p className="text-xs text-brand-slate mt-1">Minimum 8 characters</p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#1C2E47] mb-1">
+            <label className="block text-sm font-medium text-brand-navy mb-1">
               Confirm Password *
             </label>
             <input
@@ -281,7 +281,7 @@ function SignupForm() {
               }
               required
               minLength={8}
-              className="w-full px-4 py-2 border border-[#5A6A7B]/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8A6B4E] focus:border-transparent"
+              className="w-full px-4 py-2 border border-brand-slate/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-bronze focus:border-transparent"
               placeholder="Re-enter password"
             />
           </div>
@@ -289,15 +289,15 @@ function SignupForm() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full py-3 bg-[#8A6B4E] text-white rounded-lg font-medium hover:bg-[#8A6B4E]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-3 bg-brand-bronze text-white rounded-lg font-medium hover:bg-brand-bronze/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {submitting ? "Creating Account..." : "Create Account & Sign In"}
           </button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-[#5A6A7B]">
+        <p className="mt-6 text-center text-sm text-brand-slate">
           Already have an account?{" "}
-          <Link href="/portal/login" className="text-[#8A6B4E] hover:underline">
+          <Link href="/portal/login" className="text-brand-bronze hover:underline">
             Sign in
           </Link>
         </p>
@@ -310,10 +310,10 @@ export default function PortalSignupPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-[#F4F5F6]">
+        <div className="min-h-screen flex items-center justify-center bg-brand-cloud">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#8A6B4E] mx-auto mb-4"></div>
-            <p className="text-[#5A6A7B]">Loading...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-bronze mx-auto mb-4"></div>
+            <p className="text-brand-slate">Loading...</p>
           </div>
         </div>
       }

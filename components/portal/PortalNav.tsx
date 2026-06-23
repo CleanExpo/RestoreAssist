@@ -16,17 +16,17 @@ export default function PortalNav() {
   };
 
   return (
-    <nav className="bg-white border-b border-[#5A6A7B]/20">
+    <nav className="bg-white border-b border-brand-slate/20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center gap-3">
             <Image src="/logo.png" alt="RestoreAssist" width={40} height={40} />
             <div>
-              <h1 className="text-lg font-bold text-[#1C2E47]">
+              <h1 className="text-lg font-bold text-brand-navy">
                 Client Portal
               </h1>
               {session?.user?.name && (
-                <p className="text-xs text-[#5A6A7B]">{session.user.name}</p>
+                <p className="text-xs text-brand-slate">{session.user.name}</p>
               )}
             </div>
           </div>
@@ -34,14 +34,14 @@ export default function PortalNav() {
           <div className="flex items-center gap-4">
             <Link
               href="/portal"
-              className="flex items-center gap-2 px-3 py-3 min-h-[44px] text-sm text-[#5A6A7B] hover:text-[#1C2E47] transition-colors"
+              className="flex items-center gap-2 px-3 py-3 min-h-[44px] text-sm text-brand-slate hover:text-brand-navy transition-colors"
             >
               <FileText size={18} />
               <span className="hidden sm:inline">My Reports</span>
             </Link>
             <button
               onClick={handleSignOut}
-              className="flex items-center gap-2 px-3 py-3 min-h-[44px] text-sm text-[#5A6A7B] hover:text-[#1C2E47] transition-colors"
+              className="flex items-center gap-2 px-3 py-3 min-h-[44px] text-sm text-brand-slate hover:text-brand-navy transition-colors"
             >
               <LogOut size={18} />
               <span className="hidden sm:inline">Sign Out</span>

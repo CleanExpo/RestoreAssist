@@ -104,6 +104,18 @@
   --color-brand-navy: #1c2e47; /* primary — headings, accents, strong text */
   --color-brand-bronze: #8a6b4e; /* secondary — CTAs, highlights, borders */
   --color-brand-slate: #5a6a7b; /* muted — body copy, meta text */
+  --color-brand-gold: #d4a574; /* tertiary highlight (DESIGN.md "brand light") */
+
+  /* Landing-page CTA palette — previously hardcoded hex literals in
+     app/page.tsx. Tokenised so components carry no raw hex (DESIGN.md §2).
+     These are the marketing-surface CTA shades, distinct from the core brand. */
+  --color-brand-cta: #765c43; /* primary CTA bronze */
+  --color-brand-cta-hover: #634a2f; /* primary CTA bronze — hover */
+  --color-brand-steel: #546272; /* secondary CTA steel */
+  --color-brand-steel-hover: #445163; /* secondary CTA steel — hover */
+  --color-brand-mist: #c4c8ca; /* light translucent glass surface on hero */
+  --color-brand-cloud: #f4f5f6; /* off-white section surface (light pages) */
+  --color-brand-canvas: #050505; /* near-black full-bleed canvas (DESIGN.md §2) */
 
   /* Primary Colors */
   --color-slate-950: #0f172a;

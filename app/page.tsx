@@ -35,9 +35,9 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#1C2E47] text-white">
+    <div className="min-h-screen bg-brand-navy text-white">
       {/* Header - Hamburger menu always visible, even on desktop */}
-      <header className="fixed top-0 w-full z-[100] bg-[#1C2E47]/60 backdrop-blur-sm">
+      <header className="fixed top-0 w-full z-[100] bg-brand-navy/60 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-6 py-2 flex items-center justify-between">
           {/* Logo - Left Side */}
           <div className="flex items-center gap-3">
@@ -82,7 +82,7 @@ export default function Home() {
 
       {/* Sidebar Menu - CSS slide in from right */}
       <div
-        className={`fixed top-0 right-0 h-screen w-80 max-w-[85vw] bg-[#1C2E47] border-l border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] z-[160] overflow-hidden flex flex-col ${
+        className={`fixed top-0 right-0 h-screen w-80 max-w-[85vw] bg-brand-navy border-l border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] z-[160] overflow-hidden flex flex-col ${
           mobileMenuOpen
             ? "translate-x-0 pointer-events-auto"
             : "translate-x-full pointer-events-none"
@@ -90,7 +90,7 @@ export default function Home() {
         style={{ transition: "transform 0.35s cubic-bezier(0.32, 0.72, 0, 1)" }}
       >
         {/* Menu Header - Fixed at top */}
-        <div className="flex-shrink-0 bg-[#1C2E47] border-b border-white/10 px-6 py-5 flex items-center justify-between">
+        <div className="flex-shrink-0 bg-brand-navy border-b border-white/10 px-6 py-5 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-white uppercase tracking-wider">
             Menu
           </h2>
@@ -141,14 +141,14 @@ export default function Home() {
             <div className="pt-6 mt-6 border-t border-white/10 space-y-3">
               <Link
                 href="/signup"
-                className="block w-full px-6 py-3 bg-[#765C43] text-white rounded-lg text-center font-medium hover:bg-[#634A2F] transition-all duration-200 shadow-lg"
+                className="block w-full px-6 py-3 bg-brand-cta text-white rounded-lg text-center font-medium hover:bg-brand-cta-hover transition-all duration-200 shadow-lg"
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Get Started
               </Link>
               <Link
                 href="/login"
-                className="block w-full px-6 py-3 bg-[#546272] text-white rounded-lg text-center font-medium hover:bg-[#445163] transition-all duration-200 shadow-lg"
+                className="block w-full px-6 py-3 bg-brand-steel text-white rounded-lg text-center font-medium hover:bg-brand-steel-hover transition-all duration-200 shadow-lg"
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Log In
@@ -159,18 +159,18 @@ export default function Home() {
       </div>
 
       {/* Hero Section */}
-      <section className="relative min-h-screen flex items-center justify-start overflow-hidden pt-20 bg-[#C4C8CA]/30">
+      <section className="relative min-h-screen flex items-center justify-start overflow-hidden pt-20 bg-brand-mist/30">
         {/* Golden Gradient Background Behind Section */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
           <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-full">
-            <div className="w-full h-full bg-gradient-to-r from-[#8A6B4E]/25 via-[#D4A574]/15 to-transparent blur-3xl"></div>
+            <div className="w-full h-full bg-gradient-to-r from-brand-bronze/25 via-brand-gold/15 to-transparent blur-3xl"></div>
           </div>
         </div>
 
         {/* Golden Decorative Shapes */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-          <div className="absolute top-10 left-1/4 w-[500px] h-[500px] bg-[#8A6B4E]/22 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-10 right-1/4 w-[450px] h-[450px] bg-[#8A6B4E]/20 rounded-full blur-3xl"></div>
+          <div className="absolute top-10 left-1/4 w-[500px] h-[500px] bg-brand-bronze/22 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-10 right-1/4 w-[450px] h-[450px] bg-brand-bronze/20 rounded-full blur-3xl"></div>
           <svg
             aria-hidden="true"
             className="absolute top-1/3 right-1/4 w-96 h-96 opacity-20"
@@ -281,7 +281,7 @@ export default function Home() {
             }}
           >
             <li className="flex gap-3">
-              <span aria-hidden="true" className="mt-1 text-[#D4A574]">
+              <span aria-hidden="true" className="mt-1 text-brand-gold">
                 ●
               </span>
               <span>
@@ -294,7 +294,7 @@ export default function Home() {
               </span>
             </li>
             <li className="flex gap-3">
-              <span aria-hidden="true" className="mt-1 text-[#D4A574]">
+              <span aria-hidden="true" className="mt-1 text-brand-gold">
                 ●
               </span>
               <span>
@@ -307,7 +307,7 @@ export default function Home() {
               </span>
             </li>
             <li className="flex gap-3">
-              <span aria-hidden="true" className="mt-1 text-[#D4A574]">
+              <span aria-hidden="true" className="mt-1 text-brand-gold">
                 ●
               </span>
               <span>
@@ -327,7 +327,7 @@ export default function Home() {
           <div className="hero-fade-up hero-fade-up-4 flex flex-col sm:flex-row gap-4 mt-8">
             <Link
               href={BRAND.cta.primary.href}
-              className="px-8 py-3 bg-[#765C43] text-white font-medium rounded-lg shadow-lg hover:bg-[#634A2F] transition-all duration-300 text-center"
+              className="px-8 py-3 bg-brand-cta text-white font-medium rounded-lg shadow-lg hover:bg-brand-cta-hover transition-all duration-300 text-center"
               style={{
                 fontFamily:
                   'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -338,7 +338,7 @@ export default function Home() {
             </Link>
             <Link
               href={BRAND.cta.secondary.href}
-              className="px-8 py-3 border-2 border-[#8A6B4E] text-white font-medium rounded-lg hover:bg-[#8A6B4E]/20 transition-all duration-300 text-center"
+              className="px-8 py-3 border-2 border-brand-bronze text-white font-medium rounded-lg hover:bg-brand-bronze/20 transition-all duration-300 text-center"
               style={{
                 fontFamily:
                   'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -365,19 +365,19 @@ export default function Home() {
 
       {/* Section - Inspection. Scoping. Estimating. Connected. */}
       <section
-        className={`py-20 px-6 relative transition-colors duration-300 bg-[#C4C8CA]/30 overflow-hidden`}
+        className={`py-20 px-6 relative transition-colors duration-300 bg-brand-mist/30 overflow-hidden`}
       >
         {/* Golden Gradient Background Behind Section */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
           <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-full">
-            <div className="w-full h-full bg-gradient-to-r from-[#8A6B4E]/25 via-[#D4A574]/15 to-transparent blur-3xl"></div>
+            <div className="w-full h-full bg-gradient-to-r from-brand-bronze/25 via-brand-gold/15 to-transparent blur-3xl"></div>
           </div>
         </div>
 
         {/* Golden Decorative Shapes */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-          <div className="absolute top-10 left-1/4 w-[500px] h-[500px] bg-[#8A6B4E]/22 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-10 right-1/4 w-[450px] h-[450px] bg-[#8A6B4E]/20 rounded-full blur-3xl"></div>
+          <div className="absolute top-10 left-1/4 w-[500px] h-[500px] bg-brand-bronze/22 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-10 right-1/4 w-[450px] h-[450px] bg-brand-bronze/20 rounded-full blur-3xl"></div>
           <svg
             aria-hidden="true"
             className="absolute top-1/3 right-1/4 w-96 h-96 opacity-20"
@@ -422,7 +422,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto relative z-10">
           <h2 className="sr-only">How It Works</h2>
           <h2
-            className="text-3xl md:text-4xl font-bold mb-8 text-center text-[#1C2E47]"
+            className="text-3xl md:text-4xl font-bold mb-8 text-center text-brand-navy"
             style={{
               fontFamily:
                 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -445,12 +445,12 @@ export default function Home() {
 
       {/* Footer */}
       <footer
-        className={`py-16 px-6 border-t relative transition-colors duration-300 bg-[#C4C8CA]/30 overflow-hidden border-[#5A6A7B]/30`}
+        className={`py-16 px-6 border-t relative transition-colors duration-300 bg-brand-mist/30 overflow-hidden border-brand-slate/30`}
       >
         {/* Golden Decorative Shapes */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-          <div className="absolute top-20 right-1/4 w-[550px] h-[550px] bg-[#8A6B4E]/20 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-20 left-1/4 w-[500px] h-[500px] bg-[#8A6B4E]/18 rounded-full blur-3xl"></div>
+          <div className="absolute top-20 right-1/4 w-[550px] h-[550px] bg-brand-bronze/20 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-20 left-1/4 w-[500px] h-[500px] bg-brand-bronze/18 rounded-full blur-3xl"></div>
           <svg
             aria-hidden="true"
             className="absolute top-1/4 left-1/3 w-96 h-96 opacity-20"
