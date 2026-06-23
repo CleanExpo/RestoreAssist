@@ -13,7 +13,7 @@ import {
   Area,
   AreaChart,
 } from "recharts";
-import { Loader2 } from "lucide-react";
+import { Loader2, TrendingUp, TrendingDown, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TooltipAny = Tooltip as any;
@@ -104,10 +104,17 @@ export default function RevenueProjection({
 
   const trendLabel =
     trend === "improving"
-      ? "📈 Improving"
+      ? "Improving"
       : trend === "declining"
-        ? "📉 Declining"
-        : "→ Stable";
+        ? "Declining"
+        : "Stable";
+
+  const TrendIcon =
+    trend === "improving"
+      ? TrendingUp
+      : trend === "declining"
+        ? TrendingDown
+        : ArrowRight;
 
   return (
     <div
@@ -133,7 +140,11 @@ export default function RevenueProjection({
             "border-neutral-300 dark:border-slate-600",
           )}
         >
-          <span style={{ color: trendColor }} className="text-sm font-medium">
+          <span
+            style={{ color: trendColor }}
+            className="inline-flex items-center gap-1 text-sm font-medium"
+          >
+            <TrendIcon size={14} aria-hidden="true" />
             {trendLabel}
           </span>
         </div>

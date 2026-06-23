@@ -416,7 +416,7 @@ export async function POST(req: NextRequest) {
         { stage: "invite-new-user" },
       );
     } catch (emailError: any) {
-      console.error("❌ [INVITE] Email sending failed for invite:", invite.id);
+      console.error("[INVITE] Email sending failed for invite:", invite.id);
       console.error(
         "❌ [INVITE] Email error:",
         emailError?.message || "Unknown error",

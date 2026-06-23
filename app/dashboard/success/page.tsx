@@ -155,7 +155,7 @@ export default function SuccessPage() {
                 // Continue to try finding session
               }
             } catch (addonError) {
-              console.error("❌ Error verifying add-on:", addonError);
+              console.error("Error verifying add-on:", addonError);
             }
           }
 
@@ -184,7 +184,7 @@ export default function SuccessPage() {
               }
             }
           } catch (error) {
-            console.error("❌ Error checking add-on status:", error);
+            console.error("Error checking add-on status:", error);
           }
 
           // If still not found, mark as completed anyway (webhook might process later)

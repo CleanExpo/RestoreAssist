@@ -302,7 +302,7 @@ export default function TeamPage() {
 
       // Show modal if we have at least an email
       if (credentialsData && credentialsData.email) {
-        console.log("✅ Credentials found, showing modal:", {
+        console.log("Credentials found, showing modal:", {
           email: credentialsData.email,
           hasPassword: !!credentialsData.password,
         });
@@ -331,7 +331,7 @@ export default function TeamPage() {
           );
         }
       } else {
-        console.warn("⚠️ No credentials found in response. Response:", json);
+        console.warn("No credentials found in response. Response:", json);
         const userEmail = json.invite?.email || json.user?.email || inviteEmail;
         toast.success(
           `✨ Account created and invitation email sent to ${userEmail}!`,

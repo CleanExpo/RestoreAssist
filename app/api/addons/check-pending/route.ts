@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
             ) {
               continue; // Skip this session - already processed
             }
-            console.error("❌ Error creating purchase record:", error.message);
+            console.error("Error creating purchase record:", error.message);
             // Don't process if we can't create the record
             continue;
           }

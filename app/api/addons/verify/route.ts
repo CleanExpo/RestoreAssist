@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
         // Verify this session belongs to the current user
         const sessionUserId = checkoutSession.metadata?.userId;
         if (sessionUserId !== userId) {
-          console.error("❌ USER ID MISMATCH:", {
+          console.error("USER ID MISMATCH:", {
             sessionUserId,
             currentUserId: userId,
           });
@@ -179,7 +179,7 @@ export async function POST(request: NextRequest) {
               addonReports: user?.addonReports || 0,
             });
           }
-          console.warn("⚠️ Could not process AddonPurchase:", error.message);
+          console.warn("Could not process AddonPurchase:", error.message);
           throw error;
         }
 
