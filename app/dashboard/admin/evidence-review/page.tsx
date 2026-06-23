@@ -348,7 +348,7 @@ export default function AdminEvidenceReviewPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && fetchData()}
-                className="pl-9"
+                className="pl-10"
               />
             </div>
             <div className="flex gap-2 flex-wrap">

@@ -737,7 +737,7 @@ export default function IntegrationsPage() {
       {/* ── Header ─────────────────────────────────── */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">
             Integrations
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -781,7 +781,7 @@ export default function IntegrationsPage() {
                 />
               </div>
               <div>
-                <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                <h2 className="text-base font-semibold text-slate-900 dark:text-white">
                   AI Providers
                 </h2>
                 <p className="text-xs text-muted-foreground">
@@ -909,7 +909,7 @@ export default function IntegrationsPage() {
                 />
               </div>
               <div>
-                <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                <h2 className="text-base font-semibold text-slate-900 dark:text-white">
                   Bookkeeping
                 </h2>
                 <p className="text-xs text-muted-foreground">
@@ -1079,7 +1079,7 @@ export default function IntegrationsPage() {
                 />
               </div>
               <div>
-                <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                <h2 className="text-base font-semibold text-slate-900 dark:text-white">
                   Job Management
                 </h2>
                 <p className="text-xs text-muted-foreground">
@@ -1277,7 +1277,7 @@ export default function IntegrationsPage() {
                 />
               </div>
               <div>
-                <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                <h2 className="text-base font-semibold text-slate-900 dark:text-white">
                   Referral Networks
                 </h2>
                 <p className="text-xs text-muted-foreground">

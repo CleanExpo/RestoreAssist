@@ -11,7 +11,7 @@ export default function InspectionDetailLoading() {
         {Array.from({ length: 4 }).map((_, i) => (
           <div
             key={i}
-            className="space-y-3 border border-gray-200 dark:border-slate-700 rounded-xl p-6"
+            className="space-y-3 border border-slate-200 dark:border-slate-700 rounded-xl p-6"
           >
             <Skeleton className="h-5 w-32" />
             <Skeleton className="h-4 w-full" />

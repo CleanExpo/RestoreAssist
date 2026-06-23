@@ -354,6 +354,7 @@ export const StackTraceCopyButton = memo(
         className={cn("size-7", className)}
         onClick={copyToClipboard}
         size="icon"
+        aria-label="Copy"
         variant="ghost"
         {...props}
       >

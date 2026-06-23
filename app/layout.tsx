@@ -1,6 +1,6 @@
 import type React from "react";
 import type { Metadata, Viewport } from "next";
-import { Inter, Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 // RA-1290 — Geist/Geist Mono are declared as --font-sans/--font-mono in
 // globals.css but were previously only available via the system-font
 // fallback stack. Loading via next/font gives preloaded, display=swap
@@ -45,7 +45,6 @@ function resolveMetadataBase(): URL {
   }
 }
 
-const inter = Inter({ subsets: ["latin"] });
 const geistSans = Geist({
   subsets: ["latin"],
   display: "swap",
@@ -125,7 +124,7 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable}`}
     >
-      <body className={inter.className}>
+      <body className={geistSans.className}>
         <OrganizationSchema />
         <SoftwareApplicationSchema />
         <ThemeProvider

@@ -104,8 +104,8 @@ function getAlerts(readings: MoistureReading[]) {
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg p-3 shadow-lg text-xs">
-      <p className="font-semibold text-gray-700 dark:text-slate-300 mb-2">
+    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 shadow-lg text-xs">
+      <p className="font-semibold text-slate-700 dark:text-slate-300 mb-2">
         {label}
       </p>
       {payload.map((entry: any) => (
@@ -114,7 +114,7 @@ function CustomTooltip({ active, payload, label }: any) {
             className="w-2 h-2 rounded-full flex-shrink-0"
             style={{ backgroundColor: entry.color }}
           />
-          <span className="text-gray-600 dark:text-slate-400">
+          <span className="text-slate-600 dark:text-slate-400">
             {entry.dataKey}:
           </span>
           <span
@@ -137,7 +137,7 @@ function CustomTooltip({ active, payload, label }: any) {
           )}
         </div>
       ))}
-      <div className="mt-2 pt-2 border-t border-gray-100 dark:border-slate-700 flex items-center gap-1 text-gray-400 dark:text-slate-500">
+      <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-700 flex items-center gap-1 text-slate-400 dark:text-slate-500">
         <span>Dry standard: ≤{DRY_STANDARD}%</span>
       </div>
     </div>
@@ -152,11 +152,11 @@ export default function MoistureTrendChart({
     return (
       <div
         className={cn(
-          "flex items-center justify-center h-48 rounded-xl border border-dashed border-gray-200 dark:border-slate-700",
+          "flex items-center justify-center h-48 rounded-xl border border-dashed border-slate-200 dark:border-slate-700",
           className,
         )}
       >
-        <p className="text-sm text-gray-500 dark:text-slate-500">
+        <p className="text-sm text-slate-500 dark:text-slate-500">
           No moisture readings recorded yet.
         </p>
       </div>
@@ -221,17 +221,17 @@ export default function MoistureTrendChart({
       )}
 
       {/* Chart */}
-      <div className="rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800/30 p-4">
+      <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/30 p-4">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+            <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
               Moisture Trend
             </h4>
-            <p className="text-xs text-gray-500 dark:text-slate-500">
+            <p className="text-xs text-slate-500 dark:text-slate-500">
               Readings over time · Dry standard ≤{DRY_STANDARD}%
             </p>
           </div>
-          <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-slate-500">
+          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-500">
             <TrendingDown size={14} />
             <span>Goal: below {DRY_STANDARD}%</span>
           </div>
@@ -249,14 +249,14 @@ export default function MoistureTrendChart({
             <XAxis
               dataKey="label"
               tick={{ fontSize: 11, fill: "currentColor" }}
-              className="text-gray-500 dark:text-slate-500"
+              className="text-slate-500 dark:text-slate-500"
               tickLine={false}
               axisLine={false}
             />
             <YAxis
               domain={[0, 100]}
               tick={{ fontSize: 11, fill: "currentColor" }}
-              className="text-gray-500 dark:text-slate-500"
+              className="text-slate-500 dark:text-slate-500"
               tickLine={false}
               axisLine={false}
               tickFormatter={(v) => `${v}%`}
@@ -297,25 +297,25 @@ export default function MoistureTrendChart({
 
       {/* Location summary table */}
       {totalLocations > 0 && (
-        <div className="rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden">
+        <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 dark:bg-slate-800/50 text-left">
-                <th className="px-4 py-2.5 text-xs font-medium text-gray-500 dark:text-slate-500 uppercase tracking-wide">
+              <tr className="bg-slate-50 dark:bg-slate-800/50 text-left">
+                <th className="px-4 py-2.5 text-xs font-medium text-slate-500 dark:text-slate-500 uppercase tracking-wide">
                   Location
                 </th>
-                <th className="px-4 py-2.5 text-xs font-medium text-gray-500 dark:text-slate-500 uppercase tracking-wide text-right">
+                <th className="px-4 py-2.5 text-xs font-medium text-slate-500 dark:text-slate-500 uppercase tracking-wide text-right">
                   Latest Reading
                 </th>
-                <th className="px-4 py-2.5 text-xs font-medium text-gray-500 dark:text-slate-500 uppercase tracking-wide text-right">
+                <th className="px-4 py-2.5 text-xs font-medium text-slate-500 dark:text-slate-500 uppercase tracking-wide text-right">
                   Status
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
               {Object.entries(latestByLocation).map(([loc, level]) => (
                 <tr key={loc} className="bg-white dark:bg-slate-800/20">
-                  <td className="px-4 py-2.5 text-gray-900 dark:text-white font-medium">
+                  <td className="px-4 py-2.5 text-slate-900 dark:text-white font-medium">
                     {loc}
                   </td>
                   <td

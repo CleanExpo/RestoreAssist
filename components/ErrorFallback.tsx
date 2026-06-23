@@ -23,14 +23,14 @@ export function ErrorFallback({
       <div className="w-16 h-16 bg-red-100 dark:bg-red-950/30 rounded-full flex items-center justify-center mb-6">
         <AlertTriangle className="h-8 w-8 text-red-500" />
       </div>
-      <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+      <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
         {title}
       </h2>
-      <p className="text-gray-600 dark:text-slate-400 max-w-md mb-1">
+      <p className="text-slate-600 dark:text-slate-400 max-w-md mb-1">
         An unexpected error occurred. Please try again.
       </p>
       {error.digest && (
-        <p className="text-xs text-gray-400 dark:text-slate-500 mb-6">
+        <p className="text-xs text-slate-400 dark:text-slate-500 mb-6">
           Error ID: {error.digest}
         </p>
       )}
@@ -45,7 +45,7 @@ export function ErrorFallback({
         {showHomeLink && (
           <Link
             href={homeHref}
-            className="flex items-center gap-2 px-5 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800 font-medium transition-colors"
+            className="flex items-center gap-2 px-5 py-2.5 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium transition-colors"
           >
             <Home className="h-4 w-4" />
             Go Home

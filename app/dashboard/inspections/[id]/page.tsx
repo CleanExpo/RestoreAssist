@@ -797,7 +797,7 @@ export default function InspectionDetailPage({
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
         <XCircle className="text-red-500" size={40} />
-        <p className="text-gray-400 text-sm">
+        <p className="text-slate-400 text-sm">
           {loadError
             ? "Could not load inspection. Check your connection and try again."
             : "Inspection not found."}

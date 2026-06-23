@@ -273,25 +273,25 @@ export default function Tier1Questions({
             Quick Fill Tier 1
           </button>
         </div>
-        <p className="text-sm text-gray-700 dark:text-slate-300">
+        <p className="text-sm text-slate-700 dark:text-slate-300">
           Review and refine the basic information, then answer the advanced
           critical questions. All advanced questions must be answered.
         </p>
       </div>
 
       {/* Initial Data Entry Form Fields - For Refinement */}
-      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
+      <div className="p-6 rounded-lg border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30">
         <h3 className="text-lg font-semibold mb-4 text-cyan-600 dark:text-cyan-400">
           Basic Information Review
         </h3>
-        <p className="text-sm text-gray-600 dark:text-slate-400 mb-4">
+        <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
           Review and refine the information entered in the initial data entry
           form.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+            <label className="block text-sm font-medium mb-1 text-slate-700 dark:text-slate-300">
               Client Name
             </label>
             <input
@@ -303,11 +303,11 @@ export default function Tier1Questions({
                   clientName: e.target.value,
                 }))
               }
-              className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
+              className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-white"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+            <label className="block text-sm font-medium mb-1 text-slate-700 dark:text-slate-300">
               Client Contact Details
             </label>
             <input
@@ -319,7 +319,7 @@ export default function Tier1Questions({
                   clientContactDetails: e.target.value,
                 }))
               }
-              className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
+              className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-white"
             />
           </div>
           <div>
@@ -335,7 +335,7 @@ export default function Tier1Questions({
                   propertyAddress: e.target.value,
                 }))
               }
-              className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
+              className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-white"
             />
           </div>
           <div>
@@ -351,7 +351,7 @@ export default function Tier1Questions({
                   propertyPostcode: e.target.value,
                 }))
               }
-              className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
+              className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-white"
             />
           </div>
           <div>
@@ -367,7 +367,7 @@ export default function Tier1Questions({
                   claimReferenceNumber: e.target.value,
                 }))
               }
-              className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
+              className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-white"
             />
           </div>
           <div>
@@ -383,7 +383,7 @@ export default function Tier1Questions({
                   propertyId: e.target.value,
                 }))
               }
-              className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
+              className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-white"
             />
           </div>
           <div>
@@ -394,7 +394,7 @@ export default function Tier1Questions({
               onChange={(e) =>
                 setResponses((prev) => ({ ...prev, jobNumber: e.target.value }))
               }
-              className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
+              className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-white"
             />
           </div>
           <div>
@@ -410,7 +410,7 @@ export default function Tier1Questions({
                   incidentDate: e.target.value,
                 }))
               }
-              className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
+              className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-white"
             />
           </div>
           <div>
@@ -426,7 +426,7 @@ export default function Tier1Questions({
                   technicianAttendanceDate: e.target.value,
                 }))
               }
-              className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
+              className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-white"
             />
           </div>
           <div>
@@ -442,7 +442,7 @@ export default function Tier1Questions({
                   technicianName: e.target.value,
                 }))
               }
-              className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
+              className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-white"
             />
           </div>
           <div>
@@ -458,7 +458,7 @@ export default function Tier1Questions({
                   buildingAge: e.target.value,
                 }))
               }
-              className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
+              className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-white"
             />
           </div>
           <div>
@@ -474,12 +474,12 @@ export default function Tier1Questions({
                   structureType: e.target.value,
                 }))
               }
-              className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
+              className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-white"
             />
           </div>
         </div>
         <div className="mt-4">
-          <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+          <label className="block text-sm font-medium mb-1 text-slate-700 dark:text-slate-300">
             Access Notes
           </label>
           <textarea
@@ -488,11 +488,11 @@ export default function Tier1Questions({
               setResponses((prev) => ({ ...prev, accessNotes: e.target.value }))
             }
             rows={3}
-            className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
+            className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-white"
           />
         </div>
         <div className="mt-4">
-          <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+          <label className="block text-sm font-medium mb-1 text-slate-700 dark:text-slate-300">
             Technician Field Report
           </label>
           <textarea
@@ -504,11 +504,11 @@ export default function Tier1Questions({
               }))
             }
             rows={4}
-            className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white"
+            className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-white"
           />
         </div>
         <div className="mt-4">
-          <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+          <label className="block text-sm font-medium mb-1 text-slate-700 dark:text-slate-300">
             Report Instructions
           </label>
           <textarea
@@ -520,7 +520,7 @@ export default function Tier1Questions({
               }))
             }
             rows={3}
-            className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
+            className="w-full px-3 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400"
             placeholder="Standards references, special requirements, etc."
           />
         </div>
@@ -531,15 +531,15 @@ export default function Tier1Questions({
         <h3 className="text-lg font-semibold text-red-700 dark:text-red-400 mb-2">
           Advanced Critical Questions
         </h3>
-        <p className="text-sm text-gray-700 dark:text-slate-300">
+        <p className="text-sm text-slate-700 dark:text-slate-300">
           These advanced questions are required for report integrity and
           compliance.
         </p>
       </div>
 
       {/* T1_Q1: Property Type */}
-      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+      <div className="p-6 rounded-lg border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30">
+        <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">
           T1_Q1: Property Type{" "}
           <span className="text-red-600 dark:text-red-400">*</span>
         </h3>
@@ -557,7 +557,7 @@ export default function Tier1Questions({
           ].map((option) => (
             <label
               key={option}
-              className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/30 cursor-pointer border border-transparent hover:border-gray-300 dark:hover:border-slate-600"
+              className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/30 cursor-pointer border border-transparent hover:border-slate-300 dark:hover:border-slate-600"
             >
               <input
                 type="radio"
@@ -572,7 +572,7 @@ export default function Tier1Questions({
                 }
                 className="w-4 h-4 text-cyan-500"
               />
-              <span className="text-gray-700 dark:text-slate-300">
+              <span className="text-slate-700 dark:text-slate-300">
                 {option}
               </span>
             </label>
@@ -588,15 +588,15 @@ export default function Tier1Questions({
                 }))
               }
               placeholder="Please specify"
-              className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg mt-2 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
+              className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg mt-2 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400"
             />
           )}
         </div>
       </div>
 
       {/* T1_Q2: Construction Year */}
-      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+      <div className="p-6 rounded-lg border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30">
+        <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">
           T1_Q2: Construction Year{" "}
           <span className="text-red-600 dark:text-red-400">*</span>
         </h3>
@@ -611,7 +611,7 @@ export default function Tier1Questions({
           ].map((option) => (
             <label
               key={option}
-              className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/30 cursor-pointer border border-transparent hover:border-gray-300 dark:hover:border-slate-600"
+              className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/30 cursor-pointer border border-transparent hover:border-slate-300 dark:hover:border-slate-600"
             >
               <input
                 type="radio"
@@ -626,7 +626,7 @@ export default function Tier1Questions({
                 }
                 className="w-4 h-4 text-cyan-500"
               />
-              <span className="text-gray-700 dark:text-slate-300">
+              <span className="text-slate-700 dark:text-slate-300">
                 {option}
               </span>
             </label>
@@ -635,8 +635,8 @@ export default function Tier1Questions({
       </div>
 
       {/* T1_Q3: Water Source */}
-      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+      <div className="p-6 rounded-lg border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30">
+        <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">
           T1_Q3: Water Source{" "}
           <span className="text-red-600 dark:text-red-400">*</span>
         </h3>
@@ -654,7 +654,7 @@ export default function Tier1Questions({
           ].map((option) => (
             <label
               key={option}
-              className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/30 cursor-pointer border border-transparent hover:border-gray-300 dark:hover:border-slate-600"
+              className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/30 cursor-pointer border border-transparent hover:border-slate-300 dark:hover:border-slate-600"
             >
               <input
                 type="radio"
@@ -669,7 +669,7 @@ export default function Tier1Questions({
                 }
                 className="w-4 h-4 text-cyan-500"
               />
-              <span className="text-gray-700 dark:text-slate-300">
+              <span className="text-slate-700 dark:text-slate-300">
                 {option}
               </span>
             </label>
@@ -685,15 +685,15 @@ export default function Tier1Questions({
                 }))
               }
               placeholder="Please specify"
-              className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg mt-2 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
+              className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg mt-2 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400"
             />
           )}
         </div>
       </div>
 
       {/* T1_Q4: Occupancy Status */}
-      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+      <div className="p-6 rounded-lg border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30">
+        <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">
           T1_Q4: Occupancy Status{" "}
           <span className="text-red-600 dark:text-red-400">*</span>
         </h3>
@@ -710,7 +710,7 @@ export default function Tier1Questions({
           ].map((option) => (
             <label
               key={option}
-              className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/30 cursor-pointer border border-transparent hover:border-gray-300 dark:hover:border-slate-600"
+              className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/30 cursor-pointer border border-transparent hover:border-slate-300 dark:hover:border-slate-600"
             >
               <input
                 type="radio"
@@ -725,7 +725,7 @@ export default function Tier1Questions({
                 }
                 className="w-4 h-4 text-cyan-500"
               />
-              <span className="text-gray-700 dark:text-slate-300">
+              <span className="text-slate-700 dark:text-slate-300">
                 {option}
               </span>
             </label>
@@ -733,7 +733,7 @@ export default function Tier1Questions({
           {responses.T1_Q4_occupancyStatus &&
             responses.T1_Q4_occupancyStatus.includes("Occupied") && (
               <div className="mt-4">
-                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">
                   Are pets present? (Dogs/Cats/Birds/Exotic/Fish tanks/Other)
                 </label>
                 <input
@@ -746,7 +746,7 @@ export default function Tier1Questions({
                     }))
                   }
                   placeholder="Describe pets if present"
-                  className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
+                  className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400"
                 />
               </div>
             )}
@@ -754,8 +754,8 @@ export default function Tier1Questions({
       </div>
 
       {/* T1_Q5: Rooms/Areas Affected */}
-      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+      <div className="p-6 rounded-lg border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30">
+        <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">
           T1_Q5: Rooms/Areas Affected{" "}
           <span className="text-red-600 dark:text-red-400">*</span>
         </h3>
@@ -769,17 +769,17 @@ export default function Tier1Questions({
           }
           rows={6}
           placeholder="List each room separately (e.g., Kitchen, Master Bedroom, Hallway, Lounge). Specify if water affected: floor only, walls, ceiling, cabinetry, insulation"
-          className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
+          className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400"
         />
       </div>
 
       {/* T1_Q6: Materials Affected */}
-      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+      <div className="p-6 rounded-lg border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30">
+        <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">
           T1_Q6: Materials Affected{" "}
           <span className="text-red-600 dark:text-red-400">*</span>
         </h3>
-        <p className="text-sm text-gray-600 dark:text-slate-400 mb-4">
+        <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
           Select all that apply
         </p>
         <div className="space-y-2">
@@ -800,7 +800,7 @@ export default function Tier1Questions({
           ].map((option) => (
             <label
               key={option}
-              className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/30 cursor-pointer border border-transparent hover:border-gray-300 dark:hover:border-slate-600"
+              className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/30 cursor-pointer border border-transparent hover:border-slate-300 dark:hover:border-slate-600"
             >
               <input
                 type="checkbox"
@@ -810,7 +810,7 @@ export default function Tier1Questions({
                 }
                 className="w-4 h-4 text-cyan-500 rounded"
               />
-              <span className="text-gray-700 dark:text-slate-300">
+              <span className="text-slate-700 dark:text-slate-300">
                 {option}
               </span>
             </label>
@@ -826,7 +826,7 @@ export default function Tier1Questions({
                 }))
               }
               placeholder="Please specify"
-              className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg mt-2 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
+              className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg mt-2 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400"
             />
           )}
         </div>
@@ -838,7 +838,7 @@ export default function Tier1Questions({
           T1_Q7: Hazard Assessment (CRITICAL){" "}
           <span className="text-red-600 dark:text-red-400">*</span>
         </h3>
-        <p className="text-sm text-gray-700 dark:text-slate-300 mb-4">
+        <p className="text-sm text-slate-700 dark:text-slate-300 mb-4">
           Select all that apply
         </p>
         <div className="space-y-2">
@@ -865,7 +865,7 @@ export default function Tier1Questions({
                 onChange={() => handleMultiSelect("T1_Q7_hazards", option)}
                 className="w-4 h-4 text-red-500 rounded"
               />
-              <span className="text-gray-700 dark:text-slate-300">
+              <span className="text-slate-700 dark:text-slate-300">
                 {option}
               </span>
             </label>
@@ -881,15 +881,15 @@ export default function Tier1Questions({
                 }))
               }
               placeholder="Please specify"
-              className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg mt-2 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
+              className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg mt-2 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400"
             />
           )}
         </div>
       </div>
 
       {/* T1_Q8: Water Duration */}
-      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+      <div className="p-6 rounded-lg border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30">
+        <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">
           T1_Q8: Water Duration{" "}
           <span className="text-red-600 dark:text-red-400">*</span>
         </h3>
@@ -905,7 +905,7 @@ export default function Tier1Questions({
           ].map((option) => (
             <label
               key={option}
-              className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/30 cursor-pointer border border-transparent hover:border-gray-300 dark:hover:border-slate-600"
+              className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/30 cursor-pointer border border-transparent hover:border-slate-300 dark:hover:border-slate-600"
             >
               <input
                 type="radio"
@@ -920,7 +920,7 @@ export default function Tier1Questions({
                 }
                 className="w-4 h-4 text-cyan-500"
               />
-              <span className="text-gray-700 dark:text-slate-300">
+              <span className="text-slate-700 dark:text-slate-300">
                 {option}
               </span>
             </label>
@@ -947,7 +947,7 @@ export default function Tier1Questions({
             <h3 className="text-xl font-semibold text-cyan-700 dark:text-cyan-400 mb-2">
               Tier 1 Completed Successfully!
             </h3>
-            <p className="text-sm text-gray-700 dark:text-slate-300 mb-6">
+            <p className="text-sm text-slate-700 dark:text-slate-300 mb-6">
               You can now generate an Enhanced report with Tier 1 data, or
               continue to Tier 2 for more detailed information.
             </p>
@@ -962,10 +962,10 @@ export default function Tier1Questions({
                   <Save className="w-6 h-6 text-green-600 dark:text-green-300" />
                 </div>
                 <div className="text-center">
-                  <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+                  <h4 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">
                     Generate Enhanced Report
                   </h4>
-                  <p className="text-sm text-gray-600 dark:text-slate-300">
+                  <p className="text-sm text-slate-600 dark:text-slate-300">
                     Generate report with Tier 1 data
                   </p>
                 </div>
@@ -980,10 +980,10 @@ export default function Tier1Questions({
                   <ArrowRight className="w-6 h-6 text-cyan-600 dark:text-cyan-300" />
                 </div>
                 <div className="text-center">
-                  <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+                  <h4 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">
                     Continue to Tier 2
                   </h4>
-                  <p className="text-sm text-gray-600 dark:text-slate-300">
+                  <p className="text-sm text-slate-600 dark:text-slate-300">
                     Add more detailed assessment
                   </p>
                 </div>

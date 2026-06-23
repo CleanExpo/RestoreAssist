@@ -1174,7 +1174,7 @@ export default function TeamPage() {
             {/* Password Field - Only show if password exists */}
             {credentials?.password && (
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                   Temporary Password
                 </label>
                 <div className="flex items-center gap-2">

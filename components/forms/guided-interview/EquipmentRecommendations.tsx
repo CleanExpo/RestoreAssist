@@ -379,7 +379,7 @@ export function EquipmentRecommendations({
                 )}
 
                 {/* Costs */}
-                <div className="grid grid-cols-3 gap-2 p-3 bg-gray-50 rounded text-sm">
+                <div className="grid grid-cols-3 gap-2 p-3 bg-slate-50 rounded text-sm">
                   <div>
                     <p className="text-muted-foreground">Daily Cost</p>
                     <p className="font-semibold">${item.dailyRentalCost}</p>
@@ -430,7 +430,7 @@ export function EquipmentRecommendations({
                       <span>Day 1</span>
                       <span>Day {item.estimatedDaysNeeded}</span>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div className="w-full bg-slate-200 rounded-full h-2">
                       <div
                         className="bg-blue-600 h-2 rounded-full"
                         style={{
@@ -438,7 +438,7 @@ export function EquipmentRecommendations({
                         }}
                       />
                     </div>
-                    <p className="text-xs font-semibold text-gray-700">
+                    <p className="text-xs font-semibold text-slate-700">
                       {item.estimatedDaysNeeded} days rental
                     </p>
                   </div>
@@ -460,7 +460,7 @@ export function EquipmentRecommendations({
         </Tabs>
 
         {/* Standards Reference */}
-        <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+        <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
           <h4 className="font-semibold text-sm mb-2">Standards & Compliance</h4>
           <ul className="text-xs text-muted-foreground space-y-1">
             <li>

@@ -722,7 +722,7 @@ function DetailedReportPages({
                 Access Notes
               </p>
             </div>
-            <p className="text-amber-900 leading-relaxed pl-7">
+            <p className="text-amber-900 leading-relaxed pl-8">
               {fullData.property.accessNotes}
             </p>
           </div>

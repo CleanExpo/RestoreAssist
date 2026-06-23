@@ -120,7 +120,7 @@ function PricingPageContent() {
 
           {/* Hamburger Menu - Right Side, Bigger Size, Always Visible */}
           <button
-            className="text-white hover:text-gray-300 transition-colors p-2 -mr-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg"
+            className="text-white hover:text-slate-300 transition-colors p-2 -mr-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             aria-label="Toggle menu"
           >
@@ -166,7 +166,7 @@ function PricingPageContent() {
                 </h2>
                 <button
                   onClick={() => setMobileMenuOpen(false)}
-                  className="text-white hover:text-gray-300 transition-colors p-2.5 -mr-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg hover:bg-white/10"
+                  className="text-white hover:text-slate-300 transition-colors p-2.5 -mr-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg hover:bg-white/10"
                   aria-label="Close menu"
                 >
                   <X size={24} />

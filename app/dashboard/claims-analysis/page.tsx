@@ -455,7 +455,7 @@ export default function ClaimsAnalysisPage() {
       case "PARTIAL":
         return "bg-yellow-500";
       default:
-        return "bg-gray-500";
+        return "bg-slate-500";
     }
   };
 
@@ -470,7 +470,7 @@ export default function ClaimsAnalysisPage() {
       case "LOW":
         return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800";
       default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400";
+        return "bg-slate-100 text-slate-800 dark:bg-slate-900/30 dark:text-slate-400";
     }
   };
 

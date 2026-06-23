@@ -111,7 +111,7 @@ function getTotalIssues(analysis: Analysis): number {
 }
 
 function scoreColor(score: number | null): string {
-  if (score === null) return "text-gray-400";
+  if (score === null) return "text-slate-400";
   if (score >= 80) return "text-green-600";
   if (score >= 60) return "text-yellow-600";
   return "text-red-600";
@@ -324,7 +324,7 @@ export default function ClaimsAnalysisExportPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50">
       {/* Header */}
       <div className="bg-white border-b sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -332,13 +332,13 @@ export default function ClaimsAnalysisExportPage() {
             <div className="flex items-center gap-4">
               <Link
                 href="/dashboard/claims-analysis"
-                className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 transition-colors"
               >
                 <ArrowLeft className="h-4 w-4" />
                 Back to Claims Analysis
               </Link>
-              <div className="h-4 w-px bg-gray-300" />
-              <h1 className="text-lg font-semibold text-gray-900">
+              <div className="h-4 w-px bg-slate-300" />
+              <h1 className="text-lg font-semibold text-slate-900">
                 Export Claims Analyses
               </h1>
             </div>
@@ -477,7 +477,7 @@ export default function ClaimsAnalysisExportPage() {
                 size="sm"
                 onClick={resetFilters}
                 disabled={loading}
-                className="gap-2 text-gray-500"
+                className="gap-2 text-slate-500"
               >
                 <RefreshCw className="h-3 w-3" />
                 Reset
@@ -492,15 +492,15 @@ export default function ClaimsAnalysisExportPage() {
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
                 {loading ? (
-                  <span className="text-gray-400">Loading...</span>
+                  <span className="text-slate-400">Loading...</span>
                 ) : (
                   <span>
                     Showing{" "}
-                    <span className="font-bold text-gray-900">
+                    <span className="font-bold text-slate-900">
                       {analyses.length}
                     </span>{" "}
                     {pagination && pagination.total !== analyses.length ? (
-                      <span className="text-gray-500 text-sm">
+                      <span className="text-slate-500 text-sm">
                         (filtered from {pagination.total} total)
                       </span>
                     ) : null}{" "}
@@ -523,7 +523,7 @@ export default function ClaimsAnalysisExportPage() {
                 ))}
               </div>
             ) : analyses.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+              <div className="flex flex-col items-center justify-center py-16 text-slate-400">
                 <FileDown className="h-10 w-10 mb-3 opacity-30" />
                 <p className="text-sm font-medium">
                   No analyses match your filters
@@ -532,7 +532,7 @@ export default function ClaimsAnalysisExportPage() {
                   Try adjusting your filters or{" "}
                   <button
                     onClick={resetFilters}
-                    className="underline hover:text-gray-600"
+                    className="underline hover:text-slate-600"
                   >
                     reset to show all
                   </button>
@@ -542,7 +542,7 @@ export default function ClaimsAnalysisExportPage() {
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-gray-50">
+                    <TableRow className="bg-slate-50">
                       <TableHead className="w-10 pl-4">
                         <Checkbox
                           checked={allSelected}
@@ -587,7 +587,7 @@ export default function ClaimsAnalysisExportPage() {
                           className={
                             isSelected
                               ? "bg-blue-50 hover:bg-blue-50"
-                              : "hover:bg-gray-50"
+                              : "hover:bg-slate-50"
                           }
                         >
                           <TableCell className="pl-4">
@@ -599,31 +599,31 @@ export default function ClaimsAnalysisExportPage() {
                               aria-label={`Select ${analysis.fileName}`}
                             />
                           </TableCell>
-                          <TableCell className="text-xs text-gray-600 whitespace-nowrap">
+                          <TableCell className="text-xs text-slate-600 whitespace-nowrap">
                             {new Date(analysis.createdAt).toLocaleDateString(
                               "en-AU",
                             )}
                           </TableCell>
                           <TableCell className="max-w-[200px]">
-                            <p className="text-sm font-medium text-gray-900 truncate">
+                            <p className="text-sm font-medium text-slate-900 truncate">
                               {analysis.fileName}
                             </p>
                             {analysis.claimNumber && (
-                              <p className="text-xs text-gray-500">
+                              <p className="text-xs text-slate-500">
                                 #{analysis.claimNumber}
                               </p>
                             )}
                           </TableCell>
                           <TableCell className="max-w-[180px]">
-                            <span className="text-sm text-gray-700 truncate block">
+                            <span className="text-sm text-slate-700 truncate block">
                               {analysis.propertyAddress ?? (
-                                <span className="text-gray-400 italic">—</span>
+                                <span className="text-slate-400 italic">—</span>
                               )}
                             </span>
                           </TableCell>
-                          <TableCell className="text-sm text-gray-700">
+                          <TableCell className="text-sm text-slate-700">
                             {analysis.technicianName ?? (
-                              <span className="text-gray-400 italic">—</span>
+                              <span className="text-slate-400 italic">—</span>
                             )}
                           </TableCell>
                           <TableCell className="text-center">
@@ -634,7 +634,7 @@ export default function ClaimsAnalysisExportPage() {
                                 {score}
                               </span>
                             ) : (
-                              <span className="text-gray-400 text-xs">—</span>
+                              <span className="text-slate-400 text-xs">—</span>
                             )}
                           </TableCell>
                           <TableCell className="text-center">
@@ -658,7 +658,7 @@ export default function ClaimsAnalysisExportPage() {
                             <span
                               className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                                 STATUS_COLOR[analysis.status] ??
-                                "bg-gray-100 text-gray-700"
+                                "bg-slate-100 text-slate-700"
                               }`}
                             >
                               {analysis.status}

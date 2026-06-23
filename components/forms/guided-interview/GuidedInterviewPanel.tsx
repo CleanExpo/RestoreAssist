@@ -1044,10 +1044,10 @@ export function GuidedInterviewPanel({
               <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
             </div>
             <div>
-              <CardTitle className="text-xl text-gray-900 dark:text-white">
+              <CardTitle className="text-xl text-slate-900 dark:text-white">
                 Interview Complete
               </CardTitle>
-              <CardDescription className="text-sm text-gray-600 dark:text-slate-400">
+              <CardDescription className="text-sm text-slate-600 dark:text-slate-400">
                 All questions answered. Review your answers below or open the
                 full summary.
               </CardDescription>
@@ -1057,29 +1057,29 @@ export function GuidedInterviewPanel({
         <CardContent className="flex-1 overflow-y-auto space-y-5">
           {/* Stats */}
           <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-3 text-center">
+            <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-3 text-center">
               <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Questions
               </p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+              <p className="text-2xl font-bold text-slate-900 dark:text-white">
                 {interviewState.answeredQuestions}
               </p>
               <p className="text-xs text-muted-foreground">
                 of {interviewState.totalQuestions}
               </p>
             </div>
-            <div className="rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-3 text-center">
+            <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-3 text-center">
               <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Time
               </p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+              <p className="text-2xl font-bold text-slate-900 dark:text-white">
                 {timeSpentMin > 0
                   ? `${timeSpentMin} min`
                   : `${timeSpentSec} sec`}
               </p>
               <p className="text-xs text-muted-foreground">total</p>
             </div>
-            <div className="rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-3 text-center">
+            <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-3 text-center">
               <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Progress
               </p>
@@ -1114,13 +1114,13 @@ export function GuidedInterviewPanel({
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
               Your answers at a glance
             </p>
-            <div className="max-h-64 overflow-y-auto rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/30 divide-y divide-gray-200 dark:divide-slate-700">
+            <div className="max-h-64 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 divide-y divide-slate-200 dark:divide-slate-700">
               {completedQa.map((item, index) => (
                 <div
                   key={index}
-                  className="px-3 py-2.5 text-left hover:bg-gray-100/80 dark:hover:bg-slate-700/30 transition-colors"
+                  className="px-3 py-2.5 text-left hover:bg-slate-100/80 dark:hover:bg-slate-700/30 transition-colors"
                 >
-                  <p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2">
+                  <p className="text-sm font-medium text-slate-900 dark:text-white line-clamp-2">
                     {item.questionText}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
@@ -1165,10 +1165,10 @@ export function GuidedInterviewPanel({
                     Tier {interviewState.currentTier} · Essential flow
                   </div>
                   <div>
-                    <CardTitle className="text-xl sm:text-2xl tracking-tight text-gray-900 dark:text-gray-50">
+                    <CardTitle className="text-xl sm:text-2xl tracking-tight text-slate-900 dark:text-slate-50">
                       Guided Interview
                     </CardTitle>
-                    <CardDescription className="text-sm text-gray-600 dark:text-slate-400">
+                    <CardDescription className="text-sm text-slate-600 dark:text-slate-400">
                       {interviewState.answeredQuestions} of{" "}
                       {interviewState.totalQuestions} questions answered · ~
                       {interviewState.estimatedDurationMinutes} min total

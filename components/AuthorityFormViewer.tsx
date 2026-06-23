@@ -356,7 +356,7 @@ export default function AuthorityFormViewer({
         <div className="max-w-6xl mx-auto px-6 py-8">
           <div className="bg-white text-black rounded-lg shadow-lg p-8 print:shadow-none print:rounded-none">
             {/* Company Header */}
-            <div className="border-b-2 border-gray-300 pb-6 mb-6">
+            <div className="border-b-2 border-slate-300 pb-6 mb-6">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   {form.companyLogo && (
@@ -370,16 +370,16 @@ export default function AuthorityFormViewer({
                     {form.companyName}
                   </h1>
                   {form.companyABN && (
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-slate-600">
                       ABN: {form.companyABN}
                     </p>
                   )}
                   {form.companyAddress && (
-                    <p className="text-sm text-gray-600 mt-1">
+                    <p className="text-sm text-slate-600 mt-1">
                       {form.companyAddress}
                     </p>
                   )}
-                  <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-600">
+                  <div className="flex flex-wrap gap-4 mt-2 text-sm text-slate-600">
                     {form.companyPhone && (
                       <span>Phone: {form.companyPhone}</span>
                     )}
@@ -391,7 +391,7 @@ export default function AuthorityFormViewer({
                     )}
                   </div>
                 </div>
-                <div className="text-right text-sm text-gray-500">
+                <div className="text-right text-sm text-slate-500">
                   <p>Form ID: {formId.slice(-8)}</p>
                   <p>
                     Date:{" "}
@@ -409,25 +409,25 @@ export default function AuthorityFormViewer({
             <div className="mb-8">
               <h2 className="text-2xl font-bold mb-2">{form.template.name}</h2>
               {form.template.description && (
-                <p className="text-gray-600">{form.template.description}</p>
+                <p className="text-slate-600">{form.template.description}</p>
               )}
             </div>
 
             {/* Client Details */}
-            <div className="bg-gray-50 p-6 rounded-lg mb-8">
+            <div className="bg-slate-50 p-6 rounded-lg mb-8">
               <h3 className="text-lg font-semibold mb-4">Client Details</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-gray-600">Client Name</p>
+                  <p className="text-sm text-slate-600">Client Name</p>
                   <p className="font-medium">{form.clientName}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Property Address</p>
+                  <p className="text-sm text-slate-600">Property Address</p>
                   <p className="font-medium">{form.clientAddress}</p>
                 </div>
                 {form.incidentDate && (
                   <div>
-                    <p className="text-sm text-gray-600">Incident Date</p>
+                    <p className="text-sm text-slate-600">Incident Date</p>
                     <p className="font-medium">
                       {new Date(form.incidentDate).toLocaleDateString("en-AU", {
                         day: "2-digit",
@@ -439,7 +439,7 @@ export default function AuthorityFormViewer({
                 )}
                 {form.incidentBrief && (
                   <div className="md:col-span-2">
-                    <p className="text-sm text-gray-600">Incident Brief</p>
+                    <p className="text-sm text-slate-600">Incident Brief</p>
                     <p className="font-medium">{form.incidentBrief}</p>
                   </div>
                 )}
@@ -449,7 +449,7 @@ export default function AuthorityFormViewer({
             {/* Authority Description */}
             <div className="mb-8">
               <h3 className="text-lg font-semibold mb-4">Authority Granted</h3>
-              <div className="bg-gray-50 p-6 rounded-lg">
+              <div className="bg-slate-50 p-6 rounded-lg">
                 <p className="whitespace-pre-wrap leading-relaxed">
                   {form.authorityDescription}
                 </p>
@@ -457,7 +457,7 @@ export default function AuthorityFormViewer({
             </div>
 
             {/* Signatures Section */}
-            <div className="mt-12 border-t-2 border-gray-300 pt-8">
+            <div className="mt-12 border-t-2 border-slate-300 pt-8">
               <h3 className="text-lg font-semibold mb-6">Signatures</h3>
 
               {/* Signatory Flow Timeline */}
@@ -469,9 +469,9 @@ export default function AuthorityFormViewer({
                 {form.signatures.map((signature, index) => (
                   <div
                     key={signature.id}
-                    className="border-2 border-gray-300 rounded-lg p-6"
+                    className="border-2 border-slate-300 rounded-lg p-6"
                   >
-                    <div className="mb-4 min-h-[120px] flex items-center justify-center bg-gray-50 rounded">
+                    <div className="mb-4 min-h-[120px] flex items-center justify-center bg-slate-50 rounded">
                       {signature.signatureData ? (
                         <img
                           src={
@@ -483,20 +483,20 @@ export default function AuthorityFormViewer({
                           className="max-w-full max-h-[100px] object-contain"
                         />
                       ) : (
-                        <div className="text-gray-400 text-sm">
+                        <div className="text-slate-400 text-sm">
                           Signature pending
                         </div>
                       )}
                     </div>
-                    <div className="border-t border-gray-300 pt-4 mt-4">
+                    <div className="border-t border-slate-300 pt-4 mt-4">
                       <p className="font-semibold mb-1">
                         {signature.signatoryName}
                       </p>
-                      <p className="text-sm text-gray-600 mb-2">
+                      <p className="text-sm text-slate-600 mb-2">
                         {signature.signatoryRole}
                       </p>
                       {signature.signedAt && (
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-slate-500">
                           Signed:{" "}
                           {new Date(signature.signedAt).toLocaleDateString(
                             "en-AU",
@@ -524,7 +524,7 @@ export default function AuthorityFormViewer({
             </div>
 
             {/* Footer */}
-            <div className="mt-12 pt-6 border-t border-gray-300 text-center text-sm text-gray-500">
+            <div className="mt-12 pt-6 border-t border-slate-300 text-center text-sm text-slate-500">
               <p>Generated by Restore Assist</p>
               {form.companyWebsite && (
                 <p className="mt-1">{form.companyWebsite}</p>
@@ -546,7 +546,7 @@ export default function AuthorityFormViewer({
 
           <div className="space-y-5">
             {/* Form summary preview */}
-            <div className="bg-gray-50 dark:bg-slate-800 rounded-lg p-4 text-sm space-y-2">
+            <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4 text-sm space-y-2">
               <p>
                 <strong>Client:</strong> {form.clientName}
               </p>
@@ -559,7 +559,7 @@ export default function AuthorityFormViewer({
                   {new Date(form.incidentDate).toLocaleDateString("en-AU")}
                 </p>
               )}
-              <div className="border-t border-gray-200 dark:border-slate-700 pt-2 mt-2">
+              <div className="border-t border-slate-200 dark:border-slate-700 pt-2 mt-2">
                 <p className="font-medium mb-1">Authority Granted:</p>
                 <p className="text-muted-foreground text-xs whitespace-pre-wrap max-h-32 overflow-y-auto">
                   {form.authorityDescription}
@@ -573,7 +573,7 @@ export default function AuthorityFormViewer({
                 type="checkbox"
                 checked={agreedToTerms}
                 onChange={(e) => setAgreedToTerms(e.target.checked)}
-                className="mt-1 h-4 w-4 rounded border-gray-300 text-cyan-500 focus:ring-cyan-500"
+                className="mt-1 h-4 w-4 rounded border-slate-300 text-cyan-500 focus:ring-cyan-500"
               />
               <span className="text-sm">
                 I have read and agree to the authority described above. I
@@ -590,7 +590,7 @@ export default function AuthorityFormViewer({
                 value={signatoryName}
                 onChange={(e) => setSignatoryName(e.target.value)}
                 placeholder="Enter your full name"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-md text-sm bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md text-sm bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
               />
             </div>
 
@@ -711,8 +711,8 @@ export default function AuthorityFormViewer({
           [class*="bg-white"],
           [class*="bg-neutral-50"],
           [class*="bg-slate-900"],
-          [class*="bg-gray-50"],
-          [class*="bg-gray-100"] {
+          [class*="bg-slate-50"],
+          [class*="bg-slate-100"] {
             background: white !important;
             background-color: white !important;
           }
@@ -721,12 +721,12 @@ export default function AuthorityFormViewer({
           [class*="text-white"],
           [class*="text-neutral-900"],
           [class*="text-slate-900"],
-          [class*="text-gray-900"] {
+          [class*="text-slate-900"] {
             color: black !important;
           }
 
-          [class*="text-gray-600"],
-          [class*="text-gray-500"],
+          [class*="text-slate-600"],
+          [class*="text-slate-500"],
           [class*="text-slate-400"],
           [class*="text-neutral-600"] {
             color: #4b5563 !important;

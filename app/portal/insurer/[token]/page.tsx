@@ -68,7 +68,7 @@ export default async function InsurerPortalPage({ params }: PageProps) {
   const pdfUrl = `/api/reports/${report.id}/pdf?token=${token}`;
 
   return (
-    <main className="min-h-screen bg-gray-50">
+    <main className="min-h-screen bg-slate-50">
       {/* Header */}
       <header className="bg-brand-navy text-white">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
@@ -104,68 +104,68 @@ export default async function InsurerPortalPage({ params }: PageProps) {
 
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
         {/* Report meta */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">
                 IICRC S500:2025 Compliant Inspection Report
               </p>
-              <h1 className="text-xl font-bold text-gray-900">
+              <h1 className="text-xl font-bold text-slate-900">
                 {report.reportNumber ??
                   `Report ${report.id.slice(0, 8).toUpperCase()}`}
               </h1>
-              <p className="text-sm text-gray-600 mt-1">
+              <p className="text-sm text-slate-600 mt-1">
                 {report.propertyAddress}
               </p>
               {inspDate && (
-                <p className="text-xs text-gray-400 mt-0.5">
+                <p className="text-xs text-slate-400 mt-0.5">
                   Inspection date: {inspDate}
                 </p>
               )}
             </div>
             <div className="text-right text-sm">
-              <p className="font-semibold text-gray-800">
+              <p className="font-semibold text-slate-800">
                 {report.user?.businessName ?? report.user?.name ?? "—"}
               </p>
               {report.user?.businessABN && (
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-slate-400">
                   ABN {report.user.businessABN}
                 </p>
               )}
               {report.user?.email && (
-                <p className="text-xs text-gray-400">{report.user.email}</p>
+                <p className="text-xs text-slate-400">{report.user.email}</p>
               )}
             </div>
           </div>
         </div>
 
         {/* Classification */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <h2 className="text-sm font-semibold text-gray-700 mb-3">
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <h2 className="text-sm font-semibold text-slate-700 mb-3">
             Water Damage Classification
-            <span className="ml-2 text-xs font-normal text-gray-400">
+            <span className="ml-2 text-xs font-normal text-slate-400">
               IICRC S500:2025 §3, §7.1
             </span>
           </h2>
           <div className="grid grid-cols-2 gap-3">
-            <div className="bg-gray-50 rounded-lg p-3">
-              <p className="text-xs text-gray-400 mb-0.5">Water Category</p>
-              <p className="text-sm font-bold text-gray-800">
+            <div className="bg-slate-50 rounded-lg p-3">
+              <p className="text-xs text-slate-400 mb-0.5">Water Category</p>
+              <p className="text-sm font-bold text-slate-800">
                 {report.waterCategory
                   ? `Category ${report.waterCategory}`
                   : "—"}
               </p>
             </div>
-            <div className="bg-gray-50 rounded-lg p-3">
-              <p className="text-xs text-gray-400 mb-0.5">Damage Class</p>
-              <p className="text-sm font-bold text-gray-800">
+            <div className="bg-slate-50 rounded-lg p-3">
+              <p className="text-xs text-slate-400 mb-0.5">Damage Class</p>
+              <p className="text-sm font-bold text-slate-800">
                 {report.waterClass ? `Class ${report.waterClass}` : "—"}
               </p>
             </div>
             {report.sourceOfWater && (
-              <div className="bg-gray-50 rounded-lg p-3 col-span-2">
-                <p className="text-xs text-gray-400 mb-0.5">Source of Water</p>
-                <p className="text-sm text-gray-800">{report.sourceOfWater}</p>
+              <div className="bg-slate-50 rounded-lg p-3 col-span-2">
+                <p className="text-xs text-slate-400 mb-0.5">Source of Water</p>
+                <p className="text-sm text-slate-800">{report.sourceOfWater}</p>
               </div>
             )}
           </div>
@@ -173,8 +173,8 @@ export default async function InsurerPortalPage({ params }: PageProps) {
 
         {/* Affected areas */}
         {areasArr.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <h2 className="text-sm font-semibold text-gray-700 mb-3">
+          <div className="bg-white rounded-xl border border-slate-200 p-5">
+            <h2 className="text-sm font-semibold text-slate-700 mb-3">
               Affected Areas
             </h2>
             <div className="overflow-x-auto">
@@ -198,21 +198,21 @@ export default async function InsurerPortalPage({ params }: PageProps) {
                   {areasArr.map((area: any, i: number) => (
                     <tr
                       key={i}
-                      className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}
+                      className={i % 2 === 0 ? "bg-white" : "bg-slate-50"}
                     >
-                      <td className="px-3 py-1.5 text-gray-700">
+                      <td className="px-3 py-1.5 text-slate-700">
                         {area.roomName ?? area.name ?? "—"}
                       </td>
-                      <td className="px-3 py-1.5 text-gray-700">
+                      <td className="px-3 py-1.5 text-slate-700">
                         {area.material ?? "—"}
                       </td>
-                      <td className="px-3 py-1.5 text-gray-700">
+                      <td className="px-3 py-1.5 text-slate-700">
                         {area.category ? `Cat ${area.category}` : "—"}
                       </td>
-                      <td className="px-3 py-1.5 text-gray-700">
+                      <td className="px-3 py-1.5 text-slate-700">
                         {area.class ?? "—"}
                       </td>
-                      <td className="px-3 py-1.5 text-gray-700">
+                      <td className="px-3 py-1.5 text-slate-700">
                         {area.area ?? area.affectedSquareFootage ?? "—"}
                       </td>
                     </tr>
@@ -225,14 +225,14 @@ export default async function InsurerPortalPage({ params }: PageProps) {
 
         {/* Moisture readings */}
         {moistureArr.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <h2 className="text-sm font-semibold text-gray-700 mb-1">
+          <div className="bg-white rounded-xl border border-slate-200 p-5">
+            <h2 className="text-sm font-semibold text-slate-700 mb-1">
               Moisture Readings
-              <span className="ml-2 text-xs font-normal text-gray-400">
+              <span className="ml-2 text-xs font-normal text-slate-400">
                 IICRC S500:2025 §8
               </span>
             </h2>
-            <p className="text-xs text-gray-400 mb-3">
+            <p className="text-xs text-slate-400 mb-3">
               Drying goal: all affected materials must reach equilibrium MC per
               S500:2025 §12.
             </p>
@@ -259,7 +259,7 @@ export default async function InsurerPortalPage({ params }: PageProps) {
                       r.moistureLevel ?? r.value ?? r.reading ?? "",
                     );
                     const statusColor = isNaN(val)
-                      ? "text-gray-400"
+                      ? "text-slate-400"
                       : val > 18
                         ? "text-red-600 font-semibold"
                         : val > 14
@@ -275,21 +275,21 @@ export default async function InsurerPortalPage({ params }: PageProps) {
                     return (
                       <tr
                         key={i}
-                        className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}
+                        className={i % 2 === 0 ? "bg-white" : "bg-slate-50"}
                       >
-                        <td className="px-3 py-1.5 text-gray-700">
+                        <td className="px-3 py-1.5 text-slate-700">
                           {r.location ?? r.room ?? "—"}
                         </td>
-                        <td className="px-3 py-1.5 text-gray-700">
+                        <td className="px-3 py-1.5 text-slate-700">
                           {r.material ?? "—"}
                         </td>
-                        <td className="px-3 py-1.5 text-gray-700">
+                        <td className="px-3 py-1.5 text-slate-700">
                           {isNaN(val) ? "—" : `${val}%`}
                         </td>
                         <td className={`px-3 py-1.5 ${statusColor}`}>
                           {statusLabel}
                         </td>
-                        <td className="px-3 py-1.5 text-gray-700">
+                        <td className="px-3 py-1.5 text-slate-700">
                           {r.date
                             ? new Date(r.date).toLocaleDateString("en-AU")
                             : "—"}
@@ -305,10 +305,10 @@ export default async function InsurerPortalPage({ params }: PageProps) {
 
         {/* Equipment log */}
         {eqArr.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <h2 className="text-sm font-semibold text-gray-700 mb-3">
+          <div className="bg-white rounded-xl border border-slate-200 p-5">
+            <h2 className="text-sm font-semibold text-slate-700 mb-3">
               Equipment Deployment Log
-              <span className="ml-2 text-xs font-normal text-gray-400">
+              <span className="ml-2 text-xs font-normal text-slate-400">
                 IICRC S500:2025 §14
               </span>
             </h2>
@@ -332,19 +332,19 @@ export default async function InsurerPortalPage({ params }: PageProps) {
                   {eqArr.map((eq: any, i: number) => (
                     <tr
                       key={i}
-                      className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}
+                      className={i % 2 === 0 ? "bg-white" : "bg-slate-50"}
                     >
-                      <td className="px-3 py-1.5 text-gray-700">
+                      <td className="px-3 py-1.5 text-slate-700">
                         {eq.type ?? eq.name ?? "—"}
                       </td>
-                      <td className="px-3 py-1.5 text-gray-700">
+                      <td className="px-3 py-1.5 text-slate-700">
                         {`${eq.brand ?? eq.make ?? ""}${eq.model ? ` ${eq.model}` : ""}`.trim() ||
                           "—"}
                       </td>
-                      <td className="px-3 py-1.5 text-gray-400 font-mono">
+                      <td className="px-3 py-1.5 text-slate-400 font-mono">
                         {eq.serialNumber ?? eq.serial ?? "—"}
                       </td>
-                      <td className="px-3 py-1.5 text-gray-700">
+                      <td className="px-3 py-1.5 text-slate-700">
                         {eq.location ?? eq.room ?? "—"}
                       </td>
                     </tr>
@@ -357,11 +357,11 @@ export default async function InsurerPortalPage({ params }: PageProps) {
 
         {/* Report narrative */}
         {report.detailedReport && (
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <h2 className="text-sm font-semibold text-gray-700 mb-3">
+          <div className="bg-white rounded-xl border border-slate-200 p-5">
+            <h2 className="text-sm font-semibold text-slate-700 mb-3">
               Inspection Report
             </h2>
-            <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed max-h-96 overflow-y-auto">
+            <div className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed max-h-96 overflow-y-auto">
               {report.detailedReport}
             </div>
           </div>
@@ -388,12 +388,12 @@ export default async function InsurerPortalPage({ params }: PageProps) {
       </div>
 
       <footer className="max-w-3xl mx-auto px-4 py-6 text-center mt-4">
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-slate-400">
           This report has been prepared in accordance with{" "}
           <span className="font-semibold">IICRC S500:2025</span> — Standard and
           Reference Guide for Professional Water Damage Restoration.
         </p>
-        <p className="text-xs text-gray-300 mt-1">
+        <p className="text-xs text-slate-300 mt-1">
           Powered by{" "}
           <span className="font-semibold text-cyan-600">RestoreAssist</span>
         </p>
@@ -404,8 +404,8 @@ export default async function InsurerPortalPage({ params }: PageProps) {
 
 function ExpiredPage() {
   return (
-    <main className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center">
+    <main className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white rounded-2xl shadow-sm border border-slate-200 p-8 text-center">
         <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <svg
             className="w-6 h-6 text-red-500"
@@ -421,10 +421,10 @@ function ExpiredPage() {
             />
           </svg>
         </div>
-        <h1 className="text-xl font-semibold text-gray-900 mb-2">
+        <h1 className="text-xl font-semibold text-slate-900 mb-2">
           Link Expired or Invalid
         </h1>
-        <p className="text-gray-500 text-sm">
+        <p className="text-slate-500 text-sm">
           This insurer report link has expired or is invalid. Please contact the
           restoration company for an updated link.
         </p>

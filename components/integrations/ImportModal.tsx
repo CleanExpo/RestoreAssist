@@ -280,14 +280,14 @@ export default function ImportModal({
           <div className="flex-1 overflow-y-auto min-h-[200px] p-2">
             {loadingIntegrations ? (
               <div className="flex items-center justify-center h-full">
-                <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+                <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
               </div>
             ) : connectedIntegrations.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-gray-500 dark:text-gray-400 font-medium mb-2">
+                <p className="text-slate-500 dark:text-slate-400 font-medium mb-2">
                   Coming Soon
                 </p>
-                <p className="text-sm text-gray-400 dark:text-gray-500">
+                <p className="text-sm text-slate-400 dark:text-slate-500">
                   Import from Xero, QuickBooks, MYOB, ServiceM8, or Ascora will
                   be available soon.
                 </p>
@@ -298,7 +298,7 @@ export default function ImportModal({
                   <button
                     key={integration.provider}
                     onClick={() => handleSelectProvider(integration.provider)}
-                    className="w-full p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors flex items-center justify-between group"
+                    className="w-full p-4 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors flex items-center justify-between group"
                   >
                     <div className="flex items-center gap-3">
                       <span className="text-2xl">
@@ -314,11 +314,11 @@ export default function ImportModal({
                           decorative
                         />
                       </span>
-                      <span className="font-medium text-gray-900 dark:text-white">
+                      <span className="font-medium text-slate-900 dark:text-white">
                         {integration.name}
                       </span>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-blue-500 transition-colors" />
+                    <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-blue-500 transition-colors" />
                   </button>
                 ))}
               </div>
@@ -326,13 +326,13 @@ export default function ImportModal({
           </div>
         ) : (
           <>
-            <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex gap-2 border-b border-slate-200 dark:border-slate-700">
               <button
                 onClick={() => setActiveTab("clients")}
                 className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === "clients"
                     ? "border-blue-500 text-blue-600 dark:text-blue-400"
-                    : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400"
+                    : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400"
                 }`}
               >
                 <Users className="inline-block w-4 h-4 mr-2" />
@@ -343,7 +343,7 @@ export default function ImportModal({
                 className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === "jobs"
                     ? "border-blue-500 text-blue-600 dark:text-blue-400"
-                    : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400"
+                    : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400"
                 }`}
               >
                 <Briefcase className="inline-block w-4 h-4 mr-2" />
@@ -354,17 +354,17 @@ export default function ImportModal({
             <div className="flex-1 overflow-y-auto min-h-[300px]">
               {loadingData ? (
                 <div className="flex items-center justify-center h-full">
-                  <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+                  <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
                 </div>
               ) : activeTab === "clients" ? (
                 <div className="space-y-2 p-2">
                   {unimportedClients.length === 0 ? (
-                    <p className="text-center text-gray-500 dark:text-gray-400 py-8">
+                    <p className="text-center text-slate-500 dark:text-slate-400 py-8">
                       No new clients to import. Try syncing first.
                     </p>
                   ) : (
                     <>
-                      <div className="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-gray-800">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
                         <button
                           onClick={selectAllClients}
                           className="text-sm text-blue-600 hover:underline dark:text-blue-400"
@@ -373,7 +373,7 @@ export default function ImportModal({
                             ? "Deselect All"
                             : "Select All"}
                         </button>
-                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                        <span className="text-sm text-slate-500 dark:text-slate-400">
                           {selectedClientIds.size} selected
                         </span>
                       </div>
@@ -384,7 +384,7 @@ export default function ImportModal({
                           className={`p-3 rounded-lg border cursor-pointer transition-colors ${
                             selectedClientIds.has(client.externalId)
                               ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                              : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
+                              : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
                           }`}
                         >
                           <div className="flex items-start gap-3">
@@ -395,16 +395,16 @@ export default function ImportModal({
                               }
                             />
                             <div className="flex-1 min-w-0">
-                              <p className="font-medium text-gray-900 dark:text-white truncate">
+                              <p className="font-medium text-slate-900 dark:text-white truncate">
                                 {client.name}
                               </p>
                               {client.email && (
-                                <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                                <p className="text-sm text-slate-500 dark:text-slate-400 truncate">
                                   {client.email}
                                 </p>
                               )}
                               {client.phone && (
-                                <p className="text-sm text-gray-500 dark:text-gray-400">
+                                <p className="text-sm text-slate-500 dark:text-slate-400">
                                   {client.phone}
                                 </p>
                               )}
@@ -418,12 +418,12 @@ export default function ImportModal({
               ) : (
                 <div className="space-y-2 p-2">
                   {unimportedJobs.length === 0 ? (
-                    <p className="text-center text-gray-500 dark:text-gray-400 py-8">
+                    <p className="text-center text-slate-500 dark:text-slate-400 py-8">
                       No new jobs to import. Try syncing first.
                     </p>
                   ) : (
                     <>
-                      <div className="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-gray-800">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
                         <button
                           onClick={selectAllJobs}
                           className="text-sm text-blue-600 hover:underline dark:text-blue-400"
@@ -432,7 +432,7 @@ export default function ImportModal({
                             ? "Deselect All"
                             : "Select All"}
                         </button>
-                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                        <span className="text-sm text-slate-500 dark:text-slate-400">
                           {selectedJobIds.size} selected
                         </span>
                       </div>
@@ -443,7 +443,7 @@ export default function ImportModal({
                           className={`p-3 rounded-lg border cursor-pointer transition-colors ${
                             selectedJobIds.has(job.externalId)
                               ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                              : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
+                              : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
                           }`}
                         >
                           <div className="flex items-start gap-3">
@@ -452,16 +452,16 @@ export default function ImportModal({
                               onCheckedChange={() => toggleJob(job.externalId)}
                             />
                             <div className="flex-1 min-w-0">
-                              <p className="font-medium text-gray-900 dark:text-white truncate">
+                              <p className="font-medium text-slate-900 dark:text-white truncate">
                                 {job.title}
                               </p>
                               {job.status && (
-                                <p className="text-sm text-gray-500 dark:text-gray-400">
+                                <p className="text-sm text-slate-500 dark:text-slate-400">
                                   Status: {job.status}
                                 </p>
                               )}
                               {job.address && (
-                                <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                                <p className="text-sm text-slate-500 dark:text-slate-400 truncate">
                                   {job.address}
                                 </p>
                               )}
@@ -477,7 +477,7 @@ export default function ImportModal({
           </>
         )}
 
-        <DialogFooter className="border-t border-gray-200 dark:border-gray-700 pt-4">
+        <DialogFooter className="border-t border-slate-200 dark:border-slate-700 pt-4">
           {step === "select-data" && (
             <Button
               variant="outline"

@@ -180,7 +180,7 @@ export function AutoPopulatedFieldsDisplay({
               >
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="flex-1 min-w-0">
-                    <p className="font-mono text-xs font-semibold text-gray-700 break-all">
+                    <p className="font-mono text-xs font-semibold text-slate-700 break-all">
                       {fieldId}
                     </p>
                   </div>
@@ -193,7 +193,7 @@ export function AutoPopulatedFieldsDisplay({
                 </div>
 
                 <div className="mb-2">
-                  <p className="text-sm font-medium text-gray-900 break-words">
+                  <p className="text-sm font-medium text-slate-900 break-words">
                     {formatFieldValue(field.value)}
                   </p>
                 </div>
@@ -218,11 +218,11 @@ export function AutoPopulatedFieldsDisplay({
           )}
 
           {/* Legend */}
-          <div className="mt-4 p-3 bg-gray-50 rounded border border-gray-200">
-            <p className="text-xs font-semibold text-gray-700 mb-2">
+          <div className="mt-4 p-3 bg-slate-50 rounded border border-slate-200">
+            <p className="text-xs font-semibold text-slate-700 mb-2">
               Confidence Guide:
             </p>
-            <ul className="text-xs text-gray-600 space-y-1">
+            <ul className="text-xs text-slate-600 space-y-1">
               <li>
                 <span className="font-mono bg-white border border-green-200 px-2 py-0.5 rounded mr-2">
                   95-100%

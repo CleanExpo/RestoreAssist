@@ -448,7 +448,7 @@ export default function VisualScopeOfWorksViewer({
                       </div>
                     </div>
 
-                    <div className="ml-14 space-y-3">
+                    <div className="ml-16 space-y-3">
                       <div>
                         <h4 className="font-semibold text-slate-900 mb-2">
                           Activities:

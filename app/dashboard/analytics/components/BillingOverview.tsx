@@ -454,8 +454,8 @@ export default function BillingOverview() {
             "border border-neutral-200 dark:border-slate-700/30",
           )}
         >
-          <div className="p-2 rounded-lg bg-gray-500/10">
-            <AlertTriangle className="w-4 h-4 text-gray-500" />
+          <div className="p-2 rounded-lg bg-slate-500/10">
+            <AlertTriangle className="w-4 h-4 text-slate-500" />
           </div>
           <div>
             <p
