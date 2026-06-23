@@ -516,10 +516,10 @@ export default function SuccessPage() {
 
   if (loading || checking) {
     return (
-      <div className="h-screen overflow-hidden bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center">
+      <div className="h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center">
         <div className="text-center space-y-4">
           <Loader2 className="w-12 h-12 text-cyan-500 animate-spin mx-auto" />
-          <p className="text-gray-600 dark:text-slate-300">
+          <p className="text-slate-600 dark:text-slate-300">
             Processing your subscription...
           </p>
         </div>
@@ -572,10 +572,10 @@ export default function SuccessPage() {
   ];
 
   return (
-    <div className="h-screen overflow-hidden bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center p-4">
+    <div className="h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center p-4">
       {/* Success Message */}
       {!showSetupGuide && (
-        <div className="max-w-lg w-full bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700/50 rounded-lg p-6 text-center space-y-5 shadow-lg dark:shadow-none animate-fade-in">
+        <div className="max-w-lg w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-lg p-6 text-center space-y-5 shadow-lg dark:shadow-none animate-fade-in">
           <div className="flex justify-center">
             <div className="w-20 h-20 rounded-full bg-green-100 dark:bg-green-500/20 flex items-center justify-center animate-scale-in">
               <CheckCircle className="w-12 h-12 text-green-600 dark:text-green-400" />
@@ -583,10 +583,10 @@ export default function SuccessPage() {
           </div>
 
           <div className="space-y-3">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
               Payment Successful!
             </h1>
-            <p className="text-sm text-gray-600 dark:text-slate-400">
+            <p className="text-sm text-slate-600 dark:text-slate-400">
               Thank you for your subscription. Your account has been upgraded
               and you now have unlimited access.
             </p>
@@ -607,26 +607,26 @@ export default function SuccessPage() {
       {/* Setup Guide Modal */}
       {showSetupGuide && (
         <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="max-w-2xl w-full bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="max-w-2xl w-full bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xl max-h-[90vh] overflow-y-auto">
             {/* Header */}
-            <div className="sticky top-0 bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 p-6 rounded-t-xl z-10">
+            <div className="sticky top-0 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 p-6 rounded-t-xl z-10">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center">
                     <Sparkles className="text-white" size={24} />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                    <h2 className="text-xl font-bold text-slate-900 dark:text-white">
                       Complete Your Setup
                     </h2>
-                    <p className="text-sm text-gray-500 dark:text-slate-400">
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
                       3 quick steps to get started
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={handleSkipSetup}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors text-gray-500 dark:text-slate-400"
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors text-slate-500 dark:text-slate-400"
                   title="Skip Setup"
                 >
                   <X size={20} />
@@ -636,7 +636,7 @@ export default function SuccessPage() {
 
             {/* Content */}
             <div className="p-6 space-y-4">
-              <p className="text-sm text-gray-600 dark:text-slate-400 text-center">
+              <p className="text-sm text-slate-600 dark:text-slate-400 text-center">
                 Complete these steps to unlock the full potential of your
                 account. Each step takes just a few minutes.
               </p>
@@ -648,7 +648,7 @@ export default function SuccessPage() {
                   return (
                     <div
                       key={step.number}
-                      className="group relative p-5 rounded-xl border-2 border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50 hover:border-cyan-500 dark:hover:border-cyan-500 hover:shadow-lg transition-all duration-300"
+                      className="group relative p-5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:border-cyan-500 dark:hover:border-cyan-500 hover:shadow-lg transition-all duration-300"
                     >
                       <div className="flex items-start gap-4">
                         {/* Step Number & Icon */}
@@ -657,7 +657,7 @@ export default function SuccessPage() {
                             <Icon className="text-white" size={24} />
                           </div>
                           <div className="mt-2 text-center">
-                            <span className="text-xs font-semibold text-gray-500 dark:text-slate-400">
+                            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                               Step {step.number}
                             </span>
                           </div>
@@ -667,10 +667,10 @@ export default function SuccessPage() {
                         <div className="flex-1 space-y-2">
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex-1">
-                              <h3 className="font-bold text-gray-900 dark:text-white text-lg">
+                              <h3 className="font-bold text-slate-900 dark:text-white text-lg">
                                 {step.title}
                               </h3>
-                              <p className="text-sm text-gray-600 dark:text-slate-400 mt-1">
+                              <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
                                 {step.description}
                               </p>
                             </div>
@@ -682,14 +682,14 @@ export default function SuccessPage() {
                           </div>
 
                           {/* Impact Details */}
-                          <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-slate-400">
+                          <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                             <TrendingUp size={14} />
                             <span>{step.details}</span>
                           </div>
 
                           {/* Time Estimate */}
-                          <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-slate-700">
-                            <span className="text-xs text-gray-500 dark:text-slate-400">
+                          <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-700">
+                            <span className="text-xs text-slate-500 dark:text-slate-400">
                               ⏱️ Est. {step.timeEstimate}
                             </span>
                             <button
@@ -715,7 +715,7 @@ export default function SuccessPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <ArrowRight className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                    <p className="text-sm text-gray-700 dark:text-slate-300">
+                    <p className="text-sm text-slate-700 dark:text-slate-300">
                       {countdown > 0 ? (
                         <>
                           Auto-starting setup in{" "}
@@ -743,11 +743,11 @@ export default function SuccessPage() {
             </div>
 
             {/* Footer Actions */}
-            <div className="sticky bottom-0 bg-gray-50 dark:bg-slate-800/80 border-t border-gray-200 dark:border-slate-700 p-6 rounded-b-xl backdrop-blur-sm">
+            <div className="sticky bottom-0 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-700 p-6 rounded-b-xl backdrop-blur-sm">
               <div className="flex gap-3">
                 <button
                   onClick={handleSkipSetup}
-                  className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/50 transition-colors text-gray-700 dark:text-slate-300 font-medium"
+                  className="flex-1 px-4 py-2.5 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors text-slate-700 dark:text-slate-300 font-medium"
                 >
                   Skip Setup
                 </button>
@@ -759,13 +759,13 @@ export default function SuccessPage() {
                         router.push("/dashboard/subscription");
                       }
                     }}
-                    className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/50 transition-colors text-gray-700 dark:text-slate-300 font-medium"
+                    className="flex-1 px-4 py-2.5 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors text-slate-700 dark:text-slate-300 font-medium"
                   >
                     View Subscription
                   </button>
                 </BillingGate>
               </div>
-              <p className="text-xs text-center text-gray-500 dark:text-slate-400 mt-3">
+              <p className="text-xs text-center text-slate-500 dark:text-slate-400 mt-3">
                 You can complete setup anytime from Settings or the sidebar
               </p>
             </div>

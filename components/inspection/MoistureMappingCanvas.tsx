@@ -354,7 +354,7 @@ export default function MoistureMappingCanvas({
             className={cn(
               "px-4 py-1.5 rounded-lg text-sm font-medium transition-all",
               sketchMode === mode
-                ? "bg-white dark:bg-slate-700 text-gray-900 dark:text-white shadow-sm"
+                ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm"
                 : "text-neutral-500 dark:text-slate-400 hover:text-neutral-700 dark:hover:text-slate-200",
             )}
           >

@@ -240,7 +240,7 @@ export default function Tier3Questions({
             TIER 3: OPTIMISATION QUESTIONS
           </h2>
         </div>
-        <p className="text-sm text-gray-700 dark:text-slate-300">
+        <p className="text-sm text-slate-700 dark:text-slate-300">
           These questions optimise cost estimation and timeline prediction. All
           questions are optional.
         </p>
@@ -253,7 +253,7 @@ export default function Tier3Questions({
             <h3 className="text-lg font-semibold text-green-700 dark:text-green-400 mb-2">
               Advanced Optimisation Questions
             </h3>
-            <p className="text-sm text-gray-700 dark:text-slate-300">
+            <p className="text-sm text-slate-700 dark:text-slate-300">
               These advanced questions optimise cost estimation and timeline
               prediction.
             </p>
@@ -286,8 +286,8 @@ export default function Tier3Questions({
       </div>
 
       {/* T3_Q1: Timeline Requirements */}
-      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+      <div className="p-6 rounded-lg border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30">
+        <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">
           T3_Q1: Timeline Requirements
         </h3>
         <div className="space-y-2">
@@ -301,7 +301,7 @@ export default function Tier3Questions({
           ].map((option) => (
             <label
               key={option}
-              className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/30 cursor-pointer border border-transparent hover:border-gray-300 dark:hover:border-slate-600"
+              className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/30 cursor-pointer border border-transparent hover:border-slate-300 dark:hover:border-slate-600"
             >
               <input
                 type="radio"
@@ -316,7 +316,7 @@ export default function Tier3Questions({
                 }
                 className="w-4 h-4 text-cyan-500"
               />
-              <span className="text-gray-700 dark:text-slate-300">
+              <span className="text-slate-700 dark:text-slate-300">
                 {option}
               </span>
             </label>
@@ -332,15 +332,15 @@ export default function Tier3Questions({
                 }))
               }
               placeholder="Please specify"
-              className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg mt-2 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
+              className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg mt-2 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400"
             />
           )}
         </div>
       </div>
 
       {/* T3_Q2: Drying Preferences */}
-      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+      <div className="p-6 rounded-lg border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30">
+        <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">
           T3_Q2: Drying Preferences
         </h3>
         <div className="space-y-2">
@@ -351,7 +351,7 @@ export default function Tier3Questions({
           ].map((option) => (
             <label
               key={option}
-              className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/30 cursor-pointer border border-transparent hover:border-gray-300 dark:hover:border-slate-600"
+              className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/30 cursor-pointer border border-transparent hover:border-slate-300 dark:hover:border-slate-600"
             >
               <input
                 type="radio"
@@ -366,7 +366,7 @@ export default function Tier3Questions({
                 }
                 className="w-4 h-4 text-cyan-500"
               />
-              <span className="text-gray-700 dark:text-slate-300">
+              <span className="text-slate-700 dark:text-slate-300">
                 {option}
               </span>
             </label>
@@ -375,8 +375,8 @@ export default function Tier3Questions({
       </div>
 
       {/* T3_Q3: Chemical Treatment */}
-      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+      <div className="p-6 rounded-lg border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30">
+        <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">
           T3_Q3: Chemical Treatment
         </h3>
         <div className="space-y-2">
@@ -389,7 +389,7 @@ export default function Tier3Questions({
           ].map((option) => (
             <label
               key={option}
-              className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/30 cursor-pointer border border-transparent hover:border-gray-300 dark:hover:border-slate-600"
+              className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/30 cursor-pointer border border-transparent hover:border-slate-300 dark:hover:border-slate-600"
             >
               <input
                 type="radio"
@@ -404,7 +404,7 @@ export default function Tier3Questions({
                 }
                 className="w-4 h-4 text-cyan-500"
               />
-              <span className="text-gray-700 dark:text-slate-300">
+              <span className="text-slate-700 dark:text-slate-300">
                 {option}
               </span>
             </label>
@@ -413,11 +413,11 @@ export default function Tier3Questions({
       </div>
 
       {/* T3_Q4: Total Affected Area */}
-      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+      <div className="p-6 rounded-lg border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30">
+        <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">
           T3_Q4: Total Affected Area
         </h3>
-        <p className="text-sm text-gray-600 dark:text-slate-400 mb-4">
+        <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
           Example: 'Kitchen 15 sqm, Lounge 40 sqm, 2 Bedrooms 50 sqm total,
           Hallway 20 sqm = 125 sqm total.' Used for chemical treatment costing
           ($/sqm) and labour estimation.
@@ -432,13 +432,13 @@ export default function Tier3Questions({
             }))
           }
           placeholder="Enter total affected area breakdown..."
-          className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
+          className="w-full px-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400"
         />
       </div>
 
       {/* T3_Q5: Class 4 Drying Assessment */}
-      <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
-        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+      <div className="p-6 rounded-lg border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30">
+        <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">
           T3_Q5: Class 4 Drying Assessment
         </h3>
         <div className="space-y-2">
@@ -451,7 +451,7 @@ export default function Tier3Questions({
           ].map((option) => (
             <label
               key={option}
-              className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/30 cursor-pointer border border-transparent hover:border-gray-300 dark:hover:border-slate-600"
+              className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/30 cursor-pointer border border-transparent hover:border-slate-300 dark:hover:border-slate-600"
             >
               <input
                 type="radio"
@@ -466,7 +466,7 @@ export default function Tier3Questions({
                 }
                 className="w-4 h-4 text-cyan-500"
               />
-              <span className="text-gray-700 dark:text-slate-300">
+              <span className="text-slate-700 dark:text-slate-300">
                 {option}
               </span>
             </label>
@@ -482,7 +482,7 @@ export default function Tier3Questions({
             Photo Uploads
           </h3>
         </div>
-        <p className="text-sm text-gray-700 dark:text-slate-300 mb-4">
+        <p className="text-sm text-slate-700 dark:text-slate-300 mb-4">
           Categorise photos for proper placement in the report (35-45 images
           recommended)
         </p>
@@ -496,18 +496,18 @@ export default function Tier3Questions({
             return (
               <div
                 key={category.id}
-                className="p-4 rounded-lg border border-gray-200 dark:border-slate-600/50 bg-white dark:bg-slate-900/30"
+                className="p-4 rounded-lg border border-slate-200 dark:border-slate-600/50 bg-white dark:bg-slate-900/30"
               >
                 <div className="flex items-center justify-between mb-2">
                   <div>
-                    <h5 className="text-sm font-semibold text-gray-900 dark:text-white">
+                    <h5 className="text-sm font-semibold text-slate-900 dark:text-white">
                       {category.label}
                     </h5>
-                    <p className="text-xs text-gray-600 dark:text-slate-400">
+                    <p className="text-xs text-slate-600 dark:text-slate-400">
                       {category.description}
                     </p>
                   </div>
-                  <span className="text-xs text-gray-600 dark:text-slate-400">
+                  <span className="text-xs text-slate-600 dark:text-slate-400">
                     {categoryPhotos.length} / {category.max}
                   </span>
                 </div>
@@ -517,7 +517,7 @@ export default function Tier3Questions({
                       <img
                         src={URL.createObjectURL(photo.file)}
                         alt={`${category.label} ${index + 1}`}
-                        className="w-full h-20 object-cover rounded border-2 border-gray-300 dark:border-slate-600"
+                        className="w-full h-20 object-cover rounded border-2 border-slate-300 dark:border-slate-600"
                       />
                       <button
                         type="button"
@@ -540,10 +540,10 @@ export default function Tier3Questions({
                     </div>
                   ))}
                   {remaining > 0 && (
-                    <label className="w-full h-20 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded flex items-center justify-center cursor-pointer hover:border-green-500 transition-colors bg-gray-50 dark:bg-slate-900/50">
+                    <label className="w-full h-20 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded flex items-center justify-center cursor-pointer hover:border-green-500 transition-colors bg-slate-50 dark:bg-slate-900/50">
                       <div className="text-center">
-                        <Camera className="w-4 h-4 text-gray-500 dark:text-slate-400 mx-auto mb-1" />
-                        <span className="text-xs text-gray-600 dark:text-slate-400">
+                        <Camera className="w-4 h-4 text-slate-500 dark:text-slate-400 mx-auto mb-1" />
+                        <span className="text-xs text-slate-600 dark:text-slate-400">
                           Add
                         </span>
                       </div>

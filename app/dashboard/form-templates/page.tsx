@@ -58,18 +58,18 @@ function getQuestionCount(template: FormTemplate): number | null {
 // Loading skeleton card
 function SkeletonCard() {
   return (
-    <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 animate-pulse">
+    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 animate-pulse">
       <div className="flex items-start justify-between mb-3">
-        <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-2/3" />
-        <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-16" />
+        <div className="h-5 bg-slate-200 dark:bg-slate-700 rounded w-2/3" />
+        <div className="h-5 bg-slate-200 dark:bg-slate-700 rounded w-16" />
       </div>
-      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full mb-2" />
-      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-4" />
+      <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-full mb-2" />
+      <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-3/4 mb-4" />
       <div className="flex items-center justify-between">
-        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24" />
+        <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-24" />
         <div className="flex gap-2">
-          <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded" />
-          <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded" />
+          <div className="h-8 w-8 bg-slate-200 dark:bg-slate-700 rounded" />
+          <div className="h-8 w-8 bg-slate-200 dark:bg-slate-700 rounded" />
         </div>
       </div>
     </div>
@@ -90,23 +90,23 @@ function DeleteDialog({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 max-w-md w-full mx-4 border border-gray-200 dark:border-gray-700">
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl p-6 max-w-md w-full mx-4 border border-slate-200 dark:border-slate-700">
         <div className="flex items-center gap-3 mb-4">
           <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
             <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
           </div>
           <div>
-            <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+            <h3 className="text-base font-semibold text-slate-900 dark:text-white">
               Delete Template
             </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
               This action cannot be undone
             </p>
           </div>
         </div>
-        <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">
+        <p className="text-sm text-slate-600 dark:text-slate-300 mb-6">
           Are you sure you want to delete{" "}
-          <span className="font-medium text-gray-900 dark:text-white">
+          <span className="font-medium text-slate-900 dark:text-white">
             &ldquo;{template.name}&rdquo;
           </span>
           ? Any forms using this template will be affected.
@@ -115,7 +115,7 @@ function DeleteDialog({
           <button
             onClick={onCancel}
             disabled={deleting}
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 transition-colors"
+            className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600 disabled:opacity-50 transition-colors"
           >
             Cancel
           </button>
@@ -205,10 +205,10 @@ export default function FormTemplatesPage() {
       {/* Page header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
             Form Templates
           </h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             Manage reusable form templates for interviews, surveys, and
             onboarding
           </p>
@@ -225,20 +225,20 @@ export default function FormTemplatesPage() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
             placeholder="Search templates…"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full pl-10 pr-4 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
         <div className="sm:w-48">
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="ALL">All types</option>
             {formTypes.map((type) => (
@@ -286,13 +286,13 @@ export default function FormTemplatesPage() {
             return (
               <div
                 key={template.id}
-                className="group rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 hover:shadow-md hover:border-blue-300 dark:hover:border-blue-600 transition-all"
+                className="group rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 hover:shadow-md hover:border-blue-300 dark:hover:border-blue-600 transition-all"
               >
                 {/* Card header */}
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <Link
                     href={`/dashboard/form-templates/${template.id}`}
-                    className="text-base font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 line-clamp-2 transition-colors"
+                    className="text-base font-semibold text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 line-clamp-2 transition-colors"
                   >
                     {template.name}
                   </Link>
@@ -305,21 +305,21 @@ export default function FormTemplatesPage() {
 
                 {/* Description */}
                 {template.description && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 mb-3">
+                  <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2 mb-3">
                     {template.description}
                   </p>
                 )}
 
                 {/* Category */}
                 {template.category && (
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mb-3">
                     Category: {template.category}
                   </p>
                 )}
 
                 {/* Footer */}
-                <div className="flex items-center justify-between mt-auto pt-3 border-t border-gray-100 dark:border-gray-700">
-                  <div className="text-xs text-gray-400 dark:text-gray-500 space-y-0.5">
+                <div className="flex items-center justify-between mt-auto pt-3 border-t border-slate-100 dark:border-slate-700">
+                  <div className="text-xs text-slate-400 dark:text-slate-500 space-y-0.5">
                     {questionCount != null && (
                       <p>
                         {questionCount} question{questionCount !== 1 ? "s" : ""}
@@ -332,14 +332,14 @@ export default function FormTemplatesPage() {
                   <div className="flex items-center gap-1">
                     <Link
                       href={`/dashboard/form-templates/${template.id}`}
-                      className="p-1.5 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                      className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                       title="Edit template"
                     >
                       <Edit className="w-4 h-4" />
                     </Link>
                     <button
                       onClick={() => setDeleteTarget(template)}
-                      className="p-1.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                      className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                       title="Delete template"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -354,7 +354,7 @@ export default function FormTemplatesPage() {
 
       {/* Result count */}
       {!loading && filtered.length > 0 && (
-        <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+        <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">
           Showing {filtered.length} of {templates.length} template
           {templates.length !== 1 ? "s" : ""}
         </p>

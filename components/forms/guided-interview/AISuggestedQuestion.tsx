@@ -161,11 +161,11 @@ export function AISuggestedQuestion({
           <p className="text-xs font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-300">
             AI suggests
           </p>
-          <p className="mt-0.5 text-sm font-medium text-gray-900 dark:text-gray-100">
+          <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
             {suggestion.question}
           </p>
           {suggestion.reasoning && (
-            <p className="mt-1 text-xs text-gray-600 dark:text-slate-400">
+            <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
               {suggestion.reasoning}
             </p>
           )}
@@ -181,7 +181,7 @@ export function AISuggestedQuestion({
                 onChange={(e) => setAddendum(e.target.value)}
                 rows={2}
                 placeholder="Type your answer…"
-                className="w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 dark:border-slate-700 dark:bg-slate-900 dark:text-gray-100"
+                className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               />
             </div>
           )}
@@ -201,7 +201,7 @@ export function AISuggestedQuestion({
               size="sm"
               variant="ghost"
               onClick={handleDismiss}
-              className="h-7 px-2 text-xs text-gray-600 hover:text-gray-900 dark:text-slate-400 dark:hover:text-gray-100"
+              className="h-7 px-2 text-xs text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
             >
               <X className="mr-1 h-3 w-3" aria-hidden="true" />
               Dismiss

@@ -143,7 +143,7 @@ export default function InterviewAnalyticsDashboard() {
       <div className="py-8">
         <div className="flex items-center justify-center">
           <RefreshCw className="h-8 w-8 animate-spin text-blue-600" />
-          <p className="ml-2 text-gray-600">Loading analytics...</p>
+          <p className="ml-2 text-slate-600">Loading analytics...</p>
         </div>
       </div>
     );
@@ -154,14 +154,14 @@ export default function InterviewAnalyticsDashboard() {
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">
+          <h1 className="text-3xl font-bold text-slate-900">
             Interview Analytics
           </h1>
-          <p className="mt-2 text-gray-600">
+          <p className="mt-2 text-slate-600">
             Monitor guided interview performance and usage metrics
           </p>
           {lastRefresh && (
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-slate-500">
               Last updated: {lastRefresh.toLocaleTimeString()}
             </p>
           )}
@@ -244,16 +244,16 @@ export default function InterviewAnalyticsDashboard() {
                   <CardContent className="space-y-4">
                     <div className="space-y-3">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">Completed</span>
+                        <span className="text-sm text-slate-600">Completed</span>
                         <Badge className="bg-green-100 text-green-800">
                           {aggregateStats.completedSessions}
                         </Badge>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">
+                        <span className="text-sm text-slate-600">
                           Total Sessions
                         </span>
-                        <span className="font-semibold text-gray-900">
+                        <span className="font-semibold text-slate-900">
                           {aggregateStats.totalSessions}
                         </span>
                       </div>
@@ -287,7 +287,7 @@ export default function InterviewAnalyticsDashboard() {
                             aggregateStats.averageFieldConfidence,
                           )}
                         </p>
-                        <p className="text-sm text-gray-500 mt-2">
+                        <p className="text-sm text-slate-500 mt-2">
                           average confidence
                         </p>
                       </div>
@@ -295,7 +295,7 @@ export default function InterviewAnalyticsDashboard() {
                         value={aggregateStats.averageFieldConfidence}
                         className="h-2"
                       />
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-slate-500">
                         {aggregateStats.averageFieldConfidence >= 80
                           ? "Excellent field mapping confidence"
                           : aggregateStats.averageFieldConfidence >= 70
@@ -322,13 +322,13 @@ export default function InterviewAnalyticsDashboard() {
                         (template: any, index: number) => (
                           <div
                             key={index}
-                            className="flex justify-between items-center p-3 bg-gray-50 rounded-lg"
+                            className="flex justify-between items-center p-3 bg-slate-50 rounded-lg"
                           >
                             <div>
-                              <p className="text-sm font-medium text-gray-900">
+                              <p className="text-sm font-medium text-slate-900">
                                 {template.templateId}
                               </p>
-                              <p className="text-xs text-gray-500 mt-1">
+                              <p className="text-xs text-slate-500 mt-1">
                                 {template.sessionCount} sessions
                               </p>
                             </div>
@@ -361,19 +361,19 @@ export default function InterviewAnalyticsDashboard() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b">
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">
                           Template
                         </th>
-                        <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">
+                        <th className="text-right py-3 px-4 text-sm font-semibold text-slate-600">
                           Sessions
                         </th>
-                        <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">
+                        <th className="text-right py-3 px-4 text-sm font-semibold text-slate-600">
                           Completion Rate
                         </th>
-                        <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">
+                        <th className="text-right py-3 px-4 text-sm font-semibold text-slate-600">
                           Avg Duration
                         </th>
-                        <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">
+                        <th className="text-right py-3 px-4 text-sm font-semibold text-slate-600">
                           Avg Fields
                         </th>
                       </tr>
@@ -382,7 +382,7 @@ export default function InterviewAnalyticsDashboard() {
                       {templateStats.map((tpl: any, i: number) => (
                         <tr
                           key={i}
-                          className="border-b last:border-0 hover:bg-gray-50"
+                          className="border-b last:border-0 hover:bg-slate-50"
                         >
                           <td className="py-3 px-4 text-sm font-medium">
                             {tpl.templateId || tpl.name || `Template ${i + 1}`}
@@ -442,16 +442,16 @@ export default function InterviewAnalyticsDashboard() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b">
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">
                           User
                         </th>
-                        <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">
+                        <th className="text-right py-3 px-4 text-sm font-semibold text-slate-600">
                           Sessions
                         </th>
-                        <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">
+                        <th className="text-right py-3 px-4 text-sm font-semibold text-slate-600">
                           Completion Rate
                         </th>
-                        <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">
+                        <th className="text-right py-3 px-4 text-sm font-semibold text-slate-600">
                           Avg Confidence
                         </th>
                       </tr>
@@ -460,7 +460,7 @@ export default function InterviewAnalyticsDashboard() {
                       {userStats.map((user: any, i: number) => (
                         <tr
                           key={i}
-                          className="border-b last:border-0 hover:bg-gray-50"
+                          className="border-b last:border-0 hover:bg-slate-50"
                         >
                           <td className="py-3 px-4 text-sm font-medium">
                             {user.name || user.userId || `User ${i + 1}`}

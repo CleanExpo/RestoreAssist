@@ -126,7 +126,7 @@ export function MoistureReadingEntryForm({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Droplets size={18} className="text-cyan-500" />
-          <h3 className="font-semibold text-gray-900 dark:text-white text-sm">
+          <h3 className="font-semibold text-slate-900 dark:text-white text-sm">
             Add Moisture Reading
           </h3>
         </div>
@@ -134,7 +134,7 @@ export function MoistureReadingEntryForm({
           <button
             type="button"
             onClick={onCancel}
-            className="p-1 hover:bg-gray-100 dark:hover:bg-slate-700 rounded text-gray-400"
+            className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-400"
           >
             <X size={16} />
           </button>
@@ -145,7 +145,7 @@ export function MoistureReadingEntryForm({
       <div>
         <label
           htmlFor="moisture-location"
-          className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1"
+          className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1"
         >
           Location <span className="text-rose-500">*</span>
         </label>
@@ -155,7 +155,7 @@ export function MoistureReadingEntryForm({
           value={location}
           onChange={(e) => setLocation(e.target.value)}
           placeholder="e.g. Living Room North Wall"
-          className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30"
+          className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30"
         />
       </div>
 
@@ -164,7 +164,7 @@ export function MoistureReadingEntryForm({
         <div>
           <label
             htmlFor="moisture-material"
-            className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1"
+            className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1"
           >
             Material Type <span className="text-rose-500">*</span>
           </label>
@@ -172,7 +172,7 @@ export function MoistureReadingEntryForm({
             id="moisture-material"
             value={material}
             onChange={(e) => setMaterial(e.target.value)}
-            className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:border-cyan-500"
+            className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500"
           >
             {IICRC_DRY_STANDARDS.map((s) => (
               <option key={s.material} value={s.material}>
@@ -184,7 +184,7 @@ export function MoistureReadingEntryForm({
         <div>
           <label
             htmlFor="moisture-depth"
-            className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1"
+            className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1"
           >
             Depth
           </label>
@@ -192,7 +192,7 @@ export function MoistureReadingEntryForm({
             id="moisture-depth"
             value={depth}
             onChange={(e) => setDepth(e.target.value)}
-            className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:border-cyan-500"
+            className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500"
           >
             {DEPTH_OPTIONS.map((d) => (
               <option key={d} value={d}>
@@ -207,7 +207,7 @@ export function MoistureReadingEntryForm({
       <div>
         <label
           htmlFor="moisture-meter-type"
-          className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1"
+          className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1"
         >
           Meter Type
         </label>
@@ -215,7 +215,7 @@ export function MoistureReadingEntryForm({
           id="moisture-meter-type"
           value={meterType}
           onChange={(e) => setMeterType(e.target.value)}
-          className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:border-cyan-500"
+          className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500"
         >
           {METER_TYPES.map((m) => (
             <option key={m.value} value={m.value}>
@@ -230,7 +230,7 @@ export function MoistureReadingEntryForm({
         <div className="flex items-center justify-between mb-1">
           <label
             htmlFor="moisture-level"
-            className="text-xs font-medium text-gray-700 dark:text-slate-300"
+            className="text-xs font-medium text-slate-700 dark:text-slate-300"
           >
             Moisture Reading (%) <span className="text-rose-500">*</span>
           </label>
@@ -308,10 +308,10 @@ export function MoistureReadingEntryForm({
             }}
             placeholder="0.0"
             className={cn(
-              "flex-1 px-3 py-2 text-sm rounded-lg border bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-1",
+              "flex-1 px-3 py-2 text-sm rounded-lg border bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1",
               source === "ble"
                 ? "border-cyan-400 focus:border-cyan-500 focus:ring-cyan-500/30"
-                : "border-gray-300 dark:border-slate-600 focus:border-cyan-500 focus:ring-cyan-500/30",
+                : "border-slate-300 dark:border-slate-600 focus:border-cyan-500 focus:ring-cyan-500/30",
             )}
           />
           {/* Live status badge */}
@@ -360,7 +360,7 @@ export function MoistureReadingEntryForm({
       <div>
         <label
           htmlFor="moisture-notes"
-          className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1"
+          className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1"
         >
           Notes (optional)
         </label>
@@ -370,7 +370,7 @@ export function MoistureReadingEntryForm({
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Additional observations…"
           rows={2}
-          className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 resize-none"
+          className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 resize-none"
         />
       </div>
 
@@ -391,7 +391,7 @@ export function MoistureReadingEntryForm({
           <button
             type="button"
             onClick={onCancel}
-            className="flex-1 px-4 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded-lg text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
+            className="flex-1 px-4 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
           >
             Cancel
           </button>

@@ -79,7 +79,7 @@ function StatusBadge({ status }: { status: SupportStatus }) {
     closed: {
       label: "Closed",
       className:
-        "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
+        "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
     },
   };
   const { label, className } = map[status] ?? map.open;
@@ -100,7 +100,7 @@ function PriorityBadge({ priority }: { priority: SupportPriority }) {
     low: {
       label: "Low",
       className:
-        "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
+        "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
     },
     normal: {
       label: "Normal",

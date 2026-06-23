@@ -60,12 +60,12 @@ export function ClientPortalUpload({ token }: { token: string }) {
   const canSend = !busy && (images.length > 0 || description.trim().length > 0);
 
   return (
-    <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 space-y-3">
+    <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-3">
       <div>
-        <h2 className="text-sm font-semibold text-gray-900">
+        <h2 className="text-sm font-semibold text-slate-900">
           Add photos or a note
         </h2>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-slate-500">
           Upload photos of the damage and add a short description. Your assessor
           reviews everything you send.
         </p>
@@ -87,7 +87,7 @@ export function ClientPortalUpload({ token }: { token: string }) {
         className="sr-only"
       />
       {images.length > 0 && (
-        <p className="text-xs text-gray-600">{images.length} photo(s) ready</p>
+        <p className="text-xs text-slate-600">{images.length} photo(s) ready</p>
       )}
 
       <textarea
@@ -97,7 +97,7 @@ export function ClientPortalUpload({ token }: { token: string }) {
         placeholder="Describe the damage (optional)…"
         rows={3}
         maxLength={2000}
-        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-400"
+        className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-400"
       />
 
       <button
@@ -111,7 +111,7 @@ export function ClientPortalUpload({ token }: { token: string }) {
       </button>
 
       {message && (
-        <p role="status" className="text-xs text-gray-700">
+        <p role="status" className="text-xs text-slate-700">
           {message}
         </p>
       )}

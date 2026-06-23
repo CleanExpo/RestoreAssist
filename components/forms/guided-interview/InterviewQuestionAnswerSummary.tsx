@@ -46,11 +46,11 @@ export function InterviewQuestionAnswerSummary({
         <CardHeader>
           <div className="flex items-center gap-2">
             <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
-            <CardTitle className="text-gray-900 dark:text-white">
+            <CardTitle className="text-slate-900 dark:text-white">
               Interview Summary
             </CardTitle>
           </div>
-          <CardDescription className="text-gray-600 dark:text-slate-400">
+          <CardDescription className="text-slate-600 dark:text-slate-400">
             Review your questions and answers below.
           </CardDescription>
         </CardHeader>
@@ -59,15 +59,15 @@ export function InterviewQuestionAnswerSummary({
             {questionsAndAnswers.map((qa, index) => (
               <div
                 key={qa.questionId}
-                className="rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/30 p-4"
+                className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 p-4"
               >
-                <p className="text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
                   Question {index + 1}
                 </p>
-                <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">
+                <p className="text-sm font-medium text-slate-900 dark:text-white mb-2">
                   {qa.questionText}
                 </p>
-                <p className="text-sm text-gray-700 dark:text-slate-300 whitespace-pre-wrap break-words">
+                <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap break-words">
                   {formatAnswer(qa.answer)}
                 </p>
               </div>

@@ -56,14 +56,14 @@ export default function ActivityTimeline({
         {Array.from({ length: 5 }).map((_, i) => (
           <div key={i} className="flex gap-4">
             <div className="flex flex-col items-center">
-              <div className="w-3 h-3 rounded-full bg-gray-100 animate-pulse" />
+              <div className="w-3 h-3 rounded-full bg-slate-100 animate-pulse" />
               {i < 4 && (
-                <div className="w-0.5 flex-1 mt-1 bg-gray-100 animate-pulse min-h-[32px]" />
+                <div className="w-0.5 flex-1 mt-1 bg-slate-100 animate-pulse min-h-[32px]" />
               )}
             </div>
             <div className="flex-1 pb-4 space-y-2">
-              <div className="w-3/4 h-4 bg-gray-100 rounded animate-pulse" />
-              <div className="w-1/3 h-3 bg-gray-100 rounded animate-pulse" />
+              <div className="w-3/4 h-4 bg-slate-100 rounded animate-pulse" />
+              <div className="w-1/3 h-3 bg-slate-100 rounded animate-pulse" />
             </div>
           </div>
         ))}
@@ -82,7 +82,7 @@ export default function ActivityTimeline({
 
   return (
     <div className="max-w-2xl">
-      <div className="relative border-l-2 border-gray-200 dark:border-slate-700 ml-1.5 space-y-0">
+      <div className="relative border-l-2 border-slate-200 dark:border-slate-700 ml-1.5 space-y-0">
         {activity.map((entry, index) => (
           <div key={entry.id} className="relative pl-6 pb-6">
             {/* Timeline dot */}
@@ -101,7 +101,7 @@ export default function ActivityTimeline({
                   className={
                     entry.device === "Mobile"
                       ? "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-0 text-xs"
-                      : "bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 border-0 text-xs"
+                      : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-0 text-xs"
                   }
                 >
                   {entry.device}

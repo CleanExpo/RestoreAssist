@@ -409,20 +409,20 @@ export default function Chatbot() {
       {/* Chat Window */}
       {isOpen && (
         <div
-          className="fixed bottom-24 right-6 w-96 h-[600px] bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-2xl flex flex-col z-[100] animate-fade-in"
+          className="fixed bottom-24 right-6 w-96 h-[600px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-2xl flex flex-col z-[100] animate-fade-in"
           style={{ position: "fixed" }}
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50 rounded-t-lg">
+          <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 rounded-t-lg">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full flex items-center justify-center">
                 <MessageCircle className="text-white" size={20} />
               </div>
               <div>
-                <h3 className="font-semibold text-gray-900 dark:text-white">
+                <h3 className="font-semibold text-slate-900 dark:text-white">
                   AI Assistant
                 </h3>
-                <p className="text-xs text-gray-600 dark:text-slate-400">
+                <p className="text-xs text-slate-600 dark:text-slate-400">
                   Restore Assist Support
                 </p>
               </div>
@@ -433,18 +433,18 @@ export default function Chatbot() {
               <div className="relative" ref={languageMenuRef}>
                 <button
                   onClick={() => setShowLanguageMenu((v) => !v)}
-                  className="p-1.5 hover:bg-gray-100 dark:hover:bg-slate-700 rounded transition-colors flex items-center gap-1"
+                  className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors flex items-center gap-1"
                   title="Select language"
                   aria-label="Select language"
                 >
                   <span className="text-sm">{currentLang.flag}</span>
                   <Globe
                     size={14}
-                    className="text-gray-600 dark:text-slate-400"
+                    className="text-slate-600 dark:text-slate-400"
                   />
                 </button>
                 {showLanguageMenu && (
-                  <div className="absolute right-0 top-8 w-44 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-xl z-10 overflow-hidden">
+                  <div className="absolute right-0 top-8 w-44 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-10 overflow-hidden">
                     {LANGUAGES.map((lang) => (
                       <button
                         key={lang.code}
@@ -454,10 +454,10 @@ export default function Chatbot() {
                           stopSpeaking();
                           stopListening();
                         }}
-                        className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors ${
+                        className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${
                           selectedLanguage.code === lang.code
                             ? "bg-cyan-50 dark:bg-cyan-900/20 text-cyan-600 dark:text-cyan-400 font-medium"
-                            : "text-gray-700 dark:text-slate-300"
+                            : "text-slate-700 dark:text-slate-300"
                         }`}
                       >
                         <span>{lang.flag}</span>
@@ -478,7 +478,7 @@ export default function Chatbot() {
                     setVoiceEnabled(true);
                   }
                 }}
-                className="p-1.5 hover:bg-gray-100 dark:hover:bg-slate-700 rounded transition-colors"
+                className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
                 title={
                   voiceEnabled ? "Mute responses" : "Speak responses aloud"
                 }
@@ -500,7 +500,7 @@ export default function Chatbot() {
                 ) : (
                   <VolumeX
                     size={16}
-                    className="text-gray-400 dark:text-slate-500"
+                    className="text-slate-400 dark:text-slate-500"
                   />
                 )}
               </button>
@@ -512,10 +512,10 @@ export default function Chatbot() {
                   stopSpeaking();
                   stopListening();
                 }}
-                className="p-1 hover:bg-gray-100 dark:hover:bg-slate-700 rounded transition-colors"
+                className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
                 aria-label="Close chatbot"
               >
-                <X size={18} className="text-gray-600 dark:text-slate-400" />
+                <X size={18} className="text-slate-600 dark:text-slate-400" />
               </button>
             </div>
           </div>
@@ -524,7 +524,7 @@ export default function Chatbot() {
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {showSuggestedQuestions && (
               <div className="space-y-2 mb-4">
-                <p className="text-xs text-gray-600 dark:text-slate-400 mb-2">
+                <p className="text-xs text-slate-600 dark:text-slate-400 mb-2">
                   Suggested questions:
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -533,7 +533,7 @@ export default function Chatbot() {
                       key={index}
                       onClick={() => handleSuggestedQuestion(question)}
                       disabled={isLoading}
-                      className="px-3 py-1.5 text-xs bg-gray-100 dark:bg-slate-700/50 hover:bg-gray-200 dark:hover:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-700 dark:text-slate-300 hover:text-gray-900 dark:hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-3 py-1.5 text-xs bg-slate-100 dark:bg-slate-700/50 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {question}
                     </button>
@@ -551,7 +551,7 @@ export default function Chatbot() {
                   className={`max-w-[80%] rounded-lg px-4 py-2 ${
                     message.role === "user"
                       ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white"
-                      : "bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-slate-100"
+                      : "bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-slate-100"
                   }`}
                 >
                   {message.role === "assistant" ? (
@@ -559,57 +559,57 @@ export default function Chatbot() {
                       <ReactMarkdown
                         components={{
                           p: ({ children }) => (
-                            <p className="mb-2 last:mb-0 text-gray-900 dark:text-slate-100">
+                            <p className="mb-2 last:mb-0 text-slate-900 dark:text-slate-100">
                               {children}
                             </p>
                           ),
                           ul: ({ children }) => (
-                            <ul className="list-disc list-inside mb-2 space-y-1 text-gray-900 dark:text-slate-100">
+                            <ul className="list-disc list-inside mb-2 space-y-1 text-slate-900 dark:text-slate-100">
                               {children}
                             </ul>
                           ),
                           ol: ({ children }) => (
-                            <ol className="list-decimal list-inside mb-2 space-y-1 text-gray-900 dark:text-slate-100">
+                            <ol className="list-decimal list-inside mb-2 space-y-1 text-slate-900 dark:text-slate-100">
                               {children}
                             </ol>
                           ),
                           li: ({ children }) => (
-                            <li className="ml-2 text-gray-900 dark:text-slate-100">
+                            <li className="ml-2 text-slate-900 dark:text-slate-100">
                               {children}
                             </li>
                           ),
                           strong: ({ children }) => (
-                            <strong className="font-semibold text-gray-900 dark:text-slate-100">
+                            <strong className="font-semibold text-slate-900 dark:text-slate-100">
                               {children}
                             </strong>
                           ),
                           em: ({ children }) => (
-                            <em className="italic text-gray-900 dark:text-slate-100">
+                            <em className="italic text-slate-900 dark:text-slate-100">
                               {children}
                             </em>
                           ),
                           code: ({ children }) => (
-                            <code className="bg-gray-200 dark:bg-slate-800/50 px-1.5 py-0.5 rounded text-xs font-mono text-gray-900 dark:text-slate-100">
+                            <code className="bg-slate-200 dark:bg-slate-800/50 px-1.5 py-0.5 rounded text-xs font-mono text-slate-900 dark:text-slate-100">
                               {children}
                             </code>
                           ),
                           h1: ({ children }) => (
-                            <h1 className="text-lg font-bold mb-2 mt-3 first:mt-0 text-gray-900 dark:text-slate-100">
+                            <h1 className="text-lg font-bold mb-2 mt-3 first:mt-0 text-slate-900 dark:text-slate-100">
                               {children}
                             </h1>
                           ),
                           h2: ({ children }) => (
-                            <h2 className="text-base font-bold mb-2 mt-3 first:mt-0 text-gray-900 dark:text-slate-100">
+                            <h2 className="text-base font-bold mb-2 mt-3 first:mt-0 text-slate-900 dark:text-slate-100">
                               {children}
                             </h2>
                           ),
                           h3: ({ children }) => (
-                            <h3 className="text-sm font-bold mb-1 mt-2 first:mt-0 text-gray-900 dark:text-slate-100">
+                            <h3 className="text-sm font-bold mb-1 mt-2 first:mt-0 text-slate-900 dark:text-slate-100">
                               {children}
                             </h3>
                           ),
                           blockquote: ({ children }) => (
-                            <blockquote className="border-l-4 border-gray-400 dark:border-slate-500 pl-3 my-2 italic text-gray-800 dark:text-slate-200">
+                            <blockquote className="border-l-4 border-slate-400 dark:border-slate-500 pl-3 my-2 italic text-slate-800 dark:text-slate-200">
                               {children}
                             </blockquote>
                           ),
@@ -623,7 +623,7 @@ export default function Chatbot() {
                       {message.content}
                     </p>
                   )}
-                  <p className="text-xs mt-1 opacity-70 text-gray-700 dark:text-slate-300">
+                  <p className="text-xs mt-1 opacity-70 text-slate-700 dark:text-slate-300">
                     {message.timestamp.toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
@@ -635,7 +635,7 @@ export default function Chatbot() {
 
             {isLoading && (
               <div className="flex justify-start">
-                <div className="bg-gray-100 dark:bg-slate-700 rounded-lg px-4 py-2">
+                <div className="bg-slate-100 dark:bg-slate-700 rounded-lg px-4 py-2">
                   <Loader2
                     className="animate-spin text-cyan-500 dark:text-cyan-400"
                     size={16}
@@ -647,7 +647,7 @@ export default function Chatbot() {
           </div>
 
           {/* Input */}
-          <div className="p-4 border-t border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50 rounded-b-lg">
+          <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 rounded-b-lg">
             {/* Listening indicator */}
             {isListening && (
               <div className="flex items-center gap-2 mb-2 px-1">
@@ -677,7 +677,7 @@ export default function Chatbot() {
                 className={`px-3 py-2 rounded-lg transition-all flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed ${
                   isListening
                     ? "bg-red-500 hover:bg-red-600 shadow-lg shadow-red-500/30"
-                    : "bg-gray-200 dark:bg-slate-700 hover:bg-gray-300 dark:hover:bg-slate-600"
+                    : "bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600"
                 }`}
                 title={
                   isListening
@@ -693,7 +693,7 @@ export default function Chatbot() {
                 ) : (
                   <Mic
                     size={18}
-                    className="text-gray-600 dark:text-slate-300"
+                    className="text-slate-600 dark:text-slate-300"
                   />
                 )}
               </button>
@@ -710,7 +710,7 @@ export default function Chatbot() {
                     : `Type or speak in ${currentLang.label}…`
                 }
                 disabled={isLoading || isListening}
-                className="flex-1 px-4 py-2 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-slate-400 disabled:opacity-50"
+                className="flex-1 px-4 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-400 disabled:opacity-50"
               />
 
               <button
@@ -727,7 +727,7 @@ export default function Chatbot() {
               </button>
             </div>
 
-            <p className="text-xs text-gray-500 dark:text-slate-500 mt-2">
+            <p className="text-xs text-slate-500 dark:text-slate-500 mt-2">
               Press Enter to send · Mic to speak · {currentLang.flag}{" "}
               {currentLang.label}
             </p>

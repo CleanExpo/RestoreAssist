@@ -188,7 +188,7 @@ const ALL_FORM_TYPES: FormType[] = [
 
 function StatusBadge({ status }: { status: FormStatus }) {
   const colourMap: Record<FormStatus, string> = {
-    DRAFT: "border-transparent bg-gray-100 text-gray-700",
+    DRAFT: "border-transparent bg-slate-100 text-slate-700",
     IN_PROGRESS: "border-transparent bg-blue-100 text-blue-700",
     AWAITING_SIGNATURE: "border-transparent bg-amber-100 text-amber-700",
     COMPLETED: "border-transparent bg-green-100 text-green-700",
@@ -201,7 +201,7 @@ function CompletenessBar({ score }: { score: number }) {
   const isGreen = score >= 80;
   return (
     <div className="flex items-center gap-2 min-w-[100px]">
-      <div className="relative h-2 flex-1 rounded-full bg-gray-200 overflow-hidden">
+      <div className="relative h-2 flex-1 rounded-full bg-slate-200 overflow-hidden">
         <div
           className={`absolute inset-y-0 left-0 rounded-full transition-all ${isGreen ? "bg-green-500" : "bg-amber-400"}`}
           style={{ width: `${score}%` }}
@@ -481,9 +481,9 @@ export default function FormSubmissionsPage() {
             { active: string; inactive: string }
           > = {
             DRAFT: {
-              active: "border-gray-600 bg-gray-600 text-white",
+              active: "border-slate-600 bg-slate-600 text-white",
               inactive:
-                "border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100",
+                "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100",
             },
             IN_PROGRESS: {
               active: "border-blue-600 bg-blue-600 text-white",

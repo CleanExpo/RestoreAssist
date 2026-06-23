@@ -97,7 +97,7 @@ export default function FeaturesPage() {
 
           {/* Hamburger Menu - Right Side, Bigger Size, Always Visible */}
           <button
-            className="text-white hover:text-gray-300 transition-colors"
+            className="text-white hover:text-slate-300 transition-colors"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             aria-label="Toggle menu"
           >
@@ -143,7 +143,7 @@ export default function FeaturesPage() {
                 </h2>
                 <button
                   onClick={() => setMobileMenuOpen(false)}
-                  className="text-white hover:text-gray-300 transition-colors p-2 -mr-2 rounded-lg hover:bg-white/10"
+                  className="text-white hover:text-slate-300 transition-colors p-2 -mr-2 rounded-lg hover:bg-white/10"
                   aria-label="Close menu"
                 >
                   <X size={24} />

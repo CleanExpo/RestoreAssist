@@ -302,15 +302,15 @@ export default function PricingConfiguration({
     const fields = customFields[category] || [];
 
     return (
-      <div className="mt-6 pt-6 border-t border-gray-200 dark:border-slate-700">
+      <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
         <div className="flex items-center justify-between mb-4">
-          <h4 className="font-medium text-gray-700 dark:text-slate-300">
+          <h4 className="font-medium text-slate-700 dark:text-slate-300">
             Custom {categoryLabel} Fields
           </h4>
           {canEdit && (
             <button
               onClick={() => addCustomField(category)}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/50 transition-colors text-gray-700 dark:text-slate-300"
+              className="flex items-center gap-2 px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors text-slate-700 dark:text-slate-300"
             >
               <Plus className="w-4 h-4" />
               Add Field
@@ -319,7 +319,7 @@ export default function PricingConfiguration({
         </div>
 
         {fields.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-slate-500 italic">
+          <p className="text-sm text-slate-500 dark:text-slate-500 italic">
             No custom fields added yet
           </p>
         ) : (
@@ -337,12 +337,12 @@ export default function PricingConfiguration({
                       })
                     }
                     disabled={!canEdit}
-                    className="w-full px-3 py-2 bg-gray-100 dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
+                    className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400"
                   />
                 </div>
                 <div className="w-32">
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-500 dark:text-slate-400">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-500 dark:text-slate-400">
                       $
                     </span>
                     <input
@@ -356,7 +356,7 @@ export default function PricingConfiguration({
                         })
                       }
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-3 py-2 bg-gray-100 dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-400"
+                      className="w-full pl-8 pr-3 py-2 bg-slate-100 dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400"
                     />
                   </div>
                 </div>
@@ -395,7 +395,7 @@ export default function PricingConfiguration({
               <h3 className="font-semibold text-amber-400 mb-1">
                 Pricing Configuration Locked
               </h3>
-              <p className="text-sm text-gray-700 dark:text-slate-300 mb-3">
+              <p className="text-sm text-slate-700 dark:text-slate-300 mb-3">
                 Pricing configuration is locked for free users. Upgrade to
                 unlock this feature and customize your rates.
               </p>
@@ -416,7 +416,7 @@ export default function PricingConfiguration({
         <div className="flex gap-2">
           <button
             onClick={fetchPricingConfig}
-            className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700/50 transition-colors text-gray-700 dark:text-slate-300"
+            className="flex items-center gap-2 px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors text-slate-700 dark:text-slate-300"
           >
             <RefreshCw className="w-4 h-4" />
             Refresh
@@ -439,7 +439,7 @@ export default function PricingConfiguration({
             <h3 className="font-semibold text-blue-400 mb-1">
               Initial Pricing Setup
             </h3>
-            <p className="text-sm text-gray-700 dark:text-slate-300">
+            <p className="text-sm text-slate-700 dark:text-slate-300">
               Please configure your pricing to get started. You can modify it
               anytime.
             </p>
@@ -449,24 +449,24 @@ export default function PricingConfiguration({
 
       <div className="space-y-6">
         {/* Labour Rates Section */}
-        <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
-          <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
+        <div className="p-6 rounded-lg border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30">
+          <h3 className="text-xl font-semibold mb-4 text-slate-900 dark:text-white">
             Labour Rates (AUD per hour)
           </h3>
 
           <div className="space-y-4">
             {/* Master Qualified Technician */}
             <div className="border-l-4 border-cyan-500 pl-4">
-              <h4 className="font-medium mb-3 text-gray-800 dark:text-white">
+              <h4 className="font-medium mb-3 text-slate-800 dark:text-white">
                 Master Qualified Technician
               </h4>
               <div className="grid md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">
+                  <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">
                     Normal Hours
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-500 dark:text-slate-400">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-500 dark:text-slate-400">
                       $
                     </span>
                     <input
@@ -480,16 +480,16 @@ export default function PricingConfiguration({
                         )
                       }
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">
+                  <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">
                     Saturday
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-500 dark:text-slate-400">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-500 dark:text-slate-400">
                       $
                     </span>
                     <input
@@ -503,16 +503,16 @@ export default function PricingConfiguration({
                         )
                       }
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">
+                  <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">
                     Sunday
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-500 dark:text-slate-400">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-500 dark:text-slate-400">
                       $
                     </span>
                     <input
@@ -526,7 +526,7 @@ export default function PricingConfiguration({
                         )
                       }
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                     />
                   </div>
                 </div>
@@ -535,16 +535,16 @@ export default function PricingConfiguration({
 
             {/* Qualified Technician */}
             <div className="border-l-4 border-blue-500 pl-4">
-              <h4 className="font-medium mb-3 text-gray-800 dark:text-white">
+              <h4 className="font-medium mb-3 text-slate-800 dark:text-white">
                 Qualified Technician
               </h4>
               <div className="grid md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">
+                  <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">
                     Normal Hours
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-500 dark:text-slate-400">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-500 dark:text-slate-400">
                       $
                     </span>
                     <input
@@ -558,16 +558,16 @@ export default function PricingConfiguration({
                         )
                       }
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">
+                  <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">
                     Saturday
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-500 dark:text-slate-400">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-500 dark:text-slate-400">
                       $
                     </span>
                     <input
@@ -581,16 +581,16 @@ export default function PricingConfiguration({
                         )
                       }
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">
+                  <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">
                     Sunday
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-500 dark:text-slate-400">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-500 dark:text-slate-400">
                       $
                     </span>
                     <input
@@ -604,7 +604,7 @@ export default function PricingConfiguration({
                         )
                       }
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                     />
                   </div>
                 </div>
@@ -613,16 +613,16 @@ export default function PricingConfiguration({
 
             {/* Labourer */}
             <div className="border-l-4 border-green-500 pl-4">
-              <h4 className="font-medium mb-3 text-gray-800 dark:text-white">
+              <h4 className="font-medium mb-3 text-slate-800 dark:text-white">
                 Labourer
               </h4>
               <div className="grid md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">
+                  <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">
                     Normal Hours
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-500 dark:text-slate-400">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-500 dark:text-slate-400">
                       $
                     </span>
                     <input
@@ -633,16 +633,16 @@ export default function PricingConfiguration({
                         handleInputChange("labourerNormalHours", e.target.value)
                       }
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">
+                  <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">
                     Saturday
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-500 dark:text-slate-400">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-500 dark:text-slate-400">
                       $
                     </span>
                     <input
@@ -653,16 +653,16 @@ export default function PricingConfiguration({
                         handleInputChange("labourerSaturday", e.target.value)
                       }
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">
+                  <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">
                     Sunday
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-500 dark:text-slate-400">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-500 dark:text-slate-400">
                       $
                     </span>
                     <input
@@ -673,7 +673,7 @@ export default function PricingConfiguration({
                         handleInputChange("labourerSunday", e.target.value)
                       }
                       disabled={!canEdit}
-                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                      className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                     />
                   </div>
                 </div>
@@ -684,18 +684,18 @@ export default function PricingConfiguration({
         </div>
 
         {/* Equipment Rental Rates Section */}
-        <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
-          <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
+        <div className="p-6 rounded-lg border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30">
+          <h3 className="text-xl font-semibold mb-4 text-slate-900 dark:text-white">
             Equipment Rental Rates
           </h3>
 
           <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">
+              <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">
                 Air Mover (Axial) - Daily Rate
               </label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-500 dark:text-slate-400">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-500 dark:text-slate-400">
                   $
                 </span>
                 <input
@@ -706,16 +706,16 @@ export default function PricingConfiguration({
                     handleInputChange("airMoverAxialDailyRate", e.target.value)
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">
+              <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">
                 Air Mover (Centrifugal) - Daily Rate
               </label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-500 dark:text-slate-400">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-500 dark:text-slate-400">
                   $
                 </span>
                 <input
@@ -729,16 +729,16 @@ export default function PricingConfiguration({
                     )
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">
+              <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">
                 Dehumidifier (LGR) - Daily Rate
               </label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-400">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400">
                   $
                 </span>
                 <input
@@ -752,16 +752,16 @@ export default function PricingConfiguration({
                     )
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">
+              <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">
                 Dehumidifier (Desiccant) - Daily Rate
               </label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-400">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400">
                   $
                 </span>
                 <input
@@ -775,16 +775,16 @@ export default function PricingConfiguration({
                     )
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">
+              <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">
                 AFD Unit (Large) - Daily Rate
               </label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-400">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400">
                   $
                 </span>
                 <input
@@ -795,16 +795,16 @@ export default function PricingConfiguration({
                     handleInputChange("afdUnitLargeDailyRate", e.target.value)
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">
+              <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">
                 Extraction (Truck-Mounted) - Hourly Rate
               </label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-400">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400">
                   $
                 </span>
                 <input
@@ -818,16 +818,16 @@ export default function PricingConfiguration({
                     )
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">
+              <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">
                 Extraction (Electric) - Hourly Rate
               </label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-400">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400">
                   $
                 </span>
                 <input
@@ -841,16 +841,16 @@ export default function PricingConfiguration({
                     )
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">
+              <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">
                 Injection Drying System - Daily Rate
               </label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-400">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400">
                   $
                 </span>
                 <input
@@ -864,7 +864,7 @@ export default function PricingConfiguration({
                     )
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                 />
               </div>
             </div>
@@ -873,18 +873,18 @@ export default function PricingConfiguration({
         </div>
 
         {/* Chemical Treatment Rates Section */}
-        <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
-          <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
+        <div className="p-6 rounded-lg border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30">
+          <h3 className="text-xl font-semibold mb-4 text-slate-900 dark:text-white">
             Chemical Treatment Rates (AUD per sqm)
           </h3>
 
           <div className="grid md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">
+              <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">
                 Antimicrobial Treatment
               </label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-400">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400">
                   $
                 </span>
                 <input
@@ -898,16 +898,16 @@ export default function PricingConfiguration({
                     )
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">
+              <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">
                 Mould Remediation Treatment
               </label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-400">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400">
                   $
                 </span>
                 <input
@@ -921,16 +921,16 @@ export default function PricingConfiguration({
                     )
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">
+              <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">
                 Biohazard Treatment
               </label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-400">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400">
                   $
                 </span>
                 <input
@@ -941,7 +941,7 @@ export default function PricingConfiguration({
                     handleInputChange("biohazardTreatmentRate", e.target.value)
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                 />
               </div>
             </div>
@@ -950,18 +950,18 @@ export default function PricingConfiguration({
         </div>
 
         {/* Fees Section */}
-        <div className="p-6 rounded-lg border border-gray-200 dark:border-slate-700/50 bg-gray-50 dark:bg-slate-800/30">
-          <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
+        <div className="p-6 rounded-lg border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/30">
+          <h3 className="text-xl font-semibold mb-4 text-slate-900 dark:text-white">
             Fees
           </h3>
 
           <div className="grid md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">
+              <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">
                 Administration Fee
               </label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-400">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400">
                   $
                 </span>
                 <input
@@ -972,16 +972,16 @@ export default function PricingConfiguration({
                     handleInputChange("administrationFee", e.target.value)
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">
+              <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">
                 Call-Out Fee
               </label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-400">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400">
                   $
                 </span>
                 <input
@@ -992,16 +992,16 @@ export default function PricingConfiguration({
                     handleInputChange("callOutFee", e.target.value)
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-slate-300">
+              <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">
                 Thermal Camera Use (per assessment)
               </label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-slate-400">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400">
                   $
                 </span>
                 <input
@@ -1015,7 +1015,7 @@ export default function PricingConfiguration({
                     )
                   }
                   disabled={!canEdit}
-                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+                  className="w-full pl-8 pr-4 py-2 bg-white dark:bg-slate-700/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:border-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white"
                 />
               </div>
             </div>

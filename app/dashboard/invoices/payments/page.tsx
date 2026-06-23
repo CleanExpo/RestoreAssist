@@ -147,9 +147,9 @@ const METHOD_COLOURS: Record<string, string> = {
   CASH: "bg-green-100 text-green-800",
   CREDIT_CARD: "bg-rose-100 text-rose-800",
   PAYPAL: "bg-sky-100 text-sky-800",
-  EXTERNAL: "bg-gray-100 text-gray-800",
+  EXTERNAL: "bg-slate-100 text-slate-800",
   EFT: "bg-teal-100 text-teal-800",
-  OTHER: "bg-gray-100 text-gray-800",
+  OTHER: "bg-slate-100 text-slate-800",
 };
 
 function methodLabel(method: string): string {
@@ -157,7 +157,7 @@ function methodLabel(method: string): string {
 }
 
 function methodColour(method: string): string {
-  return METHOD_COLOURS[method] ?? "bg-gray-100 text-gray-800";
+  return METHOD_COLOURS[method] ?? "bg-slate-100 text-slate-800";
 }
 
 /**

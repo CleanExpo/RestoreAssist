@@ -13,12 +13,12 @@ export default function ClientsLoading() {
         <Skeleton className="h-10 w-32 rounded-lg" />
       </div>
       {/* Table */}
-      <div className="rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden">
+      <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
         <Skeleton className="h-12 w-full" />
         {Array.from({ length: 8 }).map((_, i) => (
           <Skeleton
             key={i}
-            className="h-16 w-full border-t border-gray-100 dark:border-slate-800"
+            className="h-16 w-full border-t border-slate-100 dark:border-slate-800"
           />
         ))}
       </div>

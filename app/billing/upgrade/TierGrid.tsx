@@ -50,7 +50,7 @@ export default function TierGrid({
           type="button"
           onClick={() => setSelected(t.name)}
           className={`relative rounded-lg border p-6 text-left transition ${
-            selected === t.name ? "border-[#1C2E47] ring-2 ring-[#1C2E47]" : "border-gray-200"
+            selected === t.name ? "border-[#1C2E47] ring-2 ring-[#1C2E47]" : "border-slate-200"
           }`}
         >
           {t.popular && (

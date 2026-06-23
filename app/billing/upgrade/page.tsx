@@ -41,7 +41,7 @@ export default async function UpgradePage({
   return (
     <main className="container mx-auto max-w-5xl p-8">
       {cancelled && (
-        <p className="mb-4 rounded bg-gray-50 p-3 text-sm text-muted-foreground">
+        <p className="mb-4 rounded bg-slate-50 p-3 text-sm text-muted-foreground">
           No problem — continue when you&apos;re ready.
         </p>
       )}

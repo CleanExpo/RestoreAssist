@@ -134,7 +134,7 @@ export function SignatoryManager({
               : `${totalCount - signedCount} remaining`}
           </span>
         </div>
-        <div className="h-2 bg-gray-200 dark:bg-slate-700 rounded-full overflow-hidden">
+        <div className="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full transition-all duration-500 ${
               isCompleted ? "bg-emerald-500" : "bg-cyan-500"
@@ -154,7 +154,7 @@ export function SignatoryManager({
             className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
               sig.signedAt
                 ? "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800"
-                : "bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700"
+                : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"
             }`}
           >
             {/* Status icon */}
@@ -163,7 +163,7 @@ export function SignatoryManager({
             ) : sig.signatureRequestSent ? (
               <Mail className="h-5 w-5 text-blue-500 shrink-0" />
             ) : (
-              <Clock className="h-5 w-5 text-gray-400 shrink-0" />
+              <Clock className="h-5 w-5 text-slate-400 shrink-0" />
             )}
 
             {/* Info */}
@@ -172,7 +172,7 @@ export function SignatoryManager({
                 <span className="font-medium text-sm truncate">
                   {sig.signatoryName}
                 </span>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-400">
+                <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400">
                   {sig.signatoryRole}
                 </span>
               </div>
@@ -221,7 +221,7 @@ export function SignatoryManager({
       {!isCompleted && (
         <>
           {showAddForm ? (
-            <div className="border border-gray-200 dark:border-slate-700 rounded-lg p-4 space-y-3">
+            <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <h4 className="text-sm font-medium">Add Signatory</h4>
                 <button
@@ -237,12 +237,12 @@ export function SignatoryManager({
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   placeholder="Full name *"
-                  className="px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-md text-sm bg-white dark:bg-slate-900"
+                  className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md text-sm bg-white dark:bg-slate-900"
                 />
                 <select
                   value={newRole}
                   onChange={(e) => setNewRole(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-md text-sm bg-white dark:bg-slate-900"
+                  className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md text-sm bg-white dark:bg-slate-900"
                 >
                   {ROLES.map((r) => (
                     <option key={r.value} value={r.value}>
@@ -256,7 +256,7 @@ export function SignatoryManager({
                 value={newEmail}
                 onChange={(e) => setNewEmail(e.target.value)}
                 placeholder="Email address (for sending signature request)"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-md text-sm bg-white dark:bg-slate-900"
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md text-sm bg-white dark:bg-slate-900"
               />
               <button
                 onClick={handleAddSignatory}
@@ -274,7 +274,7 @@ export function SignatoryManager({
           ) : (
             <button
               onClick={() => setShowAddForm(true)}
-              className="flex items-center gap-2 w-full px-4 py-2.5 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:border-gray-400 transition-colors"
+              className="flex items-center gap-2 w-full px-4 py-2.5 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:border-slate-400 transition-colors"
             >
               <Plus className="h-4 w-4" />
               Add Signatory

@@ -158,7 +158,7 @@ export default function CompliancePage() {
     : "bg-brand-navy text-brand-gold";
   const tableRow = darkMode
     ? "border-brand-slate/20 hover:bg-brand-navy/40"
-    : "border-gray-200 hover:bg-gray-50";
+    : "border-slate-200 hover:bg-slate-50";
   const badge =
     "inline-block rounded px-2 py-0.5 text-xs font-medium bg-brand-bronze/20 text-brand-gold";
 
