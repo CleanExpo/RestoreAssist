@@ -107,7 +107,8 @@ export async function PATCH(
 
     // Update the role
     const updatedUser = await prisma.user.update({
-      where: { id: memberId },
+      // RA-6800: re-assert same-org boundary atomically in the write.
+      where: { id: memberId, organizationId: currentUser.organizationId },
       data: { role },
       select: {
         id: true,
@@ -221,7 +222,8 @@ export async function DELETE(
     // Remove member from organization (soft remove - set organizationId to null)
     // This allows the user account to remain but removes them from the team
     await prisma.user.update({
-      where: { id: memberId },
+      // RA-6800: re-assert same-org boundary atomically in the write.
+      where: { id: memberId, organizationId: currentUser.organizationId },
       data: {
         organizationId: null,
         managedById: null, // Also remove management relationship

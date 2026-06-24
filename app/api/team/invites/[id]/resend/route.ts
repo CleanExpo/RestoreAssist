@@ -87,7 +87,12 @@ export async function POST(
       if (invite.expiresAt < now) {
         // Extend expiration by 7 days
         await prisma.userInvite.update({
-          where: { id },
+          // RA-6800: re-assert that the invite's creator is in the caller's org
+          // atomically (mirrors the createdBy.organizationId guard above).
+          where: {
+            id,
+            createdBy: { organizationId: session.user.organizationId },
+          },
           data: {
             expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
           },
