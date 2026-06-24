@@ -238,11 +238,19 @@ export async function PATCH(
       );
     }
 
-    // Update step status
-    await prisma.workflowStep.update({
-      where: { id: stepId },
+    // Update step status. RA-6800: scope the write to the workflow we just
+    // verified as owned by the caller's inspection, so a client-supplied
+    // stepId cannot flip a step belonging to another tenant's workflow.
+    const stepUpdate = await prisma.workflowStep.updateMany({
+      where: { id: stepId, workflowId: workflow.id },
       data: { status, updatedAt: new Date() },
     });
+    if (stepUpdate.count === 0) {
+      return NextResponse.json(
+        { error: "Workflow step not found" },
+        { status: 404 },
+      );
+    }
 
     // Recalculate workflow totals
     const allSteps = await prisma.workflowStep.findMany({
