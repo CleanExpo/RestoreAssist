@@ -133,6 +133,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                 "negative_air_machine",
               ],
             },
+            inspection: { userId },
           },
         });
 

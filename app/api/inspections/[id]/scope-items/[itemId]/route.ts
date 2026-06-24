@@ -46,7 +46,7 @@ export async function PATCH(
     }
 
     const updated = await prisma.scopeItem.update({
-      where: { id: itemId },
+      where: { id: itemId, inspection: { userId: session.user.id } },
       data: {
         ...(body.description !== undefined && {
           description: String(body.description).slice(0, 2000),
@@ -92,7 +92,11 @@ export async function DELETE(
 
     // deleteMany scopes the delete to this inspection — prevents cross-inspection IDOR
     const deleted = await prisma.scopeItem.deleteMany({
-      where: { id: itemId, inspectionId: id },
+      where: {
+        id: itemId,
+        inspectionId: id,
+        inspection: { userId: session.user.id },
+      },
     });
     if (deleted.count === 0)
       return NextResponse.json({ error: "Not found" }, { status: 404 });

@@ -18,7 +18,7 @@ import { checkNzbsGate } from "@/lib/compliance/nzbs-compliance-gate";
 import { detectMoistureTrendAnomalies } from "@/lib/compliance/moisture-trend-anomaly";
 import { detectDuplicateJob } from "@/lib/compliance/duplicate-detector";
 import { withIdempotency } from "@/lib/idempotency";
-import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import { resolveInspectionWrite } from "@/lib/auth/assert-tenancy";
 import { onNextAction } from "@/lib/lifecycle/subscribers/next-action";
 import { validateSubmissionPayload } from "@/lib/services/inspection/validate-submission";
 import { InspectionStatus } from "@prisma/client";
@@ -43,7 +43,7 @@ export async function POST(
       // RA-1711 batch 5 — adopt shared tenancy helper. Workspace techs
       // submit inspections from the field; admins audit. CAS at the
       // status-DRAFT update below still serialises concurrent submits.
-      const tenancy = await assertInspectionTenancy(session, id);
+      const tenancy = await resolveInspectionWrite(session, id);
       if (!tenancy.ok) {
         return NextResponse.json(
           { error: tenancy.reason },
@@ -253,7 +253,7 @@ export async function POST(
       // assertInspectionTenancy, which permits owner OR workspace-member
       // OR admin. Status-DRAFT predicate still serialises submits.
       const submitGuard = await prisma.inspection.updateMany({
-        where: { id, status: "DRAFT" },
+        where: { ...tenancy.data.inspectionManyWhere, status: "DRAFT" },
         data: { status: "SUBMITTED", submittedAt: new Date() },
       });
       // P1 #11.1 — fire-and-forget next-action nudge (CLAUDE.md rule #13).

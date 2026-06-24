@@ -17,7 +17,10 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { softDelete } from "@/lib/prisma-helpers";
 import { z } from "zod";
-import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import {
+  assertInspectionTenancy,
+  resolveInspectionWrite,
+} from "@/lib/auth/assert-tenancy";
 import { apiError } from "@/lib/api-errors";
 
 function tenancyCode(
@@ -111,7 +114,7 @@ export async function POST(
   const { id } = await params;
 
   // RA-1711 batch 3 — adopt shared tenancy helper.
-  const tenancy = await assertInspectionTenancy(session, id);
+  const tenancy = await resolveInspectionWrite(session, id);
   if (!tenancy.ok) {
     return apiError(req, {
       code: tenancyCode(tenancy.status),
@@ -189,7 +192,7 @@ export async function POST(
   });
 
   await prisma.inspection.update({
-    where: { id },
+    where: tenancy.data.inspectionWhere,
     data: { claimType: "CARPET" },
   });
 
@@ -214,7 +217,7 @@ export async function DELETE(
   const { id } = await params;
 
   // RA-1711 batch 3 — adopt shared tenancy helper.
-  const tenancy = await assertInspectionTenancy(session, id);
+  const tenancy = await resolveInspectionWrite(session, id);
   if (!tenancy.ok) {
     return apiError(req, {
       code: tenancyCode(tenancy.status),
@@ -226,7 +229,12 @@ export async function DELETE(
   await softDelete(
     () =>
       prisma.carpetRestorationAssessment.delete({
-        where: { inspectionId: id },
+        where: {
+          inspectionId: id,
+          ...(tenancy.data.childInspectionFilter && {
+            inspection: tenancy.data.childInspectionFilter,
+          }),
+        },
       }),
     {
       route: "/api/inspections/[id]/carpet-restoration",
@@ -236,7 +244,7 @@ export async function DELETE(
   );
 
   await prisma.inspection.update({
-    where: { id },
+    where: tenancy.data.inspectionWhere,
     data: { claimType: null },
   });
 

@@ -27,7 +27,7 @@ import { getServerSession } from "next-auth";
 import { ClaimState, InspectionStatus, Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import { resolveInspectionWrite } from "@/lib/auth/assert-tenancy";
 import { withIdempotency } from "@/lib/idempotency";
 import { apiError } from "@/lib/api-errors";
 import { canTransition } from "@/lib/lifecycle/inspection-state-machine";
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   return withIdempotency(request, userId, async () => {
     // 1. Tenancy gate. 404 (not 403) when wrong-tenant to avoid ID enumeration.
-    const tenancy = await assertInspectionTenancy(session, inspectionId);
+    const tenancy = await resolveInspectionWrite(session, inspectionId);
     if (!tenancy.ok) {
       return apiError(request, {
         code: tenancy.status === 401 ? "UNAUTHORIZED" : "NOT_FOUND",
@@ -149,7 +149,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const completedAt = new Date();
     const cas = await prisma.inspection.updateMany({
       where: {
-        id: inspectionId,
+        ...tenancy.data.inspectionManyWhere,
         status: InspectionStatus.CLOSED,
         handoverCompletedAt: null,
       },

@@ -19,7 +19,7 @@ import { getServerSession } from "next-auth";
 import { ClaimState, InspectionStatus, Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import { resolveInspectionWrite } from "@/lib/auth/assert-tenancy";
 import { withIdempotency } from "@/lib/idempotency";
 import { canTransition } from "@/lib/lifecycle/inspection-state-machine";
 import { loadTransitionContext } from "@/lib/lifecycle/load-context";
@@ -62,7 +62,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // Tenancy gate before the transaction. Admin bypass handled inside.
-    const tenancy = await assertInspectionTenancy(session, inspectionId);
+    // RA-6800 — resolve write scopes here (before $transaction opens) so the
+    // CAS writes inside the tx re-assert ownership atomically.
+    const tenancy = await resolveInspectionWrite(session, inspectionId);
     if (!tenancy.ok) {
       return NextResponse.json(
         { error: tenancy.reason },
@@ -90,7 +92,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         // surface as a 409 with the synthetic missing key 'status_drift'.
         const completedAt = new Date();
         const cas = await tx.inspection.updateMany({
-          where: { id: inspectionId, status: InspectionStatus.IN_BILLING },
+          where: {
+            ...tenancy.data.inspectionManyWhere,
+            status: InspectionStatus.IN_BILLING,
+          },
           data: {
             status: InspectionStatus.CLOSED,
             completedAt,
@@ -125,7 +130,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         // inspection terminal state. This keeps the M-4 progress view
         // consistent with the inspection's lifecycle.
         await tx.claimProgress.updateMany({
-          where: { inspectionId },
+          where: {
+            inspectionId,
+            ...(tenancy.data.childInspectionFilter && {
+              inspection: tenancy.data.childInspectionFilter,
+            }),
+          },
           data: {
             previousState: ClaimState.INVOICE_ISSUED,
             currentState: ClaimState.CLOSED,
@@ -158,7 +168,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         .then(async ({ storageKey }) => {
           if (!storageKey) return;
           await prisma.inspection.update({
-            where: { id: inspectionId },
+            where: tenancy.data.inspectionWhere,
             data: { closePackageStorageKey: storageKey },
           });
         })

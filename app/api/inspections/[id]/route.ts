@@ -3,7 +3,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sanitizeString } from "@/lib/sanitize";
-import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import {
+  assertInspectionTenancy,
+  resolveInspectionWrite,
+} from "@/lib/auth/assert-tenancy";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -494,7 +497,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     // RA-1711 batch 5 — adopt shared tenancy helper. PATCH allows
     // workspace members + admin (techs document the loss in the field).
-    const tenancy = await assertInspectionTenancy(session, id);
+    // RA-6800 — scope the write so ownership is re-asserted atomically.
+    const tenancy = await resolveInspectionWrite(session, id);
     if (!tenancy.ok) {
       return NextResponse.json(
         { error: tenancy.reason },
@@ -524,7 +528,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     await prisma.inspection.update({
-      where: { id },
+      where: tenancy.data.inspectionWhere,
       data,
     });
 
@@ -561,7 +565,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     }
 
     await prisma.inspection.delete({
-      where: { id },
+      where: { id, userId: session.user.id },
     });
 
     return NextResponse.json({ success: true });

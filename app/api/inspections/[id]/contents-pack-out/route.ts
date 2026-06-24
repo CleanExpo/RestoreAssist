@@ -17,7 +17,10 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { withIdempotency } from "@/lib/idempotency";
-import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import {
+  assertInspectionTenancy,
+  resolveInspectionWrite,
+} from "@/lib/auth/assert-tenancy";
 
 // ─── Validation ────────────────────────────────────────────────────────────────
 
@@ -126,7 +129,8 @@ export async function POST(
   // RA-1266: prevents duplicate pack-out item rows on retry.
   return withIdempotency(req, userId, async (rawBody) => {
     // RA-1711 batch 3 — adopt shared tenancy helper.
-    const tenancy = await assertInspectionTenancy(session, id);
+    // RA-6800 — scope the write so ownership is re-asserted atomically.
+    const tenancy = await resolveInspectionWrite(session, id);
     if (!tenancy.ok) {
       return NextResponse.json(
         { error: tenancy.reason },
@@ -172,7 +176,7 @@ export async function POST(
 
     // Stamp Inspection.claimType = CONTENTS if no claim type already set
     await prisma.inspection.update({
-      where: { id },
+      where: tenancy.data.inspectionWhere,
       data: { claimType: "CONTENTS" },
     });
 
