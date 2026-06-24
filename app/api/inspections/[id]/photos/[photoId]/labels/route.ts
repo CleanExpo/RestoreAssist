@@ -344,7 +344,7 @@ export async function PATCH(
 
     // Persist
     const updatedPhoto = await prisma.inspectionPhoto.update({
-      where: { id: photoId },
+      where: { id: photoId, inspection: { userId: session.user.id } },
       data: updateData,
     });
 

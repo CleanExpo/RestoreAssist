@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import {
+  assertInspectionTenancy,
+  resolveInspectionWrite,
+} from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 import { generateCaptureToken } from "@/lib/capture-token";
 
@@ -86,7 +89,7 @@ export async function DELETE(
       });
     }
     const { id } = await params;
-    const tenancy = await assertInspectionTenancy(session, id);
+    const tenancy = await resolveInspectionWrite(session, id);
     if (!tenancy.ok) {
       return apiError(request, {
         code: tenancy.status === 404 ? "NOT_FOUND" : "FORBIDDEN",
@@ -96,7 +99,13 @@ export async function DELETE(
     }
 
     const res = await prisma.captureToken.updateMany({
-      where: { inspectionId: id, revokedAt: null },
+      where: {
+        inspectionId: id,
+        revokedAt: null,
+        ...(tenancy.data.childInspectionFilter && {
+          inspection: tenancy.data.childInspectionFilter,
+        }),
+      },
       data: { revokedAt: new Date() },
     });
     return NextResponse.json({ data: { revoked: res.count } });

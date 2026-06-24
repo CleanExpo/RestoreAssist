@@ -242,7 +242,7 @@ Rules:
 
       // Persist draft to inspection record
       await prisma.inspection.update({
-        where: { id },
+        where: { id, userId },
         data: { contentsManifestDraft: JSON.stringify(draft) },
       });
 

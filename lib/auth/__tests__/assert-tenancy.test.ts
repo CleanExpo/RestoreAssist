@@ -13,6 +13,7 @@ import {
   assertInspectionTenancy,
   assertPortalReportTenancy,
   assertReportTenancy,
+  resolveInspectionWrite,
 } from "../assert-tenancy";
 
 const reportFindUnique = (
@@ -242,5 +243,79 @@ describe("assertPortalReportTenancy", () => {
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error("unreachable");
     expect(r.data.clientId).toBe("c_1");
+  });
+});
+
+// ─── resolveInspectionWrite (RA-6800) ────────────────────────────────────────
+
+describe("resolveInspectionWrite", () => {
+  it("401 when no session", async () => {
+    const r = await resolveInspectionWrite(null, "insp_1");
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error("unreachable");
+    expect(r.status).toBe(401);
+  });
+
+  it("owner: returns ownership-scoped write filters (id + OR)", async () => {
+    inspFindFirst.mockResolvedValue({ id: "insp_1" });
+    const r = await resolveInspectionWrite(
+      { user: { id: "owner_1" } },
+      "insp_1",
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) throw new Error("unreachable");
+    // parent where re-asserts ownership atomically
+    expect(r.data.inspectionWhere).toMatchObject({ id: "insp_1" });
+    expect((r.data.inspectionWhere as { OR?: unknown }).OR).toBeTruthy();
+    // child writes get a relation filter to scope by the same ownership
+    expect(r.data.childInspectionFilter).toBeTruthy();
+    // the access query was scoped to owner OR active workspace member
+    const where = inspFindFirst.mock.calls[0][0].where;
+    expect(where.id).toBe("insp_1");
+    expect(where.OR).toEqual([
+      { userId: "owner_1" },
+      {
+        workspace: { members: { some: { userId: "owner_1", status: "ACTIVE" } } },
+      },
+    ]);
+  });
+
+  it("non-owner / non-member: 404 (no write scope leaked)", async () => {
+    inspFindFirst.mockResolvedValue(null);
+    const r = await resolveInspectionWrite(
+      { user: { id: "attacker" } },
+      "insp_victim",
+    );
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error("unreachable");
+    expect(r.status).toBe(404);
+  });
+
+  it("admin: bypasses ownership — id-only scope, no child relation filter", async () => {
+    userFindUnique.mockResolvedValue({ role: "ADMIN" });
+    inspFindUnique.mockResolvedValue({ id: "insp_1" });
+    const r = await resolveInspectionWrite(
+      { user: { id: "admin_1", role: "ADMIN" } },
+      "insp_1",
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) throw new Error("unreachable");
+    expect(r.data.inspectionWhere).toEqual({ id: "insp_1" });
+    expect(r.data.childInspectionFilter).toBeUndefined();
+    // admin must not be narrowed by an ownership findFirst
+    expect(inspFindFirst).not.toHaveBeenCalled();
+  });
+
+  it("admin token but DB role no longer ADMIN: falls back to ownership scope", async () => {
+    userFindUnique.mockResolvedValue({ role: "USER" }); // stale token
+    inspFindFirst.mockResolvedValue({ id: "insp_1" });
+    const r = await resolveInspectionWrite(
+      { user: { id: "ex_admin", role: "ADMIN" } },
+      "insp_1",
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) throw new Error("unreachable");
+    expect((r.data.inspectionWhere as { OR?: unknown }).OR).toBeTruthy();
+    expect(inspFindFirst).toHaveBeenCalled();
   });
 });

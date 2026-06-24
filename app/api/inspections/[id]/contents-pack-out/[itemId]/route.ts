@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import { resolveInspectionWrite } from "@/lib/auth/assert-tenancy";
 import { fromException } from "@/lib/api-errors";
 
 export async function DELETE(
@@ -23,7 +23,8 @@ export async function DELETE(
     const { id, itemId } = await params;
 
     // RA-1711 batch 3 — adopt shared tenancy helper.
-    const tenancy = await assertInspectionTenancy(session, id);
+    // RA-6800 — scope the child write so ownership is re-asserted atomically.
+    const tenancy = await resolveInspectionWrite(session, id);
     if (!tenancy.ok) {
       return NextResponse.json(
         { error: tenancy.reason },
@@ -41,7 +42,12 @@ export async function DELETE(
     }
 
     await prisma.contentsPackOutItem.delete({
-      where: { id: itemId },
+      where: {
+        id: itemId,
+        ...(tenancy.data.childInspectionFilter && {
+          inspection: tenancy.data.childInspectionFilter,
+        }),
+      },
     });
 
     return NextResponse.json({ deleted: true });

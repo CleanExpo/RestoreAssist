@@ -19,7 +19,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
-import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import {
+  assertInspectionTenancy,
+  resolveInspectionWrite,
+} from "@/lib/auth/assert-tenancy";
 import { fromException } from "@/lib/api-errors";
 
 // ─── Validation ────────────────────────────────────────────────────────────────
@@ -109,7 +112,7 @@ export async function POST(
 
     const { id } = await params;
 
-    const tenancy = await assertInspectionTenancy(session, id);
+    const tenancy = await resolveInspectionWrite(session, id);
     if (!tenancy.ok) {
       return NextResponse.json(
         { error: tenancy.reason },
@@ -220,7 +223,7 @@ export async function POST(
         },
       }),
       prisma.inspection.update({
-        where: { id },
+        where: tenancy.data.inspectionWhere,
         data: { claimType: "MOULD" },
       }),
     ]);
@@ -245,7 +248,7 @@ export async function DELETE(
 
     const { id } = await params;
 
-    const tenancy = await assertInspectionTenancy(session, id);
+    const tenancy = await resolveInspectionWrite(session, id);
     if (!tenancy.ok) {
       return NextResponse.json(
         { error: tenancy.reason },
@@ -255,10 +258,15 @@ export async function DELETE(
 
     await prisma.$transaction([
       prisma.mouldRemediationAssessment.deleteMany({
-        where: { inspectionId: id },
+        where: {
+          inspectionId: id,
+          ...(tenancy.data.childInspectionFilter && {
+            inspection: tenancy.data.childInspectionFilter,
+          }),
+        },
       }),
       prisma.inspection.update({
-        where: { id },
+        where: tenancy.data.inspectionWhere,
         data: { claimType: null },
       }),
     ]);

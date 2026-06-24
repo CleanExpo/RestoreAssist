@@ -5,6 +5,7 @@ vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/auth/assert-tenancy", () => ({
   assertInspectionTenancy: vi.fn(async () => ({ ok: true })),
+  resolveInspectionWrite: vi.fn(),
 }));
 vi.mock("@prisma/client", () => ({ Prisma: { DbNull: "__DbNull__" } }));
 vi.mock("@/lib/prisma", () => ({
@@ -12,12 +13,24 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import { getServerSession } from "next-auth";
-import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import {
+  assertInspectionTenancy,
+  resolveInspectionWrite,
+} from "@/lib/auth/assert-tenancy";
 import { prisma } from "@/lib/prisma";
 import { POST } from "../route";
 
 const mSession = getServerSession as unknown as ReturnType<typeof vi.fn>;
 const mTenancy = assertInspectionTenancy as unknown as ReturnType<typeof vi.fn>;
+const mResolve = resolveInspectionWrite as unknown as ReturnType<typeof vi.fn>;
+const OK_WRITE = {
+  ok: true as const,
+  data: {
+    inspectionWhere: { id: "i1" },
+    inspectionManyWhere: { id: "i1" },
+    childInspectionFilter: undefined,
+  },
+};
 const p = prisma as unknown as {
   claimSketch: {
     findMany: ReturnType<typeof vi.fn>;
@@ -29,6 +42,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mSession.mockResolvedValue({ user: { id: "u_1" } });
   mTenancy.mockResolvedValue({ ok: true });
+  mResolve.mockResolvedValue(OK_WRITE);
   p.claimSketch.update.mockResolvedValue({});
 });
 
@@ -46,7 +60,7 @@ describe("POST promote-homeowner", () => {
   });
 
   it("403 when tenancy fails", async () => {
-    mTenancy.mockResolvedValueOnce({ ok: false, status: 403, reason: "no" });
+    mResolve.mockResolvedValueOnce({ ok: false, status: 403, reason: "no" });
     expect((await POST(req(), params)).status).toBe(403);
   });
 

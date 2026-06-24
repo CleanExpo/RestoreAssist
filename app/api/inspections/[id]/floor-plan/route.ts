@@ -87,7 +87,7 @@ export async function POST(
 
     // Update inspection with floor plan URL
     await prisma.inspection.update({
-      where: { id },
+      where: { id, userId: session.user.id },
       data: {
         floorPlanImageUrl: uploadResult.url,
       },
@@ -176,7 +176,7 @@ export async function PUT(
 
     // Update inspection with floor plan URL
     await prisma.inspection.update({
-      where: { id },
+      where: { id, userId: session.user.id },
       data: {
         floorPlanImageUrl: imageUrl,
       },

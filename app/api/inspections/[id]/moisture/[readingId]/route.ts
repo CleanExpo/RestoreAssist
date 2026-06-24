@@ -22,7 +22,11 @@ export async function DELETE(
     }
     // deleteMany scopes the delete to this inspection — prevents cross-inspection IDOR
     const deleted = await prisma.moistureReading.deleteMany({
-      where: { id: readingId, inspectionId: id },
+      where: {
+        id: readingId,
+        inspectionId: id,
+        inspection: { userId: session.user.id },
+      },
     });
     if (deleted.count === 0) {
       return NextResponse.json({ error: "Reading not found" }, { status: 404 });

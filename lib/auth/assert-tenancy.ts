@@ -22,6 +22,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 
 export type TenancyResult<T> =
   | { ok: true; data: T }
@@ -123,6 +124,81 @@ export async function assertInspectionTenancy(
     return { ok: false, status: 404, reason: "Inspection not found" };
   }
   return { ok: true, data: insp };
+}
+
+/**
+ * RA-6800: resolve ownership-scoped `where` fragments for WRITING to an
+ * inspection or its child records. Verifies access using the same model as
+ * `assertInspectionTenancy` (direct owner OR active workspace member; admins
+ * bypass), then returns reusable scopes so mutations re-assert ownership
+ * atomically at write time — closing the TOCTOU gap between the access check
+ * and the write.
+ *
+ *   - `inspectionWhere`     → for `inspection.update` / `delete` (unique where).
+ *   - `inspectionManyWhere` → for `inspection.updateMany` (merge extra
+ *                             conditions, e.g. a status CAS guard).
+ *   - `childInspectionFilter` → relation filter for child-record writes, used
+ *                             as `{ inspection: childInspectionFilter }`;
+ *                             `undefined` for admins (no per-tenant scope).
+ *
+ * Returns 401/404 (never 403) on failure so callers map directly to a response
+ * and tenants cannot enumerate inspection IDs.
+ */
+export async function resolveInspectionWrite(
+  session: SessionLike | null,
+  inspectionId: string,
+): Promise<
+  TenancyResult<{
+    inspectionWhere: Prisma.InspectionWhereUniqueInput;
+    inspectionManyWhere: Prisma.InspectionWhereInput;
+    childInspectionFilter: Prisma.InspectionWhereInput | undefined;
+  }>
+> {
+  if (!session?.user?.id) {
+    return { ok: false, status: 401, reason: "Unauthorized" };
+  }
+  const userId = session.user.id;
+  const admin = await hasCurrentAdminRole(session);
+
+  // Admin path: authorized globally; scope writes by id only.
+  if (admin) {
+    const insp = await prisma.inspection.findUnique({
+      where: { id: inspectionId },
+      select: { id: true },
+    });
+    if (!insp) {
+      return { ok: false, status: 404, reason: "Inspection not found" };
+    }
+    return {
+      ok: true,
+      data: {
+        inspectionWhere: { id: inspectionId },
+        inspectionManyWhere: { id: inspectionId },
+        childInspectionFilter: undefined,
+      },
+    };
+  }
+
+  // Member path: own the inspection OR be an active member of its workspace.
+  const ownerOr: Prisma.InspectionWhereInput["OR"] = [
+    { userId },
+    { workspace: { members: { some: { userId, status: "ACTIVE" } } } },
+  ];
+  const insp = await prisma.inspection.findFirst({
+    where: { id: inspectionId, OR: ownerOr },
+    select: { id: true },
+  });
+  if (!insp) {
+    return { ok: false, status: 404, reason: "Inspection not found" };
+  }
+  return {
+    ok: true,
+    data: {
+      inspectionWhere: { id: inspectionId, OR: ownerOr },
+      inspectionManyWhere: { id: inspectionId, OR: ownerOr },
+      childInspectionFilter: { OR: ownerOr },
+    },
+  };
 }
 
 /**

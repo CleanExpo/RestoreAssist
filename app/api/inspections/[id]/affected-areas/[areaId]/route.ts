@@ -35,7 +35,9 @@ export async function DELETE(
       return NextResponse.json({ error: "Area not found" }, { status: 404 });
     }
 
-    await prisma.affectedArea.delete({ where: { id: areaId } });
+    await prisma.affectedArea.delete({
+      where: { id: areaId, inspection: { userId: session.user.id } },
+    });
 
     return NextResponse.json({ success: true });
   } catch (err) {

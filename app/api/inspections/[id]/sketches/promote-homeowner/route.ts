@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { assertInspectionTenancy } from "@/lib/auth/assert-tenancy";
+import { resolveInspectionWrite } from "@/lib/auth/assert-tenancy";
 import { apiError, fromException } from "@/lib/api-errors";
 
 /**
@@ -37,7 +37,7 @@ export async function POST(
       });
     }
     const { id } = await params;
-    const tenancy = await assertInspectionTenancy(session, id);
+    const tenancy = await resolveInspectionWrite(session, id);
     if (!tenancy.ok) {
       return apiError(request, {
         code: tenancy.status === 404 ? "NOT_FOUND" : "FORBIDDEN",
@@ -58,7 +58,12 @@ export async function POST(
       const pending = s.pendingHomeownerCapture as PendingCapture | null;
       if (!pending) continue;
       await prisma.claimSketch.update({
-        where: { id: s.id },
+        where: {
+          id: s.id,
+          ...(tenancy.data.childInspectionFilter && {
+            inspection: tenancy.data.childInspectionFilter,
+          }),
+        },
         data: {
           sketchData: pending.sketchData ?? Prisma.DbNull,
           moisturePoints: pending.moisturePoints ?? Prisma.DbNull,

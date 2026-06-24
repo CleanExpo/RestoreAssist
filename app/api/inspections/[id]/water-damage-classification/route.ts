@@ -180,7 +180,7 @@ export async function POST(
         },
       }),
       prisma.inspection.update({
-        where: { id },
+        where: { id, userId: session.user.id },
         data: { claimType: "WATER" },
       }),
     ]);
@@ -221,10 +221,10 @@ export async function DELETE(
 
     await prisma.$transaction([
       prisma.waterDamageClassification.deleteMany({
-        where: { inspectionId: id },
+        where: { inspectionId: id, inspection: { userId: session.user.id } },
       }),
       prisma.inspection.update({
-        where: { id },
+        where: { id, userId: session.user.id },
         data: { claimType: null },
       }),
     ]);
