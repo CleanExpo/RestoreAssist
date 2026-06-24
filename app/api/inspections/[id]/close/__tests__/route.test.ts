@@ -9,6 +9,7 @@ import { NextRequest } from "next/server";
 
 const getServerSession = vi.fn();
 const assertInspectionTenancy = vi.fn();
+const resolveInspectionWrite = vi.fn();
 const exportClosedJobToBYOKStorage = vi.fn();
 const writeLifecycleTransition = vi.fn();
 const loadTransitionContext = vi.fn();
@@ -23,6 +24,7 @@ vi.mock("next-auth", () => ({
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/auth/assert-tenancy", () => ({
   assertInspectionTenancy: (...a: unknown[]) => assertInspectionTenancy(...a),
+  resolveInspectionWrite: (...a: unknown[]) => resolveInspectionWrite(...a),
 }));
 vi.mock("@/lib/queue/exportClosedJobToBYOKStorage", () => ({
   exportClosedJobToBYOKStorage: (...a: unknown[]) =>
@@ -61,6 +63,7 @@ import { POST } from "../route";
 beforeEach(() => {
   getServerSession.mockReset();
   assertInspectionTenancy.mockReset();
+  resolveInspectionWrite.mockReset();
   exportClosedJobToBYOKStorage.mockReset();
   writeLifecycleTransition.mockReset();
   loadTransitionContext.mockReset();
@@ -79,6 +82,14 @@ beforeEach(() => {
   );
   inspectionUpdateMany.mockResolvedValue({ count: 1 });
   claimProgressUpdateMany.mockResolvedValue({ count: 1 });
+  resolveInspectionWrite.mockResolvedValue({
+    ok: true,
+    data: {
+      inspectionWhere: { id: "ins_1" },
+      inspectionManyWhere: { id: "ins_1" },
+      childInspectionFilter: undefined,
+    },
+  });
   writeLifecycleTransition.mockResolvedValue({
     id: "trans_1",
     auditLogId: "audit_1",
@@ -115,7 +126,7 @@ describe("POST /api/inspections/[id]/close — auth + body", () => {
 
   it("404 when tenancy fails", async () => {
     getServerSession.mockResolvedValueOnce({ user: { id: "u_1" } });
-    assertInspectionTenancy.mockResolvedValueOnce({
+    resolveInspectionWrite.mockResolvedValueOnce({
       ok: false,
       status: 404,
       reason: "Inspection not found",

@@ -12,6 +12,7 @@ import { NextRequest } from "next/server";
 
 const getServerSession = vi.fn();
 const assertInspectionTenancy = vi.fn();
+const resolveInspectionWrite = vi.fn();
 const exportHandoverPackageToBYOKStorage = vi.fn();
 const writeLifecycleTransition = vi.fn();
 const inspectionFindUnique = vi.fn();
@@ -24,6 +25,7 @@ vi.mock("next-auth", () => ({
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/auth/assert-tenancy", () => ({
   assertInspectionTenancy: (...a: unknown[]) => assertInspectionTenancy(...a),
+  resolveInspectionWrite: (...a: unknown[]) => resolveInspectionWrite(...a),
 }));
 vi.mock("@/lib/queue/exportHandoverPackageToBYOKStorage", () => ({
   exportHandoverPackageToBYOKStorage: (...a: unknown[]) =>
@@ -67,6 +69,7 @@ import { POST } from "../route";
 beforeEach(() => {
   getServerSession.mockReset();
   assertInspectionTenancy.mockReset();
+  resolveInspectionWrite.mockReset();
   exportHandoverPackageToBYOKStorage.mockReset();
   writeLifecycleTransition.mockReset();
   inspectionFindUnique.mockReset();
@@ -79,6 +82,14 @@ beforeEach(() => {
     handoverCompletedAt: null,
   });
   inspectionUpdateMany.mockResolvedValue({ count: 1 });
+  resolveInspectionWrite.mockResolvedValue({
+    ok: true,
+    data: {
+      inspectionWhere: { id: "ins_1" },
+      inspectionManyWhere: { id: "ins_1" },
+      childInspectionFilter: undefined,
+    },
+  });
   exportHandoverPackageToBYOKStorage.mockResolvedValue({
     storageKey: "handovers/org_1/ins_1/handover-package.zip",
     byteSize: 456,
@@ -113,7 +124,7 @@ describe("POST /api/inspections/[id]/handover — auth + tenancy", () => {
 
   it("404 when tenancy fails (different org)", async () => {
     getServerSession.mockResolvedValueOnce({ user: { id: "u_1" } });
-    assertInspectionTenancy.mockResolvedValueOnce({
+    resolveInspectionWrite.mockResolvedValueOnce({
       ok: false,
       status: 404,
       reason: "Inspection not found",
