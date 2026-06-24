@@ -71,6 +71,18 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // RA-6800: authorization — the caller must own the target report before
+      // any scope is created or overwritten. Without this, any authenticated
+      // user could upsert a scope onto another tenant's report (IDOR). 404
+      // (not 403) so report IDs cannot be enumerated across tenants.
+      const ownedReport = await prisma.report.findFirst({
+        where: { id: reportId, userId },
+        select: { id: true },
+      });
+      if (!ownedReport) {
+        return NextResponse.json({ error: "Report not found" }, { status: 404 });
+      }
+
       // Check if scope already exists - using findFirst for better compatibility
       const existingScope = await prisma.scope.findFirst({
         where: { reportId },
@@ -106,7 +118,7 @@ export async function POST(request: NextRequest) {
       if (existingScope) {
         // Update existing scope
         scope = await prisma.scope.update({
-          where: { id: existingScope.id },
+          where: { id: existingScope.id, report: { userId } },
           data: scopeData,
         });
       } else {
@@ -205,9 +217,12 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      // Get scope for specific report
+      // Get scope for specific report. RA-6800: scope the lookup to reports the
+      // caller owns so a scope cannot be read across tenants by report ID. A
+      // non-owned (or non-existent) report yields null -> 404, which also avoids
+      // leaking whether the report exists.
       const scope = await prisma.scope.findFirst({
-        where: { reportId },
+        where: { reportId, report: { userId: session.user.id } },
       });
 
       if (!scope) {
