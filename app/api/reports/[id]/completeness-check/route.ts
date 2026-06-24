@@ -45,7 +45,7 @@ export async function GET(
 
     // Update report with completeness score
     await prisma.report.update({
-      where: { id },
+      where: { id, userId: user.id },
       data: {
         completenessScore,
       },

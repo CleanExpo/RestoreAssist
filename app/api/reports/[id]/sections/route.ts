@@ -99,7 +99,7 @@ export async function PATCH(
 
     // Update the report
     const updatedReport = await prisma.report.update({
-      where: { id },
+      where: { id, userId: session.user.id },
       data: updateData,
     });
 

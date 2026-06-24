@@ -89,7 +89,7 @@ export async function DELETE(
       );
     }
 
-    await prisma.estimate.delete({ where: { id } });
+    await prisma.estimate.delete({ where: { id, userId: session.user.id } });
 
     await recordMutationAudit({
       resource: "estimate",

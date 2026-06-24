@@ -275,7 +275,7 @@ export async function PUT(
 
     // Update the report with the same field mapping as POST
     const updatedReport = await prisma.report.update({
-      where: { id },
+      where: { id, userId: session.user.id },
       data: {
         // Basic fields (sanitised)
         title: sanitisedTitle,
@@ -421,7 +421,7 @@ export async function DELETE(
     }
 
     await prisma.report.delete({
-      where: { id },
+      where: { id, userId: session.user.id },
     });
 
     return NextResponse.json({ message: "Report deleted successfully" });

@@ -114,7 +114,7 @@ export async function DELETE(
       }
 
       await prisma.notification.delete({
-        where: { id },
+        where: { id, userId: session.user.id },
       });
 
       return NextResponse.json({ success: true });

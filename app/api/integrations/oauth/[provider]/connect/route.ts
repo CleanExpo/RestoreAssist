@@ -96,7 +96,7 @@ export async function POST(
         }
 
         await prisma.integration.update({
-          where: { id: integration.id },
+          where: { id: integration.id, userId },
           data: { status: "CONNECTED", syncError: null },
         });
 
@@ -137,7 +137,7 @@ export async function POST(
 
       // Store state and code verifier in integration for callback validation
       await prisma.integration.update({
-        where: { id: integration.id },
+        where: { id: integration.id, userId },
         data: {
           config: JSON.stringify({
             oauthState: state,

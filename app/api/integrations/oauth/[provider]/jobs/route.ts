@@ -220,7 +220,10 @@ export async function POST(
 
         // Link external job to the report
         await prisma.externalJob.update({
-          where: { id: externalJob.id },
+          where: {
+            id: externalJob.id,
+            integration: { userId: session.user.id },
+          },
           data: { claimId: report.id },
         });
 

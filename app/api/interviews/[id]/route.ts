@@ -147,7 +147,7 @@ export async function PATCH(
     }
 
     await prisma.interviewSession.update({
-      where: { id },
+      where: { id, userId: user.id },
       data: data as {
         autoPopulatedFields?: string;
         status?: "COMPLETED" | "IN_PROGRESS" | "STARTED" | "ABANDONED";
@@ -217,7 +217,7 @@ export async function DELETE(
     }
 
     await prisma.interviewSession.delete({
-      where: { id },
+      where: { id, userId: user.id },
     });
 
     return NextResponse.json({ success: true });

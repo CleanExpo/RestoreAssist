@@ -36,7 +36,7 @@ export async function POST(
 
     // Update report with equipment data
     await prisma.report.update({
-      where: { id },
+      where: { id, userId: user.id },
       data: {
         psychrometricAssessment: body.psychrometricAssessment
           ? JSON.stringify(body.psychrometricAssessment)

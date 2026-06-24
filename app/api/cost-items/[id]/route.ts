@@ -54,7 +54,7 @@ export async function PUT(
     }
 
     const item = await prisma.costItem.update({
-      where: { id },
+      where: { id, library: { userId: session.user.id } },
       data: {
         category,
         description,
@@ -104,7 +104,7 @@ export async function DELETE(
     }
 
     await prisma.costItem.delete({
-      where: { id },
+      where: { id, library: { userId: session.user.id } },
     });
 
     return NextResponse.json({ success: true });
