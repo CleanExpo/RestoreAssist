@@ -79,7 +79,8 @@ describe("POST /api/integrations/google/refresh", () => {
     expect(response.status).toBe(410);
     expect(body).toEqual({ ok: false, reason: "invalid_grant" });
     expect(accountUpdate).toHaveBeenCalledWith({
-      where: { id: "account_1" },
+      // RA-6800: write is now ownership-scoped to the session user (TOCTOU fix).
+      where: { id: "account_1", userId: "user_1" },
       data: { refresh_token: null, access_token: null, expires_at: null },
     });
   });
