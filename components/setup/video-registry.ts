@@ -89,7 +89,9 @@ export type VideoExplainerSlug =
   | "remotion-tutorial-billing"
   | "remotion-tutorial-team"
   | "remotion-tutorial-compliance"
-  | "remotion-tutorial-integrations";
+  | "remotion-tutorial-integrations"
+  // New-client welcome (shown at the top of /setup)
+  | "remotion-onboarding-welcome";
 
 export interface RegistryEntry {
   youtubeId?: string;
@@ -538,5 +540,17 @@ export const VIDEO_REGISTRY: Record<VideoExplainerSlug, RegistryEntry> = {
     title: "Integrations",
     durationSec: 40,
     category: "integrations",
+  },
+
+  // New-client welcome — rendered from the OnboardingWelcome Remotion
+  // composition (remotion/compositions/onboarding-welcome.tsx). Produce the mp4
+  // with `npm run render:tutorials`, then upload to Cloudinary (or commit to
+  // public/videos/remotion/onboarding-welcome.mp4) so this entry resolves.
+  "remotion-onboarding-welcome": {
+    cloudinaryUrl: "https://res.cloudinary.com/dmaulkthb/video/upload/restoreassist/videos/remotion/onboarding-welcome.mp4",
+    localPath: "/videos/remotion/onboarding-welcome.mp4",
+    title: "Welcome to RestoreAssist",
+    durationSec: 36,
+    category: "getting-started",
   },
 };

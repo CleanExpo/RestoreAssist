@@ -11,6 +11,30 @@ import {
 } from "@/lib/workspace/provider-connections";
 import { generateIICRCReportPDF } from "@/lib/generate-iicrc-report-pdf";
 
+/**
+ * New-client startup readiness checks.
+ *
+ * A new organisation cannot use the app until `Organization.setupCompletedAt`
+ * is set, which `POST /api/setup/activate` does ONLY after `runAllChecks`
+ * returns zero `red` results (server-side re-validation — the client cannot
+ * skip steps). Status meaning:
+ *
+ *   red    = REQUIRED / blocking — activation is refused while any check is red.
+ *   yellow = OPTIONAL — surfaced in the wizard but does not block activation
+ *            (the client can complete it later in Settings).
+ *   green  = satisfied.
+ *
+ * Required (RED-when-unmet) — must pass to start using the app:
+ *   - business_profile       (legalName + state + ABN or PRE_TRADING)
+ *   - branding               (logoUrl or primaryColor)
+ *   - pricing                (master qualified hours + administration fee)
+ *   - ai_generation          (AI inference reachable — system health)
+ *   - sample_report_render   (IICRC PDF generation works — system health)
+ *   - chain_of_custody       (hashing + UTC timestamps work — system health)
+ *
+ * Optional (YELLOW-when-unmet) — do not block activation:
+ *   - cloud_storage, accounting, byok_keys, welcome_email
+ */
 export type CheckStatus = "green" | "yellow" | "red";
 
 export interface CheckResult {
