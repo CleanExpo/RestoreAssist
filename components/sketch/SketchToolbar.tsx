@@ -177,7 +177,7 @@ export function SketchToolbar({
           title="Clear canvas"
           aria-label="Clear canvas"
           onClick={onClear}
-          className="w-11 h-11 flex items-center justify-center rounded-lg text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 hover:text-rose-600 transition-all"
+          className="w-11 h-11 flex items-center justify-center rounded-lg text-rose-400 hover:bg-destructive-subtle dark:hover:bg-rose-900/20 hover:text-destructive-subtle-foreground transition-all"
         >
           <Trash2 size={15} />
         </button>

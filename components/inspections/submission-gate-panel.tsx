@@ -269,7 +269,7 @@ function GapRow({
         )}
       </div>
       {gap.riskTier >= 2 && (
-        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 flex-shrink-0">
+        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-destructive-subtle text-destructive-subtle-foreground flex-shrink-0">
           <Shield className="h-2.5 w-2.5" /> T{gap.riskTier}
         </span>
       )}

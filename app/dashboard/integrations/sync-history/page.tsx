@@ -128,21 +128,21 @@ function StatusBadge({ status }: { status: string }) {
   switch (status) {
     case "SUCCESS":
       return (
-        <Badge className="bg-green-100 text-green-800 border-green-200 hover:bg-green-100">
+        <Badge className="bg-success-subtle text-success-subtle-foreground border-success-subtle-foreground/30 hover:bg-success-subtle">
           <CheckCircle2 className="w-3 h-3 mr-1" />
           Success
         </Badge>
       );
     case "FAILED":
       return (
-        <Badge className="bg-red-100 text-red-800 border-red-200 hover:bg-red-100">
+        <Badge className="bg-destructive-subtle text-destructive-subtle-foreground border-destructive-subtle-foreground/30 hover:bg-destructive-subtle">
           <XCircle className="w-3 h-3 mr-1" />
           Failed
         </Badge>
       );
     case "PARTIAL":
       return (
-        <Badge className="bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100">
+        <Badge className="bg-warning-subtle text-warning-subtle-foreground border-warning-subtle-foreground/30 hover:bg-warning-subtle">
           <AlertCircle className="w-3 h-3 mr-1" />
           Partial
         </Badge>
@@ -508,17 +508,17 @@ export default function SyncHistoryPage() {
 
   const overallBadge =
     overallStatus === "healthy" ? (
-      <Badge className="bg-green-100 text-green-800 border-green-200 hover:bg-green-100">
+      <Badge className="bg-success-subtle text-success-subtle-foreground border-success-subtle-foreground/30 hover:bg-success-subtle">
         <CheckCircle2 className="w-3 h-3 mr-1" />
         Healthy
       </Badge>
     ) : overallStatus === "degraded" ? (
-      <Badge className="bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100">
+      <Badge className="bg-warning-subtle text-warning-subtle-foreground border-warning-subtle-foreground/30 hover:bg-warning-subtle">
         <AlertCircle className="w-3 h-3 mr-1" />
         Degraded
       </Badge>
     ) : overallStatus === "unhealthy" ? (
-      <Badge className="bg-red-100 text-red-800 border-red-200 hover:bg-red-100">
+      <Badge className="bg-destructive-subtle text-destructive-subtle-foreground border-destructive-subtle-foreground/30 hover:bg-destructive-subtle">
         <XCircle className="w-3 h-3 mr-1" />
         Unhealthy
       </Badge>
@@ -639,7 +639,7 @@ export default function SyncHistoryPage() {
             <TabsTrigger value="success">
               Success
               {!feedLoading && tabCounts.success > 0 && (
-                <span className="ml-1.5 text-xs bg-green-100 text-green-800 rounded-full px-1.5">
+                <span className="ml-1.5 text-xs bg-success-subtle text-success-subtle-foreground rounded-full px-1.5">
                   {tabCounts.success}
                 </span>
               )}
@@ -647,7 +647,7 @@ export default function SyncHistoryPage() {
             <TabsTrigger value="failed">
               Failed
               {!feedLoading && tabCounts.failed > 0 && (
-                <span className="ml-1.5 text-xs bg-red-100 text-red-800 rounded-full px-1.5">
+                <span className="ml-1.5 text-xs bg-destructive-subtle text-destructive-subtle-foreground rounded-full px-1.5">
                   {tabCounts.failed}
                 </span>
               )}
@@ -655,7 +655,7 @@ export default function SyncHistoryPage() {
             <TabsTrigger value="partial">
               Partial
               {!feedLoading && tabCounts.partial > 0 && (
-                <span className="ml-1.5 text-xs bg-amber-100 text-amber-800 rounded-full px-1.5">
+                <span className="ml-1.5 text-xs bg-warning-subtle text-warning-subtle-foreground rounded-full px-1.5">
                   {tabCounts.partial}
                 </span>
               )}

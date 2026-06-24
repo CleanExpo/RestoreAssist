@@ -179,7 +179,7 @@ export function AdaptiveGuidancePanel({
             Apprentice Guidance
           </span>
           {riskTier >= 2 && (
-            <span className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">
+            <span className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-destructive-subtle text-destructive-subtle-foreground">
               <Shield className="h-3 w-3" />
               Risk Tier {riskTier}
             </span>

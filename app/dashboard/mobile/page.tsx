@@ -227,14 +227,14 @@ const V2_FEATURES = [
 function FeatureStatusBadge({ status }: { status: FeatureStatus }) {
   if (status === "done") {
     return (
-      <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-0 text-xs">
+      <Badge className="bg-success-subtle text-success-subtle-foreground border-0 text-xs">
         Complete
       </Badge>
     );
   }
   if (status === "blocked") {
     return (
-      <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-0 text-xs">
+      <Badge className="bg-warning-subtle text-warning-subtle-foreground border-0 text-xs">
         Blocked
       </Badge>
     );
@@ -259,9 +259,9 @@ function FeatureRow({ feature }: { feature: MobileFeature }) {
         className={cn(
           "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5",
           feature.status === "done"
-            ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400"
+            ? "bg-success-subtle text-success-subtle-foreground"
             : feature.status === "blocked"
-              ? "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
+              ? "bg-warning-subtle text-warning-subtle-foreground"
               : "bg-neutral-100 dark:bg-slate-800 text-neutral-500 dark:text-slate-500",
         )}
       >
@@ -512,7 +512,7 @@ export default function MobileDashboardPage() {
                 configuration (RA-246) before the first build can be submitted.
               </p>
             </div>
-            <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-0 shrink-0">
+            <Badge className="bg-warning-subtle text-warning-subtle-foreground border-0 shrink-0">
               Awaiting EAS Setup
             </Badge>
           </div>
@@ -794,7 +794,7 @@ export default function MobileDashboardPage() {
               )}
             >
               <div className="flex items-start gap-3">
-                <div className="w-6 h-6 rounded-md bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
+                <div className="w-6 h-6 rounded-md bg-info-subtle text-info-subtle-foreground text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
                   {i + 1}
                 </div>
                 <div>

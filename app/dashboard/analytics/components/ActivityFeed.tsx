@@ -120,7 +120,7 @@ export default function ActivityFeed({
       MANAGER: {
         label: "Manager",
         color:
-          "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300",
+          "bg-info-subtle text-info-subtle-foreground",
       },
       USER: {
         label: "Technician",

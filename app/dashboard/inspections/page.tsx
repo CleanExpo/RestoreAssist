@@ -392,7 +392,7 @@ export default function InspectionsPage() {
               type="button"
               onClick={handleDeleteSelected}
               disabled={deleting}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-destructive-subtle text-destructive-subtle-foreground hover:bg-destructive-subtle dark:hover:bg-red-900/30 disabled:opacity-50"
             >
               {deleting ? (
                 <Loader2 size={14} className="animate-spin" />
@@ -484,7 +484,7 @@ export default function InspectionsPage() {
                       {status.label}
                     </span>
                     {classification && (
-                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
+                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-warning-subtle text-warning-subtle-foreground">
                         Cat {classification.category} / Class{" "}
                         {classification.class}
                       </span>
@@ -569,7 +569,7 @@ export default function InspectionsPage() {
                     type="button"
                     onClick={(e) => handleDeleteOne(e, insp.id)}
                     disabled={deleting}
-                    className="p-2 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
+                    className="p-2 rounded-lg text-neutral-400 hover:text-destructive-subtle-foreground hover:bg-destructive-subtle dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
                     title="Delete inspection"
                   >
                     <Trash2 size={18} />

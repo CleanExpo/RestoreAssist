@@ -133,10 +133,10 @@ function CaseCard({ c }: { c: EvaluationCaseResult }) {
             className={cn(
               "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold",
               c.compositeScore >= 80
-                ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
+                ? "bg-success-subtle text-success-subtle-foreground"
                 : c.compositeScore >= 60
-                  ? "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400"
-                  : "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
+                  ? "bg-warning-subtle text-warning-subtle-foreground"
+                  : "bg-destructive-subtle text-destructive-subtle-foreground",
             )}
           >
             {Math.round(c.compositeScore)}
@@ -354,7 +354,7 @@ export default function AILabPage() {
           </div>
 
           {vectoriseError && (
-            <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg p-3 border border-red-200 dark:border-red-800/40">
+            <div className="flex items-center gap-2 text-sm text-destructive-subtle-foreground bg-destructive-subtle rounded-lg p-3 border border-destructive-subtle-foreground/30">
               <XCircle size={14} /> {vectoriseError}
             </div>
           )}
@@ -470,7 +470,7 @@ export default function AILabPage() {
           </div>
 
           {evalError && (
-            <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg p-3 border border-red-200 dark:border-red-800/40">
+            <div className="flex items-center gap-2 text-sm text-destructive-subtle-foreground bg-destructive-subtle rounded-lg p-3 border border-destructive-subtle-foreground/30">
               <XCircle size={14} /> {evalError}
             </div>
           )}
@@ -641,7 +641,7 @@ export default function AILabPage() {
           </div>
 
           {optError && (
-            <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg p-3 border border-red-200 dark:border-red-800/40">
+            <div className="flex items-center gap-2 text-sm text-destructive-subtle-foreground bg-destructive-subtle rounded-lg p-3 border border-destructive-subtle-foreground/30">
               <XCircle size={14} /> {optError}
             </div>
           )}

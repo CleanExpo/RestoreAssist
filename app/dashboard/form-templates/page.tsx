@@ -30,7 +30,7 @@ const BADGE_COLORS: Record<string, string> = {
   SURVEY:
     "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
   ONBOARDING:
-    "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+    "bg-warning-subtle text-warning-subtle-foreground",
 };
 
 function getBadgeClass(formType: string): string {
@@ -332,14 +332,14 @@ export default function FormTemplatesPage() {
                   <div className="flex items-center gap-1">
                     <Link
                       href={`/dashboard/form-templates/${template.id}`}
-                      className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                      className="p-1.5 text-slate-400 hover:text-info-subtle-foreground dark:hover:text-blue-400 hover:bg-info-subtle dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                       title="Edit template"
                     >
                       <Edit className="w-4 h-4" />
                     </Link>
                     <button
                       onClick={() => setDeleteTarget(template)}
-                      className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                      className="p-1.5 text-slate-400 hover:text-destructive-subtle-foreground dark:hover:text-red-400 hover:bg-destructive-subtle dark:hover:bg-red-900/20 rounded-lg transition-colors"
                       title="Delete template"
                     >
                       <Trash2 className="w-4 h-4" />

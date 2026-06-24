@@ -36,21 +36,21 @@ const GATE_STATUS_STYLES: Record<
   }
 > = {
   open: {
-    pill: "bg-green-100 text-green-800 border border-green-200",
+    pill: "bg-success-subtle text-success-subtle-foreground border border-success-subtle-foreground/30",
     label: "Open",
     icon: "[ra:success]",
     border: "border-green-200",
     headerBg: "bg-green-50",
   },
   partial: {
-    pill: "bg-amber-100 text-amber-800 border border-amber-200",
+    pill: "bg-warning-subtle text-warning-subtle-foreground border border-warning-subtle-foreground/30",
     label: "Partial",
     icon: "[ra:warning]",
     border: "border-amber-200",
     headerBg: "bg-amber-50",
   },
   blocked: {
-    pill: "bg-red-100 text-red-800 border border-red-200",
+    pill: "bg-destructive-subtle text-destructive-subtle-foreground border border-destructive-subtle-foreground/30",
     label: "Blocked",
     icon: "[ra:critical]",
     border: "border-red-200",
@@ -82,8 +82,8 @@ function CertificationRow({ result }: { result: GateCheckResult }) {
         <span
           className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
             result.certificationMet
-              ? "bg-green-100 text-green-700"
-              : "bg-red-100 text-red-700"
+              ? "bg-success-subtle text-success-subtle-foreground"
+              : "bg-destructive-subtle text-destructive-subtle-foreground"
           }`}
         >
           {result.certificationMet ? "Obtained" : "Not yet obtained"}
@@ -255,7 +255,7 @@ export function NirContentGateDashboard() {
       {openCount === 0 && (
         <div
           role="alert"
-          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+          className="rounded-lg border border-destructive-subtle-foreground/30 bg-destructive-subtle px-4 py-3 text-sm text-destructive-subtle-foreground"
         >
           <strong>All content gates blocked.</strong> No customer-facing content
           referencing NIR capabilities, IICRC standards, or cost savings claims

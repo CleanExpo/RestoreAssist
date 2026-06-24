@@ -420,7 +420,7 @@ export default function MoistureMappingCanvas({
               className={cn(
                 "px-2.5 min-h-[44px] rounded-lg text-xs font-medium transition-colors",
                 showCoverage
-                  ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                  ? "bg-info-subtle text-info-subtle-foreground"
                   : "bg-neutral-100 dark:bg-slate-800 text-neutral-500",
               )}
               aria-label="Toggle coverage zones"

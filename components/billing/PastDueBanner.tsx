@@ -67,7 +67,7 @@ export function PastDueBanner({ status }: Props) {
         <button
           onClick={openPortal}
           disabled={loading}
-          className="shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-red-700 text-sm font-semibold hover:bg-red-50 disabled:opacity-60 disabled:cursor-not-allowed"
+          className="shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-destructive-subtle-foreground text-sm font-semibold hover:bg-destructive-subtle disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {loading ? (
             <>

@@ -176,7 +176,7 @@ export default function MonitoringPage({
         >
           <ArrowLeft size={16} /> Back to Inspection
         </button>
-        <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-6 text-red-700 dark:text-red-400">
+        <div className="rounded-lg border border-destructive-subtle-foreground/30 bg-destructive-subtle p-6 text-destructive-subtle-foreground">
           {error ?? "Report unavailable"}
         </div>
       </div>
@@ -440,7 +440,7 @@ export default function MonitoringPage({
 
                   {/* Technician notes */}
                   {log.technicianNotes && (
-                    <div className="rounded-lg bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800 px-3 py-2 text-sm text-blue-800 dark:text-blue-300">
+                    <div className="rounded-lg bg-info-subtle border border-blue-100 px-3 py-2 text-sm text-info-subtle-foreground">
                       <span className="font-medium">Notes: </span>
                       {log.technicianNotes}
                     </div>

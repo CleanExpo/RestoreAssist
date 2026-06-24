@@ -230,7 +230,7 @@ function FindingItem({
       className={
         isError
           ? undefined
-          : "border-amber-300 dark:border-amber-800/70 bg-amber-50 dark:bg-amber-900/20 text-amber-900 dark:text-amber-200"
+          : "border-warning-subtle-foreground/30 bg-warning-subtle text-warning-subtle-foreground"
       }
       role="listitem"
     >

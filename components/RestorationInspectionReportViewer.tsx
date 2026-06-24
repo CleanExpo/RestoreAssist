@@ -1215,10 +1215,10 @@ export default function RestorationInspectionReportViewer({
                       <span
                         className={`inline-block px-3 print:px-2 py-1 print:py-0.5 rounded text-sm print:text-xs font-semibold ${
                           data.incident.waterCategory.includes("1")
-                            ? "bg-green-100 text-green-800"
+                            ? "bg-success-subtle text-success-subtle-foreground"
                             : data.incident.waterCategory.includes("2")
-                              ? "bg-yellow-100 text-yellow-800"
-                              : "bg-red-100 text-red-800"
+                              ? "bg-warning-subtle text-warning-subtle-foreground"
+                              : "bg-destructive-subtle text-destructive-subtle-foreground"
                         }`}
                       >
                         {data.incident.waterCategory}
@@ -1235,12 +1235,12 @@ export default function RestorationInspectionReportViewer({
                       <span
                         className={`inline-block px-3 print:px-2 py-1 print:py-0.5 rounded text-sm print:text-xs font-semibold ${
                           data.incident.waterClass.includes("1")
-                            ? "bg-green-100 text-green-800"
+                            ? "bg-success-subtle text-success-subtle-foreground"
                             : data.incident.waterClass.includes("2")
-                              ? "bg-yellow-100 text-yellow-800"
+                              ? "bg-warning-subtle text-warning-subtle-foreground"
                               : data.incident.waterClass.includes("3")
                                 ? "bg-orange-100 text-orange-800"
-                                : "bg-red-100 text-red-800"
+                                : "bg-destructive-subtle text-destructive-subtle-foreground"
                         }`}
                       >
                         {data.incident.waterClass}
@@ -1667,12 +1667,12 @@ export default function RestorationInspectionReportViewer({
                             data.psychrometric.dryingStatus
                               .toLowerCase()
                               .includes("good")
-                              ? "bg-green-100 text-green-800"
+                              ? "bg-success-subtle text-success-subtle-foreground"
                               : data.psychrometric.dryingStatus
                                     .toLowerCase()
                                     .includes("fair")
-                                ? "bg-yellow-100 text-yellow-800"
-                                : "bg-red-100 text-red-800"
+                                ? "bg-warning-subtle text-warning-subtle-foreground"
+                                : "bg-destructive-subtle text-destructive-subtle-foreground"
                           }`}
                         >
                           {data.psychrometric.dryingStatus}

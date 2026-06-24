@@ -121,20 +121,20 @@ function SectionCard({
       icon: CheckCircle2,
       color: "text-success",
       badge:
-        "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+        "bg-success-subtle text-success-subtle-foreground",
       label: "Complete",
     },
     partial: {
       icon: AlertTriangle,
       color: "text-amber-600 dark:text-amber-400",
       badge:
-        "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
+        "bg-warning-subtle text-warning-subtle-foreground",
       label: "Partial",
     },
     missing: {
       icon: XCircle,
       color: "text-destructive",
-      badge: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+      badge: "bg-destructive-subtle text-destructive-subtle-foreground",
       label: "Missing",
     },
   }[section.status];
@@ -367,18 +367,18 @@ export default function ReportCompletenessPage() {
 
               <div className="flex items-center gap-3 flex-wrap justify-center">
                 {result.overallScore >= 80 && (
-                  <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-0">
+                  <Badge className="bg-success-subtle text-success-subtle-foreground border-0">
                     <CheckCircle2 className="mr-1 h-3 w-3" /> Ready to submit
                   </Badge>
                 )}
                 {result.overallScore >= 50 && result.overallScore < 80 && (
-                  <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-0">
+                  <Badge className="bg-warning-subtle text-warning-subtle-foreground border-0">
                     <AlertTriangle className="mr-1 h-3 w-3" /> Some sections
                     need attention
                   </Badge>
                 )}{" "}
                 {result.overallScore < 50 && (
-                  <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-0">
+                  <Badge className="bg-destructive-subtle text-destructive-subtle-foreground border-0">
                     <XCircle className="mr-1 h-3 w-3" /> Significant gaps found
                   </Badge>
                 )}

@@ -1100,7 +1100,7 @@ export function GuidedInterviewPanel({
                 {interviewState.standardsCovered.map((std) => (
                   <span
                     key={std}
-                    className="inline-flex items-center rounded-md bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-800 dark:bg-sky-900/60 dark:text-sky-200"
+                    className="inline-flex items-center rounded-md bg-info-subtle px-2 py-0.5 text-xs font-medium text-info-subtle-foreground"
                   >
                     {std}
                   </span>
@@ -1160,7 +1160,7 @@ export function GuidedInterviewPanel({
             <Card className="border border-border/70 bg-gradient-to-r from-sky-50 to-indigo-50 dark:from-slate-900 dark:to-slate-950 shadow-sm">
               <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="space-y-1.5">
-                  <div className="inline-flex items-center gap-2 rounded-full bg-sky-100/80 px-3 py-1 text-xs font-semibold text-sky-800 dark:bg-sky-900/60 dark:text-sky-200">
+                  <div className="inline-flex items-center gap-2 rounded-full bg-info-subtle/80 px-3 py-1 text-xs font-semibold text-info-subtle-foreground">
                     <span className="inline-flex h-2 w-2 rounded-full bg-sky-500" />
                     Tier {interviewState.currentTier} · Essential flow
                   </div>
@@ -1306,7 +1306,7 @@ export function GuidedInterviewPanel({
                     {interviewState.standardsCovered.map((std) => (
                       <span
                         key={std}
-                        className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-1 text-[11px] font-medium text-blue-800 dark:bg-blue-900/70 dark:text-blue-100"
+                        className="inline-flex items-center rounded-full bg-info-subtle px-2.5 py-1 text-[11px] font-medium text-info-subtle-foreground"
                       >
                         {std}
                       </span>

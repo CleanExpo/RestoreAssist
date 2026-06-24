@@ -80,14 +80,14 @@ function formatTrialEnd(dateStr?: string): string {
 function getPlanBadgeClass(status: string): string {
   switch (status) {
     case "ACTIVE":
-      return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800";
+      return "bg-success-subtle text-success-subtle-foreground border-success-subtle-foreground/30";
     case "TRIAL":
-      return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800";
+      return "bg-info-subtle text-info-subtle-foreground border-info-subtle-foreground/30";
     case "EXPIRED":
     case "CANCELED":
-      return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800";
+      return "bg-destructive-subtle text-destructive-subtle-foreground border-destructive-subtle-foreground/30";
     case "PAST_DUE":
-      return "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800";
+      return "bg-warning-subtle text-warning-subtle-foreground border-warning-subtle-foreground/30";
     default:
       return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700";
   }
@@ -248,7 +248,7 @@ function CreditsPageContent() {
         <div
           className={cn(
             "flex items-center gap-2 px-4 py-3 rounded-lg text-sm",
-            "bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800",
+            "bg-destructive-subtle text-destructive-subtle-foreground border border-destructive-subtle-foreground/30",
           )}
         >
           <AlertTriangle size={16} />
@@ -394,7 +394,7 @@ function CreditsPageContent() {
           <div
             className={cn(
               "flex items-center gap-2 px-4 py-3 rounded-lg text-sm",
-              "bg-emerald-50 text-emerald-700 border border-emerald-200",
+              "bg-success-subtle text-success-subtle-foreground border border-success-subtle-foreground/30",
               "dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800",
             )}
           >

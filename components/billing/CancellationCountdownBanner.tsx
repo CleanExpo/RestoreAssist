@@ -86,7 +86,7 @@ export function CancellationCountdownBanner() {
         <button
           onClick={reactivate}
           disabled={reactivating}
-          className="shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-amber-700 text-sm font-semibold hover:bg-amber-50 disabled:opacity-60 disabled:cursor-not-allowed"
+          className="shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-warning-subtle-foreground text-sm font-semibold hover:bg-warning-subtle disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {reactivating ? (
             <>

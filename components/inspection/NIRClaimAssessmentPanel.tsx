@@ -143,17 +143,17 @@ const COLOR_MAP: Record<string, string> = {
   orange:
     "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 ring-orange-400",
   green:
-    "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 ring-green-400",
-  blue: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 ring-blue-400",
+    "bg-success-subtle text-success-subtle-foreground ring-green-400",
+  blue: "bg-info-subtle text-info-subtle-foreground ring-blue-400",
   purple:
     "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 ring-purple-400",
-  red: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 ring-red-400",
+  red: "bg-destructive-subtle text-destructive-subtle-foreground ring-red-400",
   yellow:
-    "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 ring-yellow-400",
+    "bg-warning-subtle text-warning-subtle-foreground ring-yellow-400",
   amber:
-    "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 ring-amber-400",
+    "bg-warning-subtle text-warning-subtle-foreground ring-amber-400",
   teal: "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 ring-teal-400",
-  rose: "bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 ring-rose-400",
+  rose: "bg-destructive-subtle text-destructive-subtle-foreground ring-rose-400",
 };
 
 // ─── Small helpers ─────────────────────────────────────────────────────────────
@@ -274,7 +274,7 @@ function GateBadge({ ok, label }: { ok: boolean; label: string }) {
       className={cn(
         "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium",
         ok
-          ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
+          ? "bg-success-subtle text-success-subtle-foreground"
           : "bg-neutral-100 dark:bg-slate-800 text-neutral-500 dark:text-slate-400",
       )}
     >
@@ -1757,10 +1757,10 @@ export default function NIRClaimAssessmentPanel({
                                 className={cn(
                                   "px-2 py-0.5 rounded-full font-medium",
                                   item.condition === "TOTAL_LOSS"
-                                    ? "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"
+                                    ? "bg-destructive-subtle text-destructive-subtle-foreground"
                                     : item.condition === "PACK_OUT"
-                                      ? "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400"
-                                      : "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400",
+                                      ? "bg-warning-subtle text-warning-subtle-foreground"
+                                      : "bg-success-subtle text-success-subtle-foreground",
                                 )}
                               >
                                 {(item.condition as string)?.replace(/_/g, " ")}

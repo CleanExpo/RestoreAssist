@@ -34,14 +34,14 @@ interface FormTemplate {
 
 const TYPE_COLORS: Record<string, string> = {
   TEXT: "bg-slate-100 text-slate-600",
-  MULTIPLE_CHOICE: "bg-blue-100 text-blue-600",
-  YES_NO: "bg-green-100 text-green-600",
+  MULTIPLE_CHOICE: "bg-info-subtle text-info-subtle-foreground",
+  YES_NO: "bg-success-subtle text-success-subtle-foreground",
   SCALE: "bg-purple-100 text-purple-600",
-  DATE: "bg-amber-100 text-amber-600",
+  DATE: "bg-warning-subtle text-warning-subtle-foreground",
   NUMBER: "bg-orange-100 text-orange-600",
   TEXTAREA: "bg-teal-100 text-teal-600",
   SELECT: "bg-indigo-100 text-indigo-600",
-  BOOLEAN: "bg-green-100 text-green-600",
+  BOOLEAN: "bg-success-subtle text-success-subtle-foreground",
   ARRAY: "bg-pink-100 text-pink-600",
 };
 
@@ -228,11 +228,11 @@ export default function FormTemplateDetailPage({
               {template.name}
             </h1>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+              <span className="inline-flex items-center rounded-full bg-info-subtle px-2.5 py-0.5 text-xs font-medium text-info-subtle-foreground">
                 {formatFormType(template.formType)}
               </span>
               {template.isDefault && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+                <span className="inline-flex items-center gap-1 rounded-full bg-warning-subtle px-2.5 py-0.5 text-xs font-medium text-warning-subtle-foreground">
                   <CheckCircle className="h-3 w-3" />
                   Default
                 </span>

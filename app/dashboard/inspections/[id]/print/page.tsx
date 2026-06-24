@@ -289,7 +289,7 @@ export default function InspectionPrintPage({
                   </div>
                   <div className="mt-0.5">
                     <span className="inline-flex items-center gap-2 text-sm font-bold text-neutral-900">
-                      <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-700">
+                      <span className="px-2 py-0.5 rounded bg-warning-subtle text-warning-subtle-foreground">
                         Category {classification.category}
                       </span>
                       <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-700">
@@ -436,10 +436,10 @@ export default function InspectionPrintPage({
                           className={[
                             "px-2 py-0.5 rounded-full text-xs font-semibold",
                             reading.moistureLevel < 15
-                              ? "bg-emerald-100 text-emerald-700"
+                              ? "bg-success-subtle text-success-subtle-foreground"
                               : reading.moistureLevel < 25
-                                ? "bg-amber-100 text-amber-700"
-                                : "bg-red-100 text-red-700",
+                                ? "bg-warning-subtle text-warning-subtle-foreground"
+                                : "bg-destructive-subtle text-destructive-subtle-foreground",
                           ].join(" ")}
                         >
                           {reading.moistureLevel}%
@@ -480,7 +480,7 @@ export default function InspectionPrintPage({
                     </span>
                     <div className="flex gap-1.5">
                       {area.category && (
-                        <span className="px-2 py-0.5 text-xs font-medium rounded bg-amber-100 text-amber-700">
+                        <span className="px-2 py-0.5 text-xs font-medium rounded bg-warning-subtle text-warning-subtle-foreground">
                           Cat {area.category}
                         </span>
                       )}
@@ -569,7 +569,7 @@ export default function InspectionPrintPage({
                         )}
                         <div className="flex gap-1 mt-1">
                           {item.isRequired && (
-                            <span className="text-xs px-1.5 py-0.5 rounded bg-red-50 text-red-600">
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-destructive-subtle text-destructive-subtle-foreground">
                               Required
                             </span>
                           )}

@@ -71,11 +71,11 @@ function ConfidenceBadge({
       className={cn(
         "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
         confidence === "high" &&
-          "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+          "bg-success-subtle text-success-subtle-foreground",
         confidence === "medium" &&
-          "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+          "bg-warning-subtle text-warning-subtle-foreground",
         confidence === "low" &&
-          "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+          "bg-destructive-subtle text-destructive-subtle-foreground",
       )}
     >
       {confidence === "high"

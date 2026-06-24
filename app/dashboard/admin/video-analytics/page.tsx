@@ -139,7 +139,7 @@ export default function VideoAnalyticsPage() {
       )}
 
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
+        <div className="rounded-lg border border-destructive-subtle-foreground/30 bg-destructive-subtle p-4 text-destructive-subtle-foreground">
           <p className="font-medium">Error loading analytics</p>
           <p className="text-sm">{error}</p>
         </div>

@@ -274,7 +274,7 @@ export default function ReportSharePage() {
                     year: "numeric",
                   })}
                 </span>
-                <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
+                <span className="bg-success-subtle text-success-subtle-foreground px-2 py-0.5 rounded-full font-medium">
                   Active
                 </span>
               </div>

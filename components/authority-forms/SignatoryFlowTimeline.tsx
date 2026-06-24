@@ -92,11 +92,11 @@ export function SignatoryFlowTimeline({
       CLIENT:
         "bg-purple-100 text-purple-700 dark:bg-purple-950/30 dark:text-purple-400",
       INSURER:
-        "bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400",
+        "bg-info-subtle text-info-subtle-foreground",
       CONTRACTOR:
         "bg-cyan-100 text-cyan-700 dark:bg-cyan-950/30 dark:text-cyan-400",
       PROPERTY_OWNER:
-        "bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400",
+        "bg-warning-subtle text-warning-subtle-foreground",
       MANAGER:
         "bg-indigo-100 text-indigo-700 dark:bg-indigo-950/30 dark:text-indigo-400",
       TECHNICIAN:

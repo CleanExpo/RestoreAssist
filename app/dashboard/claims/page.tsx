@@ -134,12 +134,12 @@ function StateBadge({ state, closed }: { state: string; closed: boolean }) {
   const tone = closed
     ? "bg-zinc-100 text-zinc-600"
     : state.includes("DISPUTED")
-      ? "bg-amber-100 text-amber-800"
+      ? "bg-warning-subtle text-warning-subtle-foreground"
       : state.includes("HOLD")
-        ? "bg-amber-100 text-amber-800"
+        ? "bg-warning-subtle text-warning-subtle-foreground"
         : state.includes("INVOICE_PAID")
-          ? "bg-emerald-100 text-emerald-800"
-          : "bg-blue-50 text-blue-700";
+          ? "bg-success-subtle text-success-subtle-foreground"
+          : "bg-info-subtle text-info-subtle-foreground";
   return (
     <span
       className={`inline-block rounded px-2 py-0.5 text-xs font-mono ${tone}`}

@@ -92,11 +92,11 @@ const FORM_TYPE_LABELS: Record<FormType, string> = {
 
 const FORM_TYPE_COLOURS: Record<FormType, string> = {
   WORK_ORDER:
-    "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+    "bg-info-subtle text-info-subtle-foreground",
   AUTHORITY_TO_COMMENCE:
     "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
-  JSA: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
-  SDS: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+  JSA: "bg-warning-subtle text-warning-subtle-foreground",
+  SDS: "bg-destructive-subtle text-destructive-subtle-foreground",
   SWIMS:
     "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
   SITE_INDUCTION:
@@ -560,7 +560,7 @@ export default function FormTemplatesPage() {
 
       {/* Error */}
       {error && (
-        <div className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-700 dark:text-red-400">
+        <div className="rounded-md border border-destructive-subtle-foreground/30 bg-destructive-subtle px-4 py-3 text-sm text-destructive-subtle-foreground">
           {error}
         </div>
       )}
@@ -731,7 +731,7 @@ export default function FormTemplatesPage() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-7 w-7 p-0 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                            className="h-7 w-7 p-0 text-red-500 hover:text-destructive-subtle-foreground hover:bg-destructive-subtle dark:hover:bg-red-900/20"
                             onClick={() => setConfirmDeleteId(template.id)}
                             aria-label={`Delete ${template.name}`}
                           >

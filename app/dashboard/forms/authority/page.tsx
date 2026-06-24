@@ -71,19 +71,19 @@ const STATUS_CONFIG: Record<
   },
   PENDING_SIGNATURES: {
     label: "Sent",
-    className: "bg-blue-100 text-blue-700 border-blue-200",
+    className: "bg-info-subtle text-info-subtle-foreground border-info-subtle-foreground/30",
   },
   PARTIALLY_SIGNED: {
     label: "Partially Signed",
-    className: "bg-amber-100 text-amber-700 border-amber-200",
+    className: "bg-warning-subtle text-warning-subtle-foreground border-warning-subtle-foreground/30",
   },
   COMPLETED: {
     label: "Completed",
-    className: "bg-green-100 text-green-700 border-green-200",
+    className: "bg-success-subtle text-success-subtle-foreground border-success-subtle-foreground/30",
   },
   CANCELLED: {
     label: "Cancelled",
-    className: "bg-red-100 text-red-700 border-red-200",
+    className: "bg-destructive-subtle text-destructive-subtle-foreground border-destructive-subtle-foreground/30",
   },
 };
 

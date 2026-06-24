@@ -633,7 +633,7 @@ export default function NewReportPage() {
                     report.
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-200 text-xs font-medium">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-success-subtle text-success-subtle-foreground text-xs font-medium">
                       <CheckCircle className="w-3.5 h-3.5" />
                       Auto-populated from interview
                     </span>

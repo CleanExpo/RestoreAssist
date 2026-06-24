@@ -487,7 +487,7 @@ function LinearIssueList({ output }: { output: unknown }) {
     typeof (output as { error: unknown }).error === "string"
   ) {
     return (
-      <div className="rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+      <div className="rounded-md border border-destructive-subtle-foreground/30 bg-destructive-subtle px-3 py-2 text-sm text-destructive-subtle-foreground">
         {(output as { error: string }).error}
       </div>
     );
@@ -607,7 +607,7 @@ function LinearWriteResult({
     typeof (output as { error: unknown }).error === "string"
   ) {
     return (
-      <div className="rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+      <div className="rounded-md border border-destructive-subtle-foreground/30 bg-destructive-subtle px-3 py-2 text-sm text-destructive-subtle-foreground">
         {(output as { error: string }).error}
       </div>
     );
@@ -621,7 +621,7 @@ function LinearWriteResult({
 
   if (parsed?.url) {
     return (
-      <div className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+      <div className="rounded-md border border-success-subtle-foreground/30 bg-success-subtle px-3 py-2 text-sm text-success-subtle-foreground">
         Done.{" "}
         {parsed.identifier ? (
           <span className="font-mono">{parsed.identifier}</span>
@@ -665,7 +665,7 @@ function ImageGenResult({ output }: { output: unknown }) {
 
   if (data.error) {
     return (
-      <div className="rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+      <div className="rounded-md border border-destructive-subtle-foreground/30 bg-destructive-subtle px-3 py-2 text-sm text-destructive-subtle-foreground">
         {data.error}
       </div>
     );

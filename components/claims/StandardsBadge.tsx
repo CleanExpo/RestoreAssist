@@ -33,7 +33,7 @@ export function StandardsBadge({
         type: "IICRC",
         icon: BookOpen,
         color:
-          "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border-blue-300 dark:border-blue-700",
+          "bg-info-subtle text-info-subtle-foreground border-info-subtle-foreground/30",
         label: ref.match(/IICRC\s+(S\d+)/i)?.[0] || ref,
       };
     }
@@ -57,7 +57,7 @@ export function StandardsBadge({
         type: "AS_NZS",
         icon: Scale,
         color:
-          "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700",
+          "bg-success-subtle text-success-subtle-foreground border-success-subtle-foreground/30",
         label:
           ref.match(/AS\/NZS\s+[\d.:]+/i)?.[0] ||
           ref.match(/AS\s+\d+/i)?.[0] ||
@@ -74,7 +74,7 @@ export function StandardsBadge({
         type: "OHS",
         icon: Shield,
         color:
-          "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-300 dark:border-red-700",
+          "bg-destructive-subtle text-destructive-subtle-foreground border-destructive-subtle-foreground/30",
         label: ref,
       };
     }

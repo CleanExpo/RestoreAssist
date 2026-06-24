@@ -63,10 +63,10 @@ function getActionColor(action: string): string {
     lower.includes("add") ||
     lower.includes("submit")
   ) {
-    return "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800";
+    return "bg-success-subtle text-success-subtle-foreground border-success-subtle-foreground/30";
   }
   if (lower.includes("delet") || lower.includes("remov")) {
-    return "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800";
+    return "bg-destructive-subtle text-destructive-subtle-foreground border-destructive-subtle-foreground/30";
   }
   if (
     lower.includes("view") ||
@@ -75,7 +75,7 @@ function getActionColor(action: string): string {
   ) {
     return "bg-neutral-100 dark:bg-slate-800 text-neutral-600 dark:text-slate-300 border-neutral-200 dark:border-slate-700";
   }
-  return "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800";
+  return "bg-info-subtle text-info-subtle-foreground border-info-subtle-foreground/30";
 }
 
 function getTimelineDotColor(action: string): string {
@@ -141,7 +141,7 @@ function DiffView({
         <p className="text-xs font-semibold text-neutral-400 dark:text-slate-500 uppercase tracking-wider mb-1">
           Previous
         </p>
-        <pre className="text-xs bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/50 rounded-lg p-2 text-red-700 dark:text-red-300 whitespace-pre-wrap break-all max-h-32 overflow-y-auto">
+        <pre className="text-xs bg-destructive-subtle border border-destructive-subtle-foreground/30 rounded-lg p-2 text-destructive-subtle-foreground whitespace-pre-wrap break-all max-h-32 overflow-y-auto">
           {prevDisplay}
         </pre>
       </div>
@@ -149,7 +149,7 @@ function DiffView({
         <p className="text-xs font-semibold text-neutral-400 dark:text-slate-500 uppercase tracking-wider mb-1">
           New Value
         </p>
-        <pre className="text-xs bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800/50 rounded-lg p-2 text-emerald-700 dark:text-emerald-300 whitespace-pre-wrap break-all max-h-32 overflow-y-auto">
+        <pre className="text-xs bg-success-subtle border border-success-subtle-foreground/30 rounded-lg p-2 text-success-subtle-foreground whitespace-pre-wrap break-all max-h-32 overflow-y-auto">
           {nextDisplay}
         </pre>
       </div>

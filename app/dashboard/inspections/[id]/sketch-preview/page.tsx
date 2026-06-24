@@ -71,7 +71,7 @@ export default function SketchPreviewPage() {
           </Link>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-medium">
+            <span className="text-xs px-2 py-1 rounded-full bg-info-subtle text-info-subtle-foreground font-medium">
               Homeowner view
             </span>
             <span className="text-xs text-neutral-400 dark:text-slate-500">
@@ -88,7 +88,7 @@ export default function SketchPreviewPage() {
         />
 
         {/* Info banner */}
-        <div className="flex items-start gap-3 p-4 rounded-lg border border-blue-200 dark:border-blue-800/40 bg-blue-50 dark:bg-blue-900/10 text-sm text-blue-800 dark:text-blue-300">
+        <div className="flex items-start gap-3 p-4 rounded-lg border border-info-subtle-foreground/30 bg-info-subtle text-sm text-info-subtle-foreground">
           <ExternalLink size={15} className="mt-0.5 shrink-0" />
           <div>
             <p className="font-medium mb-0.5">Sharing options</p>

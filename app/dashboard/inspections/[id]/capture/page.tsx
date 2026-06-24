@@ -734,7 +734,7 @@ export default function CaptureWorkflowPage({
 
           {/* Job type + experience badge */}
           <div className="flex items-center gap-2 mt-3">
-            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-info-subtle text-info-subtle-foreground">
               {JOB_TYPE_LABELS[workflow.jobType as JobType] || workflow.jobType}
             </span>
             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
@@ -847,10 +847,10 @@ export default function CaptureWorkflowPage({
                 className={cn(
                   "h-10 w-10 rounded-lg flex items-center justify-center text-sm font-bold",
                   activeStep.status === "COMPLETED"
-                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                    ? "bg-success-subtle text-success-subtle-foreground"
                     : activeStep.status === "SKIPPED"
-                      ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                      : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+                      ? "bg-warning-subtle text-warning-subtle-foreground"
+                      : "bg-info-subtle text-info-subtle-foreground",
                 )}
               >
                 {activeStepIndex + 1}
@@ -962,7 +962,7 @@ export default function CaptureWorkflowPage({
                           className={cn(
                             "p-1.5 rounded",
                             hasCaptured
-                              ? "bg-green-100 dark:bg-green-900/30 text-green-600"
+                              ? "bg-success-subtle text-success-subtle-foreground"
                               : "bg-slate-200 dark:bg-slate-700 text-slate-500",
                           )}
                         >
@@ -1074,7 +1074,7 @@ export default function CaptureWorkflowPage({
                         className={cn(
                           "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs border transition-all",
                           hasCaptured
-                            ? "border-green-300 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-900/20 dark:text-green-400"
+                            ? "border-success-subtle-foreground/30 bg-success-subtle text-success-subtle-foreground"
                             : "border-slate-300 dark:border-slate-600 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-slate-600 dark:text-slate-400",
                         )}
                       >

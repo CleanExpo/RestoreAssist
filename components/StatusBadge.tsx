@@ -23,12 +23,10 @@ export type StatusTone = "neutral" | "info" | "success" | "warning" | "danger";
 
 const TONE_CLASSES: Record<StatusTone, string> = {
   neutral: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
-  info: "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200",
-  success:
-    "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200",
-  warning:
-    "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200",
-  danger: "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200",
+  info: "bg-info-subtle text-info-subtle-foreground",
+  success: "bg-success-subtle text-success-subtle-foreground",
+  warning: "bg-warning-subtle text-warning-subtle-foreground",
+  danger: "bg-destructive-subtle text-destructive-subtle-foreground",
 };
 
 export interface StatusBadgeProps {

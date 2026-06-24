@@ -189,10 +189,10 @@ const ALL_FORM_TYPES: FormType[] = [
 function StatusBadge({ status }: { status: FormStatus }) {
   const colourMap: Record<FormStatus, string> = {
     DRAFT: "border-transparent bg-slate-100 text-slate-700",
-    IN_PROGRESS: "border-transparent bg-blue-100 text-blue-700",
-    AWAITING_SIGNATURE: "border-transparent bg-amber-100 text-amber-700",
-    COMPLETED: "border-transparent bg-green-100 text-green-700",
-    CANCELLED: "border-transparent bg-red-100 text-red-700",
+    IN_PROGRESS: "border-transparent bg-info-subtle text-info-subtle-foreground",
+    AWAITING_SIGNATURE: "border-transparent bg-warning-subtle text-warning-subtle-foreground",
+    COMPLETED: "border-transparent bg-success-subtle text-success-subtle-foreground",
+    CANCELLED: "border-transparent bg-destructive-subtle text-destructive-subtle-foreground",
   };
   return <Badge className={colourMap[status]}>{STATUS_LABELS[status]}</Badge>;
 }
@@ -229,8 +229,8 @@ function SignatureBadge({
     <Badge
       className={
         allSigned
-          ? "border-transparent bg-green-100 text-green-700"
-          : "border-transparent bg-amber-100 text-amber-700"
+          ? "border-transparent bg-success-subtle text-success-subtle-foreground"
+          : "border-transparent bg-warning-subtle text-warning-subtle-foreground"
       }
     >
       {completed}/{required} signed
@@ -488,22 +488,22 @@ export default function FormSubmissionsPage() {
             IN_PROGRESS: {
               active: "border-blue-600 bg-blue-600 text-white",
               inactive:
-                "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100",
+                "border-info-subtle-foreground/30 bg-info-subtle text-info-subtle-foreground hover:bg-info-subtle",
             },
             AWAITING_SIGNATURE: {
               active: "border-amber-600 bg-amber-600 text-white",
               inactive:
-                "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100",
+                "border-warning-subtle-foreground/30 bg-warning-subtle text-warning-subtle-foreground hover:bg-warning-subtle",
             },
             COMPLETED: {
               active: "border-green-600 bg-green-600 text-white",
               inactive:
-                "border-green-200 bg-green-50 text-green-700 hover:bg-green-100",
+                "border-success-subtle-foreground/30 bg-success-subtle text-success-subtle-foreground hover:bg-success-subtle",
             },
             CANCELLED: {
               active: "border-red-600 bg-red-600 text-white",
               inactive:
-                "border-red-200 bg-red-50 text-red-700 hover:bg-red-100",
+                "border-destructive-subtle-foreground/30 bg-destructive-subtle text-destructive-subtle-foreground hover:bg-destructive-subtle",
             },
           };
           const isActive = activeStatusChip === status;

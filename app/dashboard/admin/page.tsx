@@ -342,7 +342,7 @@ export default function AdminDashboardPage() {
             </Button>
             <Button
               variant="outline"
-              className="flex-col h-auto py-4 gap-2 border-amber-200 dark:border-amber-800/60 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+              className="flex-col h-auto py-4 gap-2 border-warning-subtle-foreground/30 text-warning-subtle-foreground hover:bg-warning-subtle dark:hover:bg-amber-950/30"
               onClick={handleSeedDemo}
               disabled={seeding}
             >
