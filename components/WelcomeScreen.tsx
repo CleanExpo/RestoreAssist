@@ -37,35 +37,35 @@ export default function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
       title: "Welcome to Restore Assist!",
       description:
         "Your professional forensic restoration reporting platform. Let's get you set up in just 4 quick steps.",
-      color: "from-cyan-500 to-blue-500",
+      color: "",
     },
     {
       icon: Building2,
       title: "Step 1: Business Profile",
       description:
         "Add your business details, logo, and contact information. This will appear on all your reports.",
-      color: "from-blue-500 to-purple-500",
+      color: "",
     },
     {
       icon: KeyRound,
       title: "Step 2: AI Integration",
       description:
         "Connect your AI API key (Anthropic, OpenAI, or Gemini) to enable intelligent report generation.",
-      color: "from-purple-500 to-pink-500",
+      color: "",
     },
     {
       icon: DollarSign,
       title: "Step 3: Pricing Setup",
       description:
         "Configure your company rates for labour, equipment, and services for accurate cost estimates.",
-      color: "from-pink-500 to-orange-500",
+      color: "",
     },
     {
       icon: FileText,
       title: "Step 4: Create Your First Report",
       description:
         "Generate your first professional forensic assessment report with AI-powered insights.",
-      color: "from-orange-500 to-cyan-500",
+      color: "",
     },
   ];
 
@@ -135,7 +135,7 @@ export default function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ delay: 0.2, type: "spring" }}
-                className={`inline-flex p-4 rounded-2xl bg-gradient-to-br ${currentSlideData.color} mb-6`}
+                className={`inline-flex p-4 rounded-2xl bg-brand-navy mb-6`}
               >
                 <IconComponent className="w-12 h-12 text-white" />
               </motion.div>
@@ -196,7 +196,7 @@ export default function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
               onClick={handleNext}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="px-8 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-xl font-semibold text-white hover:shadow-lg hover:shadow-cyan-500/50 transition-all flex items-center gap-2"
+              className="px-8 py-3 bg-brand-navy rounded-xl font-semibold text-white hover:shadow-lg transition-all flex items-center gap-2"
             >
               {currentSlide < slides.length - 1 ? (
                 <>

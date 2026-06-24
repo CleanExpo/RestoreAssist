@@ -72,7 +72,7 @@ export default function HeroSection() {
 
           {/* Enhanced Floating Geometric Shapes - More Visible */}
           <motion.div
-            className="absolute top-32 right-32 w-8 h-8 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full opacity-80 shadow-lg shadow-cyan-400/30"
+            className="absolute top-32 right-32 w-8 h-8 bg-brand-navy rounded-full opacity-80 shadow-lg"
             animate={{
               y: [0, -30, 0],
               x: [0, 15, 0],
@@ -87,7 +87,7 @@ export default function HeroSection() {
           />
 
           <motion.div
-            className="absolute bottom-32 left-32 w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rotate-45 opacity-70 shadow-lg shadow-purple-500/30"
+            className="absolute bottom-32 left-32 w-12 h-12 bg-brand-navy rotate-45 opacity-70 shadow-lg"
             animate={{
               y: [0, 20, 0],
               x: [0, -12, 0],
@@ -103,7 +103,7 @@ export default function HeroSection() {
           />
 
           <motion.div
-            className="absolute top-1/3 left-1/4 w-6 h-6 bg-gradient-to-r from-cyan-400 to-teal-500 rounded-full opacity-80 shadow-lg shadow-teal-400/30"
+            className="absolute top-1/3 left-1/4 w-6 h-6 bg-brand-navy rounded-full opacity-80 shadow-lg"
             animate={{
               y: [0, -35, 0],
               x: [0, 20, 0],
@@ -119,7 +119,7 @@ export default function HeroSection() {
 
           {/* Additional Large Geometric Shapes */}
           <motion.div
-            className="absolute top-20 right-1/4 w-16 h-16 bg-gradient-to-r from-pink-500 to-rose-500 rounded-lg opacity-60 shadow-lg shadow-pink-500/30"
+            className="absolute top-20 right-1/4 w-16 h-16 bg-brand-navy rounded-lg opacity-60 shadow-lg"
             animate={{
               y: [0, -25, 0],
               x: [0, 20, 0],
@@ -135,7 +135,7 @@ export default function HeroSection() {
           />
 
           <motion.div
-            className="absolute bottom-20 left-1/3 w-20 h-20 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full opacity-50 shadow-lg shadow-emerald-500/30"
+            className="absolute bottom-20 left-1/3 w-20 h-20 bg-brand-navy rounded-full opacity-50 shadow-lg"
             animate={{
               y: [0, 30, 0],
               x: [0, -25, 0],
@@ -151,7 +151,7 @@ export default function HeroSection() {
           />
 
           <motion.div
-            className="absolute top-1/2 right-10 w-14 h-14 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg opacity-60 shadow-lg shadow-orange-500/30"
+            className="absolute top-1/2 right-10 w-14 h-14 bg-brand-navy rounded-lg opacity-60 shadow-lg"
             animate={{
               y: [0, -20, 0],
               x: [0, 15, 0],
@@ -170,7 +170,7 @@ export default function HeroSection() {
           {[...Array(8)].map((_, i) => (
             <motion.div
               key={i}
-              className="absolute w-3 h-3 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full opacity-70 shadow-lg shadow-cyan-400/40"
+              className="absolute w-3 h-3 bg-brand-navy rounded-full opacity-70 shadow-lg"
               style={{
                 left: `${15 + i * 12}%`,
                 top: `${20 + i * 8}%`,
@@ -217,7 +217,7 @@ export default function HeroSection() {
           >
             <span className="block text-white">One System. Fewer Gaps.</span>
             <motion.span
-              className="block bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent"
+              className="block bg-brand-navy bg-clip-text text-transparent"
               animate={{
                 backgroundPosition: ["0%", "100%", "0%"],
               }}
@@ -252,7 +252,7 @@ export default function HeroSection() {
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
               <Link
                 href={BRAND.cta.primary.href}
-                className="px-10 py-4 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full font-medium text-lg hover:shadow-2xl hover:shadow-blue-500/50 transition-all duration-300"
+                className="px-10 py-4 bg-brand-navy rounded-full font-medium text-lg hover:shadow-2xl transition-all duration-300"
                 style={{ fontFamily: "Titillium Web, sans-serif" }}
               >
                 {BRAND.cta.primary.label}
@@ -357,7 +357,7 @@ export default function HeroSection() {
                 transition={{ duration: 0.6, delay: 1.4 }}
               >
                 <div className="flex items-center gap-4 mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg flex items-center justify-center">
+                  <div className="w-12 h-12 bg-brand-navy rounded-lg flex items-center justify-center">
                     <Gift size={24} className="text-white" />
                   </div>
                   <div>
@@ -387,7 +387,7 @@ export default function HeroSection() {
                 transition={{ duration: 0.6, delay: 1.5 }}
               >
                 <div className="flex items-center gap-4 mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-lg flex items-center justify-center">
+                  <div className="w-12 h-12 bg-brand-navy rounded-lg flex items-center justify-center">
                     <Shield size={24} className="text-white" />
                   </div>
                   <div>
@@ -417,7 +417,7 @@ export default function HeroSection() {
                 transition={{ duration: 0.6, delay: 1.6 }}
               >
                 <div className="flex items-center gap-4 mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg flex items-center justify-center">
+                  <div className="w-12 h-12 bg-brand-navy rounded-lg flex items-center justify-center">
                     <Clock size={24} className="text-white" />
                   </div>
                   <div>

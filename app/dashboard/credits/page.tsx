@@ -260,7 +260,7 @@ function CreditsPageContent() {
       <div
         className={cn(
           "rounded-2xl p-6",
-          "bg-gradient-to-br from-blue-600 to-cyan-600",
+          "bg-brand-navy",
           "text-white shadow-lg",
         )}
       >
@@ -395,7 +395,7 @@ function CreditsPageContent() {
             className={cn(
               "flex items-center gap-2 px-4 py-3 rounded-lg text-sm",
               "bg-success-subtle text-success-subtle-foreground border border-success-subtle-foreground/30",
-              "dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800",
+              "dark:bg-emerald-900/20 dark:text-emerald-400",
             )}
           >
             <CheckCircle size={16} />
@@ -565,10 +565,10 @@ function CreditsPageContent() {
           className={cn(
             "rounded-2xl p-6",
             isTrial
-              ? "bg-gradient-to-br from-indigo-50 to-blue-50 border border-indigo-200 dark:from-indigo-950/40 dark:to-blue-950/40 dark:border-indigo-800"
+              ? "bg-brand-navy border border-indigo-200"
               : isExpiredOrCanceled
-                ? "bg-gradient-to-br from-red-50 to-orange-50 border border-red-200 dark:from-red-950/40 dark:to-orange-950/40 dark:border-red-800"
-                : "bg-gradient-to-br from-amber-50 to-yellow-50 border border-amber-200 dark:from-amber-950/40 dark:to-yellow-950/40 dark:border-amber-800",
+                ? "bg-brand-navy border border-red-200"
+                : "bg-brand-navy border border-amber-200",
           )}
         >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
