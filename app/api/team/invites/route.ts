@@ -185,7 +185,8 @@ export async function POST(req: NextRequest) {
         existingUser.role === role
           ? existingUser
           : await prisma.user.update({
-              where: { id: existingUser.id },
+              // RA-6800: re-assert same-org boundary atomically in the write.
+              where: { id: existingUser.id, organizationId: orgId },
               data: { role },
             });
 
@@ -265,7 +266,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Case 2 & 3: User exists but is in a different organization OR has no organization
-    // Update the existing user to join this organization
+    // Update the existing user to join this organization.
+    // RA-6800 note: this is an intentional CROSS-org transfer, so the write
+    // cannot be scoped to the target's current org (that's the whole point).
+    // The residual TOCTOU here is the *caller's* org membership (orgId resolved
+    // upstream); hardening that requires re-asserting membership in-transaction
+    // and is deliberately out of scope for this pass.
     const updatedUser = await prisma.user.update({
       where: { id: existingUser.id },
       data: {

@@ -80,7 +80,14 @@ export async function PATCH(
 
   try {
     const updated = await prisma.user.update({
-      where: { id: target.id },
+      // RA-6800: re-assert the same-org boundary atomically (mirrors the guard
+      // above). Org-less super-admins (no organizationId) keep id-only scope.
+      where: {
+        id: target.id,
+        ...(adminUser!.organizationId
+          ? { organizationId: adminUser!.organizationId }
+          : {}),
+      },
       data: { isJuniorTechnician: body.isJuniorTechnician },
       select: { id: true, email: true, isJuniorTechnician: true },
     });

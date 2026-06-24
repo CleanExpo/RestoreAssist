@@ -85,10 +85,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true, alreadyEnded: true });
     }
 
-    await prisma.adminImpersonation.update({
-      where: { id: row.id },
+    // RA-6800: scope the write to the originating admin atomically, so only the
+    // owner can end the session and a stale/foreign row yields a clean 404.
+    const result = await prisma.adminImpersonation.updateMany({
+      where: { id: row.id, adminUserId: session.user.id },
       data: { endedAt: new Date(), endReason: "manual" },
     });
+    if (result.count === 0) {
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Session not found",
+        status: 404,
+      });
+    }
 
     console.info(
       "[admin-impersonation.stop]",
