@@ -72,10 +72,16 @@ export async function POST(
     const body = await request.json().catch(() => ({}));
     if (body.deleteData) {
       await prisma.externalClient.deleteMany({
-        where: { integrationId: integration.id },
+        where: {
+          integrationId: integration.id,
+          integration: { userId: session.user.id },
+        },
       });
       await prisma.externalJob.deleteMany({
-        where: { integrationId: integration.id },
+        where: {
+          integrationId: integration.id,
+          integration: { userId: session.user.id },
+        },
       });
     }
 

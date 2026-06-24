@@ -80,7 +80,7 @@ export async function POST(
 
     // Update status to syncing
     await prisma.integration.update({
-      where: { id: integration.id },
+      where: { id: integration.id, userId: session.user.id },
       data: { status: "SYNCING" },
     });
 
@@ -101,7 +101,7 @@ export async function POST(
 
       // Update status back to connected
       await prisma.integration.update({
-        where: { id: integration.id },
+        where: { id: integration.id, userId: session.user.id },
         data: {
           status: "CONNECTED",
           lastSyncAt: new Date(),
@@ -120,7 +120,7 @@ export async function POST(
       const errorMessage =
         syncError instanceof Error ? syncError.message : String(syncError);
       await prisma.integration.update({
-        where: { id: integration.id },
+        where: { id: integration.id, userId: session.user.id },
         data: {
           status: "ERROR",
           syncError: errorMessage,

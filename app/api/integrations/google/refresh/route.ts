@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
     if (isInvalidGrant) {
       // Kill the dead refresh token so the UI can prompt re-consent.
       await prisma.account.update({
-        where: { id: account.id },
+        where: { id: account.id, userId: session.user.id },
         data: { refresh_token: null, access_token: null, expires_at: null },
       });
     }
@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
     : null;
 
   await prisma.account.update({
-    where: { id: account.id },
+    where: { id: account.id, userId: session.user.id },
     data: encryptAccountTokens({
       access_token: data.access_token ?? null,
       expires_at: expiresAt,

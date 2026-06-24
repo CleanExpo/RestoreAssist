@@ -83,7 +83,7 @@ export async function PUT(
     if (data !== undefined) updateData.data = data as object;
 
     const doc = await prisma.restorationDocument.update({
-      where: { id },
+      where: { id, userId: session.user.id },
       data: updateData,
     });
 
@@ -122,7 +122,9 @@ export async function DELETE(
       });
     }
 
-    await prisma.restorationDocument.delete({ where: { id } });
+    await prisma.restorationDocument.delete({
+      where: { id, userId: session.user.id },
+    });
     return NextResponse.json({ success: true });
   } catch (err) {
     return fromException(request, err, { stage: "delete" });

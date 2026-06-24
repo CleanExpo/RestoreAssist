@@ -126,7 +126,7 @@ export async function GET(
 
       // Update invoice with PDF URL
       await prisma.invoice.update({
-        where: { id },
+        where: { id, userId: session.user.id },
         data: {
           pdfUrl,
           pdfGeneratedAt: new Date(),

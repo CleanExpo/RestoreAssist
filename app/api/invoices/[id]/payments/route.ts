@@ -104,7 +104,7 @@ export async function POST(
         }
 
         const updatedInvoice = await tx.invoice.update({
-          where: { id },
+          where: { id, userId },
           data: {
             amountPaid: newAmountPaid,
             amountDue: newAmountDue,

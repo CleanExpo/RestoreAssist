@@ -244,7 +244,7 @@ export async function POST(
     const nirDataJson = JSON.stringify(nirData);
 
     await prisma.report.update({
-      where: { id },
+      where: { id, userId: session.user.id },
       data: {
         moistureReadings: nirDataJson,
       },

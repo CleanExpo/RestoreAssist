@@ -108,7 +108,7 @@ export async function PUT(
     }
 
     const library = await prisma.costLibrary.update({
-      where: { id },
+      where: { id, userId: session.user.id },
       data: {
         name,
         region,
@@ -168,7 +168,7 @@ export async function DELETE(
     }
 
     await prisma.costLibrary.delete({
-      where: { id },
+      where: { id, userId: session.user.id },
     });
 
     return NextResponse.json({ success: true });
