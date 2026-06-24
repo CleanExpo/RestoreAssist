@@ -65,9 +65,20 @@ import {WizardSetup} from './compositions/wizard-setup';
 import {WizardDashboard} from './compositions/wizard-dashboard';
 import {WizardIntegrations} from './compositions/wizard-integrations';
 import {WizardHealth} from './compositions/wizard-health';
+import {OnboardingWelcome} from './compositions/onboarding-welcome';
 
 export const RemotionRoot = () => (
   <>
+    {/* New-client welcome (RA onboarding — top of /setup) */}
+    <Composition
+      id="OnboardingWelcome"
+      component={OnboardingWelcome}
+      durationInFrames={1080}
+      fps={30}
+      width={1920}
+      height={1080}
+      defaultProps={{title: "Welcome to RestoreAssist"}}
+    />
     {/* Original 4 Tutorials */}
     <Composition
       id="DashboardWalkthrough"
