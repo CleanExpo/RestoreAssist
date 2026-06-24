@@ -114,7 +114,7 @@ export function AISuggestedQuestion({
   if (isLoading) {
     return (
       <div
-        className="mt-3 flex items-center gap-2 rounded-md border border-dashed border-sky-200 bg-sky-50/60 px-3 py-2 text-xs text-sky-800 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-200"
+        className="mt-3 flex items-center gap-2 rounded-md border border-dashed border-info-subtle-foreground/30 bg-info-subtle/60 px-3 py-2 text-xs text-info-subtle-foreground"
         role="status"
         aria-live="polite"
       >

@@ -340,7 +340,7 @@ export function MoistureReadingEntryForm({
       </div>
 
       {/* IICRC dry standard info */}
-      <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-500/10 rounded-lg text-xs text-blue-700 dark:text-blue-400">
+      <div className="flex items-start gap-2 p-3 bg-info-subtle rounded-lg text-xs text-info-subtle-foreground">
         <Info size={13} className="flex-shrink-0 mt-0.5" />
         <div>
           <span className="font-semibold">

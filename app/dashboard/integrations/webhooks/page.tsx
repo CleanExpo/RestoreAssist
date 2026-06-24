@@ -82,9 +82,9 @@ interface LogsResponse {
 function providerColor(provider: IntegrationProvider): string {
   switch (provider) {
     case "XERO":
-      return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400";
+      return "bg-success-subtle text-success-subtle-foreground";
     case "QUICKBOOKS":
-      return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
+      return "bg-info-subtle text-info-subtle-foreground";
     case "MYOB":
       return "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400";
     case "SERVICEM8":
@@ -99,13 +99,13 @@ function providerColor(provider: IntegrationProvider): string {
 function statusColor(status: WebhookEventStatus): string {
   switch (status) {
     case "PROCESSED":
-      return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400";
+      return "bg-success-subtle text-success-subtle-foreground";
     case "FAILED":
-      return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
+      return "bg-destructive-subtle text-destructive-subtle-foreground";
     case "PENDING":
-      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400";
+      return "bg-warning-subtle text-warning-subtle-foreground";
     case "PROCESSING":
-      return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
+      return "bg-info-subtle text-info-subtle-foreground";
     case "IGNORED":
       return "bg-neutral-100 text-neutral-600 dark:bg-slate-800 dark:text-slate-400";
     default:
@@ -436,7 +436,7 @@ export default function WebhookLogsPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-7 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+                            className="h-7 px-2 text-xs text-destructive-subtle-foreground hover:text-destructive-subtle-foreground hover:bg-destructive-subtle dark:hover:bg-red-950/30"
                             disabled={retryingId === event.id}
                             onClick={() => handleRetry(event)}
                           >
@@ -530,7 +530,7 @@ export default function WebhookLogsPage() {
           {payloadEvent && (
             <div className="flex-1 overflow-auto mt-2">
               {payloadEvent.errorMessage && (
-                <div className="mb-3 rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 px-3 py-2 text-xs text-red-700 dark:text-red-400">
+                <div className="mb-3 rounded-md bg-destructive-subtle border border-destructive-subtle-foreground/30 px-3 py-2 text-xs text-destructive-subtle-foreground">
                   <span className="font-semibold">Error:</span>{" "}
                   {payloadEvent.errorMessage}
                 </div>

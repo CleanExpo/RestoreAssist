@@ -64,17 +64,17 @@ function StatusBadge({ status }: { status: SupportStatus }) {
     open: {
       label: "Open",
       className:
-        "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+        "bg-info-subtle text-info-subtle-foreground",
     },
     in_progress: {
       label: "In Progress",
       className:
-        "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+        "bg-warning-subtle text-warning-subtle-foreground",
     },
     resolved: {
       label: "Resolved",
       className:
-        "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+        "bg-success-subtle text-success-subtle-foreground",
     },
     closed: {
       label: "Closed",
@@ -114,7 +114,7 @@ function PriorityBadge({ priority }: { priority: SupportPriority }) {
     },
     urgent: {
       label: "Urgent",
-      className: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+      className: "bg-destructive-subtle text-destructive-subtle-foreground",
     },
   };
   const { label, className } = map[priority] ?? map.normal;

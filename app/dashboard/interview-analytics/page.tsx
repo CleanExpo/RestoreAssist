@@ -245,7 +245,7 @@ export default function InterviewAnalyticsDashboard() {
                     <div className="space-y-3">
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-slate-600">Completed</span>
-                        <Badge className="bg-green-100 text-green-800">
+                        <Badge className="bg-success-subtle text-success-subtle-foreground">
                           {aggregateStats.completedSessions}
                         </Badge>
                       </div>
@@ -332,7 +332,7 @@ export default function InterviewAnalyticsDashboard() {
                                 {template.sessionCount} sessions
                               </p>
                             </div>
-                            <Badge className="bg-green-100 text-green-800">
+                            <Badge className="bg-success-subtle text-success-subtle-foreground">
                               {formatPercentage(template.completionRate)}
                             </Badge>
                           </div>
@@ -394,10 +394,10 @@ export default function InterviewAnalyticsDashboard() {
                             <Badge
                               className={
                                 (tpl.completionRate ?? 0) >= 80
-                                  ? "bg-green-100 text-green-800"
+                                  ? "bg-success-subtle text-success-subtle-foreground"
                                   : (tpl.completionRate ?? 0) >= 60
-                                    ? "bg-yellow-100 text-yellow-800"
-                                    : "bg-red-100 text-red-800"
+                                    ? "bg-warning-subtle text-warning-subtle-foreground"
+                                    : "bg-destructive-subtle text-destructive-subtle-foreground"
                               }
                             >
                               {formatPercentage(tpl.completionRate ?? 0)}
@@ -472,10 +472,10 @@ export default function InterviewAnalyticsDashboard() {
                             <Badge
                               className={
                                 (user.completionRate ?? 0) >= 80
-                                  ? "bg-green-100 text-green-800"
+                                  ? "bg-success-subtle text-success-subtle-foreground"
                                   : (user.completionRate ?? 0) >= 60
-                                    ? "bg-yellow-100 text-yellow-800"
-                                    : "bg-red-100 text-red-800"
+                                    ? "bg-warning-subtle text-warning-subtle-foreground"
+                                    : "bg-destructive-subtle text-destructive-subtle-foreground"
                               }
                             >
                               {formatPercentage(user.completionRate ?? 0)}

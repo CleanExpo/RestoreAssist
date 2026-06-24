@@ -1043,7 +1043,7 @@ export default function TeamPage() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => setMemberToRemove(member)}
-                                className="text-xs text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/20 border-rose-200 dark:border-rose-800"
+                                className="text-xs text-destructive-subtle-foreground hover:text-destructive-subtle-foreground dark:hover:text-rose-300 hover:bg-destructive-subtle dark:hover:bg-rose-950/20 border-destructive-subtle-foreground/30"
                               >
                                 <Trash2 className="w-3 h-3 mr-1" />
                                 Remove

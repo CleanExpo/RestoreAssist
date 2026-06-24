@@ -462,13 +462,13 @@ export default function ClaimsAnalysisPage() {
   const getSeverityColor = (severity: string) => {
     switch (severity) {
       case "CRITICAL":
-        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border border-red-200 dark:border-red-800";
+        return "bg-destructive-subtle text-destructive-subtle-foreground border border-destructive-subtle-foreground/30";
       case "HIGH":
         return "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200 dark:border-orange-800";
       case "MEDIUM":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800";
+        return "bg-warning-subtle text-warning-subtle-foreground border border-warning-subtle-foreground/30";
       case "LOW":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800";
+        return "bg-info-subtle text-info-subtle-foreground border border-info-subtle-foreground/30";
       default:
         return "bg-slate-100 text-slate-800 dark:bg-slate-900/30 dark:text-slate-400";
     }
@@ -1960,7 +1960,7 @@ export default function ClaimsAnalysisPage() {
                   variant="outline"
                   size="sm"
                   onClick={cancelAnalysis}
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+                  className="text-destructive-subtle-foreground hover:text-destructive-subtle-foreground hover:bg-destructive-subtle dark:hover:bg-red-950/30"
                 >
                   <X className="h-4 w-4 mr-1" />
                   Cancel

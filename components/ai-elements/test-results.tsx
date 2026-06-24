@@ -96,7 +96,7 @@ export const TestResultsSummary = ({
       {children ?? (
         <>
           <Badge
-            className="gap-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+            className="gap-1 bg-success-subtle text-success-subtle-foreground"
             variant="secondary"
           >
             <CheckCircle2Icon className="size-3" />
@@ -104,7 +104,7 @@ export const TestResultsSummary = ({
           </Badge>
           {summary.failed > 0 && (
             <Badge
-              className="gap-1 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+              className="gap-1 bg-destructive-subtle text-destructive-subtle-foreground"
               variant="secondary"
             >
               <XCircleIcon className="size-3" />
@@ -113,7 +113,7 @@ export const TestResultsSummary = ({
           )}
           {summary.skipped > 0 && (
             <Badge
-              className="gap-1 bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+              className="gap-1 bg-warning-subtle text-warning-subtle-foreground"
               variant="secondary"
             >
               <CircleIcon className="size-3" />

@@ -512,7 +512,7 @@ export default function InvoicesPage() {
                       })}
                       {invoice.externalSyncStatus === "FAILED" && (
                         <div
-                          className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+                          className="mt-1 inline-flex items-center gap-1 rounded-full bg-warning-subtle px-2 py-0.5 text-xs font-medium text-warning-subtle-foreground"
                           title={invoice.externalSyncError ?? "Sync failed"}
                         >
                           <span aria-hidden>⚠</span>

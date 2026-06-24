@@ -327,7 +327,7 @@ export default function AuthorityFormsViewer({
                         <span
                           className={cn(
                             "px-2 py-1 rounded-full text-xs",
-                            "bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400",
+                            "bg-success-subtle text-success-subtle-foreground",
                           )}
                         >
                           Already Created

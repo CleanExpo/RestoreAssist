@@ -216,7 +216,7 @@ function ScopeRow({ item, onToggleSelected, onPatchField }: ScopeRowProps) {
             {item.isRequired && (
               <Badge
                 variant="secondary"
-                className="text-xs px-1.5 py-0 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 border-0"
+                className="text-xs px-1.5 py-0 bg-destructive-subtle text-destructive-subtle-foreground border-0"
               >
                 Required
               </Badge>

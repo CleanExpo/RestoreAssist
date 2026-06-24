@@ -175,15 +175,15 @@ function StatusBadge({
     {
       HEALTHY: {
         label: "Healthy",
-        className: "bg-emerald-100 text-emerald-800 border-emerald-200",
+        className: "bg-success-subtle text-success-subtle-foreground border-success-subtle-foreground/30",
       },
       DEGRADED: {
         label: "Degraded",
-        className: "bg-amber-100 text-amber-800 border-amber-200",
+        className: "bg-warning-subtle text-warning-subtle-foreground border-warning-subtle-foreground/30",
       },
       DOWN: {
         label: "Down",
-        className: "bg-red-100 text-red-800 border-red-200",
+        className: "bg-destructive-subtle text-destructive-subtle-foreground border-destructive-subtle-foreground/30",
       },
       NOT_CONNECTED: {
         label: "Not Connected",
@@ -207,15 +207,15 @@ function CircuitBadge({
   const map: Record<string, { label: string; className: string }> = {
     CLOSED: {
       label: "Closed",
-      className: "bg-emerald-100 text-emerald-800 border-emerald-200",
+      className: "bg-success-subtle text-success-subtle-foreground border-success-subtle-foreground/30",
     },
     OPEN: {
       label: "Open",
-      className: "bg-red-100 text-red-800 border-red-200",
+      className: "bg-destructive-subtle text-destructive-subtle-foreground border-destructive-subtle-foreground/30",
     },
     HALF_OPEN: {
       label: "Half-Open",
-      className: "bg-amber-100 text-amber-800 border-amber-200",
+      className: "bg-warning-subtle text-warning-subtle-foreground border-warning-subtle-foreground/30",
     },
   };
   const v = map[state] ?? {

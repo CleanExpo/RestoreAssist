@@ -627,7 +627,7 @@ export default function QuotePage() {
 
             {/* Minimum charge notice */}
             {quoteResult.minimumApplied && (
-              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-sm text-amber-800 dark:text-amber-300">
+              <div className="bg-warning-subtle border border-warning-subtle-foreground/30 rounded-lg p-3 text-sm text-warning-subtle-foreground">
                 A minimum charge of {fmt(quoteResult.minimumChargeAmount)} (ex
                 GST) has been applied in accordance with industry minimum
                 engagement standards.

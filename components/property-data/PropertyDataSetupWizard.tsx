@@ -207,7 +207,7 @@ export function PropertyDataSetupWizard({
                     key={i}
                     className="flex items-start gap-3 text-sm text-slate-700 dark:text-slate-300"
                   >
-                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xs font-bold">
+                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-info-subtle text-info-subtle-foreground flex items-center justify-center text-xs font-bold">
                       {i + 1}
                     </span>
                     {instruction}
@@ -223,7 +223,7 @@ export function PropertyDataSetupWizard({
                 <ExternalLink size={16} />
                 Open Chrome Web Store
               </a>
-              <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-500/10 rounded-lg text-xs text-amber-700 dark:text-amber-400">
+              <div className="flex items-start gap-2 p-3 bg-warning-subtle rounded-lg text-xs text-warning-subtle-foreground">
                 <HelpCircle size={14} className="flex-shrink-0 mt-0.5" />
                 <span>
                   If you already have Claude in Chrome installed, you can skip
@@ -320,7 +320,7 @@ export function PropertyDataSetupWizard({
                   inspection to auto-fill property details and floor plans.
                 </p>
               </div>
-              <div className="w-full p-3 bg-blue-50 dark:bg-blue-500/10 rounded-lg text-xs text-blue-700 dark:text-blue-400 text-left">
+              <div className="w-full p-3 bg-info-subtle rounded-lg text-xs text-info-subtle-foreground text-left">
                 <strong>Next step:</strong> Open an inspection, enter the
                 property address, then tap "Lookup Property Data". RestoreAssist
                 will pull beds, baths, land size, and any available floor plan

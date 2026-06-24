@@ -85,10 +85,10 @@ const CLAIM_TYPE_OPTIONS = [
 ];
 
 const STATUS_COLOR: Record<string, string> = {
-  COMPLETED: "bg-green-100 text-green-800",
-  PROCESSING: "bg-blue-100 text-blue-800",
-  PENDING: "bg-yellow-100 text-yellow-800",
-  FAILED: "bg-red-100 text-red-800",
+  COMPLETED: "bg-success-subtle text-success-subtle-foreground",
+  PROCESSING: "bg-info-subtle text-info-subtle-foreground",
+  PENDING: "bg-warning-subtle text-warning-subtle-foreground",
+  FAILED: "bg-destructive-subtle text-destructive-subtle-foreground",
 };
 
 function getOverallScore(analysis: Analysis): number | null {
@@ -648,7 +648,7 @@ export default function ClaimsAnalysisExportPage() {
                             ) : (
                               <Badge
                                 variant="outline"
-                                className="text-xs border-green-200 text-green-700 bg-green-50"
+                                className="text-xs border-success-subtle-foreground/30 text-success-subtle-foreground bg-success-subtle"
                               >
                                 0
                               </Badge>

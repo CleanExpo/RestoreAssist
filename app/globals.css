@@ -29,6 +29,17 @@
   --warning-foreground: #1c1917;
   --info: #3b82f6;
   --info-foreground: #ffffff;
+  /* Subtle status tints — the bg/fg pair for status *badges* (previously
+     hardcoded as bg-green-100 text-green-800 etc.). Matches the dominant
+     X-100 / X-800 badge shades so converged badges render unchanged. */
+  --success-subtle: #dcfce7;
+  --success-subtle-foreground: #166534;
+  --warning-subtle: #fef3c7;
+  --warning-subtle-foreground: #92400e;
+  --destructive-subtle: #fee2e2;
+  --destructive-subtle-foreground: #991b1b;
+  --info-subtle: #dbeafe;
+  --info-subtle-foreground: #1e40af;
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
@@ -72,6 +83,15 @@
   --warning-foreground: #1c1917;
   --info: #60a5fa;
   --info-foreground: #0a1929;
+  /* Dark subtle status tints — match the X-900 / X-200 dark badge shades. */
+  --success-subtle: #064e3b;
+  --success-subtle-foreground: #a7f3d0;
+  --warning-subtle: #78350f;
+  --warning-subtle-foreground: #fde68a;
+  --destructive-subtle: #7f1d1d;
+  --destructive-subtle-foreground: #fecaca;
+  --info-subtle: #1e3a8a;
+  --info-subtle-foreground: #bfdbfe;
   --border: oklch(0.269 0 0);
   --input: oklch(0.269 0 0);
   --ring: oklch(0.439 0 0);
@@ -171,6 +191,14 @@
   --color-warning-foreground: var(--warning-foreground);
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
+  --color-success-subtle: var(--success-subtle);
+  --color-success-subtle-foreground: var(--success-subtle-foreground);
+  --color-warning-subtle: var(--warning-subtle);
+  --color-warning-subtle-foreground: var(--warning-subtle-foreground);
+  --color-destructive-subtle: var(--destructive-subtle);
+  --color-destructive-subtle-foreground: var(--destructive-subtle-foreground);
+  --color-info-subtle: var(--info-subtle);
+  --color-info-subtle-foreground: var(--info-subtle-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);

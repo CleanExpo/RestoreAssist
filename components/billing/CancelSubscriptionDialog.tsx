@@ -146,7 +146,7 @@ export function CancelSubscriptionDialog({
           </div>
 
           {(reason === "missing_feature" || reason === "other") && (
-            <div className="rounded-lg border border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-900/10 p-3 text-xs text-amber-800 dark:text-amber-300">
+            <div className="rounded-lg border border-warning-subtle-foreground/30 bg-warning-subtle/50 p-3 text-xs text-warning-subtle-foreground">
               If there's a quick fix we can make, we'd rather hear about it than
               lose you. Reply to your welcome email or contact support before
               cancelling — we respond within a business day.

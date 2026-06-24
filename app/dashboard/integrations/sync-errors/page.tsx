@@ -73,8 +73,8 @@ interface SyncErrorsResponse {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const PROVIDER_COLOURS: Record<string, string> = {
-  xero: "bg-blue-100 text-blue-800 border-blue-200",
-  quickbooks: "bg-green-100 text-green-800 border-green-200",
+  xero: "bg-info-subtle text-info-subtle-foreground border-info-subtle-foreground/30",
+  quickbooks: "bg-success-subtle text-success-subtle-foreground border-success-subtle-foreground/30",
   myob: "bg-purple-100 text-purple-800 border-purple-200",
   servicem8: "bg-orange-100 text-orange-800 border-orange-200",
   ascora: "bg-indigo-100 text-indigo-800 border-indigo-200",
@@ -89,13 +89,13 @@ const PROVIDER_LABEL: Record<string, string> = {
 };
 
 const STATUS_STYLES: Record<string, string> = {
-  FAILED: "bg-red-100 text-red-800 border-red-200",
-  PARTIAL: "bg-amber-100 text-amber-800 border-amber-200",
-  SUCCESS: "bg-green-100 text-green-800 border-green-200",
+  FAILED: "bg-destructive-subtle text-destructive-subtle-foreground border-destructive-subtle-foreground/30",
+  PARTIAL: "bg-warning-subtle text-warning-subtle-foreground border-warning-subtle-foreground/30",
+  SUCCESS: "bg-success-subtle text-success-subtle-foreground border-success-subtle-foreground/30",
   // Webhook statuses
-  PENDING: "bg-amber-100 text-amber-800 border-amber-200",
-  PROCESSING: "bg-blue-100 text-blue-800 border-blue-200",
-  DELIVERED: "bg-green-100 text-green-800 border-green-200",
+  PENDING: "bg-warning-subtle text-warning-subtle-foreground border-warning-subtle-foreground/30",
+  PROCESSING: "bg-info-subtle text-info-subtle-foreground border-info-subtle-foreground/30",
+  DELIVERED: "bg-success-subtle text-success-subtle-foreground border-success-subtle-foreground/30",
 };
 
 function formatDate(iso: string) {
@@ -491,8 +491,8 @@ export default function SyncErrorsPage() {
                 variant="outline"
                 className={`text-sm font-medium px-2.5 py-0.5 ${
                   totalErrorCount > 0
-                    ? "bg-red-100 text-red-800 border-red-300"
-                    : "bg-green-100 text-green-800 border-green-300"
+                    ? "bg-destructive-subtle text-destructive-subtle-foreground border-destructive-subtle-foreground/30"
+                    : "bg-success-subtle text-success-subtle-foreground border-success-subtle-foreground/30"
                 }`}
               >
                 {totalErrorCount > 0
@@ -551,7 +551,7 @@ export default function SyncErrorsPage() {
 
         {/* Fetch error banner */}
         {fetchError && (
-          <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 mb-6">
+          <div className="flex items-center gap-2 rounded-lg bg-destructive-subtle border border-destructive-subtle-foreground/30 px-4 py-3 text-sm text-destructive-subtle-foreground mb-6">
             <AlertTriangle className="h-4 w-4 shrink-0" />
             {fetchError}
             <button

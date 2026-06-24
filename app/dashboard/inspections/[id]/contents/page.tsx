@@ -65,12 +65,12 @@ function restorableBadge(status: ContentsManifestItem["restorableStatus"]) {
   const map: Record<typeof status, { label: string; className: string }> = {
     restorable: {
       label: "Restorable",
-      className: "bg-green-100 text-green-800",
+      className: "bg-success-subtle text-success-subtle-foreground",
     },
-    replace: { label: "Replace", className: "bg-red-100 text-red-800" },
+    replace: { label: "Replace", className: "bg-destructive-subtle text-destructive-subtle-foreground" },
     uncertain: {
       label: "Uncertain",
-      className: "bg-yellow-100 text-yellow-800",
+      className: "bg-warning-subtle text-warning-subtle-foreground",
     },
   };
   const { label, className } = map[status];
@@ -267,7 +267,7 @@ export default function ContentsManifestPage() {
 
       {/* Disclaimer */}
       {draft && (
-        <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+        <div className="flex items-start gap-3 p-3 rounded-lg bg-warning-subtle border border-warning-subtle-foreground/30 text-warning-subtle-foreground text-sm">
           <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
           <span>{draft.disclaimer}</span>
         </div>

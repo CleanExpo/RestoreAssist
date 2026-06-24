@@ -38,10 +38,10 @@ interface Stats {
 }
 
 const STATUS_TONE: Record<Status, string> = {
-  PENDING: "bg-amber-100 text-amber-800",
-  PROCESSING: "bg-blue-100 text-blue-800",
-  COMPLETED: "bg-green-100 text-green-800",
-  FAILED: "bg-red-100 text-red-800",
+  PENDING: "bg-warning-subtle text-warning-subtle-foreground",
+  PROCESSING: "bg-info-subtle text-info-subtle-foreground",
+  COMPLETED: "bg-success-subtle text-success-subtle-foreground",
+  FAILED: "bg-destructive-subtle text-destructive-subtle-foreground",
 };
 
 export function MirrorJobsTable() {

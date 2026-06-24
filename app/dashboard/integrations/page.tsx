@@ -857,7 +857,7 @@ export default function IntegrationsPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-500/30 hover:bg-rose-50 dark:hover:bg-rose-500/10"
+                            className="text-destructive-subtle-foreground border-destructive-subtle-foreground/30 hover:bg-destructive-subtle dark:hover:bg-rose-500/10"
                             onClick={() => handleDisconnect(integration.id)}
                           >
                             Disconnect
@@ -1009,7 +1009,7 @@ export default function IntegrationsPage() {
                     )}
                     {hasError && status?.syncError && (
                       <CardContent className="pt-0 pb-3">
-                        <div className="p-2 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-md text-xs text-rose-600 dark:text-rose-400">
+                        <div className="p-2 bg-destructive-subtle border border-destructive-subtle-foreground/30 rounded-md text-xs text-destructive-subtle-foreground">
                           {status.syncError}
                         </div>
                       </CardContent>
@@ -1033,7 +1033,7 @@ export default function IntegrationsPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-500/30 hover:bg-rose-50 dark:hover:bg-rose-500/10"
+                            className="text-destructive-subtle-foreground border-destructive-subtle-foreground/30 hover:bg-destructive-subtle dark:hover:bg-rose-500/10"
                             onClick={() =>
                               handleDisconnectExternal(integration.slug)
                             }
@@ -1179,7 +1179,7 @@ export default function IntegrationsPage() {
                     )}
                     {hasError && status?.syncError && (
                       <CardContent className="pt-0 pb-3">
-                        <div className="p-2 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-md text-xs text-rose-600 dark:text-rose-400">
+                        <div className="p-2 bg-destructive-subtle border border-destructive-subtle-foreground/30 rounded-md text-xs text-destructive-subtle-foreground">
                           {status.syncError}
                         </div>
                       </CardContent>
@@ -1203,7 +1203,7 @@ export default function IntegrationsPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-500/30 hover:bg-rose-50 dark:hover:bg-rose-500/10"
+                            className="text-destructive-subtle-foreground border-destructive-subtle-foreground/30 hover:bg-destructive-subtle dark:hover:bg-rose-500/10"
                             onClick={() =>
                               handleDisconnectExternal(integration.slug)
                             }
@@ -1347,7 +1347,7 @@ export default function IntegrationsPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-500/30 hover:bg-rose-50 dark:hover:bg-rose-500/10"
+                      className="text-destructive-subtle-foreground border-destructive-subtle-foreground/30 hover:bg-destructive-subtle dark:hover:bg-rose-500/10"
                       onClick={handleDisconnectDrNrpg}
                     >
                       Disconnect

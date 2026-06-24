@@ -231,7 +231,7 @@ export function ProgressRing({
                           : tierNum === tier
                             ? `bg-gradient-to-r ${getTierColor(tierNum)} text-white shadow-lg scale-110`
                             : tierNum < tier
-                              ? "bg-green-100 text-green-700 hover:bg-green-200"
+                              ? "bg-success-subtle text-success-subtle-foreground hover:bg-green-200"
                               : "bg-muted text-muted-foreground cursor-default"
                       }
                       ${onQuestionSelect && !isLocked ? "hover:shadow-md" : ""}

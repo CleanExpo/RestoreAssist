@@ -51,9 +51,9 @@ function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
     DRAFT:
       "bg-neutral-100 dark:bg-slate-800 text-neutral-600 dark:text-slate-300",
-    SENT: "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400",
-    PAID: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400",
-    OVERDUE: "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400",
+    SENT: "bg-info-subtle text-info-subtle-foreground",
+    PAID: "bg-success-subtle text-success-subtle-foreground",
+    OVERDUE: "bg-destructive-subtle text-destructive-subtle-foreground",
     CANCELLED: "bg-neutral-100 dark:bg-slate-800 text-neutral-400",
   };
   return (

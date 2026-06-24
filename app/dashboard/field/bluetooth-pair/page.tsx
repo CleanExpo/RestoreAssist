@@ -153,8 +153,8 @@ export default function BluetoothPairPage() {
           aria-live="polite"
           className={`rounded-lg border p-4 ${
             label.kind === "available"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-100"
-              : "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-100"
+              ? "border-success-subtle-foreground/30 bg-success-subtle text-success-subtle-foreground"
+              : "border-warning-subtle-foreground/30 bg-warning-subtle text-warning-subtle-foreground"
           }`}
         >
           <div className="font-medium">{label.title}</div>

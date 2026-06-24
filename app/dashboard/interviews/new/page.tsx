@@ -212,7 +212,7 @@ export default function NewInterviewPage() {
       </div>
 
       {reportId && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-sm text-blue-700 dark:text-blue-300">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-info-subtle border border-info-subtle-foreground/30 text-sm text-info-subtle-foreground">
           <MessageSquare size={14} />
           Linked to Report: <span className="font-medium">{reportId}</span>
         </div>
@@ -357,7 +357,7 @@ export default function NewInterviewPage() {
             <Loader2 className="animate-spin text-cyan-500" size={24} />
           </div>
         ) : templates.length === 0 ? (
-          <div className="p-4 rounded-xl border border-red-200 dark:border-red-800/50 bg-red-50/50 dark:bg-red-900/10 text-sm text-red-700 dark:text-red-400 space-y-2">
+          <div className="p-4 rounded-xl border border-destructive-subtle-foreground/30 bg-destructive-subtle/50 text-sm text-destructive-subtle-foreground space-y-2">
             <div>{fetchError ?? "No form templates available."}</div>
             <button
               type="button"

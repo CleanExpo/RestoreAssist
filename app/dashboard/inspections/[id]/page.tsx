@@ -261,13 +261,13 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
               className={cn(
                 "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all",
                 isComplete &&
-                  "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400",
+                  "bg-success-subtle text-success-subtle-foreground",
                 isActive &&
                   !isRejected &&
                   "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 ring-2 ring-cyan-500/30",
                 isActive &&
                   isRejected &&
-                  "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 ring-2 ring-red-500/30",
+                  "bg-destructive-subtle text-destructive-subtle-foreground ring-2 ring-red-500/30",
                 !isComplete &&
                   !isActive &&
                   "bg-neutral-100 dark:bg-slate-800 text-neutral-400 dark:text-slate-500",
@@ -296,7 +296,7 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
       {isRejected && (
         <div className="flex items-center">
           <div className="w-4 h-0.5 mx-0.5 bg-red-400" />
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 ring-2 ring-red-500/30">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-destructive-subtle text-destructive-subtle-foreground ring-2 ring-red-500/30">
             <XCircle size={12} /> Rejected
           </div>
         </div>
@@ -899,7 +899,7 @@ export default function InspectionDetailPage({
               {inspection.inspectionNumber}
             </h1>
             {classification && (
-              <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
+              <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-warning-subtle text-warning-subtle-foreground">
                 Category {classification.category} / Class{" "}
                 {classification.class}
               </span>
@@ -931,7 +931,7 @@ export default function InspectionDetailPage({
                 size="sm"
                 onClick={handleGenerateDisputePack}
                 disabled={generatingDisputePack}
-                className="text-xs gap-1.5 border-amber-500 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/10"
+                className="text-xs gap-1.5 border-amber-500 text-warning-subtle-foreground hover:bg-warning-subtle dark:hover:bg-amber-900/10"
               >
                 {generatingDisputePack ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1871,7 +1871,7 @@ export default function InspectionDetailPage({
                       </h4>
                       <div className="flex items-center gap-2">
                         {area.category && (
-                          <span className="px-2 py-0.5 rounded text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-600">
+                          <span className="px-2 py-0.5 rounded text-xs font-medium bg-warning-subtle text-warning-subtle-foreground">
                             Cat {area.category}
                           </span>
                         )}
@@ -1952,7 +1952,7 @@ export default function InspectionDetailPage({
                       <div className="text-xs text-amber-600 dark:text-amber-400 uppercase font-semibold mb-1">
                         Category
                       </div>
-                      <div className="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-2xl font-bold text-amber-700 dark:text-amber-300">
+                      <div className="w-16 h-16 rounded-full bg-warning-subtle flex items-center justify-center text-2xl font-bold text-warning-subtle-foreground">
                         {cls.category}
                       </div>
                     </div>
@@ -2393,7 +2393,7 @@ export default function InspectionDetailPage({
                             </span>
                           )}
                           {item.isRequired && (
-                            <span className="px-1.5 py-0.5 rounded text-xs bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
+                            <span className="px-1.5 py-0.5 rounded text-xs bg-destructive-subtle text-destructive-subtle-foreground">
                               Required
                             </span>
                           )}
@@ -2451,7 +2451,7 @@ export default function InspectionDetailPage({
                             }
                           }}
                           aria-label={`Delete scope item: ${item.description}`}
-                          className="p-1.5 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
+                          className="p-1.5 rounded-lg text-neutral-400 hover:text-destructive-subtle-foreground hover:bg-destructive-subtle dark:hover:bg-red-900/20 transition-colors focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
                         >
                           <Trash2 size={14} aria-hidden="true" />
                         </button>

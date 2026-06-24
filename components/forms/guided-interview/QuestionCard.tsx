@@ -343,7 +343,7 @@ export function QuestionCard({
                     <Badge
                       key={std}
                       variant="secondary"
-                      className="text-xs font-medium bg-blue-100/80 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/60 px-2.5 py-1 hover:bg-blue-200 dark:hover:bg-blue-900/60 transition-colors"
+                      className="text-xs font-medium bg-info-subtle/80 text-info-subtle-foreground border border-info-subtle-foreground/30/80 px-2.5 py-1 hover:bg-blue-200 dark:hover:bg-blue-900/60 transition-colors"
                     >
                       {std}
                     </Badge>
@@ -384,7 +384,7 @@ export function QuestionCard({
               {question.fieldMappings.map((mapping, idx) => (
                 <div
                   key={idx}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-success-subtle text-success-subtle-foreground border border-success-subtle-foreground/30"
                 >
                   <span className="text-xs font-medium">
                     {mapping.formFieldId}

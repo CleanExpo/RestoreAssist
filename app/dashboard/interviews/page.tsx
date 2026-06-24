@@ -276,13 +276,13 @@ export default function InterviewsPage() {
                 {templates.slice(0, 5).map((tpl) => (
                   <span
                     key={tpl.id}
-                    className="text-xs px-2 py-1 rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800"
+                    className="text-xs px-2 py-1 rounded bg-success-subtle text-success-subtle-foreground border border-success-subtle-foreground/30"
                   >
                     {tpl.name}
                   </span>
                 ))}
                 {templates.length > 5 && (
-                  <span className="text-xs px-2 py-1 rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                  <span className="text-xs px-2 py-1 rounded bg-success-subtle text-success-subtle-foreground border border-success-subtle-foreground/30">
                     +{templates.length - 5} more
                   </span>
                 )}
@@ -417,7 +417,7 @@ export default function InterviewsPage() {
               type="button"
               onClick={handleDeleteSelected}
               disabled={deleting}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-destructive-subtle text-destructive-subtle-foreground hover:bg-destructive-subtle dark:hover:bg-red-900/30 disabled:opacity-50"
             >
               {deleting ? (
                 <Loader2 size={14} className="animate-spin" />
@@ -548,7 +548,7 @@ export default function InterviewsPage() {
                     type="button"
                     onClick={(e) => handleDeleteOne(e, s.id)}
                     disabled={deleting}
-                    className="p-2 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
+                    className="p-2 rounded-lg text-neutral-400 hover:text-destructive-subtle-foreground hover:bg-destructive-subtle dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
                     title="Delete session"
                   >
                     <Trash2 size={18} />

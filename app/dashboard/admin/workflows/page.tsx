@@ -419,7 +419,7 @@ function WorkflowRow({
             <Button
               size="sm"
               variant="outline"
-              className="h-7 text-xs gap-1 border-blue-200 dark:border-blue-800/50 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+              className="h-7 text-xs gap-1 border-info-subtle-foreground/30 text-info-subtle-foreground hover:bg-info-subtle dark:hover:bg-blue-950/30"
               onClick={handleResume}
               disabled={resuming}
             >

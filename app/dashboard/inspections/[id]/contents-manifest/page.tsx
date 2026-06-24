@@ -64,20 +64,20 @@ interface InspectionMeta {
 
 const CONDITION_COLORS: Record<string, string> = {
   undamaged:
-    "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+    "bg-success-subtle text-success-subtle-foreground",
   lightly_soiled:
-    "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
+    "bg-warning-subtle text-warning-subtle-foreground",
   water_damaged:
-    "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+    "bg-info-subtle text-info-subtle-foreground",
   smoke_damaged:
     "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
-  fire_damaged: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+  fire_damaged: "bg-destructive-subtle text-destructive-subtle-foreground",
   mould_affected:
     "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
   contaminated:
-    "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
+    "bg-destructive-subtle text-destructive-subtle-foreground",
   structurally_damaged:
-    "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+    "bg-warning-subtle text-warning-subtle-foreground",
   destroyed:
     "bg-neutral-200 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-400",
 };

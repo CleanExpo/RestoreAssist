@@ -68,16 +68,16 @@ const FREQUENCY_CONFIG: Record<
   WEEKLY: {
     label: "Weekly",
     className:
-      "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
+      "bg-info-subtle text-info-subtle-foreground",
   },
   FORTNIGHTLY: {
     label: "Fortnightly",
-    className: "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300",
+    className: "bg-info-subtle text-info-subtle-foreground",
   },
   MONTHLY: {
     label: "Monthly",
     className:
-      "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
+      "bg-success-subtle text-success-subtle-foreground",
   },
   QUARTERLY: {
     label: "Quarterly",
@@ -119,12 +119,12 @@ const STATUS_CONFIG: Record<
   ACTIVE: {
     label: "Active",
     className:
-      "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
+      "bg-success-subtle text-success-subtle-foreground",
   },
   PAUSED: {
     label: "Paused",
     className:
-      "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
+      "bg-warning-subtle text-warning-subtle-foreground",
   },
   COMPLETED: {
     label: "Completed",
@@ -133,7 +133,7 @@ const STATUS_CONFIG: Record<
   },
   CANCELLED: {
     label: "Cancelled",
-    className: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400",
+    className: "bg-destructive-subtle text-destructive-subtle-foreground",
   },
 };
 
@@ -551,7 +551,7 @@ export default function RecurringInvoicesPage() {
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    className="h-8 px-3 text-xs text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                                    className="h-8 px-3 text-xs text-warning-subtle-foreground border-warning-subtle-foreground/30 hover:bg-warning-subtle dark:hover:bg-amber-900/20"
                                     onClick={() => handlePause(schedule.id)}
                                     disabled={isActioning}
                                     title="Pause this schedule"
@@ -571,7 +571,7 @@ export default function RecurringInvoicesPage() {
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    className="h-8 px-3 text-xs text-green-700 dark:text-green-400 border-green-300 dark:border-green-700 hover:bg-green-50 dark:hover:bg-green-900/20"
+                                    className="h-8 px-3 text-xs text-success-subtle-foreground border-success-subtle-foreground/30 hover:bg-success-subtle dark:hover:bg-green-900/20"
                                     onClick={() => handleResume(schedule.id)}
                                     disabled={isActioning}
                                     title="Resume this schedule"
@@ -592,7 +592,7 @@ export default function RecurringInvoicesPage() {
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    className="h-8 px-3 text-xs text-red-600 dark:text-red-400 border-red-300 dark:border-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                    className="h-8 px-3 text-xs text-destructive-subtle-foreground border-destructive-subtle-foreground/30 hover:bg-destructive-subtle dark:hover:bg-red-900/20"
                                     onClick={() =>
                                       openCancelConfirm(schedule.id)
                                     }

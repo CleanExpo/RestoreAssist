@@ -104,7 +104,7 @@ export default function ReopenInspectionPrompt({
           variant="outline"
           size="sm"
           onClick={() => setDialogOpen(true)}
-          className="border-amber-500 text-amber-800 hover:bg-amber-100 dark:text-amber-300 dark:hover:bg-amber-900/20"
+          className="border-amber-500 text-warning-subtle-foreground hover:bg-warning-subtle dark:hover:bg-amber-900/20"
         >
           {reopenIcon ? <span className="mr-1.5">{reopenIcon}</span> : null}
           Reopen job

@@ -88,10 +88,10 @@ const STATUS_LABEL: Record<ConnectionStatus, string> = {
 
 const STATUS_COLOUR: Record<ConnectionStatus, string> = {
   ACTIVE:
-    "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+    "bg-success-subtle text-success-subtle-foreground",
   DISABLED:
     "bg-neutral-100 text-neutral-500 dark:bg-slate-800 dark:text-slate-400",
-  ERROR: "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
+  ERROR: "bg-destructive-subtle text-destructive-subtle-foreground",
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -423,7 +423,7 @@ export default function AiProvidersPage() {
                           <button
                             onClick={() => handleDisable(p.id)}
                             disabled={disabling === p.id}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-red-200 text-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-40 transition-colors"
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-destructive-subtle-foreground/30 text-destructive-subtle-foreground rounded-lg hover:bg-destructive-subtle dark:hover:bg-red-900/20 disabled:opacity-40 transition-colors"
                           >
                             {disabling === p.id ? (
                               <Loader2 size={12} className="animate-spin" />

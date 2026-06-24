@@ -135,11 +135,11 @@ export default async function GovernancePage({ searchParams }: Props) {
                     </td>
                     <td className="px-4 py-2">
                       {r.isBreached ? (
-                        <span className="inline-block rounded px-2 py-0.5 text-xs bg-amber-100 text-amber-800">
+                        <span className="inline-block rounded px-2 py-0.5 text-xs bg-warning-subtle text-warning-subtle-foreground">
                           Breach
                         </span>
                       ) : (
-                        <span className="inline-block rounded px-2 py-0.5 text-xs bg-emerald-100 text-emerald-800">
+                        <span className="inline-block rounded px-2 py-0.5 text-xs bg-success-subtle text-success-subtle-foreground">
                           OK
                         </span>
                       )}

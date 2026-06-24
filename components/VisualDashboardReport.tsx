@@ -825,13 +825,13 @@ function DetailedReportPages({
                 <div className="space-y-4">
                   <div>
                     <p className="text-sm text-slate-600 mb-2 font-medium">Category</p>
-                    <span className="inline-block px-4 py-2 rounded-lg text-base font-bold bg-blue-100 text-blue-800 border border-blue-300">
+                    <span className="inline-block px-4 py-2 rounded-lg text-base font-bold bg-info-subtle text-info-subtle-foreground border border-info-subtle-foreground/30">
                       {fullData.classification.category || 'Not classified'}
                     </span>
                   </div>
                   <div>
                     <p className="text-sm text-slate-600 mb-2 font-medium">Class</p>
-                    <span className="inline-block px-4 py-2 rounded-lg text-base font-bold bg-green-100 text-green-800 border border-green-300">
+                    <span className="inline-block px-4 py-2 rounded-lg text-base font-bold bg-success-subtle text-success-subtle-foreground border border-success-subtle-foreground/30">
                       Class {fullData.classification.class || 'Not classified'}
                     </span>
                   </div>
@@ -882,7 +882,7 @@ function DetailedReportPages({
                     <p className="text-xs text-slate-600 mb-1 font-medium">
                       Drying Status
                     </p>
-                    <span className="inline-block px-4 py-2 rounded-lg text-base font-bold bg-yellow-100 text-yellow-800 border border-yellow-300">
+                    <span className="inline-block px-4 py-2 rounded-lg text-base font-bold bg-warning-subtle text-warning-subtle-foreground border border-warning-subtle-foreground/30">
                       {fullData.psychrometric.dryingStatus.toUpperCase()}
                     </span>
                   </div>
@@ -972,7 +972,7 @@ function DetailedReportPages({
                           (material: string, mIdx: number) => (
                             <span
                               key={mIdx}
-                              className="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 border border-blue-200"
+                              className="px-3 py-1 rounded-full text-sm font-medium bg-info-subtle text-info-subtle-foreground border border-info-subtle-foreground/30"
                             >
                               {material}
                             </span>
@@ -1081,7 +1081,7 @@ function DetailedReportPages({
                           {reading.surfaceType || "N/A"}
                         </td>
                         <td className="px-6 py-4 text-right">
-                          <span className="inline-block px-3 py-1 rounded-full text-sm font-bold bg-blue-100 text-blue-800">
+                          <span className="inline-block px-3 py-1 rounded-full text-sm font-bold bg-info-subtle text-info-subtle-foreground">
                             {reading.moistureLevel}
                             {reading.unit}
                           </span>
@@ -1139,7 +1139,7 @@ function DetailedReportPages({
                         {item.description}
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <span className="inline-block px-3 py-1 rounded-full text-sm font-bold bg-green-100 text-green-800">
+                        <span className="inline-block px-3 py-1 rounded-full text-sm font-bold bg-success-subtle text-success-subtle-foreground">
                           {item.quantity}
                         </span>
                       </td>

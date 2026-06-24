@@ -175,7 +175,7 @@ function ClaimCard({ result }: { result: ClaimReadinessResult }) {
               className={cn(
                 "w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0",
                 ready
-                  ? "bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400"
+                  ? "bg-success-subtle text-success-subtle-foreground"
                   : "bg-cyan-50 dark:bg-cyan-950/30 text-cyan-600 dark:text-cyan-400",
               )}
             >
@@ -187,7 +187,7 @@ function ClaimCard({ result }: { result: ClaimReadinessResult }) {
                   {claim.id}
                 </span>
                 {ready ? (
-                  <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400 text-[10px] py-0 px-1.5 border-0">
+                  <Badge className="bg-success-subtle text-success-subtle-foreground text-[10px] py-0 px-1.5 border-0">
                     Ready to promote
                   </Badge>
                 ) : dataCollection ? (
@@ -637,7 +637,7 @@ export default function PilotReadinessDashboard() {
             {report.readyToPromote.map((r) => (
               <Badge
                 key={r.claim.id}
-                className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400 border-0 gap-1"
+                className="bg-success-subtle text-success-subtle-foreground border-0 gap-1"
               >
                 <CheckCircle2 size={10} />
                 {r.claim.id}

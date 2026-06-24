@@ -141,12 +141,12 @@ const METHOD_LABELS: Record<string, string> = {
 };
 
 const METHOD_COLOURS: Record<string, string> = {
-  BANK_TRANSFER: "bg-blue-100 text-blue-800",
-  CHEQUE: "bg-amber-100 text-amber-800",
+  BANK_TRANSFER: "bg-info-subtle text-info-subtle-foreground",
+  CHEQUE: "bg-warning-subtle text-warning-subtle-foreground",
   STRIPE: "bg-purple-100 text-purple-800",
-  CASH: "bg-green-100 text-green-800",
-  CREDIT_CARD: "bg-rose-100 text-rose-800",
-  PAYPAL: "bg-sky-100 text-sky-800",
+  CASH: "bg-success-subtle text-success-subtle-foreground",
+  CREDIT_CARD: "bg-destructive-subtle text-destructive-subtle-foreground",
+  PAYPAL: "bg-info-subtle text-info-subtle-foreground",
   EXTERNAL: "bg-slate-100 text-slate-800",
   EFT: "bg-teal-100 text-teal-800",
   OTHER: "bg-slate-100 text-slate-800",

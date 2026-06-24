@@ -46,19 +46,19 @@ export function StatCard({
     },
     success: {
       card: "border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/20",
-      icon: "text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30",
+      icon: "text-success-subtle-foreground bg-success-subtle",
       value: "text-success",
       title: "text-success",
     },
     warning: {
       card: "border-yellow-200 dark:border-yellow-800 bg-yellow-50/50 dark:bg-yellow-950/20",
-      icon: "text-yellow-600 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900/30",
+      icon: "text-warning-subtle-foreground bg-warning-subtle",
       value: "text-yellow-700 dark:text-yellow-400",
       title: "text-yellow-600 dark:text-yellow-400",
     },
     danger: {
       card: "border-red-200 dark:border-red-800 bg-red-50/50 dark:bg-red-950/20",
-      icon: "text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30",
+      icon: "text-destructive-subtle-foreground bg-destructive-subtle",
       value: "text-destructive",
       title: "text-destructive",
     },

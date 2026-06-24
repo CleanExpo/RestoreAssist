@@ -8,11 +8,11 @@ import { ClientPortalAuthorities } from "@/components/portal/ClientPortalAuthori
 import { ClientPortalStatus } from "@/components/portal/ClientPortalStatus";
 
 const CATEGORY_COLOURS: Record<string, string> = {
-  "1": "bg-green-100 text-green-800",
-  "2": "bg-yellow-100 text-yellow-800",
+  "1": "bg-success-subtle text-success-subtle-foreground",
+  "2": "bg-warning-subtle text-warning-subtle-foreground",
   "3": "bg-orange-100 text-orange-800",
-  "4": "bg-red-100 text-red-800",
-  A: "bg-blue-100 text-blue-800",
+  "4": "bg-destructive-subtle text-destructive-subtle-foreground",
+  A: "bg-info-subtle text-info-subtle-foreground",
   B: "bg-purple-100 text-purple-800",
   C: "bg-pink-100 text-pink-800",
 };
@@ -277,8 +277,8 @@ export default async function ClientPortalPage({ params }: PageProps) {
                 className={[
                   "px-3 py-1.5 rounded-full text-xs font-semibold",
                   isDryingComplete
-                    ? "bg-emerald-100 text-emerald-700"
-                    : "bg-amber-100 text-amber-700",
+                    ? "bg-success-subtle text-success-subtle-foreground"
+                    : "bg-warning-subtle text-warning-subtle-foreground",
                 ].join(" ")}
               >
                 {isDryingComplete ? "Drying complete" : "Drying in progress"}

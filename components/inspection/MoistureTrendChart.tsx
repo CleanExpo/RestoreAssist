@@ -332,15 +332,15 @@ export default function MoistureTrendChart({
                   </td>
                   <td className="px-4 py-2.5 text-right">
                     {level <= DRY_STANDARD ? (
-                      <span className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                      <span className="inline-flex items-center gap-1 text-xs text-success-subtle-foreground bg-success-subtle px-2 py-0.5 rounded-full">
                         <CheckCircle2 size={11} /> Dry
                       </span>
                     ) : level <= 25 ? (
-                      <span className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 px-2 py-0.5 rounded-full">
+                      <span className="inline-flex items-center gap-1 text-xs text-warning-subtle-foreground bg-warning-subtle px-2 py-0.5 rounded-full">
                         <AlertTriangle size={11} /> Caution
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-xs text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 px-2 py-0.5 rounded-full">
+                      <span className="inline-flex items-center gap-1 text-xs text-destructive-subtle-foreground bg-destructive-subtle px-2 py-0.5 rounded-full">
                         <AlertTriangle size={11} /> Wet
                       </span>
                     )}
