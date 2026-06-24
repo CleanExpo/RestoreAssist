@@ -1806,7 +1806,7 @@ export default function NIRTechnicianInputForm({
 
         {/* Expected Classification Preview */}
         {classificationPreview && (
-          <div className="p-6 rounded-lg border-2 border-cyan-500/50 bg-gradient-to-br from-cyan-500/10 to-blue-500/10">
+          <div className="p-6 rounded-lg border-2 border-cyan-500/50 bg-brand-navy">
             <h3
               className={cn(
                 "text-lg font-semibold mb-4 flex items-center gap-2",
@@ -2046,7 +2046,7 @@ export default function NIRTechnicianInputForm({
             type="button"
             onClick={handleSubmit}
             disabled={saving}
-            className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none text-white group"
+            className="flex items-center gap-2 px-6 py-2 bg-brand-navy rounded-lg font-medium hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none text-white group"
           >
             {saving ? (
               <>
@@ -2141,7 +2141,7 @@ export default function NIRTechnicianInputForm({
           }
           className={cn(
             "flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all",
-            "bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600",
+            "bg-brand-navy",
             "text-white shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed",
             "hover:scale-[1.02] active:scale-[0.98]",
           )}
@@ -2595,7 +2595,7 @@ export default function NIRTechnicianInputForm({
             <button
               type="button"
               onClick={handleAddMoistureReading}
-              className="w-full px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-lg hover:shadow-cyan-500/30 hover:scale-[1.02] active:scale-[0.98] group"
+              className="w-full px-4 py-2 bg-brand-navy text-white rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] group"
             >
               <Plus className="w-4 h-4 transition-transform duration-200 group-hover:rotate-90 group-hover:scale-110" />
               <span className="font-medium">Add Reading</span>
@@ -3085,7 +3085,7 @@ export default function NIRTechnicianInputForm({
               <button
                 type="button"
                 onClick={handleAddAffectedArea}
-                className="w-full px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-lg hover:shadow-cyan-500/30 hover:scale-[1.02] active:scale-[0.98] group"
+                className="w-full px-4 py-2 bg-brand-navy text-white rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] group"
               >
                 <Plus className="w-4 h-4 transition-transform duration-200 group-hover:rotate-90 group-hover:scale-110" />
                 <span className="font-medium">Add Area</span>
@@ -3548,7 +3548,7 @@ export default function NIRTechnicianInputForm({
                   setNewEquipment({ type: EQUIPMENT_TYPES[0], quantity: 1 });
                   toast.success("Equipment added");
                 }}
-                className="w-full px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
+                className="w-full px-4 py-2 bg-brand-navy text-white rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
               >
                 <Plus className="w-4 h-4" />
                 <span className="text-sm font-medium">Add</span>
@@ -3694,7 +3694,7 @@ export default function NIRTechnicianInputForm({
                   <button
                     type="button"
                     onClick={() => handleRemovePhoto(photo.id, index)}
-                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 hover:scale-110 active:scale-95 transition-all duration-200 shadow-md hover:shadow-lg hover:shadow-red-500/30 group"
+                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 hover:scale-110 active:scale-95 transition-all duration-200 shadow-md hover:shadow-lg group"
                     title="Remove photo"
                   >
                     <X className="w-3.5 h-3.5 transition-transform duration-200 group-hover:rotate-90" />
@@ -3867,7 +3867,7 @@ export default function NIRTechnicianInputForm({
           type="button"
           onClick={handleReview}
           disabled={saving}
-          className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg font-medium hover:shadow-lg hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none text-white group"
+          className="flex items-center gap-2 px-6 py-2 bg-brand-navy rounded-lg font-medium hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none text-white group"
         >
           <ClipboardCheck className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" />
           <span>Review & Submit</span>

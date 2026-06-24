@@ -13,7 +13,7 @@ const damageTypes = [
     range: "$2K - $15K+",
     description:
       "Flooding, burst pipes, storm damage, and water intrusion restoration services.",
-    color: "from-blue-500 to-cyan-500",
+    color: "",
   },
   {
     icon: Flame,
@@ -21,7 +21,7 @@ const damageTypes = [
     range: "$10K - $100K+",
     description:
       "Smoke, soot, and fire damage restoration with specialized cleaning protocols.",
-    color: "from-orange-500 to-red-500",
+    color: "",
   },
   {
     icon: Wind,
@@ -29,7 +29,7 @@ const damageTypes = [
     range: "$5K - $50K+",
     description:
       "Roof damage, structural repairs, and debris removal from severe weather events.",
-    color: "from-purple-500 to-pink-500",
+    color: "",
   },
   {
     icon: Waves,
@@ -37,7 +37,7 @@ const damageTypes = [
     range: "$15K - $150K+",
     description:
       "Major flooding restoration with comprehensive water extraction and drying.",
-    color: "from-cyan-500 to-blue-500",
+    color: "",
   },
   {
     icon: Bug,
@@ -45,7 +45,7 @@ const damageTypes = [
     range: "$3K - $30K+",
     description:
       "Mould remediation, containment, and specialized cleaning services.",
-    color: "from-green-500 to-emerald-500",
+    color: "",
   },
 ];
 
@@ -62,7 +62,7 @@ export default function DamageTypesSection() {
           <AnimatedCard key={index} delay={index * 0.1}>
             <div className="text-center">
               <div
-                className={`w-20 h-20 bg-gradient-to-r ${damage.color} rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg`}
+                className={`w-20 h-20 bg-brand-navy rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg`}
               >
                 <damage.icon size={40} className="text-white" />
               </div>

@@ -599,7 +599,7 @@ function DetailedReportPages({
         </div>
 
         <div className="grid md:grid-cols-2 gap-6 mb-6">
-          <div className="bg-gradient-to-br from-slate-50 to-blue-50 rounded-lg p-6 border-2 border-slate-200 shadow-sm">
+          <div className="bg-gradient-to-br from-slate-50 rounded-lg p-6 border-2 border-slate-200 shadow-sm">
             <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
               <Building2 className="w-5 h-5 text-slate-700" />
               Property Details
@@ -653,7 +653,7 @@ function DetailedReportPages({
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-slate-50 to-cyan-50 rounded-lg p-6 border-2 border-slate-200 shadow-sm">
+          <div className="bg-gradient-to-br from-slate-50 rounded-lg p-6 border-2 border-slate-200 shadow-sm">
             <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
               <Calendar className="w-5 h-5 text-slate-700" />
               Incident Details
@@ -715,7 +715,7 @@ function DetailedReportPages({
         </div>
 
         {fullData.property?.accessNotes && (
-          <div className="bg-gradient-to-r from-amber-50 to-yellow-50 rounded-lg p-5 border-2 border-amber-300 shadow-sm">
+          <div className="bg-brand-navy rounded-lg p-5 border-2 border-amber-300 shadow-sm">
             <div className="flex items-start gap-2 mb-2">
               <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5" />
               <p className="text-sm font-bold text-amber-900 uppercase tracking-wide">
@@ -750,7 +750,7 @@ function DetailedReportPages({
                   fullData.environmental.dewPoint !== undefined));
             return hasEnvData;
           })() ? (
-            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-lg p-6 border-2 border-blue-200 shadow-sm">
+            <div className="bg-brand-navy rounded-lg p-6 border-2 border-blue-200 shadow-sm">
               <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
                 <Thermometer className="w-6 h-6 text-blue-600" />
                 Environmental Data
@@ -805,7 +805,7 @@ function DetailedReportPages({
               </div>
             </div>
           ) : (
-            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-lg p-6 border-2 border-blue-200 shadow-sm">
+            <div className="bg-brand-navy rounded-lg p-6 border-2 border-blue-200 shadow-sm">
               <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
                 <Thermometer className="w-6 h-6 text-blue-600" />
                 Environmental Data
@@ -817,7 +817,7 @@ function DetailedReportPages({
           )}
 
           {/* {fullData.classification ? (
-              <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-6 border-2 border-green-200 shadow-sm">
+              <div className="bg-brand-navy rounded-lg p-6 border-2 border-green-200 shadow-sm">
                 <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
                   <Shield className="w-6 h-6 text-success" />
                   IICRC Classification
@@ -850,7 +850,7 @@ function DetailedReportPages({
                 </div>
               </div>
           ) : (
-            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-6 border-2 border-green-200 shadow-sm">
+            <div className="bg-brand-navy rounded-lg p-6 border-2 border-green-200 shadow-sm">
               <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
                 <Shield className="w-6 h-6 text-success" />
                 IICRC Classification
@@ -860,7 +860,7 @@ function DetailedReportPages({
           )} */}
 
           {fullData.psychrometric ? (
-            <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-lg p-6 border-2 border-orange-200 shadow-sm">
+            <div className="bg-brand-navy rounded-lg p-6 border-2 border-orange-200 shadow-sm">
               <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
                 <Gauge className="w-6 h-6 text-orange-600" />
                 Psychrometric Assessment
@@ -922,7 +922,7 @@ function DetailedReportPages({
               )}
             </div>
           ) : (
-            <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-lg p-6 border-2 border-orange-200 shadow-sm">
+            <div className="bg-brand-navy rounded-lg p-6 border-2 border-orange-200 shadow-sm">
               <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
                 <Gauge className="w-6 h-6 text-orange-600" />
                 Psychrometric Assessment
@@ -947,7 +947,7 @@ function DetailedReportPages({
               {fullData.affectedAreas.map((area: any, idx: number) => (
                 <div
                   key={idx}
-                  className="bg-gradient-to-br from-slate-50 to-blue-50 rounded-lg p-6 border-2 border-slate-200 shadow-sm"
+                  className="bg-gradient-to-br from-slate-50 rounded-lg p-6 border-2 border-slate-200 shadow-sm"
                 >
                   <h3 className="text-2xl font-bold text-slate-900 mb-4 flex items-center gap-2">
                     <MapPin className="w-6 h-6 text-blue-600" />
@@ -1051,7 +1051,7 @@ function DetailedReportPages({
             </div>
             <div className="bg-white rounded-lg border-2 border-slate-200 overflow-hidden shadow-sm">
               <table className="w-full">
-                <thead className="bg-gradient-to-r from-cyan-100 to-blue-100">
+                <thead className="bg-brand-navy">
                   <tr>
                     <th className="px-6 py-4 text-left text-sm font-bold text-slate-900 uppercase tracking-wide">
                       Location
@@ -1109,7 +1109,7 @@ function DetailedReportPages({
             </div>
             <div className="bg-white rounded-lg border-2 border-slate-200 overflow-hidden shadow-sm">
               <table className="w-full">
-                <thead className="bg-gradient-to-r from-green-100 to-emerald-100">
+                <thead className="bg-brand-navy">
                   <tr>
                     <th className="px-6 py-4 text-left text-sm font-bold text-slate-900 uppercase tracking-wide">
                       Description
@@ -1170,7 +1170,7 @@ function DetailedReportPages({
             </div>
             <div className="bg-white rounded-lg border-2 border-slate-200 overflow-hidden mb-6 shadow-sm">
               <table className="w-full">
-                <thead className="bg-gradient-to-r from-purple-100 to-indigo-100">
+                <thead className="bg-brand-navy">
                   <tr>
                     <th className="px-6 py-4 text-left text-sm font-bold text-slate-900 uppercase tracking-wide">
                       Equipment
@@ -1239,13 +1239,13 @@ function DetailedReportPages({
 
             {fullData.costEstimates && fullData.costEstimates.length > 0 && (
               <div className="bg-white rounded-lg border-2 border-slate-200 overflow-hidden shadow-sm">
-                <div className="bg-gradient-to-r from-emerald-100 to-teal-100 px-6 py-3 border-b-2 border-emerald-200">
+                <div className="bg-brand-navy px-6 py-3 border-b-2 border-emerald-200">
                   <h3 className="text-xl font-bold text-slate-900">
                     Cost Estimates
                   </h3>
                 </div>
                 <table className="w-full">
-                  <thead className="bg-gradient-to-r from-emerald-100 to-teal-100">
+                  <thead className="bg-brand-navy">
                     <tr>
                       <th className="px-6 py-4 text-left text-sm font-bold text-slate-900 uppercase tracking-wide">
                         Description
@@ -1370,7 +1370,7 @@ function DetailedReportPages({
             </div>
 
             {fullData.hazards && (
-              <div className="mb-6 bg-gradient-to-br from-amber-50 to-yellow-50 rounded-lg p-6 border-2 border-amber-300 shadow-sm">
+              <div className="mb-6 bg-brand-navy rounded-lg p-6 border-2 border-amber-300 shadow-sm">
                 <h3 className="text-xl font-bold text-amber-900 mb-4 flex items-center gap-2">
                   <AlertTriangle className="w-6 h-6 text-amber-600" />
                   Hazard Assessment
@@ -1429,7 +1429,7 @@ function DetailedReportPages({
             )}
 
             {fullData.compliance && (
-              <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-6 border-2 border-green-200 shadow-sm">
+              <div className="bg-brand-navy rounded-lg p-6 border-2 border-green-200 shadow-sm">
                 <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
                   <Shield className="w-6 h-6 text-success" />
                   Compliance Standards
@@ -1463,7 +1463,7 @@ function DetailedReportPages({
                 Technician Field Notes
               </h2>
             </div>
-            <div className="bg-gradient-to-br from-slate-50 to-blue-50 rounded-lg p-6 border-2 border-slate-200 shadow-sm">
+            <div className="bg-gradient-to-br from-slate-50 rounded-lg p-6 border-2 border-slate-200 shadow-sm">
               <div className="bg-white rounded-lg p-5 border border-slate-200">
                 <p className="text-slate-900 whitespace-pre-wrap leading-relaxed">
                   {fullData.technicianNotes}

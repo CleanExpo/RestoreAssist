@@ -10,30 +10,30 @@ const states = [
   {
     name: "NSW",
     fullName: "New South Wales",
-    color: "from-blue-500 to-cyan-500",
+    color: "",
   },
-  { name: "VIC", fullName: "Victoria", color: "from-emerald-500 to-teal-500" },
-  { name: "QLD", fullName: "Queensland", color: "from-orange-500 to-red-500" },
+  { name: "VIC", fullName: "Victoria", color: "" },
+  { name: "QLD", fullName: "Queensland", color: "" },
   {
     name: "WA",
     fullName: "Western Australia",
-    color: "from-purple-500 to-pink-500",
+    color: "",
   },
   {
     name: "SA",
     fullName: "South Australia",
-    color: "from-green-500 to-emerald-500",
+    color: "",
   },
-  { name: "TAS", fullName: "Tasmania", color: "from-cyan-500 to-blue-500" },
+  { name: "TAS", fullName: "Tasmania", color: "" },
   {
     name: "ACT",
     fullName: "Australian Capital Territory",
-    color: "from-indigo-500 to-purple-500",
+    color: "",
   },
   {
     name: "NT",
     fullName: "Northern Territory",
-    color: "from-yellow-500 to-orange-500",
+    color: "",
   },
 ];
 
@@ -50,7 +50,7 @@ export default function StatesCoverageSection() {
           <AnimatedCard key={index} delay={index * 0.1}>
             <div className="text-center">
               <div
-                className={`w-16 h-16 bg-gradient-to-r ${state.color} rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg`}
+                className={`w-16 h-16 bg-brand-navy rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg`}
               >
                 <MapPin size={32} className="text-white" />
               </div>
@@ -77,7 +77,7 @@ export default function StatesCoverageSection() {
         viewport={{ once: true }}
       >
         <div className="text-center p-6 bg-slate-800/30 border border-slate-700/50 rounded-xl">
-          <div className="w-12 h-12 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full flex items-center justify-center mx-auto mb-4">
+          <div className="w-12 h-12 bg-brand-navy rounded-full flex items-center justify-center mx-auto mb-4">
             <Shield size={24} className="text-white" />
           </div>
           <h3
@@ -93,7 +93,7 @@ export default function StatesCoverageSection() {
         </div>
 
         <div className="text-center p-6 bg-slate-800/30 border border-slate-700/50 rounded-xl">
-          <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full flex items-center justify-center mx-auto mb-4">
+          <div className="w-12 h-12 bg-brand-navy rounded-full flex items-center justify-center mx-auto mb-4">
             <CheckCircle size={24} className="text-white" />
           </div>
           <h3
@@ -109,7 +109,7 @@ export default function StatesCoverageSection() {
         </div>
 
         <div className="text-center p-6 bg-slate-800/30 border border-slate-700/50 rounded-xl">
-          <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
+          <div className="w-12 h-12 bg-brand-navy rounded-full flex items-center justify-center mx-auto mb-4">
             <MapPin size={24} className="text-white" />
           </div>
           <h3

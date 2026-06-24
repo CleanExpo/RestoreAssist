@@ -105,26 +105,26 @@ const roleConfig = {
   ADMIN: {
     label: "Admin",
     icon: Crown,
-    color: "from-purple-500 to-purple-600",
+    color: "",
     bgColor: "bg-purple-100 dark:bg-purple-900/30",
     textColor: "text-purple-700 dark:text-purple-300",
-    borderColor: "border-purple-200 dark:border-purple-800",
+    borderColor: "border-purple-200",
   },
   MANAGER: {
     label: "Manager",
     icon: UserCog,
-    color: "from-blue-500 to-blue-600",
+    color: "",
     bgColor: "bg-blue-100 dark:bg-blue-900/30",
     textColor: "text-blue-700 dark:text-blue-300",
-    borderColor: "border-blue-200 dark:border-blue-800",
+    borderColor: "border-blue-200",
   },
   USER: {
     label: "Technician",
     icon: Wrench,
-    color: "from-cyan-500 to-cyan-600",
+    color: "",
     bgColor: "bg-cyan-100 dark:bg-cyan-900/30",
     textColor: "text-cyan-700 dark:text-cyan-300",
-    borderColor: "border-cyan-200 dark:border-cyan-800",
+    borderColor: "border-cyan-200",
   },
 };
 
@@ -563,7 +563,7 @@ export default function TeamPage() {
         {canInvite && (
           <Button
             onClick={() => setShowInviteForm(!showInviteForm)}
-            className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white shadow-lg shadow-cyan-500/20 w-full sm:w-auto"
+            className="bg-brand-navy text-white shadow-lg w-full sm:w-auto"
           >
             <UserPlus className="w-4 h-4" />
             {showInviteForm ? "Cancel" : "Invite Member"}
@@ -746,8 +746,8 @@ export default function TeamPage() {
           <Card
             className={cn(
               "border-2",
-              "border-cyan-200 dark:border-cyan-800",
-              "bg-gradient-to-br from-cyan-50/50 to-blue-50/50 dark:from-cyan-950/20 dark:to-blue-950/20",
+              "border-cyan-200",
+              "bg-brand-navy",
             )}
           >
             <CardHeader>
@@ -843,7 +843,7 @@ export default function TeamPage() {
                     <Button
                       type="submit"
                       disabled={creating}
-                      className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white"
+                      className="bg-brand-navy text-white"
                     >
                       {creating ? (
                         <>
@@ -990,7 +990,7 @@ export default function TeamPage() {
                             <div
                               className={cn(
                                 "w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm",
-                                `bg-gradient-to-br ${config.color} text-white shadow-lg`,
+                                `bg-brand-navy text-white shadow-lg`,
                               )}
                             >
                               {getInitials(member.name, member.email)}
@@ -1211,8 +1211,8 @@ export default function TeamPage() {
               className={cn(
                 "p-3 rounded-lg border",
                 credentials?.password
-                  ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800"
-                  : "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800",
+                  ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200"
+                  : "bg-amber-50 dark:bg-amber-900/20 border-amber-200",
               )}
             >
               <p
@@ -1387,10 +1387,10 @@ export default function TeamPage() {
                         className={cn(
                           "border-2 transition-all",
                           isActive
-                            ? "border-cyan-200 dark:border-cyan-800 bg-cyan-50/50 dark:bg-cyan-950/20"
+                            ? "border-cyan-200 bg-cyan-50/50 dark:bg-cyan-950/20"
                             : isUsed
-                              ? "border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/20"
-                              : "border-rose-200 dark:border-rose-800 bg-rose-50/50 dark:bg-rose-950/20",
+                              ? "border-green-200 bg-green-50/50 dark:bg-green-950/20"
+                              : "border-rose-200 bg-rose-50/50 dark:bg-rose-950/20",
                           "hover:shadow-md",
                         )}
                       >
@@ -1401,7 +1401,7 @@ export default function TeamPage() {
                                 <div
                                   className={cn(
                                     "w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold",
-                                    `bg-gradient-to-br ${config.color} text-white`,
+                                    `bg-brand-navy text-white`,
                                   )}
                                 >
                                   {invite.email.substring(0, 2).toUpperCase()}
@@ -1430,7 +1430,7 @@ export default function TeamPage() {
                                     {isUsed ? (
                                       <Badge
                                         variant="outline"
-                                        className="text-xs text-green-600 dark:text-green-400 border-green-200 dark:border-green-800"
+                                        className="text-xs text-green-600 dark:text-green-400 border-green-200"
                                       >
                                         <CheckCircle2 className="w-3 h-3 mr-1" />
                                         Account Created
@@ -1438,7 +1438,7 @@ export default function TeamPage() {
                                     ) : isExpired ? (
                                       <Badge
                                         variant="outline"
-                                        className="text-xs text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800"
+                                        className="text-xs text-rose-600 dark:text-rose-400 border-rose-200"
                                       >
                                         <AlertCircle className="w-3 h-3 mr-1" />
                                         Expired
@@ -1446,7 +1446,7 @@ export default function TeamPage() {
                                     ) : (
                                       <Badge
                                         variant="outline"
-                                        className="text-xs text-cyan-600 dark:text-cyan-400 border-cyan-200 dark:border-cyan-800"
+                                        className="text-xs text-cyan-600 dark:text-cyan-400 border-cyan-200"
                                       >
                                         <Clock className="w-3 h-3 mr-1" />
                                         Active

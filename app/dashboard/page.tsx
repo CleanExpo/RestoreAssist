@@ -228,28 +228,28 @@ export default function DashboardPage() {
       title: "Create New Report",
       description: "Start a professional damage assessment",
       icon: Plus,
-      color: "from-blue-500 to-cyan-500",
+      color: "",
       href: "/dashboard/reports/new",
     },
     {
       title: "Start Guided Interview",
       description: "Let AI carry the Smart — IICRC S500 compliant",
       icon: MessageSquare,
-      color: "from-emerald-500 to-teal-500",
+      color: "",
       href: "/dashboard/interviews/new",
     },
     {
       title: "Connect Xero",
       description: "Sync invoices + payments automatically",
       icon: Plug,
-      color: "from-purple-500 to-pink-500",
+      color: "",
       href: "/dashboard/integrations",
     },
     {
       title: "Add Client",
       description: "Manage contacts and job history",
       icon: Users,
-      color: "from-orange-500 to-red-500",
+      color: "",
       href: "/dashboard/clients",
     },
   ];
@@ -344,7 +344,7 @@ export default function DashboardPage() {
                     >
                       <div className="flex items-start gap-3">
                         <div
-                          className={`w-10 h-10 rounded-lg bg-gradient-to-r ${action.color} flex items-center justify-center flex-shrink-0`}
+                          className={`w-10 h-10 rounded-lg bg-brand-navy flex items-center justify-center flex-shrink-0`}
                         >
                           <action.icon size={20} className="text-white" />
                         </div>
@@ -545,7 +545,7 @@ export default function DashboardPage() {
 
             <div className="grid md:grid-cols-3 gap-6">
               <div className="text-center">
-                <div className="w-16 h-16 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                <div className="w-16 h-16 bg-brand-navy rounded-full flex items-center justify-center mx-auto mb-3">
                   <TrendingUp size={24} className="text-white" />
                 </div>
                 <h3 className="text-2xl font-bold text-cyan-400 mb-1 tabular-nums">
@@ -559,7 +559,7 @@ export default function DashboardPage() {
               </div>
 
               <div className="text-center">
-                <div className="w-16 h-16 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                <div className="w-16 h-16 bg-brand-navy rounded-full flex items-center justify-center mx-auto mb-3">
                   <CheckCircle size={24} className="text-white" />
                 </div>
                 <h3 className="text-2xl font-bold text-success mb-1 tabular-nums">
@@ -573,7 +573,7 @@ export default function DashboardPage() {
               </div>
 
               <div className="text-center">
-                <div className="w-16 h-16 bg-gradient-to-r from-orange-500 to-red-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                <div className="w-16 h-16 bg-brand-navy rounded-full flex items-center justify-center mx-auto mb-3">
                   <DollarSign size={24} className="text-white" />
                 </div>
                 <h3 className="text-2xl font-bold text-orange-400 mb-1 tabular-nums">

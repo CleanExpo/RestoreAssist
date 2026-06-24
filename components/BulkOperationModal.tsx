@@ -755,10 +755,10 @@ export function BulkOperationModal({
                 disabled={isLoading}
                 className={`flex-1 px-4 py-2 rounded-lg transition-all duration-200 text-sm font-semibold flex items-center justify-center gap-2 shadow-md hover:shadow-lg disabled:hover:shadow-md hover:scale-[1.02] active:scale-[0.98] disabled:hover:scale-100 group ${
                   operationType === "delete"
-                    ? "bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 disabled:bg-red-600/50 text-white hover:shadow-red-500/30"
+                    ? "bg-brand-navy disabled:opacity-50 text-white"
                     : operationType === "duplicate"
-                      ? "bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 disabled:bg-amber-600/50 text-white hover:shadow-amber-500/30"
-                      : "bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 disabled:bg-purple-600/50 text-white hover:shadow-purple-500/30"
+                      ? "bg-brand-navy disabled:opacity-50 text-white"
+                      : "bg-brand-navy disabled:opacity-50 text-white"
                 } disabled:opacity-50`}
               >
                 {isLoading ? (
@@ -786,7 +786,7 @@ export function BulkOperationModal({
               <button
                 onClick={handleExportExcel}
                 disabled={isLoading}
-                className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 disabled:bg-emerald-600/50 text-white rounded-lg transition-all duration-200 text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50 shadow-md hover:shadow-lg hover:shadow-emerald-500/30 hover:scale-[1.02] active:scale-[0.98] disabled:hover:scale-100 disabled:hover:shadow-md group"
+                className="flex-1 px-4 py-2 bg-brand-navy disabled:opacity-50 text-white rounded-lg transition-all duration-200 text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50 shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] disabled:hover:scale-100 disabled:hover:shadow-md group"
               >
                 {isLoading ? (
                   <>
@@ -820,7 +820,7 @@ export function BulkOperationModal({
               }}
               className={cn(
                 "w-full px-4 py-2 rounded-lg transition-all duration-200 text-sm font-semibold flex items-center justify-center gap-2",
-                "bg-gradient-to-r from-success-600 to-emerald-600 hover:from-success-700 hover:to-emerald-700",
+                "bg-gradient-to-r from-success-600 hover:from-success-700",
                 "text-white shadow-md hover:shadow-lg hover:shadow-success-500/30 hover:scale-[1.02] active:scale-[0.98] group",
               )}
             >
