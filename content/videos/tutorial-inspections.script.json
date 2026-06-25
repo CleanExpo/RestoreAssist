@@ -1,0 +1,12 @@
+{
+  "slug": "remotion-tutorial-inspections",
+  "voiceId": "jSuBIjxMKhqIfb0wCK1F",
+  "totalSec": 50,
+  "segments": [
+    { "text": "Welcome to the Inspections tutorial.", "startSec": 0.5, "durationSec": 4.0 },
+    { "text": "Create an inspection. Enter the job details, location, and claim type.", "startSec": 5.7, "durationSec": 9.0 },
+    { "text": "Capture evidence. Upload photos, add annotations, and record moisture readings right in the app.", "startSec": 15.7, "durationSec": 9.0 },
+    { "text": "Sign off. Both client and technician add digital signatures with automatic timestamps.", "startSec": 25.7, "durationSec": 9.0 },
+    { "text": "Submit. The inspection auto-generates a report, exports to PDF, and publishes to the client portal.", "startSec": 35.7, "durationSec": 9.0 }
+  ]
+}

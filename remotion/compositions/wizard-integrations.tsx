@@ -1,5 +1,5 @@
 import React from 'react';
-import {AbsoluteFill, Sequence} from 'remotion';
+import {AbsoluteFill, Audio, Sequence, staticFile} from 'remotion';
 import {IntroSlide} from './ui-elements/intro-slide';
 import {OutroSlide} from './ui-elements/outro-slide';
 
@@ -8,6 +8,7 @@ const TOTAL_FRAMES = 2700;
 export const WizardIntegrations: React.FC = () => {
   return (
     <AbsoluteFill style={{background: '#050505'}}>
+      <Audio src={staticFile('narration/wizard-integrations.mp3')} />
       <Sequence from={0} durationInFrames={90}>
         <IntroSlide title="Connecting your tools" subtitle="Setup" />
       </Sequence>

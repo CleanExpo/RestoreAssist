@@ -1,0 +1,12 @@
+{
+  "slug": "setup-wizard-dashboard",
+  "voiceId": "jSuBIjxMKhqIfb0wCK1F",
+  "totalSec": 120,
+  "segments": [
+    { "text": "Your dashboard is mission control for your restoration business. The overview shows active jobs, pending claims, and team status at a glance.", "startSec": 0.5, "durationSec": 23.0 },
+    { "text": "Click New Inspection to start documenting a job.", "startSec": 24.0, "durationSec": 23.0 },
+    { "text": "View AI-generated reports awaiting your review and sign-off.", "startSec": 48.0, "durationSec": 23.0 },
+    { "text": "Track team performance and business metrics in Analytics.", "startSec": 72.0, "durationSec": 23.0 },
+    { "text": "Manage your profile, team, and integrations from the Settings gear icon.", "startSec": 96.0, "durationSec": 23.0 }
+  ]
+}

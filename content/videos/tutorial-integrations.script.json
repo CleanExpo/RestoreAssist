@@ -1,0 +1,11 @@
+{
+  "slug": "remotion-tutorial-integrations",
+  "voiceId": "jSuBIjxMKhqIfb0wCK1F",
+  "totalSec": 40,
+  "segments": [
+    { "text": "Welcome to integrations.", "startSec": 0.5, "durationSec": 4.0 },
+    { "text": "Accounting. Sync your financials with Xero, MYOB, or QuickBooks — invoices, payments, and tax codes flow automatically.", "startSec": 5.7, "durationSec": 9.0 },
+    { "text": "Job management. Connect ServiceM8, Ascora, or simPRO so jobs created in RestoreAssist appear in your existing system instantly.", "startSec": 15.7, "durationSec": 9.0 },
+    { "text": "Storage. Back up and share files with Google Drive, Dropbox, or OneDrive — all evidence and reports sync to your cloud.", "startSec": 25.7, "durationSec": 9.3 }
+  ]
+}

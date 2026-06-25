@@ -1,0 +1,13 @@
+{
+  "slug": "setup-wizard-setup",
+  "voiceId": "jSuBIjxMKhqIfb0wCK1F",
+  "totalSec": 120,
+  "segments": [
+    { "text": "The Setup Wizard activates your workspace in about five minutes. First, enter your A B N — we auto-hydrate your company details straight from the Australian Business Register.", "startSec": 0.5, "durationSec": 19.0 },
+    { "text": "Next, upload your logo and set your brand colours, so every report and invoice you send out looks like yours.", "startSec": 20.0, "durationSec": 19.0 },
+    { "text": "Choose your pricing tier — Standard, Premium, or Enterprise.", "startSec": 40.0, "durationSec": 19.0 },
+    { "text": "Connect your accounting software — Xero, MYOB, QuickBooks, ServiceM8, or Ascora.", "startSec": 60.0, "durationSec": 19.0 },
+    { "text": "Run Workspace Health to verify every check is green.", "startSec": 80.0, "durationSec": 19.0 },
+    { "text": "Then click Activate. You're ready to start inspections.", "startSec": 100.0, "durationSec": 19.0 }
+  ]
+}

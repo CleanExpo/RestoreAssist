@@ -1,0 +1,10 @@
+{
+  "slug": "setup-wizard-signin",
+  "voiceId": "jSuBIjxMKhqIfb0wCK1F",
+  "totalSec": 30,
+  "segments": [
+    { "text": "Navigate to restoreassist dot app and click Sign In in the top right corner.", "startSec": 0.5, "durationSec": 9.0 },
+    { "text": "Enter your email and password, or use Google single sign-on for instant access.", "startSec": 10.0, "durationSec": 9.5 },
+    { "text": "You're now on your dashboard, ready to manage inspections and generate reports.", "startSec": 20.0, "durationSec": 9.5 }
+  ]
+}

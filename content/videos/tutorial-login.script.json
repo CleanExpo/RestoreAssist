@@ -1,0 +1,11 @@
+{
+  "slug": "remotion-tutorial-login",
+  "voiceId": "jSuBIjxMKhqIfb0wCK1F",
+  "totalSec": 40,
+  "segments": [
+    { "text": "Welcome to RestoreAssist. In this tutorial, I'll show you how to sign in to your account.", "startSec": 0.5, "durationSec": 4.0 },
+    { "text": "Open your browser and go to restoreassist dot a u. The site loads in under two seconds.", "startSec": 5.7, "durationSec": 9.0 },
+    { "text": "Enter your email and password, then tap the Sign In button.", "startSec": 15.7, "durationSec": 9.0 },
+    { "text": "You're now signed in. Your dashboard shows active jobs, upcoming inspections, and your workspace health score.", "startSec": 25.7, "durationSec": 9.3 }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "slug": "remotion-tutorial-setup-wizard",
+  "voiceId": "jSuBIjxMKhqIfb0wCK1F",
+  "totalSec": 60,
+  "segments": [
+    { "text": "Welcome to the RestoreAssist Setup Wizard. This five-step process activates your workspace.", "startSec": 0.5, "durationSec": 4.0 },
+    { "text": "Step one, Business Profile. Confirm your business name and A B N, and upload your company logo.", "startSec": 5.7, "durationSec": 9.0 },
+    { "text": "Step two, A I Hydration. Industry defaults load automatically — S500 water-damage standards, W H S checklists, and report templates.", "startSec": 15.7, "durationSec": 9.0 },
+    { "text": "Step three, Integrations. Connect your accounting software — Xero, MYOB, or QuickBooks — and job tools like ServiceM8.", "startSec": 25.7, "durationSec": 9.0 },
+    { "text": "Step four, Health Check. We verify twelve capabilities, including email, storage, A I models, and compliance engines.", "startSec": 35.7, "durationSec": 9.0 },
+    { "text": "Step five, Activate. One tap and your workspace goes live. Your dashboard is ready.", "startSec": 45.7, "durationSec": 9.0 }
+  ]
+}

@@ -1,5 +1,5 @@
 import React from 'react';
-import {AbsoluteFill, interpolate, useCurrentFrame} from 'remotion';
+import {AbsoluteFill, Audio, interpolate, staticFile, useCurrentFrame} from 'remotion';
 import {IntroSlide} from './ui-elements/intro-slide';
 import {OutroSlide} from './ui-elements/outro-slide';
 import {ScreenContainer} from '../components/shared';
@@ -23,6 +23,7 @@ export const TutorialInspections: React.FC = () => {
 
   return (
     <AbsoluteFill>
+      <Audio src={staticFile('narration/tutorial-inspections.mp3')} />
       <div style={{ position: 'absolute', inset: 0, opacity: introOp, zIndex: introOp > 0 ? 100 : 0 }}>
         <IntroSlide title="Inspections" subtitle="Tutorial" />
       </div>
