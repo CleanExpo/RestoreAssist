@@ -70,6 +70,8 @@ export const CAPTION_REGISTRY: Record<string, string> = {
   "for-assessors": "/videos/captions/for-assessors.vtt",
   "for-property-managers": "/videos/captions/for-property-managers.vtt",
   "for-insurers": "/videos/captions/for-insurers.vtt",
+  // New-client welcome (top of /setup) — keyed by the VideoExplainerSlug
+  "remotion-onboarding-welcome": "/videos/captions/onboarding-welcome.vtt",
 };
 
 export function getCaptionUrl(slug: string): string | null {
