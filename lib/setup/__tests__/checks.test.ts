@@ -334,3 +334,33 @@ describe("pricingCheck (unit — presence not truthiness)", () => {
     expect(result.status).toBe("red");
   });
 });
+
+vi.mock("@/lib/generate-iicrc-report-pdf", () => ({
+  generateIICRCReportPDF: vi.fn(async () => {
+    throw new Error("SECRET pdf-lib internal: /var/task/node_modules/...");
+  }),
+}));
+
+describe("sampleReportRenderCheck note redaction", () => {
+  let orgFindUniqueSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    orgFindUniqueSpy = vi.spyOn(
+      prisma.organization,
+      "findUnique",
+    ) as unknown as ReturnType<typeof vi.spyOn>;
+    (orgFindUniqueSpy as any).mockResolvedValue(null);
+  });
+
+  afterAll(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("never returns the raw exception message to the client", async () => {
+    const { sampleReportRenderCheck } = await import("../checks");
+    const result = await sampleReportRenderCheck("org-1");
+    expect(result.status).toBe("red");
+    expect(result.note).not.toContain("SECRET");
+    expect(result.note).toBe("Sample report rendering failed");
+  });
+});
