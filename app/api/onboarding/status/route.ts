@@ -6,6 +6,7 @@ import {
   getEffectiveSubscription,
   getOrganizationOwner,
 } from "@/lib/organization-credits";
+import { hasActiveOperatingProviderConnection } from "@/lib/workspace/provider-connections";
 
 export const AI_PROVIDER_ROUTE = "/dashboard/settings/ai-providers";
 
@@ -144,6 +145,22 @@ export async function GET() {
           select: { deepseekApiKey: true },
         });
         hasApiKey = !!owner?.deepseekApiKey;
+      }
+    }
+
+    // RA-6801: Recognise a key saved via the new BYOK store. The onboarding
+    // "Add your AI key" card writes to ProviderConnection (workspace BYOK),
+    // NOT the legacy Integration table checked above — so without this bridge
+    // a user who completed that card would still be nagged to add a key, and
+    // onboarding/status would disagree with the setup gate (byok_keys check),
+    // which already reads ProviderConnection. Resolve the workspace owner
+    // (Admin's for team members) and check for an ACTIVE Anthropic/OpenAI key.
+    if (!hasApiKey) {
+      const byokOwnerId = isTeamMember
+        ? await getOrganizationOwner(session.user.id)
+        : session.user.id;
+      if (byokOwnerId) {
+        hasApiKey = await hasActiveOperatingProviderConnection(byokOwnerId);
       }
     }
 

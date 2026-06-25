@@ -189,6 +189,44 @@ export async function getProviderApiKey(
 }
 
 /**
+ * Providers that power client report generation (the "operating" providers).
+ * GOOGLE is for Drive storage and GEMMA is the platform's own inference, so
+ * neither counts as a BYOK key the user must supply to operate RestoreAssist.
+ * Mirrors the operating-provider filter in the setup gate's `byokKeysCheck`.
+ */
+const OPERATING_PROVIDERS: AiProvider[] = ["ANTHROPIC", "OPENAI"];
+
+/**
+ * Lightweight presence check: does the user's workspace have at least one
+ * ACTIVE Anthropic or OpenAI provider connection?
+ *
+ * This is the onboarding-grade signal — it mirrors the setup gate's
+ * `byokKeysCheck` operating-provider filter but WITHOUT the live network probe,
+ * so it's cheap enough to run on every `/api/onboarding/status` call. The new
+ * onboarding "Add your AI key" card writes to this ProviderConnection store
+ * (not the legacy Integration table), so onboarding must read it here to agree
+ * with the setup gate instead of nagging for a key the user already added.
+ *
+ * Returns false when the user has no workspace or no ACTIVE operating key.
+ */
+export async function hasActiveOperatingProviderConnection(
+  userId: string,
+): Promise<boolean> {
+  const workspace = await getWorkspaceForUser(userId);
+  if (!workspace) return false;
+
+  const count = await prisma.providerConnection.count({
+    where: {
+      workspaceId: workspace.id,
+      status: "ACTIVE",
+      provider: { in: OPERATING_PROVIDERS },
+    },
+  });
+
+  return count > 0;
+}
+
+/**
  * Upsert a provider connection — encrypt the plaintext key and persist.
  * Creates the row if it doesn't exist; updates it if it does.
  * Sets status to ACTIVE on successful save.

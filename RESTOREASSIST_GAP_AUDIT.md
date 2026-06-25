@@ -211,3 +211,16 @@ were found in `.planning/` video docs.
   guarantees + success-only-on-real-export. Verified: vitest, eslint, tsc.
 - ⬜ Stub integrations — OpenAI/Gemini, cloud-mirror, Google Drive read paths,
   blog articles — remain honestly labelled "Coming soon"; finish or keep gated.
+- ✅ **Onboarding ↔ setup-gate checklist disagreement (Phase 4 — "two contradicting
+  checklists")** — the onboarding "Add your AI key" card (PR #1486) writes to the new
+  `ProviderConnection` BYOK store, but `GET /api/onboarding/status` only checked the
+  legacy `Integration` table (+ `deepseekApiKey`) for its `ai_provider` step. A user
+  who completed that card was therefore still nagged to add a key, while the setup gate
+  (`byokKeysCheck`, which reads `ProviderConnection`) reported it done. Bridged the two:
+  added `hasActiveOperatingProviderConnection(userId)` to
+  `lib/workspace/provider-connections.ts` (a single-`count` presence check mirroring the
+  gate's ACTIVE Anthropic/OpenAI operating-provider filter, no live network probe) and
+  OR'd it into `hasApiKey` in the onboarding status route (resolving the Admin's
+  workspace for team members). No schema changes. Added
+  `lib/workspace/__tests__/has-active-operating-provider.test.ts` (5/5). Verified:
+  vitest (13/13 across the touched suites), eslint (0 errors), tsc (0 errors).
