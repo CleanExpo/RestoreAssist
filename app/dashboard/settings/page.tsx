@@ -549,15 +549,16 @@ export default function SettingsPage() {
                 ></div>
               </div>
 
-              {!hideBillingEntry && (
-                <a
-                  href="/pricing"
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg font-medium hover:shadow-lg hover:shadow-yellow-500/50 transition-all"
-                >
-                  <Crown className="w-4 h-4" />
-                  Upgrade Package
-                </a>
-              )}
+              {!hideBillingEntry &&
+                profile?.subscriptionStatus !== "ACTIVE" && (
+                  <a
+                    href="/pricing"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg font-medium hover:shadow-lg hover:shadow-yellow-500/50 transition-all"
+                  >
+                    <Crown className="w-4 h-4" />
+                    Upgrade Package
+                  </a>
+                )}
             </div>
           </div>
 
