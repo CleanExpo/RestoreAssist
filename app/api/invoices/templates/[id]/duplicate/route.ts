@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // POST /api/invoices/templates/[id]/duplicate - Duplicate template
 export async function POST(
@@ -11,7 +12,11 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
   const { id } = await params;
@@ -29,10 +34,11 @@ export async function POST(
       });
 
       if (!template) {
-        return NextResponse.json(
-          { error: "Template not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Template not found",
+          status: 404,
+        });
       }
 
       // Create duplicate
@@ -100,10 +106,7 @@ export async function POST(
       return NextResponse.json({ template: duplicate }, { status: 201 });
     } catch (error) {
       console.error("Error duplicating invoice template:", error);
-      return NextResponse.json(
-        { error: "Failed to duplicate invoice template" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "duplicate-template" });
     }
   });
 }

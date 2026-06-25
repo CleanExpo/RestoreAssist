@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // GET /api/invoices/templates/[id] - Get template details
 export async function GET(
@@ -11,7 +12,11 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -24,19 +29,17 @@ export async function GET(
     });
 
     if (!template) {
-      return NextResponse.json(
-        { error: "Template not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Template not found",
+        status: 404,
+      });
     }
 
     return NextResponse.json({ template });
   } catch (error) {
     console.error("Error fetching invoice template:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch invoice template" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "get-template" });
   }
 }
 
@@ -48,7 +51,11 @@ export async function PUT(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -63,10 +70,11 @@ export async function PUT(
     });
 
     if (!existingTemplate) {
-      return NextResponse.json(
-        { error: "Template not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Template not found",
+        status: 404,
+      });
     }
 
     const {
@@ -203,10 +211,7 @@ export async function PUT(
     return NextResponse.json({ template });
   } catch (error) {
     console.error("Error updating invoice template:", error);
-    return NextResponse.json(
-      { error: "Failed to update invoice template" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "update-template" });
   }
 }
 
@@ -218,7 +223,11 @@ export async function DELETE(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -237,20 +246,20 @@ export async function DELETE(
     });
 
     if (!template) {
-      return NextResponse.json(
-        { error: "Template not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Template not found",
+        status: 404,
+      });
     }
 
     // Don't allow deleting template if it's being used by invoices
     if (template._count.invoices > 0) {
-      return NextResponse.json(
-        {
-          error: `Cannot delete template that is used by ${template._count.invoices} invoice(s)`,
-        },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: `Cannot delete template that is used by ${template._count.invoices} invoice(s)`,
+        status: 400,
+      });
     }
 
     await prisma.invoiceTemplate.delete({
@@ -260,9 +269,6 @@ export async function DELETE(
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error deleting invoice template:", error);
-    return NextResponse.json(
-      { error: "Failed to delete invoice template" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "delete-template" });
   }
 }

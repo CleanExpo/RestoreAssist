@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
 import { isDraft, isCancelled } from "@/lib/invoice-status";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 const APP_URL = process.env.NEXTAUTH_URL || "https://restoreassist.app";
 
@@ -14,7 +15,11 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
   const { id } = await params;
@@ -41,35 +46,37 @@ export async function POST(
       });
 
       if (!invoice) {
-        return NextResponse.json(
-          { error: "Invoice not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Invoice not found",
+          status: 404,
+        });
       }
 
       // Can't create checkout for draft or fully paid invoices
       if (isDraft(invoice.status)) {
-        return NextResponse.json(
-          {
-            error:
-              "Cannot create checkout for draft invoices. Please send the invoice first.",
-          },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message:
+            "Cannot create checkout for draft invoices. Please send the invoice first.",
+          status: 400,
+        });
       }
 
       if (invoice.status === "PAID" || invoice.amountDue <= 0) {
-        return NextResponse.json(
-          { error: "This invoice has already been paid" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "This invoice has already been paid",
+          status: 400,
+        });
       }
 
       if (isCancelled(invoice.status)) {
-        return NextResponse.json(
-          { error: "Cannot create checkout for cancelled invoices" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Cannot create checkout for cancelled invoices",
+          status: 400,
+        });
       }
 
       // Create Stripe checkout session
@@ -131,10 +138,7 @@ export async function POST(
       });
     } catch (error: any) {
       console.error("Error creating checkout session:", error);
-      return NextResponse.json(
-        { error: "Failed to create checkout session" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "checkout" });
     }
   });
 }

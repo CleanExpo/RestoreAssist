@@ -6,12 +6,17 @@ import {
   EXCLUDED_FROM_REVENUE,
   OUTSTANDING_STATUSES,
 } from "@/lib/invoice-status";
+import { apiError, fromException } from "@/lib/api-errors";
 
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const where = { userId: session.user.id };
@@ -128,9 +133,6 @@ export async function GET(_request: NextRequest) {
     });
   } catch (error: any) {
     console.error("Error fetching invoice analytics:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch analytics" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "analytics" });
   }
 }

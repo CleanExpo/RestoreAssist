@@ -2,11 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
 
   const { searchParams } = new URL(request.url);
   const from = searchParams.get("from");
@@ -42,27 +47,29 @@ export async function GET(request: NextRequest) {
     });
     return NextResponse.json({ payments });
   } catch (error) {
-    return NextResponse.json(
-      { error: "Failed to fetch payments" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "list-payments" });
   }
 }
 
 export async function PATCH(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
 
   try {
     const body = await request.json();
     const { id, reconciled } = body;
 
     if (!id)
-      return NextResponse.json(
-        { error: "Payment ID required" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Payment ID required",
+        status: 400,
+      });
 
     // Verify ownership via invoice relation
     const existing = await prisma.invoicePayment.findFirst({
@@ -73,7 +80,11 @@ export async function PATCH(request: NextRequest) {
     });
 
     if (!existing)
-      return NextResponse.json({ error: "Payment not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Payment not found",
+        status: 404,
+      });
 
     const updated = await prisma.invoicePayment.update({
       where: { id, invoice: { userId: session.user.id } },
@@ -86,9 +97,6 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ payment: updated });
   } catch (error) {
-    return NextResponse.json(
-      { error: "Failed to update payment" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "update-payment" });
   }
 }

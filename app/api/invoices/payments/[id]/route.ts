@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 
 export async function PATCH(
   request: NextRequest,
@@ -9,7 +10,11 @@ export async function PATCH(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
 
   try {
     const { id } = await params;
@@ -25,7 +30,11 @@ export async function PATCH(
     });
 
     if (!existing)
-      return NextResponse.json({ error: "Payment not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Payment not found",
+        status: 404,
+      });
 
     const updated = await prisma.invoicePayment.update({
       where: { id, invoice: { userId: session.user.id } },
@@ -38,9 +47,6 @@ export async function PATCH(
 
     return NextResponse.json({ payment: updated });
   } catch (error) {
-    return NextResponse.json(
-      { error: "Failed to update payment" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "update-payment" });
   }
 }

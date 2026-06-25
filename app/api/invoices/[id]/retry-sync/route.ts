@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { queueInvoiceSync } from "@/lib/integrations/sync-queue";
 import { IntegrationProvider } from "@prisma/client";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError } from "@/lib/api-errors";
 
 /**
  * POST /api/invoices/[id]/retry-sync - Manually retry failed invoice sync
@@ -18,7 +19,11 @@ export async function POST(
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
   const { id } = await params;
@@ -31,18 +36,20 @@ export async function POST(
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const { provider } = body;
 
       if (!provider) {
-        return NextResponse.json(
-          { error: "Provider is required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Provider is required",
+          status: 400,
+        });
       }
 
       const validProviders: IntegrationProvider[] = [
@@ -54,10 +61,11 @@ export async function POST(
       ];
 
       if (!validProviders.includes(provider as IntegrationProvider)) {
-        return NextResponse.json(
-          { error: "Invalid provider" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid provider",
+          status: 400,
+        });
       }
 
       const invoice = await prisma.invoice.findUnique({
@@ -65,10 +73,11 @@ export async function POST(
       });
 
       if (!invoice) {
-        return NextResponse.json(
-          { error: "Invoice not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Invoice not found",
+          status: 404,
+        });
       }
 
       const integration = await prisma.integration.findFirst({
@@ -80,10 +89,11 @@ export async function POST(
       });
 
       if (!integration) {
-        return NextResponse.json(
-          { error: `${provider} integration not connected` },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: `${provider} integration not connected`,
+          status: 400,
+        });
       }
 
       const jobId = await queueInvoiceSync(

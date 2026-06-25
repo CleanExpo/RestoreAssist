@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 /**
  * POST /api/authority-forms/:id/signatures
@@ -14,7 +15,11 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
   const { id: formId } = await params;
@@ -27,10 +32,11 @@ export async function POST(
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const {
         signatureId,
@@ -56,7 +62,11 @@ export async function POST(
       });
 
       if (!form) {
-        return NextResponse.json({ error: "Form not found" }, { status: 404 });
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Form not found",
+          status: 404,
+        });
       }
 
       // Check permissions
@@ -65,16 +75,21 @@ export async function POST(
         form.report.assignedManagerId !== userId &&
         form.report.assignedAdminId !== userId
       ) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        return apiError(request, {
+          code: "FORBIDDEN",
+          message: "Forbidden",
+          status: 403,
+        });
       }
 
       // Create new signatory slot
       if (action === "add_signatory") {
         if (!signatoryName || !signatoryRole) {
-          return NextResponse.json(
-            { error: "Signatory name and role are required" },
-            { status: 400 },
-          );
+          return apiError(request, {
+            code: "VALIDATION",
+            message: "Signatory name and role are required",
+            status: 400,
+          });
         }
 
         const newSignature = await prisma.authorityFormSignature.create({
@@ -102,10 +117,11 @@ export async function POST(
       }
 
       if (!signatureId || !signatureData) {
-        return NextResponse.json(
-          { error: "Signature ID and signature data are required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Signature ID and signature data are required",
+          status: 400,
+        });
       }
 
       // Get client IP and user agent for verification
@@ -161,10 +177,7 @@ export async function POST(
       return NextResponse.json({ signature, allSigned });
     } catch (error) {
       console.error("Error adding signature:", error);
-      return NextResponse.json(
-        { error: "Failed to add signature" },
-        { status: 500 },
-      );
+      return fromException(request, error, { stage: "add-signature" });
     }
   });
 }
@@ -180,7 +193,11 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id: formId } = await params;
@@ -200,7 +217,11 @@ export async function GET(
     });
 
     if (!form) {
-      return NextResponse.json({ error: "Form not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Form not found",
+        status: 404,
+      });
     }
 
     // Check permissions
@@ -209,7 +230,11 @@ export async function GET(
       form.report.assignedManagerId !== session.user.id &&
       form.report.assignedAdminId !== session.user.id
     ) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Forbidden",
+        status: 403,
+      });
     }
 
     const signatures = await prisma.authorityFormSignature.findMany({
@@ -221,9 +246,6 @@ export async function GET(
     return NextResponse.json({ signatures });
   } catch (error) {
     console.error("Error fetching signatures:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch signatures" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "list-signatures" });
   }
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 
 /**
  * GET /api/authority-forms/:id
@@ -14,7 +15,11 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -38,7 +43,11 @@ export async function GET(
     });
 
     if (!form) {
-      return NextResponse.json({ error: "Form not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Form not found",
+        status: 404,
+      });
     }
 
     // Check permissions
@@ -47,16 +56,17 @@ export async function GET(
       form.report.assignedManagerId !== session.user.id &&
       form.report.assignedAdminId !== session.user.id
     ) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Forbidden",
+        status: 403,
+      });
     }
 
     return NextResponse.json({ form });
   } catch (error) {
     console.error("Error fetching authority form:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch authority form" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "get" });
   }
 }
 
@@ -71,7 +81,11 @@ export async function PUT(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -92,7 +106,11 @@ export async function PUT(
     });
 
     if (!existingForm) {
-      return NextResponse.json({ error: "Form not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Form not found",
+        status: 404,
+      });
     }
 
     // Check permissions
@@ -101,7 +119,11 @@ export async function PUT(
       existingForm.report.assignedManagerId !== session.user.id &&
       existingForm.report.assignedAdminId !== session.user.id
     ) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Forbidden",
+        status: 403,
+      });
     }
 
     // Update form
@@ -134,10 +156,7 @@ export async function PUT(
     return NextResponse.json({ form: updatedForm });
   } catch (error) {
     console.error("Error updating authority form:", error);
-    return NextResponse.json(
-      { error: "Failed to update authority form" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "update" });
   }
 }
 
@@ -152,7 +171,11 @@ export async function DELETE(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -172,7 +195,11 @@ export async function DELETE(
     });
 
     if (!existingForm) {
-      return NextResponse.json({ error: "Form not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Form not found",
+        status: 404,
+      });
     }
 
     // Check permissions
@@ -181,7 +208,11 @@ export async function DELETE(
       existingForm.report.assignedManagerId !== session.user.id &&
       existingForm.report.assignedAdminId !== session.user.id
     ) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Forbidden",
+        status: 403,
+      });
     }
 
     // Delete form (signatures will be cascade deleted)
@@ -201,9 +232,6 @@ export async function DELETE(
     return NextResponse.json({ message: "Form deleted successfully" });
   } catch (error) {
     console.error("Error deleting authority form:", error);
-    return NextResponse.json(
-      { error: "Failed to delete authority form" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "delete" });
   }
 }
