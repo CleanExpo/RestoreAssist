@@ -74,6 +74,35 @@ export const CAPTION_REGISTRY: Record<string, string> = {
   "remotion-onboarding-welcome": "/videos/captions/onboarding-welcome.vtt",
 };
 
-export function getCaptionUrl(slug: string): string | null {
-  return CAPTION_REGISTRY[slug] || null;
+/**
+ * Resolve a video's VTT caption URL.
+ *
+ * Captions are keyed by file STEM (e.g. `"wizard-signin"`) — the same stem
+ * shared by the rendered MP4 and its generated `.vtt`. Video registry SLUGS
+ * (e.g. `"setup-wizard-signin"`, `"remotion-dashboard"`) deliberately differ
+ * from those stems, so a slug-only lookup silently returns `null` and the CC
+ * track never loads — even though the VTT is committed.
+ *
+ * Resolution order:
+ *   1. Direct slug key — for entries intentionally keyed by slug
+ *      (e.g. `"remotion-onboarding-welcome"`).
+ *   2. Stem derived from the video source path (`localPath`/`cloudinaryUrl`,
+ *      `…/<stem>.mp4`), which always matches the caption stem.
+ *
+ * Returns `null` when no caption is registered for either key — correct for
+ * videos that genuinely have no VTT (e.g. the `help-*` set).
+ *
+ * @param slug       VideoExplainerSlug used as the registry key.
+ * @param sourcePath The entry's resolved video source (`localPath`/`cloudinaryUrl`).
+ */
+export function getCaptionUrl(slug: string, sourcePath?: string): string | null {
+  const direct = CAPTION_REGISTRY[slug];
+  if (direct) return direct;
+
+  if (sourcePath) {
+    const stem = sourcePath.split("/").pop()?.replace(/\.[^.]+$/, "");
+    if (stem && CAPTION_REGISTRY[stem]) return CAPTION_REGISTRY[stem];
+  }
+
+  return null;
 }
