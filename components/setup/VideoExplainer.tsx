@@ -71,6 +71,7 @@ export function VideoExplainer({
   const [isPlaying, setIsPlaying] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [hasError, setHasError] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const milestonesRef = useRef<Set<number>>(new Set());
@@ -169,6 +170,17 @@ export function VideoExplainer({
       ? cloudinaryUrl.replace("/upload/", "/upload/so_0,w_1280,h_720,c_fill/").replace(".mp4", ".jpg")
       : undefined;
 
+    if (hasError) {
+      return (
+        <div className={wrapperClass} role="status" aria-label={`${title} — video unavailable`}>
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-brand-navy text-center text-white">
+            <span className="text-sm font-medium">Video unavailable</span>
+            <span className="text-xs text-white/70">{title}</span>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className={wrapperClass} ref={containerRef}>
         {isVisible && (
@@ -186,6 +198,7 @@ export function VideoExplainer({
             onPause={handlePause}
             onTimeUpdate={handleTimeUpdate}
             onEnded={handleEnded}
+            onError={() => setHasError(true)}
             poster={isMobile ? posterUrl : undefined}
             disablePictureInPicture={isMobile}
           >

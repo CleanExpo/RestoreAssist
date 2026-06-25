@@ -64,7 +64,8 @@ cloudinary.config({
 const args = process.argv.slice(2);
 const uploadAll = args.includes("--all");
 const slugArg = args[args.indexOf("--slug") + 1];
-const folderArg = args[args.indexOf("--folder") + 1] || "restoreassist/videos";
+const folderIdx = args.indexOf("--folder");
+const folderArg = folderIdx >= 0 ? args[folderIdx + 1] : "restoreassist/videos";
 
 // ── Video definitions ───────────────────────────────────────────────────
 
