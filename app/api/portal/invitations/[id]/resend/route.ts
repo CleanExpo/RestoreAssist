@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Resend } from "resend";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // Lazy initialize Resend to avoid build errors if API key is missing
 function getResend() {
@@ -24,7 +25,11 @@ export async function POST(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id || session.user.userType === "client") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id: invitationId } = await params;
@@ -52,18 +57,20 @@ export async function POST(
     });
 
     if (!invitation) {
-      return NextResponse.json(
-        { error: "Invitation not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Invitation not found",
+        status: 404,
+      });
     }
 
     // Can't resend if already accepted
     if (invitation.status === "ACCEPTED") {
-      return NextResponse.json(
-        { error: "Invitation already accepted" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Invitation already accepted",
+        status: 400,
+      });
     }
 
     // Update expiration (extend by 7 days from now)
@@ -86,10 +93,12 @@ export async function POST(
 
     const resend = getResend();
     if (!resend) {
-      return NextResponse.json(
-        { error: "Email service not configured" },
-        { status: 503 },
-      );
+      return apiError(request, {
+        code: "UPSTREAM_FAILED",
+        message: "Email service not configured",
+        status: 503,
+        stage: "portal/invitations/resend:email-config",
+      });
     }
 
     try {
@@ -125,10 +134,9 @@ export async function POST(
       });
     } catch (emailError) {
       console.error("Failed to resend invitation email:", emailError);
-      return NextResponse.json(
-        { error: "Failed to send email" },
-        { status: 500 },
-      );
+      return fromException(request, emailError, {
+        stage: "portal/invitations/resend:email-send",
+      });
     }
 
     return NextResponse.json({
@@ -137,9 +145,8 @@ export async function POST(
     });
   } catch (error) {
     console.error("Error resending invitation:", error);
-    return NextResponse.json(
-      { error: "Failed to resend invitation" },
-      { status: 500 },
-    );
+    return fromException(request, error, {
+      stage: "portal/invitations/resend:post",
+    });
   }
 }

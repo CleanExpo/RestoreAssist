@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // Get contractor's certifications
 export async function GET(request: NextRequest) {
@@ -10,7 +11,11 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const profile = await prisma.contractorProfile.findUnique({
@@ -19,10 +24,11 @@ export async function GET(request: NextRequest) {
     });
 
     if (!profile) {
-      return NextResponse.json(
-        { error: "Contractor profile not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Contractor profile not found",
+        status: 404,
+      });
     }
 
     const certifications = await prisma.contractorCertification.findMany({
@@ -34,10 +40,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ certifications });
   } catch (error: any) {
     console.error("Error fetching certifications:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch certifications" },
-      { status: 500 },
-    );
+    return fromException(request, error, {
+      stage: "contractors/certifications:list",
+    });
   }
 }
 
@@ -46,7 +51,11 @@ export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -59,20 +68,22 @@ export async function POST(request: NextRequest) {
       });
 
       if (!profile) {
-        return NextResponse.json(
-          { error: "Contractor profile not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Contractor profile not found",
+          status: 404,
+        });
       }
 
       let body: any;
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const {
         certificationType,
@@ -91,10 +102,11 @@ export async function POST(request: NextRequest) {
         !issuingBody ||
         !issueDate
       ) {
-        return NextResponse.json(
-          { error: "Missing required fields" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Missing required fields",
+          status: 400,
+        });
       }
 
       const certification = await prisma.contractorCertification.create({
@@ -114,10 +126,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ certification }, { status: 201 });
     } catch (error: any) {
       console.error("Error creating certification:", error);
-      return NextResponse.json(
-        { error: "Failed to create certification" },
-        { status: 500 },
-      );
+      return fromException(request, error, {
+        stage: "contractors/certifications:create",
+      });
     }
   });
 }

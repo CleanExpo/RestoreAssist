@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // Update service area
 export async function PATCH(
@@ -12,7 +13,11 @@ export async function PATCH(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -28,14 +33,19 @@ export async function PATCH(
     });
 
     if (!serviceArea) {
-      return NextResponse.json(
-        { error: "Service area not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Service area not found",
+        status: 404,
+      });
     }
 
     if (serviceArea.profile.userId !== session.user.id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Forbidden",
+        status: 403,
+      });
     }
 
     const body = await request.json();
@@ -56,10 +66,9 @@ export async function PATCH(
     return NextResponse.json({ serviceArea: updated });
   } catch (error: any) {
     console.error("Error updating service area:", error);
-    return NextResponse.json(
-      { error: "Failed to update service area" },
-      { status: 500 },
-    );
+    return fromException(request, error, {
+      stage: "contractors/service-areas:update",
+    });
   }
 }
 
@@ -72,7 +81,11 @@ export async function DELETE(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -88,14 +101,19 @@ export async function DELETE(
     });
 
     if (!serviceArea) {
-      return NextResponse.json(
-        { error: "Service area not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Service area not found",
+        status: 404,
+      });
     }
 
     if (serviceArea.profile.userId !== session.user.id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Forbidden",
+        status: 403,
+      });
     }
 
     await prisma.contractorServiceArea.delete({
@@ -105,9 +123,8 @@ export async function DELETE(
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("Error deleting service area:", error);
-    return NextResponse.json(
-      { error: "Failed to delete service area" },
-      { status: 500 },
-    );
+    return fromException(request, error, {
+      stage: "contractors/service-areas:delete",
+    });
   }
 }

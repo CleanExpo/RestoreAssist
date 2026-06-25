@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // Update certification
 export async function PATCH(
@@ -12,7 +13,11 @@ export async function PATCH(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -28,22 +33,28 @@ export async function PATCH(
     });
 
     if (!certification) {
-      return NextResponse.json(
-        { error: "Certification not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Certification not found",
+        status: 404,
+      });
     }
 
     if (certification.profile.userId !== session.user.id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Forbidden",
+        status: 403,
+      });
     }
 
     // Contractors cannot update verified certifications
     if (certification.verificationStatus === "VERIFIED") {
-      return NextResponse.json(
-        { error: "Cannot update verified certification" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Cannot update verified certification",
+        status: 400,
+      });
     }
 
     const body = await request.json();
@@ -75,10 +86,9 @@ export async function PATCH(
     return NextResponse.json({ certification: updated });
   } catch (error: any) {
     console.error("Error updating certification:", error);
-    return NextResponse.json(
-      { error: "Failed to update certification" },
-      { status: 500 },
-    );
+    return fromException(request, error, {
+      stage: "contractors/certifications:update",
+    });
   }
 }
 
@@ -91,7 +101,11 @@ export async function DELETE(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const { id } = await params;
@@ -107,14 +121,19 @@ export async function DELETE(
     });
 
     if (!certification) {
-      return NextResponse.json(
-        { error: "Certification not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Certification not found",
+        status: 404,
+      });
     }
 
     if (certification.profile.userId !== session.user.id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return apiError(request, {
+        code: "FORBIDDEN",
+        message: "Forbidden",
+        status: 403,
+      });
     }
 
     await prisma.contractorCertification.delete({
@@ -124,9 +143,8 @@ export async function DELETE(
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("Error deleting certification:", error);
-    return NextResponse.json(
-      { error: "Failed to delete certification" },
-      { status: 500 },
-    );
+    return fromException(request, error, {
+      stage: "contractors/certifications:delete",
+    });
   }
 }

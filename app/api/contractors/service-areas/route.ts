@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // Get contractor's service areas
 export async function GET(request: NextRequest) {
@@ -10,7 +11,11 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const profile = await prisma.contractorProfile.findUnique({
@@ -19,10 +24,11 @@ export async function GET(request: NextRequest) {
     });
 
     if (!profile) {
-      return NextResponse.json(
-        { error: "Contractor profile not found" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Contractor profile not found",
+        status: 404,
+      });
     }
 
     const serviceAreas = await prisma.contractorServiceArea.findMany({
@@ -34,10 +40,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ serviceAreas });
   } catch (error: any) {
     console.error("Error fetching service areas:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch service areas" },
-      { status: 500 },
-    );
+    return fromException(request, error, {
+      stage: "contractors/service-areas:list",
+    });
   }
 }
 
@@ -46,7 +51,11 @@ export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
   const userId = session.user.id;
 
@@ -61,46 +70,51 @@ export async function POST(request: NextRequest) {
       });
 
       if (!profile) {
-        return NextResponse.json(
-          { error: "Contractor profile not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Contractor profile not found",
+          status: 404,
+        });
       }
 
       let body: any;
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const { postcode, suburb, state, radius, isActive, priority } = body;
 
       // Validation
       if (!postcode || !state) {
-        return NextResponse.json(
-          { error: "Postcode and state are required" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Postcode and state are required",
+          status: 400,
+        });
       }
 
       // Validate Australian postcode (4 digits)
       if (!/^\d{4}$/.test(postcode)) {
-        return NextResponse.json(
-          { error: "Invalid Australian postcode" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid Australian postcode",
+          status: 400,
+        });
       }
 
       // Validate Australian state
       const validStates = ["NSW", "VIC", "QLD", "SA", "WA", "TAS", "NT", "ACT"];
       if (!validStates.includes(state.toUpperCase())) {
-        return NextResponse.json(
-          { error: "Invalid Australian state" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid Australian state",
+          status: 400,
+        });
       }
 
       const serviceArea = await prisma.contractorServiceArea.create({
@@ -118,19 +132,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ serviceArea }, { status: 201 });
     } catch (error: any) {
       console.error("Error creating service area:", error);
-
-      // Handle unique constraint violation
-      if (error.code === "P2002") {
-        return NextResponse.json(
-          { error: "Service area for this postcode already exists" },
-          { status: 409 },
-        );
-      }
-
-      return NextResponse.json(
-        { error: "Failed to create service area" },
-        { status: 500 },
-      );
+      // fromException maps P2002 unique-constraint violations to 409 CONFLICT.
+      return fromException(request, error, {
+        stage: "contractors/service-areas:create",
+      });
     }
   });
 }

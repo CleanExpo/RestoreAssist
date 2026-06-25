@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { withIdempotency } from "@/lib/idempotency";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // POST /api/portal/reports/[id]/approvals - Create or update approval
 export async function POST(
@@ -11,12 +12,20 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id || session.user.userType !== "client") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError(request, {
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+      status: 401,
+    });
   }
 
   const clientId = session.user.clientId;
   if (!clientId) {
-    return NextResponse.json({ error: "Client ID not found" }, { status: 400 });
+    return apiError(request, {
+      code: "VALIDATION",
+      message: "Client ID not found",
+      status: 400,
+    });
   }
   const { id: reportId } = await params;
 
@@ -28,10 +37,11 @@ export async function POST(
       try {
         body = rawBody ? JSON.parse(rawBody) : {};
       } catch {
-        return NextResponse.json(
-          { error: "Invalid JSON body" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid JSON body",
+          status: 400,
+        });
       }
       const { approvalType, status, clientComments, amount } = body;
 
@@ -40,17 +50,22 @@ export async function POST(
         !approvalType ||
         !["SCOPE_OF_WORK", "COST_ESTIMATE"].includes(approvalType)
       ) {
-        return NextResponse.json(
-          { error: "Invalid approval type" },
-          { status: 400 },
-        );
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid approval type",
+          status: 400,
+        });
       }
 
       if (
         !status ||
         !["APPROVED", "REJECTED", "CHANGES_REQUESTED"].includes(status)
       ) {
-        return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+        return apiError(request, {
+          code: "VALIDATION",
+          message: "Invalid status",
+          status: 400,
+        });
       }
 
       // Verify report belongs to this client
@@ -62,10 +77,11 @@ export async function POST(
       });
 
       if (!report) {
-        return NextResponse.json(
-          { error: "Report not found" },
-          { status: 404 },
-        );
+        return apiError(request, {
+          code: "NOT_FOUND",
+          message: "Report not found",
+          status: 404,
+        });
       }
 
       // Check if there's already a pending approval for this type
@@ -107,10 +123,9 @@ export async function POST(
       return NextResponse.json({ approval }, { status: 201 });
     } catch (error) {
       console.error("Error creating/updating approval:", error);
-      return NextResponse.json(
-        { error: "Failed to process approval" },
-        { status: 500 },
-      );
+      return fromException(request, error, {
+        stage: "portal/reports/approvals:upsert",
+      });
     }
   });
 }
@@ -124,16 +139,21 @@ export async function GET(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id || session.user.userType !== "client") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const clientId = session.user.clientId;
 
     if (!clientId) {
-      return NextResponse.json(
-        { error: "Client ID not found" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Client ID not found",
+        status: 400,
+      });
     }
 
     const { id: reportId } = await params;
@@ -147,7 +167,11 @@ export async function GET(
     });
 
     if (!report) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Report not found",
+        status: 404,
+      });
     }
 
     const approvals = await prisma.reportApproval.findMany({
@@ -170,9 +194,8 @@ export async function GET(
     return NextResponse.json({ approvals });
   } catch (error) {
     console.error("Error fetching approvals:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch approvals" },
-      { status: 500 },
-    );
+    return fromException(request, error, {
+      stage: "portal/reports/approvals:list",
+    });
   }
 }

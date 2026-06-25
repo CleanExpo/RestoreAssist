@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { lookupPortalAccount } from "@/lib/portal/lookup-portal-account";
 import { applyRateLimit } from "@/lib/rate-limiter";
 import { buildClientStatusFeed } from "@/lib/portal/client-status-feed";
-import { fromException } from "@/lib/api-errors";
+import { apiError, fromException } from "@/lib/api-errors";
 
 /**
  * Client-portal live updates feed (client portal Phase 4).
@@ -34,10 +34,11 @@ export async function GET(
 
     const account = await lookupPortalAccount(token);
     if (!account) {
-      return NextResponse.json(
-        { error: "invalid_or_expired_link" },
-        { status: 404 },
-      );
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "invalid_or_expired_link",
+        status: 404,
+      });
     }
 
     const inspection = await prisma.inspection.findFirst({
@@ -50,7 +51,11 @@ export async function GET(
       },
     });
     if (!inspection) {
-      return NextResponse.json({ error: "no_claim" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "no_claim",
+        status: 404,
+      });
     }
 
     const [workflow, pendingApprovals] = await Promise.all([
