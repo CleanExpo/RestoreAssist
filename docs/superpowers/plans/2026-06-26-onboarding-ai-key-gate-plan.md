@@ -211,6 +211,6 @@ describe("onboarding ai_provider step", () => {
 - [ ] Open PR via `pr-creator` → `/review-pr` (dimensions 1,2,4,5,6,9,13,18) → merge → `deployment-verifier`.
 
 ## Self-Review
-- Spec coverage: gate (T2), routing (T3), enum (T1), link/copy (T4), wizard step (T5), two videos (T6/T7), cost/value copy (T4/T7), acceptance (T8). ✅
+- Spec coverage: gate (T2), routing (T3), enum (T1), link/copy (T4), wizard step (T5), two videos (T6/T7), cost/value copy (T4/T7), acceptance (T8).
 - Read-before-edit is mandated per task because the line numbers came from investigation, not a fresh read — this prevents fabricated edits.
 - Open risk: OpenAI-consumer rewiring (transcription/embeddings on env key) is explicitly out of scope (spec §5) — an OpenAI-only client still gets reports/vision via BYOK, but voice/search use the platform env key until that fast-follow lands. Flag in the PR description.
