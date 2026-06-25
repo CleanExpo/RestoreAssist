@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyPortalToken } from "@/lib/portal-token";
 import { prisma } from "@/lib/prisma";
 import { applyRateLimit } from "@/lib/rate-limiter";
+import { apiError, fromException } from "@/lib/api-errors";
 
 const MAX_PORTAL_AFFECTED_AREAS = 100;
 const MAX_PORTAL_SCOPE_ITEMS = 200;
@@ -22,7 +23,11 @@ export async function GET(
     const verified = verifyPortalToken(token);
 
     if (!verified) {
-      return NextResponse.json({ error: "expired" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "expired",
+        status: 401,
+      });
     }
 
     const { inspectionId } = verified;
@@ -69,7 +74,11 @@ export async function GET(
     ]);
 
     if (!inspection) {
-      return NextResponse.json({ error: "expired" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "expired",
+        status: 401,
+      });
     }
 
     const avgMoisture =
@@ -118,9 +127,6 @@ export async function GET(
     return NextResponse.json(publicData);
   } catch (error) {
     console.error("Portal token fetch error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "portal/token:get" });
   }
 }

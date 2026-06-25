@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiError, fromException } from "@/lib/api-errors";
 
 // GET /api/portal/reports/[id] - Get single report for logged-in client
 export async function GET(
@@ -12,16 +13,21 @@ export async function GET(
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id || session.user.userType !== "client") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError(request, {
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+        status: 401,
+      });
     }
 
     const clientId = session.user.clientId;
 
     if (!clientId) {
-      return NextResponse.json(
-        { error: "Client ID not found" },
-        { status: 400 },
-      );
+      return apiError(request, {
+        code: "VALIDATION",
+        message: "Client ID not found",
+        status: 400,
+      });
     }
 
     const { id: reportId } = await params;
@@ -57,15 +63,16 @@ export async function GET(
     });
 
     if (!report) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 });
+      return apiError(request, {
+        code: "NOT_FOUND",
+        message: "Report not found",
+        status: 404,
+      });
     }
 
     return NextResponse.json({ report });
   } catch (error) {
     console.error("Error fetching report:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch report" },
-      { status: 500 },
-    );
+    return fromException(request, error, { stage: "portal/reports:get" });
   }
 }
