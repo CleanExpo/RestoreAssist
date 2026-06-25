@@ -34,7 +34,7 @@ const BOTID_PROTECTED_ROUTES = [
   { path: "/api/auth/register", method: "POST" },
   { path: "/api/auth/forgot-password", method: "POST" },
   { path: "/api/auth/reset-password", method: "POST" },
-] as const;
+];
 
 // RA — /_not-found export was failing with "TypeError: Invalid URL" because
 // metadataBase received an empty or malformed NEXTAUTH_URL at build time
