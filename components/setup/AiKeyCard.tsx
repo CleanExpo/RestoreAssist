@@ -4,7 +4,47 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { CheckCircle2, Loader2 } from 'lucide-react';
+
+// Inline SVG marks (Phill Rule 1: no generic icon-library imports). Matches the
+// inline-<svg> pattern used by the sibling VideoExplainer card.
+function CheckCircleMark({ size = 16, className }: { size?: number; className?: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
+  );
+}
+
+function SpinnerMark({ size = 14, className }: { size?: number; className?: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+    </svg>
+  );
+}
 
 type Provider = 'ANTHROPIC' | 'OPENAI';
 
@@ -103,7 +143,7 @@ export function AiKeyCard() {
         {/* Success state */}
         {cardState === 'success' ? (
           <div className="flex items-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/5 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-400">
-            <CheckCircle2 size={16} className="shrink-0" />
+            <CheckCircleMark size={16} className="shrink-0" />
             <span>Key validated — {meta.label} is ready to use.</span>
           </div>
         ) : (
@@ -146,7 +186,7 @@ export function AiKeyCard() {
             >
               {cardState === 'saving' ? (
                 <>
-                  <Loader2 size={14} className="animate-spin mr-2" />
+                  <SpinnerMark size={14} className="animate-spin mr-2" />
                   Validating…
                 </>
               ) : (
