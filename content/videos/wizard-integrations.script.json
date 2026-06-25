@@ -1,0 +1,13 @@
+{
+  "slug": "setup-wizard-integrations",
+  "voiceId": "jSuBIjxMKhqIfb0wCK1F",
+  "totalSec": 90,
+  "segments": [
+    { "text": "RestoreAssist connects with the tools you already use. Go to Settings, then Integrations, and pick your platform.", "startSec": 0.5, "durationSec": 14.0 },
+    { "text": "Connect Xero for automatic invoice sync.", "startSec": 15.0, "durationSec": 14.0 },
+    { "text": "Link MYOB for streamlined bookkeeping.", "startSec": 30.0, "durationSec": 14.0 },
+    { "text": "Integrate QuickBooks for real-time financial data.", "startSec": 45.0, "durationSec": 14.0 },
+    { "text": "Sync ServiceM8 for job scheduling.", "startSec": 60.0, "durationSec": 14.0 },
+    { "text": "Or connect Ascora for field service management. Once connected, data flows both ways — no double entry.", "startSec": 75.0, "durationSec": 14.0 }
+  ]
+}

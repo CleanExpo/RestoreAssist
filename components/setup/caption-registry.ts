@@ -72,6 +72,15 @@ export const CAPTION_REGISTRY: Record<string, string> = {
   "for-insurers": "/videos/captions/for-insurers.vtt",
   // New-client welcome (top of /setup) — keyed by the VideoExplainerSlug
   "remotion-onboarding-welcome": "/videos/captions/onboarding-welcome.vtt",
+  // Setup-wizard series — keyed by VideoExplainerSlug (getCaptionUrl looks up by
+  // slug, not stem). The stem keys above ("wizard-signin" …) are NOT reachable
+  // from the registry slugs ("setup-wizard-signin" …); these slug keys are.
+  "setup-wizard-signin": "/videos/captions/wizard-signin.vtt",
+  "setup-wizard-signup": "/videos/captions/wizard-signup.vtt",
+  "setup-wizard-setup": "/videos/captions/wizard-setup.vtt",
+  "setup-wizard-dashboard": "/videos/captions/wizard-dashboard.vtt",
+  "setup-wizard-integrations": "/videos/captions/wizard-integrations.vtt",
+  "setup-wizard-health": "/videos/captions/wizard-health.vtt",
 };
 
 /**

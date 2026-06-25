@@ -1,0 +1,11 @@
+{
+  "slug": "setup-wizard-health",
+  "voiceId": "jSuBIjxMKhqIfb0wCK1F",
+  "totalSec": 60,
+  "segments": [
+    { "text": "Workspace Health is your system status dashboard. Navigate to Settings, then Workspace Health.", "startSec": 0.5, "durationSec": 14.0 },
+    { "text": "Green means ready. Yellow means attention needed. Red means blocked.", "startSec": 15.0, "durationSec": 14.0 },
+    { "text": "Click any red item for step-by-step resolution.", "startSec": 30.0, "durationSec": 14.0 },
+    { "text": "Re-run the check to confirm all systems are green. A healthy workspace means reliable inspections and accurate reports.", "startSec": 45.0, "durationSec": 14.0 }
+  ]
+}

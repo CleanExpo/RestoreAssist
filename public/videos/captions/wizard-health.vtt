@@ -1,13 +1,13 @@
 WEBVTT
 
-00:00.000 --> 00:07.430
-This is your Workspace Health dashboard.
+00:00.500 --> 00:14.500
+Workspace Health is your system status dashboard. Navigate to Settings, then Workspace Health.
 
-00:07.430 --> 00:15.430
-It monitors 12 critical capabilities — Email delivery, AI models, Storage, Database, Authentication, API, Integrations, Billing, Compliance, Security, and Performance.
+00:15.000 --> 00:29.000
+Green means ready. Yellow means attention needed. Red means blocked.
 
-00:15.430 --> 00:23.430
-Green means healthy, amber means warning, red means action required.
+00:30.000 --> 00:44.000
+Click any red item for step-by-step resolution.
 
-00:23.430 --> 00:31.430
-Tap any metric for details and resolution steps.
+00:45.000 --> 00:59.000
+Re-run the check to confirm all systems are green. A healthy workspace means reliable inspections and accurate reports.

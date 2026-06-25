@@ -1,22 +1,19 @@
 WEBVTT
 
-00:00.000 --> 00:08.000
-Connect your tools to RestoreAssist.
+00:00.500 --> 00:14.500
+RestoreAssist connects with the tools you already use. Go to Settings, then Integrations, and pick your platform.
 
-00:08.000 --> 00:16.000
-Step 1: Open Integrations from the Settings menu.
+00:15.000 --> 00:29.000
+Connect Xero for automatic invoice sync.
 
-00:16.000 --> 00:24.000
-Step 2: Select your accounting software — Xero, MYOB, or QuickBooks — and authenticate in one click.
+00:30.000 --> 00:44.000
+Link MYOB for streamlined bookkeeping.
 
-00:24.000 --> 00:32.000
-Step 3: Choose your job management tool — ServiceM8, simPRO, or AroFlo.
+00:45.000 --> 00:59.000
+Integrate QuickBooks for real-time financial data.
 
-00:32.000 --> 00:40.000
-Step 4: Configure calendar and email sync.
+01:00.000 --> 01:14.000
+Sync ServiceM8 for job scheduling.
 
-00:40.000 --> 00:48.000
-Your data flows automatically between platforms.
-
-00:48.000 --> 00:51.500
-All connected.
+01:15.000 --> 01:29.000
+Or connect Ascora for field service management. Once connected, data flows both ways — no double entry.

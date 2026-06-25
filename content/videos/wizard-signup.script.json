@@ -1,0 +1,12 @@
+{
+  "slug": "setup-wizard-signup",
+  "voiceId": "jSuBIjxMKhqIfb0wCK1F",
+  "totalSec": 60,
+  "segments": [
+    { "text": "Creating your RestoreAssist account takes under two minutes. Click Get Started on the homepage.", "startSec": 0.5, "durationSec": 11.0 },
+    { "text": "Enter your name and email, and create a secure password.", "startSec": 12.0, "durationSec": 11.5 },
+    { "text": "Check your inbox for a verification link and confirm your email.", "startSec": 24.0, "durationSec": 11.5 },
+    { "text": "Add your company name and your A B N.", "startSec": 36.0, "durationSec": 11.5 },
+    { "text": "Then click Activate — your account is live and ready to use.", "startSec": 48.0, "durationSec": 11.5 }
+  ]
+}
